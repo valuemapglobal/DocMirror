@@ -1,9 +1,20 @@
-# 列映射配置 (Column Mapper Data)
-# =================================
-# 从 column_mapper.py 外置的数据配置。
-# 运行时由 ColumnMapper.__init__ 自动加载。
+# =============================================================================
+# Column Mapper Configuration (column_aliases.yaml)
+# =============================================================================
+#
+# External data configuration for the ColumnMapper middleware.
+# Loaded automatically by ColumnMapper.__init__() at runtime.
+#
+# Sections:
+#   target_columns   — Standard column names that the mapper normalizes to.
+#   skip_columns     — Raw column names that should be preserved but NOT mapped.
+#   column_aliases   — Standard name → list of known aliases (raw header variants).
+#   income_keywords  — Column names indicating credit/income amounts.
+#   expense_keywords — Column names indicating debit/expense amounts.
+#   amount_like_keywords — Column names that represent transaction amounts
+#                          (used when debit/credit are in a single column).
 
-# 标准化目标列
+# Standard target columns (the canonical names after mapping)
 target_columns:
   - 序号
   - 交易时间
@@ -16,7 +27,7 @@ target_columns:
   - 钞汇
   - 币别
 
-# 不参与标准列映射的原始列名 (保留但不映射)
+# Raw column names to skip during mapping (kept as-is, not standardized)
 skip_columns:
   - 企业流水号
   - 凭证种类
@@ -37,7 +48,8 @@ skip_columns:
   - 柜员流水号
   - 摘要代码
 
-# 列名别名库 — 标准名 → 已知别名列表
+# Column name alias dictionary: standard_name → known aliases
+# The mapper checks raw headers against these aliases to find the standard name.
 column_aliases:
   序号:
     - 流水号
@@ -139,7 +151,7 @@ column_aliases:
     - Currency
     - CCY
 
-# 借贷分列关键字
+# Keywords to identify income/credit columns (used for debit-credit splitting)
 income_keywords:
   - 收入
   - 贷方
@@ -148,6 +160,7 @@ income_keywords:
   - 贷方发生额
   - Credit
 
+# Keywords to identify expense/debit columns
 expense_keywords:
   - 支出
   - 借方
@@ -156,6 +169,7 @@ expense_keywords:
   - 借方发生额
   - Debit
 
+# Keywords that indicate a general amount column (when debit/credit are combined)
 amount_like_keywords:
   - 发生额
   - 金额

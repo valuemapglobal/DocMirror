@@ -1,8 +1,27 @@
-# DocMirror institution registry (从 pdf BANK_REGISTRY 迁移)
-# 用于 L2 机构识别：identification_keywords 优先，再按 name 全称匹配（按长度降序）
+# =============================================================================
+# DocMirror Institution Registry (institution_registry.yaml)
+# =============================================================================
+#
+# Registry of financial institutions for L2 institution identification.
+# Used by the InstitutionDetector middleware to match document text against
+# known bank identifiers.
+#
+# Matching priority:
+#   1. identification_keywords — exact keyword match (highest priority)
+#   2. name + aliases — full-text match, sorted by name length (descending)
+#      to prefer more specific matches (e.g., "中国建设银行" before "中国银行")
+#
+# Each institution entry contains:
+#   name            — Official Chinese name
+#   english_name    — Official English name
+#   swift           — SWIFT/BIC code
+#   category        — Classification (state_owned, joint_stock, city_commercial)
+#   aliases         — (optional) Short names and abbreviations
+#   identification_keywords — (optional) Unique keywords found only in this
+#                             institution's documents (used for precise matching)
 
 institutions:
-  # 国有大型商业银行
+  # ── State-Owned Commercial Banks (Big 6) ──
   icbc:
     name: "中国工商银行"
     english_name: "Industrial and Commercial Bank of China"
@@ -40,7 +59,7 @@ institutions:
     category: "state_owned"
     aliases: ["邮储银行", "邮储", "邮政银行", "PSBC"]
 
-  # 股份制商业银行
+  # ── Joint-Stock Commercial Banks ──
   citic:
     name: "中信银行"
     english_name: "China CITIC Bank"
@@ -106,7 +125,7 @@ institutions:
     swift: "HFBACNSD"
     category: "joint_stock"
 
-  # 城市商业银行
+  # ── City Commercial Banks ──
   fjhx:
     name: "福建海峡银行"
     english_name: "Fujian Haixia Bank"
