@@ -1,15 +1,15 @@
 
 """
-多模态解析契约层 (MultiModal Parsing Contract Layer)
+多模态ParseContract layer (MultiModal Parsing Contract Layer)
 
-本模块定义了多模态解析系统的“数据契约”与“基准行为”。
-它是 Dispatcher 与具体 Parser 之间的解耦点，确保了不同格式 (PDF, Image, Office) 
-在解析流程和输出格式上的高度一致性。
+本Moduledefine了多模态Parse系统的“DataContract”与“基准行为”。
+It serves as the decoupling point between Dispatcher and parsers, ensuring consistency
+in parsing flow and output format across different formats (PDF, Image, Office).
 
 核心组件:
-1. ParserStatus: 解析生命周期的状态枚举。
-2. ParserOutput: 解析器内部的标准化输出模型，具备向下兼容旧版 API 的能力。
-3. BaseParser: 抽象基类，定义了所有解析器必须遵守的 parse() 接口。
+1. ParserStatus: Parsing lifecycle status enum.
+2. ParserOutput: Standardized parser output model with backward-compatible API.
+3. BaseParser: Abstract base class defining the parse() interface all parsers must implement.
 """
 
 from abc import ABC, abstractmethod
@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from enum import Enum
 from pathlib import Path
 
-# 导入四层模型定义 (对外统一模型)
+# Import四 layer模型define (对外统一模型)
 from docmirror.models.perception_result import (
     ContentBlock,
     ContentBlockType,
@@ -43,62 +43,62 @@ from docmirror.models.domain_models import (
 
 class ParserStatus(str, Enum):
     """
-    解析状态枚举。用于标识 Parser 阶段性的解析质量。
+    Parsing status enum marking the quality level of parser results.
     """
-    SUCCESS = "success"             # 完全成功
-    PARTIAL_SUCCESS = "partial_success"     # 部分成功（如部分表格解析失败，但文本存在）
-    FAILURE = "failure"             # 核心逻辑失败
+    SUCCESS = "success"             # Complete success
+    PARTIAL_SUCCESS = "partial_success"     # Partial success (e.g., some tables failed but text exists)
+    FAILURE = "failure"             # Core logic failure
 
 class ParserOutput(BaseModel):
     """
-    Parser 内部的标准输出模型。
+    Standard parser output model.
     
-    设计目标：
-    1. 统一性：无论 PDF 还是 OCR，返回的数据结构必须一致。
-    2. 兼容性：通过 property 完美衔接旧版的 PerceptionResponse 接口。
-    3. 转换力：提供 self.to_perception_result() 一键将内部模型映射到对外的 PerceptionResult 四层模型。
+    Design goals:
+    1. Uniformity: Whether PDF or OCR, the returned data structure must be consistent.
+    2. Compatibility: Seamlessly connects to legacy PerceptionResponse API via properties.
+    3. Conversion: Provides to_perception_result() to map internal model to the 4-layer PerceptionResult.
     """
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="文件元数据 (如作者、创建日期、页数等)")
-    structured_text: str = Field("", description="重建的层级化文本 (通常为 Markdown 格式)")
-    document_structure: List[Dict[str, Any]] = Field(default_factory=list, description="文档结构块列表 (Headings, Paragraphs, Tables)")
-    key_entities: Dict[str, Any] = Field(default_factory=dict, description="业务强相关的实体提取 (如银行名、账户名等)")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="File metadata (author, creation date, page count, etc.)")
+    structured_text: str = Field("", description="Reconstructed structured text (typically Markdown)")
+    document_structure: List[Dict[str, Any]] = Field(default_factory=list, description="Document structure blocks (Headings, Paragraphs, Tables)")
+    key_entities: Dict[str, Any] = Field(default_factory=dict, description="Business-relevant entity extraction (e.g., bank name, account)")
     status: ParserStatus = ParserStatus.SUCCESS
     error: Optional[str] = None
-    confidence: float = Field(1.0, description="解析整体置信度评分 (0-1.0)")
+    confidence: float = Field(1.0, description="Overall parsing confidence score (0-1.0)")
 
-    # ── 兼容性属性区域 (针对旧版 PerceptionResponse 调用方) ──
+    # ── Compatibility properties (for legacy PerceptionResponse callers) ──
 
     @property
     def success(self) -> bool:
-        """解析是否算作成功 (包含部分成功)。"""
+        """Whether parsing is considered successful (includes partial success)."""
         return self.status in (ParserStatus.SUCCESS, ParserStatus.PARTIAL_SUCCESS)
 
     @property
     def coverage(self) -> float:
-        """confidence 的别名，适配旧版 API。"""
+        """Alias for confidence, adapting legacy API."""
         return self.confidence
 
     @property
     def tables(self) -> List[List]:
         """
-        从 document_structure 中快捷提取表格原始数据块。
-        支持新格式 (headers + rows) 和旧格式 (data)。
+        Extract raw table data blocks from document_structure.
+        Supports new format (headers + rows) and legacy format (data).
         """
         result = []
         for b in self.document_structure:
             if b.get("type") != "table":
                 continue
-            # 新格式: headers + rows
+            # New format: headers + rows
             if "headers" in b and "rows" in b:
                 result.append([b["headers"]] + b["rows"])
-            # 旧格式: data
+            # Legacy format: data
             elif "data" in b:
                 result.append(b["data"])
         return result
 
     @property
     def raw_response(self) -> Optional[Dict]:
-        """metadata 的别名，映射旧版接口。"""
+        """Alias for metadata, mapping to legacy interface."""
         return self.metadata
 
     def to_perception_result(
@@ -118,27 +118,27 @@ class ParserOutput(BaseModel):
         sanitize: bool = True,
     ) -> "PerceptionResult":
         """
-        [核心映射方法]
-        将 Parser 的内部工作负载转换为标准化的 PerceptionResult 4 层模型。
+        [Core Mapping Method]
+        Converts Parser internal payload to the standardized 4-layer PerceptionResult model.
 
-        映射逻辑:
-        1. Envelope: 映射状态、耗时与错误。
-        2. Content: 将 document_structure 块级映射为 ContentBlocks (Table/Text/KV)。
-        3. Provenance: 映射文件源信息及 PDF 特定属性、校验状态。
-        4. Domain: 根据文品种识别 (category) 映射领域专属模型 (如银行流水)。
+        Mapping logic:
+        1. Envelope: Maps status, timing, and error.
+        2. Content: Maps document_structure blocks to ContentBlocks (Table/Text/KV).
+        3. Provenance: Maps source file info, PDF properties, and validation status.
+        4. Domain: Maps domain-specific models based on category (e.g., bank statement).
 
         Args:
-            file_path: 原始文件路径。
-            file_type: 识别出的文件格式 (pdf, image...)。
-            file_size: 文件大小 (bytes)。
-            parser_name: 最终执行的 Parser 类名。
-            elapsed_ms: 总处理耗时。
-            doc_info: 由 DigitalPDFParser.classify() 推出的业务元信息。
-            is_forged: (篡改鉴定) 该文件是否疑似伪造篡改。
-            forgery_reasons: (篡改鉴定) 疑似伪造的原因依据列表。
+            file_path: Original file path.
+            file_type: Detected file format (pdf, image...).
+            file_size: File size (bytes).
+            parser_name: Executed parser class name.
+            elapsed_ms: Total processing time.
+            doc_info: Business metadata from DigitalPDFParser.classify().
+            is_forged: (Forgery detection) Whether the file is suspected forged.
+            forgery_reasons: (Forgery detection) List of suspected forgery reasons.
         """
         
-        # ── 1. Envelope (外壳层): 状态同步 ──
+        # ── 1. Envelope: Status sync ──
         status_map = {
             ParserStatus.SUCCESS: ResultStatus.SUCCESS,
             ParserStatus.PARTIAL_SUCCESS: ResultStatus.PARTIAL,
@@ -148,18 +148,18 @@ class ParserOutput(BaseModel):
         error_detail = ErrorDetail(message=self.error) if self.error else None
         timing = TimingInfo(started_at=started_at, parser_name=parser_name, elapsed_ms=elapsed_ms)
 
-        # ── 2. Content (内容层): document_structure 展开为 ContentBlocks ──
+        # ── 2. Content: Expand document_structure into ContentBlocks ──
         blocks: list = []
         for b in self.document_structure:
             btype = b.get("type", "text")
             page = b.get("page")
             
             if btype == "table":
-                # 新格式: headers + rows
+                # New format: headers + rows
                 if "headers" in b and "rows" in b:
                     headers = b["headers"]
                     rows = b["rows"]
-                # 旧格式: data (header = data[0], rows = data[1:])
+                # Legacy format: data (header = data[0], rows = data[1:])
                 elif "data" in b:
                     raw_data = b["data"]
                     headers = raw_data[0] if raw_data else []
@@ -182,7 +182,7 @@ class ParserOutput(BaseModel):
                     ),
                 ))
             elif btype == "key_value":
-                # 新格式: pairs / 旧格式: pairs from entities
+                # 新Format: pairs / 旧Format: pairs from entities
                 pairs = b.get("pairs", {})
                 if not pairs:
                     pairs = b.get("entities", {})
@@ -220,8 +220,8 @@ class ParserOutput(BaseModel):
             page_count=self.metadata.get("page_count", 0),
         )
 
-        # ── 3. Provenance (出处层): 解析链追溯与元数据 ──
-        # 提取关键 PDF 属性
+        # ── 3. Provenance: Parse chain tracking & metadata ──
+        # Extract key PDF properties
         pdf_props = {}
         target_keys = ("format", "producer", "creator", "creationDate", "modDate",
                       "title", "author", "subject", "keywords", "trapped", "encryption")
@@ -229,7 +229,7 @@ class ParserOutput(BaseModel):
             if k in self.metadata:
                 pdf_props[k] = str(self.metadata[k]) if self.metadata[k] is not None else ""
 
-        # 提取校验过程评分 (主要针对银行流水 L1/L2 校验) 和防伪检测
+        # Extract validation scores (L1/L2 validation) and forgery detection results
         validation = None
         meta = self.metadata
         if any(k in meta for k in ("l2_score", "l2_passed", "l1_anomaly_count")) or (is_forged is not None):
@@ -255,7 +255,7 @@ class ParserOutput(BaseModel):
                 mime_type=mime_type or None,
                 checksum=checksum or None,
             ),
-            # 记录解析链路第一跳
+            # Record first hop of parse chain
             parser_chain=[ParserStep(parser=parser_name, action="parse", elapsed_ms=elapsed_ms)]
                 if parser_name else [],
             validation=validation,
@@ -263,16 +263,16 @@ class ParserOutput(BaseModel):
             pdf_properties=pdf_props,
         )
 
-        # ── 4. Domain (领域层): 场景相关的数据抽象 ──
+        # ── 4. Domain: Domain-specific data abstraction ──
         domain = None
         cat = (doc_info or {}).get("category", "") or meta.get("_doc_category", "")
         if cat == "bank_statement":
             bs = BankStatementData(
-                account_holder=str(meta.get("账户持有人", "")),
-                account_number=str(meta.get("账号", "")),
+                account_holder=str(meta.get("Account holder", "")),
+                account_number=str(meta.get("Account number", "")),
                 bank_name=str(self.key_entities.get("bank_name", "")),
-                query_period=str(meta.get("查询期间", "")),
-                currency=str(meta.get("币种", "CNY")) or "CNY",
+                query_period=str(meta.get("Query period", "")),
+                currency=str(meta.get("Currency", "CNY")) or "CNY",
             )
             domain = DomainData(document_type="bank_statement", bank_statement=bs)
 
@@ -293,7 +293,7 @@ class ParserOutput(BaseModel):
 
     @staticmethod
     def _build_diagnostics(meta: Dict[str, Any]):
-        """从 metadata 中提取调试诊断信息。"""
+        """Extract debug diagnostics from metadata."""
         diag_data = meta.get("_diagnostics", {})
         if not diag_data:
             return None
@@ -316,39 +316,39 @@ class ParserOutput(BaseModel):
 
 class BaseParser(ABC):
     """
-    文档解析器的抽象基类。
+    Abstract base class for document parsers.
 
-    新接口: ``perceive()`` → PerceptionResult (推荐)
-    旧接口: ``parse()`` → ParserOutput (deprecated, 保留兼容)
+    New interface: ``perceive()`` → PerceptionResult (recommended)
+    Legacy interface: ``parse()`` → ParserOutput (deprecated, kept for compatibility)
     """
 
     async def to_base_result(self, file_path: Path, **kwargs):
         """
-        提取文件为 BaseResult。子类应优先实现此方法。
-        默认不实现，perceive() 会 fallback 到 parse()。
+        Extract file to BaseResult. Subclasses should implement this method.
+        Not implemented by default; perceive() will fallback to parse().
         """
         raise NotImplementedError
 
     async def perceive(self, file_path: Path, **context) -> "PerceptionResult":
         """
-        新统一接口: 文件 → PerceptionResult (一步到位)。
+        New unified interface: file → PerceptionResult (single step).
 
-        默认实现: to_base_result() → Builder → PerceptionResult。
-        如果子类未实现 to_base_result(), 则 fallback 到 parse() → to_perception_result()。
+        Default impl: to_base_result() → Builder → PerceptionResult.
+        If subclass doesn't implement to_base_result(), falls back to parse() → to_perception_result().
         """
         try:
             base_result = await self.to_base_result(file_path)
             from docmirror.models.builder import PerceptionResultBuilder
             return PerceptionResultBuilder.build(base_result, **context)
         except NotImplementedError:
-            # fallback 到旧接口
+            # fallback 到旧Interface
             result = await self.parse(file_path)
             return result.to_perception_result(**context)
 
     async def parse(self, file_path: Path, **kwargs) -> ParserOutput:
         """
-        [DEPRECATED] 请实现 to_base_result() 替代。
-        保留此方法仅为向后兼容。
+        [DEPRECATED] Implement to_base_result() instead.
+        This method is kept only for backward compatibility.
         """
         raise NotImplementedError(
             f"{self.__class__.__name__} does not implement parse(). Use perceive() instead."

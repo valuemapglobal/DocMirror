@@ -1,17 +1,17 @@
 """
-table_extraction — 表格提取子包
+table_extraction — TableExtract子包
 ================================
 
-从原 ``table_extraction.py`` (1,759 行) 拆分为 6 个模块:
+从原 ``table_extraction.py`` (1,759 行) Split为 6 个Module:
 
-- ``engine``              — 主入口 ``extract_tables_layered`` (6+1 层)
-- ``pipe_strategy``       — Layer 0.5 管道分隔符提取
+- ``engine``              — 主Entry point ``extract_tables_layered`` (6+1 层)
+- ``pipe_strategy``       — Layer 0.5 PipeSeparatorExtract
 - ``pdfplumber_strategy`` — Layer 1 header recovery
-- ``classifier``          — 预分类 + 置信度 + 验证门控
+- ``classifier``          — 预分类 + Confidence + Validate门控
 - ``char_strategy``       — Layer 2 字符级策略集
-- ``utils``               — 共享低层工具函数
+- ``utils``               — Shared低 layerUtility functions
 
-Public API (向后兼容):
+Public API (Backward compatible):
     from docmirror.core.table_extraction import extract_tables_layered
 """
 

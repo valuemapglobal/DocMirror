@@ -1,9 +1,9 @@
 """
-LanguageDetector — 跨格式语言检测中间件
+LanguageDetector — 跨Format语言DetectMiddleware
 ==========================================
 
-通过 CJK 字符比例启发式检测文档主要语言。
-适用于所有文件格式。
+via CJK 字符Ratio启发式DetectDocument主要语言。
+适用于allFileFormat。
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class LanguageDetector(BaseMiddleware):
-    """检测文档主要语言 (zh/en/mixed)。"""
+    """DetectDocument主要语言 (zh/en/mixed)。"""
 
     def process(self, result: EnhancedResult) -> EnhancedResult:
         if result.base_result is None:
@@ -39,7 +39,7 @@ class LanguageDetector(BaseMiddleware):
 
     @staticmethod
     def _detect(text: str) -> str:
-        """启发式语言检测。"""
+        """启发式语言Detect。"""
         total = max(len(text), 1)
         cjk = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
         ratio = cjk / total

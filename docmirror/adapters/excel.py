@@ -1,7 +1,7 @@
 """
 Excel Adapter — Excel → BaseResult
 
-使用 openpyxl 提取工作表数据为表格 Block。
+using openpyxl Extract工作 tableData为Table Block。
 """
 
 from __future__ import annotations
@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 class ExcelAdapter(BaseParser):
-    """Excel (.xlsx) 格式适配器。"""
+    """Excel (.xlsx) Format adapter。"""
 
     async def to_base_result(self, file_path: Path) -> BaseResult:
-        """Excel → BaseResult (每个 sheet 对应一个 PageLayout)。"""
+        """Excel → BaseResult (each sheet 对应一个 PageLayout)。"""
         import openpyxl
         wb = openpyxl.load_workbook(str(file_path), data_only=True)
 

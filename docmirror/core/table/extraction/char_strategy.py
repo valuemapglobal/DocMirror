@@ -37,10 +37,10 @@ def _extract_by_hline_columns(page_plum) -> Optional[List[List[str]]]:
     """
     水平线列边界法 — 有横线无纵线时, 用横线 x 位置推断列边界。
 
-    专门处理"只有水平分隔线、无垂直线"的 PDF (如招商银行交易流水)。
-    横线的 x 断点定义了列边界, 数据行用 word y 坐标聚类。
+    专门Processing"only水平分隔线、无垂直线"的 PDF (如招商银行交易流水)。
+    横线的 x 断点define了列边界, Data行用 word y Coordinates聚类。
 
-    触发条件: ≥3 条水平线, 0 条垂直线。
+    Trigger条件: ≥3 条水平线, 0 条垂直线。
     """
     lines = page_plum.lines or []
     if not lines:
@@ -50,38 +50,38 @@ def _extract_by_hline_columns(page_plum) -> Optional[List[List[str]]]:
     h_lines = [l for l in lines if abs(l["top"] - l["bottom"]) < 1]
     v_lines = [l for l in lines if abs(l["x0"] - l["x1"]) < 1]
 
-    # 触发条件: 有足够的水平线, 无垂直线
+    # Trigger条件: 有足够的水平线, 无垂直线
     if len(h_lines) < 3 or len(v_lines) > 0:
         return None
 
-    # ── 从水平线 x 坐标提取列边界 ──
+    # ── 从水平线 x CoordinatesExtract列边界 ──
     raw_x = sorted(set(
         round(v, 1)
         for l in h_lines
         for v in [l["x0"], l["x1"]]
     ))
-    # 合并相近的 x (snapping, 阈值 10pt — 避免微小间隙产生空列)
+    # Merge相近的 x (snapping, Threshold 10pt — avoid微小间隙产生Empty column)
     x_positions = [raw_x[0]]
     for x in raw_x[1:]:
         if x - x_positions[-1] > 10:
             x_positions.append(x)
 
     if len(x_positions) < 3:
-        return None  # 列太少, 不像表格
+        return None  # 列太少, 不像Table
 
     # ── 确定列区间 ──
     col_count = len(x_positions) - 1
     intervals = [(x_positions[i], x_positions[i + 1]) for i in range(col_count)]
 
-    # ── 确定表头区域 (取水平线的 y 范围) ──
+    # ── 确定Table header区域 (取水平线的 y 范围) ──
     h_y_values = sorted(set(round(l["top"], 1) for l in h_lines))
-    # 表头在最上面两条线之间, 数据从第二条线开始
+    # Table header在最上面两条线之间, Data从第二条线begin
     if len(h_y_values) < 2:
         return None
     header_top = h_y_values[0]
     data_start_y = h_y_values[1]
 
-    # ── 提取 words ──
+    # ── Extract words ──
     try:
         words = page_plum.extract_words(keep_blank_chars=True)
     except Exception:
@@ -89,7 +89,7 @@ def _extract_by_hline_columns(page_plum) -> Optional[List[List[str]]]:
     if not words:
         return None
 
-    # ── 按 y 坐标聚类 words 为行 ──
+    # ── 按 y Coordinates聚类 words 为行 ──
     ROW_TOLERANCE = 5  # 同一行 y 差 < 5pt
     sorted_words = sorted(words, key=lambda w: (w["top"], w["x0"]))
 
@@ -107,14 +107,14 @@ def _extract_by_hline_columns(page_plum) -> Optional[List[List[str]]]:
     if current_row:
         rows_words.append((current_y, current_row))
 
-    # ── 只取表头行(header_top ~ data_start_y 之间) + 数据行(之后) ──
-    # 用 _is_header_row 验证: 裁剪后 header 区间可能包含数据行
-    # (如原始第1条 hline 被裁掉, data_start_y 后移, 数据行落入 header 区间)
+    # ── 只取Table header行(header_top ~ data_start_y 之间) + Data行(after) ──
+    # 用 _is_header_row Validate: Crop后 header 区间maycontainsData行
+    # (如原始第1条 hline 被裁掉, data_start_y 后移, Data行落入 header 区间)
     header_rows = []
     data_rows = []
     for y, rw in rows_words:
         if header_top - 2 <= y < data_start_y:
-            # 用词表验证: 含日期/金额/长数字 → 数据行, 不是表头
+            # 用词 tableValidate: 含Date/Amount/长数字 → Data行, notTable header
             texts = [w["text"].strip() for w in rw if w["text"].strip()]
             if _is_header_row(texts):
                 header_rows.append(rw)
@@ -149,7 +149,7 @@ def _extract_by_hline_columns(page_plum) -> Optional[List[List[str]]]:
                         cells[-1] = w["text"]
         return cells
 
-    # 构建表头
+    # 构建Table header
     header_cells = [""] * col_count
     for rw in header_rows:
         merged = _words_to_row(rw)
@@ -160,9 +160,9 @@ def _extract_by_hline_columns(page_plum) -> Optional[List[List[str]]]:
                 else:
                     header_cells[ci] = merged[ci]
 
-    # ── 计算表头锚点 (crop-immune) ──
-    # 从 data_start_y 之前的所有 words 中, 为每个列区间找最近的 word center
-    # 不依赖 header_rows 是否被正确识别, 完全不受引擎裁剪影响
+    # ── CalculateTable header锚点 (crop-immune) ──
+    # 从 data_start_y before的all words 中, 为each列区间找最近的 word center
+    # 不Dependency header_rows Whether被正确Recognize, 完全不受EngineCrop影响
     pre_data_words = [w for w in words if w["top"] < data_start_y]
     header_anchors = []
     for ci in range(col_count):
@@ -174,7 +174,7 @@ def _extract_by_hline_columns(page_plum) -> Optional[List[List[str]]]:
                 key=lambda w: abs((w["x0"] + w.get("x1", w["x0"] + 10)) / 2 - interval_mid)
             )
             anchor = (best_w["x0"] + best_w.get("x1", best_w["x0"] + 10)) / 2
-            # 只采纳距离区间中点 < 半区间宽度的 word (防止误匹配)
+            # 只采纳距离区间中点 < 半区间Width的 word (prevent误Match)
             interval_half = (intervals[ci][1] - intervals[ci][0]) / 2
             if abs(anchor - interval_mid) < interval_half:
                 header_anchors.append(anchor)
@@ -186,7 +186,7 @@ def _extract_by_hline_columns(page_plum) -> Optional[List[List[str]]]:
         f"[v2] hline-columns: anchors={[f'{a:.1f}' for a in header_anchors]}"
     )
 
-    # ── 数据行: 最近邻锚点分配 ──
+    # ── Data行: 最近邻锚点分配 ──
     def _words_to_row_nn(row_words):
         cells = [""] * col_count
         for w in sorted(row_words, key=lambda w: w["x0"]):
@@ -201,12 +201,12 @@ def _extract_by_hline_columns(page_plum) -> Optional[List[List[str]]]:
                 cells[best_ci] = w["text"]
         return cells
 
-    # 构建数据行 (最近邻)
+    # 构建Data行 (最近邻)
     table = [header_cells]
     for rw in data_rows:
         table.append(_words_to_row_nn(rw))
 
-    # 验证: 数据行太少或列太少 → 不是有效表格
+    # Validate: Data行太少或列太少 → not有效Table
     if len(table) < 2 or col_count < 2:
         return None
 
@@ -301,7 +301,7 @@ def _extract_by_rect_columns(page_plum) -> Optional[List[List[str]]]:
 
 
 def detect_columns_by_header_anchors(page_plum) -> Optional[List[List[str]]]:
-    """表头锚点法。"""
+    """Table header锚点法。"""
     chars = page_plum.chars
     if not chars or len(chars) < 10:
         return None
@@ -316,7 +316,7 @@ def detect_columns_by_header_anchors(page_plum) -> Optional[List[List[str]]]:
 
     header_row_idx = -1
     best_vocab_score = 0
-    # 扫描前 15 行: 优先 vocab 匹配, 兼容 KV 元数据行在表头前的场景
+    # 扫描前 15 行: 优先 vocab Match, 兼容 KV 元Data行在Table header前的场景
     for i, (y_mid, row_chars) in enumerate(rows_by_y[:15]):
         row_text = _chars_to_text(row_chars)
         cells = [t.strip() for t in row_text.split("  ") if t.strip()]
@@ -327,7 +327,7 @@ def detect_columns_by_header_anchors(page_plum) -> Optional[List[List[str]]]:
             best_vocab_score = vs
             header_row_idx = i
         elif vs == 0 and header_row_idx == -1:
-            # Fallback: 结构启发式 (无 vocab 匹配时)
+            # Fallback: 结构启发式 (无 vocab Match时)
             if all(_is_header_cell(c) for c in cells[:4]):
                 header_row_idx = i
 
@@ -352,13 +352,13 @@ def _adjust_boundaries_by_vocab(
     col_boundaries: List[float],
     header_chars: List[dict],
 ) -> List[float]:
-    """词表引导的列边界校正: 如果边界落在已知表头词内部, 移动到词的后方。
+    """词 table引导的列边界校正: 如果边界落在已知Table header词Internal, 移动到词的后方。
 
     算法:
-        1. 从 header chars 中提取 non-space 字符, 拼接为完整表头文本
-        2. 用 _find_vocab_words_in_string 找到所有 vocab 匹配
-        3. 对每个匹配, 用 char 的 x 坐标确定词的 x 范围
-        4. 如果任何列边界落在某个词的 x 范围内, 将边界移到该词之后
+        1. 从 header chars 中Extract non-space 字符, 拼接为完整Table header文本
+        2. 用 _find_vocab_words_in_string 找到all vocab Match
+        3. 对eachMatch, 用 char 的 x Coordinates确定词的 x 范围
+        4. 如果any列边界落在a certain词的 x 范围内, 将边界移到该词after
     """
     text_chars = [c for c in header_chars if c["text"].strip()]
     if not text_chars:
@@ -381,7 +381,7 @@ def _adjust_boundaries_by_vocab(
         for bi in range(1, len(adjusted) - 1):
             bx = adjusted[bi]
             if word_x0 + 1 < bx < word_x1 - 1:
-                # 边界落在 vocab word 内部 → 移到词的后方
+                # 边界落在 vocab word Internal → 移到词的后方
                 new_bx = word_x1 + 0.5
                 logger.debug(
                     f"[v2] vocab boundary fix: {bx:.1f}→{new_bx:.1f} "
@@ -400,16 +400,16 @@ def _adjust_boundaries_by_vocab(
 def detect_columns_by_whitespace_projection(
     page_plum,
 ) -> Optional[List[List[str]]]:
-    """垂直空白投影法 — 对所有行投影 x 坐标, 用空白带检测列边界。
+    """垂直Whitespace投影法 — 对all行投影 x Coordinates, 用Whitespace带Detect列边界。
 
     算法:
-        1. 收集所有 non-space 字符, 按 y 分行
-        2. 对每个 x 位置 (1pt 分辨率), 统计有多少行在该位置有文字
-        3. 投影值 ≤ 10% 行数的位置视为"空白"
-        4. 宽度 ≥ 3pt 的连续空白带 → 列边界 (取中点)
-        5. 根据列边界, 将每行字符切分为 cells
+        1. 收集all non-space 字符, 按 y 分行
+        2. 对each x 位置 (1pt Resolution), 统计有多少行在该位置有文字
+        3. 投影值 ≤ 10% 行数的位置视为"Whitespace"
+        4. Width ≥ 3pt 的连续Whitespace带 → 列边界 (取中点)
+        5. based on列边界, 将每行字符切分为 cells
 
-    适用场景: 无线条 borderless 表格, 列对齐靠空格/间距
+    适用场景: 无线条 borderless Table, 列Alignment靠空格/间距
     """
     chars = page_plum.chars
     if not chars or len(chars) < 20:
@@ -419,7 +419,7 @@ def detect_columns_by_whitespace_projection(
     from .utils import _adaptive_row_tolerance
     row_tol = _adaptive_row_tolerance(chars)
 
-    # 收集 non-space chars, 按 y 分行 (使用自适应容差)
+    # 收集 non-space chars, 按 y 分行 (using自适应容差)
     text_chars = [c for c in chars if c["text"].strip()]
     if not text_chars:
         return None
@@ -438,7 +438,7 @@ def detect_columns_by_whitespace_projection(
     if len(y_rows) < 3:
         return None
 
-    # x 坐标范围
+    # x Coordinates范围
     all_text_chars = [c for row in y_rows.values() for c in row]
     x_min = min(c["x0"] for c in all_text_chars)
     x_max = max(c["x1"] for c in all_text_chars)
@@ -460,7 +460,7 @@ def detect_columns_by_whitespace_projection(
         for x in marked:
             projection[x] += 1
 
-    # F-3: 动态列间距阈值 (基于平均字符宽度)
+    # F-3: 动态列间距Threshold (based on平均字符Width)
     avg_char_w = sum(c["x1"] - c["x0"] for c in all_text_chars) / len(all_text_chars)
     min_gap_width = max(2.0, avg_char_w * 0.5)  # 最小 2pt 或半个字符宽
 
@@ -478,17 +478,17 @@ def detect_columns_by_whitespace_projection(
         else:
             if in_gap:
                 gap_width = x - gap_start
-                if gap_width >= min_gap_width:  # F-3: 使用动态阈值
+                if gap_width >= min_gap_width:  # F-3: using动态Threshold
                     gaps.append((gap_start + x_min, x - 1 + x_min, gap_width))
                 in_gap = False
-    # 处理末尾的 gap
+    # Processing末尾的 gap
     if in_gap:
         gap_width = width - gap_start
         if gap_width >= 3:
             gaps.append((gap_start + x_min, width - 1 + x_min, gap_width))
 
     if len(gaps) < 2:
-        return None  # 至少需要 2 个间隔才能划分 3+ 列
+        return None  # 至少need to 2 个间隔才能划分 3+ 列
 
     # 列边界 = [x_min, gap1_mid, gap2_mid, ..., x_max]
     col_boundaries = [x_min]
@@ -500,18 +500,18 @@ def detect_columns_by_whitespace_projection(
     if n_cols < 3 or n_cols > 20:
         return None
 
-    # 词表引导的边界校正: 避免列边界切割已知表头词
+    # 词 table引导的边界校正: avoid列边界切割已知Table header词
     first_yk = sorted(y_rows.keys())[0]
     header_chars = sorted(y_rows[first_yk], key=lambda c: c["x0"])
     col_boundaries = _adjust_boundaries_by_vocab(col_boundaries, header_chars)
-    n_cols = len(col_boundaries) - 1  # 边界数可能不变, 但位置调整
+    n_cols = len(col_boundaries) - 1  # 边界数may不变, 但位置调整
 
     # 按列边界切分每行
     result: List[List[str]] = []
     for yk in sorted(y_rows.keys()):
         row_chars = sorted(y_rows[yk], key=lambda c: c["x0"])
         
-        # 1. 将相邻字符合并成 word (避免单词从中间被竖线切断)
+        # 1. 将相邻字符Merge成 word (avoid单词从中间被竖线切断)
         words = []
         curr_word = None
         for c in row_chars:
@@ -552,9 +552,9 @@ def detect_columns_by_whitespace_projection(
     if len(result) < 2:
         return None
 
-    # ── vocab 扫描: 找到真正的表头行, 跳过 KV 元数据行 ──
-    # 有些 PDF 的 table zone 包含 KV 元数据行 (如 "户名:xxx"),
-    # 这些行在表头之前, 需要跳过才能得到正确的表格
+    # ── vocab 扫描: 找到真正的Table header行, Skip KV 元Data行 ──
+    # 有些 PDF 的 table zone contains KV 元Data行 (如 "Account name:xxx"),
+    # 这些行在Table headerbefore, need toSkip才能得到正确的Table
     best_header_idx = 0
     best_header_vs = 0
     scan_limit = min(15, len(result))
@@ -575,7 +575,7 @@ def detect_columns_by_whitespace_projection(
 
 
 def detect_columns_by_clustering(page_plum) -> Optional[List[List[str]]]:
-    """x 坐标聚类法。"""
+    """x Coordinates聚类法。"""
     chars = page_plum.chars
     if not chars or len(chars) < 10:
         return None
@@ -601,17 +601,17 @@ def detect_columns_by_clustering(page_plum) -> Optional[List[List[str]]]:
 
 def detect_columns_by_word_anchors(page_plum) -> Optional[List[List[str]]]:
     """
-    Word 锚点列检测。
+    Word 锚点Column detection。
 
-    用 extract_words() 定位表头中每个 word 的 x 位置作为列左边界,
-    然后用 char 级别归箱提取数据。
+    用 extract_words() 定位Table header中each word 的 x 位置作为列左边界,
+    然后用 char 级别归箱ExtractData。
 
-    相比 char 级聚类, word 级间隙更明显, 能处理窄间距多列布局
-    (如兴业银行: 交易金额/账户余额/交易地点 间距仅 8-9pt)。
+    相比 char 级聚类, word 级间隙更明显, 能Processing窄间距多列布局
+    (如兴业银行: Transaction amount/AccountBalance/交易地点 间距仅 8-9pt)。
     """
     try:
-        # 先用更紧的 x_tolerance 提取 (区分 2-3pt 列间距)
-        # 再用默认值提取, 取 words 更多的结果 (= 更精细的列分割)
+        # 先用更紧的 x_tolerance Extract (区分 2-3pt 列间距)
+        # 再用Default值Extract, 取 words 更多的Result (= 更精细的列分割)
         best_words = None
         for x_tol in (2, 3):
             w = page_plum.extract_words(
@@ -646,7 +646,7 @@ def detect_columns_by_word_anchors(page_plum) -> Optional[List[List[str]]]:
     if len(word_rows) < 2:
         return None
 
-    # ── 找表头行: 前 5 行中 word 最多且都像表头的行 ──
+    # ── 找Table header行: 前 5 行中 word 最多且都像Table header的行 ──
     header_row_idx = -1
     for i, (y_mid, rw) in enumerate(word_rows[:5]):
         texts = [w["text"].strip() for w in rw if w["text"].strip()]
@@ -664,8 +664,8 @@ def detect_columns_by_word_anchors(page_plum) -> Optional[List[List[str]]]:
     if len(header_words) < 3:
         return None
 
-    # ── 从表头 word 位置构建列边界 ──
-    # 每个 word 的 x0, x1 为边界，_assign_chars_to_columns 的 split line 会自动落在 gap 之间
+    # ── 从Table header word 位置构建列边界 ──
+    # each word 的 x0, x1 为边界，_assign_chars_to_columns 的 split line 会自动落在 gap 之间
     col_bounds: List[Tuple[float, float]] = []
     for i, w in enumerate(header_words):
         x_start = w["x0"]
@@ -675,7 +675,7 @@ def detect_columns_by_word_anchors(page_plum) -> Optional[List[List[str]]]:
     if len(col_bounds) < 3:
         return None
 
-    # ── 用 char 级别归箱提取数据 ──
+    # ── 用 char 级别归箱ExtractData ──
     chars = page_plum.chars
     if not chars:
         return None
@@ -685,7 +685,7 @@ def detect_columns_by_word_anchors(page_plum) -> Optional[List[List[str]]]:
 
     char_rows = _group_chars_into_rows(chars)
 
-    # 从表头行的 y 位置开始提取
+    # 从Table header行的 y 位置beginExtract
     header_y = word_rows[header_row_idx][0]
     result: List[List[str]] = []
     for y_mid, row_chars in char_rows:
@@ -707,10 +707,10 @@ def detect_columns_by_word_anchors(page_plum) -> Optional[List[List[str]]]:
 def detect_columns_by_data_voting(
     page_plum,
 ) -> Optional[List[List[str]]]:
-    """数据行驱动的列边界检测。
+    """Data行驱动的列边界Detect。
 
-    用数据行（含日期/金额的行）的 word 间隙位置投票, 确定列边界。
-    比 header-anchors 更鲁棒: 不依赖表头行, 能处理双语混排表头。
+    用Data行（含Date/Amount的行）的 word 间隙位置投票, 确定列边界。
+    比 header-anchors 更鲁棒: 不DependencyTable header行, 能Processing双语混排Table header。
     """
     try:
         words = page_plum.extract_words(
@@ -746,7 +746,7 @@ def detect_columns_by_data_voting(
     if len(word_rows) < 5:
         return None
 
-    # ── 筛选数据行: 含日期或金额的行 ──
+    # ── 筛选Data行: 含Date或Amount的行 ──
     data_rows: List[Tuple[float, List[Dict]]] = []
     for y_mid, rw in word_rows:
         texts = " ".join(w["text"] for w in rw)
@@ -764,7 +764,7 @@ def detect_columns_by_data_voting(
     if len(data_rows) < 3:
         return None
 
-    # ── 收集 gap 中点位置 (3pt 分辨率) ──
+    # ── 收集 gap 中点位置 (3pt Resolution) ──
     gap_votes: Dict[int, int] = defaultdict(int)
     page_w = page_plum.width or 600
     for _, rw in data_rows[:30]:
@@ -772,7 +772,7 @@ def detect_columns_by_data_voting(
             gap_left = rw[i]["x1"]
             gap_right = rw[i + 1]["x0"]
             if gap_right - gap_left < 3:
-                continue  # 太窄, 不是列间隙
+                continue  # 太窄, not列间隙
             gap_mid = (gap_left + gap_right) / 2
             bucket = round(gap_mid / 3) * 3
             gap_votes[bucket] += 1
@@ -780,7 +780,7 @@ def detect_columns_by_data_voting(
     if not gap_votes:
         return None
 
-    # ── 投票: gap 出现在 ≥40% 数据行中 → 列边界 ──
+    # ── 投票: gap 出现在 ≥40% Data行中 → 列边界 ──
     n_voters = min(len(data_rows), 30)
     threshold = max(3, int(n_voters * 0.4))
     voted_gaps = sorted(
@@ -790,7 +790,7 @@ def detect_columns_by_data_voting(
     if len(voted_gaps) < 2:
         return None
 
-    # ── 合并相邻 gap (< 8pt → 同一边界) ──
+    # ── Merge相邻 gap (< 8pt → 同一边界) ──
     merged_gaps: List[float] = [voted_gaps[0]]
     for g in voted_gaps[1:]:
         if g - merged_gaps[-1] < 8:
@@ -808,7 +808,7 @@ def detect_columns_by_data_voting(
     if len(col_bounds) < 3:
         return None
 
-    # ── 用 char 级别归箱提取全部行 ──
+    # ── 用 char 级别归箱Extractall行 ──
     chars = page_plum.chars
     if not chars:
         return None

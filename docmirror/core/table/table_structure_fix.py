@@ -1,20 +1,20 @@
 """
-表格结构修复引擎 (Table Structure Fix Engine)
+Table structure fixEngine (Table Structure Fix Engine)
 =============================================
 
-通用、泛化的表格结构后处理修复模块。
-在 OCR/提取之后、最终输出之前执行，修复常见的表格结构缺陷。
+通用、泛化的Table结构Post-processingFixModule。
+在 OCR/Extractafter、最终OutputbeforeExecute，Fix常见的Table结构缺陷。
 
-4 个独立修复函数 + 1 个统一入口:
-    1. merge_split_rows     — 合并被拆分的多行记录
-    2. clean_cell_text      — 清理单元格内多余空格/换行
-    3. split_concat_cells   — 拆分粘连单元格 (如 余额+账号)
-    4. align_row_columns    — 对齐行列数到表头
+4 个独立FixFunction + 1 个统一Entry point:
+    1. merge_split_rows     — Merge被Split的多行记录
+    2. clean_cell_text      — Clean单元格内多余空格/Newline
+    3. split_concat_cells   — Split粘连单元格 (如 Balance+Account number)
+    4. align_row_columns    — Alignment行列数到Table header
 
-设计原则:
-    - 纯函数, 无状态, 无副作用
-    - 每次修复都做安全检查, 不确定时不修改
-    - 对空表格/单行表格直接返回
+Design principles:
+    - 纯Function, 无Status, 无副作用
+    - 每次Fix都做安全检查, 不确定时不修改
+    - 对Empty table/单行Table直接Returns
 """
 
 from __future__ import annotations
@@ -27,23 +27,23 @@ logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fix 1: 合并被拆分的多行记录
+# Fix 1: Merge被Split的多行记录
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# 纯时间模式 (HH:MM:SS 或 HH:MM)
+# 纯时间Mode (HH:MM:SS 或 HH:MM)
 _TIME_ONLY_RE = re.compile(r"^\d{1,2}:\d{2}(:\d{2})?$")
-# 日期模式 (YYYY-MM-DD 或 YYYY.MM.DD 或 YYYY/MM/DD)
+# DateMode (YYYY-MM-DD 或 YYYY.MM.DD 或 YYYY/MM/DD)
 _DATE_RE = re.compile(r"^\d{4}[-./]\d{1,2}[-./]\d{1,2}$")
 
 
 def merge_split_rows(table: List[List[str]]) -> List[List[str]]:
-    """合并被拆分的多行记录。
+    """Merge被Split的多行记录。
 
     规则 (按优先级):
-      R1: 行首为纯时间 (HH:MM:SS) 且上一行首列为日期 → 合并时间到日期
-      R2: 行大部分列为空 (>60%) 且非汇总行 → 合并非空列到上一行
+      R1: 行首为纯时间 (HH:MM:SS) 且上一行首列为Date → Merge时间到Date
+      R2: 行大partial列为空 (>60%) 且非汇总行 → Merge非Empty column到上一行
 
-    泛化: 不依赖特定列名或银行格式。
+    泛化: 不Dependency特定列名或银行Format。
     """
     if not table or len(table) < 3:
         return table
@@ -56,24 +56,24 @@ def merge_split_rows(table: List[List[str]]) -> List[List[str]]:
     while i < len(table):
         row = table[i]
 
-        # 确保列数一致 (防御)
+        # ensure列数一致 (防御)
         if len(row) < col_count:
             row = row + [""] * (col_count - len(row))
 
-        # ── R1: 纯时间行 → 合并到上一行日期 ──
+        # ── R1: 纯时间行 → Merge到上一行Date ──
         first_cell = row[0].strip() if row else ""
         if (
             result  # 有上一行
-            and len(result) > 1  # 不是表头
+            and len(result) > 1  # notTable header
             and _TIME_ONLY_RE.match(first_cell)
         ):
             prev_row = list(result[-1])
             prev_first = prev_row[0].strip()
 
             if _DATE_RE.match(prev_first):
-                # 合并: "2025-12-24" + "01:21:34" → "2025-12-24 01:21:34"
+                # Merge: "2025-12-24" + "01:21:34" → "2025-12-24 01:21:34"
                 prev_row[0] = f"{prev_first} {first_cell}"
-                # 合并其他非空列
+                # MergeOther非Empty column
                 for j in range(1, min(len(row), len(prev_row))):
                     if row[j].strip() and not prev_row[j].strip():
                         prev_row[j] = row[j]
@@ -83,22 +83,22 @@ def merge_split_rows(table: List[List[str]]) -> List[List[str]]:
                 i += 1
                 continue
 
-        # ── R2: 大部分列为空 → 合并到上一行 ──
+        # ── R2: 大partial列为空 → Merge到上一行 ──
         non_empty = sum(1 for c in row if c.strip())
         empty_ratio = 1 - (non_empty / col_count) if col_count > 0 else 0
 
         if (
             empty_ratio > 0.6
-            and len(result) > 1  # 不是表头
-            and non_empty > 0  # 不是全空行
-            and not _is_summary_row(row)  # 不是汇总行
+            and len(result) > 1  # notTable header
+            and non_empty > 0  # not全Empty row
+            and not _is_summary_row(row)  # not汇总行
         ):
             prev_row = list(result[-1])
             for j in range(min(len(row), len(prev_row))):
                 if row[j].strip() and not prev_row[j].strip():
                     prev_row[j] = row[j]
                 elif row[j].strip() and prev_row[j].strip():
-                    # 追加 (对方户名等多行文本)
+                    # 追加 (对方Account name等多行文本)
                     prev_row[j] = prev_row[j] + row[j]
             result[-1] = prev_row
             i += 1
@@ -111,37 +111,37 @@ def merge_split_rows(table: List[List[str]]) -> List[List[str]]:
 
 
 def _is_summary_row(row: List[str]) -> bool:
-    """检测汇总行 (不应被合并)。"""
+    """Detect汇总行 (不应被Merge)。"""
     text = "".join(str(c) for c in row)
     summary_keywords = ["总收入", "总支出", "合计", "总计", "小计", "本页", "累计"]
     return any(kw in text for kw in summary_keywords)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fix 2: 清理单元格内文本
+# Fix 2: Clean单元格内文本
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# 中文字符之间的空格 (应移除)
+# 中文字符之间的空格 (应remove)
 _CJK_SPACE_RE = re.compile(
     r"([\u4e00-\u9fff\u3400-\u4dbf])\s+([\u4e00-\u9fff\u3400-\u4dbf])"
 )
 
 
 def clean_cell_text(text: str) -> str:
-    """清理单元格内多余空格/换行。
+    """Clean单元格内多余空格/Newline。
 
     规则:
-      - 中文字符之间的空格 → 移除 (PDF 多行文本重组产物)
-      - 保留: 英文之间、数字之间、中英之间的空格
-      - 首尾空白去除
+      - 中文字符之间的空格 → remove (PDF 多行文本重组产物)
+      - retain: 英文之间、数字之间、中英之间的空格
+      - 首尾Whitespace去除
     """
     if not text or not text.strip():
         return text.strip()
 
-    # 替换换行为空格
+    # replaceNewline为空格
     text = text.replace("\n", " ").replace("\r", "")
 
-    # 多次迭代移除中文间空格 (处理连续 "A B C" → "ABC")
+    # 多次迭代remove中文间空格 (Processing连续 "A B C" → "ABC")
     prev = ""
     while prev != text:
         prev = text
@@ -151,7 +151,7 @@ def clean_cell_text(text: str) -> str:
 
 
 def clean_table_cells(table: List[List[str]]) -> List[List[str]]:
-    """对表格所有单元格执行文本清理。"""
+    """对Tableall单元格ExecuteText cleanup。"""
     return [
         [clean_cell_text(cell) if isinstance(cell, str) else cell for cell in row]
         for row in table
@@ -159,25 +159,25 @@ def clean_table_cells(table: List[List[str]]) -> List[List[str]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fix 3: 拆分粘连单元格
+# Fix 3: Split粘连单元格
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # 数字→字母边界 (如 "110.9731080243CNYFC")
 _NUM_ALPHA_BOUNDARY_RE = re.compile(
-    r"(\d{1,3}\.\d{2})"           # 金额部分 (如 110.97)
-    r"(\d{5,}[A-Z]*\d*)"         # 账号部分 (如 31080243CNYFC0445)
+    r"(\d{1,3}\.\d{2})"           # Amountpartial (如 110.97)
+    r"(\d{5,}[A-Z]*\d*)"         # Account numberpartial (如 31080243CNYFC0445)
 )
 
 
 def split_concatenated_cells(
     table: List[List[str]],
 ) -> List[List[str]]:
-    """拆分粘连单元格 — 当行列数少于表头时尝试拆分。
+    """Split粘连单元格 — 当行列数少于Table header时尝试Split。
 
     规则:
-      - 只在行列数 < 表头列数时触发
-      - 检测 数字.数字+数字字母 的粘连模式
-      - 拆分后列数应等于表头列数
+      - 只在行列数 < Table header列数时Trigger
+      - Detect 数字.数字+数字字母 的粘连Mode
+      - Split后列数应等于Table header列数
     """
     if not table or len(table) < 2:
         return table
@@ -191,7 +191,7 @@ def split_concatenated_cells(
             result.append(row)
             continue
 
-        # 尝试拆分粘连单元格
+        # 尝试Split粘连单元格
         deficit = header_col_count - len(row)
         if deficit <= 0:
             result.append(row)
@@ -204,34 +204,34 @@ def split_concatenated_cells(
                 new_row.append(cell)
                 continue
 
-            # 检测金额+账号粘连
+            # DetectAmount+Account number粘连
             m = _NUM_ALPHA_BOUNDARY_RE.match(str(cell))
             if m and splits_done < deficit:
-                new_row.append(m.group(1))  # 金额
-                new_row.append(m.group(2))  # 账号
+                new_row.append(m.group(1))  # Amount
+                new_row.append(m.group(2))  # Account number
                 splits_done += 1
             else:
                 new_row.append(cell)
 
-        # 如果拆分后列数匹配, 使用新行
+        # 如果Split后列数Match, using新行
         if len(new_row) == header_col_count:
             result.append(new_row)
         else:
-            result.append(row)  # 拆分失败, 保留原行
+            result.append(row)  # SplitFailed, retain原行
 
     return result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fix 4: 对齐行列数
+# Fix 4: Alignment行列数
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def align_row_columns(table: List[List[str]]) -> List[List[str]]:
-    """对齐所有行的列数到表头列数。
+    """Alignmentall行的列数到Table header列数。
 
     规则:
-      - 列数少于表头 → 末尾补空字符串
-      - 列数多于表头 → 尾部多余列合并到最后一列
+      - 列数少于Table header → 末尾补空字符串
+      - 列数多于Table header → 尾部多余列Merge到最后一列
     """
     if not table:
         return table
@@ -246,7 +246,7 @@ def align_row_columns(table: List[List[str]]) -> List[List[str]]:
         elif len(row) < target:
             result.append(row + [""] * (target - len(row)))
         else:
-            # 多余列合并到最后一列
+            # 多余列Merge到最后一列
             merged = row[:target - 1] + [" ".join(str(c) for c in row[target - 1:] if c)]
             result.append(merged)
 
@@ -254,20 +254,20 @@ def align_row_columns(table: List[List[str]]) -> List[List[str]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fix 5: 下划线页脚清理
+# Fix 5: UnderlineFooterClean
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# 匹配 ≥3 个连续下划线 (页脚分隔线)
+# Match ≥3 个连续Underline (Footer分隔线)
 _UNDERLINE_RE = re.compile(r"_{3,}")
 
 
 def strip_underline_footer(table: List[List[str]]) -> List[List[str]]:
-    """清理单元格中下划线拼接的页脚统计信息。
+    """Clean单元格中Underline拼接的Footer统计Information。
 
-    模式: "4085.26___支出交易总额:...___收入交易总额:...___合计笔数:..."
-    规则: 截断到第一个 ___（保留前面的实际数据值）。
+    Mode: "4085.26___支出交易总额:...___收入交易总额:...___合计笔数:..."
+    规则: 截断到第一个 ___（retain前面的实际Data值）。
 
-    泛化: 不依赖特定列名, 任何包含 ___ 的单元格都处理。
+    泛化: 不Dependency特定列名, anycontains ___ 的单元格都Processing。
     """
     for row in table:
         for ci in range(len(row)):
@@ -279,14 +279,14 @@ def strip_underline_footer(table: List[List[str]]) -> List[List[str]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fix 6: 裁剪尾部空列
+# Fix 6: Crop尾部Empty column
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 def trim_trailing_empty_columns(table: List[List[str]]) -> List[List[str]]:
-    """裁剪全为空的尾部列。
+    """Crop全为空的尾部列。
 
-    泛化: 只裁尾部, 不影响中间的空列。
+    泛化: 只裁尾部, 不影响中间的Empty column。
     """
     if not table or not table[0]:
         return table
@@ -309,22 +309,22 @@ def trim_trailing_empty_columns(table: List[List[str]]) -> List[List[str]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fix 7: 纯数字空格合并
+# Fix 7: 纯数字空格Merge
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# 匹配 "数字 数字" 模式 (中间只有空格, 无字母/汉字)
+# Match "数字 数字" Mode (中间only空格, 无字母/汉字)
 _DIGIT_SPACE_RE = re.compile(r"^[\d\s]+$")
 
 
 def merge_digit_spaces(table: List[List[str]]) -> List[List[str]]:
-    """合并纯数字单元格中间的空格。
+    """Merge纯数字单元格中间的空格。
 
-    模式: "6216911304 963684" → "6216911304963684"
+    Mode: "6216911304 963684" → "6216911304963684"
     规则: 只对纯数字+空格的 cell 生效, 不影响含字母/汉字的 cell。
 
-    泛化: 自动检测, 不依赖列名, 适用一切银行流水。
+    泛化: 自动Detect, 不Dependency列名, 适用一切Bank statement。
     """
-    for row in table[1:]:  # 跳过表头
+    for row in table[1:]:  # SkipTable header
         for ci in range(len(row)):
             cell = (row[ci] or "").strip()
             if cell and _DIGIT_SPACE_RE.match(cell) and " " in cell:
@@ -333,10 +333,10 @@ def merge_digit_spaces(table: List[List[str]]) -> List[List[str]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fix 8: 清理粘连在数据值后面的双语列标题
+# Fix 8: Clean粘连在Data值后面的双语列Title
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# 常见的双语列标题尾缀 (英文部分) — 按长度降序匹配
+# 常见的双语列Title尾缀 (英文partial) — 按长度降序Match
 _BILINGUAL_SUFFIXES = [
     "Counterparty Institution", "Counterparty Name",
     "Transaction Amount", "Transaction Date",
@@ -344,7 +344,7 @@ _BILINGUAL_SUFFIXES = [
     "Serial Number", "Description",
     "Debit", "Credit",
 ]
-# 构建正则: 匹配 "中文...英文尾缀" 模式
+# 构建正则: Match "中文...英文尾缀" Mode
 _BILINGUAL_SUFFIX_RE = re.compile(
     r"([\u4e00-\u9fff][\u4e00-\u9fff\s]*)\s*("
     + "|".join(re.escape(s) for s in _BILINGUAL_SUFFIXES)
@@ -353,35 +353,35 @@ _BILINGUAL_SUFFIX_RE = re.compile(
 
 
 def strip_header_labels_from_cells(table: List[List[str]]) -> List[List[str]]:
-    """清理数据单元格中粘连的双语列标题后缀。
+    """CleanData单元格中粘连的双语列Title后缀。
 
-    模式: "0.90借方Debit" → "0.90"
+    Mode: "0.90DebitDebit" → "0.90"
           "浦发银行重庆分行营业部对手机构 Counterparty Institution" → "浦发银行重庆分行营业部"
 
-    规则: 检测 cell 末尾的 "中文+英文" 列标题组合, 截断到中文部分之前。
-    泛化: 不依赖特定列, 基于通用双语列标题关键词。
+    规则: Detect cell 末尾的 "中文+英文" 列TitleComposition, 截断到中文partialbefore。
+    泛化: 不Dependency特定列, based on通用双语列TitleKeywords。
     """
-    for row in table[1:]:  # 跳过表头
+    for row in table[1:]:  # SkipTable header
         for ci in range(len(row)):
             cell = (row[ci] or "").strip()
             if not cell or len(cell) < 5:
                 continue
             m = _BILINGUAL_SUFFIX_RE.search(cell)
             if m:
-                # 截断到中文列标题开始之前
+                # 截断到中文列Titlebeginbefore
                 row[ci] = cell[: m.start()].rstrip()
     return table
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fix 9: 移除全空表格
+# Fix 9: remove全Empty table
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 def remove_empty_tables(tables: List[List[List[str]]]) -> List[List[List[str]]]:
-    """移除所有 cell 均为空的表格。
+    """removeall cell 均为空的Table。
 
-    泛化: 只删全空表格, 不影响有任何数据的表格。
+    泛化: 只删全Empty table, 不影响有anyData的Table。
     """
     result = []
     for table in tables:
@@ -398,34 +398,34 @@ def remove_empty_tables(tables: List[List[List[str]]]) -> List[List[List[str]]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fix 11: 拆分粘连在户名开头的账号数字
+# Fix 11: Split粘连在Account name开头的Account number数字
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# ≥10位连续数字 + 中文 (账号粘连户名)
+# ≥10位连续数字 + 中文 (Account number粘连Account name)
 _ACCT_PREFIX_RE = re.compile(r"^(\d{10,})([\u4e00-\u9fff].*)$")
 
 
 def split_account_from_name(table: List[List[str]]) -> List[List[str]]:
-    """拆分粘连在户名列开头的长数字账号。
+    """Split粘连在Account name列开头的长数字Account number。
 
-    模式: "7065018800015镇江一生一世好游戏有限公司" →
-          对方账户="7065018800015"  对方户名="镇江一生一世好游戏有限公司"
+    Mode: "7065018800015镇江一生一世好游戏有限公司" →
+          对方Account="7065018800015"  对方Account name="镇江一生一世好游戏有限公司"
 
     规则:
-      - 如果 cell 以 ≥10 位连续数字开头, 后接中文 → 拆分
-      - 数字部分合并到前一列 (如果前一列表头含 "账户"/"账号")
-      - 泛化: 不依赖列名 hard-coding, 基于表头内容匹配
+      - 如果 cell 以 ≥10 位连续数字开头, 后接中文 → Split
+      - 数字partialMerge到前一列 (如果前一列Table header含 "Account"/"Account number")
+      - 泛化: 不Dependency列名 hard-coding, based onTable header内容Match
     """
     if not table or len(table) < 2 or len(table[0]) < 2:
         return table
 
     header = table[0]
 
-    # 找 "对方账户"/"对方账号" 列和其右邻列
+    # 找 "对方Account"/"对方Account number" 列和其右邻列
     acct_col = None
     for ci, h in enumerate(header):
         h_text = (h or "").strip()
-        if ("账户" in h_text or "账号" in h_text) and "对方" in h_text:
+        if ("Account" in h_text or "Account number" in h_text) and "对方" in h_text:
             if ci + 1 < len(header):
                 acct_col = ci
                 break
@@ -442,7 +442,7 @@ def split_account_from_name(table: List[List[str]]) -> List[List[str]]:
         m = _ACCT_PREFIX_RE.match(cell)
         if m:
             digits, name = m.group(1), m.group(2)
-            # 合并数字到账户列 (prepend, 用空格分隔已有值)
+            # Merge数字到Account列 (prepend, 用空格分隔已有值)
             existing = (row[acct_col] or "").strip()
             row[acct_col] = (digits + " " + existing).strip() if existing else digits
             row[name_col] = name.strip()
@@ -454,7 +454,7 @@ def split_account_from_name(table: List[List[str]]) -> List[List[str]]:
 # Fix 12: 剥离货币前缀
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# 匹配 "RMB 352.10" 或 "CNY352.10" 或 "USD 1,000.00"
+# Match "RMB 352.10" 或 "CNY352.10" 或 "USD 1,000.00"
 _CURRENCY_PREFIX_RE = re.compile(
     r"^(RMB|CNY|USD|EUR|JPY|HKD|GBP)\s*"
     r"([\-\d,]+\.?\d*)\s*$"
@@ -464,11 +464,11 @@ _CURRENCY_PREFIX_RE = re.compile(
 def strip_currency_prefix(table: List[List[str]]) -> List[List[str]]:
     """剥离单元格中的货币代码前缀。
 
-    模式: "RMB 352.10" → "352.10", "RMB7.77" → "7.77"
-    规则: 只处理 "货币代码+数字" 的纯金额 cell, 不影响含文字的 cell。
-    泛化: 支持 RMB/CNY/USD/EUR/JPY/HKD/GBP。
+    Mode: "RMB 352.10" → "352.10", "RMB7.77" → "7.77"
+    规则: 只Processing "货币代码+数字" 的纯Amount cell, 不影响含文字的 cell。
+    泛化: supports RMB/CNY/USD/EUR/JPY/HKD/GBP。
     """
-    for row in table[1:]:  # 跳过表头
+    for row in table[1:]:  # SkipTable header
         for ci in range(len(row)):
             cell = (row[ci] or "").strip()
             if not cell:
@@ -480,29 +480,29 @@ def strip_currency_prefix(table: List[List[str]]) -> List[List[str]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 统一入口
+# 统一Entry point
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def fix_table_structure(table: List[List[str]]) -> List[List[str]]:
-    """表格结构修复统一入口。
+    """Table structure fix统一Entry point。
 
-    按顺序执行:
-      1. 行合并 (日期+时间, 多行单元格)
-      2. 粘连单元格拆分 (余额+账号)
-      3. 列数对齐
-      4. 单元格文本清理
-      5. 下划线页脚清理
-      6. 尾部空列裁剪
-      7. 纯数字空格合并
-      8. 双语列标题清理
-      9. 账号户名拆分
+    按顺序Execute:
+      1. Line merging (Date+时间, 多行单元格)
+      2. 粘连单元格Split (Balance+Account number)
+      3. 列数Alignment
+      4. 单元格Text cleanup
+      5. UnderlineFooterClean
+      6. 尾部Empty columnCrop
+      7. 纯数字空格Merge
+      8. 双语列TitleClean
+      9. Account numberAccount nameSplit
       10. 货币前缀剥离
 
     Args:
-        table: 原始表格 (二维字符串列表, 第 0 行为表头)。
+        table: 原始Table (二维字符串List, 第 0 行为Table header)。
 
     Returns:
-        修复后的表格。
+        Fix后的Table。
     """
     if not table or len(table) < 2:
         return table
@@ -533,16 +533,16 @@ def fix_table_structure(table: List[List[str]]) -> List[List[str]]:
 
 
 def remove_empty_interior_columns(table: List[List[str]]) -> List[List[str]]:
-    """删除全空的内部列 (含表头也为空或为相邻列重复)。
+    """Delete全空的Internal列 (含Table header也为空或为相邻列重复)。
 
-    交通银行等双行表头场景: 借方发生额/贷方发生额 被 post_process 合并后,
-    产生空列 + 重复列名。本函数只删除 **所有数据行都为空** 的列。
+    交通银行等双行Table header场景: DebitTransaction amount/CreditTransaction amount 被 post_process Merge后,
+    产生Empty column + 重复列名。本Function只Delete **allData行都为空** 的列。
 
     Args:
-        table: 修复后的表格, 第 0 行为表头。
+        table: Fix后的Table, 第 0 行为Table header。
 
     Returns:
-        删除空列后的表格。
+        DeleteEmpty column后的Table。
     """
     if not table or len(table) < 2:
         return table
@@ -551,7 +551,7 @@ def remove_empty_interior_columns(table: List[List[str]]) -> List[List[str]]:
     if n_cols <= 1:
         return table
 
-    # 找出所有数据行全为空的列
+    # 找出allData行全为空的列
     empty_cols: set = set()
     for ci in range(n_cols):
         if all(
@@ -563,13 +563,13 @@ def remove_empty_interior_columns(table: List[List[str]]) -> List[List[str]]:
     if not empty_cols:
         return table
 
-    # 构建表头出现次数, 用于检测重复
+    # 构建Table header出现次数, 用于Detect重复
     header_vals = [(table[0][ci] if ci < len(table[0]) else "").strip() for ci in range(n_cols)]
     header_counts: dict = {}
     for h in header_vals:
         header_counts[h] = header_counts.get(h, 0) + 1
 
-    # 删除条件: 数据全空 AND (表头为空 OR 表头是重复值)
+    # Delete条件: Data全空 AND (Table header为空 OR Table header是重复值)
     cols_to_remove: set = set()
     for ci in empty_cols:
         hv = header_vals[ci]

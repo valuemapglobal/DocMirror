@@ -1,17 +1,17 @@
 """
-借贷分列检测 (Amount Split Detection)
+借贷分Column detection (Amount Split Detection)
 =======================================
 
-从 ``column_mapper.py`` 提取: 检测表格中收入/支出分列模式。
+从 ``column_mapper.py`` Extract: DetectTable中收入/支出分列Mode。
 
-支持三种模式:
-  1. 显式分列: 表头含收入/支出关键字
-  2. 隐式分列: 金额列旁有空表头列 (如浦发银行 '发生额'+空列)
+supports三种Mode:
+  1. 显式分列: Table header含收入/支出关键字
+  2. 隐式分列: Amount column旁有空Table header列 (如浦发银行 'Transaction amount'+Empty column)
   3. 粘连分列: 粘连列名中嵌入借贷关键字
 
 F-6 增强:
-  - 数据行验证: 检查借贷列是否同时有值 (>30% 冲突 → 非分列)
-  - 借贷标志列检测: 有「借/贷」标志列时不做 amount split
+  - Data行Validate: 检查借贷列Whetheralso有值 (>30% 冲突 → 非分列)
+  - 借贷标志Column detection: 有「借/贷」标志列时不做 amount split
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
-# F-6: 数据验证 — 金额正则
+# F-6: Data validation — Amount正则
 _RE_HAS_NUMBER = re.compile(r"\d")
 
 
@@ -32,13 +32,13 @@ def _validate_split_by_data(
     exp_idx: Optional[int],
     max_sample: int = 20,
 ) -> bool:
-    """F-6: 采样数据行验证分列是否合理。
+    """F-6: 采样Data行Validate分列Whether合理。
 
-    如果 >30% 的数据行在 income 和 expense 列同时有值，
-    说明这不是真正的借贷分列 (而是两个独立的金额列)。
+    如果 >30% 的Data行在 income 和 expense 列also有值，
+    说明这not真正的借贷分列 (but rather两个独立的Amount column)。
     """
     if inc_idx is None or exp_idx is None or not data_rows:
-        return True  # 无法验证，默认信任表头
+        return True  # 无法Validate，Default信任Table header
 
     sample = data_rows[:max_sample]
     both_count = 0
@@ -58,7 +58,7 @@ def _validate_split_by_data(
                 both_count += 1
 
     if valid_count < 3:
-        return True  # 数据太少，默认信任
+        return True  # Data太少，Default信任
 
     conflict_ratio = both_count / valid_count
     if conflict_ratio > 0.3:
@@ -78,22 +78,22 @@ def detect_split_amount(
     amount_like_keywords: Set[str],
     data_rows: Optional[List[List[str]]] = None,
 ) -> Tuple[bool, Optional[int], Optional[int]]:
-    """检测是否存在收入/支出分列。
+    """DetectWhether存在收入/支出分列。
 
     Args:
-        headers: 原始表头列表。
-        mapping: 列映射结果 {raw_header: standard_name or None}。
+        headers: 原始Table headerList。
+        mapping: 列MapResult {raw_header: standard_name or None}。
         income_keywords: 收入关键字集合。
         expense_keywords: 支出关键字集合。
-        amount_like_keywords: 金额类关键字集合。
-        data_rows: (F-6) 可选的数据行，用于验证分列是否合理。
+        amount_like_keywords: Amount类关键字集合。
+        data_rows: (F-6) Optional的Data行，用于Validate分列Whether合理。
 
     Returns:
         (has_split, income_idx, expense_idx)
     """
-    # F-6: 检测借贷标志列 — 有标志列时不做 amount split
+    # F-6: Detect借贷标志列 — 有标志列时不做 amount split
     _DEBIT_CREDIT_FLAGS = {"借贷标志", "借贷", "借/贷", "收支", "支/收",
-                           "借贷状态", "收支标志", "DC标志"}
+                           "借贷Status", "收支标志", "DC标志"}
     header_set = {h.strip() for h in headers if h}
     if header_set & _DEBIT_CREDIT_FLAGS:
         logger.info("[AmountSplit] F-6: skipped — debit/credit flag column found")
@@ -103,7 +103,7 @@ def detect_split_amount(
     has_expense = bool(header_set & expense_keywords)
 
     if has_income and has_expense:
-        # 模式1: 显式分列
+        # Mode1: 显式分列
         inc_idx = exp_idx = None
         for i, h in enumerate(headers):
             h_clean = h.strip()
@@ -111,18 +111,18 @@ def detect_split_amount(
                 inc_idx = i
             elif h_clean in expense_keywords and exp_idx is None:
                 exp_idx = i
-        # F-6: 数据验证
+        # F-6: Data validation
         if data_rows and not _validate_split_by_data(data_rows, inc_idx, exp_idx):
             return False, None, None
         return True, inc_idx, exp_idx
 
-    # 模式2: 金额列 + 相邻空表头列 → 隐式借贷分列
+    # Mode2: Amount column + 相邻空Table header列 → 隐式借贷分列
     for i, h in enumerate(headers):
         h_clean = h.strip()
         if h_clean in amount_like_keywords and i + 1 < len(headers):
             next_h = headers[i + 1].strip()
             if not next_h:
-                # F-6: 数据验证
+                # F-6: Data validation
                 if data_rows and not _validate_split_by_data(data_rows, i + 1, i):
                     continue
                 logger.info(
@@ -131,7 +131,7 @@ def detect_split_amount(
                 )
                 return True, i + 1, i
 
-    # 模式3: 粘连列名中嵌入借贷关键字
+    # Mode3: 粘连列名中嵌入借贷关键字
     merged_inc_idx = merged_exp_idx = None
     for i, h in enumerate(headers):
         h_clean = h.strip()
@@ -154,7 +154,7 @@ def detect_split_amount(
 
     if (merged_inc_idx is not None and merged_exp_idx is not None
             and merged_inc_idx != merged_exp_idx):
-        # F-6: 数据验证
+        # F-6: Data validation
         if data_rows and not _validate_split_by_data(data_rows, merged_inc_idx, merged_exp_idx):
             return False, None, None
         logger.info(

@@ -1,7 +1,7 @@
 """
 PDF Adapter — PDF → PerceptionResult
 
-主路径: Orchestrator → EnhancedResult → PerceptionResultBuilder (一步直达)。
+主Path: Orchestrator → EnhancedResult → PerceptionResultBuilder (一步直达)。
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from docmirror.models.domain import BaseResult
 
 logger = logging.getLogger(__name__)
 
-# ── Orchestrator 单例 ──
+# ── Orchestrator Singleton ──
 _orchestrator = None
 
 def _get_shared_orchestrator():
@@ -28,23 +28,23 @@ def _get_shared_orchestrator():
 
 class PDFAdapter(BaseParser):
     """
-    PDF 格式适配器。
+    PDF Format adapter。
 
-    通过共享 Orchestrator 单例完成全流程，
-    使用 PerceptionResultBuilder 一步生成 PerceptionResult。
+    viaShared Orchestrator SingletonComplete全流程，
+    using PerceptionResultBuilder 一步生成 PerceptionResult。
     """
 
     def __init__(self, enhance_mode: str = "standard", **kwargs):
         self._enhance_mode = enhance_mode
 
     async def to_base_result(self, file_path: Path, **kwargs) -> BaseResult:
-        """PDF → BaseResult (仅核心提取, 不走中间件)。"""
+        """PDF → BaseResult (仅核心Extract, 不走Middleware)。"""
         from docmirror.core.extractor import CoreExtractor
         extractor = CoreExtractor()
         return await extractor.extract(file_path)
 
     async def perceive(self, file_path: Path, **context):
-        """PDF → PerceptionResult (完整管线, 一步直达)。"""
+        """PDF → PerceptionResult (完整Pipeline, 一步直达)。"""
         from docmirror.models.builder import PerceptionResultBuilder
 
         orchestrator = _get_shared_orchestrator()
@@ -60,7 +60,7 @@ class PDFAdapter(BaseParser):
         )
 
     async def parse(self, file_path: Path, **kwargs) -> ParserOutput:
-        """[DEPRECATED] 保留旧接口兼容。"""
+        """[DEPRECATED] retain旧Interface兼容。"""
         orchestrator = _get_shared_orchestrator()
         enhanced = await orchestrator.run_pipeline(
             file_path=file_path,

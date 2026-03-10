@@ -1,13 +1,13 @@
 """
-印章检测与极坐标拉直提取器
-基于 OpenCV (cv2)
+Seal detection与极Coordinates拉直Extract器
+based on OpenCV (cv2)
 
-支持两种检测模式:
-1. 彩色印章: HSV 红色空间分割 (适合彩色扫描)
-2. 灰色印章: 灰度阈值 + 圆度过滤 (适合黑白/灰度扫描)
+supports两种DetectMode:
+1. 彩色Seal: HSV red空间分割 (适合彩色扫描)
+2. graySeal: 灰度Threshold + 圆度Filter (适合黑白/灰度扫描)
 
-解决极端弯曲印章(如银行公章)无法被普通 OCR 识别的问题。
-通过 cv2.warpPolar 进行极坐标变换将其"拉直"为水平文本片段。
+解决极端弯曲Seal(如银行公章)无法被普通 OCR Recognize的问题。
+via cv2.warpPolar 进行极Coordinates变换将其"拉直"为水平文本片段。
 """
 
 import logging
@@ -25,10 +25,10 @@ except ImportError:
 
 
 class SealDetector:
-    """印章检测与极坐标拉直器 — 支持彩色与灰度扫描"""
+    """Seal detection与极Coordinates拉直器 — supports彩色与灰度扫描"""
 
     def __init__(self):
-        # 红色在 HSV 中的两个分布区间
+        # red在 HSV 中的两个分布区间
         self.lower_red1 = np.array([0, 50, 50])
         self.upper_red1 = np.array([10, 255, 255])
         self.lower_red2 = np.array([160, 50, 50])
@@ -41,7 +41,7 @@ class SealDetector:
         self, image_bgr: np.ndarray
     ) -> Dict[str, Any]:
         """
-        检测印章并返回检测结果 (不做极坐标展开)。
+        DetectSeal并ReturnsDetection result (不做极Coordinates展开)。
         
         Returns:
             {
@@ -64,7 +64,7 @@ class SealDetector:
         return self._detect_gray_seal(image_bgr)
 
     def unwarp_circular_seal(self, image_bgr: np.ndarray) -> Optional[np.ndarray]:
-        """从原图中剥离印章并将其拉直成水平图 (极坐标展开)。"""
+        """从原图中剥离Seal并将其拉直成水平图 (极Coordinates展开)。"""
         info = self.detect_seal(image_bgr)
         if not info["has_seal"]:
             return None
@@ -99,10 +99,10 @@ class SealDetector:
             return None
 
     # ─────────────────────────────────────────────────────────────────────────
-    # 彩色印章检测 (红色 HSV)
+    # 彩色Seal detection (red HSV)
     # ─────────────────────────────────────────────────────────────────────────
     def _detect_color_seal(self, image_bgr: np.ndarray) -> Dict[str, Any]:
-        """HSV 红色空间分割检测彩色印章。"""
+        """HSV red空间分割Detect彩色Seal。"""
         empty = {"has_seal": False, "center": None, "radius": None, "bbox": None, "mode": None}
         try:
             hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
@@ -136,25 +136,25 @@ class SealDetector:
             return empty
 
     # ─────────────────────────────────────────────────────────────────────────
-    # 灰度印章检测 (适合黑白扫描)
+    # 灰度Seal detection (适合黑白扫描)
     # ─────────────────────────────────────────────────────────────────────────
     def _detect_gray_seal(self, image_bgr: np.ndarray) -> Dict[str, Any]:
         """
-        灰度圆形轮廓检测。
+        灰度圆形Contour detection。
         
         算法:
           1. 将图像转灰度, 高斯模糊去噪
-          2. 自适应阈值 + 形态学操作仅保留中灰色区域
-             (排除纯黑文字和白色背景)
-          3. 在阈值图上查找轮廓, 按圆度 (circularity) 过滤
-          4. 选取面积最大且圆度 > 0.5 的轮廓作为印章
+          2. 自适应Threshold + 形态学操作仅retain中gray区域
+             (排除纯黑文字和白色Background)
+          3. 在Threshold图上查找轮廓, 按圆度 (circularity) Filter
+          4. 选取Area最大且圆度 > 0.5 的轮廓作为Seal
         """
         empty = {"has_seal": False, "center": None, "radius": None, "bbox": None, "mode": None}
         try:
             gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
             h, w = gray.shape
 
-            # 只搜索右上角区域 (印章通常在右上角)
+            # 只搜索右上角区域 (Sealtypically在右上角)
             roi_y1, roi_y2 = 0, h // 3
             roi_x1, roi_x2 = w // 2, w
             gray_roi = gray[roi_y1:roi_y2, roi_x1:roi_x2]
@@ -162,8 +162,8 @@ class SealDetector:
             # 高斯模糊降噪
             blurred = cv2.GaussianBlur(gray_roi, (5, 5), 0)
 
-            # 提取中灰色区域 (排除纯黑文字 <80 和白色背景 >200)
-            # 印章通常是灰色 (扫描后) ~80-200
+            # Extract中gray区域 (排除纯黑文字 <80 和白色Background >200)
+            # Sealtypically是gray (扫描后) ~80-200
             mask = cv2.inRange(blurred, 80, 200)
 
             # 形态学: 闭运算连接断裂弧段, 开运算去小噪点
@@ -175,10 +175,10 @@ class SealDetector:
             if not contours:
                 return empty
 
-            # 寻找圆度最高, 面积足够大的轮廓
+            # 寻找圆度最高, Area足够大的轮廓
             best = None
             best_score = 0
-            min_area = 2000  # 最小面积阈值
+            min_area = 2000  # 最小AreaThreshold
             min_circularity = 0.3
 
             for cnt in contours:
@@ -192,7 +192,7 @@ class SealDetector:
                 if circularity < min_circularity:
                     continue
 
-                # 综合评分: 面积 × 圆度
+                # 综合评分: Area × 圆度
                 score = area * circularity
                 if score > best_score:
                     best_score = score
@@ -202,7 +202,7 @@ class SealDetector:
                 return empty
 
             (cx, cy), radius = cv2.minEnclosingCircle(best)
-            # 转回全图坐标
+            # 转回全图Coordinates
             abs_cx = int(cx) + roi_x1
             abs_cy = int(cy) + roi_y1
             r = int(radius)
@@ -228,7 +228,7 @@ class SealDetector:
             return empty
 
 
-# 单例提供
+# Singleton提供
 _default_seal_detector: Optional[SealDetector] = None
 
 def get_seal_detector() -> SealDetector:

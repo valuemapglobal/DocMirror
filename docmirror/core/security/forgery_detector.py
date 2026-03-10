@@ -1,9 +1,9 @@
 """
-防篡改与造假视觉检测引擎 (Anti-Forgery & Tampering Detection Engine)
+防篡改与造假视觉DetectEngine (Anti-Forgery & Tampering Detection Engine)
 
-为 MultiModal 架构提供轻量级的本地化文档安全鉴定：
-1. PDF 篡改检测: 依赖 fitz 检查数字签名断链、非法元数据 (Photoshop/Acrobat)、增量更新等异常。
-2. 图像伪造检测: 基于 OpenCV 提供 Error Level Analysis (ELA 误差级别分析) 算法检测克隆与拼接。
+为 MultiModal 架构提供轻量级的本地化Document安全鉴定：
+1. PDF 篡改Detect: Dependency fitz 检查数字Signature断链、非法元Data (Photoshop/Acrobat)、增量Update等Exception。
+2. 图像伪造Detect: based on OpenCV 提供 Error Level Analysis (ELA 误差级别Analyze) 算法Detect克隆与拼接。
 """
 
 import logging
@@ -13,14 +13,14 @@ import fitz
 
 logger = logging.getLogger(__name__)
 
-# 常见 PDF 编辑工具/造假来源黑名单 (出现在 Creator/Producer 中极其可疑)
+# 常见 PDF 编辑Tool/造假来源黑名单 (出现在 Creator/Producer 中极其可疑)
 _SUSPICIOUS_METADATA_LOWER = [
     "photoshop",
     "illustrator",
-    "acrobat",      # 官方账单极少用 Acrobat 甚至 Reader 导出
+    "acrobat",      # 官方账单极少用 Acrobat 甚至 Reader Export
     "foxit",        # 福昕阅读器/编辑器
     "wps",          # WPS Office
-    "skia",         # 浏览器打印存PDF引擎 (Chrome)
+    "skia",         # 浏览器打印存PDFEngine (Chrome)
     "quartz",       # macOS 原生打印/另存为PDF
     "coreldraw",
     "pdf24",
@@ -30,14 +30,14 @@ _SUSPICIOUS_METADATA_LOWER = [
 
 def detect_pdf_forgery(file_path: str | Path) -> Tuple[bool, List[str]]:
     """
-    检查 PDF 文件是否疑似被编辑/篡改过。
+    检查 PDF FileWhether疑似被编辑/篡改过。
     开销极低，仅读取物理头部和结构树。
 
     Args:
-        file_path: PDF 路径。
+        file_path: PDF Path。
 
     Returns:
-        (疑似篡改标志: bool, 异常原因列表: List[str])
+        (疑似篡改标志: bool, List of anomaly reasons: List[str])
     """
     is_forged = False
     reasons = []
@@ -48,7 +48,7 @@ def detect_pdf_forgery(file_path: str | Path) -> Tuple[bool, List[str]]:
         logger.warning(f"Verification failed to open PDF {file_path}: {e}")
         return False, []
 
-    # 1. 元数据黑名单检测 (Metadata Blacklist)
+    # 1. 元Data黑名单Detect (Metadata Blacklist)
     meta = doc.metadata or {}
     creator = meta.get("creator", "").lower()
     producer = meta.get("producer", "").lower()
@@ -61,13 +61,13 @@ def detect_pdf_forgery(file_path: str | Path) -> Tuple[bool, List[str]]:
             is_forged = True
             reasons.append(f"Suspicious Core Metadata (Producer): Found '{suspicious_term}' ({meta.get('producer')})")
 
-    # 2. XREF 增量更新检测 (Multiple Incremental Updates)
-    # PyMuPDF 可以获取历史修改版本数。如果不是 1，说明该 PDF 被后续追加了修改并保存。
+    # 2. XREF 增量UpdateDetect (Multiple Incremental Updates)
+    # PyMuPDF 可以获取历史修改Version数。如果not 1，说明该 PDF 被后续追加了修改并Save。
     # 电子账单生成时必然是 1。
     try:
         version_count = len(doc.resolve_names()) if hasattr(doc, 'resolve_names') else 1 # fallback check
-        # PyMuPDF 没有直接公开 XREF trailer count 的安全 api，但我们可以通过 xref 获取某些异常
-        # 这里用更安全的替代策略：检查是否有未固化的表单
+        # PyMuPDF 没有直接Public XREF trailer count 的安全 api，但我们可以via xref 获取某些Exception
+        # 这里用更安全的替代策略：检查Whether有未固化的Form
     except Exception:
         pass
         
@@ -75,9 +75,9 @@ def detect_pdf_forgery(file_path: str | Path) -> Tuple[bool, List[str]]:
         is_forged = True
         reasons.append("PDF contains interactive form fields (Unexpected for electronic origination)")
 
-    # 3. 数字签名检查 (Digital Signature)
-    # 在这个 L0 层我们不严格要求必须有签名（因为不是所有银行都有），
-    # 但如果「带有被破坏或无法校验的签名字段」，说明是被中途拦截并编辑过。
+    # 3. 数字Signature检查 (Digital Signature)
+    # 在这个 L0 层我们不严格要求必须有Signature（因为notall银行都有），
+    # 但如果「带有被破坏或无法Verify的SignatureField」，说明是被中途拦截并编辑过。
     has_sig = False
     for p in doc:
         for w in p.widgets():
@@ -91,17 +91,17 @@ def detect_pdf_forgery(file_path: str | Path) -> Tuple[bool, List[str]]:
 
 def detect_image_forgery(file_path: str | Path) -> Tuple[bool, List[str]]:
     """
-    检查扫描件/照片是否疑似被拼接、篡改过 (Error Level Analysis - ELA)。
+    Check if scan/photo has suspected splicing or tampering (Error Level Analysis - ELA)。
 
-    核心思路：
-    将图像以 95% 质量再次保存，若是源生拍摄，误差会均匀分布。
-    如果是抠图拼接的（如篡改金额），该文字框边缘像素的压缩退化情况将与全图格格不入。
+    Core idea:
+    Re-save image at 95% quality; original captures show uniform error distribution.
+    Spliced regions (e.g., tampered amounts) show inconsistent compression artifacts at edges.
     
     Args:
-        file_path: 图像路径 (jpg, png 等)
+        file_path: Image path (jpg, png 等)
 
     Returns:
-        (疑似篡改标志: bool, 异常原因列表: List[str])
+        (疑似篡改标志: bool, List of anomaly reasons: List[str])
     """
     is_forged = False
     reasons = []
@@ -115,29 +115,29 @@ def detect_image_forgery(file_path: str | Path) -> Tuple[bool, List[str]]:
 
     img_ext = Path(file_path).suffix.lower()
     if img_ext not in ['.jpg', '.jpeg', '.png']:
-        return False, [] # 仅对主流光栅图像做检测
+        return False, [] # Only detect mainstream raster images
 
     try:
-        # 读取原图
+        # Read original image
         original = cv2.imread(str(file_path))
         if original is None:
             return False, ["Unreadable Image Format"]
 
-        # ELA 算法: 内存中重压缩 95质量
+        # ELA 算法: In-memory re-compression 95质量
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 95]
         _, encimg = cv2.imencode('.jpg', original, encode_param)
         compressed = cv2.imdecode(encimg, 1)
 
-        # 提取残差并放大(增强可视化)
+        # Extract residual and amplify(Enhance visualization)
         diff = cv2.absdiff(original, compressed)
         
-        # 提取最大差值来评估全图是否有过度突变的异常区块
-        # 正常图像的残差(95压缩下)多在 0~15 之间。如果有远超阈值的差值且成块聚集，则可能是克隆。
+        # Extract max difference to evaluate if there are abnormally mutated blocks
+        # Normal image residual(95压缩下)mostly in 0-15 range。Block-clustered values far exceeding threshold may indicate cloning。
         max_diff = np.max(diff)
         
-        # 简单启发式阈值判断：若在高质量二次压缩后某处的颜色值跳变超过 50 (RGB跨度)，极度可疑
+        # Simple heuristic threshold check：If color value jump exceeds threshold after high-quality re-compression 50 (RGB跨度)，Highly suspicious
         if max_diff > 50:
-            # 进一步检查这些异常像素的连通域。如果面积过大，说明是 P 上去的。
+            # Further check connected components of anomalous pixels。If area is too large, indicates pasting/editing。
             gray_diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
             _, thresh = cv2.threshold(gray_diff, 40, 255, cv2.THRESH_BINARY)
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)

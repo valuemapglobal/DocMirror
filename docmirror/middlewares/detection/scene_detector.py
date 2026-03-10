@@ -1,20 +1,20 @@
 """
-场景检测中间件 (Scene Detector)
+Scene detection middleware (Scene Detector)
 ================================
 
-三层递进式场景检测:
-    Tier 1 (关键字规则):  速度快，覆盖常见场景
-    Tier 2 (表头特征):    结构化特征分析
-    Tier 3 (LLM 裁决):    仅在前两层置信度低时触发
+三 layer递进式场景Detect:
+    Tier 1 (关键字规则):  速度快，override常见场景
+    Tier 2 (Table header特征):    结构化特征Analyze
+    Tier 3 (LLM 裁决):    仅在前两 layerConfidence低时Trigger
 
-支持的场景:
-    - bank_statement:    银行流水
-    - invoice:           发票
+supports的场景:
+    - bank_statement:    Bank statement
+    - invoice:           Invoice
     - tax_report:        纳税/完税证明
     - financial_report:  财务报告
     - credit_report:     信用报告
-    - contract:          合同
-    - generic:           通用/未知
+    - contract:          Contract
+    - generic:           通用/Unknown
 """
 
 from __future__ import annotations
@@ -35,32 +35,32 @@ logger = logging.getLogger(__name__)
 
 SCENE_KEYWORDS: Dict[str, List[List[str]]] = {
     "bank_statement": [
-        # 每组关键字必须全部命中才算匹配
+        # 每组关键字必须all命中才算Match
         ["交易明细"],
         ["银行", "流水"],
-        ["账号", "交易"],
+        ["Account number", "交易"],
         ["Transaction", "Balance"],
         ["Statement", "Account"],
     ],
     "invoice": [
-        ["发票号码"],
-        ["增值税", "发票"],
+        ["Invoice number"],
+        ["增值税", "Invoice"],
         ["Invoice", "Tax"],
     ],
     "financial_report": [
         ["审计报告"],
-        ["资产负债表"],
-        ["利润表"],
+        ["资产负债 table"],
+        ["利润 table"],
         ["Annual Report"],
     ],
     "credit_report": [
-        ["征信报告"],
+        ["Credit report"],
         ["信用报告"],
         ["Credit Report"],
     ],
     "contract": [
-        ["合同编号"],
-        ["甲方", "乙方"],
+        ["Contract number"],
+        ["Party A", "Party B"],
         ["Contract No"],
     ],
     "tax_report": [
@@ -71,23 +71,23 @@ SCENE_KEYWORDS: Dict[str, List[List[str]]] = {
     ],
 }
 
-# 表头特征: 如果表格的表头包含这些列名组合，可以推断场景
+# Table header特征: 如果Table的Table headercontains这些列名Composition，可以推断场景
 HEADER_FEATURES: Dict[str, List[Set[str]]] = {
     "bank_statement": [
-        {"交易日期", "金额"},
-        {"交易日", "余额"},
+        {"Transaction date", "Amount"},
+        {"交易日", "Balance"},
         {"Date", "Amount", "Balance"},
-        {"交易时间", "交易金额"},
-        {"交易日期", "交易金额", "账户余额"},
-        {"摘要", "金额", "余额"},
+        {"交易时间", "Transaction amount"},
+        {"Transaction date", "Transaction amount", "AccountBalance"},
+        {"Abstract/Summary", "Amount", "Balance"},
     ],
     "invoice": [
-        {"品名", "数量", "单价", "金额"},
-        {"货物", "税率", "税额"},
+        {"品名", "数量", "单价", "Amount"},
+        {"货物", "Tax rate", "Tax amount"},
     ],
     "tax_report": [
-        {"税款", "税种", "入库日期"},
-        {"纳税金额", "完税"},
+        {"税款", "税种", "入库Date"},
+        {"纳税Amount", "完税"},
         {"税务机关", "完税证明"},
     ],
 }
@@ -95,13 +95,13 @@ HEADER_FEATURES: Dict[str, List[Set[str]]] = {
 
 class SceneDetector(BaseMiddleware):
     """
-    场景检测中间件。
+    Scene detection middleware。
 
-    更新 ``EnhancedResult.scene`` 字段。
+    Update ``EnhancedResult.scene`` Field。
     """
 
     def process(self, result: EnhancedResult) -> EnhancedResult:
-        """执行三层递进式场景检测。"""
+        """Execute三 layer递进式场景Detect。"""
         if result.base_result is None:
             result.scene = "generic"
             return result
@@ -126,7 +126,7 @@ class SceneDetector(BaseMiddleware):
             logger.info(f"[SceneDetector] Tier1 → {scene} (conf={confidence:.2f})")
             return result
 
-        # ── Tier 2: 表头特征 ──
+        # ── Tier 2: Table header特征 ──
         scene_t2, conf_t2 = self._tier2_header_features(table_blocks)
         if conf_t2 > confidence:
             scene, confidence = scene_t2, conf_t2
@@ -136,7 +136,7 @@ class SceneDetector(BaseMiddleware):
         if conf_entity > confidence:
             scene, confidence = scene_entity, conf_entity
 
-        # ── 视觉特征加权: 加粗标题含关键词 = 强信号 ──
+        # ── 视觉特征加权: BoldTitle含Keywords = 强信号 ──
         visual_boost = self._visual_feature_boost(result.base_result)
         if visual_boost[1] > 0 and visual_boost[0] == scene:
             confidence = min(0.95, confidence + visual_boost[1])
@@ -157,7 +157,7 @@ class SceneDetector(BaseMiddleware):
             logger.info(f"[SceneDetector] Tier2 → {scene} (conf={confidence:.2f})")
             return result
 
-        # ── Tier 3: LLM 裁决 (仅在低置信度时) ──
+        # ── Tier 3: LLM 裁决 (仅在Low confidence时) ──
         scene_llm, conf_llm = self._tier3_llm(full_text[:2000])
         if conf_llm > confidence:
             scene, confidence = scene_llm, conf_llm
@@ -178,7 +178,7 @@ class SceneDetector(BaseMiddleware):
     # ── Tier 1: 关键字规则 ──
 
     def _tier1_keyword(self, text: str) -> Tuple[str, float]:
-        """关键字组匹配 — 任意一组全部命中即判定。"""
+        """关键字组Match — 任意一组all命中即判定。"""
         if not text:
             return "generic", 0.0
 
@@ -188,7 +188,7 @@ class SceneDetector(BaseMiddleware):
         for scene, keyword_groups in SCENE_KEYWORDS.items():
             for group in keyword_groups:
                 if all(kw in text for kw in group):
-                    # 多组命中 → 置信度更高
+                    # 多组命中 → Confidence更高
                     conf = min(0.9, 0.7 + 0.1 * len(group))
                     if conf > best_conf:
                         best_scene = scene
@@ -196,10 +196,10 @@ class SceneDetector(BaseMiddleware):
 
         return best_scene, best_conf
 
-    # ── Tier 2: 表头特征 ──
+    # ── Tier 2: Table header特征 ──
 
     def _tier2_header_features(self, table_blocks) -> Tuple[str, float]:
-        """分析表格表头列名推断场景。"""
+        """AnalyzeTableTable header列名推断场景。"""
         if not table_blocks:
             return "generic", 0.0
 
@@ -208,13 +208,13 @@ class SceneDetector(BaseMiddleware):
             if not isinstance(raw, list) or not raw:
                 continue
 
-            # 获取表头 (第一行)
+            # 获取Table header (第一行)
             header = raw[0] if raw else []
             header_set = {str(h).strip() for h in header if h}
 
             for scene, feature_groups in HEADER_FEATURES.items():
                 for required in feature_groups:
-                    # 模糊子串匹配
+                    # 模糊子串Match
                     matched = 0
                     for req_kw in required:
                         for h in header_set:
@@ -231,10 +231,10 @@ class SceneDetector(BaseMiddleware):
 
     def _visual_feature_boost(self, base_result) -> Tuple[str, float]:
         """
-        利用 Style 视觉特征增强场景检测。
+        利用 Style 视觉特征增强场景Detect。
 
-        人类看文档时，大字号加粗标题是最强信号。
-        如果标题含"银行"、加粗、字号>14 → 几乎确定是银行流水。
+        人类看Document时，大Font sizeBoldTitle是最强信号。
+        如果Title含"银行"、Bold、Font size>14 → 几乎确定是Bank statement。
         """
         if base_result is None:
             return "generic", 0.0
@@ -242,13 +242,13 @@ class SceneDetector(BaseMiddleware):
         boost_scene = "generic"
         boost_conf = 0.0
 
-        # 视觉关键词映射
+        # 视觉KeywordsMap
         visual_keywords = {
             "bank_statement": ["银行", "Bank", "流水", "Statement", "交易明细"],
-            "invoice": ["发票", "Invoice", "增值税"],
-            "financial_report": ["审计", "报表", "Annual Report"],
+            "invoice": ["Invoice", "Invoice", "增值税"],
+            "financial_report": ["审计", "报 table", "Annual Report"],
             "credit_report": ["征信", "信用报告"],
-            "contract": ["合同", "Contract", "协议"],
+            "contract": ["Contract", "Contract", "Protocol"],
         }
 
         for block in base_result.all_blocks:
@@ -258,7 +258,7 @@ class SceneDetector(BaseMiddleware):
                 style = span.style
                 text = span.text
 
-                # 加粗 + 大字号 → 强信号
+                # Bold + 大Font size → 强信号
                 is_prominent = (
                     (style.is_bold and style.font_size >= 12)
                     or style.font_size >= 16
@@ -287,15 +287,15 @@ class SceneDetector(BaseMiddleware):
 
         keys = set(entities.keys())
 
-        # 银行流水特征 key
-        bank_keys = {"户名", "账号", "账户名", "卡号", "开户行", "查询期间",
-                      "账户名称", "客户名称", "打印期间"}
+        # Bank statement特征 key
+        bank_keys = {"Account name", "Account number", "Account name", "Card number", "Bank name", "Query period",
+                      "Account name称", "Customer name", "打印Period"}
         matched = len(keys & bank_keys)
         if matched >= 2:
             return "bank_statement", min(0.85, 0.5 + 0.15 * matched)
 
-        # 发票特征 key
-        invoice_keys = {"发票代码", "发票号码", "购买方", "销售方", "税额"}
+        # Invoice特征 key
+        invoice_keys = {"Invoice代码", "Invoice number", "Buyer", "Seller", "Tax amount"}
         matched = len(keys & invoice_keys)
         if matched >= 2:
             return "invoice", min(0.85, 0.5 + 0.15 * matched)
@@ -306,16 +306,16 @@ class SceneDetector(BaseMiddleware):
 
     def _tier3_llm(self, text_snippet: str) -> Tuple[str, float]:
         """
-        LLM 场景判断 — 仅在 Tier 1+2 都低置信度时调用。
+        LLM 场景判断 — 仅在 Tier 1+2 都Low confidence时call。
 
-        优化: 使用精简 Prompt，只发送前 2000 字符，控制成本。
+        Optimize: using精简 Prompt，只发送前 2000 字符，控制成本。
         """
         if not self.config.get("enable_llm", False):
             return "generic", 0.0
 
         try:
-            # 保留 LLM 调用接口，但默认不启用
-            # 如需启用，配置 enable_llm=True 并注入 LLM client
+            # retain LLM callInterface，但Default不Enable
+            # 如需Enable，Configuration enable_llm=True 并注入 LLM client
             logger.debug("[SceneDetector] Tier3 LLM skipped (not enabled)")
             return "generic", 0.0
         except Exception as e:

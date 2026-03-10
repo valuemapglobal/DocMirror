@@ -1,10 +1,10 @@
 """
-MultiModal 数据模型层。
+MultiModal Data模型 layer。
 
 核心三件套:
-    - domain.py:   BaseResult (frozen) — 不可变提取结果
+    - domain.py:   BaseResult (frozen) — ImmutableExtractResult
     - mutation.py: Mutation            — 变换血缘记录
-    - enhanced.py: EnhancedResult      — 增强后的最终结果
+    - enhanced.py: EnhancedResult      — 增强后的最终Result
 """
 
 from .entities.domain import Style, TextSpan, Block, PageLayout, BaseResult

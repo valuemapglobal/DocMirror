@@ -12,18 +12,18 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# OCR 后处理: 将 RapidOCR 的 "行级" 产出拆分为 "词级" 产出
+# OCR Post-processing: 将 RapidOCR 的 "行级" 产出Split为 "词级" 产出
 # ─────────────────────────────────────────────────────────────────────────────
-# RapidOCR 输出的是一整行的文本块 (如 "1720240224"), 而非独立的词。
-# 为了与 PyMuPDF 的 get_text("words") 对齐, 需要将合并文本拆分为
-# 独立的词块, 每个词块具有近似的 bounding box。
+# RapidOCR Output的是一整行的Text block (如 "1720240224"), 而非独立的词。
+# in order to与 PyMuPDF 的 get_text("words") Alignment, need to将Merge文本Split为
+# 独立的词块, each词块具有近似的 bounding box。
 #
-# 拆分规则 (按优先级):
-#   1. 序号+日期合并体: "1720240224" → "17", "20240224"
-#   2. 中文/数字边界:   "消费-实物商品" → 保留原样 (对列归属无影响)
-#   3. 纯数字金额:       "10,665.66" → 保留原样
+# Split规则 (按优先级):
+#   1. 序号+DateMerge体: "1720240224" → "17", "20240224"
+#   2. 中文/数字边界:   "消费-实物商品" → retain原样 (对列归属无影响)
+#   3. 纯数字Amount:       "10,665.66" → retain原样
 
-# 识别 "序号+YYYYMMDD" 的合并体
+# Recognize "序号+YYYYMMDD" 的Merge体
 _SEQ_DATE_RE = re.compile(r'^(\d{1,4})(20\d{6})$')
 
 
@@ -31,8 +31,8 @@ def _split_ocr_block(
     x0: float, y0: float, x1: float, y1: float, text: str
 ) -> List[Tuple[float, float, float, float, str]]:
     """
-    尝试将合并的 OCR 文本块拆分为多个子词块。
-    对无法/不必拆分的文本, 直接返回原块。
+    尝试将Merge的 OCR Text blockSplit为多个子词块。
+    对无法/不必Split的文本, 直接Returns原块。
     
     Returns:
         List of (x0, y0, x1, y1, sub_text)
@@ -43,7 +43,7 @@ def _split_ocr_block(
 
     total_width = x1 - x0
     
-    # Rule 1: 序号+日期 (e.g. "1720240224" → "17" + "20240224")
+    # Rule 1: 序号+Date (e.g. "1720240224" → "17" + "20240224")
     m = _SEQ_DATE_RE.match(text)
     if m:
         seq_part, date_part = m.group(1), m.group(2)
@@ -65,9 +65,9 @@ class RapidOCREngine:
     to match PyMuPDF's `get_text("words")` tuple structure.
     
     关键设计:
-      1. 调用 RapidOCR 获取行级文本+polygon 坐标。
-      2. 通过 _split_ocr_block 后处理, 将合并文本拆分为词级单元。
-      3. 输出格式与 PyMuPDF 完全一致: (x0, y0, x1, y1, text, block, line, word)。
+      1. call RapidOCR 获取行级文本+polygon Coordinates。
+      2. via _split_ocr_block Post-processing, 将Merge文本Split为词级单元。
+      3. OutputFormat与 PyMuPDF 完全一致: (x0, y0, x1, y1, text, block, line, word)。
     """
     _instance = None
     _engine = None
@@ -83,7 +83,7 @@ class RapidOCREngine:
             return
 
         if self._engine is None:
-            # 自动检测 GPU 可用性
+            # 自动Detect GPU 可用性
             use_cuda = False
             try:
                 import onnxruntime

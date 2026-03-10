@@ -12,8 +12,8 @@ if TYPE_CHECKING:
 
 class PerceptionFactory:
     """
-    感知工厂，自动根据文件类型及业务需求分发解析任务。
-    ParserDispatcher 以类级缓存单例方式管理, 避免重复初始化。
+    Perception factory that auto-dispatches parsing tasks by file type.
+    ParserDispatcher is managed as a class-level cached singleton to avoid re-initialization.
     """
     _dispatcher: Optional[ParserDispatcher] = None
 
@@ -35,7 +35,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# 便捷入口
+# Convenience entry point
 async def perceive_document(
     file_path: Union[str, Path],
     document_type: DocumentType = DocumentType.OTHER

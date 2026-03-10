@@ -1,13 +1,13 @@
 """
-图基语义路由 (Graph-based Semantic Router)
+Graph-based Semantic Router
 =============================================
 
-DeepSeek-OCR 2 的核心理念之一是 Visual Causal Flow (VCF)，即放弃原本死板的由上而下扫描，
-转而基于各视觉块的关联建立“拓扑排序流”。
-本模块为 MultiModal 专门设计的轻量级 Graph Router，用于接管传统 y-band 的硬切分：
-1. 构建二维空间连通图 (Spatial Graph Construction)
-2. 对离群节点打压 (Sidebar Penalization)
-3. 拓扑排序输出因果阅读流 (Causal Reading Sequence)
+DeepSeek-OCR 2 的One core concept is Visual Causal Flow (VCF)，abandoning rigid top-to-bottom scanning,
+转而based on各视觉块的Association建立“拓扑Sort流”。
+Lightweight Graph Router designed for DocMirror, replacing traditional y-band hard splitting:
+1. Spatial Graph Construction (2D connectivity graph)
+2. Sidebar Penalization (outlier node suppression)
+3. Causal Reading Sequence (topological sort output)
 """
 
 import math
@@ -17,8 +17,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# 为了规避循环引用，引入我们在 layout_analysis 中定义的 Zone 的结构
-# 仅用于类型提示，如果是鸭子类型 bbox 和 type 也可以直接运算
+# To avoid circular imports, we reference the Zone structure from layout_analysis
+# Used only for type hints，duck typing with bbox and type also works
 
 class GraphRouter:
     def __init__(self, page_width: float, page_height: float):
@@ -30,62 +30,62 @@ class GraphRouter:
         return (x0 + x1) / 2, (y0 + y1) / 2
 
     def _is_sidebar(self, bbox: Tuple[float, float, float, float]) -> bool:
-        """启发式判断一个块是否属于远离主轴的侧边栏或极边缘的页眉脚。"""
+        """Heuristically determine if a block is a sidebar or extreme header/footer."""
         x0, y0, x1, y1 = bbox
         w = x1 - x0
         cx, cy = self._get_center(bbox)
         
-        # 狭长的垂直元素
+        # Narrow vertical elements
         if w < self.page_width * 0.15 and (cx < self.page_width * 0.15 or cx > self.page_width * 0.85):
             return True
         return False
 
     def _detect_columns(self, zones: List[Any]) -> List[int]:
-        """检测页面中的栏结构 (单栏/双栏/三栏)。
+        """Detect column structure (single/double/triple column).
 
-        通过对 zone 中心 x 坐标聚类来判断栏数。
-        返回每个 zone 对应的栏号 (0-based, 从左到右)。
+        Determines column count by clustering zone center x-coordinates.
+        Returns column number for each zone (0-based, left to right).
 
-        对单栏文档 (如银行流水) 所有 zone 返回栏号 0 — 无影响。
+        For single-column docs all zones return column 0 — no effect.
         """
         if not zones:
             return []
 
-        # 收集非侧边栏的 zone 中心 x 坐标
+        # Collect center x-coordinates of non-sidebar zones
         cx_list = []
         for z in zones:
             x0, y0, x1, y1 = z.bbox
             w = x1 - x0
-            # 跳过宽度超过页面 60% 的块 (跨栏标题等)
+            # Skip blocks wider than 60% of page (cross-column titles, etc.)
             if w > self.page_width * 0.6:
                 cx_list.append(None)
             else:
                 cx_list.append((x0 + x1) / 2)
 
-        # 过滤有效的中心点
+        # Filter valid center points
         valid_cx = [cx for cx in cx_list if cx is not None]
         if len(valid_cx) < 2:
             return [0] * len(zones)
 
-        # 简单聚类: 按 x 坐标排序后寻找显著间隔
+        # Simple clustering: find significant gaps after sorting by x-coordinate
         sorted_cx = sorted(valid_cx)
         gaps = []
         for i in range(1, len(sorted_cx)):
             gap = sorted_cx[i] - sorted_cx[i-1]
-            if gap > self.page_width * 0.15:  # 间隔超过页宽 15% 视为栏分隔
+            if gap > self.page_width * 0.15:  # Gap exceeding 15% of page width is treated as column separator
                 gaps.append((sorted_cx[i-1] + sorted_cx[i]) / 2)
 
         if not gaps:
             return [0] * len(zones)
 
-        # 限制最多 3 栏
+        # Limit to max 3 columns
         gaps = gaps[:2]
 
-        # 为每个 zone 分配栏号
+        # Assign column number to each zone
         columns = []
         for cx in cx_list:
             if cx is None:
-                # 跨栏块: 分配到第一栏 (会被最先处理)
+                # Cross-column block: assign to first column (processed first)
                 columns.append(-1)
             else:
                 col = 0
@@ -103,14 +103,14 @@ class GraphRouter:
     def build_flow(self, zones: List[Any], reading_order_model=None,
                    enable_column_detection: bool = True) -> List[Any]:
         """
-        基于图论对 zones 重新进行语义优先级和空间关系的拓扑排序。
-        不再单纯依赖 top/bottom 的 y-band 拦截。
+        Graph-based topological sort of zones by semantic priority and spatial relations.
+        No longer relying solely on top/bottom y-band interception.
 
         Args:
-            zones: Zone 列表。
-            reading_order_model: 可选的 layoutreader 模型路径或 "auto"。
-            enable_column_detection: 是否启用显式栏检测。默认 True。
-                对单栏文档无影响，对多栏文档可大幅提升阅读顺序准确性。
+            zones: Zone list.
+            reading_order_model: Optional layoutreader model path or "auto".
+            enable_column_detection: Whether to enable explicit column detection. Default True.
+                No effect on single-column docs, significantly improves reading order for multi-column.
         """
         if not zones:
             return []
@@ -119,21 +119,21 @@ class GraphRouter:
         if n == 1:
             return zones
 
-        # ── 模型分支: layoutreader ──
+        # ── Model branch: layoutreader ──
         if reading_order_model:
             model_result = self._model_reading_order(zones, reading_order_model)
             if model_result is not None:
                 return model_result
 
-        # 1. 建立邻接图
-        # 边的方向代表 "A -> 应该先于 -> B 阅读"
+        # 1. Build adjacency graph
+        # Edge direction means "A -> should be read before -> B"
         adj: Dict[int, Set[int]] = defaultdict(set)
         in_degree: Dict[int, int] = defaultdict(int)
         
-        # 预计算属性
+        # Pre-compute attributes
         is_sidebar = [self._is_sidebar(z.bbox) for z in zones]
 
-        # 栏检测 (对单栏文档所有 zone 返回 0 — 无影响)
+        # Column detection (All zones return 0 for single-column docs — no effect)
         columns = self._detect_columns(zones) if enable_column_detection else [0] * n
         
         for i in range(n):
@@ -149,44 +149,44 @@ class GraphRouter:
                 cy_i = (y0_i + y1_i) / 2
                 cy_j = (y0_j + y1_j) / 2
                 
-                # Causal Constraints (因果有向边构建)
+                # Causal Constraints (Causal directed edge construction)
 
-                # Rule 0: 跨栏标题先于栏内内容
+                # Rule 0: Cross-column titles precede column content
                 if columns[i] == -1 and columns[j] >= 0:
                     if y1_i < y0_j + 15:
                         adj[i].add(j)
                         continue
                 
-                # Rule A: 主干先于侧边栏如果属于同一水平面 (Penalty logic)
+                # Rule A: Main content precedes sidebar at same vertical level (Penalty logic)
                 if is_sidebar[j] and not is_sidebar[i]:
-                    # 若在同一大段高度内，主干必须优先于 Sidebar
+                    # Within same height band, main content must precede sidebar
                     if abs(cy_i - cy_j) < self.page_height * 0.2:
                         adj[i].add(j)
                         continue
                 
-                # Rule B: 显著的上方优先于下方
-                if y1_i < y0_j + 15:  # i 的底部还在 j 顶部的明显上方
+                # Rule B: Significantly above takes precedence over below
+                if y1_i < y0_j + 15:  # i bottom is still at j clearly above top
                     adj[i].add(j)
                     continue
                     
-                # Rule C: 水平分栏的情况 (左侧优先于右侧)
-                # 当它们的高度显著重叠时
+                # Rule C: Horizontal column case (left precedes right)
+                # When their heights significantly overlap
                 y_overlap = max(0, min(y1_i, y1_j) - max(y0_i, y0_j))
                 h_i, h_j = y1_i - y0_i, y1_j - y0_j
-                if y_overlap > min(h_i, h_j) * 0.4:  # 重叠度达到 40% 视为同一栏
-                    if x1_i < x0_j + 15:  # i 在 j 左边
+                if y_overlap > min(h_i, h_j) * 0.4:  # 40% overlap treated as same column level
+                    if x1_i < x0_j + 15:  # i to the left of j
                         adj[i].add(j)
                         
-        # 计算入度
+        # Calculate入度
         for i in range(n):
-            in_degree[i] = 0 # 初始化所有节点
+            in_degree[i] = 0 # Initializeall节点
         for u in adj:
             for v in adj[u]:
                 in_degree[v] += 1
 
-        # 2. 拓扑排序 (Kahn's Algorithm)
-        # 用优先队列（堆）来做拓扑排序的决胜局
-        # 权重: 栏号 > type 语义 > y 轴高度
+        # 2. 拓扑Sort (Kahn's Algorithm)
+        # 用优先Queue（堆）来做拓扑Sort的决胜局
+        # 权重: 栏号 > type 语义 > y 轴Height
         import heapq
         
         _ZONE_ORDER = {
@@ -219,7 +219,7 @@ class GraphRouter:
                     qw = _ZONE_ORDER.get(zones[v].type, 3)
                     heapq.heappush(queue, (col, qw, zones[v].bbox[1], v))
         
-        # 兜底：如果存在环 (Cycle)，降级为原始 Y 轴+语义双键排序
+        # 兜底：如果存在环 (Cycle)，Downgrade to原始 Y 轴+语义双键Sort
         if len(sorted_indices) != n:
             logger.debug("[v2] Graph Router detected cycle, falling back to static sort.")
             return sorted(zones, key=lambda z: (_ZONE_ORDER.get(z.type, 3), z.bbox[1]))
@@ -228,14 +228,14 @@ class GraphRouter:
         return [zones[i] for i in sorted_indices]
 
     def _model_reading_order(self, zones: List[Any], model_path: str) -> Optional[List[Any]]:
-        """使用 layoutreader 模型预测阅读顺序。
+        """using layoutreader 模型预测Reading order。
 
         Args:
-            zones: Zone 列表。
-            model_path: HuggingFace 模型路径或 "auto"。
+            zones: Zone list.
+            model_path: HuggingFace 模型Path或 "auto"。
 
         Returns:
-            排序后的 Zone 列表，或 None (失败时回退到图方法)。
+            Sort后的 Zone List，或 None (Failed时Fallback到图Method)。
         """
         try:
             from transformers import LayoutLMv3ForTokenClassification, LayoutLMv3Tokenizer
@@ -253,7 +253,7 @@ class GraphRouter:
                 self._layoutreader_model.eval()
                 logger.info(f"[GraphRouter] Loaded layoutreader from {repo_id}")
 
-            # 准备 bbox 输入 (归一化到 0-1000)
+            # 准备 bbox Input (归一化到 0-1000)
             bboxes = []
             for z in zones:
                 x0, y0, x1, y1 = z.bbox
@@ -265,7 +265,7 @@ class GraphRouter:
                 ]
                 bboxes.append(norm_bbox)
 
-            # 简化输入: 每个 zone 一个 token
+            # 简化Input: each zone 一个 token
             words = [f"zone{i}" for i in range(len(zones))]
 
             encoding = self._layoutreader_tokenizer(
@@ -279,7 +279,7 @@ class GraphRouter:
             with torch.no_grad():
                 outputs = self._layoutreader_model(**encoding)
 
-            # 预测的结果是每个 token 的阅读顺序标签
+            # 预测的Result是each token 的Reading order标签
             logits = outputs.logits
             predictions = logits.argmax(-1).squeeze().tolist()
 
@@ -290,7 +290,7 @@ class GraphRouter:
             # 实际 token 对应 predictions[1:-1]
             zone_orders = predictions[1:len(zones)+1]
 
-            # 按照预测的阅读顺序排序
+            # 按照预测的Reading orderSort
             indexed_zones = list(enumerate(zones))
             indexed_zones.sort(key=lambda x: zone_orders[x[0]] if x[0] < len(zone_orders) else 999)
 

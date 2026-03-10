@@ -1,14 +1,14 @@
 """
-Pipeline 注册表 — 按格式注册中间件组合
+Pipeline Registry — 按FormatRegisterMiddlewareComposition
 ==========================================
 
-扩展方式: 在 FORMAT_PIPELINES 中添加新格式即可。
+Extension方式: 在 FORMAT_PIPELINES 中add新Format即可。
 """
 
 from typing import Dict, List
 
 
-# 格式 → { 增强模式 → 中间件列表 }
+# Format → { 增强Mode → MiddlewareList }
 FORMAT_PIPELINES: Dict[str, Dict[str, List[str]]] = {
     "pdf": {
         "raw": [],
@@ -40,7 +40,7 @@ FORMAT_PIPELINES: Dict[str, Dict[str, List[str]]] = {
         "raw": [],
         "standard": ["LanguageDetector", "GenericEntityExtractor"],
     },
-    # 通配 fallback: 未注册格式使用
+    # 通配 fallback: 未RegisterFormatusing
     "*": {
         "raw": [],
         "standard": ["LanguageDetector"],
@@ -50,14 +50,14 @@ FORMAT_PIPELINES: Dict[str, Dict[str, List[str]]] = {
 
 def get_pipeline_config(file_type: str, enhance_mode: str = "standard") -> List[str]:
     """
-    获取指定格式 + 增强模式的中间件列表。
+    获取指定Format + 增强Mode的MiddlewareList。
 
     Args:
-        file_type:    文件格式 (pdf, image, excel, word, ...)
-        enhance_mode: 增强模式 (raw, standard, full)
+        file_type:    FileFormat (pdf, image, excel, word, ...)
+        enhance_mode: 增强Mode (raw, standard, full)
 
     Returns:
-        中间件名称列表 (按执行顺序)
+        MiddlewareNameList (按Execute顺序)
     """
     fmt_config = FORMAT_PIPELINES.get(file_type, FORMAT_PIPELINES.get("*", {}))
     return fmt_config.get(enhance_mode, fmt_config.get("standard", []))

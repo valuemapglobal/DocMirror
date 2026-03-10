@@ -1,10 +1,10 @@
 """
-L2 机构识别中间件 (Institution Detector)
+L2 Institution identificationMiddleware (Institution Detector)
 =========================================
 
-在 scene=bank_statement 时，从全文/首页文本识别具体银行 (institution id)。
-策略：先 identification_keywords 精确匹配，再按银行全称（按名称长度降序）匹配。
-配置来自 configs/institution_registry.yaml。
+在 scene=bank_statement 时，从全文/首页文本RecognizeConcrete银行 (institution id)。
+策略：先 identification_keywords 精确Match，再按银行全称（按Name长度降序）Match。
+Configuration来自 configs/institution_registry.yaml。
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def _load_registry() -> Dict[str, Dict[str, Any]]:
-    """加载机构注册表。"""
+    """Load机构Registry。"""
     try:
         import yaml
         registry_path = Path(__file__).parent.parent.parent / "configs" / "institution_registry.yaml"
@@ -36,12 +36,12 @@ def _load_registry() -> Dict[str, Dict[str, Any]]:
 
 def _extract_header_area(full_text: str, max_chars: int = 5000) -> str:
     """
-    截取「表头区域」：在常见交易列关键字之前的内容，用于机构识别。
-    避免在交易流水条目中误匹配对手方银行名。
+    截取「Table header区域」：在常见交易列关键字before的内容，用于Institution identification。
+    avoid在交易流水条目中误Match对手方银行名。
     """
     column_keywords = [
-        "交易日期", "凭证类型", "交易时间", "序号",
-        "交易明细", "记账日期", "交易类型",
+        "Transaction date", "凭证Type", "交易时间", "序号",
+        "交易明细", "记账Date", "交易Type",
     ]
     cut_pos = len(full_text)
     for kw in column_keywords:
@@ -53,8 +53,8 @@ def _extract_header_area(full_text: str, max_chars: int = 5000) -> str:
 
 def detect_institution(full_text: str, registry: Dict[str, Dict[str, Any]]) -> Optional[str]:
     """
-    L2 机构识别：返回 institution_id 或 None。
-    先按 identification_keywords 匹配，再按银行全称（按名称长度降序）匹配。
+    L2 Institution identification：Returns institution_id 或 None。
+    先按 identification_keywords Match，再按银行全称（按Name长度降序）Match。
     """
     if not full_text or not registry:
         return None
@@ -67,7 +67,7 @@ def detect_institution(full_text: str, registry: Dict[str, Dict[str, Any]]) -> O
         if keywords and all(kw in normalized for kw in keywords):
             return inst_id
 
-    # Pass 2: 名称全称（按长度降序）
+    # Pass 2: Name全称（按长度降序）
     sorted_banks = sorted(
         registry.items(),
         key=lambda kv: len(kv[1].get("name", "")),
@@ -78,7 +78,7 @@ def detect_institution(full_text: str, registry: Dict[str, Dict[str, Any]]) -> O
         if name and name in header_text:
             return inst_id
 
-    # Pass 3: 别名匹配 (缩写/俗称, 如 "工行"→icbc)
+    # Pass 3: Alias matching (缩写/俗称, 如 "工行"→icbc)
     for inst_id, info in registry.items():
         for alias in info.get("aliases", []):
             if alias and alias in header_text:
@@ -89,8 +89,8 @@ def detect_institution(full_text: str, registry: Dict[str, Dict[str, Any]]) -> O
 
 class InstitutionDetector(BaseMiddleware):
     """
-    L2 机构识别：在 bank_statement 场景下输出 institution。
-    将结果写入 result.enhanced_data["institution"]，供 ColumnMapper 等使用。
+    L2 Institution identification：在 bank_statement 场景下Output institution。
+    将Result写入 result.enhanced_data["institution"]，供 ColumnMapper 等using。
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):

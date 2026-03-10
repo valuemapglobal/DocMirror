@@ -1,4 +1,4 @@
-"""MultiModal 中间件管线。"""
+"""MultiModal MiddlewarePipeline。"""
 
 from .base import BaseMiddleware, MiddlewarePipeline
 from .detection.scene_detector import SceneDetector

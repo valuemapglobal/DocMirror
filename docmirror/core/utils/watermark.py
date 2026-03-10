@@ -1,9 +1,9 @@
 """
-预处理与水印过滤 (Preprocessing & Watermark Filter)
+预Processing与WatermarkFilter (Preprocessing & Watermark Filter)
 =====================================================
 
-从 layout_analysis.py 拆分的 PDF 预处理功能。
-包含 preprocess_pdf、filter_watermark_page、_dedup_overlapping_chars。
+从 layout_analysis.py Split的 PDF 预Processing功能。
+contains preprocess_pdf、filter_watermark_page、_dedup_overlapping_chars。
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from typing import Dict
 logger = logging.getLogger(__name__)
 
 def preprocess_pdf(file_path: Path) -> Path:
-    """Layer 0 物理清洗: 用 pikepdf 剔除标注层。"""
+    """Layer 0 物理清洗: 用 pikepdf 剔除标注 layer。"""
     try:
         import pikepdf
         pdf = pikepdf.open(str(file_path))
@@ -36,8 +36,8 @@ def preprocess_pdf(file_path: Path) -> Path:
 
 def is_watermark_char(obj: Dict) -> bool:
     """
-    判断 pdfplumber 字符对象是否为水印。
-    三重检测: 旋转/矩阵/颜色。
+    判断 pdfplumber 字符ObjectWhether为Watermark。
+    三重Detect: Rotation/矩阵/颜色。
     """
     if not obj.get("upright", True):
         return True
@@ -51,7 +51,7 @@ def is_watermark_char(obj: Dict) -> bool:
 
 
 def filter_watermark_page(page):
-    """过滤 pdfplumber 页面中的水印字符。"""
+    """Filter pdfplumber Page中的Watermark字符。"""
     return page.filter(
         lambda obj: obj.get("object_type") != "char"
         or not is_watermark_char(obj)
@@ -59,7 +59,7 @@ def filter_watermark_page(page):
 
 
 def _dedup_overlapping_chars(page):
-    """去除伪加粗重复字符。"""
+    """去除伪Bold重复字符。"""
     seen = set()
     dedup_ids = set()
     bucket = 3

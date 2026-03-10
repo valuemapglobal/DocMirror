@@ -1,22 +1,22 @@
 """
-布局检测模型封装 (Layout Detection Model)
+布局Detect模型Encapsulation (Layout Detection Model)
 ==========================================
 
-封装 RapidLayout (ONNX) 模型，用于模型级布局检测。
-当模型不可用时，自动回退到规则方法。
+Encapsulation RapidLayout (ONNX) 模型，用于模型级布局Detect。
+当模型不可用时，自动Falling back to rulesMethod。
 
 来源: https://github.com/RapidAI/RapidLayout
 内置模型: DocLayout-YOLO, PP-Layout-CDLA, PP-DocLayoutV3 等 12 种
 
-使用方式::
+Usage::
 
-    detector = LayoutDetector()           # 默认 DOCLAYOUT_DOCSTRUCTBENCH
-    detector = LayoutDetector("cdla")     # 中文文档版面
+    detector = LayoutDetector()           # Default DOCLAYOUT_DOCSTRUCTBENCH
+    detector = LayoutDetector("cdla")     # 中文Document版面
     regions = detector.detect(page_image)
 
-需要:
+need to:
     - rapid-layout (pip install rapid-layout)
-    - onnxruntime (已有, RapidOCR 依赖)
+    - onnxruntime (已有, RapidOCR Dependency)
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ try:
 except ImportError:
     HAS_RAPID_LAYOUT = False
 
-# RapidLayout class_name → MultiModal Zone 类型
+# RapidLayout class_name → MultiModal Zone Type
 _CATEGORY_MAP = {
     # DocLayout-YOLO (DOCLAYOUT_DOCSTRUCTBENCH) 10 类
     "title": "title",
@@ -54,7 +54,7 @@ _CATEGORY_MAP = {
     "equation": "formula",
 }
 
-# 模型类型别名映射 (字符串 → ModelType)
+# 模型Type别名Map (字符串 → ModelType)
 _MODEL_ALIASES = {
     "doclayout": "DOCLAYOUT_DOCSTRUCTBENCH",
     "doclayout_docstructbench": "DOCLAYOUT_DOCSTRUCTBENCH",
@@ -74,24 +74,24 @@ _MODEL_ALIASES = {
 
 @dataclass
 class DetectedRegion:
-    """模型检测到的区域。"""
-    category: str           # 映射后的 MultiModal Zone 类型
+    """模型Detect到的区域。"""
+    category: str           # Map后的 MultiModal Zone Type
     bbox: Tuple[float, float, float, float]   # (x0, y0, x1, y1)
-    confidence: float       # 置信度 0-1
+    confidence: float       # Confidence 0-1
     raw_category_id: str    # 原始模型类别名
 
 
 class LayoutDetector:
-    """RapidLayout 布局检测器。
+    """RapidLayout 布局Detect器。
 
-    懒加载模型，首次 detect() 时初始化。
-    支持 12 种内置模型，通过 model_type 选择。
+    懒Load模型，首次 detect() 时Initialize。
+    supports 12 种内置模型，via model_type 选择。
     """
 
     def __init__(self, model_type: str = "doclayout_docstructbench"):
         """
         Args:
-            model_type: 模型类型名称，支持简写别名。
+            model_type: 模型TypeName，supports简写别名。
                 常用值: "doclayout", "cdla", "layoutv3", "paper", "general6"
         """
         self._model_type_str = model_type
@@ -99,7 +99,7 @@ class LayoutDetector:
         self._available = HAS_RAPID_LAYOUT
 
     def _ensure_engine(self) -> bool:
-        """懒加载引擎。"""
+        """懒LoadEngine。"""
         if not self._available:
             return False
         if self._engine is not None:
@@ -121,14 +121,14 @@ class LayoutDetector:
         page_image,
         confidence_threshold: float = 0.5,
     ) -> List[DetectedRegion]:
-        """检测页面布局区域。
+        """DetectPage布局区域。
 
         Args:
-            page_image: 页面图像 (numpy ndarray, HxWx3 RGB/BGR, 或路径)。
-            confidence_threshold: 置信度阈值。
+            page_image: Page图像 (numpy ndarray, HxWx3 RGB/BGR, 或Path)。
+            confidence_threshold: ConfidenceThreshold。
 
         Returns:
-            DetectedRegion 列表，按 y 坐标排序。
+            DetectedRegion List，按 y CoordinatesSort。
         """
         if not self._ensure_engine():
             return []
@@ -154,7 +154,7 @@ class LayoutDetector:
 
             bbox = (float(box[0]), float(box[1]), float(box[2]), float(box[3]))
 
-            # 过滤面积过小的检测结果
+            # FilterArea过小的Detection result
             area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
             if area < 100:
                 continue
@@ -166,7 +166,7 @@ class LayoutDetector:
                 raw_category_id=cls_name,
             ))
 
-        # 按 y 坐标排序 (阅读顺序)
+        # 按 y CoordinatesSort (Reading order)
         regions.sort(key=lambda r: r.bbox[1])
 
         logger.debug(f"[LayoutDetector] Detected {len(regions)} regions (threshold={confidence_threshold})")
@@ -174,5 +174,5 @@ class LayoutDetector:
 
     @property
     def is_available(self) -> bool:
-        """模型是否可用。"""
+        """模型Whether可用。"""
         return self._available

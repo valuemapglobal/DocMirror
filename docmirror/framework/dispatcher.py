@@ -1,16 +1,16 @@
 
 """
-多模态解析分发器 (MultiModal Parser Dispatcher)
+多模态ParseDispatcher (MultiModal Parser Dispatcher)
 
-该模块是多模态解析系统的 L0 路由层。
+This module is the L0 routing layer of the document parsing system.
 它的设计哲学是“单一职责”：
-1. L0: 识别文件类型 (File Type Detection) -> 分发到对应场景 Parser。
-2. L1 & L2: PDF 内部的业务场景 (Category) 和机构 (Institution) 识别下沉至 DigitalPDFParser 内部处理。
+1. L0: File type detection → dispatch to corresponding parser.
+2. L1 & L2: PDF internal business category and institution identification is delegated to DigitalPDFParser.
 
-架构模型:
-    - Dispatcher (L0): 文件格式路由 (PDF, Image, Office...)
-    - DigitalPDFParser (L1/L2): PDF 深度分类与路由 (银行流水, 征信报告...)
-    - InstitutionPlugin: 各机构特定的解析逻辑
+Architecture model:
+    - Dispatcher (L0): File format routing (PDF, Image, Office...)
+    - DigitalPDFParser (L1/L2): PDF deep classification & routing (bank statement, credit report...)
+    - InstitutionPlugin: Institution-specific parsing logic
 """
 
 import logging
@@ -23,19 +23,19 @@ from typing import Dict, Type, Optional, Union, Any, List
 
 from docmirror.framework.base import BaseParser, ParserOutput, ParserStatus
 
-# 初始化日志记录器
+# Initialize logger
 logger = logging.getLogger(__name__)
 
 
 class ParserDispatcher:
     """
-    ParserDispatcher 是解析流水线的入口。
+    ParserDispatcher is the entry point for the parsing pipeline.
     
-    职责:
-    - I/O 层面的文件校验 (存在性, 大小)。
-    - 快速识别文件真实类型 (Magic Number + Extension)。
-    - 根据类型选择最优的 Parser。
-    - 处理主解析过程失败后的 Fallback 策略。
+    Responsibilities:
+    - I/O-level file validation (existence, size).
+    - Fast file type identification (Magic Number + Extension).
+    - Select optimal parser by file type.
+    - Handle fallback strategy after primary parse failure.
     """
 
     async def process(
@@ -47,14 +47,14 @@ class ParserDispatcher:
         **kwargs
     ) -> Any:
         """
-        处理文档解析的主入口方法。
+        Main entry point for document parsing.
 
-        调用 adapter.perceive() 直接返回 PerceptionResult (新路径)。
+        Calls adapter.perceive() to directly return PerceptionResult (new path).
         """
         _t0 = time.time()
         path = Path(file_path)
 
-        # ── 1. 文件上下文准备 ──
+        # ── 1. File context preparation ──
         import hashlib
         _file_checksum = ""
         _file_mime = ""
@@ -70,7 +70,7 @@ class ParserDispatcher:
             _ft = filetype.guess(str(path))
             _file_mime = _ft.mime if _ft else ""
 
-        # ── 2. 缓存查找 ──
+        # ── 2. Cache lookup ──
         if not skip_cache and _file_checksum:
             from docmirror.framework.cache import parse_cache
             try:
@@ -82,7 +82,7 @@ class ParserDispatcher:
             except Exception as e:
                 logger.debug(f"[Dispatcher] Cache lookup error (non-fatal): {e}")
 
-        # ── 3. 物理校验 ──
+        # ── 3. Physical validation ──
         _file_type = ""
         _is_forged: Optional[bool] = None
         _forgery_reasons: List[str] = []
@@ -96,7 +96,7 @@ class ParserDispatcher:
         if file_size == 0:
             return self._build_failure("File is empty (0 bytes)", _t0, str(path))
 
-        # ── 4. L0 路由 ──
+        # ── 4. L0 routing ──
         file_type = self._detect_file_type(path)
         _file_type = file_type
         logger.info(f"[Dispatcher] ▶ process | file={path.name} | size={file_size}B | fallback={fallback} | doc_type={document_type}")
@@ -109,7 +109,7 @@ class ParserDispatcher:
         if not parser:
             return self._build_failure(f"Unsupported format: {file_type}", _t0, str(path), file_type=_file_type)
 
-        # ── 5. 防伪检测 ──
+        # ── 5. Forgery detection ──
         try:
             if file_type == 'pdf':
                 from docmirror.core.security.forgery_detector import detect_pdf_forgery
@@ -120,9 +120,9 @@ class ParserDispatcher:
         except Exception as e:
             logger.warning(f"Forgery Detection Engine error: {e}")
 
-        # ── 6. 解析分发 — 调用 perceive() 直接返回 PerceptionResult ──
+        # ── 6. Parse dispatch — call perceive() to return PerceptionResult ──
         pname = parser.__class__.__name__
-        # 构建 context 供 perceive/Builder 使用
+        # Build context for perceive/Builder
         context = {
             "file_path": str(path),
             "file_type": _file_type,
@@ -136,13 +136,13 @@ class ParserDispatcher:
         }
         try:
             logger.info(f"Dispatching to {pname}")
-            # perceive() 的第一个位置参数就是 file_path,
-            # 为避免 "got multiple values for argument 'file_path'" 错误,
-            # 在 **context 展开前移除 file_path。
+            # The first positional arg of perceive() is file_path,
+            # to avoid "got multiple values for argument 'file_path'" error,
+            # remove file_path before spreading **context.
             perceive_ctx = {k: v for k, v in context.items() if k != "file_path"}
             perception = await parser.perceive(path, **perceive_ctx)
 
-            # ── 7. Fallback 容错 ──
+            # ── 7. Fallback error handling ──
             if fallback and (not perception.success or not perception.content.text.strip()):
                 fallback_parser = self._get_fallback_parser(file_type)
                 if fallback_parser and fallback_parser.__class__ != parser.__class__:
@@ -156,12 +156,12 @@ class ParserDispatcher:
                         logger.info(f"[Dispatcher] ◀ process | parser={fallback_parser.__class__.__name__}(fallback) | status={fb_perception.status} | elapsed={_elapsed}ms")
                         return fb_perception
 
-            # ── 8. 计时 + 日志 ──
+            # ── 8. Timing + logging ──
             _elapsed = int((time.time() - _t0) * 1000)
             perception.timing.elapsed_ms = _elapsed
             logger.info(f"[Dispatcher] ◀ process | parser={pname} | status={perception.status} | confidence={perception.confidence:.4f} | text_len={len(perception.content.text)} | tables={len(perception.tables)} | forged={_is_forged} | elapsed={_elapsed}ms")
 
-            # ── 9. 写缓存 (仅成功) ──
+            # ── 9. Write cache (success only) ──
             if _file_checksum and perception.success:
                 try:
                     from docmirror.framework.cache import parse_cache
@@ -188,7 +188,7 @@ class ParserDispatcher:
         is_forged: Optional[bool] = None,
         forgery_reasons: Optional[List[str]] = None,
     ):
-        """构建失败的 PerceptionResult (替代旧 _wrap(ParserOutput(FAILURE)))。"""
+        """Build a failure PerceptionResult (replaces legacy _wrap(ParserOutput(FAILURE)))."""
         from docmirror.models.perception_result import (
             PerceptionResult, ResultStatus, ErrorDetail, TimingInfo, Provenance, SourceInfo,
             DocumentContent, ValidationResult,
@@ -211,10 +211,10 @@ class ParserDispatcher:
 
     def _detect_file_type(self, path: Path) -> str:
         """
-        利用 Magic Number (filetype) 结合后缀名做复合判断。
+        Uses Magic Number (filetype) combined with extension for composite detection.
         
-        为什么不只用后缀? 后缀易篡改且不可靠。
-        为什么不只用 Magic Number? 某些 Office 格式 (DOC) 的 magic number 较难唯一识别。
+        Why not just extension? Extensions can be tampered with and are unreliable.
+        Why not just Magic Number? Some Office formats (DOC) have ambiguous magic numbers.
         """
         try:
             kind = filetype.guess(str(path))
@@ -242,8 +242,8 @@ class ParserDispatcher:
 
     def _get_parser_for_type(self, file_type: str) -> Optional[BaseParser]:
         """
-        L0 静态映射表 — 优先使用 Adapter 层。
-        PDF 使用统一的 MultiModalParser (通过 PDFAdapter 路由)。
+        L0 static mapping table — Adapter layer preferred.
+        PDF using统一的 MultiModalParser (via PDFAdapter Routing)。
         """
         if file_type == 'pdf':
             import os
@@ -275,11 +275,11 @@ class ParserDispatcher:
 
     def _get_fallback_parser(self, file_type: str) -> Optional[BaseParser]:
         """
-        定义当首选 Parser 失败时的降级方案。
+        Defines fallback strategy when primary parser fails.
         
-        当前 PDF 没有更底层的降级 parser，如果 MultiModal 失败，直接返回 None。
+        当前 PDF 没有更底 layer的Downgrade parser，如果 MultiModal Failed，直接Returns None。
         """
         if file_type == 'pdf':
-            # MultiModal 集成了所有手段(含 OCR) ，不再向扫描件老代码降级。
+            # MultiModal 集成了all手段(含 OCR) ，不再向Scanned document老代码Downgrade。
             return None
         return None

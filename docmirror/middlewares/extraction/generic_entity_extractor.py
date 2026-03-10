@@ -1,9 +1,9 @@
 """
-GenericEntityExtractor — 跨格式通用实体提取中间件
+GenericEntityExtractor — 跨Format通用Entity extraction middleware
 ====================================================
 
-从 BaseResult 的 key_value Block 中提取实体。
-不依赖任何格式专有逻辑，适用于所有文件格式。
+从 BaseResult 的 key_value Block 中Extract entities。
+不DependencyanyFormat专有逻辑，适用于allFileFormat。
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class GenericEntityExtractor(BaseMiddleware):
-    """通用实体提取 — 从 KV blocks 提取实体到 enhanced_data。"""
+    """Generic entitiesExtract — 从 KV blocks Extract entities到 enhanced_data。"""
 
     def process(self, result: EnhancedResult) -> EnhancedResult:
         if result.base_result is None:

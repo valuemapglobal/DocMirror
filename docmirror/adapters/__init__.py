@@ -1,12 +1,12 @@
 """
-Adapters — 格式适配器层
+Adapters — Format adapter layer
 ========================
 
-每个 Adapter 负责:
-    1. 将特定格式文件转换为 ``BaseResult``
-    2. 可选地直接返回 ``ParserOutput`` (向后兼容)
+each Adapter 负责:
+    1. 将特定FormatFileConvert为 ``BaseResult``
+    2. Optional地直接Returns ``ParserOutput`` (Backward compatible)
 
-Adapter 不引入任何业务逻辑 — 业务增强由 Middleware 管线统一处理。
+Adapter 不引入any业务逻辑 — 业务增强由 Middleware Pipeline统一Processing。
 """
 
 from .pdf import PDFAdapter

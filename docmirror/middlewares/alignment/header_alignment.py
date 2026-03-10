@@ -1,12 +1,12 @@
 """
-表头-数据对齐验证 (Header-Data Alignment Verification)
+Table header-DataAlignmentValidate (Header-Data Alignment Verification)
 ======================================================
 
-从 ``column_mapper.py`` 提取: 基于内容类型推断的列对齐校验和修正。
+从 ``column_mapper.py`` Extract: based on内容Type推断的列AlignmentVerify和修正。
 
 核心功能:
-  - ``infer_column_type()``: 对数据列做类型分布采样 (date/amount/seq/text)
-  - ``verify_header_data_alignment()``: 检测并修正表头与数据的系统性偏移
+  - ``infer_column_type()``: 对Data列做Type分布采样 (date/amount/seq/text)
+  - ``verify_header_data_alignment()``: Detect并修正Table header与Data的系统性偏移
 """
 
 from __future__ import annotations
@@ -18,14 +18,14 @@ from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# 日期正则 (宽松，覆盖 YYYYMMDD / YYYY-MM-DD / YYYY.MM.DD / YYYY/MM/DD 等)
+# Date正则 (宽松，override YYYYMMDD / YYYY-MM-DD / YYYY.MM.DD / YYYY/MM/DD 等)
 _RE_COL_DATE = re.compile(
     r'^\d{8}(\s*\d{1,2}:\d{2}(:\d{2})?)?$|'
     r'^\d{4}[-/.年]\d{1,2}[-/.月]\d{1,2}日?'
     r'(\s*\d{1,2}:\d{2}(:\d{2})?)?$|'
     r'^\d{2}[-/]\d{2}[-/]\d{4}$'
 )
-# 金额正则 (含逗号分隔)
+# Amount正则 (含逗号分隔)
 _RE_COL_AMOUNT = re.compile(r'^[+-]?\d[\d,]*\.\d{1,4}$')
 # 序号正则 (纯整数, 1~8 位)
 _RE_COL_SEQ = re.compile(r'^\d{1,8}$')
@@ -34,7 +34,7 @@ _RE_COL_SEQ = re.compile(r'^\d{1,8}$')
 def infer_column_type(
     data_rows: List[List[str]], col_idx: int, sample_size: int = 30,
 ) -> Dict[str, float]:
-    """推断单列的数据类型分布。
+    """推断单列的DataType分布。
 
     Returns:
         {"date": 0.9, "amount": 0.05, "seq": 0.0, "text": 0.05}
@@ -70,17 +70,17 @@ def verify_header_data_alignment(
     mutation_recorder=None,
     middleware_name: str = "ColumnMapper",
 ) -> List[str]:
-    """验证表头与数据列是否对齐，检测并修正系统性偏移。
+    """ValidateTable header与Data列WhetherAlignment，Detect并修正系统性偏移。
 
     Args:
-        headers: 原始表头列表。
-        data_rows: 数据行。
-        header_type_expectations: 表头名 → 期望类型 ("date"/"amount"/"seq")。
-        mutation_recorder: 可选的 EnhancedResult 用于记录 mutation。
-        middleware_name: mutation 记录的中间件名。
+        headers: 原始Table headerList。
+        data_rows: Data行。
+        header_type_expectations: Table header名 → 期望Type ("date"/"amount"/"seq")。
+        mutation_recorder: Optional的 EnhancedResult 用于记录 mutation。
+        middleware_name: mutation 记录的Middleware名。
 
     Returns:
-        修正后的表头列表 (或原样返回)。
+        修正后的Table headerList (或原样Returns)。
     """
     n_cols = len(headers)
     if len(data_rows) < 5 or n_cols < 3:
@@ -108,7 +108,7 @@ def verify_header_data_alignment(
     if len(anchors) < 2:
         return headers
 
-    # ── Step 2: 对每个锚点列，检查是否对齐 ──
+    # ── Step 2: 对each锚点列，检查WhetherAlignment ──
     offsets: List[Dict] = []
     for anchor in anchors:
         hi = anchor["header_idx"]
@@ -136,7 +136,7 @@ def verify_header_data_alignment(
         else:
             offsets.append({"anchor": anchor, "offset": 0, "confidence": current_match})
 
-    # ── Step 3: 检测系统性偏移 ──
+    # ── Step 3: Detect系统性偏移 ──
     non_zero = [o for o in offsets if o["offset"] != 0]
     if len(non_zero) < 2:
         return headers
@@ -150,7 +150,7 @@ def verify_header_data_alignment(
     if zero_count > dominant_count:
         return headers
 
-    # ── Step 4: 修正表头 ──
+    # ── Step 4: 修正Table header ──
     logger.info(
         f"[{middleware_name}] alignment fix: detected systematic offset={dominant_offset}, "
         f"anchors={[(o['anchor']['header_name'], o['offset']) for o in offsets]}"

@@ -1,7 +1,7 @@
 """
 Word Adapter — Word → BaseResult
 
-使用 python-docx 提取段落和表格。
+using python-docx ExtractParagraph和Table。
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class WordAdapter(BaseParser):
-    """Word (.docx) 格式适配器。"""
+    """Word (.docx) Format adapter。"""
 
     async def to_base_result(self, file_path: Path) -> BaseResult:
         from docx import Document
