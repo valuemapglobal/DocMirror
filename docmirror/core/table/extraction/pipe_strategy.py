@@ -30,20 +30,20 @@ logger = logging.getLogger(__name__)
 def _extract_by_pipe_delimited(
     page_plum,
 ) -> Optional[List[List[str]]]:
-    """管道分隔符表格提取 (Layer 0.5) — Grid Consistency 算法。
+    """PipeSeparatorTableExtract (Layer 0.5) — Grid Consistency 算法。
 
-    专门处理大机 mainframe 生成的 ASCII 画线 PDF:
+    专门Processing大机 mainframe 生成的 ASCII 画线 PDF:
     - 垂直分隔: | │ 等 PIPE_CHARS
     - 水平分隔: ─ ━ 等 HLINE_CHARS
-    - PDF 无任何绘图原语 (lines/rects = 0)
+    - PDF 无any绘图原语 (lines/rects = 0)
 
     安全门控:
-      G1: pdfplumber lines = 0 且 rects = 0 (仅在无绘图原语时启用)
-      G2: ≥3 个一致的垂直网格线 (出现率 ≥ 70% 的数据行)
-      G3: ≥3 行数据行 (排除水平分隔线后)
-      G4: 每条网格线的 x 坐标标准差 ≤ 3pt
+      G1: pdfplumber lines = 0 且 rects = 0 (仅在无绘图原语时Enable)
+      G2: ≥3 个一致的垂直网格线 (出现率 ≥ 70% 的Data行)
+      G3: ≥3 行Data行 (排除水平分隔线后)
+      G4: 每条网格线的 x CoordinatesStandard差 ≤ 3pt
     """
-    # ── G1: 只在无 PDF 绘图原语时启用 ──
+    # ── G1: 只在无 PDF 绘图原语时Enable ──
     pdf_lines = page_plum.lines or []
     pdf_rects = page_plum.rects or []
     if pdf_lines or pdf_rects:
@@ -53,7 +53,7 @@ def _extract_by_pipe_delimited(
     if not chars:
         return None
 
-    # ── Step 1: 按 y 坐标分行 ──
+    # ── Step 1: 按 y Coordinates分行 ──
     y_groups: Dict[int, List[dict]] = defaultdict(list)
     for c in chars:
         y_key = round(c["top"] / 3) * 3
@@ -62,16 +62,16 @@ def _extract_by_pipe_delimited(
     if len(y_groups) < 3:
         return None
 
-    # ── Step 2: 分类行 — 数据行 vs 水平分隔行 ──
-    data_rows_ys: List[int] = []      # 含 pipe 的数据行的 y_key
+    # ── Step 2: 分类行 — Data行 vs 水平分隔行 ──
+    data_rows_ys: List[int] = []      # 含 pipe 的Data行的 y_key
     hline_rows_ys: List[int] = []     # 纯水平线行
-    all_pipe_x_by_row: Dict[int, List[float]] = {}  # y_key → pipe x 坐标列表
+    all_pipe_x_by_row: Dict[int, List[float]] = {}  # y_key → pipe x CoordinatesList
 
     for y_key in sorted(y_groups.keys()):
         row_chars = y_groups[y_key]
         row_text = "".join(c["text"] for c in sorted(row_chars, key=lambda c: c["x0"]))
 
-        # 检测水平分隔行: 大部分字符是 HLINE_CHARS 或 PIPE_CHARS 或空格
+        # Detect水平分隔行: 大partial字符是 HLINE_CHARS 或 PIPE_CHARS 或空格
         non_space = [c for c in row_text if c.strip()]
         if non_space:
             border_ratio = sum(1 for c in non_space if c in _ALL_BORDER_CHARS) / len(non_space)
@@ -79,7 +79,7 @@ def _extract_by_pipe_delimited(
                 hline_rows_ys.append(y_key)
                 continue
 
-        # 收集 pipe 字符的 x 坐标
+        # 收集 pipe 字符的 x Coordinates
         pipe_xs = [
             round(c["x0"], 1)
             for c in row_chars
@@ -89,12 +89,12 @@ def _extract_by_pipe_delimited(
             data_rows_ys.append(y_key)
             all_pipe_x_by_row[y_key] = sorted(pipe_xs)
 
-    # ── G3: 至少 3 行数据行 ──
+    # ── G3: 至少 3 行Data行 ──
     if len(data_rows_ys) < 3:
         return None
 
-    # ── Step 3: 对 pipe x 坐标做聚类, 找垂直网格线 ──
-    # 收集所有 pipe x 坐标
+    # ── Step 3: 对 pipe x Coordinates做聚类, 找垂直网格线 ──
+    # 收集all pipe x Coordinates
     all_pipe_xs: List[float] = []
     for xs in all_pipe_x_by_row.values():
         all_pipe_xs.extend(xs)
@@ -109,7 +109,7 @@ def _extract_by_pipe_delimited(
         snapped = round(x / SNAP) * SNAP
         x_clusters[snapped].append(x)
 
-    # 合并相近的聚类 (间距 < 8pt)
+    # Merge相近的聚类 (间距 < 8pt)
     sorted_centers = sorted(x_clusters.keys())
     merged_clusters: List[List[float]] = []
     for center in sorted_centers:
@@ -120,7 +120,7 @@ def _extract_by_pipe_delimited(
 
     # ── G2 + G4: 检查网格一致性 ──
     n_data_rows = len(data_rows_ys)
-    consistent_grid_lines: List[float] = []  # 通过一致性检查的网格线 x 中心
+    consistent_grid_lines: List[float] = []  # via一致性检查的网格线 x 中心
 
     for cluster in merged_clusters:
         # 出现率: 这个 x 聚类出现在多少行中
@@ -133,7 +133,7 @@ def _extract_by_pipe_delimited(
         if presence_ratio < 0.7:
             continue
 
-        # G4: x 坐标标准差
+        # G4: x CoordinatesStandard差
         mean_x = sum(cluster) / len(cluster)
         variance = sum((x - mean_x) ** 2 for x in cluster) / len(cluster)
         std_x = variance ** 0.5
@@ -157,7 +157,7 @@ def _extract_by_pipe_delimited(
         f"{len(hline_rows_ys)} hline rows"
     )
 
-    # ── Step 4: 用网格线分列, 构建二维表格 ──
+    # ── Step 4: 用网格线分列, 构建二维Table ──
     # 列区间: (left_pipe_x, right_pipe_x)
     col_intervals = [
         (consistent_grid_lines[i], consistent_grid_lines[i + 1])
@@ -167,7 +167,7 @@ def _extract_by_pipe_delimited(
     table: List[List[str]] = []
     for y_key in sorted(data_rows_ys):
         row_chars = sorted(y_groups[y_key], key=lambda c: c["x0"])
-        # 过滤掉 pipe 字符本身
+        # Filter掉 pipe 字符本身
         content_chars = [c for c in row_chars if c.get("text") not in PIPE_CHARS]
 
         cells = [""] * n_cols
@@ -191,7 +191,7 @@ def _extract_by_pipe_delimited(
     if len(table) < 3:
         return None
 
-    # ── Step 5: 合并续行 (mainframe 一条记录可能跨多行) ──
+    # ── Step 5: Merge续行 (mainframe 一条记录may跨多行) ──
     table = _merge_pipe_continuation_rows(table)
 
     logger.info(
@@ -201,9 +201,9 @@ def _extract_by_pipe_delimited(
 
 
 def _merge_pipe_continuation_rows(table: List[List[str]]) -> List[List[str]]:
-    """合并 pipe 表格中的续行。
+    """Merge pipe Table中的续行。
 
-    Mainframe 格式中, 一条记录可能拆成多行:
+    Mainframe Format中, 一条记录may拆成多行:
       Row N:   | 1  |251209|251209|实时缴税|    |19077378/2025120964867670 重庆...|   894.34|         |   9,143.21|...
       Row N+1: |    |      |      |        |    |限公司长沙分公司 91430100...     |         |         |           |...
 

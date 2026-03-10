@@ -48,19 +48,19 @@ def extract_tables_layered(
     table_zone_bbox: Optional[Tuple[float, float, float, float]] = None,
 ) -> Tuple[List[List[List[str]]], str, float]:
     """
-    分层递进式表格提取 (多层递进)。
+    分 layer递进式TableExtract (多 layer递进)。
 
-    优化:
-      - 预分类器 (_quick_classify): 根据快速特征跳过不太可能命中的层
-      - 各层耗时打点: 结果存入模块级 _last_layer_timings
-      - Layer 2 并行执行: 4 种 char-level 方法用 ThreadPoolExecutor 并发
-      - 置信度评估: 返回 0-1 浮点数, 综合 vocab_score / row_count / col_consistency
+    Optimize:
+      - 预Classifier (_quick_classify): based on快速特征Skip不太may命中的 layer
+      - 各 layer耗时打点: Result存入Module级 _last_layer_timings
+      - Layer 2 并行Execute: 4 种 char-level Method用 ThreadPoolExecutor 并发
+      - Confidence评估: Returns 0-1 浮点数, 综合 vocab_score / row_count / col_consistency
 
     Args:
-        page_plum: pdfplumber page 对象
-        table_zone_bbox: 可选 (x0, y0, x1, y1) — 表格区域的边界框。
-                         所有 Layer 都在裁剪后的页面上工作,
-                         避免提取到 zone 外的元数据表或标题文字。
+        page_plum: pdfplumber page Object
+        table_zone_bbox: Optional (x0, y0, x1, y1) — Table区域的边界框。
+                         all Layer 都在Crop后的Page上工作,
+                         avoidExtract到 zone 外的元Data table或Title文字。
 
     Returns:
         (tables, layer_label, confidence): 3 元组
@@ -69,11 +69,11 @@ def extract_tables_layered(
     t_total = time.time()
 
     def _t(label: str, t0: float):
-        """记录某层耗时 (ms)。"""
+        """记录某 layer耗时 (ms)。"""
         timings[label] = round((time.time() - t0) * 1000, 2)
 
     def _return(tables, layer):
-        """统一返回入口: 计算置信度 + 记录总耗时。"""
+        """统一ReturnsEntry point: CalculateConfidence + 记录总耗时。"""
         timings["total"] = round((time.time() - t_total) * 1000, 2)
         _layer_timings_var.set(dict(timings))
         conf = _compute_table_confidence(tables, layer)
@@ -83,13 +83,13 @@ def extract_tables_layered(
         )
         return tables, layer, conf
 
-    # ── 裁剪到表格区域 (所有 Layer 都在裁剪后的页面上工作) ──
+    # ── Crop到Table区域 (all Layer 都在Crop后的Page上工作) ──
     work_page = page_plum
     if table_zone_bbox:
         try:
             x0, y0, x1, y1 = table_zone_bbox
 
-            # 向上探测表头: data_table zone 正上方可能有被分到 summary zone 的表头行
+            # 向上探测Table header: data_table zone 正abovemay有被分到 summary zone 的Table header行
             probe_top = max(0, y0 - 40)
             if probe_top < y0:
                 try:
@@ -98,7 +98,7 @@ def extract_tables_layered(
                         keep_blank_chars=True, x_tolerance=2
                     )
                     if probe_words:
-                        # 按 y 分组为行, 从下往上找第一个表头行
+                        # 按 y 分组为行, 从下往上找第一个Table header行
                         from collections import defaultdict
                         _probe_rows = defaultdict(list)
                         for w in probe_words:
@@ -114,7 +114,7 @@ def extract_tables_layered(
                             ]
                             if len(texts) < 3:
                                 continue
-                            # 排除 KV 元数据行 (如 "客户姓名:丁节")
+                            # 排除 KV 元Data行 (如 "Customer name:丁节")
                             kv_count = sum(
                                 1 for t in texts
                                 if ":" in t or "：" in t
@@ -130,7 +130,7 @@ def extract_tables_layered(
                                     w["top"] for w in _probe_rows[yk]
                                 ) - 2
 
-                                # ── 优化2: 多行表头检测 ──
+                                # ── Optimize2: 多行Header detection ──
                                 if idx_yk + 1 < len(sorted_yks):
                                     prev_yk = sorted_yks[idx_yk + 1]
                                     prev_texts = [
@@ -173,25 +173,25 @@ def extract_tables_layered(
         except Exception as e:
             logger.debug(f"[v2] crop failed: {e}")
 
-    # ── 预分类: 根据快速特征决定起始 Layer ──
+    # ── 预分类: based on快速特征决定起始 Layer ──
     t0 = time.time()
     classify_hint = _quick_classify(work_page)
     _t("pre_classify", t0)
     logger.debug(f"[v2] pre-classify hint: {classify_hint}")
 
-    # ── 检测纵线边框: 有边框的表格跳过 stuffed cell 检测 ──
+    # ── Detect纵线Border: 有Border的TableSkip stuffed cell Detect ──
     _lines = work_page.lines or []
     _v_line_count = sum(1 for l in _lines if abs(l.get("x0", 0) - l.get("x1", 0)) < 1)
     has_borders = _v_line_count >= 2
 
-    # ── 分段纵线行边界提取 ──
+    # ── 分段纵线行边界Extract ──
     # 当纵线按行分段 (同一 x 多条短线段) 且水平线不足时,
-    # 从纵线端点提取隐含的行边界 y 坐标。
+    # 从纵线端点Extract隐含的行边界 y Coordinates。
     _h_line_count = sum(1 for l in _lines if abs(l.get("top", 0) - l.get("bottom", 0)) < 1)
     _segmented_h_lines = None
     if _v_line_count >= 10 and _h_line_count < 10:
         from collections import Counter
-        # 统计每个 x 位置有多少条 v_line
+        # 统计each x 位置有多少条 v_line
         _v_x_counts = Counter(round(l["x0"], 0) for l in _lines
                               if abs(l.get("x0", 0) - l.get("x1", 0)) < 1)
         # 如果最常见的 x 有 > 3 条线段, 说明纵线按行分段
@@ -212,14 +212,14 @@ def extract_tables_layered(
                 f"implicit row boundaries (max_segs={_max_segs})"
             )
 
-    # ── Layer 0.5: 管道分隔符 (mainframe ASCII 画线) ──
+    # ── Layer 0.5: PipeSeparator (mainframe ASCII 画线) ──
     t0 = time.time()
     pipe_table = _extract_by_pipe_delimited(work_page)
     _t("L0.5_pipe", t0)
     if pipe_table and len(pipe_table) >= 3:
         return _return([pipe_table], "pipe_delimited")
 
-    # 预分类跳转: 如果 hint='char', 跳过 Layer 1~1.8
+    # 预分类跳转: 如果 hint='char', Skip Layer 1~1.8
     if classify_hint != "char":
         # ── Layer 1: lines 策略 ──
         t0 = time.time()
@@ -236,8 +236,8 @@ def extract_tables_layered(
                 "lines",
             )
 
-        # 预分类跳转: 如果 hint='text', 跳过 L1a/L1.5 直接到 L1b
-        # 也跳过: 当 h_lines 很多但 v_lines=0 时, L1a hline_columns 效果差,
+        # 预分类跳转: 如果 hint='text', Skip L1a/L1.5 直接到 L1b
+        # 也Skip: 当 h_lines 很多但 v_lines=0 时, L1a hline_columns 效果差,
         # L1b TEXT 更适合 (如招商银行: 192 h_lines + 0 v_lines)
         _skip_l1a = (classify_hint == "text") or (
             _h_line_count >= 20 and _v_line_count == 0
@@ -248,7 +248,7 @@ def extract_tables_layered(
             table = _extract_by_hline_columns(work_page)
             _t("L1a_hline", t0)
             if table and len(table) >= 3 and _tables_look_valid([table], has_borders=has_borders):
-                # 表头质量检查: 如果第一行看起来像数据行(含日期), 放弃 L1a
+                # Table header质量检查: 如果第一行看起来像Data行(含Date), 放弃 L1a
                 _first_cell = (table[0][0] or "").strip()
                 _header_looks_like_data = bool(
                     re.match(r"^\d{4}[-./]\d{2}[-./]\d{2}", _first_cell)
@@ -293,8 +293,8 @@ def extract_tables_layered(
                 "text",
             )
 
-    # ── Layer 0.9: pdfplumber 安全网 (L1 全跳过或全失败时) ──
-    # 先尝试默认 extract_tables(), 再尝试 TABLE_SETTINGS (text 策略)。
+    # ── Layer 0.9: pdfplumber 安全网 (L1 全Skip或全Failed时) ──
+    # 先尝试Default extract_tables(), 再尝试 TABLE_SETTINGS (text 策略)。
     t0 = time.time()
     tables = work_page.extract_tables()
     _t("L0.9_default", t0)
@@ -315,11 +315,11 @@ def extract_tables_layered(
 
     # (RapidTable at L2.5 — too slow for early pipeline, ~10s/page CPU)
 
-    # ── Layer 2: char-level 竞争选优 (并行执行) ──
+    # ── Layer 2: char-level 竞争选优 (并行Execute) ──
     t0 = time.time()
 
     def _run_method(name, func, wp):
-        """在线程中运行一个 char-level 方法, 返回 (table, name, score) 或 None。"""
+        """在线程中运行一个 char-level Method, Returns (table, name, score) 或 None。"""
         try:
             tbl = func(wp)
             if tbl and len(tbl) >= 2:
@@ -350,7 +350,7 @@ def extract_tables_layered(
     _t("L2_char_level", t0)
 
     if candidates:
-        # 惩罚项: 如果提取出的表格有很多"塞入多行"的单元格, 降低其优先级
+        # 惩罚项: 如果Extract出的Table有很多"塞入多行"的单元格, 降低其优先级
         def _get_sort_key(c):
             tbl = c[0]
             vocab_score = c[2]
@@ -368,23 +368,23 @@ def extract_tables_layered(
     else:
         _layer2_fallback = None
 
-    # ── Layer 2.5: RapidTable 视觉模型 (慢 ~10s, 仅当 L2 也失败时) ──
+    # ── Layer 2.5: RapidTable 视觉模型 (慢 ~10s, 仅当 L2 也Failed时) ──
     t0 = time.time()
     rapid_result = _extract_by_rapid_table(page_plum)
     _t("L2.5_rapid_table", t0)
     if rapid_result and len(rapid_result) >= 2:
         rt_vocab = _score_header_by_vocabulary(rapid_result[0])
-        if rt_vocab >= 2:  # 至少 2 个表头词匹配
+        if rt_vocab >= 2:  # 至少 2 个Table header词Match
             return _return([rapid_result], "rapid_table")
 
-    # ── Layer 3: x 坐标聚类 ──
+    # ── Layer 3: x Coordinates聚类 ──
     t0 = time.time()
     table = detect_columns_by_clustering(work_page)
     _t("L3_clustering", t0)
     if table and len(table) >= 2:
         return _return([table], "x_clustering")
 
-    # Layer 2 低分候选 fallback (优于 pdfplumber 默认)
+    # Layer 2 低分候选 fallback (优于 pdfplumber Default)
     if _layer2_fallback:
         return _return([_layer2_fallback[0]], _layer2_fallback[1])
 
@@ -392,14 +392,14 @@ def extract_tables_layered(
 
 
 def _extract_by_rapid_table(page_plum) -> Optional[List[List[str]]]:
-    """L1.8: 使用 RapidTable ONNX 视觉模型提取表格结构。
+    """L1.8: using RapidTable ONNX 视觉模型Extract tables结构。
 
-    RapidTable 是专门的表格结构识别模型 (CPU ONNX v3),
-    对无线表、三线表和复杂表头效果显著。
-    使用单例引擎避免重复加载模型。
+    RapidTable 是专门的Table结构Recognize模型 (CPU ONNX v3),
+    对无线 table、三线 table和复杂Table header效果显著。
+    usingSingletonEngineavoid重复Load模型。
 
     Returns:
-        二维表格列表，或 None (未安装/识别失败时)。
+        二维TableList，或 None (Not installed/RecognizeFailed时)。
     """
     from .rapid_table_engine import get_rapid_table_engine
 
@@ -410,11 +410,11 @@ def _extract_by_rapid_table(page_plum) -> Optional[List[List[str]]]:
     try:
         import numpy as np
 
-        # 通过 pdfplumber 页面渲染为图片 (200 DPI)
+        # via pdfplumber Page rendering为Image (200 DPI)
         img = page_plum.to_image(resolution=200)
         img_np = np.array(img.original)
 
-        # 调用 RapidTable v3
+        # call RapidTable v3
         result = engine(img_np)
         if result is None or not result.pred_htmls:
             return None
@@ -423,7 +423,7 @@ def _extract_by_rapid_table(page_plum) -> Optional[List[List[str]]]:
         if not html_str:
             return None
 
-        # 解析 HTML → 二维数组
+        # Parse HTML → 二维数组
         return _parse_html_table(html_str)
 
     except Exception as e:
@@ -432,7 +432,7 @@ def _extract_by_rapid_table(page_plum) -> Optional[List[List[str]]]:
 
 
 def _parse_html_table(html_str: str) -> Optional[List[List[str]]]:
-    """将 RapidTable 输出的 HTML 解析为二维数组, 支持 colspan/rowspan。"""
+    """将 RapidTable Output的 HTML Parse为二维数组, supports colspan/rowspan。"""
     try:
         import re as _re
 
@@ -488,7 +488,7 @@ def _parse_html_table(html_str: str) -> Optional[List[List[str]]]:
                 text, colspan, rowspan = current_cell
                 for ci in range(colspan):
                     actual_col = col_idx + ci
-                    # 跳过被 carry 占据的位置
+                    # Skip被 carry 占据的位置
                     while actual_col in carry:
                         ct, cr = carry[actual_col]
                         row_out.append(ct)
@@ -504,7 +504,7 @@ def _parse_html_table(html_str: str) -> Optional[List[List[str]]]:
                 col_idx = len(row_out)
                 current_cell = next(cell_iter, None)
 
-            # 处理尾部 carry
+            # Processing尾部 carry
             while col_idx in carry:
                 text, remaining = carry[col_idx]
                 row_out.append(text)
@@ -516,7 +516,7 @@ def _parse_html_table(html_str: str) -> Optional[List[List[str]]]:
 
             grid.append(row_out)
 
-        # 对齐列数
+        # Alignment列数
         if grid:
             max_cols = max(len(r) for r in grid)
             for row in grid:
@@ -532,18 +532,18 @@ def detect_merged_cells(
     page_plum,
     table_zone_bbox: Optional[Tuple[float, float, float, float]] = None,
 ) -> List[Dict]:
-    """P3-2: 从 pdfplumber 检测表格中的合并单元格。
+    """P3-2: 从 pdfplumber DetectTable中的Merge单元格。
 
-    使用 pdfplumber 的 find_tables() API 获取 Table.cells 信息,
-    通过比较实际 cell bbox 与均匀网格来检测 colspan/rowspan。
+    using pdfplumber 的 find_tables() API 获取 Table.cells Information,
+    viaCompare实际 cell bbox 与均匀网格来Detect colspan/rowspan。
 
     Args:
-        page_plum: pdfplumber page 对象
-        table_zone_bbox: 可选表格区域裁剪框
+        page_plum: pdfplumber page Object
+        table_zone_bbox: OptionalTable区域Crop框
 
     Returns:
-        合并单元格列表: [{"row": r, "col": c, "rowspan": rs, "colspan": cs}, ...]
-        未检测到时返回空列表。
+        Merge单元格List: [{"row": r, "col": c, "rowspan": rs, "colspan": cs}, ...]
+        未Detect到时Returns空List。
     """
     try:
         work_page = page_plum
@@ -562,14 +562,14 @@ def detect_merged_cells(
         if len(cells) < 4:
             return []
 
-        # 收集所有唯一的 x 和 y 边界
+        # 收集all唯一的 x 和 y 边界
         x_coords = sorted(set(round(c[0], 1) for c in cells) | set(round(c[2], 1) for c in cells))
         y_coords = sorted(set(round(c[1], 1) for c in cells) | set(round(c[3], 1) for c in cells))
 
         if len(x_coords) < 2 or len(y_coords) < 2:
             return []
 
-        # 创建网格行/列索引映射
+        # Create网格行/列IndexMap
         def _find_nearest_index(val, coords):
             best_idx = 0
             best_dist = abs(val - coords[0])

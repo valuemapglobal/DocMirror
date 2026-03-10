@@ -1,7 +1,7 @@
 """
-Framework — MultiModal 骨架层
+Framework — MultiModal 骨架 layer
 
-包含: BaseParser, ParserDispatcher, Orchestrator, ParseCache
+contains: BaseParser, ParserDispatcher, Orchestrator, ParseCache
 """
 
 from .base import BaseParser, ParserOutput, ParserStatus  # noqa: F401

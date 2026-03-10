@@ -1,14 +1,14 @@
 """
-table_merger — 跨页表格合并
+table_merger — 跨页TableMerge
 =============================
 
-从 ``CoreExtractor._merge_cross_page_tables`` 提取的独立模块。
-负责检测内容连续的跨页表格并将它们合并为单一 Block。
+从 ``CoreExtractor._merge_cross_page_tables`` Extract的独立Module。
+负责Detect内容连续的跨页Table并将它们Merge为单一 Block。
 
-合并策略:
-  1. 下一页表格首行是表头 (且与上一页表头匹配) → 跳过重复表头直接合并数据
-  2. 首行不是表头 (续表页) → ``_strip_preamble`` 剥离汇总行/重复表头行后合并
-  3. 完全异表 (表头不匹配) → 当作独立表格
+Merge策略:
+  1. 下一页Table首行是Table header (且与上一页Table headerMatch) → Skip重复Table header直接MergeData
+  2. 首行notTable header (续 table页) → ``_strip_preamble`` 剥离汇总行/重复Table header行后Merge
+  3. 完全异 table (Table header不Match) → 当作独立Table
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def _median_col_count(rows: list) -> int:
-    """P3-6: 计算表格行的中位列数。"""
+    """P3-6: CalculateTable行的中位列数。"""
     if not rows:
         return 0
     counts = sorted(len(r) for r in rows if isinstance(r, (list, tuple)))
@@ -35,13 +35,13 @@ def _median_col_count(rows: list) -> int:
 
 
 def merge_cross_page_tables(pages: List[PageLayout]) -> List[PageLayout]:
-    """跨页表格合并 — Block 级别。
+    """跨页TableMerge — Block 级别。
 
     Args:
-        pages: 所有页面的 PageLayout 列表。
+        pages: allPage的 PageLayout List。
 
     Returns:
-        合并后的 PageLayout 列表。
+        Merge后的 PageLayout List。
     """
     if len(pages) <= 1:
         return pages
@@ -79,13 +79,13 @@ def merge_cross_page_tables(pages: List[PageLayout]) -> List[PageLayout]:
         first_row = curr_rows[0] if curr_rows else []
         is_header = _is_header_row(first_row)
 
-        # P3-6: 列数校验 — 防止不同表格误合并
+        # P3-6: 列数Verify — prevent不同Table误Merge
         prev_col_count = _median_col_count(prev_rows)
         curr_col_count = _median_col_count(curr_rows)
         col_count_mismatch = abs(prev_col_count - curr_col_count) > 1
 
         if col_count_mismatch:
-            # 列数比例判断: ratio < 0.5 视为提取失败 (跳过, 不打断链)
+            # 列数Ratio判断: ratio < 0.5 视为Extraction failed (Skip, 不打断链)
             max_cc = max(prev_col_count, curr_col_count, 1)
             min_cc = min(prev_col_count, curr_col_count)
             ratio = min_cc / max_cc
@@ -95,8 +95,8 @@ def merge_cross_page_tables(pages: List[PageLayout]) -> List[PageLayout]:
                     f"{entry['page_number']} ({curr_col_count} cols vs "
                     f"expected {prev_col_count})"
                 )
-                continue  # 跳过, 不打断合并链
-            # 列数相近但不同 → 视为独立表格
+                continue  # Skip, 不打断Merge链
+            # 列数相近但不同 → 视为独立Table
             merged_table_data.append({
                 "rows": list(curr_rows),
                 "pages": [entry["page_number"]],
@@ -114,7 +114,7 @@ def merge_cross_page_tables(pages: List[PageLayout]) -> List[PageLayout]:
                     "block": block,
                 })
         elif not is_header and prev_rows:
-            # 续表: 剥离本页开头的汇总行/重复表头行, 再合并
+            # 续 table: 剥离本页开头的汇总行/重复Table header行, 再Merge
             confirmed_hdr = prev_rows[0] if prev_rows else []
             stripped = _strip_preamble(list(curr_rows), confirmed_hdr)
             stripped = [r for r in stripped if any((c or "").strip() for c in r)]
@@ -128,7 +128,7 @@ def merge_cross_page_tables(pages: List[PageLayout]) -> List[PageLayout]:
                 "block": block,
             })
 
-    # F-7: 合并后行数审计
+    # F-7: Merge后行数审计
     for mdata in merged_table_data:
         if len(mdata["pages"]) > 1:
             merged_rows = len(mdata["rows"])

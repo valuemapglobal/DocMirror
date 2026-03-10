@@ -1,15 +1,15 @@
 """
-EnhancedResult — 增强后的最终结果
+EnhancedResult — 增强后的最终Result
 ==================================
 
-这是中间件管线的输出，聚合了:
-    1. 原始 BaseResult 的不可变引用
-    2. 经过增强的结构化数据
-    3. 检测出的文档场景
+这是MiddlewarePipeline的Output，Aggregation了:
+    1. 原始 BaseResult 的Immutable引用
+    2. 经过增强的结构化Data
+    3. Detect出的Document场景
     4. 完整的 Mutation 变换历史
 
-提供 ``to_parser_output()`` 方法桥接回 v1 的 ``ParserOutput``，
-确保与现有 ``ParserDispatcher`` 和 ``PerceptionResult`` 完全兼容。
+提供 ``to_parser_output()`` Method桥接回 v1 的 ``ParserOutput``，
+ensure与现有 ``ParserDispatcher`` 和 ``PerceptionResult`` 完全兼容。
 """
 
 from __future__ import annotations
@@ -28,13 +28,13 @@ logger = logging.getLogger(__name__)
 @dataclasses.dataclass
 class EnhancedResult:
     """
-    增强结果 — 中间件管线的最终产出。
+    Enhanced result — MiddlewarePipeline的最终产出。
 
-    设计原则:
-        - base_result 只读引用，永不修改
-        - enhanced_data 由每个中间件渐进式填充
-        - mutations 记录所有变换操作
-        - status 反映管线执行状态
+    Design principles:
+        - base_result Read-only引用，永不修改
+        - enhanced_data 由eachMiddleware渐进式填充
+        - mutations 记录all变换操作
+        - status 反映PipelineExecuteStatus
     """
     document_id: str = ""
     base_result: Optional[BaseResult] = None
@@ -46,10 +46,10 @@ class EnhancedResult:
     processing_time: float = 0.0
     errors: List[str] = dataclasses.field(default_factory=list)
 
-    # ── 中间件辅助方法 ──
+    # ── MiddlewareHelperMethod ──
 
     def add_mutation(self, mutation: Mutation) -> None:
-        """添加一条变换记录。"""
+        """add一条变换记录。"""
         self.mutations.append(mutation)
 
     def record_mutation(
@@ -62,7 +62,7 @@ class EnhancedResult:
         confidence: float = 1.0,
         reason: str = "",
     ) -> None:
-        """便捷方法 — 创建并添加 Mutation。"""
+        """便捷Method — Create并add Mutation。"""
         self.mutations.append(
             Mutation.create(
                 middleware_name=middleware_name,
@@ -76,31 +76,31 @@ class EnhancedResult:
         )
 
     def add_error(self, error: str) -> None:
-        """记录错误并降级状态。"""
+        """记录Error并DowngradeStatus。"""
         self.errors.append(error)
         if self.status == "success":
             self.status = "partial"
 
-    # ── 数据访问快捷方法 ──
+    # ── Data访问快捷Method ──
 
     @property
     def standardized_tables(self) -> List[Dict[str, Any]]:
-        """获取所有标准化表格 (多表结构)。"""
+        """获取allStandard化Table (多 table结构)。"""
         return self.enhanced_data.get("standardized_tables", [])
 
     @property
     def standardized_table(self) -> Optional[List[List[str]]]:
-        """获取标准化后的主表格 (含表头行, 向后兼容)。"""
+        """获取Standard化后的主Table (含Table header行, Backward compatible)。"""
         return self.enhanced_data.get("standardized_table")
 
     @property
     def standardized_headers(self) -> List[str]:
-        """获取标准化后的表头。"""
+        """获取Standard化后的Table header。"""
         return self.enhanced_data.get("standardized_headers", [])
 
     @property
     def validation_result(self) -> Optional[Dict[str, Any]]:
-        """获取验证结果。"""
+        """获取Validation result。"""
         return self.enhanced_data.get("validation")
 
     @property
@@ -109,7 +109,7 @@ class EnhancedResult:
 
     @property
     def mutation_summary(self) -> Dict[str, int]:
-        """按中间件统计 Mutation 数量。"""
+        """按Middleware统计 Mutation 数量。"""
         summary: Dict[str, int] = {}
         for m in self.mutations:
             summary[m.middleware_name] = summary.get(m.middleware_name, 0) + 1
@@ -121,15 +121,15 @@ class EnhancedResult:
         """
         [DEPRECATED] 桥接到 v1 的 ParserOutput。
 
-        请使用 PerceptionResultBuilder.build() 替代。
-        保留此方法仅为向后兼容 parse() 旧接口。
+        请using PerceptionResultBuilder.build() 替代。
+        retain此Method仅为Backward compatible parse() 旧Interface。
         """
         import warnings
         warnings.warn(
             "to_parser_output() is deprecated, use PerceptionResultBuilder.build() instead",
             DeprecationWarning, stacklevel=2,
         )
-        # 尝试导入 v1 桥接类型
+        # 尝试Import v1 桥接Type
         ParserOutput = None
         ParserStatus = None
         try:
@@ -150,7 +150,7 @@ class EnhancedResult:
                 )
             return {"status": "failure", "error": "No base result available"}
 
-        # 状态映射
+        # StatusMap
         status_map = {
             "success": ParserStatus.SUCCESS,
             "partial": ParserStatus.PARTIAL_SUCCESS,
@@ -177,10 +177,10 @@ class EnhancedResult:
 
             doc_structure.append(entry)
 
-        # 如果有标准化表格，替换主表
+        # 如果有Standard化Table，replace主 table
         std_tables = self.standardized_tables
         if std_tables and doc_structure:
-            # 用最大表替换第一个 table entry
+            # 用最大 tablereplace第一个 table entry
             main = max(std_tables, key=lambda t: t.get("row_count", 0))
             for entry in doc_structure:
                 if entry.get("type") == "table":
@@ -202,33 +202,33 @@ class EnhancedResult:
             "errors": self.errors,
         })
 
-        # 合并 identity 信息 (兼容 v1 消费方)；机构优先用 L2 识别结果
+        # Merge identity Information (兼容 v1 消费方)；机构优先用 L2 RecognizeResult
         entities = self.base_result.entities
         institution_value = self.institution or self.enhanced_data.get("institution")
         if not institution_value and isinstance(entities, dict):
-            institution_value = entities.get("bank_name", entities.get("开户行", ""))
+            institution_value = entities.get("bank_name", entities.get("Bank name", ""))
         metadata["institution"] = institution_value
         metadata["identity"] = {
             "document_type": self.scene,
             "institution": institution_value,
-            "account_holder": entities.get("户名", entities.get("账户名", "")),
-            "account_number": entities.get("账号", entities.get("卡号", "")),
-            "query_period": entities.get("查询期间", entities.get("期间", "")),
-            "currency": entities.get("币种", "CNY"),
+            "account_holder": entities.get("Account name", entities.get("Account name", "")),
+            "account_number": entities.get("Account number", entities.get("Card number", "")),
+            "query_period": entities.get("Query period", entities.get("Period", "")),
+            "currency": entities.get("Currency", "CNY"),
         }
 
-        # 验证信息
+        # ValidateInformation
         validation = self.validation_result
         if validation:
             metadata["l2_score"] = validation.get("total_score")
             metadata["l2_passed"] = validation.get("passed")
 
-        # 印章信息 (来自 CoreExtractor 可选检测)，带入 trust 供 API 使用
+        # SealInformation (来自 CoreExtractor OptionalDetect)，带入 trust 供 API using
         if self.base_result.metadata.get("seal_info"):
             metadata["trust"] = metadata.get("trust") or {}
             metadata["trust"]["seal_info"] = self.base_result.metadata["seal_info"]
 
-        # ── 返回 ──
+        # ── Returns ──
         if ParserOutput and ParserStatus:
             return ParserOutput(
                 status=status_map.get(self.status, ParserStatus.FAILURE),
@@ -239,7 +239,7 @@ class EnhancedResult:
                 metadata=metadata,
             )
 
-        # 独立模式: 返回等价 dict
+        # 独立Mode: Returns等价 dict
         return {
             "status": self.status,
             "confidence": 1.0 if self.status == "success" else (0.5 if self.status == "partial" else 0.0),
@@ -251,7 +251,7 @@ class EnhancedResult:
 
     @classmethod
     def from_base_result(cls, base_result: BaseResult) -> EnhancedResult:
-        """从 BaseResult 创建初始 EnhancedResult。"""
+        """从 BaseResult Create初始 EnhancedResult。"""
         return cls(
             document_id=base_result.document_id,
             base_result=base_result,

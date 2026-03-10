@@ -1,13 +1,13 @@
 """
-基础引擎封装 (Foundation Engine Wrappers)
+Foundation engineEncapsulation (Foundation Engine Wrappers)
 ==========================================
 
-对底层 PDF 库的统一封装，隔离第三方依赖：
-    - FitzEngine:       PyMuPDF 快速文本/字体/元数据提取
-    - PDFPlumberEngine: pdfplumber 高精度表格识别
-    - OCREngine:        PaddleOCR/RapidOCR 懒加载封装
+对底 layer PDF 库的统一Encapsulation，隔离第三方Dependency：
+    - FitzEngine:       PyMuPDF 快速文本/Font/元DataExtract
+    - PDFPlumberEngine: pdfplumber 高精度TableRecognize
+    - OCREngine:        PaddleOCR/RapidOCR 懒LoadEncapsulation
 
-上游只通过这些引擎类访问底层能力，便于未来替换。
+上游只via这些Engine类访问底 layer能力，便于未来replace。
 """
 
 from __future__ import annotations
@@ -21,31 +21,31 @@ logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PyMuPDF 引擎
+# PyMuPDF Engine
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class FitzEngine:
     """
-    PyMuPDF 封装 — 极速文本提取 + 字体分析。
+    PyMuPDF Encapsulation — 极速文本Extract + FontAnalyze。
 
     主要用途:
-        1. 文本层预检 (判断电子/扫描)
-        2. 全文提取 + 文本坐标
-        3. 字体/颜色/加粗等视觉特征提取
+        1. 文本 layer预检 (判断电子/扫描)
+        2. 全文Extract + 文本Coordinates
+        3. Font/颜色/Bold等视觉Feature extraction
     """
 
     @staticmethod
     def open(file_path: Path):
-        """打开 PDF 返回 fitz.Document。"""
+        """打开 PDF Returns fitz.Document。"""
         import fitz
         return fitz.open(str(file_path))
 
     @staticmethod
     def has_text_layer(fitz_doc) -> bool:
         """
-        快速检查 PDF 是否包含文本层。
+        快速检查 PDF Whethercontains文本 layer。
 
-        策略: 检查前 3 页，任一页有 >20 字符的文本即认为有文本层。
+        策略: 检查前 3 页，任一页有 >20 字符的文本即认为有文本 layer。
         """
         for page_idx in range(min(3, len(fitz_doc))):
             text = fitz_doc[page_idx].get_text()
@@ -55,22 +55,22 @@ class FitzEngine:
 
     @staticmethod
     def extract_page_text(fitz_page) -> str:
-        """提取单页全文。"""
+        """Extract单页全文。"""
         return fitz_page.get_text()
 
     @staticmethod
     def extract_page_words(fitz_page) -> List[Tuple]:
         """
-        提取单页 word 列表。
+        Extract单页 word List。
 
-        每个 word: (x0, y0, x1, y1, text, block_no, line_no, word_no)
+        each word: (x0, y0, x1, y1, text, block_no, line_no, word_no)
         """
         return fitz_page.get_text("words")
 
     @staticmethod
     def extract_page_blocks_with_style(fitz_page) -> List[Dict[str, Any]]:
         """
-        提取单页文本块，附带字体/颜色信息。
+        Extract单页Text block，附带Font/颜色Information。
 
         Returns:
             List of {
@@ -85,7 +85,7 @@ class FitzEngine:
         result = []
         text_dict = fitz_page.get_text("dict", flags=11)
         for block in text_dict.get("blocks", []):
-            if block.get("type") != 0:  # 只处理文本块
+            if block.get("type") != 0:  # 只ProcessingText block
                 continue
             for line in block.get("lines", []):
                 for span in line.get("spans", []):
@@ -106,44 +106,44 @@ class FitzEngine:
 
     @staticmethod
     def get_page_dimensions(fitz_page) -> Tuple[float, float]:
-        """返回页面 (width, height)。"""
+        """ReturnsPage (width, height)。"""
         rect = fitz_page.rect
         return rect.width, rect.height
 
     @staticmethod
     def extract_raw_text_from_bbox(fitz_page, bbox: Tuple[float, float, float, float]) -> str:
         """
-        提取指定 bounding box 内的 100% 准确底层文本。
-        用途：作为 Hybrid Text-Vision Prior 注入给多模态大模型，防止数字/错别字幻觉。
+        Extract指定 bounding box 内的 100% 准确底 layer文本。
+        用途：作为 Hybrid Text-Vision Prior 注入给多模态大模型，prevent数字/错别字幻觉。
         """
         import fitz
         x0, y0, x1, y1 = bbox
         rect = fitz.Rect(x0, y0, x1, y1)
-        # flags=0 保持按阅读顺序提取纯文本
+        # flags=0 保持按Reading orderExtract纯文本
         return fitz_page.get_text("text", clip=rect).strip()
 
     @staticmethod
     def extract_multicrop_payload(fitz_page, rois: List[Tuple[float, float, float, float]] = None) -> Dict[str, Any]:
         """
-        DeepSeek-OCR2 多裁剪启发 (Multi-Crop Tokenization):
-        构造 Global Base (低分辨率全局) + Local Focus (高分辨率局部区块) 的多图载荷。
+        DeepSeek-OCR2 多Crop启发 (Multi-Crop Tokenization):
+        构造 Global Base (低ResolutionGlobal) + Local Focus (高ResolutionLocal区块) 的多图载荷。
         
         Args:
-            fitz_page: PyMuPDF 页面对象
-            rois: 重点关注区域序列 (Region of Interest) 格式为 [(x0,y0,x1,y1), ...]
-                  例如表格或密集数据区的 bounding boxes
+            fitz_page: PyMuPDF PageObject
+            rois: 重点关注区域序列 (Region of Interest) Format为 [(x0,y0,x1,y1), ...]
+                  e.g.Table或密集Data区的 bounding boxes
                   
         Returns:
-            Dict 包含:
-               'global_img': 150 DPI 全局图 (base64 或 bytes, 此处返回 numpy RGB 以便外层调用)
-               'local_patches': List of 300 DPI 局部图 RGB
+            Dict contains:
+               'global_img': 150 DPI Global图 (base64 或 bytes, 此处Returns numpy RGB 以便外 layercall)
+               'local_patches': List of 300 DPI Local图 RGB
         """
         import numpy as np
         import cv2
         
         payload = {"global_img": None, "local_patches": []}
         
-        # 1. 生成 Global Base (低分辨率, 比如长边 <= 1024 相当于 150 DPI)
+        # 1. 生成 Global Base (低Resolution, 比如长边 <= 1024 相当于 150 DPI)
         pix_global = fitz_page.get_pixmap(dpi=150)
         img_global = np.frombuffer(pix_global.samples, dtype=np.uint8).reshape(pix_global.h, pix_global.w, pix_global.n)
         if pix_global.n == 4:
@@ -151,16 +151,16 @@ class FitzEngine:
             
         payload["global_img"] = img_global
         
-        # 2. 如果没有提供 ROIs, 直接返回
+        # 2. 如果没有提供 ROIs, 直接Returns
         if not rois:
             return payload
             
-        # 3. 生成 Local Focus Patches (高分辨率 300 DPI)
-        # 为了不全页面渲染 300DPI 占内存，利用 fitz 的 clip 参数只渲染 ROI 区域
+        # 3. 生成 Local Focus Patches (高Resolution 300 DPI)
+        # in order to不全Page rendering 300DPI 占内存，利用 fitz 的 clip Parameters只渲染 ROI 区域
         import fitz
         for roi in rois:
             x0, y0, x1, y1 = roi
-            # 扩展边界 5px 防止吃字
+            # Extension边界 5px prevent吃字
             rect = fitz.Rect(max(0, x0 - 5), max(0, y0 - 5), x1 + 5, y1 + 5)
             
             pix_patch = fitz_page.get_pixmap(dpi=300, clip=rect)
@@ -174,37 +174,37 @@ class FitzEngine:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# pdfplumber 引擎
+# pdfplumber Engine
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class PDFPlumberEngine:
     """
-    pdfplumber 封装 — 高精度表格结构识别。
+    pdfplumber Encapsulation — 高精度Table结构Recognize。
 
     主要用途:
-        1. 表格检测与提取 (线框/文本两种策略)
-        2. 字符级坐标提取
+        1. Table detection与Extract (线框/文本两种策略)
+        2. 字符级CoordinatesExtract
     """
 
     @staticmethod
     def open(file_path: Path):
-        """打开 PDF 返回 pdfplumber.PDF。"""
+        """打开 PDF Returns pdfplumber.PDF。"""
         import pdfplumber
         return pdfplumber.open(str(file_path))
 
     @staticmethod
     def extract_tables(page_plum, **kwargs) -> List[List[List[str]]]:
         """
-        从单页提取所有表格。
+        从单页ExtractallTable。
 
         Returns:
-            List of tables, 每个 table 是 List[List[str]]。
+            List of tables, each table 是 List[List[str]]。
         """
         try:
             tables = page_plum.extract_tables(kwargs) if kwargs else page_plum.extract_tables()
             if not tables:
                 return []
-            # 清理 None 值
+            # Clean None 值
             result = []
             for tbl in tables:
                 if tbl:
@@ -220,26 +220,26 @@ class PDFPlumberEngine:
 
     @staticmethod
     def get_page_chars(page_plum) -> List[Dict[str, Any]]:
-        """返回单页所有字符的坐标信息。"""
+        """Returns单页all字符的CoordinatesInformation。"""
         return page_plum.chars if hasattr(page_plum, 'chars') else []
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# OCR 引擎
+# OCR Engine
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class OCREngine:
     """
-    OCR 引擎封装 — 代理到 engines.vision.rapidocr_engine 统一单例。
+    OCR EngineEncapsulation — Proxy到 engines.vision.rapidocr_engine 统一Singleton。
 
-    仅在扫描件处理时首次调用才加载模型，避免启动开销。
+    仅在Scanned documentProcessing时首次call才Load模型，avoidstart开销。
     """
 
     _instance: Optional[Any] = None
 
     @classmethod
     def get_engine(cls):
-        """获取 OCR 引擎单例 (代理到 rapidocr_engine)。"""
+        """获取 OCR EngineSingleton (Proxy到 rapidocr_engine)。"""
         if cls._instance is None:
             try:
                 from docmirror.core.ocr.vision.rapidocr_engine import get_ocr_engine
@@ -251,7 +251,7 @@ class OCREngine:
 
     @classmethod
     def is_available(cls) -> bool:
-        """检查 OCR 引擎是否已就绪。"""
+        """检查 OCR EngineWhether已就绪。"""
         engine = cls.get_engine()
         return engine is not None and hasattr(engine, '_engine') and engine._engine is not None
 

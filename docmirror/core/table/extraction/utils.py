@@ -29,17 +29,17 @@ logger = logging.getLogger(__name__)
 
 
 
-# ── 共享工具函数 ──
+# ── SharedUtility functions ──
 
 def _adaptive_row_tolerance(chars: List[Dict]) -> float:
-    """F-1: 计算行分组的自适应 y 容差。
+    """F-1: Calculate行分组的自适应 y 容差。
 
-    基于字符中位高度动态计算，防止:
-      - 小字号 PDF 的 3pt 固定容差导致多行合并
-      - 大字号 PDF 的 3pt 容差导致同行字符被拆分
+    based on字符中位Height动态Calculate，prevent:
+      - 小Font size PDF 的 3pt 固定容差导致多Line merging
+      - 大Font size PDF 的 3pt 容差导致同行字符被Split
 
     Returns:
-        自适应容差值 (通常 1.5 ~ 5.0pt)
+        自适应容差值 (typically 1.5 ~ 5.0pt)
     """
     if not chars or len(chars) < 5:
         return 3.0
@@ -51,7 +51,7 @@ def _adaptive_row_tolerance(chars: List[Dict]) -> float:
 
     heights.sort()
     median_h = heights[len(heights) // 2]
-    # 容差 = 中位字符高度 × 0.6, 限制在 [1.5, 5.0] 范围
+    # 容差 = 中位字符Height × 0.6, 限制在 [1.5, 5.0] 范围
     tol = max(1.5, min(5.0, median_h * 0.6))
     return tol
 
@@ -59,9 +59,9 @@ def _adaptive_row_tolerance(chars: List[Dict]) -> float:
 def _group_chars_into_rows(
     chars: List[Dict], y_tolerance: float = 3.0
 ) -> List[Tuple[float, List[Dict]]]:
-    """按 y 坐标将字符分组到行。
+    """按 y Coordinates将字符分组到行。
 
-    F-1 增强: 当 y_tolerance <= 0 时自动使用 _adaptive_row_tolerance。
+    F-1 增强: 当 y_tolerance <= 0 时自动using _adaptive_row_tolerance。
     """
     if not chars:
         return []
@@ -94,9 +94,9 @@ def _group_chars_into_rows(
 def _cluster_x_positions(
     x_coords: List[float], gap_multiplier: float = 2.0, min_col_width: float = 10.0
 ) -> List[Tuple[float, float]]:
-    """x 坐标聚类: 找列边界。
+    """x Coordinates聚类: 找列边界。
 
-    优化3: 使用 IQR (Tukey Fence) 自适应阈值替代 median × multiplier,
+    Optimize3: using IQR (Tukey Fence) 自适应Threshold替代 median × multiplier,
     对窄间距列更鲁棒。当 gap 数量不足 (< 4) 时退回原逻辑。
     """
     if not x_coords:
@@ -112,13 +112,13 @@ def _cluster_x_positions(
     if not non_zero_gaps:
         return [(sorted_x[0], sorted_x[-1])]
 
-    # ── 优化3: 自适应阈值 (Natural Break) ──
-    # 列间 gap 通常呈双峰分布 (小 gap = 同列字符间距, 大 gap = 列间距)
-    # 找 sorted gaps 中最大的跳变点, 在该点设置阈值
+    # ── Optimize3: 自适应Threshold (Natural Break) ──
+    # 列间 gap typically呈双峰分布 (小 gap = 同列字符间距, 大 gap = 列间距)
+    # 找 sorted gaps 中最大的跳变点, 在该点设置Threshold
     median_gap = non_zero_gaps[len(non_zero_gaps) // 2]
 
     if len(non_zero_gaps) >= 4:
-        # 找排序后 gaps 中最大的相邻跳变
+        # 找Sort后 gaps 中最大的相邻跳变
         max_jump = 0
         jump_idx = -1
         for j in range(len(non_zero_gaps) - 1):
@@ -128,13 +128,13 @@ def _cluster_x_positions(
                 jump_idx = j
 
         if max_jump > median_gap * 2 and jump_idx >= 0:
-            # 明显的双峰分布: 阈值 = 跳变点中位
+            # 明显的双峰分布: Threshold = 跳变点中位
             threshold = (non_zero_gaps[jump_idx] + non_zero_gaps[jump_idx + 1]) / 2
         else:
             # 连续分布: 退回 median × multiplier
             threshold = median_gap * gap_multiplier
     else:
-        # 数据点太少, 退回原逻辑
+        # Data点太少, 退回原逻辑
         threshold = median_gap * gap_multiplier
 
     col_bounds: List[Tuple[float, float]] = []
@@ -168,14 +168,14 @@ def _assign_chars_to_columns(
 
     cells = ["" for _ in col_bounds]
 
-    # 计算相邻列之间的分割线
+    # Calculate相邻列之间的分割线
     dividers = [col_bounds[0][0] - 10]  # 左边界
     for i in range(len(col_bounds) - 1):
         mid = (col_bounds[i][1] + col_bounds[i + 1][0]) / 2
         dividers.append(mid)
     dividers.append(col_bounds[-1][1] + 10)  # 右边界
 
-    # 将相邻字符合并成 word (避免单词从中间被切断)
+    # 将相邻字符Merge成 word (avoid单词从中间被切断)
     sorted_chars = sorted(row_chars, key=lambda x: x["x0"])
     words = []
     curr_word = None
@@ -225,7 +225,7 @@ def _assign_chars_to_columns(
 
 
 def _chars_to_text(chars: List[Dict]) -> str:
-    """将字符列表合并为文本。"""
+    """将字符ListMerge为文本。"""
     if not chars:
         return ""
     sorted_c = sorted(chars, key=lambda c: c["x0"])

@@ -1,48 +1,48 @@
 """
-核心提取层 (Core Extractor)
+Core Extractor
 ============================
 
-本模块是 MultiModal 的「提取引擎」，负责将原始 PDF 文件解析为
-不可变的 ``BaseResult`` 数据结构。
+The core extraction engine responsible for parsing raw PDF files into
+immutable ``BaseResult`` data structures.
 
-=== 提取流程 ===
+=== Extraction Flow ===
 
-  Step 1: 预处理 + 预检
-          PyMuPDF 快速检查文本层 → 标记电子版/扫描件
+  Step 1: Pre-processing + pre-check
+          PyMuPDF fast text layer check → mark digital/scanned
 
-  Step 2: 页面迭代 + 版面分析
-          对每页调用 segment_page_into_zones 划分语义 Zone
+  Step 2: Page iteration + layout analysis
+          Call segment_page_into_zones per page to partition semantic zones
 
-  Step 3: 表格提取
-          对每个 data_table Zone 调用 extract_tables_layered (4 层递进)。
-          提取结果以 table Block 形式收入 PageLayout。
-          扫描件则走 OCR 回退路径 (analyze_scanned_page)。
+  Step 3: TableExtract
+          Call extract_tables_layered for each data_table zone (4-tier progressive).
+          ExtractResult collected as table Blocks into PageLayout.
+          Scanned documents use OCR fallback path (analyze_scanned_page).
 
-  Step 4: 跨页合并 (_merge_cross_page_tables)
-          检测多页表格并将它们合并为单一 Block。
-          续表页的表头匹配策略:
-            - 首行是表头 + 与上一页表头匹配 → 直接合并数据行
-            - 首行不是表头 (即汇总行开头的续表页) → _strip_preamble 后合并
+  Step 4: Cross-page merge (_merge_cross_page_tables)
+          Detect multi-page tables and merge them into single Block.
+          Continuation page table header matching strategy:
+            - First row is header + matches previous page header → merge data rows directly
+            - First row is not header (summary row start) → merge after _strip_preamble
 
-  Step 5: 表格后处理 (_post_process_tables)
-          对每个 table Block 调用 post_process_table:
-            - VOCAB_BY_CATEGORY 扫描找到最佳表头行
-            - header 前的汇总行 → _extract_preamble_kv 提取为 KV
-            - header 后的汇总/重复表头 → _strip_preamble 剥离
-            - 数据行清洗 (_is_junk_row / _is_data_row / 单元格对齐)
-          提取完成后调用 get_and_clear_preamble_kv():
-            - 若有 KV, 创建 key_value Block 插入 table 前面
+  Step 5: Table post-processing (_post_process_tables)
+          Call post_process_table for each table Block:
+            - VOCAB_BY_CATEGORY scan to find best header row
+            - Summary rows before header → extract as KV via _extract_preamble_kv
+            - Summary/repeat headers after header → strip via _strip_preamble
+            - Data row cleanup (_is_junk_row / _is_data_row / cell alignment)
+          After extraction, call get_and_clear_preamble_kv():
+            - If KV exists, create key_value Block inserted before table
 
-  Step 6: 组装 BaseResult
-          将每页的 Block 列表组装为 frozen BaseResult
+  Step 6: Assemble BaseResult
+          Assemble per-page Block lists into frozen BaseResult
 
-=== 输出结构 ===
+=== Output Structure ===
 
-  每页 blocks 列表 (reading_order 顺序):
-    [title]      → 页面标题
-    [title]      → 账户信息行
-    [key_value]  → preamble 汇总 KV (如有。示例: 汇出总金额/总笔数/开始时间)
-    [table]      → 交易明细表 (header + 数据行)
+  Per-page blocks list (reading_order order):
+    [title]      → PageTitle
+    [title]      → Account information rows
+    [key_value]  → Preamble summary KV (if any. e.g., total amount/count/start date)
+    [table]      → Transaction detail table (header + data rows)
 """
 
 from __future__ import annotations
@@ -86,15 +86,15 @@ logger = logging.getLogger(__name__)
 
 class CoreExtractor:
     """
-    核心提取器 — 从 PDF 生成不可变 BaseResult。
+    Core extractor — generates immutable BaseResult from PDF.
 
-    使用方式::
+    Usage::
 
         extractor = CoreExtractor()
         result = await extractor.extract(Path("sample.pdf"))
-        # result 是 frozen BaseResult，不可修改
+        # result is frozen BaseResult, immutable
 
-    所有底层函数均来自 MultiModal.core 子模块 (自包含)。
+    All low-level functions come from MultiModal.core submodules (Self-contained)。
     """
 
     def __init__(self, seal_detector_fn=None, layout_model_path: Optional[str] = None,
@@ -103,65 +103,65 @@ class CoreExtractor:
                  model_render_dpi: int = 200):
         """
         Args:
-            seal_detector_fn: 可选的印章检测回调函数。
-                签名: (fitz_doc) -> Optional[Dict[str, Any]]
-                为 None 时跳过印章检测。
-            layout_model_path: 可选的 DocLayout-YOLO ONNX 模型路径。
-                设置为 "auto" 时从 HuggingFace 自动下载。
-                为 None 时使用规则回退。
-            max_page_concurrency: 页面级并发度。
-                pdfplumber/PyMuPDF 共享文档对象, 当前默认值为 1 (顺序)。
-                设为 >1 时使用 ThreadPoolExecutor 并行提取。
-            formula_model_path: 可选的公式识别 ONNX 模型路径 (UniMERNet)。
-                为 None 时回退到 rapid_latex_ocr → 空字符串。
-            model_render_dpi: DocLayout-YOLO 模型推理时的页面渲染 DPI。
-                默认 200，较高值提升布局检测精度但增加推理耗时。
+            seal_detector_fn: Optional seal detection callback function.
+                Signature: (fitz_doc) -> Optional[Dict[str, Any]]
+                When None, skips seal detection.
+            layout_model_path: Optional DocLayout-YOLO ONNX model path.
+                Set to "auto" to auto-download from HuggingFace.
+                When None, uses rule-based fallback.
+            max_page_concurrency: Page-level concurrency.
+                pdfplumber/PyMuPDF shared doc object, current default is 1 (sequential).
+                Set >1 to use ThreadPoolExecutor for parallel extraction.
+            formula_model_path: Optional formula recognition ONNX model path (UniMERNet).
+                为 None 时Fallback到 rapid_latex_ocr → 空字符串。
+            model_render_dpi: DocLayout-YOLO 模型Inference时的PageRender DPI。
+                Default 200，较高值提升布局Detect精度但增加Inference耗时。
         """
         self._seal_detector_fn = seal_detector_fn
         self._layout_detector = None
         self._max_page_concurrency = max_page_concurrency
         self._model_render_dpi = model_render_dpi
 
-        # 公式识别引擎 (策略模式: UniMERNet ONNX > rapid_latex_ocr > empty)
+        # Formula recognition engine (Strategy pattern: UniMERNet ONNX > rapid_latex_ocr > empty)
         from ..ocr.formula_engine import FormulaEngine
         self._formula_engine = FormulaEngine(model_path=formula_model_path)
 
         if layout_model_path:
             try:
                 from ..layout.layout_model import LayoutDetector
-                # layout_model_path 现在作为模型类型名
-                # "auto" → 默认 doclayout_docstructbench
+                # layout_model_path 现在作为模型Type名
+                # "auto" → Default doclayout_docstructbench
                 model_type = "doclayout_docstructbench" if layout_model_path == "auto" else layout_model_path
                 self._layout_detector = LayoutDetector(model_type=model_type)
                 logger.info("[DocMirror] Layout model enabled (RapidLayout)")
             except Exception as e:
                 logger.warning(f"[DocMirror] Layout model init failed, falling back to rules: {e}")
 
-    # 支持的图片格式
+    # supports的ImageFormat
     _IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".webp"})
 
     @staticmethod
     def _image_to_virtual_pdf(image_path: Path) -> "fitz.Document":
-        """将图片转换为虚拟单页 PDF, 大图预缩放到 max 2048px。"""
+        """将ImageConvert为虚拟单页 PDF, 大图预Zoom到 max 2048px。"""
         import fitz
 
-        # 读取图片
+        # 读取Image
         img_doc = fitz.open(str(image_path))
         if len(img_doc) == 0:
             raise ValueError(f"Cannot open image: {image_path}")
 
-        # 大图预缩放 (防止内存爆炸)
+        # 大图预Zoom (prevent内存爆炸)
         page = img_doc[0]
         w, h = page.rect.width, page.rect.height
         max_dim = 2048
         if max(w, h) > max_dim:
             scale = max_dim / max(w, h)
-            logger.info(f"[DocMirror] 图片预缩放: {w:.0f}x{h:.0f} → {w*scale:.0f}x{h*scale:.0f}")
-            # 使用 pixmap 缩放
+            logger.info(f"[DocMirror] Image预Zoom: {w:.0f}x{h:.0f} → {w*scale:.0f}x{h*scale:.0f}")
+            # using pixmap Zoom
             mat = fitz.Matrix(scale, scale)
             pix = page.get_pixmap(matrix=mat)
             img_doc.close()
-            # 从缩放后的 pixmap 重建
+            # 从Zoom后的 pixmap 重建
             new_doc = fitz.open()
             new_page = new_doc.new_page(width=pix.width, height=pix.height)
             new_page.insert_image(new_page.rect, pixmap=pix)
@@ -174,20 +174,20 @@ class CoreExtractor:
 
     async def extract(self, file_path: Path) -> BaseResult:
         """
-        主入口: 从 PDF 或图片提取 BaseResult。
+        主Entry point: 从 PDF 或ImageExtract BaseResult。
 
-        支持格式:
-            - PDF 文件 (.pdf)
-            - 图片文件 (.jpg, .png, .tiff, .bmp, .webp)
+        supportsFormat:
+            - PDF File (.pdf)
+            - ImageFile (.jpg, .png, .tiff, .bmp, .webp)
 
-        图片文件将自动转换为虚拟 PDF, 走完整解析管线
-        (版面分析 → 表格提取 → 公式识别 → 阅读顺序)。
+        ImageFile将自动Convert为虚拟 PDF, 走完整ParsePipeline
+        (版面Analyze → TableExtract → FormulaRecognize → Reading order)。
 
         Args:
-            file_path: PDF 或图片文件路径。
+            file_path: PDF 或ImageFilePath。
 
         Returns:
-            BaseResult: 不可变的提取结果。
+            BaseResult: Immutable的ExtractResult。
         """
         t0 = time.time()
         file_path = Path(file_path)
@@ -196,45 +196,45 @@ class CoreExtractor:
 
         logger.info(f"[DocMirror] ▶ extract | file={file_path.name} | image={is_image_input}")
         
-        # === [主干解析逻辑 (Heuristics)] ===
+        # === [主干Parse逻辑 (Heuristics)] ===
         fitz_doc = None
         try:
-            # ═══ Step 0: 图片 → 虚拟 PDF ═══
+            # ═══ Step 0: Image → 虚拟 PDF ═══
             if is_image_input:
                 fitz_doc = self._image_to_virtual_pdf(file_path)
-                has_text = False  # 图片没有文字层
-                logger.info("[DocMirror] 图片输入 → 虚拟 PDF, 标记为扫描件")
+                has_text = False  # Image没有文字 layer
+                logger.info("[DocMirror] ImageInput → 虚拟 PDF, 标记为Scanned document")
             else:
-                # ═══ Step 1: 预处理 + 预检 ═══
+                # ═══ Step 1: 预Processing + 预检 ═══
                 cleaned_path = preprocess_pdf(file_path)
                 fitz_doc = FitzEngine.open(cleaned_path)
                 has_text = FitzEngine.has_text_layer(fitz_doc)
 
             if not has_text:
-                logger.info(f"[DocMirror] 文本层缺失，标记为扫描件")
+                logger.info(f"[DocMirror] 文本 layer缺失，标记为Scanned document")
 
-            # ═══ Step 1.5: 预分析 (人类认知阶段2) ═══
+            # ═══ Step 1.5: 预Analyze (人类认知阶段2) ═══
             from .pre_analyzer import PreAnalyzer
             pre_analysis = PreAnalyzer().analyze(fitz_doc)
 
-            # ═══ Step 2: 版面分析 ═══
+            # ═══ Step 2: 版面Analyze ═══
             page_layouts_al = analyze_document_layout(fitz_doc)
 
-            # 提取全文
+            # Extract全文
             full_text_parts = []
             for page in fitz_doc:
                 full_text_parts.append(page.get_text())
             full_text_raw = "\n\n".join(full_text_parts)
             full_text = unicodedata.normalize("NFKC", full_text_raw)
 
-            # ═══ Step 3: 逐页提取 — Zone → Block ═══
+            # ═══ Step 3: 逐页Extract — Zone → Block ═══
             pages: List[PageLayout] = []
             ocr_text_parts: List[str] = []
-            extraction_layer: str = "unknown"  # 最后一次 extract_tables_layered 使用的策略层
-            extraction_confidence: float = 0.0  # 最后一次提取的置信度
+            extraction_layer: str = "unknown"  # 最后一次 extract_tables_layered using的策略 layer
+            extraction_confidence: float = 0.0  # 最后一次Extract的Confidence
 
             if has_text:
-                # ── 数字 PDF: pdfplumber + fitz 联合提取 ──
+                # ── Digital PDF: pdfplumber + fitz 联合Extract ──
                 import pdfplumber
                 plumber_path = cleaned_path if not is_image_input else file_path
                 with pdfplumber.open(str(plumber_path)) as plumber_doc:
@@ -255,7 +255,7 @@ class CoreExtractor:
                         pages.append(page_layout)
                         ocr_text_parts.extend(page_ocr_parts)
             else:
-                # ── 扫描件/图片: OCR 提取 ──
+                # ── Scanned document/Image: OCR Extract ──
                 from ..ocr.fallback import analyze_scanned_page
                 for page_idx in range(len(fitz_doc)):
                     fitz_page = fitz_doc[page_idx]
@@ -273,10 +273,10 @@ class CoreExtractor:
             if ocr_text_parts:
                 full_text = full_text + "\n\n" + "\n\n".join(ocr_text_parts)
 
-            # ═══ Step 4: 跨页合并 ═══
+            # ═══ Step 4: Cross-page merge ═══
             pages = self._merge_cross_page_tables(pages)
 
-            # ═══ Step 5: 表格后处理 ═══
+            # ═══ Step 5: Table post-processing ═══
             pages = self._post_process_tables(pages)
 
             # ═══ Step 6: 组装 BaseResult ═══
@@ -287,10 +287,10 @@ class CoreExtractor:
                 1 for p in pages for b in p.blocks if b.block_type == "table"
             )
 
-            # 提取实体 (正则 + KV blocks)
+            # Extract entities (正则 + KV blocks)
             extracted_entities = self._collect_kv_entities(pages)
 
-            # ── 可选: 印章检测 (首页) — 通过依赖注入 ──
+            # ── Optional: Seal detection (首页) — viaDependency injection ──
             seal_info = None
             if self._seal_detector_fn:
                 try:
@@ -298,7 +298,7 @@ class CoreExtractor:
                 except Exception as e:
                     logger.debug(f"[DocMirror] Seal detection skip: {e}")
             if seal_info:
-                pass  # 并入下方 metadata
+                pass  # 并入below metadata
 
             metadata = {
                 "file_name": file_path.name,
@@ -318,9 +318,9 @@ class CoreExtractor:
             if seal_info:
                 metadata["seal_info"] = seal_info
 
-            # ── 优化1: 提取质量评估元信息 ──
+            # ── Optimize1: Extract质量评估元Information ──
             if table_count > 0:
-                # 找主表 (最大的 table block)
+                # 找主 table (最大的 table block)
                 main_table = None
                 for p in pages:
                     for b in p.blocks:
@@ -393,15 +393,15 @@ class CoreExtractor:
                 pass
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # 扫描件 OCR 提取
+    # Scanned document OCR Extract
     # ═══════════════════════════════════════════════════════════════════════════
 
     def _extract_scanned_page(
         self, *, fitz_page, page_idx: int,
     ) -> "PageLayout":
-        """扫描件单页 OCR 提取: fitz page → OCR → Block 结构。
+        """Scanned document单页 OCR Extract: fitz page → OCR → Block 结构。
 
-        analyze_scanned_page() 返回:
+        analyze_scanned_page() Returns:
             {'table': [[cell, ...], ...], 'header_text': str, 'footer_text': str}
         """
         from ..ocr.fallback import analyze_scanned_page
@@ -428,7 +428,7 @@ class CoreExtractor:
                     ))
                     reading_order += 1
 
-                # ── 表格数据 ──
+                # ── TableData ──
                 table_data = ocr_result.get("table", [])
                 if table_data and len(table_data) >= 2:
                     blocks.append(Block(
@@ -437,11 +437,11 @@ class CoreExtractor:
                         bbox=(0, height * 0.1, width, height * 0.9),
                         reading_order=reading_order,
                         page=page_idx + 1,
-                        raw_content=table_data,  # List[List[str]] — 表格行列
+                        raw_content=table_data,  # List[List[str]] — Table行列
                     ))
                     reading_order += 1
                 elif table_data:
-                    # 不足 2 行, 作为文本处理
+                    # 不足 2 行, 作为文本Processing
                     text_lines = [
                         " | ".join(str(c) for c in row if c)
                         for row in table_data if any(c for c in row)
@@ -489,19 +489,19 @@ class CoreExtractor:
     def _group_words_into_lines(
         words: List[dict], tolerance_ratio: float = 0.5
     ) -> List[List[dict]]:
-        """将 OCR words 按 Y 坐标分组为行。
+        """将 OCR words 按 Y Coordinates分组为行。
 
         Args:
-            words: OCR 结果中的 word 列表, 每个 word 有 bbox 和 text。
-            tolerance_ratio: 行间距容差 (相对于平均字高)。
+            words: OCR Result中的 word List, each word 有 bbox 和 text。
+            tolerance_ratio: 行间距容差 (相for平均字高)。
 
         Returns:
-            按行分组的 word 列表。
+            按行分组的 word List。
         """
         if not words:
             return []
 
-        # 计算每个 word 的中心 y
+        # Calculateeach word 的中心 y
         items = []
         for w in words:
             bbox = w.get("bbox", (0, 0, 0, 0))
@@ -513,7 +513,7 @@ class CoreExtractor:
         if not items:
             return []
 
-        # 按 y 排序
+        # 按 y Sort
         items.sort(key=lambda x: x[0])
 
         # 估计平均字高
@@ -529,7 +529,7 @@ class CoreExtractor:
             if abs(cy - current_y) <= tolerance:
                 current_line.append(w)
             else:
-                # 行内按 x 排序
+                # 行内按 x Sort
                 current_line.sort(
                     key=lambda word: word.get("bbox", (0,))[0]
                 )
@@ -544,42 +544,42 @@ class CoreExtractor:
         return lines
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # 单页提取 (从 extract() 提取)
+    # 单页Extract (从 extract() Extract)
     # ═══════════════════════════════════════════════════════════════════════════
 
     def _extract_page(
         self, *, page_plum, fitz_page, fitz_doc, page_idx: int,
         layout_al, cleaned_path: Path,
     ) -> Tuple["PageLayout", List[str], str, float]:
-        """单页提取: Zone → Block 转换。
+        """单页Extract: Zone → Block Convert。
 
         Args:
-            page_plum: pdfplumber 页面对象。
-            fitz_page: PyMuPDF 页面对象。
-            fitz_doc: PyMuPDF 文档对象 (用于图片提取)。
-            page_idx: 页面索引 (0-based)。
-            layout_al: 版面分析结果。
-            cleaned_path: 预处理后的 PDF 路径。
+            page_plum: pdfplumber PageObject。
+            fitz_page: PyMuPDF PageObject。
+            fitz_doc: PyMuPDF DocumentObject (用于ImageExtract)。
+            page_idx: PageIndex (0-based)。
+            layout_al: 版面AnalyzeResult。
+            cleaned_path: 预Processing后的 PDF Path。
 
         Returns:
             (PageLayout, ocr_text_parts, extraction_layer, extraction_confidence)
         """
         width, height = FitzEngine.get_page_dimensions(fitz_page)
 
-        # ── 字符级预处理 ──
+        # ── 字符级预Processing ──
         page_plum = filter_watermark_page(page_plum)
         page_plum = _dedup_overlapping_chars(page_plum)
 
-        # ── 空间分区 ──
+        # ── 空间Partitioned ──
         if self._layout_detector:
             zones = self._model_segmentation(fitz_page, page_plum, page_idx)
         else:
             zones = segment_page_into_zones(page_plum, page_idx)
 
-        # ── 提取视觉特征 (Style) ──
+        # ── Extract视觉特征 (Style) ──
         style_map = self._extract_page_styles(fitz_page)
 
-        # ── Zone → Block 转换 ──
+        # ── Zone → Block Convert ──
         blocks: List[Block] = []
         reading_order = 0
         page_has_table = False
@@ -638,7 +638,7 @@ class CoreExtractor:
                 continue
 
             if zone.type == "formula":
-                # K1: 优先从字符流提取 (数字 PDF 100% 精度, 零延迟)
+                # K1: 优先从字符流Extract (Digital PDF 100% 精度, 零延迟)
                 latex_str = None
                 try:
                     from ..ocr.formula_chars import extract_formula_from_chars
@@ -647,7 +647,7 @@ class CoreExtractor:
                 except Exception:
                     pass
 
-                # K1 fallback: OCR 裁图识别
+                # K1 fallback: OCR 裁图Recognize
                 if not latex_str:
                     formula_img = self._crop_zone_image(fitz_page, zone.bbox)
                     latex_str = self._recognize_formula(formula_img)
@@ -666,7 +666,7 @@ class CoreExtractor:
                 page_has_table = True
                 zone_tables_extracted = False
 
-                # P3-2: 检测合并单元格
+                # P3-2: DetectMerge单元格
                 merged_cells = []
                 try:
                     from ..table.extraction.engine import detect_merged_cells
@@ -721,7 +721,7 @@ class CoreExtractor:
                 semantic_zones["text_area"].append(block_id)
                 reading_order += 1
 
-        # ── 图像提取 ──
+        # ── 图像Extract ──
         try:
             for img_info in fitz_page.get_images(full=True):
                 xref = img_info[0]
@@ -761,7 +761,7 @@ class CoreExtractor:
         except Exception as e:
             logger.debug(f"[DocMirror] image extraction skip: {e}")
 
-        # Fallback: 版面分析有表格但 zone 没检测到
+        # Fallback: 版面Analyze有Table但 zone 没Detect到
         if not page_has_table and layout_al.has_table and not layout_al.is_scanned:
             page_tables, extraction_layer, extraction_confidence = extract_tables_layered(
                 page_plum,
@@ -777,7 +777,7 @@ class CoreExtractor:
                     semantic_zones["table_area"].append(tbl_id)
                     reading_order += 1
 
-        # OCR 回退: 扫描件
+        # OCR Fallback: Scanned document
         if layout_al.is_scanned and not page_has_table:
             ocr_result = analyze_scanned_page(fitz_doc[page_idx], page_idx)
             if ocr_result:
@@ -802,20 +802,20 @@ class CoreExtractor:
         return page_layout, ocr_text_parts, extraction_layer, extraction_confidence
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # 内部方法
+    # InternalMethod
     # ═══════════════════════════════════════════════════════════════════════════
 
-    # _run_seal_detection_if_enabled 已移除 — 印章检测通过 __init__(seal_detector_fn=...) 依赖注入
+    # _run_seal_detection_if_enabled 已remove — Seal detectionvia __init__(seal_detector_fn=...) Dependency injection
 
     def _model_segmentation(self, fitz_page, page_plum, page_idx: int) -> List:
-        """模型级版面分析: 渲染页面图片 → DocLayout-YOLO 推理 → Zone 列表。
+        """模型级版面Analyze: Render pageImage → DocLayout-YOLO Inference → Zone list.
 
-        失败时自动回退到规则方法。
+        Failed时自动Falling back to rulesMethod。
         """
         try:
             import numpy as np
 
-            # 渲染页面为图片 (可配置 DPI, 默认 200)
+            # Render page为Image (可Configuration DPI, Default 200)
             render_dpi = self._model_render_dpi
             pixmap = fitz_page.get_pixmap(dpi=render_dpi)
             img_data = pixmap.samples
@@ -826,14 +826,14 @@ class CoreExtractor:
             if pixmap.n == 4:
                 img = img[:, :, :3]
 
-            # 模型推理
+            # 模型Inference
             regions = self._layout_detector.detect(img, confidence_threshold=0.4)
 
             if not regions:
                 logger.debug(f"[DocMirror] model detected 0 regions on page {page_idx}, falling back")
                 return segment_page_into_zones(page_plum, page_idx)
 
-            # 坐标转换: 像素空间 → PDF 点空间 (72 DPI)
+            # CoordinatesConvert: Pixel空间 → PDF 点空间 (72 DPI)
             scale = 72.0 / render_dpi
             zones = []
             for region in regions:
@@ -870,7 +870,7 @@ class CoreExtractor:
             return segment_page_into_zones(page_plum, page_idx)
 
     def _crop_zone_image(self, fitz_page, bbox) -> bytes:
-        """裁切页面中指定 bbox 区域的图片。"""
+        """裁切Page中指定 bbox 区域的Image。"""
         try:
             import fitz as pymupdf
             rect = pymupdf.Rect(*bbox)
@@ -880,15 +880,15 @@ class CoreExtractor:
             return b""
 
     def _recognize_formula(self, image_bytes: bytes) -> str:
-        """公式图片 → LaTeX (委托给 FormulaEngine)。
+        """FormulaImage → LaTeX (委托给 FormulaEngine)。
 
-        FormulaEngine 内部按策略选择后端:
+        FormulaEngine Internal按Strategy selection后端:
             UniMERNet ONNX > rapid_latex_ocr > 空字符串
         """
         return self._formula_engine.recognize(image_bytes)
 
     def _extract_page_styles(self, fitz_page) -> Dict[str, Style]:
-        """提取页面内文本的视觉特征。"""
+        """ExtractPage内文本的视觉特征。"""
         style_map: Dict[str, Style] = {}
         try:
             spans = FitzEngine.extract_page_blocks_with_style(fitz_page)
@@ -917,7 +917,7 @@ class CoreExtractor:
         bbox: Tuple[float, float, float, float],
         style_map: Dict[str, Style],
     ) -> Tuple[TextSpan, ...]:
-        """从文本 + 坐标 + style_map 构建 TextSpan 序列。"""
+        """从文本 + Coordinates + style_map 构建 TextSpan 序列。"""
         if not text:
             return ()
 
@@ -930,16 +930,16 @@ class CoreExtractor:
         text: str,
         style_map: Dict[str, Style],
     ) -> Optional[int]:
-        """根据字体大小和加粗信息推断标题层级。
+        """based onFont大小和BoldInformation推断Title layer级。
 
         策略:
-            - 收集 style_map 中所有字体大小
-            - 计算文档正文的中位数字体大小作为基线
-            - 依据相对大小 + 加粗判定 h1/h2/h3:
+            - 收集 style_map 中allFont大小
+            - CalculateDocumentBody text的中位数Font大小作为基线
+            - 依据相对大小 + Bold判定 h1/h2/h3:
               * font_size >= baseline * 1.6 且 bold → h1
               * font_size >= baseline * 1.2 且 bold → h2
               * bold only → h3
-              * 无 bold 但字体显著偏大 → h2
+              * 无 bold 但Font显著偏大 → h2
 
         Returns:
             1, 2, 3 或 None（无法判定时）
@@ -952,13 +952,13 @@ class CoreExtractor:
         if not style:
             return None
 
-        # 收集页面内所有字体大小作为上下文
+        # 收集Page内allFont大小作为Context
         all_sizes = [s.font_size for s in style_map.values() if s.font_size > 0]
         if not all_sizes:
             return 3 if style.is_bold else None
 
         all_sizes.sort()
-        # 中位数作为正文基线
+        # 中位数作为Body text基线
         mid = len(all_sizes) // 2
         baseline = all_sizes[mid] if all_sizes else 10.0
 
@@ -977,7 +977,7 @@ class CoreExtractor:
         elif is_bold:
             return 3
         elif ratio >= 1.6:
-            return 2  # 大字体但不加粗 → h2
+            return 2  # 大Font但不Bold → h2
         else:
             return None
 
@@ -985,12 +985,12 @@ class CoreExtractor:
         self, pages: List[PageLayout]
     ) -> Dict[str, str]:
         """
-        从已提取的 key_value blocks 收集实体。
+        从已Extract的 key_value blocks 收集实体。
         
-        注: 完整的实体提取（正则/银行名/户名/账号等）已移至
-        middlewares.entity_extractor.EntityExtractor 中间件。
-        此方法仅做 KV block 的简单聚合，确保 BaseResult.metadata
-        中有基础实体信息。
+        Note: 完整的实体Extract（正则/银行名/Account name/Account number等）已移至
+        middlewares.entity_extractor.EntityExtractor Middleware。
+        此Method仅做 KV block 的简单Aggregation，ensure BaseResult.metadata
+        中有基础实体Information。
         """
         entities: Dict[str, str] = {}
         for page in pages:
@@ -1000,32 +1000,32 @@ class CoreExtractor:
         return entities
 
     def _merge_cross_page_tables(self, pages: List[PageLayout]) -> List[PageLayout]:
-        """跨页表格合并 — 委托给 table_merger 模块。"""
+        """跨页TableMerge — 委托给 table_merger Module。"""
         from ..table.merger import merge_cross_page_tables
         return merge_cross_page_tables(pages)
 
     def _post_process_tables(self, pages: List[PageLayout]) -> List[PageLayout]:
-        """表格后处理 — 表头检测 + preamble KV 提取 + 数据行清洗。
+        """Table post-processing — Header detection + preamble KV Extract + Data行清洗。
 
-        对每个 table Block 执行以下步骤:
-          1. 调用 post_process_table:
-             - VOCAB_BY_CATEGORY 扫描前10行, 找 vocab_score 最高的行作为表头
-             - header_row_idx > 0 时: 对 header 之前的汇总行调用 _extract_preamble_kv
-               将结果写入 _preamble_kv_store (如 汇出总金额/总笔数/开始时间)
-             - 对 data_rows 调用 _strip_preamble, 剥离混入的汇总行和重复表头行
-             - 逐行清洗: 过滤 junk 行, 非数据行追加到前一行, 对齐列数
-          2. 调用 get_and_clear_preamble_kv() 取走 KV 缓存:
-             - 若非空, 创建 key_value Block 并插入到 table Block 前面
+        对each table Block Executebelow步骤:
+          1. call post_process_table:
+             - VOCAB_BY_CATEGORY 扫描前10行, 找 vocab_score 最高的行作为Table header
+             - header_row_idx > 0 时: 对 header before的汇总行call _extract_preamble_kv
+               将Result写入 _preamble_kv_store (如 汇出总Amount/总笔数/begin时间)
+             - 对 data_rows call _strip_preamble, 剥离Mixin的汇总行和重复Table header行
+             - 逐行清洗: Filter junk 行, 非Data行追加到前一行, Alignment列数
+          2. call get_and_clear_preamble_kv() 取走 KV Cache:
+             - 若非空, Create key_value Block 并插入到 table Block 前面
              - Block ID 为 "{block_id}_kv", reading_order 与 table 相同
 
-        副作用: 若 table Block 处理后行数 < 2, 保留原始 Block 不替换。
+        副作用: 若 table Block Processing后行数 < 2, retain原始 Block 不replace。
         """
         new_pages = []
         for page in pages:
             new_blocks = []
             for block in page.blocks:
                 if block.block_type == "table" and isinstance(block.raw_content, list):
-                    # Fix 9: 跳过全空表格
+                    # Fix 9: Skip全Empty table
                     if not any(
                         (cell or "").strip()
                         for row in block.raw_content
@@ -1036,12 +1036,12 @@ class CoreExtractor:
                     try:
                         processed, preamble_kv = post_process_table(block.raw_content)
 
-                        # 表格结构修复 (行合并/单元格清理/粘连拆分/列对齐)
+                        # Table structure fix (Line merging/单元格Clean/粘连Split/列Alignment)
                         if processed and len(processed) >= 2:
                             from ..table.table_structure_fix import fix_table_structure
                             processed = fix_table_structure(processed)
 
-                        # Preamble KV 直接从返回值获取, 无全局状态
+                        # Preamble KV 直接从Returns值获取, 无GlobalStatus
                         if preamble_kv:
                             kv_block = Block(
                                 block_id=f"{block.block_id}_kv",

@@ -1,28 +1,28 @@
 """
-版面分析引擎 (Layout Analysis Engine)
+Layout analysis engine (Layout Analysis Engine)
 =======================================
 
-提供页面级版面分析与空间分区能力。
-自包含，不依赖 MultiModal 包外部的任何 v1 代码。
+提供Page级版面Analyze与空间Partitioned能力。
+Self-contained，不Dependency MultiModal 包External的any v1 代码。
 
-=== 模块结构 (v2 重构后) ===
+=== Module结构 (v2 重构后) ===
 
-  本文件仅保留:
-    - Module 1:  版面分析  — ALPageLayout / analyze_page_layout / analyze_document_layout
-    - Module 1b: 空间分区  — Zone / segment_page_into_zones / _classify_zone
+  本File仅retain:
+    - Module 1:  版面Analyze  — ALPageLayout / analyze_page_layout / analyze_document_layout
+    - Module 1b: 空间Partitioned  — Zone / segment_page_into_zones / _classify_zone
 
-  已拆分至独立模块:
-    - text_utils.py:         CJK 工具 / normalize_text / parse_amount / headers_match
-    - vocabulary.py:         VOCAB_BY_CATEGORY / KNOWN_HEADER_WORDS / 行分类器
+  已Split至独立Module:
+    - text_utils.py:         CJK Tool / normalize_text / parse_amount / headers_match
+    - vocabulary.py:         VOCAB_BY_CATEGORY / KNOWN_HEADER_WORDS / 行Classifier
     - table_postprocess.py:  post_process_table 全家族
     - watermark.py:          preprocess_pdf / filter_watermark_page / _dedup_overlapping_chars
     - table_extraction.py:   extract_tables_layered (6+1 Layer) 全链路
-    - ocr_fallback.py:       analyze_scanned_page (扫描件 OCR)
+    - ocr_fallback.py:       analyze_scanned_page (Scanned document OCR)
 
-=== 向后兼容 ===
+=== Backward compatible ===
 
-  所有历史公开符号均通过 re-export 保持向后兼容。
-  调用方无需修改任何 import 语句。
+  all历史Public符号均via re-export 保持Backward compatible。
+  Callers do not need to modify any import statements。
 """
 
 from __future__ import annotations
@@ -37,10 +37,10 @@ logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 向后兼容 re-exports  — Lazy Loading (按需导入，避免触发 11+ 模块链)
+# Backward compatible re-exports  — Lazy Loading (按需Import，avoidTrigger 11+ Module链)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# 映射表: symbol_name → (module_path, is_package_level)
+# Mapping table: symbol_name → (module_path, is_package_level)
 _LAZY_MAP = {}
 
 def _register_lazy(module: str, symbols: list):
@@ -96,12 +96,12 @@ def __getattr__(name):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Module 1: 版面分析器
+# Module 1: 版面Analyze器
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @dataclass
 class ContentRegion:
-    """页面上的一个内容区域。"""
+    """Page上的一个内容区域。"""
     type: str  # "text" | "table" | "image"
     bbox: Tuple[float, float, float, float]
     page: int
@@ -115,7 +115,7 @@ class ContentRegion:
 
 @dataclass
 class ALPageLayout:
-    """单页版面分析结果。"""
+    """单页版面AnalyzeResult。"""
     page_index: int
     width: float
     height: float
@@ -132,8 +132,8 @@ class ALPageLayout:
 
 def _detect_borderless_table(text_dict: dict, page_height: float) -> bool:
     """
-    启发式检测无线表格。
-    如果 ≥3 行都有 ≥2 个独立 x 段 → 判定为无线表格。
+    启发式Detect无线Table。
+    如果 ≥3 行都有 ≥2 个独立 x 段 → 判定为无线Table。
     """
     spans = []
     for block in text_dict.get("blocks", []):
@@ -182,7 +182,7 @@ def _detect_borderless_table(text_dict: dict, page_height: float) -> bool:
 
 
 def analyze_page_layout(page, page_idx: int) -> ALPageLayout:
-    """分析单页版面结构 (~30ms/页)。"""
+    """Analyze单页版面结构 (~30ms/页)。"""
     rect = page.rect
     layout = ALPageLayout(page_index=page_idx, width=rect.width, height=rect.height)
 
@@ -276,7 +276,7 @@ def analyze_page_layout(page, page_idx: int) -> ALPageLayout:
 
 
 def analyze_document_layout(fitz_doc) -> List[ALPageLayout]:
-    """分析整个文档的版面结构。"""
+    """Analyze整个Document的版面结构。"""
     layouts = []
     for page_idx in range(len(fitz_doc)):
         layouts.append(analyze_page_layout(fitz_doc[page_idx], page_idx))
@@ -296,11 +296,11 @@ def analyze_document_layout(fitz_doc) -> List[ALPageLayout]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Module 1b: 空间分区
+# Module 1b: 空间Partitioned
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _reconstruct_rows_from_chars(chars, col_gap: float = 8.0):
-    """Fallback: 从 chars 直接重建表格行。"""
+    """Fallback: 从 chars 直接重建Table行。"""
     if not chars:
         return []
     y_groups = defaultdict(list)
@@ -337,20 +337,20 @@ def _reconstruct_rows_from_chars(chars, col_gap: float = 8.0):
 
 @dataclass
 class Zone:
-    """页面上的一个大区域 (3~5 个/页)。"""
+    """Page上的一个大区域 (3~5 个/页)。"""
     type: str  # "title" | "summary" | "data_table" | "footer" | "formula" | "unknown"
     bbox: Tuple[float, float, float, float]
     page: int = 0
     chars: list = field(default_factory=list)
     rects: list = field(default_factory=list)
     text: str = ""
-    confidence: float = 1.0  # 模型检测置信度, 规则方法默认1.0
+    confidence: float = 1.0  # 模型DetectConfidence, 规则MethodDefault1.0
 
 
 def segment_page_into_zones(
     page_plum, page_idx: int, gap_threshold: float = 15.0,
 ) -> List[Zone]:
-    """空间分区: 模拟人眼把页面切成 3~5 个大区域。"""
+    """空间Partitioned: 模拟人眼把Page切成 3~5 个大区域。"""
     chars = page_plum.chars
     rects = page_plum.rects or []
     page_h = page_plum.height
@@ -358,8 +358,8 @@ def segment_page_into_zones(
     if not chars:
         return []
 
-    # ── 优化4: 动态 gap_threshold ──
-    # 用字符中位高度 × 1.5 替代固定 15pt, 自适应不同字号
+    # ── Optimize4: 动态 gap_threshold ──
+    # 用字符中位Height × 1.5 替代固定 15pt, 自适应不同Font size
     char_heights = [c["bottom"] - c["top"] for c in chars if c.get("bottom", 0) > c.get("top", 0)]
     if char_heights:
         sorted_h = sorted(char_heights)
@@ -369,8 +369,8 @@ def segment_page_into_zones(
 
     row_ys = sorted(set(round(c["top"] / 3) * 3 for c in chars))
 
-    # ── H3 增强: 基于字体大小变化检测段落边界 ──
-    # 收集每行的中位字体大小
+    # ── H3 增强: based onFont大小变化DetectParagraph边界 ──
+    # 收集每行的中位Font大小
     row_font_sizes: Dict[int, float] = {}
     for y_key in row_ys:
         row_chars = [c for c in chars if round(c["top"] / 3) * 3 == y_key]
@@ -384,11 +384,11 @@ def segment_page_into_zones(
         y_gap = row_ys[i] - row_ys[i - 1]
         is_gap = y_gap > gap_threshold
 
-        # H3: 字体大小变化也视为段落分隔
+        # H3: Font大小变化也视为Paragraph分隔
         if not is_gap and row_ys[i] in row_font_sizes and row_ys[i - 1] in row_font_sizes:
             fs_curr = row_font_sizes[row_ys[i]]
             fs_prev = row_font_sizes[row_ys[i - 1]]
-            if abs(fs_curr - fs_prev) > 2.0:  # 字号差 > 2pt
+            if abs(fs_curr - fs_prev) > 2.0:  # Font size差 > 2pt
                 is_gap = True
 
         if is_gap:
@@ -433,7 +433,7 @@ def segment_page_into_zones(
         zone.type = _classify_zone(zone, page_h)
         zones.append(zone)
 
-    # 合并相邻 data_table zones
+    # Merge相邻 data_table zones
     merged_zones = []
     for z in zones:
         if (merged_zones
@@ -454,7 +454,7 @@ def segment_page_into_zones(
 
     from .graph_router import GraphRouter
 
-    # 语义优先的阅读顺序（借鉴 OCR2 因果流）：抛弃死板 y-band
+    # 语义优先的Reading order（借鉴 OCR2 因果流）：抛弃死板 y-band
     router = GraphRouter(page_width=page_plum.width, page_height=page_plum.height)
     causal_zones = router.build_flow(merged_zones)
 
@@ -462,9 +462,9 @@ def segment_page_into_zones(
 
 
 def _classify_zone(zone: Zone, page_h: float) -> str:
-    """判定 Zone 类型。"""
-    # 懒加载模块级符号: __getattr__ 仅对模块外部生效,
-    # 本模块内部需通过 globals() 或显式 import 才能取得延迟注册的名字。
+    """判定 Zone Type。"""
+    # 懒LoadModule级符号: __getattr__ 仅对ModuleExternal生效,
+    # 本ModuleInternal需via globals() 或显式 import 才能取得延迟Register的名字。
     _PIPE_CHARS = globals().get("PIPE_CHARS")
     if _PIPE_CHARS is None:
         _PIPE_CHARS = __getattr__("PIPE_CHARS")
@@ -479,19 +479,19 @@ def _classify_zone(zone: Zone, page_h: float) -> str:
     if y_ratio > 0.85 and char_count < 30 and "页" in text:
         return "footer"
 
-    # ── 管道网格检测: ASCII 画线表格 (mainframe) ──
+    # ── Pipe网格Detect: ASCII 画线Table (mainframe) ──
     pipe_count = sum(1 for c in zone.chars if c.get("text") in _PIPE_CHARS)
     if pipe_count >= 10:
         return "data_table"
 
-    # ── 数据内容检测: 含日期+金额的 zone 优先判为 data_table ──
-    # 防止续页数据行因 y_ratio 小 / char_count 少被误判为 title
+    # ── Data内容Detect: 含Date+Amount的 zone 优先判为 data_table ──
+    # prevent续页Data行因 y_ratio 小 / char_count 少被误判为 title
     _has_date = bool(re.search(r'\d{8}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2}', text))
     _has_amount = bool(re.search(r'(?:RMB|USD|CNY)\s*[\d,.]+|\d+\.\d{2}', text))
     if _has_date and _has_amount:
         return "data_table"
 
-    # ── 词表表头检测: 含 ≥3 个已知列名的 zone 是表头 → data_table ──
+    # ── 词 tableHeader detection: 含 ≥3 个已知列名的 zone 是Table header → data_table ──
     _vocab_hits = sum(1 for w in _KNOWN_HEADER_WORDS if w in text)
     if _vocab_hits >= 3:
         return "data_table"

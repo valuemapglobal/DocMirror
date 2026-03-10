@@ -1,14 +1,14 @@
 """
-数据校验中间件 (Validator)
+DataVerifyMiddleware (Validator)
 ===========================
 
 2 维加权评分体系:
-    1. 列一致性 (column_consistency): 每行列数是否与表头一致
-    2. 日期格式覆盖率 (date_coverage): 日期列的有效格式占比
+    1. 列一致性 (column_consistency): 每行列数Whether与Table header一致
+    2. Date formatoverride率 (date_coverage): Date列的有效Format占比
 
-第一性原理优化:
-    - 宽容策略: 加权总分 ≥ 阈值即通过，不要求所有维度满分
-    - 纯检查，不修改数据 — 修复由 Repairer 负责
+第一性原理Optimize:
+    - 宽容策略: 加权总分 ≥ Threshold即via，不要求all维度满分
+    - 纯检查，不修改Data — Fix由 Repairer 负责
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from ...models.enhanced import EnhancedResult
 logger = logging.getLogger(__name__)
 
 
-# 日期正则
+# Date正则
 _RE_DATE = re.compile(
     r'^\d{8}\s*(\d{1,2}:\d{2}(:\d{2})?)?$|'
     r'^\d{4}[-/.年]\d{1,2}[-/.月]\d{1,2}日?'
@@ -31,21 +31,21 @@ _RE_DATE = re.compile(
     r'^\d{2}[-/]\d{2}[-/]\d{4}$'
 )
 
-# 检查维度权重 (运行时根据表格列类型动态调整)
+# 检查维度权重 (Runtimebased onTable列Type动态调整)
 DEFAULT_WEIGHTS = {
     "column_consistency": 0.50,
     "date_coverage": 0.50,
 }
 
-# 金额正则
+# Amount正则
 _RE_AMOUNT = re.compile(r'^[+-]?\d[\d,]*\.?\d*$')
 
 
 class Validator(BaseMiddleware):
     """
-    数据校验中间件。
+    DataVerifyMiddleware。
 
-    将验证结果写入 ``EnhancedResult.enhanced_data["validation"]``。
+    将Validation result写入 ``EnhancedResult.enhanced_data["validation"]``。
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None, pass_threshold: float = 0.7):
@@ -53,10 +53,10 @@ class Validator(BaseMiddleware):
         self.pass_threshold = pass_threshold
 
     def process(self, result: EnhancedResult) -> EnhancedResult:
-        """执行 6 维数据校验。"""
+        """Execute 6 维DataVerify。"""
         std_table = result.standardized_table
         if not std_table or len(std_table) < 2:
-            # 如果没有标准化表格，尝试从 base_result 验证原始表格
+            # 如果没有Standard化Table，尝试从 base_result Validate原始Table
             if result.base_result and result.base_result.table_blocks:
                 main = max(
                     result.base_result.table_blocks,
@@ -88,9 +88,9 @@ class Validator(BaseMiddleware):
 
         details["column_consistency"] = self._check_column_consistency(headers, data_rows)
 
-        # 自适应权重: 有日期列 → date_coverage; 无日期列 → amount_validity 替代
-        date_idx = self._find_column(headers, ["交易时间", "交易日期", "日期", "Date"])
-        amount_idx = self._find_column(headers, ["交易金额", "金额", "Amount", "发生额"])
+        # 自适应权重: 有Date列 → date_coverage; 无Date列 → amount_validity 替代
+        date_idx = self._find_column(headers, ["交易时间", "Transaction date", "Date", "Date"])
+        amount_idx = self._find_column(headers, ["Transaction amount", "Amount", "Amount", "Transaction amount"])
 
         if date_idx is not None:
             details["date_coverage"] = self._check_date_coverage(headers, data_rows)
@@ -143,7 +143,7 @@ class Validator(BaseMiddleware):
     def _check_column_consistency(
         self, headers: List[str], data_rows: List[List[str]]
     ) -> float:
-        """每行列数是否与表头一致。"""
+        """每行列数Whether与Table header一致。"""
         if not data_rows:
             return 1.0
         expected = len(headers)
@@ -153,10 +153,10 @@ class Validator(BaseMiddleware):
     def _check_date_coverage(
         self, headers: List[str], data_rows: List[List[str]]
     ) -> float:
-        """日期列的有效格式占比。"""
-        date_idx = self._find_column(headers, ["交易时间", "交易日期", "日期", "Date"])
+        """Date列的有效Format占比。"""
+        date_idx = self._find_column(headers, ["交易时间", "Transaction date", "Date", "Date"])
         if date_idx is None:
-            return 0.5  # 没有日期列不扣太多分
+            return 0.5  # 没有Date列不扣太多分
 
         valid = 0
         total = 0
@@ -172,7 +172,7 @@ class Validator(BaseMiddleware):
     def _check_amount_validity(
         self, data_rows: List[List[str]], amount_idx: int,
     ) -> float:
-        """金额列的有效数值占比 — 替代无日期列时的 date_coverage。"""
+        """Amount column的有效数值占比 — 替代无Date列时的 date_coverage。"""
         valid = 0
         total = 0
         for row in data_rows:
@@ -185,12 +185,12 @@ class Validator(BaseMiddleware):
         return valid / total if total > 0 else 0.5
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # 辅助方法
+    # HelperMethod
     # ═══════════════════════════════════════════════════════════════════════════
 
     @staticmethod
     def _find_column(headers: List[str], keywords: List[str]) -> Optional[int]:
-        """找到第一个匹配关键字的列索引。"""
+        """找到第一个Match关键字的列Index。"""
         for i, h in enumerate(headers):
             h_clean = h.strip()
             if not h_clean:

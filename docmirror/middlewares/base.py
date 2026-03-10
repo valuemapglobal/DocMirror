@@ -1,12 +1,12 @@
 """
-中间件基类与管线执行器 (Middleware Base & Pipeline)
+Middleware base class与PipelineExecutor (Middleware Base & Pipeline)
 ====================================================
 
-设计原则:
-    - 每个中间件是独立的、可组合的 Python 类
-    - 统一 ``process(EnhancedResult) -> EnhancedResult`` 接口
-    - 管线执行器提供 per-middleware 异常隔离和降级策略
-    - 所有数据变换通过 Mutation 记录，不直接修改 BaseResult
+Design principles:
+    - eachMiddleware是独立的、可Composition的 Python 类
+    - 统一 ``process(EnhancedResult) -> EnhancedResult`` Interface
+    - PipelineExecutor提供 per-middleware Exception隔离和Degradation strategy
+    - allData变换via Mutation 记录，不直接修改 BaseResult
 """
 
 from __future__ import annotations
@@ -24,13 +24,13 @@ logger = logging.getLogger(__name__)
 
 class BaseMiddleware(ABC):
     """
-    中间件抽象基类。
+    MiddlewareAbstractBase class。
 
-    所有中间件必须实现 ``process()`` 方法。
+    allMiddleware必须implement ``process()`` Method。
     约定:
-        - 接收 EnhancedResult，返回修改后的 EnhancedResult
-        - 通过 result.record_mutation() 记录所有变换
-        - 失败时应 add_error() 而非抛出异常
+        - 接收 EnhancedResult，Returns修改后的 EnhancedResult
+        - via result.record_mutation() 记录all变换
+        - Failed时应 add_error() 而非抛出Exception
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -42,10 +42,10 @@ class BaseMiddleware(ABC):
         return self._name
 
     def should_skip(self, result: EnhancedResult) -> bool:
-        """条件跳过: 返回 True 时整个中间件不执行。
+        """条件Skip: Returns True 时整个Middleware不Execute。
 
-        子类可覆写此方法实现条件跳过逻辑。
-        默认实现: 检查 config 中的 ``skip_scenes`` 列表。
+        Subclass可覆写此Methodimplement条件Skip逻辑。
+        Defaultimplement: 检查 config 中的 ``skip_scenes`` List。
 
         示例::
 
@@ -60,7 +60,7 @@ class BaseMiddleware(ABC):
 
     @abstractmethod
     def process(self, result: EnhancedResult) -> EnhancedResult:
-        """处理 EnhancedResult 并返回增强后的结果。"""
+        """Processing EnhancedResult 并Returns增强后的Result。"""
         raise NotImplementedError
 
     def __repr__(self) -> str:
@@ -69,15 +69,15 @@ class BaseMiddleware(ABC):
 
 class MiddlewarePipeline:
     """
-    中间件管线执行器。
+    MiddlewarePipelineExecutor。
 
-    职责:
-        1. 顺序执行中间件列表
-        2. Per-middleware try/except 异常隔离
-        3. 根据策略决定 [跳过失败中间件] 或 [终止管线]
-        4. 记录每个中间件的耗时
+    Responsibilities:
+        1. 顺序ExecuteMiddlewareList
+        2. Per-middleware try/except Exception隔离
+        3. based on策略决定 [SkipFailedMiddleware] 或 [终止Pipeline]
+        4. 记录eachMiddleware的耗时
 
-    使用方式::
+    Usage::
 
         pipeline = MiddlewarePipeline()
         result = pipeline.execute(
@@ -98,14 +98,14 @@ class MiddlewarePipeline:
         result: EnhancedResult,
     ) -> EnhancedResult:
         """
-        顺序执行中间件管线。
+        顺序ExecuteMiddlewarePipeline。
 
         Args:
-            middlewares: 有序中间件列表。
+            middlewares: 有序MiddlewareList。
             result: 初始 EnhancedResult。
 
         Returns:
-            处理后的 EnhancedResult。
+            Processing后的 EnhancedResult。
         """
         logger.info(
             f"[DocMirror] Pipeline ▶ {len(middlewares)} middlewares: "
@@ -115,7 +115,7 @@ class MiddlewarePipeline:
         step_timings: Dict[str, float] = {}
 
         for mw in middlewares:
-            # ── 条件跳过检查 ──
+            # ── 条件Skip检查 ──
             if mw.should_skip(result):
                 logger.info(f"[DocMirror] {mw.name} ⏭ skipped (should_skip=True)")
                 step_timings[mw.name] = 0.0

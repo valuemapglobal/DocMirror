@@ -1,17 +1,17 @@
 """
-变换分析器 (MutationAnalyzer)
+变换Analyze器 (MutationAnalyzer)
 ================================
 
-对应人类认知的"边做边学"闭环 — 分析 Mutation 历史，
-识别高频错误模式，生成改进建议。
+对应人类认知的"边做边学"闭环 — Analyze Mutation 历史，
+Recognize高频ErrorMode，生成改进建议。
 
 功能:
-    1. 按中间件/字段/场景分组统计 Mutations
-    2. 识别高频修复模式 (Top-N)
-    3. 生成 hints.yaml 更新建议
-    4. 输出分析报告
+    1. 按Middleware/Field/场景分组统计 Mutations
+    2. Recognize高频FixMode (Top-N)
+    3. 生成 hints.yaml Update建议
+    4. OutputAnalyze报告
 
-使用方式::
+Usage::
 
     from docmirror.middlewares.mutation_analyzer import MutationAnalyzer
     analyzer = MutationAnalyzer()
@@ -33,10 +33,10 @@ logger = logging.getLogger(__name__)
 
 @dataclasses.dataclass
 class ErrorPattern:
-    """高频错误模式。"""
+    """高频ErrorMode。"""
     field: str
-    old_pattern: str  # 代表性的 old_value
-    new_pattern: str  # 代表性的 new_value
+    old_pattern: str  # 代 table性的 old_value
+    new_pattern: str  # 代 table性的 new_value
     count: int
     middleware: str
     avg_confidence: float
@@ -48,7 +48,7 @@ class ErrorPattern:
 
 @dataclasses.dataclass
 class AnalysisReport:
-    """Mutation 分析报告。"""
+    """Mutation Analyze报告。"""
     total_mutations: int = 0
     by_middleware: Dict[str, int] = dataclasses.field(default_factory=dict)
     by_field: Dict[str, int] = dataclasses.field(default_factory=dict)
@@ -57,7 +57,7 @@ class AnalysisReport:
 
     @property
     def summary(self) -> str:
-        """生成人类可读的摘要。"""
+        """生成人类可读的Abstract/Summary。"""
         if self.total_mutations == 0:
             return "No mutations recorded."
 
@@ -106,15 +106,15 @@ class AnalysisReport:
 
 class MutationAnalyzer:
     """
-    分析 Mutation 历史，识别模式，生成建议。
+    Analyze Mutation 历史，RecognizeMode，生成建议。
 
-    两种使用模式:
-        1. 单次分析: 分析一次解析的 mutations
-        2. 批量分析: 分析多次解析的 mutations (需外部聚合)
+    两种usingMode:
+        1. 单次Analyze: Analyze一次Parse的 mutations
+        2. 批量Analyze: Analyze多次Parse的 mutations (需ExternalAggregation)
     """
 
     def analyze(self, mutations: List[Mutation]) -> AnalysisReport:
-        """分析 Mutation 列表。"""
+        """Analyze Mutation List。"""
         report = AnalysisReport(total_mutations=len(mutations))
 
         if not mutations:
@@ -130,11 +130,11 @@ class MutationAnalyzer:
         report.by_middleware = dict(by_mw)
         report.by_field = dict(by_field)
 
-        # ── 2. 识别高频模式 ──
+        # ── 2. Recognize高频Mode ──
         # 按 (middleware, field, old_value_type) 分组
         pattern_groups: Dict[str, List[Mutation]] = defaultdict(list)
         for m in mutations:
-            # 归一化 old_value 为类型标签
+            # 归一化 old_value 为Type标签
             old_type = self._classify_value(m.old_value)
             key = f"{m.middleware_name}|{m.field_changed}|{old_type}"
             pattern_groups[key].append(m)
@@ -167,14 +167,14 @@ class MutationAnalyzer:
         return report
 
     def _classify_value(self, value: Any) -> str:
-        """将值归类为类型标签 (用于模式聚合)。"""
+        """将值归类为Type标签 (用于ModeAggregation)。"""
         if value is None:
             return "null"
         s = str(value)
         if not s:
             return "empty"
         import re
-        # 日期模式 (支持 2024-01-01, 2024/1/1 等)
+        # DateMode (supports 2024-01-01, 2024/1/1 等)
         if re.match(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}', s):
             return "date"
         if re.match(r'^-?\d[\d,]*\.?\d*$', s.replace(",", "")):
@@ -184,28 +184,28 @@ class MutationAnalyzer:
         return "text"
 
     def _generate_suggestions(self, patterns: List[ErrorPattern]) -> Dict[str, Any]:
-        """从高频模式生成 hints.yaml 更新建议。"""
+        """从高频Mode生成 hints.yaml Update建议。"""
         suggestions: Dict[str, Any] = {}
 
         for p in patterns:
             if not p.is_high_frequency:
                 continue
 
-            # 高频日期修复 → 建议添加 date_format 规则
+            # 高频DateFix → 建议add date_format 规则
             if p.field == "date" and p.middleware == "Repairer":
                 suggestions["institution_hints.date_format"] = (
                     f"Add normalize rule: '{p.old_pattern}' → '{p.new_pattern}' "
                     f"(seen {p.count}×)"
                 )
 
-            # 高频列映射 → 建议添加 column_alias
+            # 高频列Map → 建议add column_alias
             if p.field == "column_mapping" and p.middleware == "ColumnMapper":
                 suggestions["column_aliases"] = (
                     f"Add alias: '{p.old_pattern}' → '{p.new_pattern}' "
                     f"(seen {p.count}×)"
                 )
 
-            # 高频金额修复 → 建议添加 amount 规则
+            # 高频AmountFix → 建议add amount 规则
             if "amount" in p.field.lower() and p.middleware == "Repairer":
                 suggestions["institution_hints.amount_sign_rule"] = (
                     f"Check sign convention: '{p.old_pattern}' → '{p.new_pattern}' "

@@ -1,19 +1,19 @@
 """
 MultiModal: Perception Hub (Unified API)
 
-重构后的目录结构:
-- core/: 核心提取引擎 (CoreExtractor, Foundation, LayoutAnalysis, TableExtraction)
-- models/: 数据模型 (BaseResult, EnhancedResult, Mutation)
-- middlewares/: 中间件管线 (SceneDetector, ColumnMapper, Validator, Repairer, ...)
-- configs/: 配置文件 (settings, hints.yaml, institution_registry.yaml)
-- orchestrator.py: 全流程编排器
-- engines/: Vision LLM (Qwen-VL), OCR, Seal 检测
-- schemas/: 外部数据契约 (PerceptionResult, DocumentType)
-- dispatcher.py: L0 文件类型路由
-- base.py: ParserOutput + BaseParser 基类
-- adapters/: 格式适配器 (PDF, Image, Office, Email, Web)
+Refactored directory structure:
+- core/: Core extraction engines (CoreExtractor, Foundation, LayoutAnalysis, TableExtraction)
+- models/: Data models (BaseResult, EnhancedResult, Mutation)
+- middlewares/: Middleware pipeline (SceneDetector, ColumnMapper, Validator, Repairer, ...)
+- configs/: Configuration (settings, hints.yaml, institution_registry.yaml)
+- orchestrator.py: Full pipeline orchestrator
+- engines/: Vision LLM (Qwen-VL), OCR, Seal detection
+- schemas/: External data contracts (PerceptionResult, DocumentType)
+- dispatcher.py: L0 file type routing
+- base.py: ParserOutput + BaseParser base classes
+- adapters/: Format adapters (PDF, Image, Office, Email, Web)
 
-唯一公开入口: perceive_document()
+Single public entry point: perceive_document()
 """
 
 import logging
@@ -43,9 +43,9 @@ async def parse_pdf_v2(
     **kwargs,
 ) -> EnhancedResult:
     """
-    [DEPRECATED] 请使用 perceive_document() 作为唯一入口。
+    [DEPRECATED] Use perceive_document() as the sole entry point.
 
-    保留此函数仅为向后兼容。内部委托给 perceive_document。
+    Kept for backward compatibility only. Internally delegates to perceive_document.
     """
     warnings.warn(
         "parse_pdf_v2() is deprecated, use perceive_document() instead.",
@@ -53,10 +53,10 @@ async def parse_pdf_v2(
         stacklevel=2,
     )
     result = await perceive_document(file_path, DocumentType.OTHER)
-    # 返回 EnhancedResult 以兼容旧调用方
+    # Return EnhancedResult for legacy caller compatibility
     if hasattr(result, '_enhanced') and result._enhanced is not None:
         return result._enhanced
-    # 如果没有 _enhanced (非 PDF 路径), 构造一个最小 EnhancedResult
+    # If no _enhanced (non-PDF path), construct minimal EnhancedResult
     from docmirror.models.domain import BaseResult
     base = BaseResult(document_id=str(file_path), full_text=result.content.text, pages=(), metadata={})
     return EnhancedResult.from_base_result(base)

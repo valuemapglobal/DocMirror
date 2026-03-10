@@ -1,7 +1,7 @@
 """
 Email Adapter — Email → BaseResult
 
-提取邮件正文、标头和附件元数据。
+Extract邮件Body text、标头和附件元Data。
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class EmailAdapter(BaseParser):
-    """Email (.eml) 格式适配器。"""
+    """Email (.eml) Format adapter。"""
 
     async def to_base_result(self, file_path: Path) -> BaseResult:
         """Email → BaseResult。"""

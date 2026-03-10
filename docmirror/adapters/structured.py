@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class StructuredAdapter(BaseParser):
-    """Structured data (JSON/CSV) 格式适配器。"""
+    """Structured data (JSON/CSV) Format adapter。"""
 
     async def to_base_result(self, file_path: Path) -> BaseResult:
         ext = file_path.suffix.lower()

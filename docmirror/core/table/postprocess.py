@@ -1,9 +1,9 @@
 """
-表格后处理 (Table Post-processing)
+Table post-processing (Table Post-processing)
 ====================================
 
-从 layout_analysis.py 拆分的表格后处理系统。
-包含 post_process_table、_strip_preamble、_fix_header_by_vocabulary、
+从 layout_analysis.py Split的Table post-processing系统。
+contains post_process_table、_strip_preamble、_fix_header_by_vocabulary、
 _clean_cell、_merge_split_rows、_extract_summary_entities 等。
 """
 
@@ -34,22 +34,22 @@ from ..utils.vocabulary import (
 logger = logging.getLogger(__name__)
 
 def _extract_preamble_kv(rows: List[List[str]]) -> Dict[str, str]:
-    """从 pre-header 行中提取 KV 元数据对。
+    """从 pre-header 行中Extract KV 元Data对。
 
-    规则: 相邻非空单元格满足 (中文标签, 数值/日期) 模式时提取为 KV 对。
-    示例行: ['汇出总金额（借方）', None, '3,507,280.66', None, '汇入总金额（贷方）', ...]
-            → None 被跳过后 → ['汇出总金额（借方）', '3,507,280.66', '汇入总金额（贷方）', ...]
+    规则: 相邻非空单元格满足 (中文标签, 数值/Date) Mode时Extract为 KV 对。
+    示例行: ['汇出总Amount（Debit）', None, '3,507,280.66', None, '汇入总Amount（Credit）', ...]
+            → None 被Skip后 → ['汇出总Amount（Debit）', '3,507,280.66', '汇入总Amount（Credit）', ...]
     """
     kv: Dict[str, str] = {}
     for row in rows:
-        # 先过滤掉 None/空格, 得到紧凑的非空 cell 列表
+        # 先Filter掉 None/空格, 得到紧凑的非空 cell List
         cells = [str(c).strip() for c in row if c is not None and str(c).strip()]
         i = 0
         while i < len(cells) - 1:
             key = cells[i]
             val = cells[i + 1]
-            # key: 非空, 包含汉字, 不像纯数值 / 日期
-            # val: 非空, 是金额/日期/纯数字
+            # key: 非空, contains汉字, 不像纯数值 / Date
+            # val: 非空, 是Amount/Date/纯数字
             if (
                 key and val
                 and re.search(r"[\u4e00-\u9fff]", key)
@@ -63,7 +63,7 @@ def _extract_preamble_kv(rows: List[List[str]]) -> Dict[str, str]:
                 )
                 if is_num_or_date:
                     kv[key] = val
-                    i += 2  # 跳过 value
+                    i += 2  # Skip value
                     continue
             i += 1
     return kv
@@ -74,17 +74,17 @@ def _strip_preamble(
     confirmed_header: List[str],
     categories: Optional[List[str]] = None,
 ) -> List[List[str]]:
-    """去除续表页开头的重复汇总行和重复表头行。
+    """去除续 table页开头的重复汇总行和重复Table header行。
 
     Args:
-        rows: 待过滤的行列表
-        confirmed_header: 已确认的表头行
-        categories: vocab 匹配所用的文档类别; 默认为 ["BANK_STATEMENT"]
+        rows: 待Filter的行List
+        confirmed_header: 已确认的Table header行
+        categories: vocab Match所用的Document类别; Default为 ["BANK_STATEMENT"]
     """
     if not confirmed_header or not rows:
         return rows
 
-    # 确认表头非空 cell 的集合
+    # 确认Table header非空 cell 的集合
     header_cells = {
         _normalize_for_vocab(c).strip()
         for c in confirmed_header
@@ -97,7 +97,7 @@ def _strip_preamble(
     max_scan = min(10, len(rows))
 
     # 两阶段扫描:
-    # 阶段1: 扫描前 max_scan 行, 找到最后一个 vocab_score >= 3 的行 (重复表头行)
+    # 阶段1: 扫描前 max_scan 行, 找到最后一个 vocab_score >= 3 的行 (重复Table header行)
     last_header_idx = -1
     for i in range(max_scan):
         vs = _score_header_by_vocabulary(rows[i], categories=categories)
@@ -105,7 +105,7 @@ def _strip_preamble(
             last_header_idx = i
 
     if last_header_idx >= 0:
-        # F-7: 剥离保护 — 最多剥离 5 行
+        # F-7: 剥离Protected — 最多剥离 5 行
         if last_header_idx > 5:
             logger.warning(
                 f"[v2] strip_preamble: vocab header at row {last_header_idx} "
@@ -118,7 +118,7 @@ def _strip_preamble(
         )
         return rows[last_header_idx + 1:]
 
-    # 阶段2: 无重复表头, 尝试 header-similarity 匹配
+    # 阶段2: 无重复Table header, 尝试 header-similarity Match
     for i in range(max_scan):
         row = rows[i]
         norm_cells = {
@@ -133,7 +133,7 @@ def _strip_preamble(
                     f"(header overlap={overlap:.2f})"
                 )
                 return rows[i + 1:]
-        # 一旦遇到真实数据行, 停止相似度检测
+        # 一旦遇到真实Data行, stop相似度Detect
         if _is_data_row(row):
             break
 
@@ -144,29 +144,29 @@ def post_process_table(
     table_data: List[List[str]],
     confirmed_header: Optional[List[str]] = None,
 ) -> Tuple[Optional[List[List[str]]], Dict[str, str]]:
-    """通用表格后处理 — 无关键词依赖。
+    """通用Table post-processing — 无KeywordsDependency。
 
     Args:
-        table_data: 原始二维表格
-        confirmed_header: 已确认的表头 (用于续表 preamble 过滤)
+        table_data: 原始二维Table
+        confirmed_header: 已确认的Table header (用于续 table preamble Filter)
 
     Returns:
         Tuple of (processed_table, preamble_kv):
-            processed_table: 处理后的表格, 或 None
-            preamble_kv: 从表头前汇总行提取的 KV 对 (可能为空 dict)
+            processed_table: Processing后的Table, 或 None
+            preamble_kv: 从Table header前汇总行Extract的 KV 对 (may为空 dict)
     """
     if not table_data or len(table_data) < 2:
         return table_data, {}
 
     table_data = normalize_table(table_data)
 
-    # ── 如有 confirmed_header, 先剥离续表页前置汇总行 ──
+    # ── 如有 confirmed_header, 先剥离续 table页前置汇总行 ──
     if confirmed_header:
         table_data = _strip_preamble(table_data, confirmed_header)
         if not table_data:
             return None, {}
 
-    # ── 词表匹配优先 (BANK_STATEMENT 范围): 在前 10 行中找匹配已知列名最多的行 ──
+    # ── 词 tableMatch优先 (BANK_STATEMENT 范围): 在前 10 行中找Match已知列名最多的行 ──
     _CATEGORIES = ["BANK_STATEMENT"]
     header_row_idx = -1
     best_vocab_score = 0
@@ -191,7 +191,7 @@ def post_process_table(
             if header_row_idx == -1:
                 return table_data, {}
 
-    # ── pre-header 行提取为 KV 元数据 (通过返回值传出, 无全局状态) ──
+    # ── pre-header 行Extract为 KV 元Data (viaReturns值传出, 无GlobalStatus) ──
     preamble_kv: Dict[str, str] = {}
     if header_row_idx > 0:
         preamble_rows = table_data[:header_row_idx]
@@ -201,10 +201,10 @@ def post_process_table(
 
     header = table_data[header_row_idx]
     data_rows = list(table_data[header_row_idx + 1:])
-    # 剥离 header 之后紧跟着的 preamble 行 (汇总行/重复表头), 不论 header 在第几行
+    # 剥离 header after紧跟着的 preamble 行 (汇总行/重复Table header), 不论 header 在第几行
     data_rows = _strip_preamble(data_rows, header)
 
-    # ── Fix 2: 先修复粘连表头, 确保后续 _clean_cell 使用正确的列名 ──
+    # ── Fix 2: 先Fix粘连Table header, ensure后续 _clean_cell using正确的列名 ──
     try:
         preliminary = [header] + data_rows
         preliminary = _fix_header_by_vocabulary(preliminary)
@@ -213,7 +213,7 @@ def post_process_table(
     except Exception as e:
         logger.debug(f"[v2] header fix rollback: {e}")
 
-    # ── 预过滤: 移除 junk 行和短行, 提取表尾汇总 KV ──
+    # ── 预Filter: remove junk 行和短行, Extract table尾汇总 KV ──
     try:
         clean_rows = []
         tail_junk_rows = []
@@ -225,7 +225,7 @@ def post_process_table(
                 continue
             clean_rows.append(r)
 
-        # 优化 A: 从表尾 junk 行 (合计/总计) 提取汇总 KV
+        # Optimize A: 从 table尾 junk 行 (合计/总计) Extract汇总 KV
         if tail_junk_rows:
             tail_kv = _extract_preamble_kv(tail_junk_rows)
             if tail_kv:
@@ -236,7 +236,7 @@ def post_process_table(
     except Exception as e:
         logger.debug(f"[v2] junk filter rollback: {e}")
 
-    # ── Fix 3: 统一由 _merge_split_rows 处理所有 fragment 合并 ──
+    # ── Fix 3: 统一由 _merge_split_rows Processingall fragment Merge ──
     try:
         merged = _merge_split_rows([header] + data_rows)
         header = merged[0]
@@ -244,7 +244,7 @@ def post_process_table(
     except Exception as e:
         logger.debug(f"[v2] merge_split rollback: {e}")
 
-    # ── 数据行清洗: 列对齐 + 单元格清洗 ──
+    # ── Data行清洗: 列Alignment + 单元格清洗 ──
     result: List[List[str]] = [header]
 
     for row in data_rows:
@@ -266,11 +266,11 @@ def _find_vocab_words_in_string(
     s: str,
     categories: Optional[List[str]] = None,
 ) -> List[Tuple[str, int, int]]:
-    """贪心最长匹配: 在字符串中找出所有已知表头词及其位置 (NFKC + 繁简归一化)。
+    """贪心最长Match: 在字符串中找出all已知Table header词及其位置 (NFKC + 繁简归一化)。
 
     Args:
-        s: 待匹配字符串
-        categories: 限制匹配的 category 列表; 为 None 时使用全量词表
+        s: 待Match字符串
+        categories: 限制Match的 category List; 为 None 时using全量词 table
     """
     s = _normalize_for_vocab(s)
     vocab = (
@@ -300,10 +300,10 @@ def _find_vocab_words_in_string(
 def _fix_header_by_vocabulary(
     table: List[List[str]],
 ) -> List[List[str]]:
-    """词表驱动的表头修正: 只修复表头列名, 不改变列数和数据行。
+    """词 table驱动的Table header修正: 只Fix table header列名, 不改变列数和Data行。
 
-    策略: 将表头拼接后用词表匹配找出更多列名,
-    然后将匹配到的列名按位置顺序填回原有列。
+    策略: 将Table header拼接后用词 tableMatch找出更多列名,
+    然后将Match到的列名按位置顺序填回原有列。
     """
     if not table or len(table) < 2:
         return table
@@ -318,21 +318,21 @@ def _fix_header_by_vocabulary(
 
     found = _find_vocab_words_in_string(concat)
 
-    # Guard 1: 匹配到的词数必须显著多于已有匹配 (标志粘连)
+    # Guard 1: Match到的词数必须显著多于已有Match (标志粘连)
     min_improvement = max(3, old_score + 3) if old_score >= 3 else old_score * 2 + 1
     if len(found) < min_improvement:
         return table
-    # Guard 2: 至少 3 个词匹配
+    # Guard 2: 至少 3 个词Match
     if len(found) < 3:
         return table
-    # Guard 3: 词表词必须覆盖拼接串主体 (≥50%)
-    # 注: 用去空格后的长度计算, 因为 PDF 中表头列名间常有大量空格
+    # Guard 3: 词 table词必须override拼接串主体 (≥50%)
+    # Note: 用去空格后的长度Calculate, 因为 PDF 中Table header列名间常有大量空格
     concat_nospace = concat.replace(" ", "").replace("\u3000", "")
     covered = sum(end - start for _, start, end in found)
     if covered / max(len(concat_nospace), 1) < 0.5:
         return table
 
-    # 只替换表头行, 不动数据行
+    # 只replaceTable header行, 不动Data行
     new_header = [w for w, _, _ in found]
     if len(new_header) > n_cols:
         new_header = new_header[:n_cols]
@@ -356,15 +356,15 @@ def _clean_cell(cell: str, col_name: str) -> str:
 
     col_lower = col_name.lower()
 
-    # ── F-5: 账号/ID 类列保护 — 原样返回，不做格式化 ──
-    _ID_KEYWORDS = ["账号", "卡号", "序号", "编号", "凭证", "流水号",
-                    "日志号", "account", "储种", "地区"]
+    # ── F-5: Account number/ID 类列Protected — 原样Returns，不做Format化 ──
+    _ID_KEYWORDS = ["Account number", "Card number", "序号", "编号", "凭证", "流水号",
+                    "Log号", "account", "储种", "地区"]
     if any(kw in col_lower for kw in _ID_KEYWORDS):
         return cell
 
-    # ── F-4: 日期时间完整保留 ──
-    if any(kw in col_lower for kw in ["日期", "时间", "date"]):
-        # 先从原始 cell (含空格) 提取时间
+    # ── F-4: Date时间完整retain ──
+    if any(kw in col_lower for kw in ["Date", "时间", "date"]):
+        # 先从原始 cell (含空格) Extract时间
         time_match = _RE_TIME.search(cell)
 
         compact = cell.replace(" ", "")
@@ -375,7 +375,7 @@ def _clean_cell(cell: str, col_name: str) -> str:
                 d = raw_match.group(1)
                 date_str = f"{d[:4]}-{d[4:6]}-{d[6:8]}"
                 date_match = _RE_DATE_HYPHEN.search(date_str)
-                # 尝试从紧凑日期后面提取 HHMMSS (如 20250921162345)
+                # 尝试从紧凑Date后面Extract HHMMSS (如 20250921162345)
                 if not time_match:
                     after_date = compact[raw_match.end():]
                     hhmmss = re.match(r"(\d{2})(\d{2})(\d{2})", after_date)
@@ -385,12 +385,12 @@ def _clean_cell(cell: str, col_name: str) -> str:
                             time_match = type('M', (), {'group': lambda self: f"{h:02d}:{m:02d}:{s:02d}"})()
 
         if date_match:
-            # 也尝试从 compact 中找标准时间格式 (HH:MM:SS)
+            # 也尝试从 compact 中找Standard时间Format (HH:MM:SS)
             if not time_match:
                 time_match = _RE_TIME.search(compact)
             return f"{date_match.group()} {time_match.group()}" if time_match else date_match.group()
 
-    if any(kw in col_lower for kw in ["金额", "余额", "发生", "amount", "balance"]):
+    if any(kw in col_lower for kw in ["Amount", "Balance", "发生", "amount", "balance"]):
         return parse_amount(cell)
 
     if any(kw in col_lower for kw in ["币", "currency"]):
@@ -401,30 +401,30 @@ def _clean_cell(cell: str, col_name: str) -> str:
 
 
 def _merge_split_rows(table: List[List[str]]) -> List[List[str]]:
-    """合并被拆分的行 (F-2 增强版)。"""
+    """Merge被Split的行 (F-2 增强版)。"""
     if len(table) < 2:
         return table
 
-    # F-2: 页分隔符/注释行正则
+    # F-2: 页Separator/Comment行正则
     _RE_ANNOTATION = re.compile(
         r"^[-=─—━]{3,}$|接下页|续[上下]?页|第\d+页.*共|page\s*\d+|^[-=]{5,}",
         re.IGNORECASE,
     )
-    _RE_SUMMARY = re.compile(r"合计|共计|总计|小计|期末余额|期初余额")
+    _RE_SUMMARY = re.compile(r"合计|共计|总计|小计|期末Balance|期初Balance")
 
     def _row_type(row):
-        """判断行类型: 'data', 'fragment', 'junk', 'summary'。"""
+        """判断行Type: 'data', 'fragment', 'junk', 'summary'。"""
         row_text = "".join(str(c or "") for c in row).strip()
         if not row_text:
             return "junk"
 
-        # 注释/分隔行
+        # Comment/分隔行
         if _RE_ANNOTATION.search(row_text):
             return "junk"
 
         # 合计/汇总行
         if _RE_SUMMARY.search(row_text):
-            if re.search(r"打印时间|打印日期|操作员", row_text):
+            if re.search(r"打印时间|Print date|操作员", row_text):
                 return "junk"
             return "summary"
 
@@ -435,12 +435,12 @@ def _merge_split_rows(table: List[List[str]]) -> List[List[str]]:
         if not first and has_content:
             return "fragment"
 
-        # 日期锚定: 银行流水中每笔交易首行必有日期, 无日期 = 续行
+        # Date锚定: Bank statement中每笔交易首行必有Date, 无Date = 续行
         has_date = any(_RE_VALID_DATE.search(c or "") for c in row)
         if has_date:
             return "data"
 
-        # Fix 3: 金额检测 — 若行含金额且第一列非空, 视为独立数据行
+        # Fix 3: AmountDetect — 若行含Amount且第一列非空, 视为独立Data行
         has_amount = any(
             _RE_IS_AMOUNT.match((c or "").strip().replace(",", "").replace("¥", ""))
             for c in row if (c or "").strip()
@@ -448,7 +448,7 @@ def _merge_split_rows(table: List[List[str]]) -> List[List[str]]:
         if has_amount and first:
             return "data"
 
-        # F-2: 低填充率行 (<50% 列有值) 且无日期 → fragment
+        # F-2: 低填充率行 (<50% 列有值) 且无Date → fragment
         filled = sum(1 for c in row if (c or "").strip())
         if filled > 0 and filled < len(row) * 0.5:
             return "fragment"
@@ -475,7 +475,7 @@ def _merge_split_rows(table: List[List[str]]) -> List[List[str]]:
                 else:
                     target[i] = val
 
-    # Pass 1: 过滤 junk 行 (注释/分隔符)
+    # Pass 1: Filter junk 行 (Comment/Separator)
     filtered = []
     for row in table:
         rt = _row_type(row)
@@ -485,7 +485,7 @@ def _merge_split_rows(table: List[List[str]]) -> List[List[str]]:
     if len(filtered) < 2:
         return filtered if filtered else table
 
-    # Pass 2: 反向扫描 — header 之下的 fragment 合并到下一个数据行
+    # Pass 2: 反向扫描 — header 之下的 fragment Merge到下一个Data行
     result = list(filtered)
     i = len(result) - 1
     while i >= 1:
@@ -502,7 +502,7 @@ def _merge_split_rows(table: List[List[str]]) -> List[List[str]]:
                     result.pop(i)
         i -= 1
 
-    # Pass 3: 正向扫描 — fragment 合并到前一个数据行
+    # Pass 3: 正向扫描 — fragment Merge到前一个Data行
     merged = [result[0]]
     seen_data = False
     for row in result[1:]:
@@ -510,7 +510,7 @@ def _merge_split_rows(table: List[List[str]]) -> List[List[str]]:
         if rt == "fragment":
             if seen_data and merged and not _is_header(merged[-1]):
                 _merge_into(merged[-1], row)
-            # else: 首条数据行之前的 fragment → 丢弃 (跨页残留)
+            # else: 首条Data行before的 fragment → 丢弃 (跨页残留)
         else:
             if rt in ("data", "summary"):
                 seen_data = True
@@ -520,9 +520,9 @@ def _merge_split_rows(table: List[List[str]]) -> List[List[str]]:
 
 
 def _extract_summary_entities(chars: list, out: dict):
-    """从 summary zone 的 chars 提取 key-value 对。
+    """从 summary zone 的 chars Extract key-value 对。
 
-    增强: 支持同行多 KV 粘连检测 (如 "户名:XX币种:YY")。
+    增强: supports同行多 KV 粘连Detect (如 "Account name:XXCurrency:YY")。
     """
     if not chars:
         return
@@ -550,20 +550,20 @@ def _extract_summary_entities(chars: list, out: dict):
         _parse_kv_segment(segment, out)
 
 
-# 常见 KV key 的模式 (中文短词 + 冒号)
+# 常见 KV key 的Mode (中文短词 + 冒号)
 _KV_EMBEDDED_RE = re.compile(
     r"([\u4e00-\u9fff]{2,6})"  # 2~6 个中文字符 (key)
-    r"[：:]"                    # 冒号分隔符
+    r"[：:]"                    # 冒号Separator
 )
 
 
 def _parse_kv_segment(segment: str, out: dict):
-    """解析单个 segment 为 KV 对, 支持同行粘连检测。
+    """Parse单个 segment 为 KV 对, supports同行粘连Detect。
 
-    例如: "户名:重庆中链农科技有限公司币种:人民币"
-    → 户名=重庆中链农科技有限公司, 币种=人民币
+    例e.g.: "Account name:重庆中链农科技有限公司Currency:人民币"
+    → Account name=重庆中链农科技有限公司, Currency=人民币
     """
-    # 尝试多种分隔符: 全角冒号、半角冒号、等号、Tab
+    # 尝试多种Separator: 全角冒号、半角冒号、等号、Tab
     for delim in ["：", ":", "=", "\t"]:
         if delim not in segment:
             continue
@@ -573,11 +573,11 @@ def _parse_kv_segment(segment: str, out: dict):
         if not k or not v or len(k) >= 20:
             break
 
-        # ── 检查 v 中是否嵌入了另一个 KV 对 ──
-        # Pass 1: 用已知 KV 关键词精确匹配 (高精度)
+        # ── 检查 v 中Whether嵌入了另一个 KV 对 ──
+        # Pass 1: 用已知 KV Keywords精确Match (高精度)
         split_pos = _find_embedded_kv_by_keywords(v)
         if split_pos is None:
-            # Pass 2: 扫描所有 "冒号" 位置, 取冒号前最短的 CJK 词 (泛化)
+            # Pass 2: 扫描all "冒号" 位置, 取冒号前最短的 CJK 词 (泛化)
             split_pos = _find_embedded_kv_by_colon_scan(v)
 
         if split_pos is not None and split_pos > 0:
@@ -594,30 +594,30 @@ def _parse_kv_segment(segment: str, out: dict):
         break
 
 
-# 常见的 KV 关键词 (用于精确匹配嵌入的 key)
+# 常见的 KV Keywords (用于精确Match嵌入的 key)
 _COMMON_KV_KEYWORDS = [
-    "币种", "户名", "账号", "卡号", "账户", "类型", "日期",
-    "姓名", "编号", "状态", "备注", "摘要", "金额", "余额",
-    "开户行", "起止日期", "起始日期", "截止日期", "打印日期",
-    "总笔数", "总金额", "页码", "机构",
+    "Currency", "Account name", "Account number", "Card number", "Account", "Type", "Date",
+    "姓名", "编号", "Status", "备注", "Abstract/Summary", "Amount", "Balance",
+    "Bank name", "From/to date", "起始Date", "截止Date", "Print date",
+    "总笔数", "总Amount", "Page number", "机构",
 ]
 
 
 def _find_embedded_kv_by_keywords(v: str) -> "int | None":
-    """用已知关键词在 value 中查找嵌入的 key:value 对。"""
+    """用已知Keywords在 value 中查找嵌入的 key:value 对。"""
     best_pos = None
     for kw in _COMMON_KV_KEYWORDS:
         for delim in ["：", ":"]:
             pattern = kw + delim
             idx = v.find(pattern)
-            if idx > 0:  # 必须有前面的 value 部分
+            if idx > 0:  # 必须有前面的 value partial
                 if best_pos is None or idx > best_pos:
-                    best_pos = idx  # 取最靠后的匹配
+                    best_pos = idx  # 取最靠后的Match
     return best_pos
 
 
 def _find_embedded_kv_by_colon_scan(v: str) -> "int | None":
-    """扫描冒号位置, 检查冒号前是否有 2~4 个中文字符 (疑似 key)。"""
+    """扫描冒号位置, 检查冒号前Whether有 2~4 个中文字符 (疑似 key)。"""
     best_pos = None
     for delim in ["：", ":"]:
         pos = 0
@@ -631,7 +631,7 @@ def _find_embedded_kv_by_colon_scan(v: str) -> "int | None":
             while scan >= 0 and '\u4e00' <= v[scan] <= '\u9fff':
                 cjk_before += 1
                 scan -= 1
-            # 2~4 个中文字 + 前面有非中文内容 → 可能是嵌入的 key
+            # 2~4 个中文字 + 前面有非中文内容 → may是嵌入的 key
             if 2 <= cjk_before <= 4 and scan >= 0:
                 key_start = idx - cjk_before
                 if best_pos is None or key_start > best_pos:

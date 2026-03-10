@@ -1,8 +1,8 @@
 """
-Domain Models — 领域特定数据模型
+Domain Models — 领域特定Data模型
 
-按文档类型 (DocumentType) 定义结构化字段,
-由 Parser 在识别文档类型后选择性填充。
+按DocumentType (DocumentType) define结构化Field,
+由 Parser 在RecognizeDocumentType后选择性填充。
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 银行流水
+# Bank statement
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TransactionRow(BaseModel):
@@ -29,10 +29,10 @@ class TransactionRow(BaseModel):
 
 
 class BankStatementData(BaseModel):
-    """银行流水领域数据"""
-    account_holder: str = ""           # 账户持有人
-    account_number: str = ""           # 账号
-    bank_name: str = ""                # 开户行
+    """Bank statement领域Data"""
+    account_holder: str = ""           # Account holder
+    account_number: str = ""           # Account number
+    bank_name: str = ""                # Bank name
     query_period: str = ""             # "20240620 - 20250620"
     currency: str = "CNY"
     opening_balance: Optional[float] = None
@@ -44,11 +44,11 @@ class BankStatementData(BaseModel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 发票
+# Invoice
 # ═══════════════════════════════════════════════════════════════════════════
 
 class InvoiceItem(BaseModel):
-    """发票明细行"""
+    """Invoice明细行"""
     name: str = ""
     quantity: Optional[float] = None
     unit_price: Optional[float] = None
@@ -58,11 +58,11 @@ class InvoiceItem(BaseModel):
 
 
 class InvoiceData(BaseModel):
-    """发票领域数据"""
+    """Invoice领域Data"""
     invoice_code: str = ""
     invoice_number: str = ""
     invoice_date: str = ""
-    invoice_type: str = ""             # "增值税专用发票" | "增值税普通发票"
+    invoice_type: str = ""             # "增值税专用Invoice" | "增值税普通Invoice"
     buyer_name: str = ""
     buyer_tax_id: str = ""
     seller_name: str = ""
@@ -78,7 +78,7 @@ class InvoiceData(BaseModel):
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TaxReportData(BaseModel):
-    """税务报告领域数据"""
+    """税务报告领域Data"""
     taxpayer_name: str = ""
     taxpayer_id: str = ""
     tax_period: str = ""
@@ -91,11 +91,11 @@ class TaxReportData(BaseModel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 营业执照
+# Business license
 # ═══════════════════════════════════════════════════════════════════════════
 
 class BusinessLicenseData(BaseModel):
-    """营业执照领域数据"""
+    """Business license领域Data"""
     company_name: str = ""
     unified_social_credit_code: str = ""
     legal_representative: str = ""
@@ -108,11 +108,11 @@ class BusinessLicenseData(BaseModel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 合同
+# Contract
 # ═══════════════════════════════════════════════════════════════════════════
 
 class ContractData(BaseModel):
-    """合同领域数据"""
+    """Contract领域Data"""
     contract_title: str = ""
     contract_number: str = ""
     party_a: str = ""
@@ -130,7 +130,7 @@ class ContractData(BaseModel):
 # ═══════════════════════════════════════════════════════════════════════════
 
 class FinancialReportData(BaseModel):
-    """财务报告领域数据"""
+    """财务报告领域Data"""
     company_name: str = ""
     report_period: str = ""
     report_type: str = ""              # "年报" | "季报" | "月报"
@@ -144,11 +144,11 @@ class FinancialReportData(BaseModel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 身份证
+# ID card
 # ═══════════════════════════════════════════════════════════════════════════
 
 class IDCardData(BaseModel):
-    """身份证领域数据"""
+    """ID card领域Data"""
     name: str = ""
     gender: str = ""
     ethnicity: str = ""
@@ -165,10 +165,10 @@ class IDCardData(BaseModel):
 
 class DomainData(BaseModel):
     """
-    领域特定数据容器。
+    领域特定Data容器。
 
-    根据 ``document_type`` 填充对应子字段。
-    同一时刻通常只有一个子字段非 None。
+    based on ``document_type`` 填充对应子Field。
+    同一时刻typicallyonly一个子Field非 None。
     """
     document_type: str = "other"
 
@@ -182,7 +182,7 @@ class DomainData(BaseModel):
 
     @property
     def active_model(self) -> Optional[BaseModel]:
-        """返回当前已填充的领域模型 (若有)"""
+        """Returns当前已填充的领域模型 (若有)"""
         for field_name in [
             "bank_statement", "invoice", "tax_report",
             "business_license", "contract", "financial_report", "id_card",

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class WebAdapter(BaseParser):
-    """HTML/Web content 格式适配器。"""
+    """HTML/Web content Format adapter。"""
 
     async def to_base_result(self, file_path: Path) -> BaseResult:
         with open(file_path, "r", encoding="utf-8") as f:

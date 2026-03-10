@@ -1,27 +1,27 @@
 """
-MultiModal 异常体系 (Exception Hierarchy)
+MultiModal Exception体系 (Exception Hierarchy)
 ======================================
 
-统一的类型化异常层级，替代裸 Exception。
+统一的Type化Exception layer级，替代裸 Exception。
 
 层级结构::
 
     MultiModalError (base)
-    ├── ExtractionError      — CoreExtractor / 物理提取失败
-    ├── LayoutAnalysisError   — 版面分析 / Zone 分区失败
-    ├── MiddlewareError       — 中间件处理失败 (携带 middleware_name)
-    └── ValidationError       — 数据校验不通过
+    ├── ExtractionError      — CoreExtractor / 物理Extraction failed
+    ├── LayoutAnalysisError   — 版面Analyze / Zone PartitionedFailed
+    ├── MiddlewareError       — MiddlewareProcessingFailed (携带 middleware_name)
+    └── ValidationError       — DataVerify不via
 
-使用指南:
-    - 可恢复错误: 在 try/except 中捕获并 add_error(), 不终止管线
-    - 不可恢复错误: 抛出，由上层 Pipeline 的 fail_strategy 决定处理方式
+using指南:
+    - 可resumeError: 在 try/except 中捕获并 add_error(), 不终止Pipeline
+    - 不可resumeError: 抛出，由上 layer Pipeline 的 fail_strategy 决定Processing方式
 """
 
 from __future__ import annotations
 
 
 class MultiModalError(Exception):
-    """MultiModal 异常基类。"""
+    """MultiModal ExceptionBase class。"""
 
     def __init__(self, message: str = "", *, detail: str = ""):
         self.detail = detail
@@ -29,23 +29,23 @@ class MultiModalError(Exception):
 
 
 class ExtractionError(MultiModalError):
-    """CoreExtractor 物理提取过程中的错误。
+    """CoreExtractor 物理Extract过程中的Error。
 
-    示例: PDF 打开失败, pdfplumber 解析失败, 页面超上限等。
+    示例: PDF 打开Failed, pdfplumber ParseFailed, Page超上限等。
     """
     pass
 
 
 class LayoutAnalysisError(MultiModalError):
-    """版面分析 / Zone 分区 / 表格提取层的错误。"""
+    """版面Analyze / Zone Partitioned / TableExtract layer的Error。"""
     pass
 
 
 class MiddlewareError(MultiModalError):
-    """中间件处理过程中的错误。
+    """MiddlewareProcessing过程中的Error。
 
     Attributes:
-        middleware_name: 出错的中间件名称。
+        middleware_name: 出错的MiddlewareName。
     """
 
     def __init__(self, message: str = "", *, middleware_name: str = "", detail: str = ""):
@@ -58,8 +58,8 @@ class MiddlewareError(MultiModalError):
 
 
 class ValidationError(MultiModalError):
-    """数据校验不通过。
+    """DataVerify不via。
 
-    示例: 表格列数不一致, 日期覆盖率过低, 置信度低于阈值等。
+    示例: TableInconsistent column count, Dateoverride率过低, Confidence低于Threshold等。
     """
     pass

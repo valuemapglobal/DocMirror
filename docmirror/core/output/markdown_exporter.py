@@ -1,20 +1,20 @@
 """
-Markdown Exporter (OmniDocBench 适配)
+Markdown Exporter (OmniDocBench Adapt)
 ======================================
 
-将 CoreExtractor 产出的 BaseResult 转换为 OmniDocBench 评测所需的
-per-page Markdown 文件。
+将 CoreExtractor 产出的 BaseResult Convert为 OmniDocBench 评测所需的
+per-page Markdown File。
 
 OmniDocBench 评估流程::
 
-    model 解析 PDF → 每页 .md → 评测脚本对比 GT → 分数
+    model Parse PDF → 每页 .md → 评测Script对比 GT → 分数
 
-核心映射:
+核心Map:
     - title  → # / ## / ### (按 heading_level)
-    - text   → 段落 (双换行分隔)
+    - text   → Paragraph (双Newline分隔)
     - table  → Markdown table (header + |---| + rows)
     - formula → $$LaTeX$$
-    - key_value / footer / image → 跳过 (benchmark 不评测)
+    - key_value / footer / image → Skip (benchmark 不评测)
 """
 
 from __future__ import annotations
@@ -35,23 +35,23 @@ logger = logging.getLogger(__name__)
 
 
 def export_document(result: BaseResult) -> List[str]:
-    """将整个 BaseResult 转换为按页分割的 Markdown 列表。
+    """将整个 BaseResult Convert为按页分割的 Markdown List。
 
     Args:
-        result: CoreExtractor 产出的不可变提取结果。
+        result: CoreExtractor 产出的ImmutableExtractResult。
 
     Returns:
-        List[str]: 每个元素是一页的 Markdown 文本。
-        索引 0 对应第一页。
+        List[str]: each元素是一页的 Markdown 文本。
+        Index 0 对应第一页。
     """
     return [export_page(page) for page in result.pages]
 
 
 def export_page(page: PageLayout) -> str:
-    """将单页 PageLayout 转换为 Markdown 字符串。
+    """将单页 PageLayout Convert为 Markdown 字符串。
 
-    Blocks 按 reading_order 排序后依次渲染。
-    相邻块之间用双换行分隔 (Markdown 段落分隔符)。
+    Blocks 按 reading_order Sort后依次渲染。
+    相邻块之间用双Newline分隔 (Markdown ParagraphSeparator)。
 
     Args:
         page: 单页版面结构。
@@ -74,15 +74,15 @@ def export_page(page: PageLayout) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 逐类型渲染
+# 逐Type渲染
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 def _render_block(block: Block) -> Optional[str]:
-    """根据 block_type 分派渲染。
+    """based on block_type Dispatch渲染。
 
     Returns:
-        渲染后的 Markdown 片段, 或 None 表示跳过。
+        渲染后的 Markdown 片段, 或 None 表示Skip。
     """
     renderer = _RENDERERS.get(block.block_type)
     if renderer is None:
@@ -91,7 +91,7 @@ def _render_block(block: Block) -> Optional[str]:
 
 
 def _render_title(block: Block) -> Optional[str]:
-    """标题 → # 层级。"""
+    """Title → # 层级。"""
     text = _get_text(block)
     if not text:
         return None
@@ -102,23 +102,23 @@ def _render_title(block: Block) -> Optional[str]:
 
 
 def _render_text(block: Block) -> Optional[str]:
-    """正文段落 → 纯文本。"""
+    """Body textParagraph → 纯文本。"""
     text = _get_text(block)
     return text if text else None
 
 
 def _render_table(block: Block) -> Optional[str]:
-    """表格 → Markdown table。
+    """Table → Markdown table。
 
-    raw_content 格式: List[List[str]]
+    raw_content Format: List[List[str]]
     第一行视为 header，后续行为 data。
-    如果只有一行，也输出为 header-only table。
+    如果only一行，也Output为 header-only table。
     """
     rows = block.raw_content
     if not rows or not isinstance(rows, list):
         return None
 
-    # 清洗: 确保每个 cell 都是字符串
+    # 清洗: ensureeach cell 都是字符串
     clean_rows: List[List[str]] = []
     for row in rows:
         if not isinstance(row, (list, tuple)):
@@ -155,7 +155,7 @@ def _render_formula(block: Block) -> Optional[str]:
     if not latex:
         return None
 
-    # 去掉可能已存在的 $ 定界符
+    # 去掉may已存在的 $ 定界符
     latex = latex.strip()
     if latex.startswith("$$") and latex.endswith("$$"):
         return latex
@@ -166,15 +166,15 @@ def _render_formula(block: Block) -> Optional[str]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 辅助函数
+# Helper functions
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 def _get_text(block: Block) -> str:
-    """从 Block 中提取文本。
+    """从 Block 中Extract文本。
 
-    优先从 raw_content 提取 (如果是 str)，
-    否则从 spans 拼接。
+    优先从 raw_content Extract (如果是 str)，
+    otherwise从 spans 拼接。
     """
     if isinstance(block.raw_content, str):
         return _normalize_text(block.raw_content)
@@ -187,29 +187,29 @@ def _get_text(block: Block) -> str:
 
 
 def _normalize_text(text: str) -> str:
-    """文本规范化: NFC + 去除多余空白。"""
+    """Text normalization: NFC + 去除多余Whitespace。"""
     text = unicodedata.normalize("NFC", text)
-    # 多个空格/制表符合并为单个空格
+    # 多个空格/制 table符Merge为单个空格
     text = re.sub(r"[ \t]+", " ", text)
-    # 去除首尾空白
+    # 去除首尾Whitespace
     text = text.strip()
     return text
 
 
 def _clean_cell(value) -> str:
-    """清洗表格 cell 值。"""
+    """清洗Table cell 值。"""
     if value is None:
         return ""
     s = str(value).strip()
-    # 管道符会破坏 Markdown table 语法
+    # Pipe符会破坏 Markdown table 语法
     s = s.replace("|", "\\|")
-    # 换行合并
+    # 换Line merging
     s = s.replace("\n", " ")
     return s
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 渲染器注册表
+# 渲染器Registry
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _RENDERERS = {
@@ -217,7 +217,7 @@ _RENDERERS = {
     "text": _render_text,
     "table": _render_table,
     "formula": _render_formula,
-    # 以下类型跳过
+    # belowTypeSkip
     "key_value": None,
     "footer": None,
     "image": None,

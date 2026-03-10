@@ -1,8 +1,8 @@
 """
-PerceptionResultBuilder — 统一构建器
+PerceptionResultBuilder — 统一Builder
 ======================================
 
-取代原有的双重转换链:
+取代原有的双重Convert链:
     EnhancedResult.to_parser_output() → ParserOutput.to_perception_result()
 
 改为单步构建:
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 def _map_block(block) -> ContentBlock:
-    """将 domain.Block → schemas.ContentBlock (单步映射)。"""
+    """将 domain.Block → schemas.ContentBlock (单步Map)。"""
     btype = block.block_type
     page = block.page
 
@@ -82,9 +82,9 @@ def _overlay_standardized_tables(
     std_tables: List[Dict[str, Any]],
 ) -> None:
     """
-    将中间件标准化后的表格覆盖到 ContentBlock 中。
+    将MiddlewareStandard化后的Tableoverride到 ContentBlock 中。
 
-    策略: 用最大标准化表格替换第一个表格块。
+    策略: 用最大Standard化Tablereplace第一个Table块。
     """
     if not std_tables or not blocks:
         return
@@ -99,14 +99,14 @@ def _overlay_standardized_tables(
 
 class PerceptionResultBuilder:
     """
-    统一构建 PerceptionResult — 从 BaseResult (+ 可选 EnhancedResult) 一步生成。
+    统一Build PerceptionResult — 从 BaseResult (+ Optional EnhancedResult) 一步生成。
 
-    使用方式::
+    Usage::
 
-        # 简单路径 (非PDF)
+        # 简单Path (非PDF)
         result = PerceptionResultBuilder.build(base_result, file_path="a.xlsx", file_type="excel")
 
-        # PDF 增强路径
+        # PDF 增强Path
         result = PerceptionResultBuilder.build(
             base_result, enhanced=enhanced_result,
             file_path="a.pdf", file_type="pdf",
@@ -130,17 +130,17 @@ class PerceptionResultBuilder:
         forgery_reasons: Optional[List[str]] = None,
     ) -> PerceptionResult:
         """
-        一步构建 PerceptionResult。
+        一步Build PerceptionResult。
 
         Args:
-            base_result: CoreExtractor 的 BaseResult 输出。
-            enhanced:    可选的 EnhancedResult (PDF 路径)。
-            其余参数:     文件上下文信息，由 dispatcher 传入。
+            base_result: CoreExtractor 的 BaseResult Output。
+            enhanced:    Optional的 EnhancedResult (PDF Path)。
+            其余Parameters:     FileContextInformation，由 dispatcher 传入。
         """
         meta = base_result.metadata if base_result else {}
 
         # ══════════════════════════════════════════════════════════════
-        # 1. Envelope 信封层
+        # 1. Envelope 信封 layer
         # ══════════════════════════════════════════════════════════════
         if enhanced is not None:
             status_map = {"success": ResultStatus.SUCCESS, "partial": ResultStatus.PARTIAL, "failed": ResultStatus.FAILURE}
@@ -159,17 +159,17 @@ class PerceptionResultBuilder:
         timing = TimingInfo(started_at=started_at, parser_name=p_name, elapsed_ms=p_elapsed)
 
         # ══════════════════════════════════════════════════════════════
-        # 2. Content 内容层
+        # 2. Content 内容 layer
         # ══════════════════════════════════════════════════════════════
         content_blocks = [_map_block(b) for b in base_result.all_blocks] if base_result else []
 
-        # 如果有 EnhancedResult 的标准化表格, 覆盖原始表格
+        # 如果有 EnhancedResult 的Standard化Table, override原始Table
         if enhanced is not None:
             std_tables = enhanced.standardized_tables
             if std_tables:
                 _overlay_standardized_tables(content_blocks, std_tables)
 
-        # entities: 合并 base KV blocks + enhanced 提取
+        # entities: Merge base KV blocks + enhanced Extract
         entities = {}
         if base_result:
             entities.update(base_result.entities)
@@ -185,9 +185,9 @@ class PerceptionResultBuilder:
         )
 
         # ══════════════════════════════════════════════════════════════
-        # 3. Provenance 溯源层
+        # 3. Provenance 溯源 layer
         # ══════════════════════════════════════════════════════════════
-        # PDF 属性
+        # PDF Property
         pdf_props = {}
         target_keys = ("format", "producer", "creator", "creationDate", "modDate",
                        "title", "author", "subject", "keywords", "trapped", "encryption")
@@ -195,7 +195,7 @@ class PerceptionResultBuilder:
             if k in meta:
                 pdf_props[k] = str(meta[k]) if meta[k] is not None else ""
 
-        # 验证结果 (主要针对 PDF 管线)
+        # Validation result (主要针对 PDF Pipeline)
         validation = None
         if enhanced is not None:
             vr = enhanced.validation_result
@@ -205,7 +205,7 @@ class PerceptionResultBuilder:
                     l2_passed=vr.get("passed"),
                     l2_details=vr.get("details"),
                 )
-            # L1 修复信息
+            # L1 FixInformation
             if any(k in meta for k in ("l1_anomaly_count", "l1_repaired_count")):
                 if validation is None:
                     validation = ValidationResult()
@@ -215,7 +215,7 @@ class PerceptionResultBuilder:
                 validation.l1_llm_used = meta.get("l1_llm_used", False)
                 validation.balance_truncation_repaired = meta.get("balance_truncation_repaired", 0)
 
-        # 防伪信息
+        # 防伪Information
         if is_forged is not None:
             if validation is None:
                 validation = ValidationResult()
@@ -258,7 +258,7 @@ class PerceptionResultBuilder:
         )
 
         # ══════════════════════════════════════════════════════════════
-        # 4. Domain 领域层
+        # 4. Domain 领域 layer
         # ══════════════════════════════════════════════════════════════
         domain = None
         if enhanced is not None:
@@ -267,11 +267,11 @@ class PerceptionResultBuilder:
                 try:
                     from ..entities.domain_models import BankStatementData, DomainData
                     bs = BankStatementData(
-                        account_holder=str(entities.get("户名", entities.get("账户名", ""))),
-                        account_number=str(entities.get("账号", entities.get("卡号", ""))),
+                        account_holder=str(entities.get("Account name", entities.get("Account name", ""))),
+                        account_number=str(entities.get("Account number", entities.get("Card number", ""))),
                         bank_name=str(entities.get("bank_name", "")),
-                        query_period=str(entities.get("查询期间", "")),
-                        currency=str(entities.get("币种", "CNY")) or "CNY",
+                        query_period=str(entities.get("Query period", "")),
+                        currency=str(entities.get("Currency", "CNY")) or "CNY",
                     )
                     domain = DomainData(document_type="bank_statement", bank_statement=bs)
                 except ImportError:
@@ -290,7 +290,7 @@ class PerceptionResultBuilder:
             provenance=provenance,
         )
 
-        # 附带 EnhancedResult 引用 (私有, 序列化时排除)
+        # 附带 EnhancedResult 引用 (Private, Serialization时排除)
         if enhanced is not None:
             pr._enhanced = enhanced
 

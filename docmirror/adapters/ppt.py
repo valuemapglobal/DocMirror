@@ -1,7 +1,7 @@
 """
 PPT Adapter — PowerPoint → BaseResult
 
-使用 python-pptx 提取幻灯片文本和表格。
+using python-pptx Extract幻灯片文本和Table。
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class PPTAdapter(BaseParser):
-    """PowerPoint (.pptx) 格式适配器。"""
+    """PowerPoint (.pptx) Format adapter。"""
 
     async def to_base_result(self, file_path: Path) -> BaseResult:
         from pptx import Presentation

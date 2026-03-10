@@ -1,23 +1,23 @@
 """
-可视化调试工具 (Debug PDF Visualizer)
+Debug PDF Visualizer
 ======================================
 
-在原始 PDF 上叠加 Zone/Block 边界和标注信息，
-输出颜色编码的调试 PDF，便于快速排查版面分析结果。
+Overlay Zone/Block boundaries and annotations on the original PDF,
+outputting a color-coded debug PDF for quick layout analysis inspection.
 
-使用方式::
+Usage::
 
     from docmirror.core.output.visualizer import render_debug_pdf
     render_debug_pdf(fitz_doc, pages, Path("output_debug.pdf"))
 
-颜色编码:
-    - table:     蓝色 (#3B82F6)
-    - title:     红色 (#EF4444)
-    - text:      绿色 (#22C55E)
-    - key_value: 橙色 (#F97316)
-    - footer:    灰色 (#9CA3AF)
-    - image:     紫色 (#A855F7)
-    - formula:   青色 (#06B6D4)
+Color coding:
+    - table:     blue (#3B82F6)
+    - title:     red (#EF4444)
+    - text:      green (#22C55E)
+    - key_value: orange (#F97316)
+    - footer:    gray (#9CA3AF)
+    - image:     purple (#A855F7)
+    - formula:   cyan (#06B6D4)
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# 颜色映射: block_type → (R, G, B) 0-1 范围
+# Color mapping: block_type → (R, G, B) in 0-1 range
 _COLOR_MAP = {
     "table":     (0.231, 0.510, 0.965),   # 蓝
     "title":     (0.937, 0.267, 0.267),   # 红
@@ -48,15 +48,15 @@ def render_debug_pdf(
     pages: List[PageLayout],
     output_path: Path,
 ) -> Path:
-    """在原 PDF 上绘制 Zone/Block 边界，生成调试 PDF。
+    """Draw Zone/Block boundaries on original PDF, generating a debug PDF.
 
     Args:
-        fitz_doc: 已打开的 PyMuPDF 文档对象。
-        pages: CoreExtractor 输出的 PageLayout 列表。
-        output_path: 调试 PDF 的输出路径。
+        fitz_doc: An opened PyMuPDF document object.
+        pages: PageLayout list from CoreExtractor.
+        output_path: Output path for the debug PDF.
 
     Returns:
-        输出文件路径。
+        Output file path.
     """
     try:
         import fitz as pymupdf  # noqa: F811
@@ -76,22 +76,22 @@ def render_debug_pdf(
         for block in page_layout.blocks:
             x0, y0, x1, y1 = block.bbox
             if x0 == 0 and y0 == 0 and x1 == 0 and y1 == 0:
-                continue  # 无 bbox 信息
+                continue  # no bbox info
 
             rect = pymupdf.Rect(x0, y0, x1, y1)
             color = _COLOR_MAP.get(block.block_type, (0.5, 0.5, 0.5))
 
-            # 画矩形边框
+            # Draw rectangle border
             fitz_page.draw_rect(rect, color=color, width=1.5)
 
-            # 标注信息: block_type + reading_order + heading_level
+            # Annotation: block_type + reading_order + heading_level
             label_parts = [f"#{block.reading_order}", block.block_type]
             if block.heading_level is not None:
                 label_parts.append(f"h{block.heading_level}")
 
             label = " ".join(label_parts)
 
-            # 在矩形左上角写标签
+            # Write label at top-left corner of rectangle
             label_point = pymupdf.Point(x0 + 2, y0 + 10)
             try:
                 fitz_page.insert_text(
@@ -101,9 +101,9 @@ def render_debug_pdf(
                     color=color,
                 )
             except Exception:
-                pass  # 某些页面可能不支持写入
+                pass  # Some pages may not support text insertion
 
-    # 保存调试 PDF
+    # Save debug PDF
     try:
         fitz_doc.save(str(output_path))
         logger.info(f"[visualizer] Debug PDF saved: {output_path}")

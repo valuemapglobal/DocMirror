@@ -1,12 +1,12 @@
 """
-智能修复中间件 (Repairer)
+智能Repair middleware (Repairer)
 ===========================
 
-分层修复策略:
-    1. 问题评估:   识别异常行并分类
-    2. 规则修复:   日期格式、金额粘连、余额截断
-    3. LLM 修复:   复杂上下文修复 (可选)
-    4. 置信度评估:  二次校验修复结果
+分 layerFix策略:
+    1. 问题评估:   RecognizeException行并分类
+    2. 规则Fix:   Date format、Amount粘连、Balance截断
+    3. LLM Fix:   复杂ContextFix (Optional)
+    4. Confidence评估:  二次VerifyFixResult
 
 从 v1 移植: _repair_truncated_balances, detect_anomalous_rows
 """
@@ -24,12 +24,12 @@ from ..validation.entropy_monitor import EntropyMonitor, SemanticRepetitionError
 logger = logging.getLogger(__name__)
 
 
-# 日期格式正则
+# Date format正则
 _RE_DATE_COMPACT = re.compile(r'^(\d{4})(\d{2})(\d{2})$')
 _RE_DATE_SLASH = re.compile(r'^(\d{2})/(\d{2})/(\d{4})$')
 _RE_DATE_CHINESE = re.compile(r'^(\d{4})年(\d{1,2})月(\d{1,2})日?$')
 
-# 金额粘连正则 (如 "1,234.56-7,890.12")
+# Amount粘连正则 (如 "1,234.56-7,890.12")
 _RE_AMOUNT_GLUED = re.compile(
     r'^(-?[\d,]+\.?\d*)\s*[-/]\s*(-?[\d,]+\.?\d*)$'
 )
@@ -37,28 +37,28 @@ _RE_AMOUNT_GLUED = re.compile(
 
 class Repairer(BaseMiddleware):
     """
-    智能修复中间件。
+    智能Repair middleware。
 
-    修复标准化表格中的常见问题:
-        - 日期格式不统一 → 标准化为 YYYY-MM-DD
-        - 金额字段粘连 → 拆分
-        - 余额截断 → 基于连续性推算修复
-        - 空值行/重复行 → 标记或移除
+    FixStandard化Table中的常见问题:
+        - Date format不统一 → Standard化为 YYYY-MM-DD
+        - AmountField粘连 → Split
+        - Balance截断 → based on连续性推算Fix
+        - Empty value行/Duplicate rows → 标记或remove
     """
 
     def process(self, result: EnhancedResult) -> EnhancedResult:
-        """执行分层修复。"""
+        """Execute分 layerFix。"""
         std_table = result.standardized_table
         
         # ── Step 0: 防循环拦截 (OCR2 Repetition Control) ──
-        # 对生成的全文本段落和标准化出来的表格文本执行熵监控
+        # 对生成的全文本Paragraph和Standard化出来的Table文本Execute熵Monitor
         full_doc_text = result.base_result.full_text if result.base_result else ""
         if full_doc_text:
             monitor = EntropyMonitor()
             try:
                 monitor.check_loop_hallucination(full_doc_text)
             except SemanticRepetitionError as e:
-                # 记录阻断并降级
+                # 记录阻断并Downgrade
                 logger.error(f"[Repairer] {e}")
                 result.status = "failed"
                 result.add_error("Semantic Repetition Loop Detected: Generative Extraction Failed")
@@ -80,14 +80,14 @@ class Repairer(BaseMiddleware):
 
         logger.info(f"[Repairer] Detected {len(anomalies)} anomalies")
 
-        # ── Step 2: 规则修复 ──
+        # ── Step 2: 规则Fix ──
         repaired_count = 0
 
-        # 2-pre. 空行清理 + 去重 (前置, 避免对空行做无效修复)
+        # 2-pre. Empty rowClean + Deduplication (前置, avoid对Empty row做无效Fix)
         empty_count = self._remove_empty_rows(data_rows, result, "document")
         dup_count = self._remove_duplicate_rows(data_rows, result, "document")
 
-        # 重新检测 anomalies (去除空行/重复行后)
+        # 重新Detect anomalies (去除Empty row/Duplicate rows后)
         if empty_count > 0 or dup_count > 0:
             anomalies = self._detect_anomalies(headers, data_rows)
             if not anomalies:
@@ -97,7 +97,7 @@ class Repairer(BaseMiddleware):
                     "empty_rows_removed": empty_count,
                     "duplicate_rows_removed": dup_count,
                 }
-                # 仍需更新标准化表格 (空行已移除)
+                # 仍需UpdateStandard化Table (Empty row已remove)
                 new_table = [headers] + data_rows
                 result.enhanced_data["standardized_table"] = new_table
                 std_tables = result.enhanced_data.get("standardized_tables", [])
@@ -113,32 +113,32 @@ class Repairer(BaseMiddleware):
             headers, data_rows, anomalies, result, "document"
         )
 
-        # 2b. 日期标准化
-        date_idx = self._find_column(headers, ["交易时间", "交易日期", "日期"])
+        # 2b. DateStandard化
+        date_idx = self._find_column(headers, ["交易时间", "Transaction date", "Date"])
         if date_idx is not None:
             repaired_count += self._repair_dates(
                 data_rows, date_idx, result, "document",
             )
 
-        # 2c. 金额修复
-        amount_idx = self._find_column(headers, ["交易金额", "金额"])
+        # 2c. AmountFix
+        amount_idx = self._find_column(headers, ["Transaction amount", "Amount"])
         if amount_idx is not None:
             repaired_count += self._repair_amounts(
                 data_rows, amount_idx, result, "document",
             )
 
-        # 2d. 余额截断修复
-        balance_idx = self._find_column(headers, ["账户余额", "余额"])
+        # 2d. Balance truncation repair
+        balance_idx = self._find_column(headers, ["AccountBalance", "Balance"])
         if balance_idx is not None and amount_idx is not None:
             repaired_count += self._repair_truncated_balances(
                 data_rows, balance_idx, amount_idx, result, "document",
             )
 
-        # ── Step 3: 更新标准化表格 ──
+        # ── Step 3: UpdateStandard化Table ──
         new_table = [headers] + data_rows
         result.enhanced_data["standardized_table"] = new_table
 
-        # 同步到 standardized_tables (更新最大表)
+        # Sync到 standardized_tables (Update最大 table)
         std_tables = result.enhanced_data.get("standardized_tables", [])
         if std_tables:
             main = max(std_tables, key=lambda t: t.get("row_count", 0))
@@ -146,7 +146,7 @@ class Repairer(BaseMiddleware):
             main["rows"] = data_rows
             main["row_count"] = len(data_rows)
 
-        # ── Step 4: 修复摘要 ──
+        # ── Step 4: FixAbstract/Summary ──
         summary = {
             "anomalies": len(anomalies),
             "repaired": repaired_count,
@@ -169,33 +169,33 @@ class Repairer(BaseMiddleware):
     def _detect_anomalies(
         self, headers: List[str], data_rows: List[List[str]]
     ) -> List[Dict[str, Any]]:
-        """检测行级异常。"""
+        """Detect行级Exception。"""
         anomalies = []
 
-        date_idx = self._find_column(headers, ["交易时间", "交易日期"])
-        amount_idx = self._find_column(headers, ["交易金额", "金额"])
+        date_idx = self._find_column(headers, ["交易时间", "Transaction date"])
+        amount_idx = self._find_column(headers, ["Transaction amount", "Amount"])
 
         for i, row in enumerate(data_rows):
             issues = []
 
-            # 列数不一致
+            # Inconsistent column count
             if len(row) != len(headers):
                 issues.append("column_mismatch")
 
-            # 日期格式异常
+            # Date formatException
             if date_idx is not None and date_idx < len(row):
                 val = row[date_idx].strip()
                 if val and not re.match(r'\d{4}-\d{2}-\d{2}', val):
                     if _RE_DATE_COMPACT.match(val) or _RE_DATE_SLASH.match(val) or _RE_DATE_CHINESE.match(val):
                         issues.append("date_format")
 
-            # 金额异常
+            # AmountException
             if amount_idx is not None and amount_idx < len(row):
                 val = row[amount_idx].strip()
                 if val and _RE_AMOUNT_GLUED.match(val):
                     issues.append("amount_glued")
 
-            # 全空行
+            # 全Empty row
             if all(not c.strip() for c in row):
                 issues.append("empty_row")
 
@@ -205,7 +205,7 @@ class Repairer(BaseMiddleware):
         return anomalies
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # 规则修复
+    # 规则Fix
     # ═══════════════════════════════════════════════════════════════════════════
 
     def _repair_mismatched_columns(
@@ -219,41 +219,41 @@ class Repairer(BaseMiddleware):
         """
         [Phase 2 Deep Optimization]
         语义自动纠偏循环 (Semantic Auto-Correction Loop)
-        针对比表头短的数据行（缺列错位），通过纯文本 LLM 语义补齐缺失坑位。
+        针对比Table header短的Data行（缺列错位），via纯文本 LLM 语义补齐缺失坑位。
         """
         repaired = 0
         expected_len = len(headers)
         
-        # 提取错位行
+        # Extract错位行
         mismatch_anomalies = [a for a in anomalies if "column_mismatch" in a["issues"]]
         if not mismatch_anomalies:
             return 0
             
         enable_llm = self.config.get("enable_llm", False)
-        # 即使无法开启LLM，目前也保留原状或用启发式，为了体现架构先留占位
+        # 即使无法EnableLLM，currently也retain原状或用启发式，in order to体现架构先留占位
         
         for anomaly in mismatch_anomalies:
             i = anomaly["row_idx"]
             row = data_rows[i]
             
-            # 只处理少列的情况（缺列最常见，多列比较复杂先不管）
+            # 只Processing少列的情况（缺列最常见，多列Compare复杂先不管）
             if len(row) < expected_len:
                 original_row_str = str(row)
                 
-                # ── 模拟 LLM 结构校验 ──
-                # Prompt: "表头是 [H1, H2, H3], 数据是 [D1, D3], 很明显缺失了一个对应 H2 的数据。
-                # 请按表头顺序输出一个完整数组，对于缺失内容补入空字符串 ''。输出JSON数组格式。"
+                # ── 模拟 LLM 结构Verify ──
+                # Prompt: "Table header是 [H1, H2, H3], Data是 [D1, D3], 很明显缺失了一个对应 H2 的Data。
+                # 请按Table header顺序Output一个完整数组，for缺失内容补入空字符串 ''。OutputJSON数组Format。"
                 
-                # 如果有 llm_client 注入，我们就会在这里动态发送这行数据进行修复
+                # 如果有 llm_client 注入，我们就会在这里动态发送这行Data进行Fix
                 # if enable_llm and self.llm_client:
                 #    fixed_row = self.llm_client.align_row(headers, row)
                 #    if len(fixed_row) == expected_len:
                 #        data_rows[i] = fixed_row ...
                 
                 try:
-                    # 本地启发式 Fallback: 右对齐补齐 (比如金额通常在右边)
+                    # 本地启发式 Fallback: 右Alignment补齐 (比如Amounttypically在右边)
                     diff = expected_len - len(row)
-                    # 我们最粗暴的方法就是在开头插入 diff 个空字符串
+                    # 我们最粗暴的Method就是在开头插入 diff 个空字符串
                     new_row = [""] * diff + row
                     
                     data_rows[i] = new_row
@@ -280,7 +280,7 @@ class Repairer(BaseMiddleware):
         result: EnhancedResult,
         block_id: str,
     ) -> int:
-        """日期格式标准化为 YYYY-MM-DD。"""
+        """Date formatStandard化为 YYYY-MM-DD。"""
         repaired = 0
         for row in data_rows:
             if date_idx >= len(row):
@@ -312,7 +312,7 @@ class Repairer(BaseMiddleware):
         result: EnhancedResult,
         block_id: str,
     ) -> int:
-        """修复金额粘连。"""
+        """FixAmount粘连。"""
         repaired = 0
         for row in data_rows:
             if amount_idx >= len(row):
@@ -320,7 +320,7 @@ class Repairer(BaseMiddleware):
             val = row[amount_idx].strip()
             m = _RE_AMOUNT_GLUED.match(val)
             if m:
-                # 取第一个数值 (通常是交易金额)
+                # 取第一个数值 (typically是Transaction amount)
                 old_val = val
                 row[amount_idx] = m.group(1)
                 repaired += 1
@@ -344,10 +344,10 @@ class Repairer(BaseMiddleware):
         block_id: str,
     ) -> int:
         """
-        修复 pdfplumber 截断的余额小数位。
+        Fix pdfplumber 截断的Balance小数位。
 
         当 |expected - actual| < 1.0 且 > 0.001 时，
-        说明 actual 是 expected 的截断版本，用 expected 替换。
+        说明 actual 是 expected 的截断Version，用 expected replace。
         """
         repaired = 0
         prev_balance = None
@@ -389,7 +389,7 @@ class Repairer(BaseMiddleware):
         result: EnhancedResult,
         block_id: str,
     ) -> int:
-        """移除全空行。"""
+        """remove全Empty row。"""
         before = len(data_rows)
         i = 0
         while i < len(data_rows):
@@ -416,7 +416,7 @@ class Repairer(BaseMiddleware):
         result: EnhancedResult,
         block_id: str,
     ) -> int:
-        """移除完全重复行 (保留第一次出现)。"""
+        """remove完全Duplicate rows (retain第一次出现)。"""
         before = len(data_rows)
         seen = set()
         i = 0
@@ -441,12 +441,12 @@ class Repairer(BaseMiddleware):
         return removed
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # 辅助方法
+    # HelperMethod
     # ═══════════════════════════════════════════════════════════════════════════
 
     @staticmethod
     def _normalize_date(s: str) -> Optional[str]:
-        """将各种日期格式标准化为 YYYY-MM-DD。"""
+        """将各种Date formatStandard化为 YYYY-MM-DD。"""
         s = s.strip()
 
         # 20240315 → 2024-03-15
@@ -464,7 +464,7 @@ class Repairer(BaseMiddleware):
         if m:
             return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
 
-        # 已经是标准格式
+        # already是StandardFormat
         if re.match(r'^\d{4}-\d{2}-\d{2}', s):
             return s
 
@@ -472,7 +472,7 @@ class Repairer(BaseMiddleware):
 
     @staticmethod
     def _find_column(headers: List[str], keywords: List[str]) -> Optional[int]:
-        """找到第一个匹配关键字的列索引。"""
+        """找到第一个Match关键字的列Index。"""
         for i, h in enumerate(headers):
             h_clean = h.strip()
             for kw in keywords:
@@ -482,7 +482,7 @@ class Repairer(BaseMiddleware):
 
     @staticmethod
     def _parse_num(s: str) -> Optional[float]:
-        """安全解析数字。"""
+        """安全Parse数字。"""
         try:
             return float(s.strip().replace(",", "").replace("，", ""))
         except (ValueError, TypeError):

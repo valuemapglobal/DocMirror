@@ -2,10 +2,10 @@
 Mutation 变换记录 (Data Lineage Tracker)
 ========================================
 
-每一次中间件对数据的操作都通过 Mutation 记录，
-实现 100% 操作可追溯，满足金融级审计要求。
+每一次Middleware对Data的操作都via Mutation 记录，
+implement 100% 操作可追溯，满足金融级审计要求。
 
-使用模式::
+usingMode::
 
     mutation = Mutation.create(
         middleware_name="ColumnMapper",
@@ -27,17 +27,17 @@ from typing import Any, Optional
 @dataclasses.dataclass
 class Mutation:
     """
-    单次数据变换记录。
+    单次Data变换记录。
 
     Attributes:
-        middleware_name: 执行变换的中间件名称。
+        middleware_name: Execute变换的MiddlewareName。
         target_block_id: 被变换的 Block ID。
-        field_changed:   被变换的字段名。
+        field_changed:   被变换的Field名。
         old_value:       变换前的值。
         new_value:       变换后的值。
-        confidence:      变换的置信度 (0.0 ~ 1.0)。
+        confidence:      变换的Confidence (0.0 ~ 1.0)。
         timestamp:       变换发生的时间。
-        reason:          变换原因 (可选，用于调试)。
+        reason:          变换原因 (Optional，用于Debug)。
     """
     middleware_name: str
     target_block_id: str
@@ -61,7 +61,7 @@ class Mutation:
         confidence: float = 1.0,
         reason: str = "",
     ) -> Mutation:
-        """工厂方法 — 自动填充时间戳。"""
+        """FactoryMethod — 自动填充时间戳。"""
         return cls(
             middleware_name=middleware_name,
             target_block_id=target_block_id,
@@ -73,7 +73,7 @@ class Mutation:
         )
 
     def to_dict(self) -> dict:
-        """序列化为 dict — 用于日志和持久化。"""
+        """Serialization为 dict — 用于Log和持久化。"""
         return {
             "middleware": self.middleware_name,
             "block_id": self.target_block_id,
