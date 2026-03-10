@@ -1,11 +1,23 @@
-# ═══════════════════════════════════════════════════════════════════════════════
-# MultiModal 业务规则配置 (hints.yaml)
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
+# DocMirror Business Rule Configuration (hints.yaml)
+# =============================================================================
 #
-# 将易变的业务规则集中管理，替代 v1 的 200+ Plugin 文件。
-# 修改此文件无需重启服务 (支持热加载)。
+# Centralizes domain-specific parsing rules that were previously scattered
+# across 200+ plugin files in v1. Supports hot-reload — changes take effect
+# without restarting the service.
+#
+# Sections:
+#   scenes             — Institution/domain-specific scene definitions with
+#                         keywords, column maps, and validation rules.
+#   column_aliases     — Additional column name aliases (supplements
+#                         the main column_aliases.yaml).
+#   institution_hints  — Per-institution fine-tuning overrides.
 
-# ── 场景定义 ──
+# ── Scene Definitions ──
+# Each scene represents a known document template (e.g., a specific bank's
+# statement format). The SceneDetector matches keywords against document text
+# to select the best-fitting scene, then the ColumnMapper uses the scene's
+# column_map for precise header-to-standard-name mapping.
 scenes:
   - name: cmb_bank_statement
     display_name: 招行流水
@@ -35,6 +47,7 @@ scenes:
     column_map:
       "日期": {standard_name: "交易时间", type: "date"}
       "摘要": {standard_name: "摘要", type: "string"}
+      # ICBC uses separate debit/credit columns with sign indicators
       "借方发生额": {standard_name: "交易金额", type: "number", sign: "negative"}
       "贷方发生额": {standard_name: "交易金额", type: "number", sign: "positive"}
       "余额": {standard_name: "账户余额", type: "number"}
@@ -58,7 +71,9 @@ scenes:
       "金额": {standard_name: "amount", type: "number"}
       "税率": {standard_name: "tax_rate", type: "string"}
 
-# ── 通用列名别名扩展 ──
+# ── Extended Column Aliases ──
+# Supplements the main column_aliases.yaml with additional alias mappings.
+# These are merged at runtime by the ColumnMapper.
 column_aliases:
   交易时间:
     - "记账日"
@@ -71,11 +86,13 @@ column_aliases:
     - "账面余额"
     - "卡余额"
 
-# ── 机构级微调 (替代 Plugin) ──
+# ── Institution-Level Fine-Tuning ──
+# Per-institution overrides that adjust parsing behavior without creating
+# separate scene definitions. These replace the legacy plugin system.
 institution_hints:
   citic:
     date_format: "YYYYMMDD"
-    amount_sign_rule: "split"  # 收入/支出分列
+    amount_sign_rule: "split"  # Income/expense in separate columns
     special_columns: ["Account SeqNo", "Inquiry period"]
   pab:
     date_format: "YYYY-MM-DD HH:MM:SS"
