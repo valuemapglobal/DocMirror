@@ -1,3 +1,14 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
+"""CLI entry point for DocMirror document parsing engine.
+
+Provides single-file and batch-directory parsing with rich progress
+display, multiple output formats, and result persistence.
+"""
 from __future__ import annotations
 import asyncio
 import argparse
@@ -68,9 +79,9 @@ def save_result(result_dict: dict, source_path: Path, output_dir: Path) -> Path:
     return output_file
 
 
-async def parse_document(file_path: str, format_out: str, output_dir: Path, no_save: bool, skip_cache: bool = False):
+async def parse_document(file_path: str, format_out: str, output_dir: Path, no_save: bool, skip_cache: bool = False) -> None:
     from docmirror.core.factory import perceive_document
-    from docmirror.models.document_types import DocumentType
+    from docmirror.models.entities.document_types import DocumentType
     
     path = Path(file_path).resolve()
     if not path.exists():
@@ -189,7 +200,7 @@ async def parse_document(file_path: str, format_out: str, output_dir: Path, no_s
     except Exception as e:
         console.print(f"[bold red]Critical Error:[/bold red] {_safe_str(str(e))}")
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="DocMirror - Universal Document Parsing Engine")
     parser.add_argument("file", nargs="?", help="Path to a document or a directory (recursively parse all files under it)")
     parser.add_argument("--format", default="markdown", choices=["markdown", "json", "text"], help="Output format")

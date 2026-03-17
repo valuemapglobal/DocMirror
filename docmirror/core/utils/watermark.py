@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Preprocessing & Watermark Filter
 =================================
@@ -77,7 +83,7 @@ def filter_watermark_page(page):
     )
 
 
-def separate_watermark_layer(page):
+def separate_watermark_layer(page) -> object:
     """Deep watermark/content separation using statistical pattern detection.
 
     Goes beyond ``filter_watermark_page`` by analysing the *distribution*
@@ -185,3 +191,48 @@ def _dedup_overlapping_chars(page):
     return page.filter(
         lambda obj: obj.get("object_type") != "char" or id(obj) in keep_chars
     )
+
+
+def fused_filter_and_dedup(page) -> tuple:
+    """S1: Single-pass watermark removal + pseudo-bold dedup.
+
+    Combines ``is_watermark_char`` check and spatial-bucket dedup
+    into one O(N) scan instead of two separate O(N) passes.
+
+    Returns:
+        ``(filtered_page, watermark_found)`` tuple.
+    """
+    seen = set()
+    remove_ids = set()
+    bucket = 3
+
+    for i, c in enumerate(page.chars):
+        # ── Watermark check (inline from is_watermark_char) ──
+        if not c.get("upright", True):
+            remove_ids.add(i)
+            continue
+        m = c.get("matrix")
+        if m and (abs(m[1]) > 0.1 or abs(m[2]) > 0.1):
+            remove_ids.add(i)
+            continue
+        nsc = c.get("non_stroking_color")
+        if isinstance(nsc, (list, tuple)) and all(v > 0.5 for v in nsc):
+            remove_ids.add(i)
+            continue
+
+        # ── Dedup check (spatial bucket) ──
+        key = (int(c["x0"] / bucket), int(c["top"] / bucket), c["text"])
+        if key in seen:
+            remove_ids.add(i)
+        else:
+            seen.add(key)
+
+    watermark_found = bool(remove_ids)
+    if not remove_ids:
+        return page, False
+
+    keep = {id(page.chars[i]) for i in range(len(page.chars)) if i not in remove_ids}
+    filtered = page.filter(
+        lambda obj: obj.get("object_type") != "char" or id(obj) in keep
+    )
+    return filtered, watermark_found

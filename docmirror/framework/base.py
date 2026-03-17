@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 MultiModal Parsing Contract Layer
 =================================
@@ -22,7 +28,7 @@ from enum import Enum
 from pathlib import Path
 
 # Import 4-layer schema definitions (the unified external models)
-from docmirror.models.perception_result import ContentBlock, ContentBlockType, DocumentContent, ErrorDetail, KeyValueBlock, PerceptionResult, Provenance, ResultStatus, SourceInfo, TableBlock, TextBlock, TimingInfo, ValidationResult, ParserStep
+from docmirror.models.entities.perception_result import ContentBlock, ContentBlockType, DocumentContent, ErrorDetail, KeyValueBlock, PerceptionResult, Provenance, ResultStatus, SourceInfo, TableBlock, TextBlock, TimingInfo, ValidationResult, ParserStep
 
 class ParserStatus(str, Enum):
     """
@@ -326,7 +332,7 @@ class BaseParser(ABC):
         """
         try:
             base_result = await self.to_base_result(file_path)
-            from docmirror.models.builder import PerceptionResultBuilder
+            from docmirror.models.construction.builder import PerceptionResultBuilder
             return PerceptionResultBuilder.build(base_result, **context)
         except NotImplementedError:
             # Fallback to the legacy interface

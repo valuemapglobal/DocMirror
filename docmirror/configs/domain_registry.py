@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Domain Registry — Document-type-specific identity field definitions.
 =====================================================================
@@ -74,7 +80,7 @@ def _load_key_synonyms() -> Dict[str, str]:
                 continue
             flat.update(mappings)
 
-    logger.debug("Loaded %d key synonyms from key_synonyms.yaml", len(flat))
+    logger.info("[Config] Loaded %d key synonyms from key_synonyms.yaml", len(flat))
     return flat
 
 
@@ -87,7 +93,7 @@ def normalize_entity_keys(entities: Dict[str, Any]) -> Dict[str, Any]:
     Normalize locale-specific entity keys to canonical English equivalents.
 
     Applies ``KEY_SYNONYMS`` (loaded from ``key_synonyms.yaml``) to translate
-    raw extracted keys (e.g. Chinese ``"账号"``) into canonical English keys
+    raw extracted keys (e.g. ``"Account Number"``) into canonical English keys
     (e.g. ``"Account number"``).
 
     Rules:
@@ -196,4 +202,5 @@ def resolve_identity(domain: str, entities: Dict[str, Any]) -> Dict[str, str]:
             # No candidate had a value — set to empty string
             identity[display_name] = ""
 
+    logger.info(f"[Config] Resolved identity for domain '{domain}': extracted {len(identity)-1}/{len(fields)} fields")
     return identity

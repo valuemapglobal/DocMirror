@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Layout Analysis Engine
 =======================================
@@ -29,7 +35,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
@@ -410,7 +416,7 @@ def _reconstruct_rows_from_chars(chars, col_gap: float = 8.0):
     return rows
 
 
-@dataclass
+@dataclass(slots=True)
 class Zone:
     """A large zone on the page (3~5 zones/page)."""
     type: str  # "title" | "summary" | "data_table" | "footer" | "formula" | "unknown"
@@ -424,118 +430,144 @@ class Zone:
 
 def _isolate_formula_components(chars: List[dict], page_w: float, page_h: float) -> Tuple[List[dict], List[Zone]]:
     """
-    Isolates formula regions using morphological clustering of character bounding boxes.
-    By finding 'seed' math symbols and dilating them to absorb adjacent subscripts/text,
-    we can accurately segment inline and block formulas without VLM.
-    
+    Isolates formula regions using Union-Find connected component clustering
+    of character bounding boxes. No cv2/numpy dependency required.
+
+    Algorithm:
+      1. Identify math seed characters (extreme aspect ratio or Unicode math symbols).
+      2. Build dilated AABBs: seeds get +15pt horizontal, +8pt vertical expansion;
+         all chars get a morphological close equivalent (+7.5pt H, +2.5pt V).
+      3. Sort by Y, sweep-line merge overlapping AABBs via Union-Find.
+      4. Connected components containing ≥1 math seed and <150 chars → formula zones.
+
     Returns: (remaining_chars, formula_zones)
     """
     if not chars or page_w <= 0 or page_h <= 0:
         return chars, []
-        
-    try:
-        import cv2
-        import numpy as np
-    except ImportError:
-        return chars, []
-        
+
     MATH_UNICODE = set("∑∫∏√∞∂∇±×÷≈≡≠≤≥⊂⊃⊆⊇∈∉∪∩")
-    
-    math_seeds = []
-    
+
+    # ── Step 1: Identify math seed indices ──
+    math_seed_set = set()
     for i, c in enumerate(chars):
         h = c.get("bottom", 0) - c.get("top", 0)
         w = c.get("x1", 0) - c.get("x0", 0)
         text = c.get("text", "").strip()
-        
-        is_math = False
+
         if h > 0 and w > 0:
             aspect = h / w
-            if aspect > 2.5 or aspect < 0.2:  # extremely tall or wide (integral, fraction bar)
-                is_math = True
+            if aspect > 2.5 or aspect < 0.2:
+                math_seed_set.add(i)
             elif text and text[0] in MATH_UNICODE:
-                is_math = True
-                
-        if is_math:
-            math_seeds.append(i)
-            
-    if not math_seeds:
+                math_seed_set.add(i)
+
+    if not math_seed_set:
         return chars, []
-        
-    # Create low-res canvas for morphology (scale=2 is enough for bounding boxes)
-    scale = 2.0
-    canvas_h, canvas_w = int(page_h * scale), int(page_w * scale)
-    if canvas_h <= 0 or canvas_w <= 0:
-        return chars, []
-        
-    canvas = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
-    
-    # Draw seeds with generous dilation to catch subscripts/neighbors
-    for idx in math_seeds:
-        c = chars[idx]
-        x0, y0 = int(c["x0"] * scale), int(c["top"] * scale)
-        x1, y1 = int(c["x1"] * scale), int(c["bottom"] * scale)
-        
-        # Expand seed by 15pt horizontally, 8pt vertically
-        mx, my = int(15 * scale), int(8 * scale)
-        cv2.rectangle(canvas, (max(0, x0 - mx), max(0, y0 - my)), 
-                      (min(canvas_w, x1 + mx), min(canvas_h, y1 + my)), 255, -1)
-                      
-    # Draw standard chars to build connected components
-    for c in chars:
-        x0, y0 = int(c["x0"] * scale), int(c["top"] * scale)
-        x1, y1 = int(c["x1"] * scale), int(c["bottom"] * scale)
-        cv2.rectangle(canvas, (x0, y0), (x1, y1), 255, -1)
-        
-    # Morphological Close to connect fragmented formula parts
-    kernel = np.ones((int(5 * scale), int(15 * scale)), np.uint8)
-    canvas = cv2.morphologyEx(canvas, cv2.MORPH_CLOSE, kernel)
-    
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(canvas, connectivity=8)
-    
+
+    # ── Step 2: Build dilated AABBs ──
+    # Morph-close equivalent: expand every char slightly so adjacent
+    # chars in the same formula merge; seeds get extra dilation.
+    SEED_EXPAND_X, SEED_EXPAND_Y = 15.0, 8.0
+    CLOSE_EXPAND_X, CLOSE_EXPAND_Y = 7.5, 2.5
+
+    aabbs = []  # (x0, y0, x1, y1) per char — dilated
+    for i, c in enumerate(chars):
+        cx0, cy0 = c.get("x0", 0), c.get("top", 0)
+        cx1, cy1 = c.get("x1", 0), c.get("bottom", 0)
+        if i in math_seed_set:
+            aabbs.append((
+                cx0 - SEED_EXPAND_X, cy0 - SEED_EXPAND_Y,
+                cx1 + SEED_EXPAND_X, cy1 + SEED_EXPAND_Y,
+            ))
+        else:
+            aabbs.append((
+                cx0 - CLOSE_EXPAND_X, cy0 - CLOSE_EXPAND_Y,
+                cx1 + CLOSE_EXPAND_X, cy1 + CLOSE_EXPAND_Y,
+            ))
+
+    # ── Step 3: Union-Find with sweep-line AABB overlap ──
+    n = len(chars)
+    parent = list(range(n))
+    rank = [0] * n
+
+    def _find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]  # path compression
+            x = parent[x]
+        return x
+
+    def _union(a, b):
+        ra, rb = _find(a), _find(b)
+        if ra == rb:
+            return
+        if rank[ra] < rank[rb]:
+            ra, rb = rb, ra
+        parent[rb] = ra
+        if rank[ra] == rank[rb]:
+            rank[ra] += 1
+
+    # Sort char indices by dilated y0 for sweep-line
+    sorted_indices = sorted(range(n), key=lambda i: aabbs[i][1])
+
+    # Sweep-line: for each char, check overlap with active chars
+    # Active set: chars whose dilated y1 >= current char's dilated y0
+    # Use a simple list scan (chars per page typically < 3000, fast enough)
+    active = []  # list of indices currently in the sweep window
+    for idx in sorted_indices:
+        ax0, ay0, ax1, ay1 = aabbs[idx]
+
+        # Prune expired active entries
+        active = [j for j in active if aabbs[j][3] >= ay0]
+
+        # Check overlap with each active entry
+        for j in active:
+            bx0, by0, bx1, by1 = aabbs[j]
+            # AABB overlap test (Y already guaranteed by sweep)
+            if ax0 <= bx1 and ax1 >= bx0:
+                _union(idx, j)
+
+        active.append(idx)
+
+    # ── Step 4: Extract connected components with math seeds ──
+    components: Dict[int, list] = defaultdict(list)
+    for i in range(n):
+        components[_find(i)].append(i)
+
     formula_zones = []
     used_char_indices = set()
-    
-    for i in range(1, num_labels):
-        _, _, w, h, area = stats[i]
-        
-        # Skip absurd components (entire page) or tiny noise
-        if w > canvas_w * 0.9 or h > canvas_h * 0.5 or area < 20:
+
+    for root, member_indices in components.items():
+        # Must contain at least one math seed
+        math_count = sum(1 for i in member_indices if i in math_seed_set)
+        if math_count == 0:
             continue
-            
-        comp_mask = (labels == i)
-        comp_char_indices = []
-        comp_math_count = 0
-        
-        for idx, c in enumerate(chars):
-            if idx in used_char_indices: continue
-            cx = int((c["x0"] + c["x1"]) / 2 * scale)
-            cy = int((c["top"] + c["bottom"]) / 2 * scale)
-            
-            if 0 <= cy < canvas_h and 0 <= cx < canvas_w and comp_mask[cy, cx]:
-                comp_char_indices.append(idx)
-                if idx in math_seeds:
-                    comp_math_count += 1
-                    
-        # If CC contains mathematical seed and isn't a massive text block (< 150 chars)
-        if comp_char_indices and comp_math_count > 0 and len(comp_char_indices) < 150:
-            comp_chars = [chars[idx] for idx in comp_char_indices]
-            used_char_indices.update(comp_char_indices)
-            
-            fx0 = min(c["x0"] for c in comp_chars)
-            fy0 = min(c["top"] for c in comp_chars)
-            fx1 = max(c["x1"] for c in comp_chars)
-            fy1 = max(c["bottom"] for c in comp_chars)
-            ftext = "".join(c["text"] for c in sorted(comp_chars, key=lambda c: (c["top"], c["x0"])))
-            
-            formula_zones.append(Zone(
-                type="formula",
-                bbox=(fx0, fy0, fx1, fy1),
-                chars=comp_chars,
-                text=ftext.strip(),
-                confidence=0.9
-            ))
-            
+
+        # Skip massive text blocks (> 150 chars → not a formula)
+        if len(member_indices) >= 150:
+            continue
+
+        # Skip components spanning > 90% page width or > 50% page height
+        comp_chars = [chars[i] for i in member_indices]
+        fx0 = min(c["x0"] for c in comp_chars)
+        fy0 = min(c["top"] for c in comp_chars)
+        fx1 = max(c["x1"] for c in comp_chars)
+        fy1 = max(c["bottom"] for c in comp_chars)
+
+        if (fx1 - fx0) > page_w * 0.9 or (fy1 - fy0) > page_h * 0.5:
+            continue
+
+        used_char_indices.update(member_indices)
+        ftext = "".join(
+            c["text"] for c in sorted(comp_chars, key=lambda c: (c["top"], c["x0"]))
+        )
+        formula_zones.append(Zone(
+            type="formula",
+            bbox=(fx0, fy0, fx1, fy1),
+            chars=comp_chars,
+            text=ftext.strip(),
+            confidence=0.9,
+        ))
+
     remaining_chars = [c for i, c in enumerate(chars) if i not in used_char_indices]
     return remaining_chars, formula_zones
 
@@ -547,6 +579,7 @@ def _column_consensus(
     min_cols: int = 3,
     min_rows: int = 3,
     cell_gap: float = 8.0,
+    y_bin: float | None = None,
 ) -> "tuple | None":
     """Column Consensus: detect table extent by structural repetition.
 
@@ -581,10 +614,13 @@ def _column_consensus(
         return None  # Defer to grid-aware fallback (legacy Y-band)
 
     # ── Step 1: Group chars into rows by y_mid ──
+    # y_bin default: 3pt (proven for standard 12pt fonts).
+    # Adaptive mode passes median_height * 0.4 for abnormal font sizes.
+    _y_bin = y_bin if y_bin is not None else 3.0
     y_groups: Dict[int, list] = defaultdict(list)
     for c in chars:
         y_mid = (c.get("top", 0) + c.get("bottom", 0)) / 2
-        y_key = round(y_mid / 3) * 3
+        y_key = round(y_mid / _y_bin) * _y_bin
         y_groups[y_key].append(c)
 
     # ── Step 2: Split each row into cells by x-gap ──
@@ -1135,7 +1171,29 @@ def segment_page_into_zones(
     # ── Step 1: Column Consensus on ALL chars (before formula isolation) ──
     # Formula isolation can eat table data characters, breaking column
     # alignment detection.  Run Column Consensus first on the full char set.
+    # Competitive strategy: try proven 3pt binning first; if it fails,
+    # retry with adaptive binning based on median character height.
     table_extent = _column_consensus(chars, page_w, page_h)
+    if table_extent is None:
+        char_heights = [
+            c.get("bottom", 0) - c.get("top", 0)
+            for c in chars
+            if (c.get("bottom", 0) - c.get("top", 0)) > 0
+        ]
+        if char_heights:
+            sorted_h = sorted(char_heights)
+            median_h = sorted_h[len(sorted_h) // 2]
+            adaptive_bin = max(2.0, median_h * 0.4)
+            # Only retry if adaptive bin differs meaningfully from default 3pt
+            if abs(adaptive_bin - 3.0) > 0.5:
+                table_extent = _column_consensus(
+                    chars, page_w, page_h, y_bin=adaptive_bin
+                )
+                if table_extent is not None:
+                    logger.debug(
+                        f"column_consensus: adaptive y_bin={adaptive_bin:.1f}pt "
+                        f"succeeded (median_h={median_h:.1f}pt)"
+                    )
 
     # ── Step 2: Line enhancement (Tier 2) ──
     if table_extent:

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """Layered table extraction engine — main entry point.
 
 Split from ``table_extraction.py``.
@@ -12,8 +18,7 @@ import time
 from collections import Counter, defaultdict
 from typing import Dict, List, Optional, Tuple
 
-from ...utils.text_utils import _is_cjk_char, _smart_join
-from ...utils.vocabulary import _ALL_BORDER_CHARS, _is_header_row, _is_header_cell, _normalize_for_vocab, _score_header_by_vocabulary, _RE_IS_DATE, _RE_IS_AMOUNT
+from ...utils.vocabulary import _is_header_row, _is_header_cell, _score_header_by_vocabulary, _RE_IS_DATE, _RE_IS_AMOUNT
 
 logger = logging.getLogger(__name__)
 # T3-3: Module-level DEBUG flag — avoids f-string formatting cost
@@ -31,12 +36,137 @@ from .char_strategy import (
     detect_columns_by_data_voting,
 )
 
+
+def _crop_to_table_zone(
+    page_plum, table_zone_bbox: Tuple[float, float, float, float],
+) -> Tuple:
+    """Crop page to table zone with upward header probe expansion.
+
+    The header probe scans above the declared zone bbox for header rows
+    that may have been excluded from YOLO's table zone prediction. Uses
+    vocabulary scoring to select the best candidate header row and
+    multi-row header detection.
+
+    Args:
+        page_plum: pdfplumber page object.
+        table_zone_bbox: ``(x0, y0, x1, y1)`` bounding box of the table zone.
+
+    Returns:
+        ``(work_page, y0, y1)`` — the cropped page and the (possibly
+        expanded) y-coordinate boundaries.
+    """
+    x0, y0, x1, y1 = table_zone_bbox
+
+    # Upward header probe: header row may sit above the data_table zone
+    _probe_dist = 120
+    h_lines_above = [
+        l for l in (page_plum.lines or [])
+        if abs(l["top"] - l["bottom"]) < 2 and l["top"] < y0 - 5 and l["top"] > y0 - _probe_dist
+    ]
+    if h_lines_above:
+        _probe_dist = max(_probe_dist, y0 - min(l["top"] for l in h_lines_above) + 10)
+    probe_top = max(0, y0 - _probe_dist)
+
+    if probe_top < y0:
+        try:
+            probe = page_plum.crop((x0, probe_top, x1, y0 + 1))
+            probe_words = probe.extract_words(
+                keep_blank_chars=True, x_tolerance=2
+            )
+            if probe_words:
+                _probe_rows = defaultdict(list)
+                for w in probe_words:
+                    yk = round(w["top"] / 3) * 3
+                    _probe_rows[yk].append(w)
+
+                best_candidate = None
+                for yk in sorted(_probe_rows):
+                    texts = [
+                        w["text"].strip()
+                        for w in _probe_rows[yk]
+                        if w["text"].strip()
+                    ]
+                    if len(texts) < 3:
+                        continue
+                    kv_count = sum(
+                        1 for t in texts
+                        if ":" in t or "：" in t
+                    )
+                    if kv_count / len(texts) >= 0.5:
+                        continue
+                    hdr_count = sum(
+                        1 for t in texts
+                        if _is_header_cell(t)
+                    )
+                    if hdr_count / len(texts) < 0.5:
+                        continue
+                    vocab = _score_header_by_vocabulary(texts)
+                    candidate = (vocab, hdr_count / len(texts), len(texts), yk)
+                    if best_candidate is None or candidate > best_candidate:
+                        best_candidate = candidate
+
+                if best_candidate:
+                    chosen_yk = best_candidate[3]
+                    header_y = min(
+                        w["top"] for w in _probe_rows[chosen_yk]
+                    ) - 2
+
+                    # Multi-row header detection
+                    all_yks = sorted(_probe_rows)
+                    chosen_idx = all_yks.index(chosen_yk)
+                    if chosen_idx > 0:
+                        prev_yk = all_yks[chosen_idx - 1]
+                        prev_texts = [
+                            w["text"].strip()
+                            for w in _probe_rows[prev_yk]
+                            if w["text"].strip()
+                        ]
+                        row_gap = chosen_yk - prev_yk
+                        if (len(prev_texts) >= 2
+                                and row_gap < 20
+                                and not any(_RE_IS_DATE.search(t) for t in prev_texts)
+                                and not any(_RE_IS_AMOUNT.match(t.replace(",", "")) for t in prev_texts)):
+                            prev_hdr = sum(1 for t in prev_texts if _is_header_cell(t))
+                            if prev_hdr / len(prev_texts) >= 0.5:
+                                header_y = min(
+                                    w["top"] for w in _probe_rows[prev_yk]
+                                ) - 2
+                                logger.debug(
+                                    f"header probe: multi-row header detected, "
+                                    f"expanded to {header_y:.0f}"
+                                )
+
+                    y0 = max(0, header_y)
+                    logger.debug(
+                        f"header probe: "
+                        f"expanded zone top "
+                        f"from {table_zone_bbox[1]:.0f}"
+                        f" to {y0:.0f}"
+                        f" (vocab={best_candidate[0]}, words={best_candidate[2]})"
+                    )
+        except Exception as exc:
+            logger.debug(f"operation: suppressed {exc}")
+
+    crop_x0 = 0
+    crop_x1 = page_plum.width
+    work_page = page_plum.crop((crop_x0, y0, crop_x1, y1))
+    logger.debug(
+        f"cropped to table zone: x={crop_x0:.0f}-{crop_x1:.0f}, y={y0:.0f}-{y1:.0f}"
+    )
+    return work_page, y0, y1
+
+
 def extract_tables_layered(
     page_plum,
     table_zone_bbox: Optional[Tuple[float, float, float, float]] = None,
     document_page_count: Optional[int] = None,
     fitz_page=None,
     watermark_filtered: bool = False,
+    layer_hint: Optional[str] = None,
+    zone_layer_hints: Optional[Dict[str, str]] = None,
+    global_grid_x: list[float] | None = None,
+    table_template: Optional['GlobalTableTemplate'] = None,
+    pid_resample: bool = False,
 ) -> Tuple[List[List[List[str]]], str, float]:
     """Progressively layered table extraction.
 
@@ -70,124 +200,89 @@ def extract_tables_layered(
         timings["total"] = round((time.time() - t_total) * 1000, 2)
         _layer_timings_var.set(dict(timings))
         conf = _compute_table_confidence(tables, layer)
-        if _DEBUG:
-            logger.debug(
-                "extract_tables_layered -> layer=%s conf=%.3f timings=%s",
-                layer, conf, timings,
-            )
+        logger.info(
+            f"[TableEngine] Extraction completed using layer='{layer}' "
+            f"(conf={conf:.3f}, timings={timings})"
+        )
         return tables, layer, conf
 
     # ── Crop to table zone (all layers work on the cropped page) ──
     work_page = page_plum
     if table_zone_bbox:
         try:
-            x0, y0, x1, y1 = table_zone_bbox
-
-            # Upward header probe: header row may sit above the data_table zone
-            # Extended to 120pt (was 40pt) to handle documents like 光大银行
-            # where the header is 80+ points above the data zone.
-            # Also use h-lines to guide: the first h-line above y0 marks the header border.
-            _probe_dist = 120
-            h_lines_above = [
-                l for l in (page_plum.lines or [])
-                if abs(l["top"] - l["bottom"]) < 2 and l["top"] < y0 - 5 and l["top"] > y0 - _probe_dist
-            ]
-            if h_lines_above:
-                # Extend probe to the topmost h-line above the zone
-                _probe_dist = max(_probe_dist, y0 - min(l["top"] for l in h_lines_above) + 10)
-            probe_top = max(0, y0 - _probe_dist)
-            if probe_top < y0:
-                try:
-                    probe = page_plum.crop((x0, probe_top, x1, y0 + 1))
-                    probe_words = probe.extract_words(
-                        keep_blank_chars=True, x_tolerance=2
-                    )
-                    if probe_words:
-                        # Group by y into rows, scan ALL rows to find the best header
-                        from collections import defaultdict
-                        _probe_rows = defaultdict(list)
-                        for w in probe_words:
-                            yk = round(w["top"] / 3) * 3
-                            _probe_rows[yk].append(w)
-
-                        # Collect all candidate header rows (vocab score, generic count, yk)
-                        best_candidate = None  # (vocab_score, hdr_ratio, word_count, yk)
-                        for yk in sorted(_probe_rows):
-                            texts = [
-                                w["text"].strip()
-                                for w in _probe_rows[yk]
-                                if w["text"].strip()
-                            ]
-                            if len(texts) < 3:
-                                continue
-                            # Exclude KV metadata rows
-                            kv_count = sum(
-                                1 for t in texts
-                                if ":" in t or "：" in t
-                            )
-                            if kv_count / len(texts) >= 0.5:
-                                continue
-                            hdr_count = sum(
-                                1 for t in texts
-                                if _is_header_cell(t)
-                            )
-                            if hdr_count / len(texts) < 0.5:
-                                continue
-                            vocab = _score_header_by_vocabulary(texts)
-                            candidate = (vocab, hdr_count / len(texts), len(texts), yk)
-                            if best_candidate is None or candidate > best_candidate:
-                                best_candidate = candidate
-
-                        if best_candidate:
-                            chosen_yk = best_candidate[3]
-                            header_y = min(
-                                w["top"] for w in _probe_rows[chosen_yk]
-                            ) - 2
-
-                            # Multi-row header detection: check the row above
-                            all_yks = sorted(_probe_rows)
-                            chosen_idx = all_yks.index(chosen_yk)
-                            if chosen_idx > 0:
-                                prev_yk = all_yks[chosen_idx - 1]
-                                prev_texts = [
-                                    w["text"].strip()
-                                    for w in _probe_rows[prev_yk]
-                                    if w["text"].strip()
-                                ]
-                                row_gap = chosen_yk - prev_yk
-                                if (len(prev_texts) >= 2
-                                        and row_gap < 20
-                                        and not any(_RE_IS_DATE.search(t) for t in prev_texts)
-                                        and not any(_RE_IS_AMOUNT.match(t.replace(",", "")) for t in prev_texts)):
-                                    prev_hdr = sum(1 for t in prev_texts if _is_header_cell(t))
-                                    if prev_hdr / len(prev_texts) >= 0.5:
-                                        header_y = min(
-                                            w["top"] for w in _probe_rows[prev_yk]
-                                        ) - 2
-                                        logger.debug(
-                                            f"header probe: multi-row header detected, "
-                                            f"expanded to {header_y:.0f}"
-                                        )
-
-                            y0 = max(0, header_y)
-                            logger.debug(
-                                f"header probe: "
-                                f"expanded zone top "
-                                f"from {table_zone_bbox[1]:.0f}"
-                                f" to {y0:.0f}"
-                                f" (vocab={best_candidate[0]}, words={best_candidate[2]})"
-                            )
-                except Exception as exc:
-                    logger.debug(f"operation: suppressed {exc}")
-
-            crop_x0 = 0
-            crop_x1 = page_plum.width
-            work_page = page_plum.crop((crop_x0, y0, crop_x1, y1))
-            logger.debug(
-                f"cropped to table zone: x={crop_x0:.0f}-{crop_x1:.0f}, y={y0:.0f}-{y1:.0f}"
-            )
+            work_page, y0, y1 = _crop_to_table_zone(page_plum, table_zone_bbox)
         except Exception as e:
             logger.debug(f"crop failed: {e}")
+            y0, y1 = table_zone_bbox[1], table_zone_bbox[3]
+
+    # ── Template Injection: Force absolute grid alignment ──
+    if table_template:
+        from .template_injector import extract_by_injected_template
+        t0 = time.time()
+        try:
+            injected_table = extract_by_injected_template(work_page, table_template)
+            _t("L_template", t0)
+            if injected_table and len(injected_table) >= 2:
+                if not _is_header_row(injected_table[0]) and table_template.header_vocab:
+                    # Align header length to injected table width
+                    aligned_hdr = table_template.header_vocab[:len(injected_table[0])]
+                    while len(aligned_hdr) < len(injected_table[0]):
+                        aligned_hdr.append("")
+                    injected_table.insert(0, aligned_hdr)
+                
+                if _DEBUG:
+                    logger.debug(
+                        "Template Injection succeeded (forced grid alignment, %d rows)",
+                        len(injected_table),
+                    )
+                # Assign maximum confidence because it is rigidly enforced
+                timings["total"] = round((time.time() - t_total) * 1000, 2)
+                _layer_timings_var.set(dict(timings))
+                return [injected_table], "template_injection", 0.99
+        except Exception as exc:
+            _t("L_template", t0)
+            if _DEBUG:
+                logger.debug("Template Injection failed: %s", exc)
+
+    # ── Layer Hint: skip to the previously successful layer ──
+    if layer_hint:
+        _HINT_DISPATCH = {
+            "hline_columns": lambda wp: _extract_by_hline_columns(wp),
+            "rect_columns": lambda wp: _extract_by_rect_columns(wp),
+            "header_anchors": lambda wp: detect_columns_by_header_anchors(wp),
+            "word_anchors": lambda wp: detect_columns_by_word_anchors(wp),
+            "data_voting": lambda wp: detect_columns_by_data_voting(wp),
+            "whitespace_projection": lambda wp: detect_columns_by_whitespace_projection(wp),
+            "x_clustering": lambda wp: detect_columns_by_clustering(wp),
+        }
+        # Also handle signal_processor hint
+        if layer_hint == "signal_processor":
+            try:
+                from .signal_processor import extract_table_by_signal
+                _HINT_DISPATCH["signal_processor"] = lambda wp: extract_table_by_signal(wp, global_tensor_x=global_grid_x)
+            except ImportError:
+                pass
+
+        hint_func = _HINT_DISPATCH.get(layer_hint)
+        if hint_func:
+            t0 = time.time()
+            try:
+                hint_table = hint_func(work_page)
+                _t(f"L_hint_{layer_hint}", t0)
+                if hint_table and len(hint_table) >= 2:
+                    hint_vocab = _score_header_by_vocabulary(hint_table[0])
+                    if hint_vocab >= 3 and _tables_look_valid([hint_table], has_borders=has_borders):
+                        if _DEBUG:
+                            logger.debug(
+                                "Layer hint '%s' succeeded (vocab=%d, %d rows)",
+                                layer_hint, hint_vocab, len(hint_table),
+                            )
+                        return _return([hint_table], layer_hint)
+            except Exception as exc:
+                _t(f"L_hint_{layer_hint}", t0)
+                if _DEBUG:
+                    logger.debug("Layer hint '%s' failed: %s", layer_hint, exc)
+        # Hint failed → fall through to full cascade
 
     # ── Pre-classification: determine starting layer from quick features ──
     t0 = time.time()
@@ -208,7 +303,7 @@ def extract_tables_layered(
     _h_line_count = sum(1 for l in _lines if abs(l.get("top", 0) - l.get("bottom", 0)) < 1)
     _segmented_h_lines = None
     if _v_line_count >= 10 and _h_line_count < 10:
-        from collections import Counter
+        # Counter already imported at module level
         # Count how many vertical lines share each x-position
         _v_x_counts = Counter(round(l["x0"], 0) for l in _lines
                               if abs(l.get("x0", 0) - l.get("x1", 0)) < 1)
@@ -364,7 +459,28 @@ def extract_tables_layered(
 
     # (RapidTable at L2.5 — too slow for early pipeline, ~10s/page CPU)
 
-    # ── Layer 2: char-level competitive selection (parallel execution) ──
+    # ── Layer 2 Primary: Dual-Axis Signal Processor (single O(n) pass) ──
+    t0 = time.time()
+    try:
+        from .signal_processor import extract_table_by_signal
+        signal_table = extract_table_by_signal(work_page, global_tensor_x=global_grid_x)
+        _t("L2_signal", t0)
+        if signal_table and len(signal_table) >= 2:
+            sig_vocab = _score_header_by_vocabulary(signal_table[0])
+            if sig_vocab >= 3:
+                if _tables_look_valid([signal_table], has_borders=has_borders):
+                    return _return([signal_table], "signal_processor")
+            if _DEBUG:
+                logger.debug(
+                    "L2 signal_processor: %d rows, vocab=%d (below threshold)",
+                    len(signal_table), sig_vocab,
+                )
+    except Exception as exc:
+        _t("L2_signal", t0)
+        if _DEBUG:
+            logger.debug("L2 signal_processor error: %s", exc)
+
+    # ── Layer 2 Fallback: char-level competitive selection (parallel execution) ──
     t0 = time.time()
 
     def _run_method(name, func, wp):
@@ -737,5 +853,4 @@ def detect_merged_cells(
     except Exception as e:
         logger.debug(f"merged cell detection failed: {e}")
         return []
-
 

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 pdfplumber Header Recovery — Layer 1 header recovery strategy.
 
@@ -13,8 +19,7 @@ import logging
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
-from ...utils.text_utils import _is_cjk_char, _smart_join
-from ...utils.vocabulary import KNOWN_HEADER_WORDS, _ALL_BORDER_CHARS, _is_header_row, _normalize_for_vocab, _score_header_by_vocabulary, _RE_IS_DATE, _RE_IS_AMOUNT
+from ...utils.vocabulary import KNOWN_HEADER_WORDS, _score_header_by_vocabulary
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +72,7 @@ def _recover_header_from_zone(
         return tables
 
     # Group words into rows by y-coordinate
-    from collections import defaultdict
+    # defaultdict already imported at module level
     y_rows: Dict[int, list] = defaultdict(list)
     for w in words:
         yk = round(w["top"] / 3) * 3

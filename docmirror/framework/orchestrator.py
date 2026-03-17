@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Orchestration Layer
 ====================
@@ -27,15 +33,12 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Type
 
 from ..core.extraction.extractor import CoreExtractor
-from ..middlewares.base import BaseMiddleware, MiddlewarePipeline
-from ..middlewares.scene_detector import SceneDetector
-from ..middlewares.institution_detector import InstitutionDetector
-from ..middlewares.entity_extractor import EntityExtractor
-from ..middlewares.validator import Validator
-
-from ..middlewares.language_detector import LanguageDetector
-from ..middlewares.generic_entity_extractor import GenericEntityExtractor
-from ..models.enhanced import EnhancedResult
+from ..middlewares import (
+    BaseMiddleware, MiddlewarePipeline,
+    SceneDetector, InstitutionDetector, EntityExtractor, Validator,
+    LanguageDetector, GenericEntityExtractor,
+)
+from ..models import EnhancedResult
 from ..configs.settings import DocMirrorSettings
 
 logger = logging.getLogger(__name__)
@@ -57,31 +60,6 @@ MIDDLEWARE_REGISTRY: Dict[str, Type[BaseMiddleware]] = {
 
 
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# hints.yaml File Cache (based on mtime checks)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-_hints_cache: Optional[Dict[str, Any]] = None
-_hints_mtime: float = 0.0
-
-
-def _load_hints_cached() -> Dict[str, Any]:
-    """Load configuration from `hints.yaml` (utilizing mtime-based caching)."""
-    global _hints_cache, _hints_mtime
-    try:
-        import yaml
-        hints_path = Path(__file__).resolve().parent.parent / "configs" / "hints.yaml"
-        if hints_path.exists():
-            mtime = hints_path.stat().st_mtime
-            if mtime != _hints_mtime or _hints_cache is None:
-                with open(hints_path, "r", encoding="utf-8") as f:
-                    _hints_cache = yaml.safe_load(f) or {}
-                _hints_mtime = mtime
-                logger.debug("[DocMirror] hints.yaml reloaded (mtime changed)")
-    except Exception as e:
-        logger.debug(f"[DocMirror] Failed to load hints.yaml: {e}")
-    return _hints_cache or {}
 
 
 class Orchestrator:
@@ -139,7 +117,7 @@ class Orchestrator:
         t0 = time.time()
 
         logger.info(
-            f"[DocMirror] Orchestrator \u25b6 "
+            f"[Orchestrator] Pipeline \u25b6 "
             f"file={Path(file_path).name} | mode={enhance_mode}"
         )
 
@@ -149,7 +127,7 @@ class Orchestrator:
         # Validate extraction baseline viability
         if not base_result.pages and not base_result.full_text:
             error_msg = base_result.metadata.get("error", "Empty extraction result")
-            logger.warning(f"[DocMirror] Extraction failed: {error_msg}")
+            logger.warning(f"[Orchestrator] Extraction failed: {error_msg}")
             result = EnhancedResult.from_base_result(base_result)
             result.status = "failed"
             result.add_error(error_msg)
@@ -170,16 +148,16 @@ class Orchestrator:
         effective_mode = enhance_mode
         if recommended == "fast" and enhance_mode == "full":
             effective_mode = "standard"
-            logger.info("[DocMirror] PreAnalyzer: 'fast' strategy engaged \u2192 downgraded full\u2192standard")
+            logger.info("[Orchestrator] PreAnalyzer: 'fast' strategy engaged \u2192 downgraded full\u2192standard")
             
         # Optional LLM Escalation: conditionally inject LLM flags dynamically
         if strategy_params.get("enable_llm", False):
             self.config.setdefault("SceneDetector", {})["enable_llm"] = True
-            logger.info("[DocMirror] PreAnalyzer: 'deep' strategy engaged \u2192 LLM execution unblocked")
+            logger.info("[Orchestrator] PreAnalyzer: 'deep' strategy engaged \u2192 LLM execution unblocked")
 
         # \u2550\u2550\u2550 Step 3: Middleware Pipeline Compilation & Execution \u2550\u2550\u2550
         if effective_mode == "raw":
-            logger.info("[DocMirror] Raw mode selected \u2014 skipping middleware pipeline entirely")
+            logger.info("[Orchestrator] Raw mode selected \u2014 skipping middleware pipeline entirely")
         else:
             middlewares = self._build_middlewares(effective_mode, file_type)
             result = self.pipeline.execute(middlewares, result)
@@ -191,12 +169,12 @@ class Orchestrator:
         # \u2550\u2550\u2550 Step 4.5: Analytical Mutation Auditing (Self-Correcting Loop Feedback) \u2550\u2550\u2550
         if result.mutations:
             try:
-                from .middlewares.mutation_analyzer import MutationAnalyzer
+                from ..middlewares import MutationAnalyzer
                 analyzer = MutationAnalyzer()
                 analysis = analyzer.analyze(result.mutations)
                 result.enhanced_data["mutation_analysis"] = analysis.to_dict()
             except Exception as e:
-                logger.debug(f"[DocMirror] MutationAnalyzer error bypass: {e}")
+                logger.debug(f"[Orchestrator] MutationAnalyzer error bypass: {e}")
 
         # Safety Fallback: Only downgrade when document is table-dominant but no tables found (G3)
         pre_analysis = base_result.metadata.get("pre_analysis") or {}
@@ -207,7 +185,7 @@ class Orchestrator:
             result.add_error("No tables found in document layout")
 
         logger.info(
-            f"[DocMirror] Orchestrator \u25c0 status={result.status} | "
+            f"[Orchestrator] Pipeline \u25c0 status={result.status} | "
             f"scene={result.scene} | "
             f"mutations={result.mutation_count} | "
             f"elapsed={elapsed:.0f}ms"
@@ -234,7 +212,7 @@ class Orchestrator:
         for name in middleware_names:
             cls = MIDDLEWARE_REGISTRY.get(name)
             if cls is None:
-                logger.warning(f"[DocMirror] Unresolved middleware configuration request: {name}")
+                logger.warning(f"[Orchestrator] Unresolved middleware configuration request: {name}")
                 continue
 
             mw_config = self.config.get(name, {})

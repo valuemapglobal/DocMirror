@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Image Adapter — Image → BaseResult
 ====================================
@@ -30,7 +36,10 @@ class ImageAdapter(BaseParser):
         """
         Convert an image file to BaseResult using OCR.
         """
-        return await self._ocr_fallback(file_path)
+        logger.info(f"[ImageAdapter] Starting image parsing for: {file_path}")
+        result = await self._ocr_fallback(file_path)
+        logger.info(f"[ImageAdapter] Completed image parsing for: {file_path}")
+        return result
 
     async def _ocr_fallback(self, file_path: Path) -> BaseResult:
         """
@@ -42,12 +51,14 @@ class ImageAdapter(BaseParser):
         recognized text lines joined by newlines.
         """
         import cv2
+        logger.debug(f"[ImageAdapter] Reading image file: {file_path}")
         img = cv2.imread(str(file_path))
         if img is None:
-            logger.warning(f"[ImageAdapter] Cannot read image: {file_path.name}")
+            logger.error(f"[ImageAdapter] Failed to read image, cv2.imread returned None: {file_path.name}")
             text = ""
         else:
             text = self._extract_text_from_image(img, file_path)
+        
         blocks = [Block(block_type="text", raw_content=text, page=0)] if text else []
         page = PageLayout(page_number=0, blocks=tuple(blocks))
         return BaseResult(pages=(page,), full_text=text, metadata={"source_format": "image_ocr"})

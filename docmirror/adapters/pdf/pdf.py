@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 PDF Adapter — PDF → PerceptionResult
 =====================================
@@ -25,7 +31,7 @@ import threading
 from pathlib import Path
 
 from docmirror.framework.base import BaseParser, ParserOutput
-from docmirror.models.domain import BaseResult
+from docmirror.models.entities.domain import BaseResult
 
 logger = logging.getLogger(__name__)
 
@@ -67,11 +73,15 @@ class PDFAdapter(BaseParser):
         This is useful when you only need the raw extraction output
         (text, tables, layout) without any business-specific enhancements.
         """
-        from docmirror.core.extractor import CoreExtractor
+        from docmirror.core.extraction.extractor import CoreExtractor
+        
+        logger.info(f"[PDFAdapter] Starting raw extraction for: {file_path}")
         extractor = CoreExtractor()
-        return await extractor.extract(file_path)
+        result = await extractor.extract(file_path)
+        logger.info(f"[PDFAdapter] Completed raw extraction for: {file_path}")
+        return result
 
-    async def perceive(self, file_path: Path, **context):
+    async def perceive(self, file_path: Path, **context) -> "PerceptionResult":
         """
         Full pipeline: PDF → PerceptionResult (recommended entry point).
 
@@ -79,16 +89,19 @@ class PDFAdapter(BaseParser):
             1. Orchestrator runs CoreExtractor + middleware pipeline → EnhancedResult
             2. PerceptionResultBuilder maps EnhancedResult → PerceptionResult
         """
-        from docmirror.models.builder import PerceptionResultBuilder
+        from docmirror.models.construction.builder import PerceptionResultBuilder
 
         orchestrator = _get_shared_orchestrator()
         file_type = (context.get("file_type") or "pdf").lower()
+        
+        logger.info(f"[PDFAdapter] Starting full perception pipeline for: {file_path} (mode: {self._enhance_mode})")
         enhanced = await orchestrator.run_pipeline(
             file_path=file_path,
             enhance_mode=self._enhance_mode,
             file_type=file_type,
         )
 
+        logger.info(f"[PDFAdapter] Building PerceptionResult from enhanced data for: {file_path}")
         return PerceptionResultBuilder.build(
             enhanced.base_result,
             enhanced=enhanced,

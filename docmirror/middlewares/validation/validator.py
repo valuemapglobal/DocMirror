@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Mirror Fidelity Validator
 ==========================
@@ -39,7 +45,7 @@ import unicodedata
 from typing import Any, Dict, List, Optional, Set
 
 from ..base import BaseMiddleware
-from ...models.enhanced import EnhancedResult
+from ...models import EnhancedResult
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +61,7 @@ _RE_GARBLED = re.compile(
 )
 
 # Inter-character spacing anomaly: 3+ single-char-then-space sequences
-# Matches patterns like "H e l l o" or "账 户 名 称"
+# Matches patterns like "H e l l o" or "W i d e S p a c e s"
 _RE_CHAR_SPACED = re.compile(
     r'(?:\S\s){3,}\S'
 )
@@ -357,7 +363,7 @@ class Validator(BaseMiddleware):
         """
         Absence of inter-character spacing artifacts.
 
-        Patterns like "H e l l o" or "账 户 名 称" indicate the OCR
+        Patterns like "H e l l o" or "W i d e S p a c e s" indicate the OCR
         or text extraction incorrectly inserted spaces between every
         character. Normal word spacing is NOT penalized.
         """
@@ -480,4 +486,3 @@ class Validator(BaseMiddleware):
             "vlm_recommended": len(vlm_reasons) > 0,
             "vlm_reasons": vlm_reasons,
         }
-

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Pipeline Registry — Format-specific middleware pipeline composition.
 =====================================================================
@@ -35,6 +41,9 @@ Usage::
 from __future__ import annotations
 
 from typing import Dict, List
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # File format → { enhance_mode → ordered list of middleware class names }
@@ -94,4 +103,6 @@ def get_pipeline_config(file_type: str, enhance_mode: str = "standard") -> List[
         Ordered list of middleware class names to execute in the pipeline.
     """
     fmt_config = FORMAT_PIPELINES.get(file_type, FORMAT_PIPELINES.get("*", {}))
-    return fmt_config.get(enhance_mode, fmt_config.get("standard", []))
+    middlewares = fmt_config.get(enhance_mode, fmt_config.get("standard", []))
+    logger.info(f"[Config] Loaded pipeline configuration: format='{file_type}', mode='{enhance_mode}' -> {len(middlewares)} middlewares activated")
+    return middlewares

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Excel Adapter — .xlsx → BaseResult
 ====================================
@@ -28,7 +34,7 @@ import logging
 from pathlib import Path
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.domain import BaseResult, Block, PageLayout
+from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +49,6 @@ class ExcelAdapter(BaseParser):
            then processed through the standard PDF pipeline.
     """
 
-    async def perceive(self, file_path: Path, **context):
-        """
-        Native primary extraction for modern .xlsx.
-        """
-        return await super().perceive(file_path, **context)
-
     async def to_base_result(self, file_path: Path) -> BaseResult:
         """
         Parse an .xlsx file into a BaseResult.
@@ -57,6 +57,8 @@ class ExcelAdapter(BaseParser):
         (None → empty string). Sheets with no non-empty rows are skipped.
         """
         import openpyxl
+        
+        logger.info(f"[ExcelAdapter] Starting native extraction for spreadsheet: {file_path}")
         wb = openpyxl.load_workbook(str(file_path), data_only=True)
 
         pages = []

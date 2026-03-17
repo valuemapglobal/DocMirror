@@ -1,3 +1,15 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
+"""RapidOCR engine wrapper for word-level text detection and recognition.
+
+Provides a singleton ``get_ocr_engine()`` accessor that lazy-loads the
+RapidOCR CPU backend.  Supports multi-scale detection and per-word
+bounding-box output used by the zone OCR fallback path.
+"""
 from __future__ import annotations
 import logging
 import re
@@ -189,7 +201,7 @@ class RapidOCREngine:
         return [np.array(b, dtype=np.float32) for b in fused_boxes]
 
     def detect_multiscale_words(
-        self, img: np.ndarray, scales: List[float] = [1.0, 2.0]
+        self, img: np.ndarray, scales: Optional[List[float]] = None
     ) -> List[Tuple[float, float, float, float, str, int, int, int]]:
         """
         Multi-Scale OCR with NMS (Non-Maximum Suppression).
@@ -199,6 +211,8 @@ class RapidOCREngine:
         """
         if not self._engine:
             raise RuntimeError("RapidOCR engine not available.")
+        if scales is None:
+            scales = [1.0, 2.0]
 
         import cv2
         all_scaled_boxes = []

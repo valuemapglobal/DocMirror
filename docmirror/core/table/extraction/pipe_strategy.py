@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Pipe-delimited table extraction — Layer 0.5: Grid Consistency algorithm.
 
@@ -15,8 +21,7 @@ import logging
 from collections import defaultdict
 from typing import Dict, List, Optional
 
-from ...utils.text_utils import _is_cjk_char, _smart_join
-from ...utils.vocabulary import PIPE_CHARS, _ALL_BORDER_CHARS, _is_header_row, _normalize_for_vocab, _score_header_by_vocabulary, _RE_IS_DATE, _RE_IS_AMOUNT
+from ...utils.vocabulary import PIPE_CHARS, _ALL_BORDER_CHARS
 
 logger = logging.getLogger(__name__)
 

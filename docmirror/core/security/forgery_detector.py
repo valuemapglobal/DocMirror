@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Anti-Forgery & Tampering Visual Detection Engine
 
@@ -69,45 +75,47 @@ def detect_pdf_forgery(file_path: str | Path) -> Tuple[bool, List[str]]:
         logger.warning(f"Verification failed to open PDF {file_path}: {e}")
         return False, []
 
-    # 1. Metadata Blacklist Detection (configurable via DOCMIRROR_FORGERY_METADATA_BLACKLIST)
-    blacklist = _get_forgery_metadata_blacklist()
-    meta = doc.metadata or {}
-    creator = meta.get("creator", "").lower()
-    producer = meta.get("producer", "").lower()
-
-    for suspicious_term in blacklist:
-        if suspicious_term in creator:
-            is_forged = True
-            reasons.append(f"Suspicious Core Metadata (Creator): Found '{suspicious_term}' ({meta.get('creator')})")
-        if suspicious_term in producer:
-            is_forged = True
-            reasons.append(f"Suspicious Core Metadata (Producer): Found '{suspicious_term}' ({meta.get('producer')})")
-
-    # 2. XREF Incremental Update Detection
-    # PyMuPDF can get the historical modification version count. If not 1, it indicates the PDF was subsequently modified and saved.
-    # Electronic statements are typically guaranteed to be 1 at generation.
     try:
-        version_count = len(doc.resolve_names()) if hasattr(doc, 'resolve_names') else 1 # fallback check
-        # PyMuPDF lacks a safe direct public API for XREF trailer count, but we can catch certain anomalies via xref
-        # Using a safer alternative strategy here: check for unfixed interactive forms
-    except Exception as exc:
-        logger.debug(f"operation: suppressed {exc}")
-        
-    if doc.is_form_pdf:
-        is_forged = True
-        reasons.append("PDF contains interactive form fields (Unexpected for electronic origination)")
+        # 1. Metadata Blacklist Detection (configurable via DOCMIRROR_FORGERY_METADATA_BLACKLIST)
+        blacklist = _get_forgery_metadata_blacklist()
+        meta = doc.metadata or {}
+        creator = meta.get("creator", "").lower()
+        producer = meta.get("producer", "").lower()
 
-    # 3. Digital Signature Check
-    # In this L0 layer, we do not strictly enforce the presence of a signature (as not all banks have them),
-    # but if it 'contains a corrupted or unverifiable signature field', it indicates interception and editing.
-    has_sig = False
-    for p in doc:
-        for w in p.widgets():
-            if w.is_signed:
-                has_sig = True
-                break
+        for suspicious_term in blacklist:
+            if suspicious_term in creator:
+                is_forged = True
+                reasons.append(f"Suspicious Core Metadata (Creator): Found '{suspicious_term}' ({meta.get('creator')})")
+            if suspicious_term in producer:
+                is_forged = True
+                reasons.append(f"Suspicious Core Metadata (Producer): Found '{suspicious_term}' ({meta.get('producer')})")
 
-    doc.close()
+        # 2. XREF Incremental Update Detection
+        # PyMuPDF can get the historical modification version count. If not 1, it indicates the PDF was subsequently modified and saved.
+        # Electronic statements are typically guaranteed to be 1 at generation.
+        try:
+            version_count = len(doc.resolve_names()) if hasattr(doc, 'resolve_names') else 1 # fallback check
+            # PyMuPDF lacks a safe direct public API for XREF trailer count, but we can catch certain anomalies via xref
+            # Using a safer alternative strategy here: check for unfixed interactive forms
+        except Exception as exc:
+            logger.debug(f"operation: suppressed {exc}")
+            
+        if doc.is_form_pdf:
+            is_forged = True
+            reasons.append("PDF contains interactive form fields (Unexpected for electronic origination)")
+
+        # 3. Digital Signature Check
+        # In this L0 layer, we do not strictly enforce the presence of a signature (as not all banks have them),
+        # but if it 'contains a corrupted or unverifiable signature field', it indicates interception and editing.
+        has_sig = False
+        for p in doc:
+            for w in p.widgets():
+                if w.is_signed:
+                    has_sig = True
+                    break
+    finally:
+        doc.close()
+
     return is_forged, reasons
 
 

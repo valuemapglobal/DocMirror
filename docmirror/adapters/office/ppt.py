@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 PPT Adapter — .pptx → BaseResult
 ==================================
@@ -29,7 +35,7 @@ import logging
 from pathlib import Path
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.domain import BaseResult, Block, PageLayout
+from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +50,6 @@ class PPTAdapter(BaseParser):
            then processed through the standard PDF pipeline.
     """
 
-    async def perceive(self, file_path: Path, **context):
-        """
-        Native primary extraction for modern .pptx.
-        """
-        return await super().perceive(file_path, **context)
-
     async def to_base_result(self, file_path: Path) -> BaseResult:
         """
         Parse a .pptx file into a BaseResult.
@@ -58,6 +58,8 @@ class PPTAdapter(BaseParser):
         text shapes become text Blocks, and table shapes become table Blocks.
         """
         from pptx import Presentation
+        
+        logger.info(f"[PPTAdapter] Starting native extraction for presentation: {file_path}")
         prs = Presentation(str(file_path))
 
         pages = []

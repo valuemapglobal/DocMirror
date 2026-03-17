@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Email Adapter — .eml → BaseResult
 ===================================
@@ -35,7 +41,7 @@ from pathlib import Path
 from typing import Dict
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.domain import BaseResult, Block, PageLayout
+from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +57,7 @@ class EmailAdapter(BaseParser):
         becomes a text Block. Attachment filenames are listed in the
         key_value pairs but their contents are not extracted.
         """
+        logger.info(f"[EmailAdapter] Starting native extraction for email: {file_path}")
         with open(file_path, "rb") as f:
             msg = email_lib.message_from_binary_file(f, policy=policy.default)
 

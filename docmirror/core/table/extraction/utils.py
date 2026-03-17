@@ -1,12 +1,18 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """Shared utility functions split from table_extraction.py."""
 from __future__ import annotations
 
 
+import bisect
 import logging
 from typing import Dict, List, Tuple
 
 from ...utils.text_utils import _is_cjk_char, _smart_join
-from ...utils.vocabulary import _ALL_BORDER_CHARS, _is_header_row, _normalize_for_vocab, _score_header_by_vocabulary, _RE_IS_DATE, _RE_IS_AMOUNT
 
 logger = logging.getLogger(__name__)
 
@@ -194,12 +200,9 @@ def _assign_chars_to_columns(
 
     for w in words:
         char_x = (w["x0"] + w["x1"]) / 2
-        # Binary search for the containing column
-        col_idx = len(col_bounds) - 1
-        for i in range(len(dividers) - 1):
-            if dividers[i] <= char_x < dividers[i + 1]:
-                col_idx = i
-                break
+        # O(log c) binary search for the containing column
+        col_idx = bisect.bisect_right(dividers, char_x) - 1
+        col_idx = max(0, min(col_idx, len(cells) - 1))
         if 0 <= col_idx < len(cells):
             if cells[col_idx]:
                 existing = cells[col_idx].strip()

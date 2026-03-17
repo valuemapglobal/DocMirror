@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Vocabulary & Row Classifiers
 =============================
@@ -29,15 +35,24 @@ from __future__ import annotations
 import logging
 import re
 import unicodedata
-from typing import Dict, List, Optional
+from collections import deque
+from typing import Dict, Iterable, List, Optional, Tuple
 
-from .text_utils import _is_cjk_char
 
 logger = logging.getLogger(__name__)
 
 _RE_IS_DATE = re.compile(r"\d{4}[-/.]?\d{1,2}[-/.]?\d{1,2}|\d{8}")
 _RE_IS_AMOUNT = re.compile(r"^[-+]?\d[\d,]*\.?\d*$")
 _RE_VALID_DATE = re.compile(r'(?:19|20)\d{2}[-/.]?\d{1,2}[-/.]?\d{1,2}')
+
+# Pre-compiled junk row patterns (C3: avoid per-call re.compile overhead)
+_RE_JUNK_STRONG = re.compile(r"^\s*(合计|总计|累计|汇总)[：:]?")
+_RE_JUNK_PATTERNS = re.compile(
+    r"生成时间|前页|本页合计|合计金额|共\d+页|第\d+页|以下空白|打印时间|page\s*\d+"
+    r"|最终解释权|客服电话|免责声明|本文件.*所有|统一客服"
+    r"|金额单位[：:元]?|打印操作员|打印日期",
+    re.IGNORECASE,
+)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -84,6 +99,109 @@ VOCAB_BY_CATEGORY: Dict[str, frozenset] = {
 
 # Backward-compatible union of all category vocabularies
 KNOWN_HEADER_WORDS: frozenset = frozenset().union(*VOCAB_BY_CATEGORY.values())
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Aho-Corasick Multi-Pattern Matcher
+# ══════════════════════════════════════════════════════════════════════════════
+
+class AhoCorasick:
+    """Pure-Python Aho-Corasick automaton for O(L) multi-pattern matching.
+
+    Build once from a set of patterns, then call ``search()`` or
+    ``search_longest_non_overlapping()`` on any text string.
+    """
+
+    __slots__ = ('_goto', '_fail', '_output', '_patterns')
+
+    def __init__(self, patterns: Iterable[str]):
+        self._patterns = list(patterns)
+        self._goto: List[Dict[str, int]] = [{}]   # state 0 = root
+        self._output: List[List[int]] = [[]]       # output[state] = [pattern_idx]
+        self._fail: List[int] = [0]
+
+        # ── Phase 1: Build Trie (goto function) ──
+        for pi, pat in enumerate(self._patterns):
+            state = 0
+            for ch in pat:
+                if ch not in self._goto[state]:
+                    new_state = len(self._goto)
+                    self._goto.append({})
+                    self._output.append([])
+                    self._fail.append(0)
+                    self._goto[state][ch] = new_state
+                state = self._goto[state][ch]
+            self._output[state].append(pi)
+
+        # ── Phase 2: Build failure links via BFS ──
+        q = deque()
+        for ch, s in self._goto[0].items():
+            self._fail[s] = 0
+            q.append(s)
+
+        while q:
+            r = q.popleft()
+            for ch, s in self._goto[r].items():
+                q.append(s)
+                state = self._fail[r]
+                while state != 0 and ch not in self._goto[state]:
+                    state = self._fail[state]
+                self._fail[s] = self._goto[state].get(ch, 0)
+                if self._fail[s] == s:
+                    self._fail[s] = 0
+                self._output[s] = self._output[s] + self._output[self._fail[s]]
+
+    def search(self, text: str) -> List[Tuple[str, int, int]]:
+        """Find all pattern occurrences in *text*.
+
+        Returns:
+            List of ``(pattern, start, end)`` tuples, unsorted.
+        """
+        results = []
+        state = 0
+        for i, ch in enumerate(text):
+            while state != 0 and ch not in self._goto[state]:
+                state = self._fail[state]
+            state = self._goto[state].get(ch, 0)
+            for pi in self._output[state]:
+                pat = self._patterns[pi]
+                start = i - len(pat) + 1
+                results.append((pat, start, i + 1))
+        return results
+
+    def search_longest_non_overlapping(
+        self, text: str,
+    ) -> List[Tuple[str, int, int]]:
+        """Find non-overlapping matches, preferring longest match.
+
+        Greedy left-to-right: among overlapping matches at the same
+        start position, keep the longest.  Discard matches whose
+        character positions are already claimed.
+        """
+        all_matches = self.search(text)
+        if not all_matches:
+            return []
+
+        # Sort by start position, then by length descending (longest first)
+        all_matches.sort(key=lambda m: (m[1], -(m[2] - m[1])))
+
+        used = set()
+        result = []
+        for pat, start, end in all_matches:
+            if any(p in used for p in range(start, end)):
+                continue
+            result.append((pat, start, end))
+            used.update(range(start, end))
+
+        return sorted(result, key=lambda m: m[1])
+
+
+# ── Module-level AC singletons (built once at import time) ──
+_AC_ALL = AhoCorasick(KNOWN_HEADER_WORDS)
+_AC_BY_CATEGORY: Dict[str, AhoCorasick] = {
+    cat: AhoCorasick(words)
+    for cat, words in VOCAB_BY_CATEGORY.items()
+}
 
 
 # ── CJK normalisation: NFKC + Traditional → Simplified patches ──
@@ -231,19 +349,14 @@ def _is_junk_row(row: List[str]) -> bool:
     row_text = " ".join(str(c) for c in row if c)
 
     # Strong signal: always junk regardless of fill ratio
-    if re.match(r"^\s*(合计|总计|累计|汇总)[：:]?", row_text):
+    if _RE_JUNK_STRONG.match(row_text):
         return True
 
     # High fill ratio → likely a data row — don't discard
     if fill_ratio >= 0.6 and len(non_empty) > 3:
         return False
 
-    if re.search(
-        r"生成时间|前页|本页合计|合计金额|共\d+页|第\d+页|以下空白|打印时间|page\s*\d+"
-        r"|最终解释权|客服电话|免责声明|本文件.*所有|统一客服"
-        r"|金额单位[：:元]?|打印操作员|打印日期",
-        row_text, re.IGNORECASE
-    ):
+    if _RE_JUNK_PATTERNS.search(row_text):
         return True
     return False
 

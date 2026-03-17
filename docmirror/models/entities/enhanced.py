@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 EnhancedResult \u2014 The Augmented Final Extract
 ============================================
@@ -103,7 +109,7 @@ class EnhancedResult:
 
     # \u2500\u2500 v1 Compatibility Bridge \u2500\u2500
 
-    def to_parser_output(self):
+    def to_parser_output(self) -> dict:
         """
         [DEPRECATED] Bridges functionally to legacy v1 ParserOutput.
 

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Table pre-classification, confidence scoring, and validation gates.
 
@@ -12,8 +18,7 @@ import math
 import re
 from typing import Dict, List
 
-from ...utils.text_utils import _is_cjk_char, _smart_join
-from ...utils.vocabulary import PIPE_CHARS, _ALL_BORDER_CHARS, _is_header_row, _normalize_for_vocab, _score_header_by_vocabulary, _RE_IS_DATE, _RE_IS_AMOUNT
+from ...utils.vocabulary import PIPE_CHARS, _score_header_by_vocabulary
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +125,8 @@ def _compute_table_confidence(
         "pipe_delimited": 0.15, "lines": 0.15, "hline_columns": 0.10,
         "rect_columns": 0.10, "text": 0.10, "docling_tableformer": 0.10,
         "rapid_table": 0.12,  # Vision model: ranked above char-level strategies
+        "signal_processor": 0.08,  # Dual-axis signal: above char-level, below pdfplumber
+        "pymupdf_native": 0.12,
         "header_anchors": 0.05, "word_anchors": 0.05,
         "data_voting": 0.05, "whitespace_projection": 0.05,
         "x_clustering": 0.0, "fallback": -0.10,

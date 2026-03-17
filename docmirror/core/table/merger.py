@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 table_merger — Cross-page table merging
 ========================================
@@ -19,7 +25,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List
 
-from ...models.domain import Block, PageLayout
+from ...models.entities.domain import Block, PageLayout
 from .postprocess import _strip_preamble
 from ..utils.text_utils import headers_match
 from ..utils.vocabulary import _is_header_row

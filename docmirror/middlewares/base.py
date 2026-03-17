@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Middleware Base Class and Pipeline Executor
 ===========================================
@@ -18,7 +24,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-from ..models.enhanced import EnhancedResult
+from ..models import EnhancedResult
 from ..core.exceptions import MiddlewareError
 
 logger = logging.getLogger(__name__)
@@ -128,7 +134,7 @@ class MiddlewarePipeline:
             The processed EnhancedResult.
         """
         logger.info(
-            f"[DocMirror] Pipeline \u25b6 {len(middlewares)} middlewares: "
+            f"[Middleware] Pipeline \u25b6 {len(middlewares)} middlewares: "
             f"{[m.name for m in middlewares]}"
         )
 
@@ -178,88 +184,7 @@ class MiddlewarePipeline:
                 completed.add(mw.name)
             else:
                 # Multiple independent middlewares — run in parallel
-                logger.debug(
-                    f"[DocMirror] T4-1: parallel batch: {[m.name for m in batch]}"
-                )
-
-                # C1 FIX: threading lock protects shared mutable state
-                # (mutations list, errors list, status field).
-                # enhanced_data dict writes are safe because each middleware
-                # writes to distinct keys (scene, language, institution).
-                import threading
-                _result_lock = threading.Lock()
-
-                # Monkey-patch result methods to be thread-safe for this batch
-                _orig_add_mutation = result.add_mutation
-                _orig_record_mutation = result.record_mutation
-                _orig_add_error = result.add_error
-
-                def _ts_add_mutation(mutation):
-                    with _result_lock:
-                        _orig_add_mutation(mutation)
-
-                def _ts_record_mutation(*args, **kwargs):
-                    with _result_lock:
-                        _orig_record_mutation(*args, **kwargs)
-
-                def _ts_add_error(error):
-                    with _result_lock:
-                        _orig_add_error(error)
-
-                result.add_mutation = _ts_add_mutation
-                result.record_mutation = _ts_record_mutation
-                result.add_error = _ts_add_error
-
-                def _run_mw(m):
-                    """Run a single middleware, return (name, mutations, elapsed)."""
-                    if m.should_skip(result):
-                        return (m.name, 0, 0.0, None)
-                    t0 = time.time()
-                    try:
-                        m.process(result)
-                        elapsed = (time.time() - t0) * 1000
-                        with _result_lock:
-                            num_mut = sum(
-                                1 for mut in result.mutations
-                                if mut.middleware_name == m.name
-                            )
-                        return (m.name, num_mut, elapsed, None)
-                    except Exception as e:
-                        elapsed = (time.time() - t0) * 1000
-                        return (m.name, 0, elapsed, e)
-
-                try:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=len(batch)) as executor:
-                        futures = {executor.submit(_run_mw, mw): mw for mw in batch}
-                        for future in concurrent.futures.as_completed(futures):
-                            name, num_mut, elapsed, error = future.result()
-                            step_timings[name] = round(elapsed, 1)
-                            if error:
-                                from ..core.exceptions import MiddlewareError
-                                mw_error = MiddlewareError(
-                                    str(error), middleware_name=name
-                                )
-                                logger.warning(f"[DocMirror] {mw_error}", exc_info=True)
-                                result.add_error(str(mw_error))
-                                if self.fail_strategy == "abort":
-                                    logger.warning(
-                                        f"[DocMirror] Pipeline aborted at {name}"
-                                    )
-                                    result.status = "failed"
-                                    remaining = []
-                                    break
-                            elif elapsed > 0:
-                                logger.info(
-                                    f"[DocMirror] {name} \u25c0 {elapsed:.0f}ms | "
-                                    f"mutations=+{num_mut}"
-                                )
-                            else:
-                                logger.info(f"[DocMirror] {name} \u23ed skipped")
-                finally:
-                    # Restore original (non-locked) methods
-                    result.add_mutation = _orig_add_mutation
-                    result.record_mutation = _orig_record_mutation
-                    result.add_error = _orig_add_error
+                self._run_parallel_batch(batch, result, step_timings, remaining)
 
                 for mw in batch:
                     completed.add(mw.name)
@@ -269,8 +194,8 @@ class MiddlewarePipeline:
 
         total_mutations = result.mutation_count
         logger.info(
-            f"[DocMirror] Pipeline \u25c0 status={result.status} | "
-            f"total_mutations={total_mutations}"
+            f"[Middleware] Pipeline \u25c0 status={result.status} | "
+            f"total_mutations={total_mutations} | timings={step_timings}"
         )
 
         return result
@@ -283,7 +208,7 @@ class MiddlewarePipeline:
     ) -> None:
         """Execute a single middleware sequentially (original path)."""
         if mw.should_skip(result):
-            logger.info(f"[DocMirror] {mw.name} \u23ed skipped")
+            logger.info(f"[Middleware] {mw.name} \u23ed skipped")
             step_timings[mw.name] = 0.0
             return
 
@@ -304,7 +229,7 @@ class MiddlewarePipeline:
                 1 for m in result.mutations if m.middleware_name == mw.name
             )
             logger.info(
-                f"[DocMirror] {mw.name} \u25c0 {elapsed:.0f}ms | "
+                f"[Middleware] {mw.name} \u25c0 {elapsed:.0f}ms | "
                 f"mutations=+{num_mutations}"
             )
         except Exception as e:
@@ -314,10 +239,108 @@ class MiddlewarePipeline:
             mw_error = MiddlewareError(
                 str(e), middleware_name=mw.name
             )
-            logger.warning(f"[DocMirror] {mw_error}", exc_info=True)
+            logger.warning(f"[Middleware] {mw_error}", exc_info=True)
             result.add_error(str(mw_error))
             if self.fail_strategy == "abort":
-                logger.warning(
-                    f"[DocMirror] Pipeline aborted at {mw.name}"
-                )
+                logger.warning(f"[Middleware] Pipeline aborted at {mw.name}")
                 result.status = "failed"
+
+    def _run_parallel_batch(
+        self,
+        batch: List[BaseMiddleware],
+        result: EnhancedResult,
+        step_timings: Dict[str, float],
+        remaining: list,
+    ) -> None:
+        """Execute a batch of independent middlewares in parallel threads.
+
+        Thread-safety is achieved by monkey-patching ``result.add_mutation``,
+        ``result.record_mutation``, and ``result.add_error`` with locked
+        wrappers for the duration of the batch.  Original methods are
+        restored in a ``finally`` block.
+
+        Args:
+            batch: Middlewares to run concurrently.
+            result: Shared mutable result (mutations write-locked).
+            step_timings: Dict to record per-middleware elapsed time.
+            remaining: Mutable list — cleared on abort to stop the pipeline.
+        """
+        import threading
+
+        logger.debug(
+            f"[Middleware] T4-1: parallel batch: {[m.name for m in batch]}"
+        )
+
+        _result_lock = threading.Lock()
+
+        # Monkey-patch result methods to be thread-safe for this batch
+        _orig_add_mutation = result.add_mutation
+        _orig_record_mutation = result.record_mutation
+        _orig_add_error = result.add_error
+
+        def _ts_add_mutation(mutation):
+            with _result_lock:
+                _orig_add_mutation(mutation)
+
+        def _ts_record_mutation(*args, **kwargs):
+            with _result_lock:
+                _orig_record_mutation(*args, **kwargs)
+
+        def _ts_add_error(error):
+            with _result_lock:
+                _orig_add_error(error)
+
+        result.add_mutation = _ts_add_mutation
+        result.record_mutation = _ts_record_mutation
+        result.add_error = _ts_add_error
+
+        def _run_mw(m):
+            """Run a single middleware, return (name, mutations, elapsed, error)."""
+            if m.should_skip(result):
+                return (m.name, 0, 0.0, None)
+            t0 = time.time()
+            try:
+                m.process(result)
+                elapsed = (time.time() - t0) * 1000
+                with _result_lock:
+                    num_mut = sum(
+                        1 for mut in result.mutations
+                        if mut.middleware_name == m.name
+                    )
+                return (m.name, num_mut, elapsed, None)
+            except Exception as e:
+                elapsed = (time.time() - t0) * 1000
+                return (m.name, 0, elapsed, e)
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(batch)) as executor:
+                futures = {executor.submit(_run_mw, mw): mw for mw in batch}
+                for future in concurrent.futures.as_completed(futures):
+                    name, num_mut, elapsed, error = future.result()
+                    step_timings[name] = round(elapsed, 1)
+                    if error:
+                        from ..core.exceptions import MiddlewareError
+                        mw_error = MiddlewareError(
+                            str(error), middleware_name=name
+                        )
+                        logger.warning(f"[Middleware] {mw_error}", exc_info=True)
+                        result.add_error(str(mw_error))
+                        if self.fail_strategy == "abort":
+                            logger.warning(
+                                f"[Middleware] Pipeline aborted at {name}"
+                            )
+                            result.status = "failed"
+                            remaining.clear()
+                            break
+                    elif elapsed > 0:
+                        logger.info(
+                            f"[Middleware] {name} \u25c0 {elapsed:.0f}ms | "
+                            f"mutations=+{num_mut}"
+                        )
+                    else:
+                        logger.info(f"[Middleware] {name} \u23ed skipped")
+        finally:
+            # Restore original (non-locked) methods
+            result.add_mutation = _orig_add_mutation
+            result.record_mutation = _orig_record_mutation
+            result.add_error = _orig_add_error

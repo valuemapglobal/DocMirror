@@ -1,186 +1,113 @@
 <p align="center">
   <h1 align="center">📄 DocMirror</h1>
   <p align="center">
-    <em>Universal document parsing engine — extract structured data from any document format.</em>
+    <em>Universal Industrial-Grade Document Parsing Engine</em><br/>
+    Extract highly-structured data from any document format with military-grade precision.
   </p>
   <p align="center">
-    <a href="https://pypi.org/project/docmirror/"><img src="https://img.shields.io/pypi/v/docmirror?color=blue" alt="PyPI"></a>
-    <a href="https://pypi.org/project/docmirror/"><img src="https://img.shields.io/pypi/pyversions/docmirror" alt="Python"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License"></a>
-    <a href="https://github.com/valuemapglobal/docmirror/actions"><img src="https://github.com/valuemapglobal/docmirror/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-    <a href="https://codecov.io/gh/valuemapglobal/docmirror"><img src="https://codecov.io/gh/valuemapglobal/docmirror/branch/main/graph/badge.svg" alt="Coverage"></a>
-    <a href="https://valuemapglobal.github.io/docmirror"><img src="https://img.shields.io/badge/docs-GitHub%20Pages-blue" alt="Docs"></a>
+    <a href="https://pypi.org/project/docmirror/"><img src="https://img.shields.io/pypi/v/docmirror?color=blue&style=for-the-badge" alt="PyPI"></a>
+    <a href="https://pypi.org/project/docmirror/"><img src="https://img.shields.io/pypi/pyversions/docmirror?style=for-the-badge" alt="Python"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green?style=for-the-badge" alt="License"></a>
+    <a href="https://github.com/valuemapglobal/docmirror/actions"><img src="https://github.com/valuemapglobal/docmirror/actions/workflows/ci.yml/badge.svg?style=for-the-badge" alt="CI"></a>
+    <a href="https://codecov.io/gh/valuemapglobal/docmirror"><img src="https://codecov.io/gh/valuemapglobal/docmirror/branch/main/graph/badge.svg?style=for-the-badge" alt="Coverage"></a>
   </p>
 </p>
 
 ---
 
-DocMirror is a Python library that parses documents into structured, machine-readable data. It supports **8 file formats** out of the box and provides a modular pipeline with OCR, layout analysis, table extraction, and trust scoring.
+**DocMirror** is a cutting-edge Python library built for the toughest document parsing environments. Go beyond simple text extraction. DocMirror combines computer vision, topological layout algorithms, and middleware intelligence to deliver pure, structured data and verifiable trust scores from messy, real-world documents.
 
-## ✨ Features
+## ⚡ The Killer Features
 
-| Capability | Description |
-|---|---|
-| 📑 **Multi-format** | PDF, Image, Word, Excel, PowerPoint, Email, Web, JSON/XML/CSV |
-| 🔍 **OCR** | RapidOCR (ONNX) with multi-scale fusion and dynamic color slicing |
-| 📐 **Layout Analysis** | DocLayout-YOLO / RapidLayout for page segmentation |
-| 📊 **Table Extraction** | Multi-strategy: rule-based, PDFPlumber, RapidTable, VLM fallback |
-| 🧮 **Formula Recognition** | LaTeX-OCR for mathematical formula extraction |
-| 🛡️ **Forgery Detection** | PDF metadata & image tamper analysis (ELA) |
-| ✅ **Trust Scoring** | 7-dimension mirror fidelity validation with confidence scores |
-| 🧩 **Plugin System** | Extensible domain plugins for business-specific extraction |
-| 💾 **Caching** | Redis-based parse result caching with full state persistence |
+| Capability | What makes it different? |
+| :--- | :--- |
+| **🛡️ Anti-Forgery & Tamper Detection** | Integrates Pixel Error Level Analysis (ELA) and Metadata Blacklisting. It doesn't just read documents; it tells you if the document was Photoshopped. |
+| **🧠 Topological Divide-and-Conquer Layout** | Drops naive heuristics and uses spatial clustering (DBSCAN + X-Y Cuts) guided by DocLayout-YOLO to accurately reconstruct reading orders even on dense, multi-column financial reports. |
+| **🏦 Bank-Grade CCB Table Repair** | Native algorithmic immunity against complex table structure anomalies (e.g., China Construction Bank staggered grids) doing what LLMs and basic vision models notoriously fail at. |
+| **👁️ Dynamic Multi-Scale OCR** | RapidOCR core supercharged with dynamic color-slicing and contrast boosting to rescue faded, low-DPI scans. |
+| **🧩 Zero-Friction Plugin Architecture** | Write custom Domain Plugins (`BankStatement`, `Invoice`) that magically bind unstructured output to your exact Pydantic entity schemas. |
 
 ## 🚀 Quick Start
 
-### Installation
-
+### 1. Install (One-Liner)
 ```bash
-# Core only (minimal dependencies)
-pip install docmirror
-
-# With PDF + OCR support
-pip install docmirror[pdf,ocr]
-
-# Everything
-pip install docmirror[all]
+# Get the engine, PDF vision drivers, and high-performance layout analyzers
+pip install "docmirror[all]"
 ```
 
-### Basic Usage
+### 2. Awaken the Engine
+Just point `perceive_document` at an image, PDF, Word doc, or Excel sheet. The **L0 Dispatcher** automatically infers the format, spins up the correct Adapter, parses the data, applies your middlewares, and returns a unified 4-layer topology.
 
 ```python
 import asyncio
 from docmirror import perceive_document
 
 async def main():
-    result = await perceive_document("invoice.pdf")
+    # One line to process ANY tricky document
+    result = await perceive_document("suspicious_bank_statement.pdf")
 
-    print(f"Status: {result.status}")
-    print(f"Scene: {result.scene}")          # "bank_statement", "invoice", etc.
-    print(f"Confidence: {result.confidence:.0%}")
-    print(f"Text: {result.content.text[:200]}")
-
-    # Iterate structured blocks
-    for block in result.content.blocks:
-        if block.type == "table":
-            print(f"Table: {block.table.headers}")
-        elif block.type == "key_value":
-            print(f"Entities: {block.key_value.pairs}")
-
-    # Extracted entities
+    print(f"Status: {result.status} | Scene: {result.scene}")
+    
+    # Check if the document was forged
+    if result.provenance.validation.is_forged:
+        print(f"⚠️ FORGERY DETECTED: {result.provenance.validation.forgery_reasons}")
+    
+    # Zero in on extracted entities directly mapped from your plugins
     print(f"Entities: {result.content.entities}")
 
 asyncio.run(main())
 ```
 
-### CLI
+> **Pro-Tip**: Prefer the CLI? `python3 -m docmirror document.pdf --format json`
 
-```bash
-# Parse a document
-python3 -m docmirror statement.pdf
+## 🏗️ The 4-Layer Architecture
 
-# Force re-parse (skip cache)
-python3 -m docmirror --skip-cache statement.pdf
+DocMirror abandons monolithic parser designs in favor of a strict, highly observable pipeline. From the raw bytes reading to the final Python properties, every step is rigorously logged and structurally sound.
 
-# Show contributors
-python3 -m docmirror --authors
+```mermaid
+graph TD
+    classDef orchestrator fill:#2b2b2b,stroke:#00f0ff,stroke-width:2px,color:#fff
+    classDef adapter fill:#3a3a3a,stroke:#ffa500,stroke-width:2px,color:#fff
+    classDef core fill:#444,stroke:#ff0055,stroke-width:2px,color:#fff
+    classDef data fill:#1f2937,stroke:#a855f7,stroke-width:2px,color:#fff
+    classDef none fill:none,stroke:none
+
+    FILE[[Any Document\nPDF / Image / Excel]]:::none --> DISPATCH
+    
+    DISPATCH[L0 Dispatcher \n + Redis Cache]:::orchestrator --> ADAPTERS
+    
+    subgraph "Adapt & Physically Extract"
+        ADAPTERS(Format Adapters):::adapter --> CORE{Core Engine \n OCR / Layout / Tables}:::core
+        CORE --> BASERESULT[(BaseResult)]:::data
+    end
+    
+    BASERESULT --> ORCHESTRATOR
+    
+    subgraph "Enhance Pipeline (Middlewares)"
+        ORCHESTRATOR[Orchestrator]:::orchestrator --> SCENE[Scene Detection]
+        SCENE --> ENTITY[Entity Extraction]
+        ENTITY --> VALIDATE[Validation & Trust]
+    end
+    
+    VALIDATE --> BUILDER((Builder)):::orchestrator
+    
+    BUILDER --> PR[(PerceptionResult \n 4-Layer Output Topology)]:::data
 ```
 
-### Supported Formats
+### The Output: `PerceptionResult`
+DocMirror guarantees a standardized payload structure regardless of where the data came from.
+- **Envelope/Status**: `success`, `confidence`, `timing`
+- **Content**: Plain markdown `text`, localized geometric `blocks` (Tables, Paragraphs, Images), and `entities`.
+- **Identity**: Domain-resolved logic via Aho-Corasick dictionary matching.
+- **Trust**: `validation_scores`, `is_forged`, and subsystem execution times.
 
-| Format | Extensions | Adapter |
-|---|---|---|
-| PDF | `.pdf` | `PDFAdapter` — PyMuPDF + OCR + Layout + Table |
-| Image | `.png` `.jpg` `.jpeg` `.tiff` `.bmp` | `ImageAdapter` — OCR extraction |
-| Word | `.doc` `.docx` | `WordAdapter` — python-docx |
-| Excel | `.xls` `.xlsx` | `ExcelAdapter` — openpyxl |
-| PowerPoint | `.ppt` `.pptx` | `PPTAdapter` — python-pptx |
-| Email | `.eml` `.msg` | `EmailAdapter` — stdlib email |
-| Web | `.html` `.htm` | `WebAdapter` |
-| Structured | `.json` `.xml` `.csv` | `StructuredAdapter` |
+## 🤝 Community & Support
 
-## 🏗️ Architecture
+- **Documentation**: [Complete API & Guide](https://valuemapglobal.github.io/docmirror/)
+- **Bug tracker**: [GitHub Issues](https://github.com/valuemapglobal/docmirror/issues)
+- **Contribution**: We welcome Pull Requests! Make sure to `make test` (129+ E2E validations) before submitting.
 
-```
-perceive_document()
-    │
-    ▼
-┌──────────────────┐
-│  ParserDispatcher │ ← L0 file type routing + Redis cache
-│  (framework/)     │
-└────────┬─────────┘
-         │
-    ┌────┴────┐
-    ▼         ▼
-┌────────┐ ┌────────┐
-│ PDF    │ │ Image  │ ... (8 adapters)
-│Adapter │ │Adapter │
-└───┬────┘ └────────┘
-    │
-    ▼
-┌──────────────────┐
-│  CoreExtractor   │ ← Layout + OCR + Table + Formula engines
-│  (core/)         │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│  Orchestrator    │ ← Middleware pipeline
-│  (framework/)    │
-│                  │
-│  SceneDetector ──▶│
-│  EntityExtractor ▶│
-│  InstitutionDet. ▶│
-│  Validator ──────▶│
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ PerceptionResult │ ← Unified 4-layer output model
-│ (models/)        │   (status + content + trust + diagnostics)
-└──────────────────┘
-```
+## 📄 License & Authors
 
-## 📦 Optional Dependencies
-
-DocMirror uses modular optional dependencies — install only what you need:
-
-```bash
-pip install docmirror[pdf]        # PyMuPDF + pdfplumber
-pip install docmirror[ocr]        # RapidOCR + OpenCV + NumPy
-pip install docmirror[layout]     # DocLayout-YOLO
-pip install docmirror[table]      # RapidTable
-pip install docmirror[formula]    # LaTeX-OCR
-pip install docmirror[office]     # python-docx, openpyxl, python-pptx
-pip install docmirror[security]   # pikepdf (forgery detection)
-pip install docmirror[cache]      # Redis caching
-pip install docmirror[all]        # Everything above
-```
-
-## 🔧 Configuration
-
-DocMirror is configured via environment variables:
-
-| Variable | Default | Description |
-|---|---|---|
-| `DOCMIRROR_ENHANCE_MODE` | `standard` | Enhancement mode: `raw`, `standard` |
-| `DOCMIRROR_MAX_PAGES` | `200` | Maximum pages to process |
-| `DOCMIRROR_OCR_DPI` | `150` | OCR rendering resolution |
-| `DOCMIRROR_FAIL_STRATEGY` | `skip` | Error handling: `skip`, `raise`, `fallback` |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis URL for caching |
-
-## 🤝 Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-```bash
-# Development setup
-pip install -e ".[dev,all]"
-pytest tests/ -v          # 109 tests
-ruff check docmirror/     # Lint
-ruff format docmirror/    # Format
-```
-
-## 📄 License
-
-DocMirror is licensed under the [Apache License 2.0](LICENSE).
+Created by **Adam Lin** and proudly maintained by **ValueMap Global**.  
+Released under the [Apache 2.0 License](LICENSE).

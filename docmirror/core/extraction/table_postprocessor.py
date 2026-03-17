@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Table Postprocessing Utilities
 """
@@ -6,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import List
 
-from docmirror.models.domain import Block, PageLayout
+from docmirror.models.entities.domain import Block, PageLayout
 from docmirror.core.layout.layout_analysis import post_process_table
 
 logger = logging.getLogger(__name__)

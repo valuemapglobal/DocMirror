@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Graph-Based Semantic Router
 ============================
@@ -26,9 +32,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-import logging
 
-logger = logging.getLogger(__name__)
 
 class SyntacticBridger:
     """Evaluates semantic text continuity (N-gram/character-level syntax) 
@@ -181,14 +185,15 @@ class GraphRouter:
         """Produce a reading-order sorted list of zones using graph-based
         topological sort with semantic priorities and spatial relations.
 
+        Primary path: Delaunay triangulation (O(n log n)) via spatial_graph.
+        Fallback: O(n²) brute-force adjacency when SciPy is unavailable.
+
         Args:
             zones: List of zone objects (must have ``.bbox`` and ``.type``).
             reading_order_model: Optional path to a LayoutLMv3 reading-order
                 model, or ``"auto"`` for the default ``hantian/layoutreader``.
             enable_column_detection: Whether to enable explicit column
-                detection.  Defaults to ``True``.  Has no effect on
-                single-column documents but significantly improves reading
-                order for multi-column layouts.
+                detection.  Defaults to ``True``.
         """
         if not zones:
             return []
@@ -203,9 +208,35 @@ class GraphRouter:
             if model_result is not None:
                 return model_result
 
+        # ── Primary: Delaunay spatial graph (O(n log n)) ──
+        try:
+            from .spatial_graph import (
+                build_delaunay_adjacency,
+                detect_columns_geometric,
+                compute_reading_order,
+            )
+
+            adj = build_delaunay_adjacency(zones, self.page_width, self.page_height)
+            columns = (
+                detect_columns_geometric(zones, self.page_width)
+                if enable_column_detection
+                else [0] * n
+            )
+            sorted_indices = compute_reading_order(
+                zones, self.page_width, self.page_height,
+                adj=adj, columns=columns,
+            )
+            logger.debug(
+                f"Graph Router applied via Delaunay spatial graph. "
+                f"Visual Causal Flow established."
+            )
+            return [zones[i] for i in sorted_indices]
+
+        except Exception as exc:
+            logger.debug(f"[GraphRouter] Delaunay path failed ({exc}), using O(n²) fallback")
+
         # -------------------------------------------------------------------
-        # 1. Build an adjacency graph.
-        #    Edge direction: A → B means "A should be read before B".
+        # Fallback: O(n²) brute-force adjacency (original logic)
         # -------------------------------------------------------------------
         adj: Dict[int, Set[int]] = defaultdict(set)
         in_degree: Dict[int, int] = defaultdict(int)
@@ -249,7 +280,6 @@ class GraphRouter:
                         continue
                 
                 # Rule B: Block clearly above another takes precedence
-                # Incorporate semantics: if B is just slightly below A but semantics strongly object, we reconsider
                 if y1_i < y0_j + 15:  # bottom of i is still above top of j
                     adj[i].add(j)
                     continue
@@ -259,9 +289,9 @@ class GraphRouter:
                 h_i, h_j = y1_i - y0_i, y1_j - y0_j
                 if y_overlap > min(h_i, h_j) * 0.4:  # 40 % overlap → same horizontal row
                     if x1_i < x0_j + 15:  # i is to the left of j
-                        if semantic_score >= 0.0:  # Only enforce left->right if semantics agree or neutral
+                        if semantic_score >= 0.0:
                             adj[i].add(j)
-                        elif x1_i < x0_j - 50: # Strong physical distance overrides poor semantics
+                        elif x1_i < x0_j - 50:
                             adj[i].add(j)
                         
         # Compute in-degree for each node
@@ -272,9 +302,7 @@ class GraphRouter:
                 in_degree[v] += 1
 
         # -------------------------------------------------------------------
-        # 2. Topological sort (Kahn's algorithm) with a priority heap to
-        #    break ties.
-        #    Priority key: column number > semantic type weight > y position
+        # Topological sort (Kahn's algorithm) with a priority heap
         # -------------------------------------------------------------------
         import heapq
         
@@ -287,11 +315,10 @@ class GraphRouter:
             "footer": 4
         }
         
-        # Queue items: (column, type_weight, y_position, index)
         queue = []
         for i in range(n):
             if in_degree[i] == 0:
-                col = max(0, columns[i])  # -1 (cross-column) → 0 (highest priority)
+                col = max(0, columns[i])
                 qw = _ZONE_ORDER.get(zones[i].type, 3)
                 heapq.heappush(queue, (col, qw, zones[i].bbox[1], i))
                 
@@ -313,7 +340,7 @@ class GraphRouter:
             logger.debug("Graph Router detected cycle, falling back to static sort.")
             return sorted(zones, key=lambda z: (_ZONE_ORDER.get(z.type, 3), z.bbox[1]))
             
-        logger.debug(f"Graph Router applied successfully. Visual Causal Flow established.")
+        logger.info(f"[GraphRouter] Topological sort applied successfully: {n} zones. Visual Causal Flow established.")
         return [zones[i] for i in sorted_indices]
 
     def _model_reading_order(self, zones: List[Any], model_path: str) -> Optional[List[Any]]:
