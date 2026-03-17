@@ -142,6 +142,9 @@ def parse_amount(s: str) -> str:
         s = s_upper[:-2]
 
     s = s.replace(",", "").replace("\u00a5", "").replace("\uffe5", "").replace("$", "").replace(" ", "")
+    # Strip trailing non-numeric chars that leaked from adjacent columns
+    # (e.g. '76513.47園' → '76513.47', '1234.00店' → '1234.00')
+    s = re.sub(r'[^\d.eE+-]+$', '', s)
     try:
         val = float(s)
         if neg:

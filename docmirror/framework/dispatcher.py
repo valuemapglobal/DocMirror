@@ -15,6 +15,7 @@ Architecture model:
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import filetype
 import time
@@ -77,25 +78,21 @@ class ParserDispatcher:
         # ── 1. File context & signature preparation ──
         _emit(1, "Validating file", f"{path.name}")
         _ts = time.time()
-        import hashlib
         _file_checksum = ""
         _file_mime = ""
         file_size = 0
+        _file_mtime = 0.0
         if path.exists():
             try:
-                # Memory Optimization: chunked read for large files instead of loading all bytes
-                file_size = path.stat().st_size
-                if hasattr(hashlib, "file_digest"):
-                    # Python 3.11+
-                    with open(path, "rb") as f:
-                        _file_checksum = hashlib.file_digest(f, "sha256").hexdigest()
-                else:
-                    # Python < 3.11 chunked fallback
-                    sha256_hash = hashlib.sha256()
-                    with open(path, "rb") as f:
-                        for byte_block in iter(lambda: f.read(4096 * 64), b""):
-                            sha256_hash.update(byte_block)
-                    _file_checksum = sha256_hash.hexdigest()
+                stat = path.stat()
+                file_size = stat.st_size
+                _file_mtime = stat.st_mtime
+                # Fast cache key: (mtime, size, partial_hash) — avoids full-file SHA256
+                # but includes first 4KB hash for collision resistance (C2 fix)
+                with open(path, "rb") as _f:
+                    _head = _f.read(4096)
+                _partial = hashlib.md5(_head).hexdigest()[:8]
+                _file_checksum = f"fast:{file_size}:{_file_mtime}:{_partial}"
             except OSError:
                 pass
             _ft = filetype.guess(str(path))
@@ -111,7 +108,7 @@ class ParserDispatcher:
                 if cached_json:
                     from docmirror.models.perception_result import PerceptionResult
                     logger.info(f"[Dispatcher] \u26a1 Cache HIT for {path.name}")
-                    _emit(2, "Checking cache", "Cache HIT ⚡")
+                    _emit(2, "Checking cache", "Cache HIT \u26a1")
                     return PerceptionResult.model_validate_json(cached_json)
             except Exception as e:
                 logger.debug(f"[Dispatcher] Cache lookup error (non-fatal): {e}")
@@ -122,12 +119,13 @@ class ParserDispatcher:
         _forgery_reasons: List[str] = []
 
         if not path.exists():
-            return self._build_failure(f"File not found: {file_path}", _t0, str(path))
+            return self._build_failure("FILE_NOT_FOUND", f"File not found: {file_path}", _t0, str(path))
 
         # Guard: file too small for meaningful extraction (Constructor Theory)
         from docmirror.configs.settings import default_settings
         if file_size < default_settings.min_file_size:
             return self._build_failure(
+                "FILE_TOO_SMALL",
                 f"File too small ({file_size} bytes < {default_settings.min_file_size}B minimum). "
                 "No document can encode meaningful content at this size.",
                 _t0, str(path),
@@ -136,15 +134,16 @@ class ParserDispatcher:
         # Guard: file too large — prevents OOM
         if file_size > default_settings.max_file_size:
             return self._build_failure(
+                "FILE_TOO_LARGE",
                 f"File too large: {file_size / 1024 / 1024:.1f}MB "
                 f"(max {default_settings.max_file_size / 1024 / 1024:.0f}MB)",
                 _t0, str(path),
             )
         if file_size == 0:
-            return self._build_failure("File is empty (0 bytes)", _t0, str(path))
+            return self._build_failure("FILE_EMPTY", "File is empty (0 bytes)", _t0, str(path))
 
         # ── 4. L0 Format Routing ──
-        file_type = self._detect_file_type(path)
+        file_type = self._detect_file_type(path, known_mime=_file_mime)
         _file_type = file_type
         _emit(3, "Detecting file type", f"{file_type} ({file_size:,} bytes)")
         logger.info(f"[Dispatcher] \u25b6 process | file={path.name} | size={file_size}B | fallback={fallback} | doc_type={document_type}")
@@ -155,7 +154,9 @@ class ParserDispatcher:
 
         parser = self._get_parser_for_type(file_type)
         if not parser:
-            return self._build_failure(f"Unsupported format: {file_type}", _t0, str(path), file_type=_file_type)
+            return self._build_failure(
+                "UNSUPPORTED_FORMAT", f"Unsupported format: {file_type}", _t0, str(path), file_type=_file_type
+            )
 
         # ── 5. Forgery / Tampering detection (Security pass) ──
         _emit(4, "Security scan", "Checking forgery / tampering")
@@ -229,11 +230,14 @@ class ParserDispatcher:
 
         except Exception as e:
             logger.error(f"Critical orchestration error: {e}", exc_info=True)
-            return self._build_failure(f"Orchestration failure: {str(e)}", _t0, str(path),
-                                       file_type=_file_type, is_forged=_is_forged, forgery_reasons=_forgery_reasons)
+            return self._build_failure(
+                "ORCHESTRATION_FAILURE", f"Orchestration failure: {str(e)}", _t0, str(path),
+                file_type=_file_type, is_forged=_is_forged, forgery_reasons=_forgery_reasons,
+            )
 
     @staticmethod
     def _build_failure(
+        error_code: str,
         error_msg: str,
         t0: float,
         file_path: str = "",
@@ -241,51 +245,46 @@ class ParserDispatcher:
         is_forged: Optional[bool] = None,
         forgery_reasons: Optional[List[str]] = None,
     ):
-        """Build an elegant failure PerceptionResult (replaces legacy tuple/ParserOutput wrapping)."""
-        from docmirror.models.perception_result import (
-            PerceptionResult, ResultStatus, ErrorDetail, TimingInfo, Provenance, SourceInfo,
-            DocumentContent, ValidationResult,
-        )
-        elapsed = (time.time() - t0) * 1000
-        validation = None
-        if is_forged is not None:
-            validation = ValidationResult(is_forged=is_forged, forgery_reasons=forgery_reasons or [])
-        return PerceptionResult(
-            status=ResultStatus.FAILURE,
-            confidence=0.0,
-            timing=TimingInfo(elapsed_ms=elapsed),
-            error=ErrorDetail(message=error_msg),
-            content=DocumentContent(),
-            provenance=Provenance(
-                source=SourceInfo(file_path=file_path, file_type=file_type),
-                validation=validation,
-            ),
+        """Build a failure PerceptionResult with unified error code (see docmirror.models.errors)."""
+        from docmirror.models.errors import build_failure_result
+        return build_failure_result(
+            code=error_code,
+            message=error_msg,
+            file_path=file_path,
+            file_type=file_type,
+            is_forged=is_forged,
+            forgery_reasons=forgery_reasons,
+            t0=t0,
         )
 
-    def _detect_file_type(self, path: Path) -> str:
+    def _detect_file_type(self, path: Path, known_mime: str = "") -> str:
         """
         Uses Magic Numbers (`filetype` lib) backed by file-extension combinations 
         for robust composite type detection.
         
-        Rationale: 
-        - Extensions can be mocked or accidentally tampered with.
-        - Magic Numbers can map ambiguously in certain older office formats (e.g. DOC vs structured XML).
-        Combining both guarantees safety.
+        Args:
+            path: File path to detect.
+            known_mime: Pre-detected MIME type to avoid redundant filetype.guess() call.
         """
-        try:
-            kind = filetype.guess(str(path))
-            if kind:
-                mime = kind.mime
-                if mime == 'application/pdf':
-                    return 'pdf'
-                if mime.startswith('image/'):
-                    return 'image'
-        except Exception as exc:
-            logger.debug(f"_detect_file_type: suppressed {exc}")
+        mime = known_mime
+        if not mime:
+            try:
+                kind = filetype.guess(str(path))
+                if kind:
+                    mime = kind.mime
+            except Exception as exc:
+                logger.debug(f"_detect_file_type: suppressed {exc}")
+
+        if mime:
+            if mime == 'application/pdf':
+                return 'pdf'
+            if mime.startswith('image/'):
+                return 'image'
 
         ext = path.suffix.lower()
         mapping = {
             '.pdf': 'pdf',
+            '.doc': 'word',
             '.docx': 'word',
             '.xlsx': 'excel',
             '.pptx': 'ppt',
@@ -301,14 +300,16 @@ class ParserDispatcher:
         L0 static mapping lookup table \u2014 prefers the Adapter pattern layer for decoupling.
         PDF resolution uses the unified MultiModal Pipeline (via PDFAdapter routing).
         """
-        if file_type == 'pdf':
+        if file_type == 'pdf' or file_type == 'image':
+            # PDF and image share the same pipeline: CoreExtractor (image → virtual PDF)
+            # so that external/built-in OCR output is unified with electronic document output.
             import os
             from docmirror.adapters import PDFAdapter
-            logger.info("[Dispatcher] Using PDFAdapter (promoted)")
+            logger.info(
+                "[Dispatcher] Using PDFAdapter (unified pipeline for %s)",
+                file_type,
+            )
             return PDFAdapter(enhance_mode=os.environ.get("DOCMIRROR_ENHANCE_MODE", "standard"))
-        elif file_type == 'image':
-            from docmirror.adapters import ImageAdapter
-            return ImageAdapter()
         elif file_type == 'word':
             from docmirror.adapters import WordAdapter
             return WordAdapter()

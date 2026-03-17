@@ -82,9 +82,11 @@ class PDFAdapter(BaseParser):
         from docmirror.models.builder import PerceptionResultBuilder
 
         orchestrator = _get_shared_orchestrator()
+        file_type = (context.get("file_type") or "pdf").lower()
         enhanced = await orchestrator.run_pipeline(
             file_path=file_path,
             enhance_mode=self._enhance_mode,
+            file_type=file_type,
         )
 
         return PerceptionResultBuilder.build(

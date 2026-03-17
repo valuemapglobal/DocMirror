@@ -45,79 +45,92 @@ _DATE_RE = re.compile(r"^\d{4}[-./]\d{1,2}[-./]\d{1,2}$")
 
 
 def merge_split_rows(table: List[List[str]]) -> List[List[str]]:
-    """Merge records that were split across multiple rows.
+    """Merge records that were split across multiple rows using Unsupervised Anchor Folding (Phase 3)."""
+    try:
+        if not table or len(table) < 3:
+            return table
 
-    Rules (by priority):
-      R1: Row starts with a pure time (HH:MM:SS) and the previous row's
-          first cell is a date → merge time into date.
-      R2: Row is mostly empty (> 60 % columns) and is not a summary row
-          → merge non-empty columns into the previous row.
+        header = table[0]
+        data = table[1:]
+        col_count = len(header)
+        
+        # ── Step 1: Anchor Column Detection ──
+        anchor_col = 0
+        best_score = -1
+        for c in range(min(3, col_count)):
+            score = 0
+            for row in data:
+                if c < len(row):
+                    cell = row[c].strip()
+                    if _DATE_RE.match(cell):
+                        score += 10
+                    elif re.match(r"^\d{1,6}$", cell):
+                        score += 1
+            if score > best_score and score > 0:
+                best_score = score
+                anchor_col = c
 
-    Generalised: no dependency on specific column names or bank formats.
-    """
-    if not table or len(table) < 3:
-        return table
+        # ── Step 2: Logical Row Folding ──
+        result = [header]
+        current_record = None
 
-    header = table[0]
-    col_count = len(header)
-    result = [header]
-    i = 1
+        for row in data:
+            if len(row) < col_count:
+                row = row + [""] * (col_count - len(row))
+            elif len(row) > col_count:
+                pass
 
-    while i < len(table):
-        row = table[i]
-
-        # Ensure consistent column count (defensive)
-        if len(row) < col_count:
-            row = row + [""] * (col_count - len(row))
-
-        # ── R1: pure time row → merge into previous row's date ──
-        first_cell = row[0].strip() if row else ""
-        if (
-            result  # previous row exists
-            and len(result) > 1  # not the header
-            and _TIME_ONLY_RE.match(first_cell)
-        ):
-            prev_row = list(result[-1])
-            prev_first = prev_row[0].strip()
-
-            if _DATE_RE.match(prev_first):
-                # Merge: "2025-12-24" + "01:21:34" → "2025-12-24 01:21:34"
-                prev_row[0] = f"{prev_first} {first_cell}"
-                # Merge other non-empty columns
-                for j in range(1, min(len(row), len(prev_row))):
-                    if row[j].strip() and not prev_row[j].strip():
-                        prev_row[j] = row[j]
-                    elif row[j].strip() and prev_row[j].strip():
-                        prev_row[j] = prev_row[j] + " " + row[j]
-                result[-1] = prev_row
-                i += 1
+            has_data = any((c or "").strip() for c in row)
+            if not has_data:
+                continue
+                
+            first_cell = row[0].strip() if row else ""
+            if (
+                current_record 
+                and _TIME_ONLY_RE.match(first_cell)
+                and _DATE_RE.match(current_record[0].strip())
+            ):
+                current_record[0] = f"{current_record[0].strip()} {first_cell}"
+                for j in range(1, min(len(row), len(current_record), col_count)):
+                    if row[j].strip() and not current_record[j].strip():
+                        current_record[j] = row[j]
+                    elif row[j].strip() and current_record[j].strip():
+                        current_record[j] = current_record[j] + " " + row[j]
                 continue
 
-        # ── R2: mostly empty row → merge into previous row ──
-        non_empty = sum(1 for c in row if c.strip())
-        empty_ratio = 1 - (non_empty / col_count) if col_count > 0 else 0
+            anchor_val = row[anchor_col].strip() if anchor_col < len(row) else ""
+            
+            if anchor_val:
+                if current_record:
+                    result.append(current_record)
+                current_record = list(row)[:col_count]
+                if len(current_record) < col_count:
+                    current_record += [""] * (col_count - len(current_record))
+            else:
+                if current_record:
+                    for i in range(min(len(row), col_count)):
+                        v = (row[i] or "").strip()
+                        if v:
+                            existing = (current_record[i] or "").strip()
+                            if existing:
+                                current_record[i] = existing + "\n" + v
+                            else:
+                                current_record[i] = v
+                else:
+                    current_record = list(row)[:col_count]
+                    if len(current_record) < col_count:
+                        current_record += [""] * (col_count - len(current_record))
 
-        if (
-            empty_ratio > 0.6
-            and len(result) > 1  # not the header
-            and non_empty > 0  # not a fully empty row
-            and not _is_summary_row(row)  # not a summary row
-        ):
-            prev_row = list(result[-1])
-            for j in range(min(len(row), len(prev_row))):
-                if row[j].strip() and not prev_row[j].strip():
-                    prev_row[j] = row[j]
-                elif row[j].strip() and prev_row[j].strip():
-                    # Append (multi-line text such as counterparty names)
-                    prev_row[j] = prev_row[j] + row[j]
-            result[-1] = prev_row
-            i += 1
-            continue
+        if current_record:
+            result.append(current_record)
 
-        result.append(row)
-        i += 1
-
-    return result
+        return result
+    except Exception as e:
+        import traceback
+        import sys
+        print(f"CRASH IN MERGE_SPLIT_ROWS: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return table
 
 
 def _is_summary_row(row: List[str]) -> bool:
@@ -577,7 +590,7 @@ def remove_empty_interior_columns(table: List[List[str]]) -> List[List[str]]:
     empty_cols: set = set()
     for ci in range(n_cols):
         if all(
-            not (row[ci] if ci < len(row) else "").strip()
+            not ((row[ci] if ci < len(row) else "") or "").strip()
             for row in table[1:]  # skip header
         ):
             empty_cols.add(ci)
@@ -591,7 +604,13 @@ def remove_empty_interior_columns(table: List[List[str]]) -> List[List[str]]:
     for h in header_vals:
         header_counts[h] = header_counts.get(h, 0) + 1
 
-    # Removal condition: data all-empty AND (header is empty OR header is a duplicate)
+    # C3 FIX: Removal condition — only remove columns where:
+    #   - All data rows are empty, AND
+    #   - Header is empty OR header is a duplicate
+    # This prevents cross-page column count mismatch when post-process
+    # runs before merge (Step 4↔5 swap): a column may be empty on page N
+    # but have data on page N+1.  Unique-named header columns are ALWAYS
+    # preserved to keep column counts consistent across pages.
     cols_to_remove: set = set()
     for ci in empty_cols:
         hv = header_vals[ci]

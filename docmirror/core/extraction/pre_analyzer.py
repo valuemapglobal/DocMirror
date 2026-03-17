@@ -96,6 +96,11 @@ class PreAnalysisResult:
     # for zone-level DPI decisions.
     page_quality_map: tuple = ()
 
+    # Perf #6: Pre-analyzed table detection results from sampled pages.
+    # Tuple of (page_idx, has_table, table_count) triples.
+    # Downstream extractor can skip redundant find_tables() for cached pages.
+    table_detection_cache: tuple = ()
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dict for storage in BaseResult.metadata."""
         return dataclasses.asdict(self)
@@ -141,6 +146,7 @@ class PreAnalyzer:
         scanned_pages = 0
         image_quality_scores: List[int] = []
         page_quality_pairs: List[tuple] = []  # (page_idx, quality_score)
+        table_detection_pairs: List[tuple] = []  # Perf #6: (page_idx, has_table, table_count)
         page_fingerprints: List[tuple] = []  # for layout homogeneity check
 
         # Scan at most first 10 pages + last 2 pages (typical for bank statements)
@@ -158,6 +164,10 @@ class PreAnalyzer:
                 scanned_pages += 1
                 image_quality_scores.append(stats["image_quality_score"])
             page_quality_pairs.append((idx, stats["image_quality_score"]))
+            # Perf #6: Cache table detection results for downstream reuse
+            table_detection_pairs.append(
+                (idx, stats["has_table"], stats["table_count"])
+            )
             # Collect structural fingerprints (for layout homogeneity detection)
             page_fingerprints.append(
                 (stats["x_column_count"], stats["has_table"], stats["text_blocks"])
@@ -214,6 +224,7 @@ class PreAnalyzer:
                 if image_quality_scores else 100
             ),
             page_quality_map=tuple(page_quality_pairs),
+            table_detection_cache=tuple(table_detection_pairs),
         )
 
         logger.info(
@@ -480,14 +491,18 @@ class PreAnalyzer:
         """Check whether sampled pages share a consistent layout.
 
         Homogeneity criterion: >=80% of sampled pages share the same
-        (x_column_count, has_table) fingerprint.
-        Returns False when fewer than 3 pages are sampled.
+        (x_column_count, has_table, text_region_count) fingerprint.
+        Returns False when fewer than 2 pages are sampled.
+
+        M3 FIX: Uses all three fingerprint dimensions (including text_region_count)
+        for more precise structural matching, reducing false positives for
+        documents where a cover page and data page have the same column count.
         """
-        if len(fingerprints) < 3:
+        if len(fingerprints) < 2:
             return False
 
-        # Focus on two key dimensions: (x_column_count, has_table)
-        patterns = [(fp[0], fp[1]) for fp in fingerprints]
+        # Use full 3-dimension fingerprint: (x_column_count, has_table, text_blocks)
+        patterns = [(fp[0], fp[1], fp[2]) for fp in fingerprints]
         most_common, count = Counter(patterns).most_common(1)[0]
         ratio = count / len(patterns)
         return ratio >= 0.8

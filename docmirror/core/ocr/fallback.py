@@ -25,9 +25,93 @@ from __future__ import annotations
 
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+# ── Delegated sub-modules ──
+from .image_preprocessing import (
+    preprocess_minimal as _preprocess_minimal,
+    preprocess_image_for_ocr as _preprocess_image_for_ocr,
+    deskew_image as _deskew_image,
+)
+from .table_reconstruction import (
+    group_chars_into_rows as _group_chars_into_rows,
+    chars_to_text as _chars_to_text,
+    cluster_x_positions as _cluster_x_positions,
+    assign_chars_to_columns as _assign_chars_to_columns,
+    split_tables_by_y_gap as _split_tables_by_y_gap,
+    reconstruct_table_grid_2d as _reconstruct_table_grid_2d,
+    detect_table_lines_hough as _detect_table_lines_hough,
+    detect_has_table as _detect_has_table,
+    group_words_into_lines as _group_words_into_lines,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_external_ocr_provider(provider_spec: Optional[str]):
+    """Resolve 'module:callable' string to a callable, or return None.
+
+    The callable is expected to have signature:
+        (image_bgr, *, page_idx=0, dpi=200, **kwargs)
+    and return either:
+        - list of (x0, y0, x1, y1, text, confidence), or
+        - dict with content_type ("table" | "general") and table/header_text/footer_text
+          or lines/page_h/page_w (same as ocr_extract_universal).
+    """
+    if not provider_spec or ":" not in provider_spec:
+        return None
+    try:
+        mod_name, attr = provider_spec.strip().rsplit(":", 1)
+        import importlib
+        mod = importlib.import_module(mod_name)
+        return getattr(mod, attr)
+    except Exception as e:
+        logger.warning(f"[external_ocr] Failed to resolve provider {provider_spec!r}: {e}")
+        return None
+
+
+def _render_page_to_bgr(fitz_page, dpi: int = 200):
+    """Render a fitz page to BGR numpy array. Returns (img_bgr, page_h, page_w)."""
+    import numpy as np
+    import cv2
+    pix = fitz_page.get_pixmap(dpi=dpi)
+    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
+    if pix.n == 3:
+        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    elif pix.n == 4:
+        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+    else:
+        img_bgr = img
+    return img_bgr, img_bgr.shape[0], img_bgr.shape[1]
+
+
+def assess_image_quality_from_bgr(img_bgr) -> int:
+    """Assess image quality from a BGR numpy array (0–100).
+
+    Uses Laplacian variance as a blur/sharpness proxy. Same scale as
+    PreAnalyzer._assess_image_quality for consistency. Used to decide
+    whether to delegate to external OCR when quality is below threshold.
+    """
+    import numpy as np
+    try:
+        import cv2
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    except Exception:
+        gray = np.mean(img_bgr[:, :, :3], axis=2).astype(np.uint8)
+    try:
+        from scipy.ndimage import laplace  # type: ignore
+        lap = laplace(gray.astype(np.float64))
+        lap_var = float(np.var(lap))
+        if lap_var >= 200:
+            score = 100
+        elif lap_var >= 50:
+            score = 60 + int((lap_var - 50) / 150 * 40)
+        else:
+            score = int(lap_var / 50 * 60)
+        return max(0, min(100, score))
+    except Exception:
+        std = float(np.std(gray))
+        return max(0, min(100, int(std * 1.5)))
 
 
 def _read_exif_orientation(fitz_page) -> int:
@@ -1278,13 +1362,18 @@ def _merge_multi_scale_words(all_scale_words: List[Tuple[int, List[tuple]]]) -> 
     return sorted(final_output, key=lambda w: (((w[1] + w[3]) / 2), w[0]))
 
 
-def _run_ocr(fitz_page, min_confidence: float = 0.3):
-    """Run OCR on a fitz page using dual-path strategy; return best result.
+def _run_ocr(fitz_page, min_confidence: float = 0.3, *, dpi_list: Optional[List[int]] = None):
+    """Run OCR on a fitz page with adaptive strategy escalation.
 
-    Dual-path approach:
-      - **Strategy A (full)**: heavy preprocessing + binarisation.
-      - **Strategy B (minimal)**: light preprocessing + grayscale output.
-    Both paths are tried and the one with higher total confidence wins.
+    Performance-optimized approach:
+      - Try Strategy B (minimal) first — fastest (~100ms)
+      - Escalate to A (full) only if B score is insufficient
+      - Try C (KMeans color slice) only as last resort
+      - Early exit when composite score exceeds threshold
+      - Rescue (DET/REC decoupling) only when word count < 5
+
+    Args:
+        dpi_list: DPI values to try (from PreAnalyzer). Defaults to [150, 200, 300].
 
     Returns:
         (all_words, img, page_h) where each word is
@@ -1293,6 +1382,9 @@ def _run_ocr(fitz_page, min_confidence: float = 0.3):
     """
     import numpy as np
     import cv2
+
+    if dpi_list is None:
+        dpi_list = [150, 200, 300]
 
     # Locate OCR engine
     ocr_engine = None
@@ -1475,12 +1567,28 @@ def _run_ocr(fitz_page, min_confidence: float = 0.3):
         score = sum(w[5] for w in rescued_words)
         return rescued_words, score
 
-    # ── Main loop: try at 150, 200, 300 DPI ──
+    # ── Multi-Dimensional composite scoring ──
+    def _composite_score(words, raw_score):
+        if not words:
+            return 0.0
+        n = len(words)
+        mean_conf = raw_score / n if n > 0 else 0.0
+        unique_chars = len(set("".join(w[4] for w in words)))
+        return (n * mean_conf * max(1, unique_chars)) ** (1.0 / 3.0)
+
+    # ══════════════════════════════════════════════════════════════════════
+    # Main loop: adaptive DPI + early-exit strategy escalation
+    # ══════════════════════════════════════════════════════════════════════
     all_scale_results = []
     final_img = None
     final_page_h = 0
 
-    for dpi in [150, 200, 300]:
+    # Early-exit threshold: skip remaining DPIs/strategies when score is good enough
+    _GOOD_ENOUGH_SCORE = 8.0
+    # Half-threshold: below this, try heavy strategies
+    _ESCALATION_THRESHOLD = _GOOD_ENOUGH_SCORE * 0.5
+
+    for dpi in dpi_list:
         pix = fitz_page.get_pixmap(dpi=dpi)
         img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
             pix.h, pix.w, pix.n
@@ -1500,62 +1608,54 @@ def _run_ocr(fitz_page, min_confidence: float = 0.3):
 
         page_h = img.shape[0]
 
-        # ── Tri-path: try all strategies, keep best ──
-        words_a, score_a = _ocr_pass(
-            img, _preprocess_image_for_ocr, "Strategy-A(full)"
-        )
+        # ── Adaptive strategy escalation (lightest first) ──
+        # Step 1: Try Strategy B (minimal — fastest, ~100ms)
         words_b, score_b = _ocr_pass(
             img, _preprocess_minimal, "Strategy-B(minimal)"
         )
-        words_c, score_c = _ocr_dynamic_color_slice(img)
-
-        # ── Multi-Dimensional Scoring (Deutsch V3: 'hard to vary' formula) ──
-        # A naive sum(conf) rewards quantity over quality. This composite
-        # score penalises noise-heavy strategies by weighting:
-        #   - word_count: raw detection coverage
-        #   - mean_conf: average quality per detection
-        #   - char_diversity: unique character count (noise has low diversity)
-        def _composite_score(words, raw_score):
-            if not words:
-                return 0.0
-            n = len(words)
-            mean_conf = raw_score / n if n > 0 else 0.0
-            unique_chars = len(set("".join(w[4] for w in words)))
-            # Geometric mean avoids one dimension dominating
-            return (n * mean_conf * max(1, unique_chars)) ** (1.0 / 3.0)
-
-        cs_a = _composite_score(words_a, score_a)
         cs_b = _composite_score(words_b, score_b)
-        cs_c = _composite_score(words_c, score_c)
+        best_words, best_cs, winner = words_b, cs_b, 'B'
 
-        # Pick the best strategy for this DPI
-        candidates = [
-            (words_a, cs_a, 'A'),
-            (words_b, cs_b, 'B'),
-            (words_c, cs_c, 'C'),
-        ]
-        dpi_words, dpi_score, winner = max(
-            candidates, key=lambda x: x[1]
-        )
+        # Step 2: Only escalate to Strategy A if B is insufficient
+        if cs_b < _GOOD_ENOUGH_SCORE:
+            words_a, score_a = _ocr_pass(
+                img, _preprocess_image_for_ocr, "Strategy-A(full)"
+            )
+            cs_a = _composite_score(words_a, score_a)
+            if cs_a > best_cs:
+                best_words, best_cs, winner = words_a, cs_a, 'A'
+
+        # Step 3: Only try Strategy C (heavy KMeans) if both A and B are poor
+        if best_cs < _ESCALATION_THRESHOLD:
+            words_c, score_c = _ocr_dynamic_color_slice(img)
+            cs_c = _composite_score(words_c, score_c)
+            if cs_c > best_cs:
+                best_words, best_cs, winner = words_c, cs_c, 'C'
+
         logger.debug(
-            f"[OCR] DPI={dpi}: winner=Strategy-{winner} "
-            f"(A={cs_a:.2f}, B={cs_b:.2f}, C={cs_c:.2f})"
+            f"[OCR] DPI={dpi}: winner=Strategy-{winner} (score={best_cs:.2f})"
         )
-        
-        # ── Phase 6.3 Rescue: Check what DET missed ──
-        rescued_words, rescued_score = _rescue_missing_regions(img, dpi_words)
-        if rescued_words:
-            dpi_words.extend(rescued_words)
-            dpi_score += rescued_score
-            logger.debug(f"[OCR] DPI={dpi}: Rescued {len(rescued_words)} missing regions by bypassing DET.")
-        
-        all_scale_results.append((dpi, dpi_words))
-        
-        if dpi == 300:
-            final_img = img
-            final_page_h = page_h
 
-    # ── Multi-Scale NMS Fusion: merge 150/200/300 DPI results ──
+        # Step 4: Rescue only when word count is suspiciously low
+        if len(best_words) < 5:
+            try:
+                rescued_words, rescued_score = _rescue_missing_regions(img, best_words)
+                if rescued_words:
+                    best_words = list(best_words) + rescued_words
+                    logger.debug(f"[OCR] DPI={dpi}: Rescued {len(rescued_words)} missing regions.")
+            except Exception as exc:
+                logger.debug(f"[OCR] Rescue skipped: {exc}")
+
+        all_scale_results.append((dpi, best_words))
+        final_img = img
+        final_page_h = page_h
+
+        # ── Early exit: if score is good enough, skip remaining DPIs ──
+        if best_cs >= _GOOD_ENOUGH_SCORE and dpi < max(dpi_list):
+            logger.debug(f"[OCR] Early exit at DPI={dpi} (score={best_cs:.2f} >= {_GOOD_ENOUGH_SCORE})")
+            break
+
+    # ── Multi-Scale NMS Fusion ──
     best_words = _merge_multi_scale_words(all_scale_results)
 
     if len(best_words) < 3:
@@ -1638,9 +1738,19 @@ def _group_words_into_lines(
 
 
 def ocr_extract_universal(
-    fitz_page, page_idx: int, min_confidence: float = 0.3,
+    fitz_page,
+    page_idx: int,
+    min_confidence: float = 0.3,
+    *,
+    page_quality: Optional[int] = None,
+    external_ocr_threshold: Optional[int] = None,
+    external_ocr_provider: Optional[Callable[..., Union[List[tuple], Dict[str, Any]]]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Universal OCR extraction — auto-detects document type.
+
+    When ``page_quality`` is below ``external_ocr_threshold`` and
+    ``external_ocr_provider`` is set, delegates to the external provider
+    instead of built-in OCR (for 99% recognition targets on very poor scans).
 
     For table-dominant pages, delegates to ``analyze_scanned_page``
     (full backward compatibility).  For general documents (licenses,
@@ -1654,6 +1764,51 @@ def ocr_extract_universal(
         Returns ``None`` on failure.
     """
     try:
+        # ── External OCR handoff: quality too low for built-in ──
+        if (
+            page_quality is not None
+            and external_ocr_threshold is not None
+            and page_quality < external_ocr_threshold
+            and external_ocr_provider is not None
+        ):
+            img_bgr, page_h, page_w = _render_page_to_bgr(fitz_page, dpi=200)
+            try:
+                out = external_ocr_provider(
+                    img_bgr, page_idx=page_idx, dpi=200, min_confidence=min_confidence
+                )
+            except Exception as e:
+                logger.warning(f"[external_ocr] Provider failed on page {page_idx}: {e}")
+                out = None
+            if out is not None:
+                if isinstance(out, dict) and out.get("content_type") in ("table", "general"):
+                    if out.get("content_type") == "table":
+                        from docmirror.core.ocr.ocr_postprocess import postprocess_ocr_result
+                        postprocess_ocr_result(out)
+                    logger.info(
+                        f"[DocMirror] Page {page_idx} delegated to external OCR (quality={page_quality})"
+                    )
+                    return out
+                if isinstance(out, list) and out:
+                    # List of (x0,y0,x1,y1,text,conf) → continue with our pipeline
+                    all_words, img = out, img_bgr
+                    page_w = img.shape[1]
+                    has_table = _detect_has_table(img, page_h)
+                    if has_table:
+                        table_result = analyze_scanned_page(
+                            fitz_page, page_idx, min_confidence
+                        )
+                        if table_result:
+                            table_result["content_type"] = "table"
+                            return table_result
+                    lines = _group_words_into_lines(all_words, y_tolerance=12.0)
+                    return {
+                        "content_type": "general",
+                        "lines": lines,
+                        "page_h": page_h,
+                        "page_w": page_w,
+                    }
+            # External failed or returned invalid → fall through to built-in
+
         all_words, img, page_h = _run_ocr(fitz_page, min_confidence)
         if all_words is None:
             return None

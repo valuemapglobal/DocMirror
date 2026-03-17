@@ -75,6 +75,27 @@ def detect_institution(full_text: str, registry: Dict[str, Dict[str, Any]]) -> O
         if keywords and all(kw in normalized for kw in keywords):
             return inst_id
 
+    # Pass 1.5: Generic regional bank regex (rural/city/village commercial banks)
+    # Must run BEFORE Pass 2 because registered bank names (e.g. 平安银行) can
+    # appear as counterparty names in transaction data, causing false matches.
+    # Regional bank names in titles (e.g. 常熟农商银行) are more reliable signals.
+    # M2 FIX: Also require a bank-statement context keyword to avoid matching
+    # documents that merely *reference* a bank (e.g. government notices).
+    import re
+    _BANK_CONTEXT_KEYWORDS = ("流水", "对账单", "交易明细", "银行", "账号", "账户")
+    _has_bank_context = any(kw in header_text for kw in _BANK_CONTEXT_KEYWORDS)
+    if _has_bank_context:
+        regional_patterns = [
+            (r"([\u4e00-\u9fff]{2,6})(农商银行|农村商业银行|农商行)", "rural"),
+            (r"([\u4e00-\u9fff]{2,6})(城商银行|城市商业银行)", "city"),
+            (r"([\u4e00-\u9fff]{2,6})(村镇银行)", "village"),
+        ]
+        for pattern, prefix in regional_patterns:
+            m = re.search(pattern, header_text)
+            if m:
+                region = m.group(1)
+                return f"{prefix}_{region}"
+
     # Pass 2: Complete Institutional Names (Sorted descending by length)
     sorted_banks = sorted(
         registry.items(),
@@ -86,7 +107,7 @@ def detect_institution(full_text: str, registry: Dict[str, Dict[str, Any]]) -> O
         if name and name in header_text:
             return inst_id
 
-    # Pass 3: Alias Matching (Alternative names/acronyms, e.g., "工行" \u2192 icbc)
+    # Pass 3: Alias Matching (Alternative names/acronyms, e.g., "工行" → icbc)
     for inst_id, info in registry.items():
         for alias in info.get("aliases", []):
             if alias and alias in header_text:

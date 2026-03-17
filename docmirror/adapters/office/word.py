@@ -1,8 +1,12 @@
 """
-Word Adapter — .docx → BaseResult
-===================================
+Word Adapter — .docx / .doc → BaseResult
+=========================================
 
 Extracts paragraphs and tables from Word documents using python-docx.
+
+- **.docx**: Direct extraction via python-docx.
+- **.doc (legacy)**: Requires LibreOffice (soffice) to be installed for conversion.
+  If soffice is not found, returns a failure with code FORMAT_REQUIRES_CONVERTER (recoverable).
 
 Processing logic:
     1. Opens the .docx file via ``python-docx.Document``.
@@ -26,6 +30,7 @@ from __future__ import annotations
 
 
 import logging
+import shutil
 from pathlib import Path
 
 from docmirror.framework.base import BaseParser
@@ -46,8 +51,22 @@ class WordAdapter(BaseParser):
 
     async def perceive(self, file_path: Path, **context):
         """
-        Native primary extraction for modern .docx.
+        Native extraction for .docx; for legacy .doc, requires LibreOffice (soffice).
+        If .doc and soffice is not found, returns failure with FORMAT_REQUIRES_CONVERTER.
         """
+        path = Path(file_path)
+        if path.suffix.lower() == ".doc":
+            soffice = shutil.which("soffice")
+            if not soffice:
+                from docmirror.models.errors import build_failure_result
+                return build_failure_result(
+                    "FORMAT_REQUIRES_CONVERTER",
+                    "Legacy .doc format requires LibreOffice (soffice) to be installed for conversion. "
+                    "Install LibreOffice or use .docx.",
+                    file_path=str(path),
+                    file_type="word",
+                    t0=None,
+                )
         return await super().perceive(file_path, **context)
 
     async def to_base_result(self, file_path: Path) -> BaseResult:

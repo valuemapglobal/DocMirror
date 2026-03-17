@@ -1,8 +1,13 @@
 """
-Parse Result Cache — File-level Redis cache keyed by SHA256.
+Parsed Result Cache (Redis-backed)
+===================================
 
-Avoids redundant parsing of the same file. Cache key format: ``parse:{sha256}:{doc_type}``
-Default TTL: 24 hours.
+File-level Redis cache keyed by SHA256. Avoids redundant parsing of the same file.
+
+Features:
+    - Lazy connection with socket timeout and connection pool limits
+    - Circuit breaker: after 3 consecutive failures, skip Redis for 60s
+    - Retry on timeout for transient network issues
 
 Usage::
 
@@ -20,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -27,25 +33,63 @@ logger = logging.getLogger(__name__)
 # Default TTL: 24 hours (in seconds)
 _DEFAULT_TTL = 86400
 
+# ── Circuit breaker state ──
+_circuit_open_until: float = 0.0
+_CIRCUIT_COOLDOWN_SECONDS = 60
+_consecutive_failures: int = 0
+_FAILURE_THRESHOLD = 3
+
 
 class ParseCache:
-    """Async Redis-based parse result cache."""
+    """Async Redis-based parse result cache with circuit breaker."""
 
     def __init__(self):
         self._redis = None
 
     async def _get_redis(self):
-        """Lazily connect to Redis using the REDIS_URL environment variable."""
-        if self._redis is None:
-            try:
-                import redis.asyncio as aioredis
-                url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-                self._redis = aioredis.from_url(url, decode_responses=True)
-                logger.info(f"[ParseCache] Connected to Redis: {url}")
-            except Exception as e:
-                logger.warning(f"[ParseCache] Redis unavailable: {e}")
-                return None
-        return self._redis
+        """Lazily connect to Redis using the REDIS_URL environment variable.
+
+        Includes socket timeout, connection pool limits, and circuit breaker
+        to prevent per-request latency spikes when Redis is unreachable.
+        """
+        global _circuit_open_until, _consecutive_failures
+
+        # Circuit breaker: skip if recently failed
+        if time.time() < _circuit_open_until:
+            return None
+
+        if self._redis is not None:
+            return self._redis
+
+        url = os.environ.get("REDIS_URL")
+        if not url:
+            return None
+
+        try:
+            import redis.asyncio as aioredis
+            self._redis = aioredis.from_url(
+                url,
+                socket_timeout=3.0,
+                socket_connect_timeout=3.0,
+                max_connections=10,
+                retry_on_timeout=True,
+                decode_responses=True,
+            )
+            # Verify connection
+            await self._redis.ping()
+            _consecutive_failures = 0
+            logger.info(f"[ParseCache] Connected to Redis: {url}")
+            return self._redis
+        except Exception as e:
+            logger.warning(f"[ParseCache] Redis unavailable: {e}")
+            self._redis = None
+            _consecutive_failures += 1
+            if _consecutive_failures >= _FAILURE_THRESHOLD:
+                _circuit_open_until = time.time() + _CIRCUIT_COOLDOWN_SECONDS
+                logger.warning(
+                    f"[ParseCache] Circuit breaker OPEN — skipping Redis for {_CIRCUIT_COOLDOWN_SECONDS}s"
+                )
+            return None
 
     @staticmethod
     def _key(checksum: str, doc_type: str = "") -> str:

@@ -139,6 +139,138 @@ def _strip_preamble(
     return rows
 
 
+# ── Regex patterns for semantic column split ──
+_RE_SEQ_PLUS_DESC = re.compile(
+    r'^(\d{1,6})'              # Sequence number (1-6 digits)
+    r'([^\d\s,.].*)',          # Followed by non-numeric text (the description)
+    re.DOTALL,
+)
+_RE_BALANCE_PLUS_TEXT = re.compile(
+    r'^([\d,]+\.\d{2})'       # Amount with 2 decimal places (e.g. 56,264.17)
+    r'([^\d\s,.].*)',          # Followed by non-numeric text (remarks)
+    re.DOTALL,
+)
+
+
+def _split_merged_columns(
+    header: List[str],
+    data_rows: List[List[str]],
+) -> "Tuple[List[str], List[List[str]]] | None":
+    """Semantic column split: detect and repair cells where adjacent columns
+    were merged due to narrow spatial gaps in the PDF.
+
+    Detectable patterns:
+      1. 序号+摘要 merge: cell = "2851消费" → split into ["2851", "消费"]
+      2. 余额+附言 merge: cell = "56,264.17财付通-微信支付" → split into ["56,264.17", "财付通-..."]
+
+    Activation: only triggers when >30% of data rows show the pattern.
+    Safety: does nothing for columns that don't match the patterns.
+
+    Returns:
+        ``(new_header, new_data_rows)`` if any split was applied, else ``None``.
+    """
+    if not header or not data_rows or len(data_rows) < 5:
+        return None
+
+    n_cols = len(header)
+    n_rows = len(data_rows)
+
+    # ── Detect mergeable columns ──
+    # For each column, count how many rows have a pattern match
+    split_specs = []  # (col_idx, pattern, new_header_left, new_header_right, match_count)
+
+    for ci in range(n_cols):
+        h = _normalize_for_vocab(header[ci]) if ci < len(header) else ""
+
+        # Pattern 1: 序号+摘要 — sequence number column with description appended
+        if h in ("序号", "交易序号", "编号", "no", "no.", "序列号"):
+            match_count = sum(
+                1 for r in data_rows
+                if ci < len(r) and r[ci] and _RE_SEQ_PLUS_DESC.match(str(r[ci]).strip())
+            )
+            if match_count > n_rows * 0.3:
+                # Find the next column — it should be the empty "摘要" target
+                next_empty_ci = None
+                for nci in range(ci + 1, n_cols):
+                    nh = _normalize_for_vocab(header[nci]) if nci < len(header) else ""
+                    empty_count = sum(1 for r in data_rows if nci < len(r) and not (r[nci] or "").strip())
+                    if empty_count > n_rows * 0.3 or nh in ("摘要", "交易摘要", "用途", "附言"):
+                        next_empty_ci = nci
+                        break
+                if next_empty_ci is not None:
+                    split_specs.append((ci, _RE_SEQ_PLUS_DESC, next_empty_ci))
+
+        # Pattern 2: 余额+附言 — balance amount with remarks appended
+        # Look for columns where values look like "56,264.17财付通-微信支付-每天数独"
+        # Trigger: check ANY column for this pattern (not just specific headers)
+        match_count = sum(
+            1 for r in data_rows
+            if ci < len(r) and r[ci] and _RE_BALANCE_PLUS_TEXT.match(str(r[ci]).strip())
+        )
+        if match_count > n_rows * 0.3:
+            # The balance portion should go to the PREVIOUS column (if mostly empty)
+            prev_ci = ci - 1
+            if prev_ci >= 0:
+                prev_empty = sum(1 for r in data_rows if prev_ci < len(r) and not (r[prev_ci] or "").strip())
+                if prev_empty > n_rows * 0.3:
+                    split_specs.append((ci, _RE_BALANCE_PLUS_TEXT, -(prev_ci)))
+
+    if not split_specs:
+        return None
+
+    # ── Apply splits ──
+    modified = False
+    new_data_rows = []
+
+    for row in data_rows:
+        new_row = list(row)
+        # Pad to header length
+        while len(new_row) < n_cols:
+            new_row.append("")
+
+        for ci, pattern, target_ci in split_specs:
+            if ci >= len(new_row):
+                continue
+            cell = str(new_row[ci] or "").strip()
+            if not cell:
+                continue
+
+            m = pattern.match(cell)
+            if not m:
+                continue
+
+            left_part = m.group(1).strip()
+            right_part = m.group(2).strip()
+
+            if target_ci < 0:
+                # Balance+text: balance goes to previous column, text stays
+                prev_ci = -target_ci
+                if prev_ci < len(new_row) and not (new_row[prev_ci] or "").strip():
+                    new_row[prev_ci] = left_part
+                    new_row[ci] = right_part
+                    modified = True
+            else:
+                # Seq+desc: sequence stays, description goes to next column
+                if target_ci < len(new_row) and not (new_row[target_ci] or "").strip():
+                    new_row[ci] = left_part
+                    new_row[target_ci] = right_part
+                    modified = True
+
+        new_data_rows.append(new_row)
+
+    if not modified:
+        return None
+
+    # Count how many rows were actually split
+    split_count = sum(
+        1 for orig, new in zip(data_rows, new_data_rows)
+        if orig != new
+    )
+    logger.info(f"semantic column split: repaired {split_count}/{n_rows} rows")
+
+    return header, new_data_rows
+
+
 def post_process_table(
     table_data: List[List[str]],
     confirmed_header: Optional[List[str]] = None,
@@ -286,6 +418,41 @@ def post_process_table(
     except Exception as e:
         logger.debug(f"merge_split rollback: {e}")
 
+    # ── Fix 4: semantic column split — repair cells where adjacent columns ──
+    #    were merged due to tiny spatial gaps (e.g. CCB: 序号+摘要, 余额+附言)
+    try:
+        split_result = _split_merged_columns(header, data_rows)
+        if split_result is not None:
+            header, data_rows = split_result
+    except Exception as e:
+        logger.debug(f"split_merged rollback: {e}")
+
+    # ── Fix 5: split number repair (cross-column digit overflow) ──
+    # When right-aligned numbers span beyond their column boundary,
+    # the engine splits them: cell N gets a trailing fragment like '5,'
+    # and cell N+1 gets the remainder like '000,888.02'.  Detect and
+    # reassemble such split numbers.
+    _RE_TRAILING_FRAG = re.compile(r'(\s+)(\d{1,3},)$')
+    for row in data_rows:
+        for j in range(len(row) - 1):
+            cell = (row[j] or "").strip()
+            next_cell = (row[j + 1] or "").strip()
+            if not cell or not next_cell:
+                continue
+            if not re.match(r'\d', next_cell):
+                continue
+            # Case 1: entire cell is a fragment (e.g. '5,' or '12,')
+            if re.fullmatch(r'\d{1,3},', cell):
+                row[j] = ""
+                row[j + 1] = cell + next_cell
+                continue
+            # Case 2: cell ends with ' 1,' (trailing fragment after space)
+            m = _RE_TRAILING_FRAG.search(cell)
+            if m:
+                tail = m.group(2)
+                row[j] = cell[:m.start()].strip()
+                row[j + 1] = tail + next_cell
+
     # ── Data row cleaning: column alignment + cell cleaning ──
     result: List[List[str]] = [header]
 
@@ -365,7 +532,7 @@ def _fix_header_by_vocabulary(
 
     # Guard 1: matched word count must significantly exceed existing matches (indicates concatenation)
     min_improvement = max(3, old_score + 3) if old_score >= 3 else old_score * 2 + 1
-    if len(found) < min_improvement:
+    if len(found) <= min_improvement:
         return table
     # Guard 2: at least 3 vocabulary matches
     if len(found) < 3:
@@ -547,14 +714,54 @@ def _merge_split_rows(table: List[List[str]]) -> List[List[str]]:
                     result.pop(i)
         i -= 1
 
-    # Pass 3: forward scan — fragments merge into the preceding data row
+    # Pass 3: complementary column merge (staggered y-layout fix)
+    # In borderless tables (e.g. 富滇银行), the left-half and right-half of
+    # a single logical row may sit at slightly different y-positions, causing
+    # the engine to split them into separate rows.  Merge when filled columns
+    # have ZERO overlap (strictest possible condition — no false positives).
+    i = 0
+    while i < len(result) - 1:
+        rt_i = _row_type(result[i])
+        rt_next = _row_type(result[i + 1])
+        if rt_i == "fragment" and rt_next in ("data", "fragment"):
+            filled_i = {j for j, c in enumerate(result[i]) if (c or "").strip()}
+            filled_next = {j for j, c in enumerate(result[i + 1]) if (c or "").strip()}
+            if filled_i and filled_next and not (filled_i & filled_next):
+                # For single-column, short-content fragments (e.g. '園' in col6,
+                # '店', '司'), check if the PRECEDING row has content in that
+                # column — if so, this is a wrapped-char overflow, not a
+                # complement.  Long single-column values (e.g. a full merchant
+                # name) are treated as genuine complements.
+                if len(filled_i) == 1 and i > 0:
+                    col_idx = next(iter(filled_i))
+                    frag_text = (result[i][col_idx] or "").strip()
+                    if len(frag_text) <= 3:
+                        prev_filled = {j for j, c in enumerate(result[i - 1]) if (c or "").strip()}
+                        if filled_i & prev_filled:
+                            i += 1
+                            continue  # skip — let Pass 4 merge into preceding row
+                _merge_into(result[i + 1], result[i])
+                result.pop(i)
+                continue
+        i += 1
+
+    # Pass 4: forward scan — fragments merge into the preceding data row
     merged = [result[0]]
     seen_data = False
     for row in result[1:]:
         rt = _row_type(row)
         if rt == "fragment":
             if seen_data and merged and not _is_header(merged[-1]):
-                _merge_into(merged[-1], row)
+                # Overlap guard: if a substantial fragment's filled columns
+                # mostly overlap the preceding row, it likely starts the NEXT
+                # transaction (staggered y-layout), not a continuation.
+                frag_cols = {j for j, c in enumerate(row) if (c or "").strip()}
+                prev_cols = {j for j, c in enumerate(merged[-1]) if (c or "").strip()}
+                overlap = frag_cols & prev_cols
+                if len(frag_cols) >= 3 and len(overlap) > len(frag_cols) * 0.5:
+                    merged.append(row)
+                else:
+                    _merge_into(merged[-1], row)
             # else: fragments before the first data row → discard (cross-page residue)
         else:
             if rt in ("data", "summary"):
@@ -645,21 +852,29 @@ def _parse_kv_segment(segment: str, out: dict):
 _COMMON_KV_KEYWORDS = [
     "\u5e01\u79cd", "\u6237\u540d", "\u8d26\u53f7", "\u5361\u53f7", "\u8d26\u6237", "\u7c7b\u578b", "\u65e5\u671f",
     "\u59d3\u540d", "\u7f16\u53f7", "\u72b6\u6001", "\u5907\u6ce8", "\u6458\u8981", "\u91d1\u989d", "\u4f59\u989d",
-    "\u884c\u540d", "\u8d77\u6b62\u65e5\u671f", "\u8d77\u59cb\u65e5\u671f", "\u622a\u6b62\u65e5\u671f", "\u6253\u5370\u65e5\u671f",
+    "\u884c\u540d", "\u8d77\u6b62\u65e5\u671f", "\u8d77\u59cb\u65e5\u671f", "\u622a\u6b62\u65e5\u671f", "\u7ec8\u6b62\u65e5\u671f", "\u6253\u5370\u65e5\u671f",
     "\u603b\u7b14\u6570", "\u603b\u91d1\u989d", "\u9875\u7801", "\u673a\u6784",
 ]
 
 
 def _find_embedded_kv_by_keywords(v: str) -> "int | None":
-    """Find an embedded key:value pair in a value string using known keywords."""
+    """Find an embedded key:value pair in a value string using known keywords.
+
+    Returns the leftmost match position, preferring longer keywords to avoid
+    partial substring matches (e.g. '终止日期' over '日期').
+    """
     best_pos = None
-    for kw in _COMMON_KV_KEYWORDS:
+    best_kw_len = 0
+    # Sort longest-first so longer keywords get priority at same position
+    for kw in sorted(_COMMON_KV_KEYWORDS, key=len, reverse=True):
         for delim in ["\uff1a", ":"]:
             pattern = kw + delim
             idx = v.find(pattern)
             if idx > 0:  # Must have preceding value content
-                if best_pos is None or idx > best_pos:
-                    best_pos = idx  # Take the rightmost match
+                # Take leftmost match; at same position prefer longer keyword
+                if best_pos is None or idx < best_pos or (idx == best_pos and len(kw) > best_kw_len):
+                    best_pos = idx
+                    best_kw_len = len(kw)
     return best_pos
 
 

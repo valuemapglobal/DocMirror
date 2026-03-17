@@ -691,7 +691,7 @@ def detect_columns_by_word_anchors(page_plum) -> Optional[List[List[str]]]:
     if len(result) < 2:
         return None
 
-    logger.info(
+    logger.debug(
         f"word-anchors: {len(result)-1} data rows, "
         f"{len(col_bounds)} cols from {len(header_words)} header words"
     )
@@ -821,7 +821,7 @@ def detect_columns_by_data_voting(
     if len(result) < 3:
         return None
 
-    logger.info(
+    logger.debug(
         f"data-voting: {len(result)} rows, "
         f"{len(col_bounds)} cols from "
         f"{len(data_rows)} data rows, "

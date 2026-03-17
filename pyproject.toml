@@ -59,6 +59,7 @@ security = ["pikepdf>=8.0"]
 cache = ["redis>=5.0"]
 langdetect = ["fast-langdetect>=0.2"]
 server = ["fastapi>=0.100", "uvicorn>=0.23.0", "python-multipart>=0.0.9"]
+external-ocr = ["requests>=2.28"]
 all = [
     "docmirror[pdf,ocr,layout,table,formula,office,security,cache,langdetect,server]",
 ]
