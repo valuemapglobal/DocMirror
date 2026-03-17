@@ -54,6 +54,7 @@ import time
 import uuid
 import unicodedata
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Tuple
 
 from ...models.domain import (
@@ -64,10 +65,56 @@ from ...models.domain import (
     TextSpan,
 )
 from .foundation import FitzEngine
+from .html_utils import strip_html_to_plain_text, parse_html_tables_to_key_value
+from .image_converter import image_to_virtual_pdf
+from .entity_collector import collect_kv_entities
+from .table_postprocessor import process_page_tables
 from ..layout.layout_analysis import analyze_document_layout, segment_page_into_zones, Zone, extract_tables_layered, get_last_layer_timings, analyze_scanned_page, filter_watermark_page, _dedup_overlapping_chars, _reconstruct_rows_from_chars, _extract_summary_entities, post_process_table, _strip_preamble, preprocess_document, _is_header_row
 from ..exceptions import ExtractionError
 
 logger = logging.getLogger(__name__)
+
+
+# HTML utility functions moved to html_utils.py
+# Backward-compatible aliases for internal references
+_strip_html_to_plain_text = strip_html_to_plain_text
+_parse_html_tables_to_key_value = parse_html_tables_to_key_value
+
+
+def _extract_single_page_digital_worker(
+    args: Tuple[Any, ...],
+) -> Tuple[int, PageLayout, List[str], str, float]:
+    """
+    Worker for thread-pool page extraction (Phase 2).
+    Opens path in-thread, uses rule-based layout and no formula engine, returns (page_idx, page_layout, ocr_parts, layer, conf).
+    """
+    (path, page_idx, layout_al, strategy_params, page_quality, document_page_count, content_type) = args
+    import fitz
+    import pdfplumber
+    path = str(Path(path).resolve())
+    extractor = CoreExtractor(layout_model_path=None)
+    extractor._formula_engine = None  # no model in worker path
+    fitz_doc = fitz.open(path)
+    plum_doc = pdfplumber.open(path)
+    try:
+        page_plum = plum_doc.pages[page_idx]
+        fitz_page = fitz_doc[page_idx]
+        page_layout, ocr_parts, extraction_layer, extraction_confidence = extractor._extract_page(
+            page_plum=page_plum,
+            fitz_page=fitz_page,
+            fitz_doc=fitz_doc,
+            page_idx=page_idx,
+            layout_al=layout_al,
+            cleaned_path=Path(path),
+            is_digital=True,
+            strategy_params=strategy_params or {},
+            page_quality=page_quality,
+            content_type=content_type,
+        )
+        return (page_idx, page_layout, ocr_parts, extraction_layer, extraction_confidence)
+    finally:
+        fitz_doc.close()
+        plum_doc.close()
 
 
 class CoreExtractor:
@@ -129,34 +176,7 @@ class CoreExtractor:
     @staticmethod
     def _image_to_virtual_pdf(image_path: Path) -> "fitz.Document":
         """Convert image to a virtual single-page PDF, pre-scaling large images to max 4096px."""
-        import fitz
-
-        # Read image
-        img_doc = fitz.open(str(image_path))
-        if len(img_doc) == 0:
-            raise ValueError(f"Cannot open image: {image_path}")
-
-        # Pre-scale large images (prevent memory explosion)
-        page = img_doc[0]
-        w, h = page.rect.width, page.rect.height
-        max_dim = 4096
-        if max(w, h) > max_dim:
-            scale = max_dim / max(w, h)
-            logger.info(f"[DocMirror] Image pre-scaled: {w:.0f}x{h:.0f} -> {w*scale:.0f}x{h*scale:.0f}")
-            # use pixmap scaling
-            mat = fitz.Matrix(scale, scale)
-            pix = page.get_pixmap(matrix=mat)
-            img_doc.close()
-            # Rebuild from scaled pixmap
-            new_doc = fitz.open()
-            new_page = new_doc.new_page(width=pix.width, height=pix.height)
-            new_page.insert_image(new_page.rect, pixmap=pix)
-            return new_doc
-
-        # Normal size: convert directly to PDF
-        pdf_bytes = img_doc.convert_to_pdf()
-        img_doc.close()
-        return fitz.open("pdf", pdf_bytes)
+        return image_to_virtual_pdf(image_path)
 
     async def extract(self, file_path: Path) -> BaseResult:
         """
@@ -211,17 +231,43 @@ class CoreExtractor:
                 _perf: Dict[str, float] = {}
                 _page_perf: list = []  # per-page timing breakdown
 
-                # === Step 2: Layout analysis ===
+                # === Step 2: Layout analysis (parallel when max_page_concurrency > 1 and path available) ===
                 _t = time.time()
-                page_layouts_al = analyze_document_layout(fitz_doc)
+                num_pages = len(fitz_doc)
+                use_parallel_layout = (
+                    self._max_page_concurrency > 1
+                    and not is_image_input
+                    and cleaned_path is not None
+                    and num_pages >= 4
+                )
+                if use_parallel_layout:
+                    from ..layout.layout_analysis import analyze_document_layout_parallel
+                    layout_path = str(Path(cleaned_path).resolve())
+                    env_layout = int(os.environ.get("DOCMIRROR_LAYOUT_MAX_WORKERS", "0"))
+                    layout_workers = (
+                        min(num_pages, env_layout) if env_layout > 0
+                        else min(self._max_page_concurrency, num_pages, os.cpu_count() or 4)
+                    )
+                    if layout_workers <= 1:
+                        page_layouts_al = analyze_document_layout(fitz_doc)
+                    else:
+                        page_layouts_al = analyze_document_layout_parallel(
+                            layout_path, num_pages, max_workers=layout_workers
+                        )
+                else:
+                    page_layouts_al = analyze_document_layout(fitz_doc)
                 _perf['layout_analysis_ms'] = (time.time() - _t) * 1000
 
-                # Extract full text
+                # Extract full text (with per-page caching to avoid redundant calls)
+                _page_text_cache: Dict[int, str] = {}
                 full_text_parts = []
-                for page in fitz_doc:
-                    full_text_parts.append(page.get_text())
+                for p_idx, page in enumerate(fitz_doc):
+                    txt = page.get_text()
+                    _page_text_cache[p_idx] = txt
+                    full_text_parts.append(txt)
                 full_text_raw = "\n\n".join(full_text_parts)
-                full_text = unicodedata.normalize("NFKC", full_text_raw)
+                # Delay NFKC: only normalize at assembly time, not eagerly
+                full_text = full_text_raw
     
                 # === Step 3: Per-page extraction -- Zone -> Block ===
                 # P0: Per-page hybrid routing — each page individually assessed
@@ -234,11 +280,12 @@ class CoreExtractor:
                 max_pages = int(os.environ.get("DOCMIRROR_MAX_PAGES", "0"))
     
                 # Per-page text presence detection (>50 chars = has text layer)
+                # Use cached text from above
                 _TEXT_THRESHOLD = 50
                 page_has_text = []
                 for p_idx in range(len(fitz_doc)):
-                    chars = len(fitz_doc[p_idx].get_text().strip())
-                    page_has_text.append(chars > _TEXT_THRESHOLD)
+                    txt = _page_text_cache.get(p_idx, "")
+                    page_has_text.append(len(txt.strip()) > _TEXT_THRESHOLD)
     
                 hybrid_doc = has_text and not all(page_has_text)
                 if hybrid_doc:
@@ -254,59 +301,155 @@ class CoreExtractor:
                 plumber_doc = None
                 if has_text or hybrid_doc:
                     plumber_doc = pdfplumber.open(str(plumber_path))
-    
+
+                # External OCR: resolve once for all scanned pages (quality < threshold → delegate)
+                from docmirror.configs.settings import default_settings
+                from docmirror.core.ocr.fallback import _resolve_external_ocr_provider
+                _ext_ocr_threshold = getattr(
+                    default_settings, "external_ocr_quality_threshold", None
+                )
+                _ext_ocr_provider = _resolve_external_ocr_provider(
+                    getattr(default_settings, "external_ocr_provider", None)
+                )
+
+                num_digital = sum(1 for i in range(len(page_has_text)) if page_has_text[i])
+                use_page_concurrency = (
+                    self._max_page_concurrency > 1
+                    and plumber_doc is not None
+                    and num_digital >= 2
+                )
+                max_workers = (
+                    min(self._max_page_concurrency, 4, len(fitz_doc))
+                    if use_page_concurrency
+                    else 1
+                )
+
                 try:
-                    for page_idx, layout_al in enumerate(page_layouts_al):
-                        # P1: Smart early-exit
-                        if max_pages > 0 and page_idx >= max_pages:
-                            logger.info(
-                                f"[DocMirror] Early exit at page {page_idx} "
-                                f"(DOCMIRROR_MAX_PAGES={max_pages})"
-                            )
-                            break
-    
-                        fitz_page = fitz_doc[page_idx]
-    
-                        # P0: Per-page routing decision
-                        _pt = time.time()
-                        try:
-                            if page_has_text[page_idx] and plumber_doc:
-                                # Digital page → pdfplumber + fitz joint extraction
-                                page_plum = plumber_doc.pages[page_idx]
-                                page_layout, page_ocr_parts, extraction_layer, extraction_confidence = (
-                                    self._extract_page(
-                                        page_plum=page_plum,
-                                        fitz_page=fitz_page,
-                                        fitz_doc=fitz_doc,
-                                        page_idx=page_idx,
-                                        layout_al=layout_al,
-                                        cleaned_path=plumber_path,
-                                        is_digital=True,
-                                        strategy_params=pre_analysis.strategy_params,
-                                        page_quality=dict(
-                                            pre_analysis.page_quality_map
-                                        ).get(page_idx, pre_analysis.avg_image_quality),
+                    if use_page_concurrency:
+                        # Phase 2: parallel digital page extraction (thread pool)
+                        results_by_idx = {}  # page_idx -> future or (page_layout, ocr_parts)
+                        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                            for page_idx, layout_al in enumerate(page_layouts_al):
+                                if max_pages > 0 and page_idx >= max_pages:
+                                    break
+                                _pt = time.time()
+                                try:
+                                    if page_has_text[page_idx] and plumber_doc:
+                                        future = executor.submit(
+                                            _extract_single_page_digital_worker,
+                                            (
+                                                str(Path(plumber_path).resolve()),
+                                                page_idx,
+                                                layout_al,
+                                                pre_analysis.strategy_params,
+                                                dict(pre_analysis.page_quality_map).get(
+                                                    page_idx, pre_analysis.avg_image_quality
+                                                ),
+                                                len(fitz_doc),
+                                                pre_analysis.content_type,
+                                            ),
+                                        )
+                                        results_by_idx[page_idx] = future
+                                    else:
+                                        fitz_page = fitz_doc[page_idx]
+                                        page_qual = dict(pre_analysis.page_quality_map).get(
+                                            page_idx, pre_analysis.avg_image_quality
+                                        )
+                                        page_layout = self._extract_scanned_page(
+                                            fitz_page=fitz_page,
+                                            page_idx=page_idx,
+                                            page_quality=page_qual,
+                                            external_ocr_threshold=_ext_ocr_threshold,
+                                            external_ocr_provider=_ext_ocr_provider,
+                                        )
+                                        ocr_parts = []
+                                        for blk in page_layout.blocks:
+                                            if blk.block_type == "text" and blk.raw_content:
+                                                ocr_parts.append(str(blk.raw_content))
+                                        results_by_idx[page_idx] = (page_layout, ocr_parts)
+                                except Exception as page_exc:
+                                    logger.error(
+                                        f"[DocMirror] ❌ Page {page_idx} extraction FAILED: {page_exc}",
+                                        exc_info=True,
                                     )
-                                )
+                                _page_perf.append({'page': page_idx, 'total': (time.time() - _pt) * 1000})
+                        # Collect results in page order
+                        last_layer, last_conf = "unknown", 0.0
+                        for page_idx in sorted(results_by_idx.keys()):
+                            r = results_by_idx[page_idx]
+                            if hasattr(r, "result"):
+                                _, page_layout, ocr_parts, last_layer, last_conf = r.result()
                                 pages.append(page_layout)
-                                ocr_text_parts.extend(page_ocr_parts)
+                                ocr_text_parts.extend(ocr_parts)
                             else:
-                                # Scanned page → OCR extraction
-                                page_layout = self._extract_scanned_page(
-                                    fitz_page=fitz_page,
-                                    page_idx=page_idx,
-                                )
+                                page_layout, ocr_parts = r
                                 pages.append(page_layout)
-                                # Collect OCR text
-                                for blk in page_layout.blocks:
-                                    if blk.block_type == "text" and blk.raw_content:
-                                        ocr_text_parts.append(str(blk.raw_content))
-                        except Exception as page_exc:
-                            logger.error(
-                                f"[DocMirror] ❌ Page {page_idx} extraction FAILED: {page_exc}",
-                                exc_info=True,
-                            )
-                        _page_perf.append({'page': page_idx, 'total': (time.time() - _pt) * 1000})
+                                ocr_text_parts.extend(ocr_parts)
+                        extraction_layer = last_layer
+                        extraction_confidence = last_conf
+                    else:
+                        # Sequential path (original)
+                        _zone_template = None  # Perf #9: populated from page 0 via self
+                        self._zone_template = None  # Reset for each document
+                        for page_idx, layout_al in enumerate(page_layouts_al):
+                            if max_pages > 0 and page_idx >= max_pages:
+                                logger.info(
+                                    f"[DocMirror] Early exit at page {page_idx} "
+                                    f"(DOCMIRROR_MAX_PAGES={max_pages})"
+                                )
+                                break
+                            fitz_page = fitz_doc[page_idx]
+                            _pt = time.time()
+                            try:
+                                if page_has_text[page_idx] and plumber_doc:
+                                    page_plum = plumber_doc.pages[page_idx]
+                                    # Perf #9: pass template for pages after page 0
+                                    _pass_template = (
+                                        self._zone_template
+                                        if pre_analysis.layout_homogeneous and page_idx > 0
+                                        else None
+                                    )
+                                    page_layout, page_ocr_parts, extraction_layer, extraction_confidence = (
+                                        self._extract_page(
+                                            page_plum=page_plum,
+                                            fitz_page=fitz_page,
+                                            fitz_doc=fitz_doc,
+                                            page_idx=page_idx,
+                                            layout_al=layout_al,
+                                            cleaned_path=plumber_path,
+                                            is_digital=True,
+                                            strategy_params=pre_analysis.strategy_params,
+                                            page_quality=dict(
+                                                pre_analysis.page_quality_map
+                                            ).get(page_idx, pre_analysis.avg_image_quality),
+                                            content_type=pre_analysis.content_type,
+                                            zone_template=_pass_template,
+                                        )
+                                    )
+                                    pages.append(page_layout)
+                                    ocr_text_parts.extend(page_ocr_parts)
+                                else:
+                                    # Scanned page → OCR extraction (optional external handoff if quality too low)
+                                    page_qual = dict(pre_analysis.page_quality_map).get(
+                                        page_idx, pre_analysis.avg_image_quality
+                                    )
+                                    page_layout = self._extract_scanned_page(
+                                        fitz_page=fitz_page,
+                                        page_idx=page_idx,
+                                        page_quality=page_qual,
+                                        external_ocr_threshold=_ext_ocr_threshold,
+                                        external_ocr_provider=_ext_ocr_provider,
+                                    )
+                                    pages.append(page_layout)
+                                    for blk in page_layout.blocks:
+                                        if blk.block_type == "text" and blk.raw_content:
+                                            ocr_text_parts.append(str(blk.raw_content))
+                            except Exception as page_exc:
+                                logger.error(
+                                    f"[DocMirror] ❌ Page {page_idx} extraction FAILED: {page_exc}",
+                                    exc_info=True,
+                                )
+                            _page_perf.append({'page': page_idx, 'total': (time.time() - _pt) * 1000})
                 finally:
                     if plumber_doc:
                         plumber_doc.close()
@@ -315,15 +458,117 @@ class CoreExtractor:
                     if ocr_text_parts:
                         full_text = full_text + "\n\n" + "\n\n".join(ocr_text_parts)
     
-                    # ═══ Step 4: Cross-page merge ═══
-                    _t = time.time()
-                    pages = self._merge_cross_page_tables(pages)
-                    _perf['cross_page_merge_ms'] = (time.time() - _t) * 1000
-    
-                    # ═══ Step 5: Table post-processing ═══
+                    # ═══ Step 4: Table post-processing (header detection + cleanup) ═══
+                    # Run BEFORE merge so each page's table has a confirmed header row
                     _t = time.time()
                     pages = self._post_process_tables(pages)
                     _perf['table_postprocess_ms'] = (time.time() - _t) * 1000
+    
+                    # ═══ Step 5: Cross-page merge ═══
+                    _t = time.time()
+                    pages = self._merge_cross_page_tables(pages)
+                    _perf['cross_page_merge_ms'] = (time.time() - _t) * 1000
+
+                    # ═══ Step 5.5: Table structure fix (post-merge) ═══
+                    # Run AFTER merge so column removal doesn't cause col-count
+                    # mismatches that prevent cross-page merging.
+                    from docmirror.core.table.table_structure_fix import fix_table_structure
+                    _fixed_pages = []
+                    for pg in pages:
+                        _new_blocks = []
+                        for block in pg.blocks:
+                            if block.block_type == "table" and isinstance(block.raw_content, list) and len(block.raw_content) >= 2:
+                                fixed = fix_table_structure(block.raw_content)
+                                _new_blocks.append(Block(
+                                    block_id=block.block_id,
+                                    block_type=block.block_type,
+                                    bbox=block.bbox,
+                                    reading_order=block.reading_order,
+                                    page=block.page,
+                                    raw_content=fixed,
+                                ))
+                            else:
+                                _new_blocks.append(block)
+                        _fixed_pages.append(PageLayout(
+                            page_number=pg.page_number,
+                            width=pg.width,
+                            height=pg.height,
+                            blocks=tuple(_new_blocks),
+                            semantic_zones=pg.semantic_zones,
+                            is_scanned=pg.is_scanned,
+                        ))
+                    pages = _fixed_pages
+
+                    # ═══ Step 5.6: Post-merge header inference ═══
+                    # When a merged table starts with a data row (no header),
+                    # search text blocks from earlier pages for a vocabulary-
+                    # matching header line and prepend it.
+                    from ..utils.vocabulary import _is_data_row, _is_header_row, _score_header_by_vocabulary
+                    for pg in pages:
+                        for block in pg.blocks:
+                            if block.block_type != "table" or not isinstance(block.raw_content, list):
+                                continue
+                            rc = block.raw_content
+                            if not rc or len(rc) < 2:
+                                continue
+                            # Skip if first row is already a header
+                            if _is_header_row(rc[0]):
+                                continue
+                            # First row is data → try to infer header from text blocks
+                            # Collect all text content from pages <= this page
+                            candidate_header = None
+                            best_vocab = 0
+                            for prev_pg in pages:
+                                if prev_pg.page_number > pg.page_number:
+                                    break
+                                for tb in prev_pg.blocks:
+                                    if tb.block_type == "text" and isinstance(tb.raw_content, str):
+                                        # Split text into potential header words
+                                        words = [w.strip() for w in tb.raw_content.split() if w.strip()]
+                                        if len(words) >= 3:
+                                            vs = _score_header_by_vocabulary(words)
+                                            if vs > best_vocab and vs >= 3:
+                                                best_vocab = vs
+                                                candidate_header = words
+                            if candidate_header:
+                                # Align header to table column count
+                                ncols = len(rc[0])
+                                if len(candidate_header) == ncols:
+                                    aligned = candidate_header
+                                elif len(candidate_header) > ncols:
+                                    aligned = candidate_header[:ncols]
+                                else:
+                                    aligned = candidate_header + [''] * (ncols - len(candidate_header))
+                                rc_new = [aligned] + list(rc)
+                                # Create new block with header prepended
+                                new_blocks = []
+                                for b in pg.blocks:
+                                    if b is block:
+                                        new_blocks.append(Block(
+                                            block_id=b.block_id,
+                                            block_type=b.block_type,
+                                            bbox=b.bbox,
+                                            reading_order=b.reading_order,
+                                            page=b.page,
+                                            raw_content=rc_new,
+                                        ))
+                                    else:
+                                        new_blocks.append(b)
+                                # Replace page
+                                idx = pages.index(pg)
+                                pages[idx] = PageLayout(
+                                    page_number=pg.page_number,
+                                    width=pg.width,
+                                    height=pg.height,
+                                    blocks=tuple(new_blocks),
+                                    semantic_zones=pg.semantic_zones,
+                                    is_scanned=pg.is_scanned,
+                                )
+                                logger.info(
+                                    f"[DocMirror] header inferred from text: "
+                                    f"vocab={best_vocab}, words={len(candidate_header)}"
+                                )
+                                break  # Only fix one table per page
 
                     # ── Log performance breakdown ──
                     logger.info(
@@ -332,7 +577,7 @@ class CoreExtractor:
                     )
                     if _page_perf:
                         for pp in _page_perf:
-                            logger.info(
+                            logger.debug(
                                 f"[DocMirror] ⏱ Page {pp['page']}: "
                                 + " | ".join(f"{k}={v:.0f}ms" for k, v in pp.items() if k != 'page')
                             )
@@ -462,13 +707,23 @@ class CoreExtractor:
     # ═══════════════════════════════════════════════════════════════════════════
 
     def _extract_scanned_page(
-        self, *, fitz_page, page_idx: int,
+        self,
+        *,
+        fitz_page,
+        page_idx: int,
+        page_quality: Optional[int] = None,
+        external_ocr_threshold: Optional[int] = None,
+        external_ocr_provider: Optional[Any] = None,
     ) -> "PageLayout":
         """Single-page OCR extraction for scanned documents.
 
         Uses ``ocr_extract_universal`` which auto-detects content type:
         - Table documents → existing table block pipeline
         - General documents → text blocks in reading order with real bboxes
+
+        When ``page_quality`` is below ``external_ocr_threshold`` and
+        ``external_ocr_provider`` is set, OCR is delegated to the external
+        provider (e.g. cloud OCR for 99% recognition on poor-quality scans).
         """
         from ..ocr.fallback import ocr_extract_universal
 
@@ -478,7 +733,13 @@ class CoreExtractor:
         reading_order = 0
 
         try:
-            ocr_result = ocr_extract_universal(fitz_page, page_idx)
+            ocr_result = ocr_extract_universal(
+                fitz_page,
+                page_idx,
+                page_quality=page_quality,
+                external_ocr_threshold=external_ocr_threshold,
+                external_ocr_provider=external_ocr_provider,
+            )
 
             if ocr_result and isinstance(ocr_result, dict):
                 content_type = ocr_result.get("content_type", "table")
@@ -553,13 +814,18 @@ class CoreExtractor:
                     sx = width / max(ocr_page_w, 1)
                     sy = height / max(ocr_page_h, 1)
 
+                    full_text_parts: List[str] = []
                     for line in lines:
                         text = line.get("text", "").strip()
                         if not text:
                             continue
+                        full_text_parts.append(text)
                         ox0, oy0, ox1, oy1 = line.get("bbox", (0, 0, 0, 0))
                         bbox = (ox0 * sx, oy0 * sy, ox1 * sx, oy1 * sy)
-
+                        # If content is HTML (e.g. external OCR), store plain text in block.
+                        # Drop table segments so tables appear only in key_value block, not duplicated as text.
+                        if "<table" in text.lower() or "<td" in text.lower():
+                            text = _strip_html_to_plain_text(text, drop_tables=True)
                         blocks.append(Block(
                             block_id=f"blk_{page_idx}_{reading_order}",
                             block_type="text",
@@ -569,6 +835,24 @@ class CoreExtractor:
                             raw_content=text,
                         ))
                         reading_order += 1
+
+                    # When external OCR returns HTML <table>, parse to key_value block
+                    full_text = "\n\n".join(full_text_parts)
+                    kv = _parse_html_tables_to_key_value(full_text)
+                    if kv:
+                        blocks.append(Block(
+                            block_id=f"blk_{page_idx}_{reading_order}",
+                            block_type="key_value",
+                            bbox=(0, 0, width, height),
+                            reading_order=reading_order,
+                            page=page_idx + 1,
+                            raw_content=kv,
+                        ))
+                        reading_order += 1
+                        logger.debug(
+                            f"[DocMirror] OCR page {page_idx} (general): "
+                            f"parsed table → key_value with {len(kv)} pairs"
+                        )
 
                     logger.info(
                         f"[DocMirror] OCR page {page_idx} (general): "
@@ -652,6 +936,8 @@ class CoreExtractor:
         is_digital: bool = False,
         strategy_params: Optional[Dict[str, Any]] = None,
         page_quality: int = 100,
+        content_type: str = "unknown",
+        zone_template: Optional[Any] = None,
     ) -> Tuple["PageLayout", List[str], str, float]:
         """Single-page extraction: Zone -> Block conversion.
 
@@ -664,6 +950,8 @@ class CoreExtractor:
             cleaned_path: Pre-processed PDF path.
             strategy_params: PreAnalyzer strategy parameters (optional).
             page_quality: Image quality score (0-100) for this page.
+            content_type: PreAnalyzer content type (table_dominant/text_dominant/mixed/scanned).
+            zone_template: Optional ZoneTemplate for layout-homogeneous template reuse.
 
         Returns:
             (PageLayout, ocr_text_parts, extraction_layer, extraction_confidence)
@@ -679,13 +967,17 @@ class CoreExtractor:
             _router = None
 
         # -- Character-level pre-processing --
-        # Use deep watermark separation when router recommends it
+        # Perf #10: Always run basic watermark filter (is_watermark_char is O(n),
+        # <1ms, catches rotated/skewed watermark text).  Only skip the expensive
+        # deep statistical separation for table_dominant documents.
         _use_deep_watermark = False
-        if _router and strategy_params:
-            _use_deep_watermark = not strategy_params.get(
-                "skip_watermark_filter", False
-            ) and page_quality < 85
+        if content_type != "table_dominant":
+            if _router and strategy_params:
+                _use_deep_watermark = not strategy_params.get(
+                    "skip_watermark_filter", False
+                ) and page_quality < 85
 
+        _chars_before_wm = len(page_plum.chars)
         if _use_deep_watermark:
             try:
                 from ..utils.watermark import separate_watermark_layer
@@ -695,15 +987,56 @@ class CoreExtractor:
                 page_plum = filter_watermark_page(page_plum)
         else:
             page_plum = filter_watermark_page(page_plum)
+        _watermark_filtered = len(page_plum.chars) < _chars_before_wm
         page_plum = _dedup_overlapping_chars(page_plum)
 
         # -- Spatial partitioning --
         _seg_t = time.time()
-        if self._layout_detector:
-            zones = self._model_segmentation(fitz_page, page_plum, page_idx)
-        else:
-            zones = segment_page_into_zones(page_plum, page_idx)
+        _used_template = False
+        zones = None
+
+        # Perf #9: Try zone template first (skips full segmentation)
+        if zone_template is not None:
+            from ..layout.layout_analysis import apply_zone_template
+            zones = apply_zone_template(zone_template, page_plum, page_idx)
+            if zones is not None:
+                _used_template = True
+
+        # Fallback: full segmentation
+        if zones is None:
+            if self._layout_detector:
+                zones = self._model_segmentation(fitz_page, page_plum, page_idx)
+            else:
+                zones = segment_page_into_zones(page_plum, page_idx)
         _seg_ms = (time.time() - _seg_t) * 1000
+        if _used_template:
+            logger.debug(f"[DocMirror] Perf #9: page {page_idx} segmentation via template ({_seg_ms:.0f}ms)")
+
+        # Perf #9: Build/rebuild zone template when full segmentation was used.
+        # This handles the common case where page 0 is a cover page with a
+        # different layout — the template is rebuilt from the first page that
+        # falls back to full segmentation (e.g., page 1).
+        _should_build_template = (
+            not _used_template          # Full segmentation was performed
+            and zones                   # Got valid zones
+            and len(zones) >= 2         # Enough zones for a meaningful template
+        )
+        if _should_build_template:
+            try:
+                from ..layout.layout_analysis import build_zone_template
+                width_plum = page_plum.width if hasattr(page_plum, 'width') else width
+                height_plum = page_plum.height if hasattr(page_plum, 'height') else height
+                new_template = build_zone_template(
+                    zones, width_plum, height_plum, page_idx
+                )
+                if new_template.zone_count > 0:
+                    self._zone_template = new_template
+                    logger.debug(
+                        f"[DocMirror] Perf #9: zone template {'rebuilt' if page_idx > 0 else 'built'} "
+                        f"({new_template.zone_count} zones) from page {page_idx}"
+                    )
+            except Exception as exc:
+                logger.debug(f"[DocMirror] Perf #9: template build failed: {exc}")
 
         # -- Extract visual features (styles) --
         style_map = self._extract_page_styles(fitz_page)
@@ -770,6 +1103,23 @@ class CoreExtractor:
 
             if zone.type == "formula":
                 _fml_t = time.time()
+                # Perf #10: Skip formula detection for text/table dominant docs
+                # (formulas only matter for mixed/scanned content)
+                _skip_formula = (
+                    content_type in ("text_dominant", "table_dominant")
+                    or not self._formula_engine
+                )
+                if _skip_formula:
+                    if zone.text:
+                        block = Block(
+                            block_id=block_id, block_type="text",
+                            bbox=zone.bbox, reading_order=reading_order,
+                            page=page_idx + 1, raw_content=zone.text,
+                        )
+                        blocks.append(block)
+                        reading_order += 1
+                    _formula_ms += (time.time() - _fml_t) * 1000
+                    continue
 
                 # ── 3-tier formula zone gating (skip false-positive OCR) ──
                 _skip_formula_ocr = False
@@ -796,10 +1146,33 @@ class CoreExtractor:
                     _MATH_INDICATORS = set("∑∫∂√±≤≥≠∞∈∉∝∀∃αβγδεθλμπσφψω")
                     zone_text = zone.text or ""
                     has_math_chars = bool(set(zone_text) & _MATH_INDICATORS)
-                    has_operator_pattern = bool(re.search(r'[=<>≤≥±×÷∑∫^_{}\\]', zone_text))
-                    has_superscript = any(
-                        c.get("size", 12) < 8 for c in zone.chars
-                    ) if zone.chars else False
+                    has_operator_pattern = bool(re.search(
+                        r'[≤≥±×÷∑∫]'          # Unambiguous math symbols
+                        r'|[a-zA-Z]\^[\d{]'    # Superscript notation: x^2, x^{n}
+                        r'|[a-zA-Z]_[\d{]'     # Subscript notation: a_1, a_{ij}
+                        r'|\\\\[a-z]{3,}'      # LaTeX commands: \\frac, \\sqrt
+                        r'|\{[^}]+\}',         # Braced expressions: {n+1}
+                        zone_text
+                    ))
+
+                    # True superscript detection: small chars that are ELEVATED
+                    # relative to their neighbors (not just any small font)
+                    has_superscript = False
+                    if zone.chars and len(zone.chars) >= 3:
+                        sizes = [c.get("size", 12) for c in zone.chars if c.get("size", 0) > 0]
+                        if sizes:
+                            median_size = sorted(sizes)[len(sizes) // 2]
+                            # Only flag if: (a) char is <60% of median AND
+                            # (b) char top is above the median top of its row
+                            if median_size > 5:  # Need a baseline font to compare
+                                tops = [c["top"] for c in zone.chars]
+                                median_top = sorted(tops)[len(tops) // 2]
+                                has_superscript = any(
+                                    c.get("size", 12) < median_size * 0.6
+                                    and c["top"] < median_top - 2
+                                    for c in zone.chars
+                                )
+
                     if not (has_math_chars or has_operator_pattern or has_superscript):
                         _skip_formula_ocr = True
                         logger.debug(
@@ -860,7 +1233,9 @@ class CoreExtractor:
                     logger.debug(f"operation: suppressed {exc}")
 
                 page_tables, extraction_layer, extraction_confidence = extract_tables_layered(
-                    page_plum, table_zone_bbox=zone.bbox,
+                    page_plum, table_zone_bbox=zone.bbox, document_page_count=len(fitz_doc),
+                    fitz_page=fitz_page,
+                    watermark_filtered=_watermark_filtered,
                 )
                 _table_ms += (time.time() - _tbl_t) * 1000
                 for tbl in page_tables:
@@ -1040,7 +1415,9 @@ class CoreExtractor:
         # Fallback: layout analysis found table but zone did not detect any
         if not page_has_table and layout_al.has_table and not layout_al.is_scanned:
             page_tables, extraction_layer, extraction_confidence = extract_tables_layered(
-                page_plum,
+                page_plum, document_page_count=len(fitz_doc),
+                fitz_page=fitz_page,
+                watermark_filtered=_watermark_filtered,
             )
             for tbl in page_tables:
                 if tbl and len(tbl) >= 1:
@@ -1076,7 +1453,7 @@ class CoreExtractor:
             is_scanned=layout_al.is_scanned,
         )
         # ── Per-page timing log ──
-        logger.info(
+        logger.debug(
             f"[DocMirror] ⏱ Page {page_idx}: "
             f"segmentation={_seg_ms:.0f}ms | "
             f"table_extraction={_table_ms:.0f}ms | "
@@ -1269,20 +1646,8 @@ class CoreExtractor:
     def _collect_kv_entities(
         self, pages: List[PageLayout]
     ) -> Dict[str, str]:
-        """
-        Collect entities from extracted key_value blocks.
-        
-        Note: Full entity extraction (regex/bank name/account name/account number etc.)
-        has been moved to middlewares.entity_extractor.EntityExtractor middleware.
-        This method only performs simple KV block aggregation to ensure
-        BaseResult.metadata has basic entity information.
-        """
-        entities: Dict[str, str] = {}
-        for page in pages:
-            for block in page.blocks:
-                if block.block_type == "key_value" and isinstance(block.raw_content, dict):
-                    entities.update(block.raw_content)
-        return entities
+        """Collect entities from extracted key_value blocks — delegated to entity_collector module."""
+        return collect_kv_entities(pages)
 
     def _merge_cross_page_tables(self, pages: List[PageLayout]) -> List[PageLayout]:
         """Cross-page table merge -- delegated to table_merger module."""
@@ -1290,79 +1655,5 @@ class CoreExtractor:
         return merge_cross_page_tables(pages)
 
     def _post_process_tables(self, pages: List[PageLayout]) -> List[PageLayout]:
-        """Table post-processing -- header detection + preamble KV extraction + data row cleaning.
-
-        For each table Block, execute the following steps:
-          1. Call post_process_table:
-             - VOCAB_BY_CATEGORY scans first 10 rows, finds the row with highest vocab_score as header
-             - When header_row_idx > 0: call _extract_preamble_kv for summary rows before header
-               Results stored as preamble KV (e.g. total amount/count/start date)
-             - Call _strip_preamble on data_rows to strip mixed summary rows and duplicate headers
-             - Per-row cleanup: filter junk rows, append non-data rows to previous, align column count
-          2. Call get_and_clear_preamble_kv() to retrieve KV cache:
-             - If non-empty, create key_value Block inserted before the table Block
-             - Block ID is "{block_id}_kv", reading_order same as table
-
-        Side effect: if table Block has < 2 rows after processing, retain original Block unchanged.
-        """
-        new_pages = []
-        for page in pages:
-            new_blocks = []
-            for block in page.blocks:
-                if block.block_type == "table" and isinstance(block.raw_content, list):
-                    # Fix 9: Skip entirely empty tables
-                    if not any(
-                        (cell or "").strip()
-                        for row in block.raw_content
-                        for cell in row
-                    ):
-                        logger.debug("[DocMirror] skipped empty table")
-                        continue
-                    try:
-                        processed, preamble_kv = post_process_table(block.raw_content)
-
-                        # Table structure fix (line merging/cell cleanup/sticky splitting/column alignment)
-                        if processed and len(processed) >= 2:
-                            from ..table.table_structure_fix import fix_table_structure
-                            processed = fix_table_structure(processed)
-
-                        # Preamble KV obtained directly from return value, no global state
-                        if preamble_kv:
-                            kv_block = Block(
-                                block_id=f"{block.block_id}_kv",
-                                block_type="key_value",
-                                bbox=block.bbox,
-                                reading_order=block.reading_order,
-                                page=block.page,
-                                raw_content=preamble_kv,
-                            )
-                            new_blocks.append(kv_block)
-                        if processed and len(processed) >= 2:
-                            new_block = Block(
-                                block_id=block.block_id,
-                                block_type="table",
-                                bbox=block.bbox,
-                                reading_order=block.reading_order,
-                                page=block.page,
-                                raw_content=processed,
-                            )
-                            new_blocks.append(new_block)
-                        else:
-                            new_blocks.append(block)
-                    except Exception as e:
-                        logger.debug(f"[DocMirror] post_process error: {e}")
-                        new_blocks.append(block)
-                else:
-                    new_blocks.append(block)
-
-            new_page = PageLayout(
-                page_number=page.page_number,
-                width=page.width,
-                height=page.height,
-                blocks=tuple(new_blocks),
-                semantic_zones=page.semantic_zones,
-                is_scanned=page.is_scanned,
-            )
-            new_pages.append(new_page)
-
-        return new_pages
+        """Table post-processing — delegated to table_postprocessor module."""
+        return process_page_tables(pages)

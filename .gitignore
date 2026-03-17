@@ -54,3 +54,7 @@ output/
 
 ## Test fixtures (real documents)
 tests/fixtures/银行流水/
+tests/fixtures/*.zip
+tests/fixtures/*.jpg
+tests/fixtures/*.png
+tests/golden/

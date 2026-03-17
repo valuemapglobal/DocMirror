@@ -40,6 +40,15 @@ pip install docmirror[all]
 | `all` | All of the above | Full installation |
 | `dev` | pytest, ruff, mypy, coverage | Development tools |
 
+## Optional: Legacy .doc Support
+
+The **.doc** (binary Word) format is supported only when **LibreOffice** is installed and the `soffice` command is on your PATH. DocMirror uses it to convert .doc to a processable format.
+
+- **Install LibreOffice**: [Download](https://www.libreoffice.org/download/) and install for your OS.
+- **PATH**: Ensure `soffice` is available in the shell (e.g. `/usr/bin/soffice` on Linux, or add LibreOffice to PATH on Windows/macOS).
+
+If you parse a .doc file without LibreOffice installed, DocMirror returns a failure with code `FORMAT_REQUIRES_CONVERTER` and `recoverable=True`; the message will ask you to install LibreOffice or use .docx.
+
 ## Requirements
 
 - **Python**: 3.10+

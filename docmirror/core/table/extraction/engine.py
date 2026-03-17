@@ -16,6 +16,9 @@ from ...utils.text_utils import _is_cjk_char, _smart_join
 from ...utils.vocabulary import _ALL_BORDER_CHARS, _is_header_row, _is_header_cell, _normalize_for_vocab, _score_header_by_vocabulary, _RE_IS_DATE, _RE_IS_AMOUNT
 
 logger = logging.getLogger(__name__)
+# T3-3: Module-level DEBUG flag — avoids f-string formatting cost
+# when debug logging is disabled (~5-10% CPU savings on hot paths)
+_DEBUG = logger.isEnabledFor(logging.DEBUG)
 
 
 from .pipe_strategy import _extract_by_pipe_delimited
@@ -31,6 +34,9 @@ from .char_strategy import (
 def extract_tables_layered(
     page_plum,
     table_zone_bbox: Optional[Tuple[float, float, float, float]] = None,
+    document_page_count: Optional[int] = None,
+    fitz_page=None,
+    watermark_filtered: bool = False,
 ) -> Tuple[List[List[List[str]]], str, float]:
     """Progressively layered table extraction.
 
@@ -64,10 +70,11 @@ def extract_tables_layered(
         timings["total"] = round((time.time() - t_total) * 1000, 2)
         _layer_timings_var.set(dict(timings))
         conf = _compute_table_confidence(tables, layer)
-        logger.debug(
-            f"extract_tables_layered -> layer={layer} conf={conf:.3f} "
-            f"timings={timings}"
-        )
+        if _DEBUG:
+            logger.debug(
+                "extract_tables_layered -> layer=%s conf=%.3f timings=%s",
+                layer, conf, timings,
+            )
         return tables, layer, conf
 
     # ── Crop to table zone (all layers work on the cropped page) ──
@@ -77,7 +84,18 @@ def extract_tables_layered(
             x0, y0, x1, y1 = table_zone_bbox
 
             # Upward header probe: header row may sit above the data_table zone
-            probe_top = max(0, y0 - 40)
+            # Extended to 120pt (was 40pt) to handle documents like 光大银行
+            # where the header is 80+ points above the data zone.
+            # Also use h-lines to guide: the first h-line above y0 marks the header border.
+            _probe_dist = 120
+            h_lines_above = [
+                l for l in (page_plum.lines or [])
+                if abs(l["top"] - l["bottom"]) < 2 and l["top"] < y0 - 5 and l["top"] > y0 - _probe_dist
+            ]
+            if h_lines_above:
+                # Extend probe to the topmost h-line above the zone
+                _probe_dist = max(_probe_dist, y0 - min(l["top"] for l in h_lines_above) + 10)
+            probe_top = max(0, y0 - _probe_dist)
             if probe_top < y0:
                 try:
                     probe = page_plum.crop((x0, probe_top, x1, y0 + 1))
@@ -85,15 +103,16 @@ def extract_tables_layered(
                         keep_blank_chars=True, x_tolerance=2
                     )
                     if probe_words:
-                        # Group by y into rows, search bottom-up for the first table header row
+                        # Group by y into rows, scan ALL rows to find the best header
                         from collections import defaultdict
                         _probe_rows = defaultdict(list)
                         for w in probe_words:
                             yk = round(w["top"] / 3) * 3
                             _probe_rows[yk].append(w)
 
-                        sorted_yks = sorted(_probe_rows, reverse=True)
-                        for idx_yk, yk in enumerate(sorted_yks):
+                        # Collect all candidate header rows (vocab score, generic count, yk)
+                        best_candidate = None  # (vocab_score, hdr_ratio, word_count, yk)
+                        for yk in sorted(_probe_rows):
                             texts = [
                                 w["text"].strip()
                                 for w in _probe_rows[yk]
@@ -101,7 +120,7 @@ def extract_tables_layered(
                             ]
                             if len(texts) < 3:
                                 continue
-                            # Exclude KV metadata rows (e.g. "Customer name: ...")
+                            # Exclude KV metadata rows
                             kv_count = sum(
                                 1 for t in texts
                                 if ":" in t or "：" in t
@@ -112,42 +131,52 @@ def extract_tables_layered(
                                 1 for t in texts
                                 if _is_header_cell(t)
                             )
-                            if hdr_count / len(texts) >= 0.5:
-                                header_y = min(
-                                    w["top"] for w in _probe_rows[yk]
-                                ) - 2
+                            if hdr_count / len(texts) < 0.5:
+                                continue
+                            vocab = _score_header_by_vocabulary(texts)
+                            candidate = (vocab, hdr_count / len(texts), len(texts), yk)
+                            if best_candidate is None or candidate > best_candidate:
+                                best_candidate = candidate
 
-                                # ── Optimisation 2: multi-row header detection ──
-                                if idx_yk + 1 < len(sorted_yks):
-                                    prev_yk = sorted_yks[idx_yk + 1]
-                                    prev_texts = [
-                                        w["text"].strip()
-                                        for w in _probe_rows[prev_yk]
-                                        if w["text"].strip()
-                                    ]
-                                    row_gap = yk - prev_yk
-                                    if (len(prev_texts) >= 2
-                                            and row_gap < 20
-                                            and not any(_RE_IS_DATE.search(t) for t in prev_texts)
-                                            and not any(_RE_IS_AMOUNT.match(t.replace(",", "")) for t in prev_texts)):
-                                        prev_hdr = sum(1 for t in prev_texts if _is_header_cell(t))
-                                        if prev_hdr / len(prev_texts) >= 0.5:
-                                            header_y = min(
-                                                w["top"] for w in _probe_rows[prev_yk]
-                                            ) - 2
-                                            logger.debug(
-                                                f"header probe: multi-row header detected, "
-                                                f"expanded to {header_y:.0f}"
-                                            )
+                        if best_candidate:
+                            chosen_yk = best_candidate[3]
+                            header_y = min(
+                                w["top"] for w in _probe_rows[chosen_yk]
+                            ) - 2
 
-                                y0 = max(0, header_y)
-                                logger.debug(
-                                    f"header probe: "
-                                    f"expanded zone top "
-                                    f"from {table_zone_bbox[1]:.0f}"
-                                    f" to {y0:.0f}"
-                                )
-                                break
+                            # Multi-row header detection: check the row above
+                            all_yks = sorted(_probe_rows)
+                            chosen_idx = all_yks.index(chosen_yk)
+                            if chosen_idx > 0:
+                                prev_yk = all_yks[chosen_idx - 1]
+                                prev_texts = [
+                                    w["text"].strip()
+                                    for w in _probe_rows[prev_yk]
+                                    if w["text"].strip()
+                                ]
+                                row_gap = chosen_yk - prev_yk
+                                if (len(prev_texts) >= 2
+                                        and row_gap < 20
+                                        and not any(_RE_IS_DATE.search(t) for t in prev_texts)
+                                        and not any(_RE_IS_AMOUNT.match(t.replace(",", "")) for t in prev_texts)):
+                                    prev_hdr = sum(1 for t in prev_texts if _is_header_cell(t))
+                                    if prev_hdr / len(prev_texts) >= 0.5:
+                                        header_y = min(
+                                            w["top"] for w in _probe_rows[prev_yk]
+                                        ) - 2
+                                        logger.debug(
+                                            f"header probe: multi-row header detected, "
+                                            f"expanded to {header_y:.0f}"
+                                        )
+
+                            y0 = max(0, header_y)
+                            logger.debug(
+                                f"header probe: "
+                                f"expanded zone top "
+                                f"from {table_zone_bbox[1]:.0f}"
+                                f" to {y0:.0f}"
+                                f" (vocab={best_candidate[0]}, words={best_candidate[2]})"
+                            )
                 except Exception as exc:
                     logger.debug(f"operation: suppressed {exc}")
 
@@ -164,7 +193,8 @@ def extract_tables_layered(
     t0 = time.time()
     classify_hint = _quick_classify(work_page)
     _t("pre_classify", t0)
-    logger.debug(f"pre-classify hint: {classify_hint}")
+    if _DEBUG:
+        logger.debug("pre-classify hint: %s", classify_hint)
 
     # ── Detect vertical border lines: bordered tables skip stuffed-cell check ──
     _lines = work_page.lines or []
@@ -207,6 +237,29 @@ def extract_tables_layered(
     if pipe_table and len(pipe_table) >= 3:
         return _return([pipe_table], "pipe_delimited")
 
+    # ── Layer 0.8: PyMuPDF native table detection (C implementation, ~50-70% faster) ──
+    # T4-3: Only when fitz_page is provided. Falls through for borderless/complex tables.
+    if fitz_page is not None and not watermark_filtered:
+        t0 = time.time()
+        try:
+            # Use full page width and expanded y-range (matching pdfplumber crop).
+            # y0 comes from header probe expansion; y1 comes from bottom probe expansion.
+            _pymupdf_bbox = None
+            if table_zone_bbox:
+                _pymupdf_bbox = (0, y0, fitz_page.rect.width, y1)
+            _pymupdf_tables = _extract_by_pymupdf(fitz_page, _pymupdf_bbox)
+            _t("L0.8_pymupdf", t0)
+            if _pymupdf_tables:
+                # Validate: at least 3 rows and reasonable column count
+                for tbl in _pymupdf_tables:
+                    if tbl and len(tbl) >= 3 and len(tbl[0]) >= 2:
+                        if _tables_look_valid([tbl], has_borders=has_borders):
+                            return _return([tbl], "pymupdf_native")
+        except Exception as exc:
+            _t("L0.8_pymupdf", t0)
+            if _DEBUG:
+                logger.debug("L0.8 PyMuPDF error: %s", exc)
+
     # Pre-classification jump: if hint='char', skip Layers 1–1.8
     if classify_hint != "char":
         # ── Layer 1: lines strategy ──
@@ -225,10 +278,11 @@ def extract_tables_layered(
             )
 
         # Pre-classification jump: if hint='text', skip L1a/L1.5 to L1b
-        # Also skip when many h_lines but v_lines=0 (L1a hline_columns is poor,
-        # L1b TEXT is better — e.g. 192 h_lines + 0 v_lines)
+        # Also skip when excessive h_lines but v_lines=0 (degenerate case —
+        # e.g. 192 h_lines + 0 v_lines where every text line has a rule).
+        # Threshold 100: valid tables typically have <50 h_lines (header + row borders).
         _skip_l1a = (classify_hint == "text") or (
-            _h_line_count >= 20 and _v_line_count == 0
+            _h_line_count >= 100 and _v_line_count == 0
         )
         if not _skip_l1a:
             # ── Layer 1a: horizontal-line column boundary method ──
@@ -281,25 +335,32 @@ def extract_tables_layered(
                 "text",
             )
 
-    # ── Layer 0.9: pdfplumber safety net (when L1 is skipped or all layers fail) ──
-    # Try default extract_tables() first, then TABLE_SETTINGS (text strategy).
-    t0 = time.time()
-    tables = work_page.extract_tables()
-    _t("L0.9_default", t0)
-    if tables and _tables_look_valid(tables, has_borders=has_borders):
-        return _return(
-            _recover_header_from_zone(tables, work_page, table_zone_bbox, page_plum),
-            "pdfplumber_default",
-        )
+    # ── Layer 0.9: pdfplumber safety net ──
+    # T3-1: Skip when classify_hint is 'char' (pdfplumber can't handle char-only tables)
+    # Also skip L0.9_text when L1b_text already ran with same settings (identical result)
+    _ran_l1b_text = (classify_hint != "char" and "L1b_text" in timings)
 
-    t0 = time.time()
-    tables = work_page.extract_tables(table_settings=TABLE_SETTINGS)
-    _t("L0.9_text", t0)
-    if tables and _tables_look_valid(tables, has_borders=has_borders):
-        return _return(
-            _recover_header_from_zone(tables, work_page, table_zone_bbox, page_plum),
-            "text_fallback",
-        )
+    if classify_hint != "char":
+        t0 = time.time()
+        tables = work_page.extract_tables()
+        _t("L0.9_default", t0)
+        if tables and _tables_look_valid(tables, has_borders=has_borders):
+            return _return(
+                _recover_header_from_zone(tables, work_page, table_zone_bbox, page_plum),
+                "pdfplumber_default",
+            )
+
+        if not _ran_l1b_text:
+            t0 = time.time()
+            tables = work_page.extract_tables(table_settings=TABLE_SETTINGS)
+            _t("L0.9_text", t0)
+            if tables and _tables_look_valid(tables, has_borders=has_borders):
+                return _return(
+                    _recover_header_from_zone(tables, work_page, table_zone_bbox, page_plum),
+                    "text_fallback",
+                )
+    else:
+        timings["L0.9_skipped"] = "char_hint"
 
     # (RapidTable at L2.5 — too slow for early pipeline, ~10s/page CPU)
 
@@ -330,6 +391,8 @@ def extract_tables_layered(
             executor.submit(_run_method, name, func, work_page): name
             for name, func in methods
         }
+        # Deterministic: collect ALL results (no early exit) to avoid
+        # thread-race non-determinism from as_completed ordering.
         for future in concurrent.futures.as_completed(futures):
             result = future.result()
             if result is not None:
@@ -339,14 +402,16 @@ def extract_tables_layered(
 
     if candidates:
         # Penalty: if extracted table has many stuffed cells, lower its priority
+        # Tie-breaker: method name for deterministic ordering
         def _get_sort_key(c):
             tbl = c[0]
             vocab_score = c[2]
+            method_name = c[1]
             row_count = len(tbl)
             stuffed_count = sum(
                 1 for row in tbl[:10] for cell in row if _cell_is_stuffed(str(cell or ""))
             )
-            return (vocab_score, row_count - stuffed_count * 10)
+            return (vocab_score, row_count - stuffed_count * 10, method_name)
 
         candidates.sort(key=_get_sort_key, reverse=True)
         best_table, best_layer, best_score = candidates[0]
@@ -357,9 +422,30 @@ def extract_tables_layered(
         _layer2_fallback = None
 
     # ── Layer 2.5: RapidTable vision model (slow ~10 s, only when L2 also fails) ──
+    # G4: Skip RapidTable when document is large or upstream confidence is high enough
+    import os
+    _rapid_max_pages_raw = os.getenv("DOCMIRROR_TABLE_RAPID_MAX_PAGES", "").strip()
+    _rapid_max_pages = int(_rapid_max_pages_raw) if _rapid_max_pages_raw else None
+    _rapid_min_conf = float(os.getenv("DOCMIRROR_TABLE_RAPID_MIN_CONFIDENCE_THRESHOLD", "0.5"))
+    _skip_rapid = False
+    _skip_reason = None
+    if document_page_count is not None and _rapid_max_pages is not None and document_page_count > _rapid_max_pages:
+        _skip_rapid = True
+        _skip_reason = "document_page_count_exceeded"
+    if _layer2_fallback and not _skip_rapid:
+        _upstream_conf = _compute_table_confidence([_layer2_fallback[0]], _layer2_fallback[1])
+        if _upstream_conf >= _rapid_min_conf:
+            _skip_rapid = True
+            _skip_reason = "upstream_confidence_above_threshold"
     t0 = time.time()
-    rapid_result = _extract_by_rapid_table(page_plum)
-    _t("L2.5_rapid_table", t0)
+    if _skip_rapid:
+        timings["L2.5_rapid_table"] = 0
+        timings["rapid_table_skipped"] = _skip_reason or "config"
+        logger.debug(f"RapidTable skipped: {_skip_reason}")
+        rapid_result = None
+    else:
+        rapid_result = _extract_by_rapid_table(page_plum)
+        _t("L2.5_rapid_table", t0)
     if rapid_result and len(rapid_result) >= 2:
         rt_vocab = _score_header_by_vocabulary(rapid_result[0])
         if rt_vocab >= 2:  # At least 2 header vocabulary matches
@@ -377,6 +463,58 @@ def extract_tables_layered(
         return _return([_layer2_fallback[0]], _layer2_fallback[1])
 
     return _return(page_plum.extract_tables() or [], "fallback")
+
+
+def _extract_by_pymupdf(
+    fitz_page,
+    table_zone_bbox: Optional[Tuple[float, float, float, float]] = None,
+) -> Optional[List[List[List[str]]]]:
+    """L0.8: PyMuPDF native table detection (C implementation).
+
+    Uses PyMuPDF's built-in ``page.find_tables()`` which is implemented in C
+    and is typically 50-70% faster than pdfplumber's Python-level extraction.
+
+    Args:
+        fitz_page: PyMuPDF (fitz) page object.
+        table_zone_bbox: Optional crop region (x0, y0, x1, y1).
+
+    Returns:
+        List of 2-D table arrays, or None if no tables found.
+    """
+    try:
+        import fitz
+
+        # Optionally crop to table zone
+        clip = None
+        if table_zone_bbox:
+            x0, y0, x1, y1 = table_zone_bbox
+            clip = fitz.Rect(x0, y0, x1, y1)
+
+        # PyMuPDF find_tables() — C-native, very fast
+        tab_finder = fitz_page.find_tables(clip=clip)
+        if not tab_finder or not tab_finder.tables:
+            return None
+
+        tables = []
+        for tab in tab_finder.tables:
+            # Extract table data using PyMuPDF's built-in extract method
+            try:
+                data = tab.extract()
+                if data and len(data) >= 2:
+                    # Clean cells: replace None with empty string
+                    clean_data = [
+                        [(cell or "").strip() for cell in row]
+                        for row in data
+                    ]
+                    tables.append(clean_data)
+            except Exception:
+                continue
+
+        return tables if tables else None
+
+    except Exception as exc:
+        logger.debug("_extract_by_pymupdf: %s", exc)
+        return None
 
 
 def _extract_by_rapid_table(page_plum) -> Optional[List[List[str]]]:

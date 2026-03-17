@@ -10,7 +10,7 @@ Single-step construction:
 """
 from __future__ import annotations
 
-
+import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -50,9 +50,20 @@ def _map_block(block) -> ContentBlock:
         )
 
     elif btype == "key_value":
-        pairs = {}
+        pairs: Dict[str, str] = {}
         if isinstance(block.raw_content, dict):
-            pairs = block.raw_content
+            for k, v in block.raw_content.items():
+                key = str(k) if not isinstance(k, str) else k
+                if isinstance(v, str):
+                    pairs[key] = v
+                elif v is None:
+                    pairs[key] = ""
+                elif isinstance(v, (bool, int, float)):
+                    pairs[key] = str(v)
+                elif isinstance(v, (dict, list)):
+                    pairs[key] = json.dumps(v, ensure_ascii=False)
+                else:
+                    pairs[key] = str(v)
         return ContentBlock(
             type=ContentBlockType.KEY_VALUE,
             page=page,

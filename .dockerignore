@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# Python caches
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+dist
+build
+.eggs
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing & linting caches
+.pytest_cache
+.ruff_cache
+.mypy_cache
+htmlcov
+
+# Output artifacts & model caches
+output/
+model_cache/
+*.onnx
+
+# Docker
+Dockerfile
+docker-compose.yml
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Test fixtures (large binaries)
+tests/*.pdf
+tests/*.png
+tests/*.jpg

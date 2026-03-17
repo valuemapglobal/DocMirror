@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   docmirror:
     build:
@@ -17,7 +15,15 @@ services:
       - DOCMIRROR_ENHANCE_MODE=standard
       # Optional: Control concurrency
       - OMP_NUM_THREADS=4
+      # Optional: API authentication key
+      # - DOCMIRROR_API_KEY=your-secret-key
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     # Optional: If you intend to run GPU-accelerated OCR in the future
     # deploy:
     #   resources:

@@ -4,29 +4,49 @@ Anti-Forgery & Tampering Visual Detection Engine
 Provides lightweight localized document security authentication for the MultiModal architecture:
 1. PDF Tampering Detection: Depends on fitz to check for broken digital signature chains, illegal metadata (Photoshop/Acrobat), incremental update anomalies, etc.
 2. Image Forgery Detection: Based on OpenCV, provides Error Level Analysis (ELA) algorithm to detect cloning and splicing.
+
+Forgery detection results are for **reference only** and do not constitute legal or compliance conclusions.
+Metadata blacklist can be overridden via DOCMIRROR_FORGERY_METADATA_BLACKLIST (JSON array of lowercase terms).
 """
 from __future__ import annotations
 
+import json
 import logging
+import os
 from pathlib import Path
-from typing import Tuple, List
+from typing import List, Tuple
+
 import fitz
 
 logger = logging.getLogger(__name__)
 
-# Common PDF editing tools/forgery source blacklist (Highly suspicious if found in Creator/Producer)
-_SUSPICIOUS_METADATA_LOWER = [
+# Default PDF editing tools/forgery source blacklist (suspicious if found in Creator/Producer)
+_DEFAULT_SUSPICIOUS_METADATA_LOWER = [
     "photoshop",
     "illustrator",
-    "acrobat",      # Official statements rarely use Acrobat or even Reader Export
-    "foxit",        # Foxit Reader/Editor
-    "wps",          # WPS Office
-    "skia",         # Browser print to PDF engine (Chrome)
-    "quartz",       # macOS native print/save as PDF
+    "acrobat",
+    "foxit",
+    "wps",
+    "skia",
+    "quartz",
     "coreldraw",
     "pdf24",
-    "pdfcreator"
+    "pdfcreator",
 ]
+
+
+def _get_forgery_metadata_blacklist() -> List[str]:
+    """Return metadata blacklist: from DOCMIRROR_FORGERY_METADATA_BLACKLIST (JSON array) or default."""
+    raw = os.getenv("DOCMIRROR_FORGERY_METADATA_BLACKLIST", "").strip()
+    if not raw:
+        return _DEFAULT_SUSPICIOUS_METADATA_LOWER.copy()
+    try:
+        arr = json.loads(raw)
+        if isinstance(arr, list) and all(isinstance(x, str) for x in arr):
+            return [x.lower() for x in arr]
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.debug(f"DOCMIRROR_FORGERY_METADATA_BLACKLIST invalid, using default: {e}")
+    return _DEFAULT_SUSPICIOUS_METADATA_LOWER.copy()
 
 
 def detect_pdf_forgery(file_path: str | Path) -> Tuple[bool, List[str]]:
@@ -49,12 +69,13 @@ def detect_pdf_forgery(file_path: str | Path) -> Tuple[bool, List[str]]:
         logger.warning(f"Verification failed to open PDF {file_path}: {e}")
         return False, []
 
-    # 1. Metadata Blacklist Detection
+    # 1. Metadata Blacklist Detection (configurable via DOCMIRROR_FORGERY_METADATA_BLACKLIST)
+    blacklist = _get_forgery_metadata_blacklist()
     meta = doc.metadata or {}
     creator = meta.get("creator", "").lower()
     producer = meta.get("producer", "").lower()
 
-    for suspicious_term in _SUSPICIOUS_METADATA_LOWER:
+    for suspicious_term in blacklist:
         if suspicious_term in creator:
             is_forged = True
             reasons.append(f"Suspicious Core Metadata (Creator): Found '{suspicious_term}' ({meta.get('creator')})")

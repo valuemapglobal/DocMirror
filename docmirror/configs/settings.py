@@ -115,6 +115,7 @@ class DocMirrorSettings:
 
     # ── Performance limits ──
     max_pages: int = 200       # Maximum pages to process per document
+    max_page_concurrency: int = 1  # Page-level concurrency (1=sequential; >1 enables layout + extraction parallel)
     ocr_dpi: int = 150         # Default DPI for rendering pages to images for OCR
     ocr_retry_dpi: int = 300   # Higher DPI used when initial OCR produces poor results
     ocr_language: str = "auto" # "auto" = auto-detect; or specify e.g. "zh", "en"
@@ -145,6 +146,20 @@ class DocMirrorSettings:
     max_file_size: int = 500_000_000  # 500MB hard limit — prevents OOM
     min_image_dimension: int = 50     # 50px — below this, OCR receptive fields cannot function
 
+    # ── Table extraction: RapidTable layer (slow ~10s/page) ──
+    # When document has more than this many pages, skip RapidTable entirely (G4).
+    table_rapid_max_pages: Optional[int] = None   # None = no limit
+    # Only try RapidTable when upstream layer confidence is below this (0–1). Default 0.3.
+    table_rapid_min_confidence_threshold: float = 0.3
+
+    # ── External OCR (low-quality handoff) ──
+    # When image quality is below this (0–100), delegate to external OCR instead of built-in.
+    # 80 = use external OCR for quality < 80 (e.g. blur, skew, poor lighting).
+    external_ocr_quality_threshold: int = 80
+    # Optional: "module:callable" to invoke for external OCR (e.g. "myapp.ocr:call_cloud_ocr").
+    # Callable(image_bgr, page_idx=0, dpi=200, **kwargs) -> list of (x0,y0,x1,y1,text,conf) or dict.
+    external_ocr_provider: Optional[str] = None
+
     @classmethod
     def from_env(cls) -> DocMirrorSettings:
         """
@@ -163,9 +178,22 @@ class DocMirrorSettings:
         return cls(
             default_enhance_mode=os.getenv("DOCMIRROR_ENHANCE_MODE", "standard"),
             max_pages=int(os.getenv("DOCMIRROR_MAX_PAGES", "200")),
+            max_page_concurrency=int(os.getenv("DOCMIRROR_MAX_PAGE_CONCURRENCY", "1")),
             validator_pass_threshold=float(os.getenv("DOCMIRROR_VALIDATOR_THRESHOLD", "0.7")),
             log_level=os.getenv("DOCMIRROR_LOG_LEVEL", "INFO"),
             fail_strategy=os.getenv("DOCMIRROR_FAIL_STRATEGY", "skip"),
+            table_rapid_max_pages=(
+                int(v) if (v := os.getenv("DOCMIRROR_TABLE_RAPID_MAX_PAGES", "").strip()) else None
+            ),
+            table_rapid_min_confidence_threshold=float(
+                os.getenv("DOCMIRROR_TABLE_RAPID_MIN_CONFIDENCE_THRESHOLD", "0.3")
+            ),
+            external_ocr_quality_threshold=int(
+                os.getenv("DOCMIRROR_EXTERNAL_OCR_QUALITY_THRESHOLD", "80")
+            ),
+            external_ocr_provider=(
+                (v := os.getenv("DOCMIRROR_EXTERNAL_OCR_PROVIDER", "").strip()) or None
+            ),
         )
 
     def to_dict(self) -> Dict[str, Any]:

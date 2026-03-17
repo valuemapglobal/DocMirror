@@ -51,6 +51,8 @@ FORMAT_PIPELINES: Dict[str, Dict[str, List[str]]] = {
             "SceneDetector",
             "EntityExtractor",
             "InstitutionDetector",
+            "TableStructureFixer",
+            "LanguageDetector",
             "Validator",
         ],
     },

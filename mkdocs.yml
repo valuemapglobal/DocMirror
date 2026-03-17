@@ -40,7 +40,15 @@ nav:
   - User Guide:
     - Architecture: guide/architecture.md
     - Configuration: guide/configuration.md
+    - External OCR (Low-Quality Handoff): guide/external-ocr.md
     - Format Support: guide/formats.md
+    - Error Handling: guide/error-handling.md
+  - Design:
+    - Solution Design (Gaps & Risks): design/solution-design.md
+    - Performance Optimization: design/performance-optimization.md
+    - Page Concurrency Implementation: design/page-concurrency-implementation.md
+  - Development:
+    - Testing: development/testing.md
   - Plugins:
     - Overview: plugins/overview.md
     - Creating Plugins: plugins/creating-plugins.md

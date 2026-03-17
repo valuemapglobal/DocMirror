@@ -109,7 +109,10 @@ class Orchestrator:
     ):
         self.settings = settings or DocMirrorSettings.from_env()
         self.config = config or self.settings.to_dict()
-        self.extractor = CoreExtractor(seal_detector_fn=seal_detector_fn)
+        self.extractor = CoreExtractor(
+            seal_detector_fn=seal_detector_fn,
+            max_page_concurrency=self.settings.max_page_concurrency,
+        )
         self.pipeline = MiddlewarePipeline(
             fail_strategy=fail_strategy or self.settings.fail_strategy
         )
@@ -195,11 +198,13 @@ class Orchestrator:
             except Exception as e:
                 logger.debug(f"[DocMirror] MutationAnalyzer error bypass: {e}")
 
-        # Safety Fallback: Ensure structurally bound blocks were identified
-        if not base_result.table_blocks:
-            if result.status == "success":
-                result.status = "partial"
-                result.add_error("No tables found in document layout")
+        # Safety Fallback: Only downgrade when document is table-dominant but no tables found (G3)
+        pre_analysis = base_result.metadata.get("pre_analysis") or {}
+        content_type = pre_analysis.get("content_type", "")
+        expect_tables = content_type == "table_dominant"
+        if not base_result.table_blocks and expect_tables and result.status == "success":
+            result.status = "partial"
+            result.add_error("No tables found in document layout")
 
         logger.info(
             f"[DocMirror] Orchestrator \u25c0 status={result.status} | "

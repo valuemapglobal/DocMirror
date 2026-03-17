@@ -1,27 +1,76 @@
+"""
+DocMirror Universal Parsing API
+"""
 from __future__ import annotations
-import shutil
-import logging
-from pathlib import Path
-from tempfile import NamedTemporaryFile
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
+import glob
+import logging
+import os
+import shutil
+import time
+from pathlib import Path
+from tempfile import NamedTemporaryFile, gettempdir
+
+from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Header
 from fastapi.responses import JSONResponse
 
-from docmirror import perceive_document, DocumentType
+from docmirror import perceive_document, DocumentType, __version__
 from docmirror.server.schemas import ParseResponse
 
 logger = logging.getLogger(__name__)
 
+# ── API Key authentication (set via DOCMIRROR_API_KEY env var) ──
+_API_KEY = os.environ.get("DOCMIRROR_API_KEY", "")
+
 app = FastAPI(
     title="DocMirror Universal Parsing API",
     description="High-performance MultiModal document extraction and enhancement engine.",
-    version="0.1.0",
+    version=__version__,
 )
+
+
+# ── Startup/shutdown lifecycle ──
+
+@app.on_event("startup")
+async def _cleanup_stale_temp_files():
+    """Remove temporary files older than 1 hour on startup.
+
+    Prevents disk exhaustion if previous instances crashed without cleanup.
+    """
+    tmp_dir = gettempdir()
+    cutoff = time.time() - 3600  # 1 hour ago
+    cleaned = 0
+    for tmp_file in glob.glob(os.path.join(tmp_dir, "tmp*")):
+        try:
+            if os.path.getmtime(tmp_file) < cutoff:
+                os.unlink(tmp_file)
+                cleaned += 1
+        except OSError:
+            pass
+    if cleaned:
+        logger.info(f"[DocMirror] Cleaned {cleaned} stale temp file(s) on startup")
+
+
+@app.on_event("startup")
+async def _warmup_ocr_engine():
+    """Pre-load OCR ONNX model on startup to avoid cold-start latency.
+
+    First request otherwise pays ~500ms-2s for model loading.
+    """
+    try:
+        from docmirror.core.ocr.vision.rapidocr_engine import get_ocr_engine
+        engine = get_ocr_engine()
+        if engine:
+            logger.info("[DocMirror] OCR engine warmed up on startup")
+    except Exception as e:
+        logger.debug(f"[DocMirror] OCR warmup skipped: {e}")
+
 
 @app.get("/health", tags=["System"])
 async def health_check():
     """Simple health check endpoint."""
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": __version__}
+
 
 def cleanup_file(filepath: Path):
     """Background task to remove temporary files."""
@@ -31,15 +80,31 @@ def cleanup_file(filepath: Path):
     except Exception as e:
         logger.error(f"Failed to cleanup temp file {filepath}: {e}")
 
+
+def _verify_api_key(authorization: str | None) -> None:
+    """Verify API key if DOCMIRROR_API_KEY is configured."""
+    if not _API_KEY:
+        return  # No key configured — open access
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    # Accept "Bearer <key>" or raw key
+    token = authorization.removeprefix("Bearer ").strip()
+    if token != _API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid API key")
+
+
 @app.post("/v1/parse", response_model=ParseResponse, tags=["Parsing"])
 async def parse_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="The document file to parse (PDF, PNG, JPEG, DOCX, etc.)"),
+    authorization: str | None = Header(default=None),
 ):
     """
     Parse a document using the core MultiModal engine.
     The file is saved temporarily, processed, and then asynchronously cleaned up.
     """
+    _verify_api_key(authorization)
+
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided in upload")
 
