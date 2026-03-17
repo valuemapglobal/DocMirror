@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 DocMirror Global Settings
 =========================
@@ -23,6 +29,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -175,7 +184,7 @@ class DocMirrorSettings:
             DOCMIRROR_LOG_LEVEL          → log_level
             DOCMIRROR_FAIL_STRATEGY      → fail_strategy
         """
-        return cls(
+        instance = cls(
             default_enhance_mode=os.getenv("DOCMIRROR_ENHANCE_MODE", "standard"),
             max_pages=int(os.getenv("DOCMIRROR_MAX_PAGES", "200")),
             max_page_concurrency=int(os.getenv("DOCMIRROR_MAX_PAGE_CONCURRENCY", "1")),
@@ -195,6 +204,11 @@ class DocMirrorSettings:
                 (v := os.getenv("DOCMIRROR_EXTERNAL_OCR_PROVIDER", "").strip()) or None
             ),
         )
+        logger.info(
+            f"[Config] Initialized global settings: enhance_mode='{instance.default_enhance_mode}', "
+            f"max_concurrency={instance.max_page_concurrency}, fail_strategy='{instance.fail_strategy}'"
+        )
+        return instance
 
     def to_dict(self) -> Dict[str, Any]:
         """

@@ -49,12 +49,12 @@ graph TD
 
 ## Data Flow
 
-1. **Dispatcher** detects file type, checks Redis cache, and selects adapter
-2. **Adapter** converts raw document → immutable `BaseResult`
-3. **Orchestrator** runs middleware pipeline on the `EnhancedResult`
-4. **Middlewares** execute in order: detect scene → extract entities → detect institution → validate
-5. **Builder** assembles final `PerceptionResult` with persisted `scene` and entities
-6. **Dispatcher** caches result to Redis (`model_dump_json` → `model_validate_json`)
+1. **Dispatcher** (`[Dispatcher]`) detects file type, checks Redis cache, and routes to adapter.
+2. **Adapter** converts raw physical elements → immutable `BaseResult`.
+3. **Orchestrator** (`[Orchestrator]`) spins up middleware pipeline on `EnhancedResult`.
+4. **Middlewares** (`[Middleware]`) execute in sequence: Scene → Entity → Institution → Validation.
+5. **Builder** assembles final 4-layer `PerceptionResult`.
+6. **Dispatcher** caches final dict securely to Redis.
 
 ## PerceptionResult Model
 
@@ -62,10 +62,10 @@ The output model has 4 layers:
 
 | Layer | Field | Contents |
 |-------|-------|----------|
-| **Status** | `status`, `confidence`, `scene` | Parse result quality and document classification |
-| **Content** | `content.text`, `content.blocks`, `content.entities` | Full text, structured blocks, key-value entities |
-| **Trust** | `trust.validation_score`, `trust.image_quality` | Mirror fidelity scoring and image quality assessment |
-| **Diagnostics** | `diagnostics.parser`, `diagnostics.elapsed_ms` | Performance and provenance metadata |
+| **Meta/Status** | `status`, `success`, `error`, `scene` | Parse envelope status, catch-all errors, and document classifier |
+| **Identity** | `identity` | Domain-resolved attributes (e.g. `account_number`, `institution`) via Plugins |
+| **Content** | `blocks` | Flattened standard structures (table blocks, plain text, headers, KV pairs) |
+| **Trust/Provenance** | `trust`, `diagnostics` | Fidelity scoring (`validation_score`), execution timeline, and sub-engine tracebacks |
 
 ## Plugin System
 

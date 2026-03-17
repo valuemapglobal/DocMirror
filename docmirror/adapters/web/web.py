@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Web Adapter — HTML → BaseResult
 =================================
@@ -22,7 +28,7 @@ import logging
 from pathlib import Path
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.domain import BaseResult, Block, PageLayout
+from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +44,7 @@ class WebAdapter(BaseParser):
         extracts semantic blocks (headings, paragraphs, lists) via BeautifulSoup.
         Fallback to raw text if readability processing fails.
         """
+        logger.info(f"[WebAdapter] Starting native extraction for HTML: {file_path}")
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
 

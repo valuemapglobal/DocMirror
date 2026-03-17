@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Layout Detection Model
 ======================
@@ -182,7 +188,7 @@ class LayoutDetector:
         # Sort by y-coordinate for natural reading order
         regions.sort(key=lambda r: r.bbox[1])
 
-        logger.debug(f"[LayoutDetector] Detected {len(regions)} regions (threshold={confidence_threshold})")
+        logger.info(f"[LayoutDetector] Detected {len(regions)} layout regions (confidence_threshold={confidence_threshold:.2f})")
         return regions
 
     @property

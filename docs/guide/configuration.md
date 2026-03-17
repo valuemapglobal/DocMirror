@@ -51,6 +51,17 @@ The middleware pipeline is configured per-format in `docmirror/configs/pipeline_
 | Excel | — | GenericEntityExtractor |
 | Other | — | LanguageDetector |
 
+## Observability and Logging Tracing
+
+DocMirror completely abandons generic standard output in favor of **Component-Isolated Contextual Tracing**.
+Logs contain microsecond precision, Thread/Process mappings, and targeted subsystem labels:
+
+- `[Server]`: Gateway latency and API lifecycle.
+- `[Dispatcher]`: L0 Cache routing and payload inspection.
+- `[Orchestrator]`: BaseResult mapping and overall Enhancement pipeline supervision.
+- `[PluginRegistry]`: Dynamic domain module loading / collision monitoring.
+- `[Merger]`, `[TableFix]`: Precise table anomaly resolution details.
+
 ## Cache Semantics
 
 Parse results are cached by **content identity**, not by file path:

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 MultiModal Perception Factory
 """
@@ -8,10 +14,10 @@ import threading
 from pathlib import Path
 from typing import Union, Optional, TYPE_CHECKING
 from docmirror.framework.dispatcher import ParserDispatcher
-from docmirror.models.document_types import DocumentType
+from docmirror.models.entities.document_types import DocumentType
 
 if TYPE_CHECKING:
-    from docmirror.models.perception_result import PerceptionResult
+    from docmirror.models.entities.perception_result import PerceptionResult
 
 class PerceptionFactory:
     """

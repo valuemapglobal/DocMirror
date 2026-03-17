@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Structured Data Adapter — JSON/CSV → BaseResult
 =================================================
@@ -34,7 +40,7 @@ import logging
 from pathlib import Path
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.domain import BaseResult, Block, PageLayout
+from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +56,7 @@ class StructuredAdapter(BaseParser):
         JSON dicts become key_value Blocks; CSV files become table Blocks.
         """
         ext = file_path.suffix.lower()
+        logger.info(f"[StructuredAdapter] Starting native extraction for {ext} file: {file_path}")
         blocks = []
         text = ""
 

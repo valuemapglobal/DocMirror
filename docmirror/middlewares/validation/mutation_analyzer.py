@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Transform Analyzer (MutationAnalyzer)
 =====================================
@@ -30,7 +36,7 @@ import logging
 from collections import Counter, defaultdict
 from typing import Any, Dict, List
 
-from ...models.mutation import Mutation
+from ...models import Mutation
 
 logger = logging.getLogger(__name__)
 

@@ -28,6 +28,8 @@ Each plugin provides:
 2. **Identity fields** — domain-specific entity definitions (e.g., account holder, institution)
 3. **Domain data builder** — structured output model construction
 
+*Note: Plugin loading is dynamically managed and securely traced by the `[PluginRegistry]` logging component for easy debugging of loading collisions or namespace overlaps.*
+
 ## Identity Resolution
 
 When a plugin matches a detected scene, the `resolve_identity()` function uses the plugin's identity field definitions to map extracted entities into standardized properties:

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Debug PDF Visualizer
 ======================================
@@ -28,7 +34,7 @@ from pathlib import Path
 from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..models.domain import PageLayout
+    from ...models.entities.domain import PageLayout
 
 logger = logging.getLogger(__name__)
 

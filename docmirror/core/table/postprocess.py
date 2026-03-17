@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Table Post-processing
 ======================
@@ -14,7 +20,7 @@ import re
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
-from ..utils.text_utils import _is_cjk_char, _smart_join, normalize_table, parse_amount, _RE_DATE_COMPACT, _RE_DATE_HYPHEN, _RE_TIME, _RE_ONLY_CJK
+from ..utils.text_utils import normalize_table, parse_amount, _RE_DATE_COMPACT, _RE_DATE_HYPHEN, _RE_TIME, _RE_ONLY_CJK
 from ..utils.vocabulary import (
     KNOWN_HEADER_WORDS,
     VOCAB_BY_CATEGORY,
@@ -266,7 +272,9 @@ def _split_merged_columns(
         1 for orig, new in zip(data_rows, new_data_rows)
         if orig != new
     )
-    logger.info(f"semantic column split: repaired {split_count}/{n_rows} rows")
+    
+    spec_desc = ", ".join(f"col {ci}->{target_ci}" for ci, _, target_ci in split_specs)
+    logger.info(f"[TableFix] Applied semantic column split for concatenated cells (e.g. CCB format): repaired {split_count}/{n_rows} rows ({spec_desc})")
 
     return header, new_data_rows
 
@@ -410,13 +418,14 @@ def post_process_table(
     except Exception as e:
         logger.debug(f"junk filter rollback: {e}")
 
-    # ── Fix 3: unified fragment merging via _merge_split_rows ──
-    try:
-        merged = _merge_split_rows([header] + data_rows)
-        header = merged[0]
-        data_rows = merged[1:]
-    except Exception as e:
-        logger.debug(f"merge_split rollback: {e}")
+    # ── Fix 3: unified fragment merging via _merge_split_rows (MOVED) ──
+    # [Semantic Closure Optimization]
+    # We NO LONGER call _merge_split_rows here at the single-page level.
+    # Single-page merging destroyed cross-page fragments by treating orphaned
+    # memo-continuations at the top of a page as "cross-page residue".
+    # All rows (including fragments) are now passed raw into merger.py.
+    # Fragment assembly is now strictly a GLOBAL operation performed
+    # exclusively in table_structure_fix.py:merge_split_rows().
 
     # ── Fix 4: semantic column split — repair cells where adjacent columns ──
     #    were merged due to tiny spatial gaps (e.g. CCB: 序号+摘要, 余额+附言)
@@ -475,36 +484,26 @@ def _find_vocab_words_in_string(
     s: str,
     categories: Optional[List[str]] = None,
 ) -> List[Tuple[str, int, int]]:
-    """Greedy longest-match: find all known header words and their positions
-    in a string (NFKC + simplified/traditional Chinese normalisation).
+    """Find all known header words in a string using Aho-Corasick automaton.
+
+    O(L) single-pass matching replaces the previous O(V × L) greedy search.
+    Returns longest non-overlapping matches sorted by position.
 
     Args:
         s: String to search.
         categories: Restrict matching to these category lists; ``None`` uses the full vocabulary.
     """
+    from ..utils.vocabulary import _AC_ALL, _AC_BY_CATEGORY
+
     s = _normalize_for_vocab(s)
-    vocab = (
-        frozenset().union(*(VOCAB_BY_CATEGORY.get(c, frozenset()) for c in categories))
-        if categories else KNOWN_HEADER_WORDS
-    )
-    sorted_vocab = sorted(vocab, key=len, reverse=True)
 
-    found: List[Tuple[str, int, int]] = []
-    used: set = set()
+    # Select the appropriate AC automaton
+    if categories and len(categories) == 1:
+        ac = _AC_BY_CATEGORY.get(categories[0], _AC_ALL)
+    else:
+        ac = _AC_ALL
 
-    for word in sorted_vocab:
-        start = 0
-        while True:
-            idx = s.find(word, start)
-            if idx == -1:
-                break
-            end = idx + len(word)
-            if not any(i in used for i in range(idx, end)):
-                found.append((word, idx, end))
-                used.update(range(idx, end))
-            start = idx + 1
-
-    return sorted(found, key=lambda x: x[1])
+    return ac.search_longest_non_overlapping(s)
 
 
 def _fix_header_by_vocabulary(
@@ -611,164 +610,6 @@ def _clean_cell(cell: str, col_name: str) -> str:
 
     return cell
 
-
-def _merge_split_rows(table: List[List[str]]) -> List[List[str]]:
-    """Merge rows that were split across lines (F-2 enhanced version)."""
-    if len(table) < 2:
-        return table
-
-    # F-2: page separator / annotation row regex
-    _RE_ANNOTATION = re.compile(
-        r"^[-=\u2500\u2014\u2501]{3,}$|\u63a5\u4e0b\u9875|\u7eed[\u4e0a\u4e0b]?\u9875|\u7b2c\d+\u9875.*\u5171|page\s*\d+|^[-=]{5,}",
-        re.IGNORECASE,
-    )
-    _RE_SUMMARY = re.compile(r"\u5408\u8ba1|\u5171\u8ba1|\u603b\u8ba1|\u5c0f\u8ba1|\u671f\u672b\u4f59\u989d|\u671f\u521d\u4f59\u989d")
-
-    def _row_type(row):
-        """Determine row type: 'data', 'fragment', 'junk', or 'summary'."""
-        row_text = "".join(str(c or "") for c in row).strip()
-        if not row_text:
-            return "junk"
-
-        # Annotation / separator row
-        if _RE_ANNOTATION.search(row_text):
-            return "junk"
-
-        # Summary / totals row
-        if _RE_SUMMARY.search(row_text):
-            if re.search(r"\u6253\u5370\u65f6\u95f4|Print date|\u64cd\u4f5c\u5458", row_text):
-                return "junk"
-            return "summary"
-
-        first = (row[0] if row else "").strip()
-        has_content = any((c or "").strip() for c in row[1:]) if len(row) > 1 else False
-
-        # Empty first column + has content → fragment
-        if not first and has_content:
-            return "fragment"
-
-        # Date anchor: every bank-statement transaction starts with a date; no date = continuation
-        has_date = any(_RE_VALID_DATE.search(c or "") for c in row)
-        if has_date:
-            return "data"
-
-        # Fix 3: amount detection — if row has amounts and first cell is non-empty, treat as data
-        has_amount = any(
-            _RE_IS_AMOUNT.match((c or "").strip().replace(",", "").replace("\u00a5", ""))
-            for c in row if (c or "").strip()
-        )
-        if has_amount and first:
-            return "data"
-
-        # F-2: low fill-rate row (< 50 % columns filled) with no date → fragment
-        filled = sum(1 for c in row if (c or "").strip())
-        if filled > 0 and filled < len(row) * 0.5:
-            return "fragment"
-
-        has_any = any((c or "").strip() for c in row)
-        if has_any:
-            return "fragment"
-
-        return "data"
-
-    def _is_header(row):
-        return not any(
-            any(ch.isdigit() for ch in cell)
-            for cell in row if cell.strip()
-        )
-
-    def _merge_into(target, source):
-        for i, cell in enumerate(source):
-            val = (cell or "").strip()
-            if val and i < len(target):
-                existing = (target[i] or "").strip()
-                if existing:
-                    target[i] = _smart_join(existing, val)
-                else:
-                    target[i] = val
-
-    # Pass 1: filter junk rows (annotations / separators)
-    filtered = []
-    for row in table:
-        rt = _row_type(row)
-        if rt != "junk":
-            filtered.append(row)
-
-    if len(filtered) < 2:
-        return filtered if filtered else table
-
-    # Pass 2: reverse scan — fragments below the header merge into the next data row
-    result = list(filtered)
-    i = len(result) - 1
-    while i >= 1:
-        if _row_type(result[i]) == "fragment":
-            j = i - 1
-            while j >= 0 and _row_type(result[j]) == "fragment":
-                j -= 1
-            if j >= 0 and _is_header(result[j]):
-                k = i + 1
-                while k < len(result) and _row_type(result[k]) == "fragment":
-                    k += 1
-                if k < len(result) and _row_type(result[k]) == "data":
-                    _merge_into(result[k], result[i])
-                    result.pop(i)
-        i -= 1
-
-    # Pass 3: complementary column merge (staggered y-layout fix)
-    # In borderless tables (e.g. 富滇银行), the left-half and right-half of
-    # a single logical row may sit at slightly different y-positions, causing
-    # the engine to split them into separate rows.  Merge when filled columns
-    # have ZERO overlap (strictest possible condition — no false positives).
-    i = 0
-    while i < len(result) - 1:
-        rt_i = _row_type(result[i])
-        rt_next = _row_type(result[i + 1])
-        if rt_i == "fragment" and rt_next in ("data", "fragment"):
-            filled_i = {j for j, c in enumerate(result[i]) if (c or "").strip()}
-            filled_next = {j for j, c in enumerate(result[i + 1]) if (c or "").strip()}
-            if filled_i and filled_next and not (filled_i & filled_next):
-                # For single-column, short-content fragments (e.g. '園' in col6,
-                # '店', '司'), check if the PRECEDING row has content in that
-                # column — if so, this is a wrapped-char overflow, not a
-                # complement.  Long single-column values (e.g. a full merchant
-                # name) are treated as genuine complements.
-                if len(filled_i) == 1 and i > 0:
-                    col_idx = next(iter(filled_i))
-                    frag_text = (result[i][col_idx] or "").strip()
-                    if len(frag_text) <= 3:
-                        prev_filled = {j for j, c in enumerate(result[i - 1]) if (c or "").strip()}
-                        if filled_i & prev_filled:
-                            i += 1
-                            continue  # skip — let Pass 4 merge into preceding row
-                _merge_into(result[i + 1], result[i])
-                result.pop(i)
-                continue
-        i += 1
-
-    # Pass 4: forward scan — fragments merge into the preceding data row
-    merged = [result[0]]
-    seen_data = False
-    for row in result[1:]:
-        rt = _row_type(row)
-        if rt == "fragment":
-            if seen_data and merged and not _is_header(merged[-1]):
-                # Overlap guard: if a substantial fragment's filled columns
-                # mostly overlap the preceding row, it likely starts the NEXT
-                # transaction (staggered y-layout), not a continuation.
-                frag_cols = {j for j, c in enumerate(row) if (c or "").strip()}
-                prev_cols = {j for j, c in enumerate(merged[-1]) if (c or "").strip()}
-                overlap = frag_cols & prev_cols
-                if len(frag_cols) >= 3 and len(overlap) > len(frag_cols) * 0.5:
-                    merged.append(row)
-                else:
-                    _merge_into(merged[-1], row)
-            # else: fragments before the first data row → discard (cross-page residue)
-        else:
-            if rt in ("data", "summary"):
-                seen_data = True
-            merged.append(row)
-
-    return merged
 
 
 def _extract_summary_entities(chars: list, out: dict):

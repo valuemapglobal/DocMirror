@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Core Immutable Data Models (Frozen Domain Models)
 =================================================
@@ -72,6 +78,20 @@ class Block:
     heading_level: Optional[int] = None
     # Associated image captions beautifully dynamically.
     caption: Optional[str] = None
+
+    @classmethod
+    def _fast(cls, **kwargs):
+        """S4: Bypass frozen __setattr__ for internal high-frequency construction."""
+        obj = cls.__new__(cls)
+        sa = object.__setattr__
+        for f in dataclasses.fields(cls):
+            if f.name in kwargs:
+                sa(obj, f.name, kwargs[f.name])
+            elif f.default is not dataclasses.MISSING:
+                sa(obj, f.name, f.default)
+            elif f.default_factory is not dataclasses.MISSING:
+                sa(obj, f.name, f.default_factory())
+        return obj
 
 
 @dataclasses.dataclass(frozen=True)

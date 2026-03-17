@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Entity Extraction Middleware (Entity Extractor Middleware)
 ==========================================================
@@ -19,7 +25,7 @@ import re
 from typing import Dict
 
 from ..base import BaseMiddleware
-from ...models.enhanced import EnhancedResult
+from ...models import EnhancedResult
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +74,7 @@ class EntityExtractor(BaseMiddleware):
         # Write dynamically mapped dimensions sequentially organically
         result.enhanced_data["extracted_entities"] = entities
         logger.info(
-            f"[DocMirror] EntityExtractor keys: {list(entities.keys())}"
+            f"[EntityExtractor] keys: {list(entities.keys())}"
         )
 
         return result

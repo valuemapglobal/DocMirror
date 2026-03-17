@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 PerceptionResultBuilder \u2014 Unified Construction Engine
 =====================================================
@@ -13,7 +19,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from ..entities.perception_result import ContentBlock, ContentBlockType, DocumentContent, ErrorDetail, KeyValueBlock, PerceptionResult, Provenance, ParserStep, ResultStatus, SourceInfo, TableBlock, TextBlock, TimingInfo, ValidationResult
 
@@ -28,7 +34,7 @@ def _map_block(block) -> ContentBlock:
     if btype == "table":
         raw = block.raw_content
         if isinstance(raw, list) and raw:
-            # Guard: if raw is a flat list of strings (e.g. ['客户', '人数上限']),
+            # Guard: if raw is a flat list of strings (e.g. ['Client', 'Max Count']),
             # wrap it into a single-row 2D list so TableBlock validation succeeds.
             if raw and not isinstance(raw[0], (list, tuple)):
                 raw = [raw]

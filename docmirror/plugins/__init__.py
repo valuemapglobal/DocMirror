@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Domain Plugin Interface
 =======================
@@ -122,13 +128,13 @@ class PluginRegistry:
         name = plugin.domain_name
         if name in self._plugins and not override:
             logger.warning(
-                f"Plugin '{name}' already registered; "
+                f"[PluginRegistry] Plugin '{name}' already registered; "
                 "use override=True to replace"
             )
             return
         self._plugins[name] = plugin
         logger.debug(
-            f"Registered domain plugin: {name} ({plugin.display_name})"
+            f"[PluginRegistry] Registered domain plugin: {name} ({plugin.display_name})"
         )
 
     def get(self, domain_name: str) -> Optional[DomainPlugin]:
@@ -187,11 +193,11 @@ class PluginRegistry:
                         self.register(mod.Plugin())
                 except Exception as e:
                     logger.warning(
-                        f"Failed to load plugin "
+                        f"[PluginRegistry] Failed to load plugin "
                         f"docmirror.plugins.{modname}: {e}"
                     )
         except ImportError:
-            logger.debug("No docmirror.plugins package found")
+            logger.debug("[PluginRegistry] No docmirror.plugins package found")
 
 
 # Global singleton registry

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "docmirror"
-version = "0.2.0"
+version = "0.3.0"
 description = "Universal document parsing engine with OCR, layout analysis, and table extraction"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
@@ -81,8 +81,11 @@ target-version = "py310"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP"]
-ignore = ["E501"]
+select = ["E", "F", "W", "I", "UP", "C901"]
+ignore = ["E501", "F401"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -111,3 +114,5 @@ exclude_lines = [
     "pass",
     "raise ImportError",
 ]
+
+

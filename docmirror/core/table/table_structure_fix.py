@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Table Structure Fix Engine
 ===========================
@@ -42,85 +48,144 @@ logger = logging.getLogger(__name__)
 _TIME_ONLY_RE = re.compile(r"^\d{1,2}:\d{2}(:\d{2})?$")
 # Date pattern (YYYY-MM-DD or YYYY.MM.DD or YYYY/MM/DD)
 _DATE_RE = re.compile(r"^\d{4}[-./]\d{1,2}[-./]\d{1,2}$")
+_TIME_ONLY_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
+
+
+def _smart_join(s1: str, s2: str) -> str:
+    """Joins two strings with a space, handling empty strings gracefully."""
+    if not s1:
+        return s2
+    if not s2:
+        return s1
+    return f"{s1} {s2}"
 
 
 def merge_split_rows(table: List[List[str]]) -> List[List[str]]:
     """Merge records that were split across multiple rows using Unsupervised Anchor Folding (Phase 3)."""
     try:
-        if not table or len(table) < 3:
+        if len(table) < 2:
             return table
 
         header = table[0]
         data = table[1:]
         col_count = len(header)
         
-        # ── Step 1: Anchor Column Detection ──
-        anchor_col = 0
-        best_score = -1
-        for c in range(min(3, col_count)):
-            score = 0
-            for row in data:
-                if c < len(row):
-                    cell = row[c].strip()
-                    if _DATE_RE.match(cell):
-                        score += 10
-                    elif re.match(r"^\d{1,6}$", cell):
-                        score += 1
-            if score > best_score and score > 0:
-                best_score = score
-                anchor_col = c
+        if not data:
+            return table
 
-        # ── Step 2: Logical Row Folding ──
+        # ── Step 1: Detect Semantic Anchor Columns ──
+        # An anchor column is a strong indicator of a new transaction.
+        # Primary anchors are Date columns and Amount columns.
+        date_col = -1
+        amount_col = -1
+        
+        # Scan header to find potential anchor columns
+        for c, h_text in enumerate(header):
+            h_norm = (h_text or "").strip().lower()
+            if any(kw in h_norm for kw in ["日期", "时间", "date"]):
+                date_col = c
+            if any(kw in h_norm for kw in ["发生额", "金额", "支出", "存入", "余额", "amount", "balance"]):
+                amount_col = c
+                
+        # If header search failed, scan the first 5 data rows
+        if date_col == -1 or amount_col == -1:
+            for c in range(min(10, col_count)):
+                date_score = 0
+                amount_score = 0
+                for row in data[:5]:
+                    if c < len(row):
+                        cell = (row[c] or "").strip()
+                        if _DATE_RE.match(cell) or _TIME_ONLY_RE.match(cell):
+                            date_score += 1
+                        # Remove commas and currency symbols for amount check
+                        clean_cell = cell.replace(",", "").replace("¥", "").replace("$", "")
+                        if re.match(r"^-?\d+\.\d{2}$", clean_cell):
+                            amount_score += 1
+                
+                if date_score > 0 and date_col == -1:
+                    date_col = c
+                if amount_score > 0 and amount_col == -1:
+                    amount_col = c
+
+        # ── Step 2: Global Semantic Closure Engine ──
         result = [header]
         current_record = None
 
         for row in data:
+            # Pad or truncate row to match header
             if len(row) < col_count:
                 row = row + [""] * (col_count - len(row))
             elif len(row) > col_count:
-                pass
+                row = row[:col_count]
 
+            # Check if row has any content at all
             has_data = any((c or "").strip() for c in row)
             if not has_data:
                 continue
-                
-            first_cell = row[0].strip() if row else ""
+
+            # Semantic Anchor Detection for the current row
+            is_anchor_row = False
+            
+            # Condition 1: Has a valid date in the date column
+            if date_col != -1 and date_col < len(row):
+                cell = (row[date_col] or "").strip()
+                if _DATE_RE.match(cell):
+                    is_anchor_row = True
+                    
+            # Condition 2: Has a valid amount in the amount column
+            if not is_anchor_row and amount_col != -1 and amount_col < len(row):
+                cell = (row[amount_col] or "").strip().replace(",", "").replace("¥", "")
+                if re.match(r"^-?\d+\.\d{2}$", cell):
+                    is_anchor_row = True
+                    
+            # Fallback Pattern 1: Any sequence number at column 0 (e.g. "123")
+            if not is_anchor_row and len(row) > 0:
+                cell = (row[0] or "").strip()
+                if re.match(r"^\d{1,6}$", cell):
+                    is_anchor_row = True
+
+            # Fallback Pattern 2: Time-Only continuation 
+            # (Special case: time is split from date onto the next line)
+            first_cell = (row[0] or "").strip()
             if (
                 current_record 
                 and _TIME_ONLY_RE.match(first_cell)
-                and _DATE_RE.match(current_record[0].strip())
+                and _DATE_RE.match((current_record[0] or "").strip())
             ):
                 current_record[0] = f"{current_record[0].strip()} {first_cell}"
-                for j in range(1, min(len(row), len(current_record), col_count)):
-                    if row[j].strip() and not current_record[j].strip():
-                        current_record[j] = row[j]
-                    elif row[j].strip() and current_record[j].strip():
-                        current_record[j] = current_record[j] + " " + row[j]
+                for j in range(1, col_count):
+                    v = (row[j] or "").strip()
+                    if v:
+                        existing = (current_record[j] or "").strip()
+                        current_record[j] = _smart_join(existing, v) if existing else v
                 continue
 
-            anchor_val = row[anchor_col].strip() if anchor_col < len(row) else ""
-            
-            if anchor_val:
+            if is_anchor_row:
+                # ── Anchor Row: Seal the previous record and start a new one ──
                 if current_record:
                     result.append(current_record)
-                current_record = list(row)[:col_count]
-                if len(current_record) < col_count:
-                    current_record += [""] * (col_count - len(current_record))
+                current_record = list(row)
             else:
+                # ── Fragment Row: Merge into the current open record ──
                 if current_record:
-                    for i in range(min(len(row), col_count)):
+                    logger.info("[TableFix] Merging split fragment row into anchor record (Unsupervised Anchor Folding)")
+                    # Semantic Closure: Append to existing record
+                    for i in range(col_count):
                         v = (row[i] or "").strip()
                         if v:
                             existing = (current_record[i] or "").strip()
+                            # Use newline for structural merges, smart_join for others
                             if existing:
                                 current_record[i] = existing + "\n" + v
                             else:
                                 current_record[i] = v
                 else:
-                    current_record = list(row)[:col_count]
-                    if len(current_record) < col_count:
-                        current_record += [""] * (col_count - len(current_record))
+                    # Rare edge case: Fragment appears before any Anchor row
+                    # (Usually happens due to preamble strip failure)
+                    # We have to treat it as a new record
+                    current_record = list(row)
 
+        # Seal the final record
         if current_record:
             result.append(current_record)
 
@@ -625,8 +690,8 @@ def remove_empty_interior_columns(table: List[List[str]]) -> List[List[str]]:
     for row in table:
         result.append([row[ci] if ci < len(row) else "" for ci in keep])
 
-    logger.debug(
-        f"[fix] removed {len(cols_to_remove)} empty interior columns: "
-        f"{sorted(cols_to_remove)}"
+    logger.info(
+        f"[TableFix] Dropping {len(cols_to_remove)} empty interior columns: "
+        f"indexes {sorted(cols_to_remove)} (often caused by dual-row headers)"
     )
     return result

@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 MultiModal Parser Dispatcher
 ============================
@@ -93,8 +99,8 @@ class ParserDispatcher:
                     _head = _f.read(4096)
                 _partial = hashlib.md5(_head).hexdigest()[:8]
                 _file_checksum = f"fast:{file_size}:{_file_mtime}:{_partial}"
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.debug(f"[Dispatcher] File stat failed: {exc}")
             _ft = filetype.guess(str(path))
             _file_mime = _ft.mime if _ft else ""
         _ts = _mark('1_validation_checksum', _ts)
@@ -106,7 +112,7 @@ class ParserDispatcher:
             try:
                 cached_json = await parse_cache.get(_file_checksum, document_type or "")
                 if cached_json:
-                    from docmirror.models.perception_result import PerceptionResult
+                    from docmirror.models.entities.perception_result import PerceptionResult
                     logger.info(f"[Dispatcher] \u26a1 Cache HIT for {path.name}")
                     _emit(2, "Checking cache", "Cache HIT \u26a1")
                     return PerceptionResult.model_validate_json(cached_json)
@@ -169,7 +175,7 @@ class ParserDispatcher:
                 _is_forged, _forgery_reasons = detect_image_forgery(path)
             _emit(4, "Security scan", "Forged" if _is_forged else "Clean")
         except Exception as e:
-            logger.warning(f"Forgery Detection Engine error: {e}")
+            logger.warning(f"[Dispatcher] Forgery Detection Engine error: {e}")
         _ts = _mark('4_security_scan', _ts)
 
         # ── 6. Parse dispatch \u2014 invoke `perceive()` ──
@@ -188,7 +194,7 @@ class ParserDispatcher:
         }
         try:
             _emit(5, "Extracting content", f"via {pname}")
-            logger.info(f"Dispatching to {pname}")
+            logger.info(f"[Dispatcher] Dispatching to {pname}")
             # The first positional arg of perceive() is file_path.
             # To avoid "got multiple values for argument 'file_path'",
             # exclude it before expanding **context kwargs.
@@ -199,7 +205,7 @@ class ParserDispatcher:
             if fallback and (not perception.success or not perception.content.text.strip()):
                 fallback_parser = self._get_fallback_parser(file_type)
                 if fallback_parser and fallback_parser.__class__ != parser.__class__:
-                    logger.info(f"Primary {pname} failed/empty, attempting fallback: {fallback_parser.__class__.__name__}")
+                    logger.info(f"[Dispatcher] Primary {pname} failed/empty, attempting fallback: {fallback_parser.__class__.__name__}")
                     context["parser_name"] = fallback_parser.__class__.__name__
                     fb_ctx = {k: v for k, v in context.items() if k != "file_path"}
                     fb_perception = await fallback_parser.perceive(path, **fb_ctx)
@@ -229,7 +235,7 @@ class ParserDispatcher:
             return perception
 
         except Exception as e:
-            logger.error(f"Critical orchestration error: {e}", exc_info=True)
+            logger.error(f"[Dispatcher] Critical orchestration error: {e}", exc_info=True)
             return self._build_failure(
                 "ORCHESTRATION_FAILURE", f"Orchestration failure: {str(e)}", _t0, str(path),
                 file_type=_file_type, is_forged=_is_forged, forgery_reasons=_forgery_reasons,
@@ -296,39 +302,39 @@ class ParserDispatcher:
         return mapping.get(ext, 'unknown')
 
     def _get_parser_for_type(self, file_type: str) -> Optional[BaseParser]:
-        """
-        L0 static mapping lookup table \u2014 prefers the Adapter pattern layer for decoupling.
+        """L0 static mapping lookup table — prefers the Adapter pattern layer for decoupling.
+
         PDF resolution uses the unified MultiModal Pipeline (via PDFAdapter routing).
         """
-        if file_type == 'pdf' or file_type == 'image':
-            # PDF and image share the same pipeline: CoreExtractor (image → virtual PDF)
-            # so that external/built-in OCR output is unified with electronic document output.
-            import os
-            from docmirror.adapters import PDFAdapter
+        import os
+
+        # Dict Dispatch: file type → (adapter_module_path, class_name, kwargs)
+        _PARSER_REGISTRY = {
+            "pdf":        ("docmirror.adapters", "PDFAdapter",        {"enhance_mode": os.environ.get("DOCMIRROR_ENHANCE_MODE", "standard")}),
+            "image":      ("docmirror.adapters", "PDFAdapter",        {"enhance_mode": os.environ.get("DOCMIRROR_ENHANCE_MODE", "standard")}),
+            "word":       ("docmirror.adapters", "WordAdapter",       {}),
+            "excel":      ("docmirror.adapters", "ExcelAdapter",      {}),
+            "ppt":        ("docmirror.adapters", "PPTAdapter",        {}),
+            "email":      ("docmirror.adapters", "EmailAdapter",      {}),
+            "structured": ("docmirror.adapters", "StructuredAdapter",  {}),
+            "web":        ("docmirror.adapters", "WebAdapter",        {}),
+        }
+
+        entry = _PARSER_REGISTRY.get(file_type)
+        if entry is None:
+            return None
+
+        module_path, class_name, kwargs = entry
+        import importlib
+        mod = importlib.import_module(module_path)
+        adapter_cls = getattr(mod, class_name)
+
+        if file_type in ("pdf", "image"):
             logger.info(
                 "[Dispatcher] Using PDFAdapter (unified pipeline for %s)",
                 file_type,
             )
-            return PDFAdapter(enhance_mode=os.environ.get("DOCMIRROR_ENHANCE_MODE", "standard"))
-        elif file_type == 'word':
-            from docmirror.adapters import WordAdapter
-            return WordAdapter()
-        elif file_type == 'excel':
-            from docmirror.adapters import ExcelAdapter
-            return ExcelAdapter()
-        elif file_type == 'ppt':
-            from docmirror.adapters import PPTAdapter
-            return PPTAdapter()
-        elif file_type == 'email':
-            from docmirror.adapters import EmailAdapter
-            return EmailAdapter()
-        elif file_type == 'structured':
-            from docmirror.adapters import StructuredAdapter
-            return StructuredAdapter()
-        elif file_type == 'web':
-            from docmirror.adapters import WebAdapter
-            return WebAdapter()
-        return None
+        return adapter_cls(**kwargs)
 
     def _get_fallback_parser(self, file_type: str) -> Optional[BaseParser]:
         """

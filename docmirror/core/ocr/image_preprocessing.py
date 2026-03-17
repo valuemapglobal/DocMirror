@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Image Preprocessing for OCR
 ============================
@@ -92,7 +98,7 @@ def _base_preprocess(img_bgr):
     return img_bgr, h, w
 
 
-def preprocess_minimal(img_bgr):
+def preprocess_minimal(img_bgr) -> "np.ndarray":
     """Minimal preprocessing (Strategy B): preserves maximum information.
 
     Delegates shared steps to _base_preprocess, then applies CLAHE + bilateral.
@@ -113,7 +119,7 @@ def preprocess_minimal(img_bgr):
     return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
 
-def preprocess_image_for_ocr(img_bgr):
+def preprocess_image_for_ocr(img_bgr) -> "np.ndarray":
     """Enhanced image preprocessing for OCR (v4 — full pipeline).
 
     Delegates shared base steps to _base_preprocess(), then applies:

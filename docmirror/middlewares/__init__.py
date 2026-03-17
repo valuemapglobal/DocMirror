@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """MultiModal MiddlewarePipeline。"""
 
 from .base import BaseMiddleware, MiddlewarePipeline
@@ -16,20 +22,4 @@ __all__ = [
     "Validator", "MutationAnalyzer",
 ]
 
-# ── Backward-compatible shims ──────────────────────────────────────────
-# External code may still use  ``from ..middlewares.scene_detector import ...``
-# These module-level re-exports keep those import paths working.
-from docmirror._compat import register_shims as _register_shims
-
-_register_shims({
-    f"{__name__}.scene_detector":       f"{__name__}.detection.scene_detector",
-    f"{__name__}.language_detector":    f"{__name__}.detection.language_detector",
-    f"{__name__}.institution_detector": f"{__name__}.detection.institution_detector",
-    f"{__name__}.entity_extractor":     f"{__name__}.extraction.entity_extractor",
-    f"{__name__}.generic_entity_extractor": f"{__name__}.extraction.generic_entity_extractor",
-    f"{__name__}.header_alignment":     f"{__name__}.alignment.header_alignment",
-    f"{__name__}.amount_splitter":      f"{__name__}.alignment.amount_splitter",
-    f"{__name__}.validator":            f"{__name__}.validation.validator",
-    f"{__name__}.mutation_analyzer":    f"{__name__}.validation.mutation_analyzer",
-})
 

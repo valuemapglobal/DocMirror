@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Scanned Page OCR Fallback
 =========================
@@ -234,45 +240,24 @@ def _preprocess_minimal(img_bgr):
     return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
 
-def _preprocess_image_for_ocr(img_bgr):
-    """Enhanced image preprocessing for OCR (v4).
 
-    Steps:
-        0.   Low-res detection + Lanczos4 upscaling with sharpening.
-        0.5  Edge padding (20 px white border).
-        A.   Red seal removal — HSV red-channel segmentation.
-        E.   Watermark removal — light/faded colour suppression.
-        B.   Decorative border cropping — contour-based.
-        D.   Perspective correction — 4-point warp for skewed docs.
-        C.   Background lighting equalisation — division-based.
-        1.   Adaptive CLAHE contrast enhancement.
-        2.   Bilateral filtering.
-        3.   Unsharp mask sharpening.
-        4.   Multi-method binarisation voting (Otsu + adaptive
-             Gaussian + adaptive mean, 2/3 majority).
-        F.   Table/grid line removal — morphological line detection.
-        5.   Morphological opening for speckle noise.
-    """
-    import cv2
-    import numpy as np
-
+def _ocr_upscale_and_normalize(img_bgr, cv2, np):
+    """Stage 1: Upscale low-res images, gamma correct, histogram stretch, edge pad."""
     h, w = img_bgr.shape[:2]
 
-    # ── Step 0: adaptive upscaling for low-resolution images ──
+    # ── Adaptive upscaling for low-resolution images ──
     min_dim = min(h, w)
     if min_dim < 500:
-        # Very small images (e.g. 630×681 property cert) need 4× upscale
         scale = 4.0
     elif min_dim < 1000:
         scale = 2.0
     else:
-        scale = 0  # no upscale needed
+        scale = 0
     if scale > 0:
         img_bgr = cv2.resize(
             img_bgr, None, fx=scale, fy=scale,
             interpolation=cv2.INTER_LANCZOS4,
         )
-        # Post-upscale sharpening to recover detail
         sharp_kernel = np.array([
             [0, -0.5, 0],
             [-0.5, 3, -0.5],
@@ -280,14 +265,13 @@ def _preprocess_image_for_ocr(img_bgr):
         ], dtype=np.float32)
         img_bgr = cv2.filter2D(img_bgr, -1, sharp_kernel)
         h, w = img_bgr.shape[:2]
-        logger.debug(f"[OCR] Upscaled {scale:.0f}× (Lanczos+sharp) → {w}x{h}")
+        logger.debug(f"[OCR] Upscaled {scale:.0f}\u00d7 (Lanczos+sharp) \u2192 {w}x{h}")
 
-    # ── Step 0.1: gamma correction for dark images ──
+    # ── Gamma correction for dark images ──
     gray_check = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     mean_brightness = float(gray_check.mean())
     img_contrast = float(gray_check.std())
     if mean_brightness < 80:
-        # Dark image (e.g. dark desk background in phone photo)
         gamma = 0.6
         lut = np.array([
             min(255, int(((i / 255.0) ** gamma) * 255))
@@ -295,13 +279,12 @@ def _preprocess_image_for_ocr(img_bgr):
         ], dtype=np.uint8)
         img_bgr = cv2.LUT(img_bgr, lut)
         logger.debug(
-            f"[OCR] Gamma correction (γ={gamma}): "
-            f"brightness {mean_brightness:.0f} → {cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY).mean():.0f}"
+            f"[OCR] Gamma correction (\u03b3={gamma}): "
+            f"brightness {mean_brightness:.0f} \u2192 {cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY).mean():.0f}"
         )
 
-    # ── Step 0.2: histogram stretch for very low contrast ──
+    # ── Histogram stretch for very low contrast ──
     if img_contrast < 25:
-        # Very low contrast (e.g. light grey text on light background)
         for c in range(3):
             channel = img_bgr[:, :, c]
             p_lo, p_hi = np.percentile(channel, (1, 99))
@@ -313,44 +296,42 @@ def _preprocess_image_for_ocr(img_bgr):
                 ).astype(np.uint8)
                 img_bgr[:, :, c] = channel
         logger.debug(
-            f"[OCR] Histogram stretch: contrast {img_contrast:.0f} → "
+            f"[OCR] Histogram stretch: contrast {img_contrast:.0f} \u2192 "
             f"{cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY).std():.0f}"
         )
 
-    # ── Step 0.5: edge padding to prevent border text clipping ──
+    # ── Edge padding to prevent border text clipping ──
     pad = 20
     img_bgr = cv2.copyMakeBorder(
         img_bgr, pad, pad, pad, pad,
         cv2.BORDER_CONSTANT, value=(255, 255, 255),
     )
+    return img_bgr
+
+
+def _ocr_remove_interference(img_bgr, cv2, np):
+    """Stage 2: Remove seals, watermarks, borders; correct perspective and BG lighting."""
     h, w = img_bgr.shape[:2]
 
-    # ── Step A: Dynamic Color Slicing (KMeans HSV Clustering) ──
+    # ── KMeans Color Slicing ──
     try:
-        # Downsample for faster KMeans clustering
         small_for_km = cv2.resize(img_bgr, (0, 0), fx=0.5, fy=0.5)
         hsv_for_km = cv2.cvtColor(small_for_km, cv2.COLOR_BGR2HSV)
         pixels = hsv_for_km.reshape((-1, 3)).astype(np.float32)
-        
-        # We look for 3 dominant clusters (e.g. White Background, Black Text, Colored Seal/Overlay)
         k = 3
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
         _, labels, centers = cv2.kmeans(pixels, k, None, criteria, 3, cv2.KMEANS_PP_CENTERS)
-        
         centers = np.uint8(centers)
-        
-        # Identify the "White/Gray Background" cluster (High Value, Low Saturation)
+
         bg_cluster_idx = -1
         max_bg_score = -1
         for i, center in enumerate(centers):
             h_val, s_val, v_val = center
-            # Background is usually bright (V high) and desaturated (S low)
             score = float(v_val) - float(s_val)
             if score > max_bg_score:
                 max_bg_score = score
                 bg_cluster_idx = i
-                
-        # Identify "Dark Text" cluster (Low Value)
+
         text_cluster_idx = -1
         min_v = 256
         for i, center in enumerate(centers):
@@ -359,62 +340,38 @@ def _preprocess_image_for_ocr(img_bgr):
             if center[2] < min_v:
                 min_v = center[2]
                 text_cluster_idx = i
-                
-        # Map labels back to full size using nearest neighbor (fastest)
+
         full_labels = cv2.resize(labels.reshape(small_for_km.shape[:2]), (w, h), interpolation=cv2.INTER_NEAREST)
-        
-        # Create a unified high-contrast image
-        # Turn background to pure white
         img_bgr[full_labels == bg_cluster_idx] = (255, 255, 255)
-        # Turn text cluster to pure black
         img_bgr[full_labels == text_cluster_idx] = (0, 0, 0)
-        
-        # Any 3rd cluster (seals, watermarks, colored overlays)
+
         for i in range(k):
             if i != bg_cluster_idx and i != text_cluster_idx:
-                # If it's a red seal (high saturation, hue near 0 or 180), turn it white
                 h_val, s_val, v_val = centers[i]
                 is_red = (h_val < 15 or h_val > 165) and s_val > 50
                 is_watermark = s_val < 40 and v_val > 200
-                
                 if is_red or is_watermark:
                     img_bgr[full_labels == i] = (255, 255, 255)
-                    logger.debug(f"[OCR] Color Slicer: Erased interference cluster {i} (H:{h_val} S:{s_val} V:{v_val})")
                 else:
-                    # Treat unknown colored overlays as dark text to be safe
                     img_bgr[full_labels == i] = (0, 0, 0)
-                    logger.debug(f"[OCR] Color Slicer: Preserved cluster {i} (H:{h_val} S:{s_val} V:{v_val}) as text")
-
     except Exception as e:
         logger.debug(f"[OCR] KMeans color slicing failed: {e}")
 
-    # ── Step E: watermark removal (light/faded colour suppression) ──
+    # ── Watermark removal ──
     try:
         hsv_wm = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
-        # Watermarks are typically very light (high V) and desaturated (low S)
-        # Detect pixels with: low saturation (<40) AND high value (>200)
         wm_mask = cv2.inRange(hsv_wm, (0, 0, 200), (180, 40, 255))
-        # Also catch slightly tinted watermarks (pastel colours)
         wm_mask2 = cv2.inRange(hsv_wm, (0, 0, 180), (180, 60, 255))
-        # Merge both masks
         wm_combined = cv2.bitwise_or(wm_mask, wm_mask2)
-        # Only apply if watermark-like pixels cover <40% of image
-        # (avoid blanking out white-background documents)
         wm_ratio = cv2.countNonZero(wm_combined) / (h * w)
         if 0.01 < wm_ratio < 0.40:
-            # Use morphological close to connect scattered watermark regions
             kernel_wm = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-            wm_combined = cv2.morphologyEx(
-                wm_combined, cv2.MORPH_CLOSE, kernel_wm, iterations=1
-            )
+            wm_combined = cv2.morphologyEx(wm_combined, cv2.MORPH_CLOSE, kernel_wm, iterations=1)
             img_bgr[wm_combined > 0] = (255, 255, 255)
-            logger.debug(
-                f"[OCR] Watermark removal: {wm_ratio:.1%} light pixels → white"
-            )
     except Exception as e:
         logger.debug(f"[OCR] Watermark removal skipped: {e}")
 
-    # ── Step B: decorative border cropping ──
+    # ── Decorative border cropping ──
     try:
         gray_border = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
         _, thresh_border = cv2.threshold(
@@ -424,14 +381,10 @@ def _preprocess_image_for_ocr(img_bgr):
             thresh_border, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
         if contours:
-            # Find the largest contour that's likely the content area
             largest = max(contours, key=cv2.contourArea)
             area_ratio = cv2.contourArea(largest) / (h * w)
-            # Only crop if the contour covers 20-95% of the image
-            # (too small = noise, too large = no border to remove)
             if 0.20 < area_ratio < 0.95:
                 x, y, cw, ch = cv2.boundingRect(largest)
-                # Add a small margin to avoid clipping
                 margin = 10
                 x = max(0, x - margin)
                 y = max(0, y - margin)
@@ -439,14 +392,10 @@ def _preprocess_image_for_ocr(img_bgr):
                 ch = min(h - y, ch + 2 * margin)
                 img_bgr = img_bgr[y:y+ch, x:x+cw]
                 h, w = img_bgr.shape[:2]
-                logger.debug(
-                    f"[OCR] Border crop: content area {cw}x{ch} "
-                    f"(ratio={area_ratio:.2f})"
-                )
     except Exception as e:
         logger.debug(f"[OCR] Border crop skipped: {e}")
 
-    # ── Step D: perspective correction ──
+    # ── Perspective correction ──
     try:
         gray_persp = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
         blurred_persp = cv2.GaussianBlur(gray_persp, (5, 5), 0)
@@ -460,10 +409,8 @@ def _preprocess_image_for_ocr(img_bgr):
             largest_p = max(contours_p, key=cv2.contourArea)
             peri = cv2.arcLength(largest_p, True)
             approx = cv2.approxPolyDP(largest_p, 0.02 * peri, True)
-            # Warp only if quadrilateral covering >30% of image area
             if len(approx) == 4 and cv2.contourArea(approx) > 0.30 * h * w:
                 pts = approx.reshape(4, 2).astype(np.float32)
-                # Order: top-left, top-right, bottom-right, bottom-left
                 s = pts.sum(axis=1)
                 d = np.diff(pts, axis=1).ravel()
                 ordered = np.array([
@@ -487,42 +434,41 @@ def _preprocess_image_for_ocr(img_bgr):
                     borderMode=cv2.BORDER_REPLICATE,
                 )
                 h, w = img_bgr.shape[:2]
-                logger.debug(f"[OCR] Perspective corrected → {w}x{h}")
     except Exception as e:
         logger.debug(f"[OCR] Perspective correction skipped: {e}")
 
-    # ── Step C: background lighting equalisation (division method) ──
+    # ── Background lighting equalisation ──
     try:
         gray_bg = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY).astype(np.float32)
-        # Large-kernel Gaussian blur to estimate background illumination
         bg = cv2.GaussianBlur(gray_bg, (0, 0), sigmaX=51)
-        # Division: normalise foreground by background
-        # Result: uniform illumination with text preserved
-        bg[bg < 1] = 1  # avoid division by zero
+        bg[bg < 1] = 1
         normalised = (gray_bg / bg * 255).clip(0, 255).astype(np.uint8)
-        # Convert back to BGR for downstream pipeline
         img_bgr = cv2.cvtColor(normalised, cv2.COLOR_GRAY2BGR)
-        h, w = img_bgr.shape[:2]
     except Exception as e:
         logger.debug(f"[OCR] Background equalisation skipped: {e}")
 
+    return img_bgr
+
+
+def _ocr_binarize_and_clean(img_bgr, cv2, np):
+    """Stage 3: CLAHE + bilateral + binarisation voting + line removal + morph repair."""
+    h, w = img_bgr.shape[:2]
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
 
-    # ── Step 1: adaptive CLAHE (clip limit based on measured contrast) ──
+    # ── Adaptive CLAHE ──
     contrast = gray.std()
     clip_limit = 3.0 if contrast < 40 else 2.0 if contrast < 80 else 1.5
     clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(8, 8))
     gray = clahe.apply(gray)
 
-    # ── Step 2: bilateral filtering (edge-preserving noise reduction) ──
+    # ── Bilateral filtering ──
     gray = cv2.bilateralFilter(gray, d=5, sigmaColor=50, sigmaSpace=50)
 
-    # ── Step 3: unsharp mask sharpening ──
+    # ── Unsharp mask sharpening ──
     blurred = cv2.GaussianBlur(gray, (0, 0), 3)
     gray = cv2.addWeighted(gray, 1.5, blurred, -0.5, 0)
 
-    # ── Step 4: multi-method binarisation voting ──
-    # Three methods, pixel-level 2/3 majority vote
+    # ── Multi-method binarisation voting ──
     _, bin_otsu = cv2.threshold(
         gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
     )
@@ -541,49 +487,53 @@ def _preprocess_image_for_ocr(img_bgr):
     )
     binary = np.where(vote >= 2 * 255, 255, 0).astype(np.uint8)
 
-    # ── Step F: table/grid line removal ──
-    # Detect and erase long horizontal/vertical lines that interfere with OCR
+    # ── Table/grid line removal ──
     try:
-        # Detect horizontal lines
         h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (w // 8, 1))
         h_lines = cv2.morphologyEx(
             cv2.bitwise_not(binary), cv2.MORPH_OPEN, h_kernel, iterations=1
         )
-        # Detect vertical lines
         v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, h // 8))
         v_lines = cv2.morphologyEx(
             cv2.bitwise_not(binary), cv2.MORPH_OPEN, v_kernel, iterations=1
         )
-        # Combine and dilate slightly to cover anti-aliased edges
         all_lines = cv2.bitwise_or(h_lines, v_lines)
         kernel_line_d = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
         all_lines = cv2.dilate(all_lines, kernel_line_d, iterations=1)
         line_px = int(cv2.countNonZero(all_lines))
         if line_px > 0:
-            # Erase lines (set to white = background)
             binary[all_lines > 0] = 255
-            logger.debug(f"[OCR] Line removal: {line_px} line pixels erased")
     except Exception as e:
         logger.debug(f"[OCR] Line removal skipped: {e}")
 
-    # ── Step 5: Morphological Text Repair (Phase 6 Part 2) ──
-    # Matrix printers and faded stamps often have broken disjoint dot characters.
-    # We must treat text (black pixels, value 0) as the foreground target for dilation.
-    # To use OpenCV morphology correctly, we invert so text is white (255).
+    # ── Morphological text repair ──
     inv_binary = cv2.bitwise_not(binary)
-    
-    # 1. Very light Closing (dilate then erode) to connect nearby broken dots within a character
     repair_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
     inv_binary = cv2.morphologyEx(inv_binary, cv2.MORPH_CLOSE, repair_kernel, iterations=1)
-    
-    # 2. Light Opening to remove background speckle noise (dust/artifacts)
     noise_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
     inv_binary = cv2.morphologyEx(inv_binary, cv2.MORPH_OPEN, noise_kernel, iterations=1)
-    
-    # Revert back to standard format (Black text on White background)
     binary = cv2.bitwise_not(inv_binary)
 
     return cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+
+
+def _preprocess_image_for_ocr(img_bgr):
+    """Enhanced image preprocessing for OCR (v4 — 3-stage pipeline).
+
+    Stage 1: Upscale + normalise (gamma, histogram, padding).
+    Stage 2: Remove interference (colour slicing, watermarks, borders, perspective, BG equalisation).
+    Stage 3: Binarise + clean (CLAHE, bilateral, binarisation voting, line removal, morph repair).
+    """
+    import cv2
+    import numpy as np
+
+    # Stage 1: Upscale and normalise
+    img_bgr = _ocr_upscale_and_normalize(img_bgr, cv2, np)
+    # Stage 2: Remove interference patterns
+    img_bgr = _ocr_remove_interference(img_bgr, cv2, np)
+    # Stage 3: Binarise and clean
+    return _ocr_binarize_and_clean(img_bgr, cv2, np)
+
 
 
 def _deskew_image(img_bgr):

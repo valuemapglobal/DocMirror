@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 DocMirror Universal Parsing API
 """
@@ -48,7 +54,7 @@ async def _cleanup_stale_temp_files():
         except OSError:
             pass
     if cleaned:
-        logger.info(f"[DocMirror] Cleaned {cleaned} stale temp file(s) on startup")
+        logger.info(f"[Server] Cleaned {cleaned} stale temp file(s) on startup")
 
 
 @app.on_event("startup")
@@ -61,9 +67,9 @@ async def _warmup_ocr_engine():
         from docmirror.core.ocr.vision.rapidocr_engine import get_ocr_engine
         engine = get_ocr_engine()
         if engine:
-            logger.info("[DocMirror] OCR engine warmed up on startup")
+            logger.info("[Server] OCR engine warmed up on startup")
     except Exception as e:
-        logger.debug(f"[DocMirror] OCR warmup skipped: {e}")
+        logger.debug(f"[Server] OCR warmup skipped: {e}")
 
 
 @app.get("/health", tags=["System"])
@@ -78,7 +84,7 @@ def cleanup_file(filepath: Path):
         if filepath.exists():
             filepath.unlink()
     except Exception as e:
-        logger.error(f"Failed to cleanup temp file {filepath}: {e}")
+        logger.error(f"[Server] Failed to cleanup temp file {filepath}: {e}")
 
 
 def _verify_api_key(authorization: str | None) -> None:
@@ -98,7 +104,7 @@ async def parse_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="The document file to parse (PDF, PNG, JPEG, DOCX, etc.)"),
     authorization: str | None = Header(default=None),
-):
+) -> ParseResponse:
     """
     Parse a document using the core MultiModal engine.
     The file is saved temporarily, processed, and then asynchronously cleaned up.
@@ -131,5 +137,5 @@ async def parse_document(
         return JSONResponse(status_code=status_code, content=api_payload)
 
     except Exception as e:
-        logger.exception("Parse failed with uncaught exception")
+        logger.exception("[Server] Parse failed with uncaught exception")
         raise HTTPException(status_code=500, detail=str(e))

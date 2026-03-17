@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Entity Collection from Document Layouts
 """
@@ -5,7 +11,7 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from docmirror.models.domain import PageLayout
+from docmirror.models.entities.domain import PageLayout
 
 
 def collect_kv_entities(pages: List[PageLayout]) -> Dict[str, str]:

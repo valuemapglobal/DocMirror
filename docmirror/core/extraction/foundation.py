@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Foundation Engine Wrappers
 ==========================================
@@ -16,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -60,14 +66,6 @@ class FitzEngine:
         """Extract full text from a single page."""
         return fitz_page.get_text()
 
-    @staticmethod
-    def extract_page_words(fitz_page) -> List[Tuple]:
-        """
-        Extract word list from a single page.
-
-        Each word: (x0, y0, x1, y1, text, block_no, line_no, word_no)
-        """
-        return fitz_page.get_text("words")
 
     @staticmethod
     def extract_page_blocks_with_style(fitz_page) -> List[Dict[str, Any]]:
@@ -126,137 +124,3 @@ class FitzEngine:
         # flags=0 extracts plain text in reading order
         return fitz_page.get_text("text", clip=rect).strip()
 
-    @staticmethod
-    def extract_multicrop_payload(fitz_page, rois: List[Tuple[float, float, float, float]] = None) -> Dict[str, Any]:
-        """
-        Multi-crop tokenisation inspired by DeepSeek-OCR2:
-        Constructs a Global Base (low-res overview) + Local Focus
-        (high-res region patches) multi-image payload.
-
-        Args:
-            fitz_page: PyMuPDF page object
-            rois: Regions of interest as [(x0, y0, x1, y1), ...]
-                  e.g. table or dense data area bounding boxes
-
-        Returns:
-            Dict containing:
-               'global_img': 150 DPI global image (numpy RGB)
-               'local_patches': list of 300 DPI local patch images (numpy RGB)
-        """
-        import numpy as np
-        import cv2
-
-        payload = {"global_img": None, "local_patches": []}
-
-        # 1. Generate Global Base (low-resolution, ~150 DPI, long edge <= 1024)
-        pix_global = fitz_page.get_pixmap(dpi=150)
-        img_global = np.frombuffer(pix_global.samples, dtype=np.uint8).reshape(pix_global.h, pix_global.w, pix_global.n)
-        if pix_global.n == 4:
-            img_global = cv2.cvtColor(img_global, cv2.COLOR_RGBA2RGB)
-
-        payload["global_img"] = img_global
-
-        # 2. If no ROIs provided, return early
-        if not rois:
-            return payload
-
-        # 3. Generate Local Focus Patches (high-resolution, 300 DPI)
-        # To avoid full-page 300 DPI rendering, use fitz clip to render only ROI areas
-        import fitz
-        for roi in rois:
-            x0, y0, x1, y1 = roi
-            # Expand boundary by 5px to prevent clipping characters
-            rect = fitz.Rect(max(0, x0 - 5), max(0, y0 - 5), x1 + 5, y1 + 5)
-
-            pix_patch = fitz_page.get_pixmap(dpi=300, clip=rect)
-            img_patch = np.frombuffer(pix_patch.samples, dtype=np.uint8).reshape(pix_patch.h, pix_patch.w, pix_patch.n)
-            if pix_patch.n == 4:
-                img_patch = cv2.cvtColor(img_patch, cv2.COLOR_RGBA2RGB)
-
-            payload["local_patches"].append(img_patch)
-
-        return payload
-
-
-# ===============================================================================
-# pdfplumber Engine
-# ===============================================================================
-
-class PDFPlumberEngine:
-    """
-    pdfplumber wrapper — high-precision table structure recognition.
-
-    Primary uses:
-        1. Table detection and extraction (line-based / text-based strategies)
-        2. Character-level coordinate extraction
-    """
-
-    @staticmethod
-    def open(file_path: Path):
-        """Open a PDF and return a pdfplumber.PDF."""
-        import pdfplumber
-        return pdfplumber.open(str(file_path))
-
-    @staticmethod
-    def extract_tables(page_plum, **kwargs) -> List[List[List[str]]]:
-        """
-        Extract all tables from a single page.
-
-        Returns:
-            List of tables, each table is List[List[str]].
-        """
-        try:
-            tables = page_plum.extract_tables(kwargs) if kwargs else page_plum.extract_tables()
-            if not tables:
-                return []
-            # Clean None values
-            result = []
-            for tbl in tables:
-                if tbl:
-                    cleaned = [
-                        [str(cell) if cell is not None else "" for cell in row]
-                        for row in tbl
-                    ]
-                    result.append(cleaned)
-            return result
-        except Exception as e:
-            logger.debug(f"pdfplumber table extraction error: {e}")
-            return []
-
-    @staticmethod
-    def get_page_chars(page_plum) -> List[Dict[str, Any]]:
-        """Return all character coordinate information for a single page."""
-        return page_plum.chars if hasattr(page_plum, 'chars') else []
-
-
-# ===============================================================================
-# OCR Engine
-# ===============================================================================
-
-class OCREngine:
-    """
-    OCR engine wrapper — proxy to engines.vision.rapidocr_engine singleton.
-
-    Model is only loaded on first call during scanned document processing
-    to avoid startup overhead.
-    """
-
-    _instance: Optional[Any] = None
-
-    @classmethod
-    def get_engine(cls):
-        """Get OCR engine singleton (proxied to rapidocr_engine)."""
-        if cls._instance is None:
-            try:
-                from docmirror.core.ocr.vision.rapidocr_engine import get_ocr_engine
-                cls._instance = get_ocr_engine()
-            except ImportError:
-                logger.warning("RapidOCR not available, OCR features disabled")
-                return None
-        return cls._instance
-
-    @classmethod
-    def is_available(cls) -> bool:
-        """Check whether the OCR engine is ready."""
-        engine = cls.get_engine()
-        return engine is not None and hasattr(engine, '_engine') and engine._engine is not None

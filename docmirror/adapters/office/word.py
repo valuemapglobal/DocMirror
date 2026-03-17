@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 Word Adapter — .docx / .doc → BaseResult
 =========================================
@@ -34,7 +40,7 @@ import shutil
 from pathlib import Path
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.domain import BaseResult, Block, PageLayout
+from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +55,7 @@ class WordAdapter(BaseParser):
            then processed through the standard PDF pipeline.
     """
 
-    async def perceive(self, file_path: Path, **context):
+    async def perceive(self, file_path: Path, **context) -> "PerceptionResult":
         """
         Native extraction for .docx; for legacy .doc, requires LibreOffice (soffice).
         If .doc and soffice is not found, returns failure with FORMAT_REQUIRES_CONVERTER.
@@ -79,6 +85,8 @@ class WordAdapter(BaseParser):
         table Blocks with 2D list data.
         """
         from docx import Document
+        
+        logger.info(f"[WordAdapter] Starting native extraction for document: {file_path}")
         doc = Document(str(file_path))
 
         blocks = []
