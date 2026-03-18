@@ -162,16 +162,16 @@ DocMirror produces a standardized RESTful JSON envelope:
     "document": {
       "type": "bank_statement",
       "properties": {
-        "organization": "三峡银行",
-        "subject_name": "重庆数宜信信用管理有限公司",
-        "subject_id": "0111014170000993"
+        "organization": "Demo Bank",
+        "subject_name": "Acme Corporation Ltd.",
+        "subject_id": "6225********7890"
       },
       "pages": [
         {
           "page_number": 1,
-          "tables": [{"headers": [...], "rows": [...]}],
-          "texts": [{"content": "...", "level": "h1"}],
-          "key_values": [{"key": "户名", "value": "..."}]
+          "tables": [{"headers": ["Date", "Description", "Amount"], "rows": ["..."]}],
+          "texts": [{"content": "Account Statement", "level": "h1"}],
+          "key_values": [{"key": "Account Holder", "value": "Acme Corporation Ltd."}]
         }
       ]
     },
