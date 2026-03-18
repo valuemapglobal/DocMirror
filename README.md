@@ -9,7 +9,7 @@
     <a href="https://pypi.org/project/docmirror/"><img src="https://img.shields.io/pypi/pyversions/docmirror?style=for-the-badge" alt="Python"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green?style=for-the-badge" alt="License"></a>
     <a href="https://github.com/valuemapglobal/docmirror/actions"><img src="https://github.com/valuemapglobal/docmirror/actions/workflows/ci.yml/badge.svg?style=for-the-badge" alt="CI"></a>
-    <a href="https://codecov.io/gh/valuemapglobal/docmirror"><img src="https://codecov.io/gh/valuemapglobal/docmirror/branch/main/graph/badge.svg?style=for-the-badge" alt="Coverage"></a>
+
   </p>
 </p>
 
