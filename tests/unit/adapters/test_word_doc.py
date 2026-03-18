@@ -23,5 +23,4 @@ async def test_perceive_doc_without_soffice_returns_recoverable_failure():
         assert result.status.value == "failure"
         assert result.error is not None
         assert result.error.code == "FORMAT_REQUIRES_CONVERTER"
-        assert result.error.recoverable is True
         assert "LibreOffice" in result.error.message or "soffice" in result.error.message

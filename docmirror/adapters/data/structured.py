@@ -5,8 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Structured Data Adapter — JSON/CSV → BaseResult
-=================================================
+Structured Data Adapter — JSON/CSV → ParseResult
+===================================================
 
 Handles structured data files that already have a well-defined schema.
 
@@ -14,22 +14,14 @@ Processing logic by format:
 
 **JSON (.json)**:
     - Loads the entire file into a Python object.
-    - If the root object is a dict, creates a ``key_value`` Block with the
-      dict as raw_content (suitable for flat key-value documents).
-    - The full_text is the pretty-printed JSON (2-space indent).
+    - If the root object is a dict, creates KeyValuePairs.
+    - If the root object is a list of dicts, creates a TableBlock.
 
 **CSV (.csv)**:
-    - Reads all rows via Python's csv.reader (default dialect).
-    - Creates a single ``table`` Block with the 2D list of row data.
-    - The full_text is the comma-joined rows.
+    - Reads all rows via Python's csv.reader.
+    - First row treated as headers, rest as data rows with typed CellValue.
 
-Both formats produce a single-page BaseResult with:
-    - metadata.source_format set to the file extension (without dot).
-
-.. note::
-    For JSON arrays (e.g., list of records), the current implementation
-    does not create structured blocks. A future enhancement could
-    detect list-of-dicts patterns and convert them to table Blocks.
+Both formats produce a single-page ParseResult.
 """
 from __future__ import annotations
 
@@ -37,44 +29,122 @@ from __future__ import annotations
 import csv
 import json
 import logging
+import re
 from pathlib import Path
+from typing import List
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 logger = logging.getLogger(__name__)
+
+# Currency-like pattern
+_CURRENCY_RE = re.compile(r'^[¥$€£₹]?\s*-?\d{1,3}(,\d{3})*(\.\d+)?$')
 
 
 class StructuredAdapter(BaseParser):
     """Structured data (JSON/CSV) format adapter."""
 
-    async def to_base_result(self, file_path: Path) -> BaseResult:
+    async def to_parse_result(self, file_path: Path, **kwargs) -> "ParseResult":
         """
-        Parse a JSON or CSV file into a BaseResult.
+        Parse a JSON or CSV file into a ParseResult.
 
-        Dispatches to format-specific logic based on file extension.
-        JSON dicts become key_value Blocks; CSV files become table Blocks.
+        JSON dicts → KeyValuePairs; JSON list-of-dicts → TableBlock.
+        CSV files → TableBlock with typed CellValue.
         """
+        from docmirror.models.entities.parse_result import (
+            ParseResult, PageContent, TableBlock, TableRow, CellValue,
+            TextBlock, TextLevel, KeyValuePair, ParserInfo, DataType,
+        )
+
         ext = file_path.suffix.lower()
-        logger.info(f"[StructuredAdapter] Starting native extraction for {ext} file: {file_path}")
-        blocks = []
-        text = ""
+        logger.info(f"[StructuredAdapter] Starting extraction for {ext} file: {file_path}")
+
+        texts: List[TextBlock] = []
+        tables: List[TableBlock] = []
+        key_values: List[KeyValuePair] = []
 
         if ext == ".json":
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            # Dict objects → key-value Block for flat entity data
+
             if isinstance(data, dict):
-                blocks.append(Block(block_type="key_value", raw_content=data, page=0))
-            text = json.dumps(data, indent=2, ensure_ascii=False)
+                for k, v in data.items():
+                    key_values.append(KeyValuePair(key=str(k), value=str(v)))
+            elif isinstance(data, list) and data and isinstance(data[0], dict):
+                # List of dicts → table
+                headers = list(data[0].keys())
+                rows = []
+                for record in data:
+                    cells = [
+                        CellValue(text=str(record.get(h, "")), data_type=DataType.TEXT)
+                        for h in headers
+                    ]
+                    rows.append(TableRow(cells=cells))
+                tables.append(TableBlock(
+                    table_id="json_records",
+                    headers=headers,
+                    rows=rows,
+                    page=0,
+                ))
 
         elif ext == ".csv":
             with open(file_path, "r", encoding="utf-8") as f:
-                rows = list(csv.reader(f))
-            if rows:
-                # All CSV rows (including header) → single table Block
-                blocks.append(Block(block_type="table", raw_content=rows, page=0))
-                text = "\n".join(",".join(r) for r in rows)
+                csv_rows = list(csv.reader(f))
 
-        page = PageLayout(page_number=0, blocks=tuple(blocks))
-        return BaseResult(pages=(page,), full_text=text, metadata={"source_format": ext.lstrip(".")})
+            if csv_rows:
+                headers = csv_rows[0]
+                data_rows = []
+                for row_data in csv_rows[1:]:
+                    cells = [_classify_csv_cell(v) for v in row_data]
+                    if any(c.text for c in cells):
+                        data_rows.append(TableRow(cells=cells))
+
+                tables.append(TableBlock(
+                    table_id="csv_data",
+                    headers=headers,
+                    rows=data_rows,
+                    page=0,
+                ))
+
+        page = PageContent(
+            page_number=0,
+            texts=texts,
+            tables=tables,
+            key_values=key_values,
+        )
+
+        return ParseResult(
+            pages=[page],
+            parser_info=ParserInfo(
+                parser_name="StructuredAdapter",
+                page_count=1,
+                overall_confidence=1.0,
+            ),
+        )
+
+
+def _classify_csv_cell(value: str) -> "CellValue":
+    """Classify a CSV cell string into typed CellValue."""
+    from docmirror.models.entities.parse_result import CellValue, DataType
+
+    text = value.strip()
+    if not text:
+        return CellValue(text="", data_type=DataType.EMPTY)
+
+    # Try numeric
+    try:
+        numeric = float(text)
+        return CellValue(text=text, cleaned=text, numeric=numeric, data_type=DataType.NUMBER)
+    except ValueError:
+        pass
+
+    # Try currency-like
+    if _CURRENCY_RE.match(text):
+        cleaned = re.sub(r'[¥$€£₹,\s]', '', text)
+        try:
+            numeric = float(cleaned)
+            return CellValue(text=text, cleaned=cleaned, numeric=numeric, data_type=DataType.CURRENCY)
+        except ValueError:
+            pass
+
+    return CellValue(text=text, data_type=DataType.TEXT)

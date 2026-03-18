@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 from tempfile import NamedTemporaryFile, gettempdir
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Header
+from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Header, Query
 from fastapi.responses import JSONResponse
 
 from docmirror import perceive_document, DocumentType, __version__
@@ -99,12 +99,13 @@ def _verify_api_key(authorization: str | None) -> None:
         raise HTTPException(status_code=403, detail="Invalid API key")
 
 
-@app.post("/v1/parse", response_model=ParseResponse, tags=["Parsing"])
+@app.post("/v1/parse", responses={200: {"model": ParseResponse}}, tags=["Parsing"])
 async def parse_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="The document file to parse (PDF, PNG, JPEG, DOCX, etc.)"),
+    include_text: bool = Query(default=False, description="Include full markdown text in response"),
     authorization: str | None = Header(default=None),
-) -> ParseResponse:
+):
     """
     Parse a document using the core MultiModal engine.
     The file is saved temporarily, processed, and then asynchronously cleaned up.
@@ -124,16 +125,16 @@ async def parse_document(
     background_tasks.add_task(cleanup_file, temp_path)
 
     try:
-        # Route through the unified entry point
-        # The underlying Dispatcher handles file_type routing directly.
+        import uuid
         result = await perceive_document(temp_path, DocumentType.OTHER)
-        
-        # Serialize the 4-layer architecture into a flat API dict
-        api_payload = result.to_api_dict()
-        
-        # Determine HTTP status code based on success
-        status_code = 200 if api_payload.get("success") else 422
-        
+
+        api_payload = result.to_api_dict(
+            include_text=include_text,
+            request_id=str(uuid.uuid4()),
+        )
+
+        status_code = api_payload.get("code", 200)
+
         return JSONResponse(status_code=status_code, content=api_payload)
 
     except Exception as e:

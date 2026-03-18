@@ -10,10 +10,9 @@ Middleware Base Class and Pipeline Executor
 
 Design principles:
     - Each Middleware is an independent, composable Python class.
-    - Unified ``process(EnhancedResult) -> EnhancedResult`` interface.
+    - Unified ``process(ParseResult) -> ParseResult`` interface.
     - PipelineExecutor provides per-middleware exception isolation.
-    - All data transformations are recorded via Mutations, without
-      directly modifying the BaseResult.
+    - All data transformations are recorded via Mutations on ParseResult.
 """
 from __future__ import annotations
 
@@ -24,7 +23,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-from ..models import EnhancedResult
+from ..models.entities.parse_result import ParseResult
 from ..core.exceptions import MiddlewareError
 
 logger = logging.getLogger(__name__)
@@ -36,15 +35,12 @@ class BaseMiddleware(ABC):
 
     All Middlewares must implement the ``process()`` method.
 
-    Causal Dependency Protocol (Deutsch V5: 'hard to vary' ordering):
+    Causal Dependency Protocol:
         - ``DEPENDS_ON``: List of middleware class names that MUST run before this one.
         - ``PROVIDES``:   List of data keys this middleware contributes to the result.
-        These declarations make the pipeline execution order *causally justified*
-        rather than an arbitrary convention. The Orchestrator can topologically
-        sort middlewares based on these declarations.
 
     Conventions:
-        - Receives an EnhancedResult, returns the modified EnhancedResult.
+        - Receives a ParseResult, returns the modified ParseResult.
         - Records all transformations via result.record_mutation().
         - Upon failure, should use add_error() rather than raising exceptions.
     """
@@ -61,27 +57,21 @@ class BaseMiddleware(ABC):
     def name(self) -> str:
         return self._name
 
-    def should_skip(self, result: EnhancedResult) -> bool:
+    def should_skip(self, result: ParseResult) -> bool:
         """
         Conditional Skip: If True is returned, the Middleware is skipped.
 
         Subclasses can override this method to implement conditional logic.
         Default implementation: Checks the ``skip_scenes`` list in config.
-
-        Example::
-
-            class BankSpecificMiddleware(BaseMiddleware):
-                def should_skip(self, result):
-                    return result.scene not in ('bank_statement', 'unknown')
         """
         skip_scenes = self.config.get("skip_scenes")
-        if skip_scenes and hasattr(result, "scene"):
-            return result.scene in skip_scenes
+        if skip_scenes:
+            return result.entities.document_type in skip_scenes
         return False
 
     @abstractmethod
-    def process(self, result: EnhancedResult) -> EnhancedResult:
-        """Processes the EnhancedResult and returns the augmented Result."""
+    def process(self, result: ParseResult) -> ParseResult:
+        """Processes the ParseResult and returns the augmented Result."""
         raise NotImplementedError
 
     def __repr__(self) -> str:
@@ -97,14 +87,6 @@ class MiddlewarePipeline:
         2. Implements per-middleware try/except exception isolation.
         3. Decides whether to [Skip] or [Abort] based on the strategy.
         4. Records the execution time of each Middleware.
-
-    Usage::
-
-        pipeline = MiddlewarePipeline()
-        result = pipeline.execute(
-            middlewares=[SceneDetector(), EntityExtractor(), Validator()],
-            result=initial_result,
-        )
     """
 
     def __init__(
@@ -116,8 +98,8 @@ class MiddlewarePipeline:
     def execute(
         self,
         middlewares: List[BaseMiddleware],
-        result: EnhancedResult,
-    ) -> EnhancedResult:
+        result: ParseResult,
+    ) -> ParseResult:
         """
         Executes the Middleware Pipeline with parallel batching.
 
@@ -128,10 +110,10 @@ class MiddlewarePipeline:
 
         Args:
             middlewares: Ordered list of Middlewares.
-            result: Initial EnhancedResult.
+            result: Initial ParseResult.
 
         Returns:
-            The processed EnhancedResult.
+            The processed ParseResult.
         """
         logger.info(
             f"[Middleware] Pipeline \u25b6 {len(middlewares)} middlewares: "
@@ -189,12 +171,12 @@ class MiddlewarePipeline:
                 for mw in batch:
                     completed.add(mw.name)
 
-        # Record total execution timings
-        result.enhanced_data["step_timings"] = step_timings
+        # Record step timings as structured data (not string in warnings)
+        result.entities.domain_specific["step_timings"] = step_timings
 
         total_mutations = result.mutation_count
         logger.info(
-            f"[Middleware] Pipeline \u25c0 status={result.status} | "
+            f"[Middleware] Pipeline ◀ status={result.status.value} | "
             f"total_mutations={total_mutations} | timings={step_timings}"
         )
 
@@ -203,7 +185,7 @@ class MiddlewarePipeline:
     def _run_single(
         self,
         mw: BaseMiddleware,
-        result: EnhancedResult,
+        result: ParseResult,
         step_timings: Dict[str, float],
     ) -> None:
         """Execute a single middleware sequentially (original path)."""
@@ -216,13 +198,12 @@ class MiddlewarePipeline:
         try:
             logger.debug(f"[DocMirror] Running {mw.name}...")
             result_new = mw.process(result)
-            # Some middlewares return a new result object
+            # Some middlewares may return a new result; merge key fields
             if result_new is not result:
-                # Copy mutations/data from new result
-                for attr in ("scene", "institution", "status"):
+                for attr in ("status",):
                     if hasattr(result_new, attr):
                         setattr(result, attr, getattr(result_new, attr))
-                result.enhanced_data.update(result_new.enhanced_data)
+                result.entities = result_new.entities
             elapsed = (time.time() - t0) * 1000
             step_timings[mw.name] = round(elapsed, 1)
             num_mutations = sum(
@@ -243,27 +224,20 @@ class MiddlewarePipeline:
             result.add_error(str(mw_error))
             if self.fail_strategy == "abort":
                 logger.warning(f"[Middleware] Pipeline aborted at {mw.name}")
-                result.status = "failed"
+                from ..models.entities.parse_result import ResultStatus
+                result.status = ResultStatus.FAILURE
 
     def _run_parallel_batch(
         self,
         batch: List[BaseMiddleware],
-        result: EnhancedResult,
+        result: ParseResult,
         step_timings: Dict[str, float],
         remaining: list,
     ) -> None:
         """Execute a batch of independent middlewares in parallel threads.
 
-        Thread-safety is achieved by monkey-patching ``result.add_mutation``,
-        ``result.record_mutation``, and ``result.add_error`` with locked
-        wrappers for the duration of the batch.  Original methods are
-        restored in a ``finally`` block.
-
-        Args:
-            batch: Middlewares to run concurrently.
-            result: Shared mutable result (mutations write-locked).
-            step_timings: Dict to record per-middleware elapsed time.
-            remaining: Mutable list — cleared on abort to stop the pipeline.
+        Thread-safety: each middleware runs process() with a shared lock
+        protecting mutation/error list access.
         """
         import threading
 
@@ -271,38 +245,22 @@ class MiddlewarePipeline:
             f"[Middleware] T4-1: parallel batch: {[m.name for m in batch]}"
         )
 
-        _result_lock = threading.Lock()
-
-        # Monkey-patch result methods to be thread-safe for this batch
-        _orig_add_mutation = result.add_mutation
-        _orig_record_mutation = result.record_mutation
-        _orig_add_error = result.add_error
-
-        def _ts_add_mutation(mutation):
-            with _result_lock:
-                _orig_add_mutation(mutation)
-
-        def _ts_record_mutation(*args, **kwargs):
-            with _result_lock:
-                _orig_record_mutation(*args, **kwargs)
-
-        def _ts_add_error(error):
-            with _result_lock:
-                _orig_add_error(error)
-
-        result.add_mutation = _ts_add_mutation
-        result.record_mutation = _ts_record_mutation
-        result.add_error = _ts_add_error
+        _lock = threading.Lock()
 
         def _run_mw(m):
-            """Run a single middleware, return (name, mutations, elapsed, error)."""
             if m.should_skip(result):
                 return (m.name, 0, 0.0, None)
             t0 = time.time()
             try:
-                m.process(result)
+                # Middleware calls result.record_mutation() / result.add_error()
+                # which append to result.mutations / result.errors lists.
+                # We need to serialize these appends.
+                # Since Pydantic doesn't allow monkey-patching, we'll
+                # use the lock at the process boundary level.
+                with _lock:
+                    m.process(result)
                 elapsed = (time.time() - t0) * 1000
-                with _result_lock:
+                with _lock:
                     num_mut = sum(
                         1 for mut in result.mutations
                         if mut.middleware_name == m.name
@@ -329,18 +287,16 @@ class MiddlewarePipeline:
                             logger.warning(
                                 f"[Middleware] Pipeline aborted at {name}"
                             )
-                            result.status = "failed"
+                            from ..models.entities.parse_result import ResultStatus
+                            result.status = ResultStatus.FAILURE
                             remaining.clear()
                             break
                     elif elapsed > 0:
                         logger.info(
-                            f"[Middleware] {name} \u25c0 {elapsed:.0f}ms | "
+                            f"[Middleware] {name} ◀ {elapsed:.0f}ms | "
                             f"mutations=+{num_mut}"
                         )
                     else:
-                        logger.info(f"[Middleware] {name} \u23ed skipped")
-        finally:
-            # Restore original (non-locked) methods
-            result.add_mutation = _orig_add_mutation
-            result.record_mutation = _orig_record_mutation
-            result.add_error = _orig_add_error
+                        logger.info(f"[Middleware] {name} ⏭ skipped")
+        except Exception as e:
+            logger.warning(f"[Middleware] Parallel batch error: {e}", exc_info=True)

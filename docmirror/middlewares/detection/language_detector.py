@@ -5,11 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-LanguageDetector \u2014 Cross-Format Language Detection Middleware
+LanguageDetector — Cross-Format Language Detection Middleware
 ============================================================
 
-Utilizes a CJK character ratio heuristic to identify the primary language 
-of the document structurally. Applicable ubiquitously across all file formats.
+Utilizes a CJK character ratio heuristic to identify primary language.
+Writes to ParseResult.entities.domain_specific["language"].
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 
 from ..base import BaseMiddleware
-from ...models import EnhancedResult
+from ...models.entities.parse_result import ParseResult
 
 logger = logging.getLogger(__name__)
 
@@ -25,18 +25,14 @@ logger = logging.getLogger(__name__)
 class LanguageDetector(BaseMiddleware):
     """Detects primary language dominance across document texts."""
 
-    def process(self, result: EnhancedResult) -> EnhancedResult:
-        if result.base_result is None:
-            return result
-
-        # Limit heuristic sample boundary sizing maximizing operational performance
-        text = result.base_result.full_text[:3000]
+    def process(self, result: ParseResult) -> ParseResult:
+        text = result.full_text[:3000]
         if not text.strip():
-            result.enhanced_data["language"] = "unknown"
+            result.entities.domain_specific["language"] = "unknown"
             return result
 
         lang = self._detect(text)
-        result.enhanced_data["language"] = lang
+        result.entities.domain_specific["language"] = lang
         result.record_mutation(
             self.name, "doc", "language", "", lang,
             reason=f"Auto-detected from {len(text)} chars",

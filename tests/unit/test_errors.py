@@ -29,10 +29,9 @@ class TestDocMirrorErrorCode:
         meta = get_error_meta("UNKNOWN_CODE_XYZ")
         assert "recoverable" in meta
 
-    def test_make_error_detail_sets_code_and_recoverable(self):
+    def test_make_error_detail_sets_code(self):
         detail = make_error_detail("FORMAT_REQUIRES_CONVERTER", "Install LibreOffice.")
         assert detail.code == "FORMAT_REQUIRES_CONVERTER"
-        assert detail.recoverable is True
         assert "LibreOffice" in detail.message or len(detail.message) > 0
 
     def test_build_failure_result_produces_failure_status(self):
@@ -42,5 +41,4 @@ class TestDocMirrorErrorCode:
         assert result.status.value == "failure"
         assert result.error is not None
         assert result.error.code == "UNSUPPORTED_FORMAT"
-        assert result.content.text == ""
-        assert result.provenance.source.file_path == "/tmp/foo.xyz"
+        assert result.provenance.file_type == "unknown"

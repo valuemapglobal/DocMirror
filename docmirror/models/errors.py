@@ -56,13 +56,12 @@ def get_error_meta(code: str) -> Dict[str, Any]:
 
 
 def make_error_detail(code: str, message: str = "") -> "ErrorDetail":
-    """Build ErrorDetail with code and recoverable from canonical meta."""
-    from docmirror.models.entities.perception_result import ErrorDetail
+    """Build ErrorDetail with code and message from canonical meta."""
+    from docmirror.models.entities.parse_result import ErrorDetail
     meta = get_error_meta(code)
     return ErrorDetail(
         code=code,
         message=message or meta.get("user_message", ""),
-        recoverable=meta.get("recoverable", False),
     )
 
 
@@ -74,30 +73,24 @@ def build_failure_result(
     is_forged: Optional[bool] = None,
     forgery_reasons: Optional[List[str]] = None,
     t0: Optional[float] = None,
-) -> "PerceptionResult":
-    """Build a failure PerceptionResult with unified error code. Used by Dispatcher and Adapters."""
-    from docmirror.models.entities.perception_result import (
-        PerceptionResult,
-        ResultStatus,
-        TimingInfo,
-        Provenance,
-        SourceInfo,
-        DocumentContent,
-        ValidationResult,
+) -> "ParseResult":
+    """Build a failure ParseResult with unified error code. Used by Dispatcher and Adapters."""
+    from docmirror.models.entities.parse_result import (
+        ParseResult, ResultStatus, ParserInfo, ProvenanceInfo,
+        TrustResult, ErrorDetail,
     )
     elapsed = (time.time() - t0) * 1000 if t0 is not None else 0.0
-    validation = None
+
+    trust = None
     if is_forged is not None:
-        validation = ValidationResult(is_forged=is_forged, forgery_reasons=forgery_reasons or [])
+        trust = TrustResult(is_forged=is_forged, forgery_reasons=forgery_reasons or [])
+
     detail = make_error_detail(code, message)
-    return PerceptionResult(
+    return ParseResult(
         status=ResultStatus.FAILURE,
         confidence=0.0,
-        timing=TimingInfo(elapsed_ms=elapsed),
         error=detail,
-        content=DocumentContent(),
-        provenance=Provenance(
-            source=SourceInfo(file_path=file_path, file_type=file_type),
-            validation=validation,
-        ),
+        parser_info=ParserInfo(elapsed_ms=elapsed),
+        trust=trust,
+        provenance=ProvenanceInfo(file_type=file_type),
     )

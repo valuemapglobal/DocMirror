@@ -5,37 +5,31 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-PPT Adapter — .pptx → BaseResult
+PPT Adapter — .pptx → ParseResult
 ==================================
 
 Extracts slide content from PowerPoint presentations using python-pptx.
 
 Processing logic:
     1. Opens the .pptx file via ``python-pptx.Presentation``.
-    2. Each slide becomes a separate ``PageLayout`` (page index = slide order).
+    2. Each slide becomes a separate ``PageContent`` (page index = slide order).
     3. For each slide:
-       - If the slide has a title shape with text, a ``title`` Block is
-         created (heading level 2) and used as the slide's Markdown heading.
-       - All other shapes are iterated:
-         * Text-bearing shapes → ``text`` Block
-         * Table shapes → ``table`` Block (each row as a list of cell text)
-       - The slide's title shape is skipped during the iteration to avoid
-         duplicate content.
-    4. The full_text joins all slide content separated by double newlines,
-       with each slide prefixed by "### Slide N: {title}".
+       - Slide title → ``TextBlock(level=H2)``
+       - Text shapes → ``TextBlock(level=BODY)``
+       - Table shapes → ``TableBlock`` with typed ``CellValue``
 
 Metadata includes:
-    - source_format: "pptx"
-    - slide_count: total number of slides
+    - parser_name: "PPTAdapter"
+    - page_count: total number of slides
 """
 from __future__ import annotations
 
 
 import logging
 from pathlib import Path
+from typing import List
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 logger = logging.getLogger(__name__)
 
@@ -50,36 +44,34 @@ class PPTAdapter(BaseParser):
            then processed through the standard PDF pipeline.
     """
 
-    async def to_base_result(self, file_path: Path) -> BaseResult:
+    async def to_parse_result(self, file_path: Path, **kwargs) -> "ParseResult":
         """
-        Parse a .pptx file into a BaseResult.
+        Parse a .pptx file into a ParseResult.
 
-        Each slide maps to a PageLayout. Slide titles become title Blocks,
-        text shapes become text Blocks, and table shapes become table Blocks.
+        Each slide maps to a PageContent. Slide titles become H2 TextBlocks,
+        text shapes become BODY TextBlocks, and table shapes become TableBlocks.
         """
         from pptx import Presentation
-        
+        from docmirror.models.entities.parse_result import (
+            ParseResult, PageContent, TableBlock, TableRow, CellValue,
+            TextBlock, TextLevel, ParserInfo, DataType,
+        )
+
         logger.info(f"[PPTAdapter] Starting native extraction for presentation: {file_path}")
         prs = Presentation(str(file_path))
 
-        pages = []
-        text_parts = []
+        pages: List[PageContent] = []
 
         for i, slide in enumerate(prs.slides):
-            blocks = []
-            slide_texts = []
+            texts: List[TextBlock] = []
+            tables: List[TableBlock] = []
 
             # Extract slide title (if present)
             if slide.shapes.title and slide.shapes.title.text:
-                blocks.append(Block(
-                    block_type="title",
-                    raw_content=slide.shapes.title.text,
-                    page=i,
-                    heading_level=2,
+                texts.append(TextBlock(
+                    content=slide.shapes.title.text,
+                    level=TextLevel.H2,
                 ))
-                slide_texts.append(f"### Slide {i+1}: {slide.shapes.title.text}")
-            else:
-                slide_texts.append(f"### Slide {i+1}")
 
             # Extract content from all other shapes (skip the title shape)
             for shape in slide.shapes:
@@ -88,20 +80,41 @@ class PPTAdapter(BaseParser):
 
                 # Text content from text frames
                 if hasattr(shape, "text") and shape.text:
-                    blocks.append(Block(block_type="text", raw_content=shape.text, page=i))
-                    slide_texts.append(shape.text)
+                    texts.append(TextBlock(content=shape.text, level=TextLevel.BODY))
 
-                # Table content — each row becomes a list of cell text values
+                # Table content — typed CellValue
                 if shape.has_table:
-                    rows = [[cell.text.strip() for cell in row.cells] for row in shape.table.rows]
-                    if rows:
-                        blocks.append(Block(block_type="table", raw_content=rows, page=i))
+                    first_row = True
+                    headers: List[str] = []
+                    data_rows: List[TableRow] = []
 
-            pages.append(PageLayout(page_number=i, blocks=tuple(blocks)))
-            text_parts.append("\n".join(slide_texts))
+                    for row in shape.table.rows:
+                        cells = [
+                            CellValue(text=cell.text.strip(), data_type=DataType.TEXT)
+                            for cell in row.cells
+                        ]
+                        if first_row:
+                            headers = [c.text for c in cells]
+                            first_row = False
+                        else:
+                            if any(c.text for c in cells):
+                                data_rows.append(TableRow(cells=cells, source_page=i))
 
-        return BaseResult(
-            pages=tuple(pages),
-            full_text="\n\n".join(text_parts),
-            metadata={"source_format": "pptx", "slide_count": len(prs.slides)},
+                    if headers or data_rows:
+                        tables.append(TableBlock(
+                            table_id=f"slide{i}_table{len(tables)}",
+                            headers=headers,
+                            rows=data_rows,
+                            page=i,
+                        ))
+
+            pages.append(PageContent(page_number=i, texts=texts, tables=tables))
+
+        return ParseResult(
+            pages=pages,
+            parser_info=ParserInfo(
+                parser_name="PPTAdapter",
+                page_count=len(prs.slides),
+                overall_confidence=1.0,
+            ),
         )

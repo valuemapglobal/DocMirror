@@ -19,7 +19,7 @@ Directory structure:
 Single public entry point: perceive_document()
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __author__ = "Adam Lin <adamlin@valuemapglobal.com>"
 __copyright__ = "Copyright 2026, ValueMap Global"
 __license__ = "Apache 2.0"
@@ -37,28 +37,22 @@ logging.basicConfig(
 
 from docmirror.core.factory import perceive_document, PerceptionFactory
 from docmirror.models.entities.document_types import DocumentType
-from docmirror.models.entities.perception_result import PerceptionResult
+from docmirror.models.entities.parse_result import ParseResult
 from docmirror.models.entities.domain_models import DomainData
+from docmirror.models.construction.parse_result_bridge import ParseResultBridge
 from docmirror.framework.dispatcher import ParserDispatcher
-from docmirror.framework.dispatcher import ParserDispatcher as DocumentProcessingOrchestrator  # compat
-from docmirror.framework.base import ParserOutput
 from docmirror.framework.orchestrator import Orchestrator
 
 logger = logging.getLogger(__name__)
-
-# backward-compat alias — callers importing PerceptionResponse get ParserOutput
-PerceptionResponse = ParserOutput
 
 
 __all__ = [
     "perceive_document",
     "PerceptionFactory",
-    "PerceptionResult",
-    "PerceptionResponse",
+    "ParseResult",
+    "ParseResultBridge",
     "DocumentType",
     "DomainData",
     "ParserDispatcher",
-    "DocumentProcessingOrchestrator",
-    "ParserOutput",
     "Orchestrator",
 ]

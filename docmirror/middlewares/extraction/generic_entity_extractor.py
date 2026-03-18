@@ -5,10 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-GenericEntityExtractor \u2014 Universal Entity Extraction Middleware
+GenericEntityExtractor — Universal Entity Extraction Middleware
 ==============================================================
 
-Extracts entities iteratively cleanly across any document format securely.
+Extracts entities from KV pairs across any document format.
+Writes to ParseResult.entities.domain_specific.
 """
 from __future__ import annotations
 
@@ -16,25 +17,23 @@ from __future__ import annotations
 import logging
 
 from ..base import BaseMiddleware
-from ...models import EnhancedResult
+from ...models.entities.parse_result import ParseResult
 
 logger = logging.getLogger(__name__)
 
 
 class GenericEntityExtractor(BaseMiddleware):
-    """Generic entities Extraction \u2014 Harvests target explicitly safely."""
+    """Generic entity extraction — harvests KV entities from all pages."""
 
-    def process(self, result: EnhancedResult) -> EnhancedResult:
-        if result.base_result is None:
-            return result
-
-        entities = result.base_result.entities
+    def process(self, result: ParseResult) -> ParseResult:
+        entities = result.kv_entities
         if not entities:
             return result
 
-        existing = result.enhanced_data.get("extracted_entities", {})
+        # Merge into domain_specific
+        existing = result.entities.domain_specific.get("extracted_entities", {})
         existing.update(entities)
-        result.enhanced_data["extracted_entities"] = existing
+        result.entities.domain_specific["extracted_entities"] = existing
 
         result.record_mutation(
             self.name, "doc", "entities", {},
