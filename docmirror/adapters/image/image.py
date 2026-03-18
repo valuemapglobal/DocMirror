@@ -5,12 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Image Adapter — Image → BaseResult
+Image Adapter — Image → ParseResult
 ====================================
 
-Converts image files (JPG, PNG, TIFF, etc.) into structured data using 
-RapidOCR (ONNX Runtime) for plain text extraction. This adapter produces a single 
-text Block without complex structured table/entity data, as it currently operates
+Converts image files (JPG, PNG, TIFF, etc.) into structured data using
+RapidOCR (ONNX Runtime) for plain text extraction. This adapter produces a single
+TextBlock without complex structured table/entity data, as it currently operates
 in a purely CPU-bound environment without Vision-Language Models.
 """
 from __future__ import annotations
@@ -20,7 +20,6 @@ import logging
 from pathlib import Path
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 logger = logging.getLogger(__name__)
 
@@ -28,40 +27,45 @@ logger = logging.getLogger(__name__)
 class ImageAdapter(BaseParser):
     """
     Image format adapter using OCR extraction.
-    
-    Produces a single text Block containing all recognized text lines joined by newlines.
+
+    Produces a single TextBlock containing all recognized text lines joined by newlines.
     """
 
-    async def to_base_result(self, file_path: Path) -> BaseResult:
+    async def to_parse_result(self, file_path: Path, **kwargs) -> "ParseResult":
         """
-        Convert an image file to BaseResult using OCR.
+        Convert an image file to ParseResult using OCR.
         """
+        from docmirror.models.entities.parse_result import (
+            ParseResult, PageContent, TextBlock, TextLevel, ParserInfo,
+            ExtractionMethod,
+        )
+
         logger.info(f"[ImageAdapter] Starting image parsing for: {file_path}")
-        result = await self._ocr_fallback(file_path)
+        text = await self._extract_text(file_path)
         logger.info(f"[ImageAdapter] Completed image parsing for: {file_path}")
-        return result
 
-    async def _ocr_fallback(self, file_path: Path) -> BaseResult:
-        """
-        Extract text from the image. When image quality is below
-        ``external_ocr_quality_threshold`` and ``external_ocr_provider``
-        is set, delegates to the external provider; otherwise uses RapidOCR.
+        texts = [TextBlock(content=text, level=TextLevel.BODY)] if text else []
+        page = PageContent(page_number=0, texts=texts)
 
-        Returns a BaseResult with a single text Block containing all
-        recognized text lines joined by newlines.
-        """
+        return ParseResult(
+            pages=[page],
+            parser_info=ParserInfo(
+                parser_name="ImageAdapter",
+                page_count=1,
+                extraction_method=ExtractionMethod.OCR,
+                overall_confidence=0.8,
+            ),
+        )
+
+    async def _extract_text(self, file_path: Path) -> str:
+        """Extract text from the image using OCR."""
         import cv2
         logger.debug(f"[ImageAdapter] Reading image file: {file_path}")
         img = cv2.imread(str(file_path))
         if img is None:
-            logger.error(f"[ImageAdapter] Failed to read image, cv2.imread returned None: {file_path.name}")
-            text = ""
-        else:
-            text = self._extract_text_from_image(img, file_path)
-        
-        blocks = [Block(block_type="text", raw_content=text, page=0)] if text else []
-        page = PageLayout(page_number=0, blocks=tuple(blocks))
-        return BaseResult(pages=(page,), full_text=text, metadata={"source_format": "image_ocr"})
+            logger.error(f"[ImageAdapter] Failed to read image: {file_path.name}")
+            return ""
+        return self._extract_text_from_image(img, file_path)
 
     def _extract_text_from_image(self, img, file_path: Path) -> str:
         """Use built-in or external OCR depending on image quality."""

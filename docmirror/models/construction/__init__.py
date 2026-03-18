@@ -6,6 +6,6 @@
 
 """Construction / builder utilities."""
 
-from .builder import PerceptionResultBuilder
+from .parse_result_bridge import ParseResultBridge
 
-__all__ = ["PerceptionResultBuilder"]
+__all__ = ["ParseResultBridge"]

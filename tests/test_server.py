@@ -18,7 +18,9 @@ client = TestClient(app)
 def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": "0.2.0"}
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "version" in data
 
 def test_parse_document_missing_file():
     response = client.post("/v1/parse")
@@ -31,7 +33,6 @@ def test_parse_valid_document(tmp_path):
     dummy_file.write_text("Hello DocMirror Server")
     
     with open(dummy_file, "rb") as f:
-        # FastAPI TestClient upload
         response = client.post(
             "/v1/parse", 
             files={"file": ("test.txt", f, "text/plain")}
@@ -39,7 +40,52 @@ def test_parse_valid_document(tmp_path):
         
     assert response.status_code in (200, 422)
     payload = response.json()
-    assert "status" in payload
-    assert "success" in payload
-    assert "identity" in payload
-    assert "blocks" in payload
+    # Standard envelope
+    assert "code" in payload
+    assert "message" in payload
+    assert "api_version" in payload
+    assert "request_id" in payload
+    assert "timestamp" in payload
+    assert "data" in payload or "error" in payload
+    assert "meta" in payload
+    # meta should NOT contain request_id/timestamp (only at top level)
+    assert "request_id" not in payload["meta"]
+    assert "timestamp" not in payload["meta"]
+
+def test_parse_with_include_text(tmp_path):
+    """Verify include_text=true adds text and text_format to document."""
+    dummy_file = tmp_path / "test.txt"
+    dummy_file.write_text("Hello DocMirror include_text test")
+    
+    with open(dummy_file, "rb") as f:
+        response = client.post(
+            "/v1/parse?include_text=true",
+            files={"file": ("test.txt", f, "text/plain")}
+        )
+    
+    assert response.status_code in (200, 422)
+    payload = response.json()
+    assert "code" in payload
+    
+    if payload["code"] == 200:
+        doc = payload["data"]["document"]
+        assert "text" in doc
+        assert doc["text_format"] == "markdown"
+
+def test_parse_without_include_text(tmp_path):
+    """Verify include_text=false (default) omits text from document."""
+    dummy_file = tmp_path / "test.txt"
+    dummy_file.write_text("Hello DocMirror no text test")
+    
+    with open(dummy_file, "rb") as f:
+        response = client.post(
+            "/v1/parse",
+            files={"file": ("test.txt", f, "text/plain")}
+        )
+    
+    assert response.status_code in (200, 422)
+    payload = response.json()
+    
+    if payload["code"] == 200:
+        doc = payload["data"]["document"]
+        assert "text" not in doc

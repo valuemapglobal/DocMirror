@@ -8,37 +8,73 @@
 
 Defines the standardized HTTP response models used by the FastAPI
 endpoints in ``docmirror.server.api``.
+
+Response envelope follows ``docs/parser_interface.md`` v1.0::
+
+    Success: {code: 200, message, api_version, request_id, timestamp, data, meta}
+    Failure: {code: 422, message, api_version, request_id, timestamp, error, meta}
 """
 from __future__ import annotations
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 
 class ParseResponse(BaseModel):
+    """Standardized RESTful response for document parsing.
+
+    Aligned with ``ParseResult.to_api_dict()`` output and
+    ``docs/parser_interface.md`` v1.0.
     """
-    Standardized HTTP response wrapper for Document Parsing.
-    Aligned with PerceptionResult.to_api_dict() output.
-    """
-    success: bool = Field(..., description="Whether the document was successfully parsed")
-    status: str = Field(..., description="Result status: 'success', 'partial', or 'failure'")
-    error: str = Field(default="", description="Error message if any")
-    
-    identity: Dict[str, Any] = Field(default_factory=dict, description="Identified document type and metadata")
-    scene: str = Field(default="unknown", description="Detected document scene (e.g. bank_statement, invoice)")
-    blocks: List[Dict[str, Any]] = Field(default_factory=list, description="Extracted content blocks (text, tables)")
-    
-    trust: Dict[str, Any] = Field(default_factory=dict, description="Validation scores and forgery detection")
-    diagnostics: Dict[str, Any] = Field(default_factory=dict, description="Performance and pipeline diagnostics")
-    
+    code: int = Field(..., description="HTTP status code (200 or 422)")
+    message: str = Field(..., description="'success' or 'error'")
+    api_version: str = Field(default="1.0", description="API version")
+    request_id: str = Field(default="", description="Request tracing ID (UUID)")
+    timestamp: str = Field(default="", description="ISO 8601 UTC response time")
+
+    data: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Business payload: {document, quality}. Present on success.",
+    )
+    error: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Error details: {type, detail}. Present on failure.",
+    )
+    meta: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Parser diagnostics and provenance",
+    )
+
     model_config = ConfigDict(json_schema_extra={
         "example": {
-            "success": True,
-            "status": "success",
-            "error": "",
-            "identity": {"document_type": "bank_statement", "page_count": 3, "properties": {}},
-            "scene": "bank_statement",
-            "blocks": [{"type": "text", "content": "Total: $100"}],
-            "trust": {"validation_score": 100, "is_forged": False},
-            "diagnostics": {"elapsed_ms": 1500, "parser": "DocMirror"}
+            "code": 200,
+            "message": "success",
+            "api_version": "1.0",
+            "request_id": "req_abc123",
+            "timestamp": "2026-03-18T10:22:17+00:00",
+            "data": {
+                "document": {
+                    "type": "bank_statement",
+                    "properties": {
+                        "organization": "重庆三峡银行",
+                        "subject_name": "重庆数宜信信用管理有限公司",
+                    },
+                    "pages": [],
+                },
+                "quality": {
+                    "confidence": 1.0,
+                    "trust_score": 1.0,
+                    "validation_passed": True,
+                    "issues": [],
+                },
+            },
+            "meta": {
+                "parser": "DocMirror",
+                "version": "0.3.0",
+                "elapsed_ms": 55.3,
+                "extraction_method": "digital",
+                "page_count": 4,
+                "table_count": 1,
+                "row_count": 34,
+            },
         }
     })

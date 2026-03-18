@@ -79,7 +79,7 @@ def save_result(result_dict: dict, source_path: Path, output_dir: Path) -> Path:
     return output_file
 
 
-async def parse_document(file_path: str, format_out: str, output_dir: Path, no_save: bool, skip_cache: bool = False) -> None:
+async def parse_document(file_path: str, format_out: str, output_dir: Path, no_save: bool, skip_cache: bool = False, include_text: bool = False) -> None:
     from docmirror.core.factory import perceive_document
     from docmirror.models.entities.document_types import DocumentType
     
@@ -151,7 +151,7 @@ async def parse_document(file_path: str, format_out: str, output_dir: Path, no_s
 
     # ── Display results (outside spinner) ──
     try:
-        api_dict = result.to_api_dict()
+        api_dict = result.to_api_dict(include_text=include_text)
 
         if result.success:
             console.print(f"\n[bold green]\u2705 Parsing Complete![/bold green]")
@@ -162,15 +162,15 @@ async def parse_document(file_path: str, format_out: str, output_dir: Path, no_s
             
             table.add_row("Status", str(result.status))
             table.add_row("Confidence", f"{result.confidence:.2%}")
-            table.add_row("Pages", str(result.content.page_count))
-            table.add_row("Tables Found", str(len(result.tables)))
-            table.add_row("Extracted Text", f"{len(result.content.text)} chars")
+            table.add_row("Pages", str(result.page_count))
+            table.add_row("Tables Found", str(result.total_tables))
+            table.add_row("Extracted Text", f"{len(result.full_text)} chars")
             table.add_row("Time Elapsed", f"{wall_elapsed_ms:.0f} ms")
 
             # Detect cached results: internal timing >> wall time
             is_cached = (
-                result.timing and result.timing.elapsed_ms > 0
-                and wall_elapsed_ms < result.timing.elapsed_ms * 0.5
+                result.parser_info and result.parser_info.elapsed_ms > 0
+                and wall_elapsed_ms < result.parser_info.elapsed_ms * 0.5
                 and wall_elapsed_ms < 2000
             )
             if is_cached:
@@ -179,7 +179,7 @@ async def parse_document(file_path: str, format_out: str, output_dir: Path, no_s
             console.print(table)
             
             effective_ms = max(wall_elapsed_ms, 1)
-            speed = len(result.content.text) / (effective_ms / 1000)
+            speed = len(result.full_text) / (effective_ms / 1000)
             console.print(f"\n[bold magenta]\u26a1 BLAZING FAST:[/bold magenta] Processed at {speed:.0f} chars/sec!")
             console.print(f"[dim]Copy this benchmark and share it on Twitter / V2EX to show off your speed! \u26a1[/dim]")
         else:
@@ -210,6 +210,7 @@ def main() -> None:
     parser.add_argument("--exclude", action="append", default=[], metavar="SUBSTR",
                         help="Skip files whose path contains SUBSTR (e.g. --exclude 工商银行); can be repeated")
     parser.add_argument("--authors", action="store_true", help="Show contributors and authors")
+    parser.add_argument("--include-text", action="store_true", help="Include full markdown text in output")
     
     args = parser.parse_args()
     
@@ -244,11 +245,11 @@ def main() -> None:
         async def _batch_parse():
             for i, fp in enumerate(files, 1):
                 console.print(f"\n[bold blue][{i}/{len(files)}][/bold blue] {fp.name}")
-                await parse_document(str(fp), args.format, args.output_dir, args.no_save, args.skip_cache)
+                await parse_document(str(fp), args.format, args.output_dir, args.no_save, args.skip_cache, args.include_text)
 
         asyncio.run(_batch_parse())
     else:
-        asyncio.run(parse_document(args.file, args.format, args.output_dir, args.no_save, args.skip_cache))
+        asyncio.run(parse_document(args.file, args.format, args.output_dir, args.no_save, args.skip_cache, args.include_text))
 
 if __name__ == "__main__":
     main()

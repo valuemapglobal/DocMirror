@@ -77,51 +77,46 @@ class TestBaseResultIntegrity:
         assert page.blocks[4].reading_order == 4
 
 
-# ─── Perception Result Integration Tests ───
+# ─── ParseResult Integration Tests ───
 
-class TestPerceptionResult:
-    """Verify PerceptionResult model and its derived properties."""
+class TestParseResult:
+    """Verify ParseResult model and its derived properties."""
 
-    def test_perception_result_creation(self):
-        from docmirror.models.entities.perception_result import (
-            PerceptionResult, ResultStatus, DocumentContent,
-            ContentBlock, ContentBlockType, TextBlock, TableBlock, SourceInfo,
+    def test_parse_result_creation(self):
+        from docmirror.models.entities.parse_result import (
+            ParseResult, ResultStatus, PageContent, TextBlock, TableBlock,
+            TableRow, CellValue, DocumentEntities, ParserInfo,
         )
 
-        text_block = ContentBlock(
-            type=ContentBlockType.TEXT,
-            text=TextBlock(text="Sample text"),
-            page=1,
-        )
-        table_block = ContentBlock(
-            type=ContentBlockType.TABLE,
-            table=TableBlock(headers=["A", "B"], rows=[["1", "2"]]),
-            page=1,
-        )
-        content = DocumentContent(
-            text="Sample text",
-            blocks=[text_block, table_block],
-            page_count=1,
-        )
-        result = PerceptionResult(
+        result = ParseResult(
             status=ResultStatus.SUCCESS,
             confidence=0.95,
-            content=content,
-            source=SourceInfo(adapter="test", model="unit"),
+            pages=[
+                PageContent(
+                    page_number=1,
+                    texts=[TextBlock(content="Sample text")],
+                    tables=[TableBlock(
+                        table_id="t1",
+                        headers=["A", "B"],
+                        rows=[TableRow(cells=[CellValue(text="1"), CellValue(text="2")])],
+                    )],
+                )
+            ],
+            entities=DocumentEntities(document_type="test"),
+            parser_info=ParserInfo(parser_name="test", page_count=1),
         )
         assert result.success
         assert result.confidence == 0.95
+        assert result.total_tables == 1
+        assert result.total_rows == 1
 
-    def test_perception_result_failure(self):
-        from docmirror.models.entities.perception_result import (
-            PerceptionResult, ResultStatus, DocumentContent,
-            SourceInfo, ErrorDetail,
+    def test_parse_result_failure(self):
+        from docmirror.models.entities.parse_result import (
+            ParseResult, ResultStatus, ErrorDetail,
         )
-        result = PerceptionResult(
+        result = ParseResult(
             status=ResultStatus.FAILURE,
             confidence=0.0,
-            content=DocumentContent(text="", blocks=[], page_count=0),
-            source=SourceInfo(adapter="test", model="unit"),
             error=ErrorDetail(code="TEST_ERR", message="Test error"),
         )
         assert not result.success

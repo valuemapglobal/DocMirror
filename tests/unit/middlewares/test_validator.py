@@ -4,44 +4,52 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Unit tests for Validator middleware (G2 L1 middleware coverage)."""
+"""Unit tests for Validator middleware."""
 
 import pytest
-from docmirror.models.entities.domain import BaseResult, Block, PageLayout
-from docmirror.models.entities.enhanced import EnhancedResult
+from docmirror.models.entities.parse_result import (
+    ParseResult, PageContent, TableBlock, TableRow, CellValue, TextBlock,
+    TextLevel, ParserInfo,
+)
 from docmirror.middlewares.validation.validator import Validator
 
 
 @pytest.fixture
-def minimal_base_result():
-    """BaseResult with one page and one small table (no artifacts)."""
-    block = Block(
-        block_type="table",
-        raw_content=[["Date", "Amount"], ["2024-01-01", "100.00"]],
+def minimal_parse_result():
+    """ParseResult with one page and one small table (no artifacts)."""
+    table = TableBlock(
+        table_id="page1_table0",
+        headers=["Date", "Amount"],
+        rows=[
+            TableRow(cells=[
+                CellValue(text="2024-01-01"),
+                CellValue(text="100.00", numeric=100.0),
+            ]),
+        ],
         page=1,
     )
-    page = PageLayout(page_number=1, blocks=(block,))
-    return BaseResult(pages=(page,), full_text="Date Amount 2024-01-01 100.00", metadata={})
-
-
-@pytest.fixture
-def enhanced_from_minimal(minimal_base_result):
-    return EnhancedResult.from_base_result(minimal_base_result)
+    page = PageContent(
+        page_number=1,
+        tables=[table],
+        texts=[TextBlock(content="Date Amount 2024-01-01 100.00", level=TextLevel.BODY)],
+    )
+    return ParseResult(
+        pages=[page],
+        parser_info=ParserInfo(parser_name="test", page_count=1),
+    )
 
 
 class TestValidator:
-    def test_process_injects_validation_into_enhanced_data(self, enhanced_from_minimal):
+    def test_process_writes_trust_result(self, minimal_parse_result):
         validator = Validator(config={}, pass_threshold=0.7)
-        result = validator.process(enhanced_from_minimal)
-        assert "validation" in result.enhanced_data
-        val = result.enhanced_data["validation"]
-        assert "total_score" in val
-        assert "passed" in val
-        assert "details" in val
+        result = validator.process(minimal_parse_result)
+        assert result.trust is not None
+        assert result.trust.validation_score > 0
+        assert result.trust.validation_passed is not None
+        assert "column_alignment" in result.trust.details
 
-    def test_process_clean_table_scores_above_threshold(self, enhanced_from_minimal):
+    def test_process_clean_table_scores_above_threshold(self, minimal_parse_result):
         validator = Validator(config={}, pass_threshold=0.5)
-        result = validator.process(enhanced_from_minimal)
-        val = result.enhanced_data["validation"]
-        assert val["total_score"] >= 0.5
-        assert val["passed"] is True
+        result = validator.process(minimal_parse_result)
+        assert result.trust.validation_score >= 0.5
+        assert result.trust.validation_passed is True

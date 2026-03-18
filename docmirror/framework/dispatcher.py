@@ -63,8 +63,7 @@ class ParserDispatcher:
         """
         Main entry point for document parsing.
 
-        Invokes `adapter.perceive()` to directly return a `PerceptionResult` (new path),
-        bypassing the legacy `parse()` interface.
+        Invokes `adapter.perceive()` to directly return a `ParseResult`.
         """
         _t0 = time.time()
         path = Path(file_path)
@@ -112,10 +111,10 @@ class ParserDispatcher:
             try:
                 cached_json = await parse_cache.get(_file_checksum, document_type or "")
                 if cached_json:
-                    from docmirror.models.entities.perception_result import PerceptionResult
+                    from docmirror.models.entities.parse_result import ParseResult
                     logger.info(f"[Dispatcher] \u26a1 Cache HIT for {path.name}")
                     _emit(2, "Checking cache", "Cache HIT \u26a1")
-                    return PerceptionResult.model_validate_json(cached_json)
+                    return ParseResult.model_validate_json(cached_json)
             except Exception as e:
                 logger.debug(f"[Dispatcher] Cache lookup error (non-fatal): {e}")
 
@@ -202,24 +201,24 @@ class ParserDispatcher:
             perception = await parser.perceive(path, **perceive_ctx)
 
             # ── 7. Fallback error handling (Resilience) ──
-            if fallback and (not perception.success or not perception.content.text.strip()):
+            if fallback and (not perception.success or not perception.full_text.strip()):
                 fallback_parser = self._get_fallback_parser(file_type)
                 if fallback_parser and fallback_parser.__class__ != parser.__class__:
                     logger.info(f"[Dispatcher] Primary {pname} failed/empty, attempting fallback: {fallback_parser.__class__.__name__}")
                     context["parser_name"] = fallback_parser.__class__.__name__
                     fb_ctx = {k: v for k, v in context.items() if k != "file_path"}
                     fb_perception = await fallback_parser.perceive(path, **fb_ctx)
-                    if fb_perception.success and fb_perception.content.text.strip():
+                    if fb_perception.success and fb_perception.full_text.strip():
                         _elapsed = int((time.time() - _t0) * 1000)
-                        fb_perception.timing.elapsed_ms = _elapsed
+                        fb_perception.parser_info.elapsed_ms = _elapsed
                         logger.info(f"[Dispatcher] \u25c0 process | parser={fallback_parser.__class__.__name__}(fallback) | status={fb_perception.status} | elapsed={_elapsed}ms")
                         return fb_perception
 
             # ── 8. Timing + Metric logging ──
             _elapsed = int((time.time() - _t0) * 1000)
-            perception.timing.elapsed_ms = _elapsed
-            _emit(5, "Extracting content", f"{len(perception.content.text):,} chars, {len(perception.tables)} tables ({_elapsed}ms)")
-            logger.info(f"[Dispatcher] \u25c0 process | parser={pname} | status={perception.status} | confidence={perception.confidence:.4f} | text_len={len(perception.content.text)} | tables={len(perception.tables)} | forged={_is_forged} | elapsed={_elapsed}ms")
+            perception.parser_info.elapsed_ms = _elapsed
+            _emit(5, "Extracting content", f"{len(perception.full_text):,} chars, {perception.total_tables} tables ({_elapsed}ms)")
+            logger.info(f"[Dispatcher] \u25c0 process | parser={pname} | status={perception.status} | confidence={perception.confidence:.4f} | text_len={len(perception.full_text)} | tables={perception.total_tables} | forged={_is_forged} | elapsed={_elapsed}ms")
 
             # ── 9. Write caching (Success paths only) ──
             if _file_checksum and perception.success:
@@ -251,7 +250,7 @@ class ParserDispatcher:
         is_forged: Optional[bool] = None,
         forgery_reasons: Optional[List[str]] = None,
     ):
-        """Build a failure PerceptionResult with unified error code (see docmirror.models.errors)."""
+        """Build a failure ParseResult with unified error code (see docmirror.models.errors)."""
         from docmirror.models.errors import build_failure_result
         return build_failure_result(
             code=error_code,

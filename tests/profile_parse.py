@@ -55,15 +55,15 @@ async def profile_parse(file_path: Path) -> None:
     print(f"📊 Parse Result:")
     print(f"   Status:     {result.status}")
     print(f"   Confidence: {result.confidence:.2%}")
-    print(f"   Pages:      {result.content.page_count}")
-    print(f"   Text:       {len(result.content.text)} chars")
-    print(f"   Tables:     {len(result.tables)}")
-    print(f"   Blocks:     {len(result.content.blocks)}")
+    print(f"   Pages:      {result.page_count}")
+    print(f"   Text:       {len(result.full_text)} chars")
+    print(f"   Tables:     {result.total_tables}")
+    print(f"   Rows:       {result.total_rows}")
 
     print(f"\n⏱  Timing:")
     print(f"   Total:      {elapsed * 1000:.0f} ms")
-    if result.timing:
-        print(f"   Reported:   {result.timing.elapsed_ms:.0f} ms")
+    if result.parser_info and result.parser_info.elapsed_ms:
+        print(f"   Reported:   {result.parser_info.elapsed_ms:.0f} ms")
 
     print(f"\n💾 Memory:")
     print(f"   Current:    {mem_after[0] / 1024 / 1024:.1f} MB")

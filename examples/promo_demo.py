@@ -44,7 +44,8 @@ async def run_cinematic_demo():
     target_file = Path("tests/fixtures/1.jpg")
     print_header("Target Acquisition")
     print_typewriter(f"File   : {YELLOW}{target_file.name}{RESET}")
-    print_typewriter(f"Size   : {YELLOW}{target_file.stat().st_size / 1024:.1f} KB{RESET}")
+    if target_file.exists():
+        print_typewriter(f"Size   : {YELLOW}{target_file.stat().st_size / 1024:.1f} KB{RESET}")
     print_typewriter(f"Status : {CYAN}Ingesting into Pipeline...{RESET}")
     print("")
     time.sleep(1)
@@ -85,49 +86,52 @@ async def run_cinematic_demo():
     sys.stdout.write(f"\r{GREEN}[Engine]{RESET} Parsing Complete in {elapsed:.2f}s!{' ' * 20}\n\n")
     time.sleep(0.5)
 
-    # 4. Reveal Results
-    print_header("PerceptionResult -> [Meta & Identity]")
+    # 4. Reveal Results — use to_api_dict() for consistent output
+    api = result.to_api_dict(include_text=True)
+
+    print_header("ParseResult -> [Document & Identity]")
     time.sleep(0.5)
-    print_typewriter(f" {BOLD}Scene / Domain{RESET}:  {CYAN}{result.scene}{RESET}")
-    print_typewriter(f" {BOLD}Confidence    {RESET}:  {GREEN}{(result.confidence * 100):.1f}%{RESET}")
-    print_typewriter(f" {BOLD}Found Entities{RESET}:", 0.01)
+    doc = api["data"]["document"]
+    print_typewriter(f" {BOLD}Document Type{RESET}:  {CYAN}{doc['type']}{RESET}")
+    print_typewriter(f" {BOLD}Confidence   {RESET}:  {GREEN}{(api['data']['quality']['confidence'] * 100):.1f}%{RESET}")
+    print_typewriter(f" {BOLD}Properties   {RESET}:", 0.01)
     
-    for k, v in result.content.entities.items():
+    for k, v in doc.get("properties", {}).items():
         print_typewriter(f"    - {k}: {YELLOW}{v}{RESET}", 0.01)
         time.sleep(0.1)
         
     print("")
     time.sleep(1)
 
-    # 5. Forgery Detection (Trust Layer)
-    print_header("Trust & Validation Check")
-    val = result.provenance.validation
-    if val:
-        print_typewriter(f" L2 Audit Score :  {MAGENTA}{val.l2_score}{RESET}")
-        is_forged = val.is_forged
-        if is_forged:
-            print_typewriter(f" Metadata Tamper:  {RED}DETECTED{RESET}")
-            for r in val.forgery_reasons:
-                print(f"    -> {RED}{r}{RESET}")
-        else:
-            print_typewriter(f" Image Fidelity :  {GREEN}VERIFIED (No ELA Tampering){RESET}")
+    # 5. Quality Check
+    print_header("Quality & Validation Check")
+    quality = api["data"]["quality"]
+    print_typewriter(f" Trust Score    :  {MAGENTA}{quality['trust_score']}{RESET}")
+    if quality["validation_passed"]:
+        print_typewriter(f" Validation     :  {GREEN}PASSED{RESET}")
     else:
-        print_typewriter(f" Validation     :  {YELLOW}SKIPPED (No validation middleware hit){RESET}")
+        print_typewriter(f" Validation     :  {RED}FAILED{RESET}")
+        for issue in quality.get("issues", []):
+            print(f"    -> {RED}{issue}{RESET}")
         
     print("")
     time.sleep(1)
 
     # 6. Extracted Data Structure Highlight
     print_header("Data Topology Overview")
-    tables = [b for b in result.content.blocks if b.type == "table"]
-    texts = [b for b in result.content.blocks if b.type == "text"]
+    pages = doc.get("pages", [])
+    tables = [t for p in pages for t in p.get("tables", [])]
+    texts = [t for p in pages for t in p.get("texts", [])]
     
+    print_typewriter(f" 📄 Parsed {CYAN}{len(pages)}{RESET} Pages")
     print_typewriter(f" 📊 Parsed {CYAN}{len(tables)}{RESET} Tables")
     print_typewriter(f" 📝 Parsed {CYAN}{len(texts)}{RESET} Text Blocks")
     
-    if tables and tables[0].table:
+    if tables:
         print_typewriter(f"\n {BOLD}Sample Table Header{RESET}:", 0.01)
-        print(f" {YELLOW}{tables[0].table.headers}{RESET}")
+        print(f" {YELLOW}{tables[0].get('headers', [])}{RESET}")
+        total_rows = sum(len(t.get("rows", [])) for t in tables)
+        print_typewriter(f" Total Rows: {CYAN}{total_rows}{RESET}")
         
     print("\n")
     print_typewriter(f"{GREEN}=========================================={RESET}", 0.01)

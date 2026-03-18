@@ -17,7 +17,7 @@ from docmirror.framework.dispatcher import ParserDispatcher
 from docmirror.models.entities.document_types import DocumentType
 
 if TYPE_CHECKING:
-    from docmirror.models.entities.perception_result import PerceptionResult
+    from docmirror.models.entities.parse_result import ParseResult
 
 class PerceptionFactory:
     """
@@ -51,7 +51,7 @@ async def perceive_document(
     file_path: Union[str, Path],
     document_type: DocumentType = DocumentType.OTHER,
     skip_cache: bool = False,
-) -> "PerceptionResult":
+) -> "ParseResult":
     logger.info(f"[PerceptionFactory] ▶ perceive_document | file_path={file_path} | document_type={document_type}")
     dispatcher = PerceptionFactory.get_dispatcher()
     return await dispatcher.process(str(file_path), document_type=document_type, skip_cache=skip_cache)
