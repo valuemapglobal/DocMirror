@@ -40,6 +40,7 @@ from ..middlewares import (
     LanguageDetector,
     MiddlewarePipeline,
     SceneDetector,
+    SLMEntityExtractor,
     Validator,
 )
 from ..models.entities.parse_result import ParseResult, ResultStatus
@@ -59,6 +60,7 @@ MIDDLEWARE_REGISTRY: dict[str, type[BaseMiddleware]] = {
     # ── Cross-format generic middlewares ──
     "LanguageDetector": LanguageDetector,
     "GenericEntityExtractor": GenericEntityExtractor,
+    "SLMEntityExtractor": SLMEntityExtractor,
 }
 
 

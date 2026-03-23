@@ -346,6 +346,10 @@ class CoreExtractor:
                 "perf_breakdown": _perf,
                 "perf_per_page": _page_perf,
             }
+            # Inject section tree from SectionDrivenStrategy (if present)
+            section_tree = _perf.pop("_section_tree", None)
+            if section_tree:
+                metadata["sections"] = section_tree
             if seal_info:
                 metadata["seal_info"] = seal_info
 
@@ -441,6 +445,21 @@ class CoreExtractor:
             ``(pages, full_text, extraction_layer, extraction_confidence,
             _perf, _page_perf)`` 6-tuple.
         """
+        # === Strategy Registry: route by structural content_type ===
+        from .strategies.strategy_registry import get_strategy
+
+        # Import to trigger @register_strategy decorators
+        import docmirror.core.extraction.strategies.section_driven  # noqa: F401
+
+        strategy = get_strategy(pre_analysis.content_type)
+        if strategy is not None:
+            logger.info(
+                f"[DocMirror] Strategy Registry → {strategy.__class__.__name__} "
+                f"(content_type={pre_analysis.content_type})"
+            )
+            return strategy.extract(fitz_doc, pre_analysis)
+
+        # === Generic pipeline (unchanged) ===
         # ── Per-step timing instrumentation ──
         _perf: dict[str, float] = {}
         _page_perf: list = []  # per-page timing breakdown
@@ -1364,8 +1383,14 @@ class CoreExtractor:
                             )
                             break
 
-            # Retry 2: Visual Optical Degradation
-            if extraction_confidence < 0.85 and _router.should_enhance_table(best_table, extraction_confidence):
+            # Retry 2: Visual Optical Degradation (scanned/non-digital only)
+            # Skip OCR degradation for digital PDFs — the native text layer is
+            # always more reliable than rendering to image + OCR.
+            if (
+                not is_digital
+                and extraction_confidence < 0.85
+                and _router.should_enhance_table(best_table, extraction_confidence)
+            ):
                 try:
                     high_dpi = _router._high_dpi
                     logger.warning(
@@ -1397,6 +1422,11 @@ class CoreExtractor:
                                 self._page_state.reset()
                 except Exception as e:
                     logger.debug(f"[DocMirror] Quality Router: OCR Degradation skipped: {e}")
+            elif is_digital and extraction_confidence < 0.85:
+                logger.debug(
+                    f"[DocMirror] PID Loop Retry 2: Skipped OCR degradation on page {page_idx} "
+                    f"(digital document, confidence={extraction_confidence:.2f})"
+                )
 
         return result_blocks, extraction_layer, extraction_confidence, _table_ms, zone_tables_extracted
 
@@ -1549,7 +1579,7 @@ class CoreExtractor:
             (blocks, extraction_layer, extraction_confidence)
         """
         logger.info(
-            f"[Extractor] Page {page_idx}: Detected Legacy fallback (Rule-based recovery for {len(layout_al.get('table', []))} layout zones)"
+            f"[Extractor] Page {page_idx}: Detected Legacy fallback (Rule-based recovery for {layout_al.table_count} layout table zones)"
         )
         result_blocks: list[Block] = []
         page_tables, extraction_layer, extraction_confidence = extract_tables_layered(
@@ -1589,9 +1619,12 @@ class CoreExtractor:
                     extraction_confidence = re_conf
                     extraction_layer = re_layer
 
-            # Retry 2: Visual Optical Degradation
+            # Retry 2: Visual Optical Degradation (scanned/non-digital only)
+            # Skip OCR degradation for digital PDFs — the native text layer is
+            # always more reliable than rendering to image + OCR.
             if (
-                extraction_confidence < 0.85
+                not is_digital
+                and extraction_confidence < 0.85
                 and _router
                 and _router.should_enhance_table(page_tables[0] if page_tables else [], extraction_confidence)
             ):
@@ -1615,6 +1648,11 @@ class CoreExtractor:
                                 self._page_state.reset()
                 except Exception as e:
                     logger.debug(f"[DocMirror] Quality Router: OCR Degradation (Fallback) skipped: {e}")
+            elif is_digital and extraction_confidence < 0.85:
+                logger.debug(
+                    f"[DocMirror] PID Loop Retry 2 (Fallback): Skipped OCR degradation on page {page_idx} "
+                    f"(digital document, confidence={extraction_confidence:.2f})"
+                )
 
         ro = reading_order
         for tbl in page_tables:

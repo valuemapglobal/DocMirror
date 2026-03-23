@@ -105,6 +105,14 @@ def get_pipeline_config(file_type: str, enhance_mode: str = "standard") -> list[
     """
     fmt_config = FORMAT_PIPELINES.get(file_type, FORMAT_PIPELINES.get("*", {}))
     middlewares = fmt_config.get(enhance_mode, fmt_config.get("standard", []))
+    
+    # Clone list to avoid mutating the global dict
+    middlewares = list(middlewares)
+    
+    import os
+    if os.environ.get("DOCMIRROR_ENABLE_SLM") == "1":
+        middlewares.append("SLMEntityExtractor")
+        
     logger.info(
         f"[Config] Loaded pipeline configuration: format='{file_type}', mode='{enhance_mode}' -> {len(middlewares)} middlewares activated"
     )

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import re
 from collections import Counter
 from typing import Any, Dict, List, Tuple
 
@@ -90,6 +91,12 @@ class PreAnalysisResult:
     detected_language: str = "unknown"
     # Examples: "zh", "en", "ja", "ko", "mixed", "unknown"
 
+    # Early scene detection (structural classification)
+    scene_hint: str = "unknown"
+    # Detected document scene: "credit_report", "bank_statement", etc.
+    template_confidence: float = 0.0
+    # 0.0 = unknown, 1.0 = fully known template structure
+
     # Strategy parameters (consumed directly by Orchestrator, replacing hardcoded if/else)
     strategy_params: dict = dataclasses.field(default_factory=dict)
 
@@ -133,6 +140,12 @@ class PreAnalyzer:
         """
         Analyze document and produce a PreAnalysisResult.
 
+        Two-phase analysis for optimal performance:
+            Phase 1 (~5ms): Lightweight text scan → section header count.
+                            If section_dominant detected → early return.
+            Phase 2 (full): Expensive per-page analysis (find_tables, etc.)
+                            Only runs for non-section-dominant documents.
+
         Args:
             fitz_doc: An opened PyMuPDF document object.
         """
@@ -142,11 +155,54 @@ class PreAnalyzer:
 
         # -- Step 1: Text layer check --
         has_text, text_density = self._check_text_layer(fitz_doc)
+        first_page_preview = fitz_doc[0].get_text()[:200].strip()
+
+        # ══════════════════════════════════════════════════════════════
+        # Phase 1: Lightweight section header scan (~5ms)
+        # ══════════════════════════════════════════════════════════════
+        section_header_count = 0
+        if has_text:
+            for idx in range(min(3, num_pages)):
+                page_text = fitz_doc[idx].get_text()
+                section_header_count += self._count_section_headers(page_text)
+
+        # Early scene detection
+        scene_hint, template_confidence = self._detect_scene_hint(first_page_preview)
+        detected_language = self._detect_language(first_page_preview)
+
+        # Phase 1 early exit: section_dominant detected → skip expensive analysis
+        if has_text and section_header_count >= 3:
+            content_type = "section_dominant"
+            complexity = "medium" if num_pages <= 50 else "complex"
+
+            logger.info(
+                f"[DocMirror] PreAnalyzer ▶ FAST PATH | "
+                f"pages={num_pages} | type={content_type} | "
+                f"section_headers={section_header_count} | "
+                f"lang={detected_language} | scene={scene_hint}"
+            )
+
+            return PreAnalysisResult(
+                has_text_layer=True,
+                num_pages=num_pages,
+                content_type=content_type,
+                quality_score=1.0,  # digital text = high quality
+                complexity_level=complexity,
+                recommended_strategy="fast",
+                first_page_preview=first_page_preview,
+                layout_homogeneous=False,
+                detected_language=detected_language,
+                scene_hint=scene_hint,
+                template_confidence=template_confidence,
+            )
+
+        # ══════════════════════════════════════════════════════════════
+        # Phase 2: Full page analysis (non-section-dominant documents)
+        # ══════════════════════════════════════════════════════════════
 
         # -- Step 2: First page analysis --
         first_page = fitz_doc[0]
         first_page_stats = self._analyze_page(first_page, 0)
-        first_page_preview = first_page.get_text()[:200].strip()
 
         # -- Step 3: Quick full-document scan (statistics only) --
         table_pages = 0
@@ -220,9 +276,6 @@ class PreAnalyzer:
             quality_score,
         )
 
-        # -- Step 9: Language detection --
-        detected_language = self._detect_language(first_page_preview)
-
         result = PreAnalysisResult(
             has_text_layer=has_text,
             num_pages=num_pages,
@@ -241,14 +294,16 @@ class PreAnalyzer:
             ),
             page_quality_map=tuple(page_quality_pairs),
             table_detection_cache=tuple(table_detection_pairs),
+            scene_hint=scene_hint,
+            template_confidence=template_confidence,
         )
 
         logger.info(
-            f"[DocMirror] PreAnalyzer \u25b6 "
+            f"[DocMirror] PreAnalyzer ▶ "
             f"pages={num_pages} | type={content_type} | "
             f"quality={quality_score:.2f} | complexity={complexity_level} | "
             f"strategy={strategy} | homogeneous={layout_homogeneous} | "
-            f"lang={detected_language}"
+            f"lang={detected_language} | scene={scene_hint}"
         )
 
         return result
@@ -350,7 +405,14 @@ class PreAnalyzer:
         scanned_pages: int,
         sample_size: int,
     ) -> str:
-        """Determine content type."""
+        """Determine content type.
+
+        Returns one of: scanned, section_dominant, table_dominant,
+        text_dominant, mixed.
+
+        Note: section_dominant override happens in analyze() after
+        section header counting completes.
+        """
         if not has_text or (scanned_pages > sample_size * 0.5):
             return "scanned"
 
@@ -625,3 +687,65 @@ class PreAnalyzer:
             return "en"
         else:
             return "mixed"
+
+    # ─── Section-dominant & Scene Detection ────────────────────────────────
+
+    # Hierarchical section header patterns (multi-language)
+    _SECTION_PATTERNS = [
+        # Chinese: "一 个人基本信息", "二 信息概要"
+        re.compile(r"^(一|二|三|四|五|六|七|八|九|十)\s{1,4}[\u4e00-\u9fff]"),
+        # Chinese sub-section: "（一）", "(二)"
+        re.compile(r"^[（(](一|二|三|四|五|六|七|八|九|十)[）)]"),
+        # Chinese chapter/section: "第一章", "第二节"
+        re.compile(r"^第[一二三四五六七八九十百]+[章节部分篇]"),
+        # Numbered: "1. Overview", "2. 概述"
+        re.compile(r"^\d+\.\s+[A-Z\u4e00-\u9fff]"),
+        # English: "Section 1", "Chapter 2"
+        re.compile(r"^(Section|Chapter|Part)\s+\d+", re.IGNORECASE),
+    ]
+
+    def _count_section_headers(self, text: str) -> int:
+        """Count hierarchical section headers in a page's text.
+
+        Used during page sampling to determine if the document is
+        section_dominant (>= 3 headers across sampled pages).
+
+        Cost: ~0.1ms per page (regex line scan).
+        """
+        count = 0
+        for line in text.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            for pat in self._SECTION_PATTERNS:
+                if pat.match(line):
+                    count += 1
+                    break
+        return count
+
+    # Scene detection signatures (keyword → scene, confidence)
+    _SCENE_SIGNATURES: dict[str, tuple[list[str], float]] = {
+        "credit_report": (["信用报告"], 0.95),
+        "bank_statement": (["交易明细", "银行流水"], 0.85),
+        "invoice": (["增值税", "发票"], 0.85),
+        "audit_report": (["审计报告"], 0.90),
+    }
+
+    def _detect_scene_hint(self, text_sample: str) -> tuple[str, float]:
+        """Detect document scene from first-page text sample.
+
+        This is a lightweight O(1) classification for known document
+        templates.  Used to populate ``scene_hint`` and
+        ``template_confidence`` in PreAnalysisResult.
+
+        Args:
+            text_sample: First ~200 chars of page 1.
+
+        Returns:
+            (scene, confidence): e.g. ("credit_report", 0.95)
+        """
+        for scene, (keywords, conf) in self._SCENE_SIGNATURES.items():
+            if any(kw in text_sample for kw in keywords):
+                return scene, conf
+        return "unknown", 0.0
+

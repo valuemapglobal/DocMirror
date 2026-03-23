@@ -43,6 +43,7 @@ nav:
     - External OCR (Low-Quality Handoff): guide/external-ocr.md
     - Format Support: guide/formats.md
     - Error Handling: guide/error-handling.md
+    - Quality & Tolerance: guide/quality-and-tolerance.md
   - Design:
     - Solution Design (Gaps & Risks): design/solution-design.md
     - Performance Optimization: design/performance-optimization.md
