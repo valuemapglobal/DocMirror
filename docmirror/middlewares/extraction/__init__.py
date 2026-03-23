@@ -8,5 +8,6 @@
 
 from .entity_extractor import EntityExtractor
 from .generic_entity_extractor import GenericEntityExtractor
+from .slm_entity_extractor import SLMEntityExtractor
 
-__all__ = ["EntityExtractor", "GenericEntityExtractor"]
+__all__ = ["EntityExtractor", "GenericEntityExtractor", "SLMEntityExtractor"]

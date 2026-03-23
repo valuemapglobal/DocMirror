@@ -253,8 +253,13 @@ def main() -> None:
     )
     parser.add_argument("--authors", action="store_true", help="Show contributors and authors")
     parser.add_argument("--include-text", action="store_true", help="Include full markdown text in output")
+    parser.add_argument("--slm", action="store_true", help="[Experimental] Enable pure CPU Small Language Model (SLM) semantic KV extraction")
 
     args = parser.parse_args()
+
+    import os
+    if args.slm:
+        os.environ["DOCMIRROR_ENABLE_SLM"] = "1"
 
     if args.authors:
         print_banner()

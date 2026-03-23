@@ -124,6 +124,7 @@ class CellValue(BaseModel):
     confidence: float = 1.0
     bbox: list[float] | None = None
     data_type: DataType = DataType.TEXT
+    slm_entities: dict[str, Any] | None = None
 
     class Config:
         json_schema_extra = {
@@ -236,6 +237,7 @@ class TextBlock(BaseModel):
     level: TextLevel = TextLevel.BODY
     confidence: float = 1.0
     bbox: list[float] | None = None
+    slm_entities: dict[str, Any] | None = None
 
 
 class KeyValuePair(BaseModel):
@@ -459,6 +461,9 @@ class ParseResult(BaseModel):
     processing_time: float = Field(default=0.0, exclude=True)
     errors: list[str] = Field(default_factory=list, exclude=True)
 
+    # ── Section tree (populated by SectionDrivenStrategy) ──
+    sections: list[dict[str, Any]] = Field(default_factory=list, exclude=True)
+
     # ── Computed properties ──
 
     @property
@@ -628,6 +633,10 @@ class ParseResult(BaseModel):
             "properties": properties,
             "pages": self._build_api_pages(),
         }
+
+        # Section tree (populated by SectionDrivenStrategy for section_dominant docs)
+        if self.sections:
+            document["sections"] = self.sections
 
         if include_text:
             document["text"] = self._build_full_text()
@@ -837,14 +846,17 @@ class ParseResult(BaseModel):
 
             # Text blocks with level
             if page.texts:
-                api_page["texts"] = [
-                    {
+                texts_out = []
+                for text in page.texts:
+                    d = {
                         "content": text.content,
                         "level": text.level.value,
                         "confidence": text.confidence,
                     }
-                    for text in page.texts
-                ]
+                    if getattr(text, "slm_entities", None):
+                        d["slm_entities"] = text.slm_entities
+                    texts_out.append(d)
+                api_page["texts"] = texts_out
 
             # Key-value pairs
             if page.key_values:
@@ -862,14 +874,12 @@ class ParseResult(BaseModel):
 
     @staticmethod
     def _serialize_cell(cell: CellValue) -> dict[str, Any]:
-        """Serialize CellValue to API dict — minimal output.
-
-        Only ``text`` (always) and ``data_type`` (when not default "text").
-        Consumer parses text according to data_type hint.
-        """
+        """Serialize CellValue to API dict — minimal output."""
         d: dict[str, Any] = {"text": cell.text}
         if cell.data_type.value != "text":
             d["data_type"] = cell.data_type.value
+        if getattr(cell, "slm_entities", None):
+            d["slm_entities"] = cell.slm_entities
         return d
 
 

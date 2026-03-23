@@ -200,12 +200,15 @@ class ParseResultBridge:
         )
 
         pages = _blocks_to_pages(base)
+        meta = base.metadata or {}
         return ParseResult(
             pages=pages,
             parser_info=ParserInfo(
-                parser_name="DocMirror",
+                parser=meta.get("parser", ""),
+                elapsed_ms=meta.get("elapsed_ms", 0),
                 page_count=len(base.pages),
             ),
+            sections=meta.get("sections", []),
         )
 
     @staticmethod
@@ -423,6 +426,7 @@ class ParseResultBridge:
             parser_info=parser_info,
             trust=trust,
             provenance=provenance,
+            sections=meta.get("sections", []),
         )
 
     # ══════════════════════════════════════════════════════════════════════

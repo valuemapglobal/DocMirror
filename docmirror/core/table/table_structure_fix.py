@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +47,6 @@ logger = logging.getLogger(__name__)
 _TIME_ONLY_RE = re.compile(r"^\d{1,2}:\d{2}(:\d{2})?$")
 # Date pattern (YYYY-MM-DD or YYYY.MM.DD or YYYY/MM/DD)
 _DATE_RE = re.compile(r"^\d{4}[-./]\d{1,2}[-./]\d{1,2}$")
-_TIME_ONLY_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
 
 
 def _smart_join(s1: str, s2: str) -> str:
@@ -189,27 +187,9 @@ def merge_split_rows(table: list[list[str]]) -> list[list[str]]:
 
         return result
     except Exception as e:
-        import sys
-        import traceback
-
-        print(f"CRASH IN MERGE_SPLIT_ROWS: {e}", file=sys.stderr)
-        traceback.print_exc()
+        logger.error(f"[TableFix] CRASH in merge_split_rows: {e}", exc_info=True)
         return table
 
-
-def _is_summary_row(row: list[str]) -> bool:
-    """Detect summary rows (should not be merged)."""
-    text = "".join(str(c) for c in row)
-    summary_keywords = [
-        "\u603b\u6536\u5165",
-        "\u603b\u652f\u51fa",
-        "\u5408\u8ba1",
-        "\u603b\u8ba1",
-        "\u5c0f\u8ba1",
-        "\u672c\u9875",
-        "\u7d2f\u8ba1",
-    ]
-    return any(kw in text for kw in summary_keywords)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
