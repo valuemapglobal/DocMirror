@@ -55,11 +55,12 @@ from .pipe_strategy import _extract_by_pipe_delimited
 class _ProfileRunState:
     """Tracks candidates and gating when ExtractionProfile is active."""
 
-    def __init__(self, profile: ExtractionProfile | None, audit_out: list | None):
+    def __init__(self, profile: ExtractionProfile | None, audit_out: list | None, audit_page: int | None = None):
         from .best_candidate import ExtractCandidate
 
         self.profile = profile
         self.audit_out = audit_out
+        self.audit_page = audit_page
         self.candidates: list = []
         self._ExtractCandidate = ExtractCandidate
         self.disabled = set(profile.table_disabled_layers()) if profile else set()
@@ -104,17 +105,18 @@ class _ProfileRunState:
             if pick:
                 c = pick.candidate
                 if self.audit_out is not None:
-                    self.audit_out.append(
-                        {
-                            "picked": c.layer,
-                            "score": pick.score,
-                            "row_count": c.row_count,
-                            "candidates": [
-                                {"layer": x.layer, "rows": x.row_count, "conf": round(x.confidence, 3)}
-                                for x in pick.all_candidates
-                            ],
-                        }
-                    )
+                    entry: dict = {
+                        "picked": c.layer,
+                        "score": round(pick.score, 4),
+                        "row_count": c.row_count,
+                        "candidates": [
+                            {"layer": x.layer, "rows": x.row_count, "conf": round(x.confidence, 3)}
+                            for x in pick.all_candidates
+                        ],
+                    }
+                    if self.audit_page is not None:
+                        entry["page"] = self.audit_page
+                    self.audit_out.append(entry)
                 return c.tables, c.layer, c.confidence
 
         best = max(self.candidates, key=lambda c: (c.confidence, c.row_count))
@@ -232,6 +234,8 @@ def extract_tables_layered(
     pid_resample: bool = False,
     extraction_profile: ExtractionProfile | None = None,
     extraction_audit: list | None = None,
+    fast_continuation: bool = False,
+    audit_page: int | None = None,
 ) -> tuple[list[list[list[str]]], str, float]:
     """Progressively layered table extraction.
 
@@ -255,7 +259,15 @@ def extract_tables_layered(
     """
     timings: dict[str, float] = {}
     t_total = time.time()
-    _pr = _ProfileRunState(extraction_profile, extraction_audit)
+    _pr = _ProfileRunState(extraction_profile, extraction_audit, audit_page=audit_page)
+    _bcs_ledger = bool(
+        _pr.use_bcs
+        and _pr.profile
+        and _pr.profile.is_borderless_ledger()
+        and _pr.profile.bcs_oracle_layer == "pdfplumber_default"
+    )
+    _ran_l09_early = False
+    _has_oracle_candidate = False
 
     def _t(label: str, t0: float):
         """Record per-layer elapsed time (ms)."""
@@ -277,6 +289,47 @@ def extract_tables_layered(
         if result is not None:
             return result
         return None
+
+    def _run_l09_pdfplumber(*, label_prefix: str = "L0.9", include_text_fallback: bool = True):
+        """Run pdfplumber default (+ optional text fallback). Returns early-exit tuple or None."""
+        nonlocal _ran_l09_early, _has_oracle_candidate
+        _ran_l09_early = True
+        t0 = time.time()
+        tables = work_page.extract_tables()
+        _t(f"{label_prefix}_default", t0)
+        if tables and _tables_look_valid(tables, has_borders=has_borders):
+            _done = _emit(
+                _recover_header_from_zone(tables, work_page, table_zone_bbox, page_plum),
+                "pdfplumber_default",
+            )
+            if _done is not None:
+                return _done
+            if _bcs_ledger:
+                for c in _pr.candidates:
+                    if c.layer == "pdfplumber_default" and c.row_count >= 2:
+                        _has_oracle_candidate = True
+                        break
+
+        if include_text_fallback and not _ran_l1b_text:
+            t0 = time.time()
+            tables = work_page.extract_tables(table_settings=TABLE_SETTINGS)
+            _t(f"{label_prefix}_text", t0)
+            if tables and _tables_look_valid(tables, has_borders=has_borders):
+                _done = _emit(
+                    _recover_header_from_zone(tables, work_page, table_zone_bbox, page_plum),
+                    "text_fallback",
+                )
+                if _done is not None:
+                    return _done
+        return None
+
+    def _finalize_bcs_or_continue():
+        """Pick best BCS candidate and return, or None to continue cascade."""
+        tables, layer, conf = _pr.finalize(page_plum.extract_tables() or [], "fallback", 0.0)
+        result = _return(tables, layer)
+        return result if result is not None else (tables, layer, conf)
+
+    has_borders = False
 
     # ── Crop to table zone (all layers work on the cropped page) ──
     work_page = page_plum
@@ -308,10 +361,12 @@ def extract_tables_layered(
                         "Template Injection succeeded (forced grid alignment, %d rows)",
                         len(injected_table),
                     )
-                # Assign maximum confidence because it is rigidly enforced
-                timings["total"] = round((time.time() - t_total) * 1000, 2)
-                _layer_timings_var.set(dict(timings))
-                return [injected_table], "template_injection", 0.99
+                _done = _emit([injected_table], "template_injection")
+                if _done is not None:
+                    return _done
+                if fast_continuation and _bcs_ledger:
+                    _run_l09_pdfplumber(label_prefix="L0.9_fast", include_text_fallback=False)
+                    return _finalize_bcs_or_continue()
         except Exception as exc:
             _t("L_template", t0)
             if _DEBUG:
@@ -375,8 +430,7 @@ def extract_tables_layered(
     _lines = work_page.lines or []
     _v_line_count = sum(1 for l in _lines if abs(l.get("x0", 0) - l.get("x1", 0)) < 1)
     has_borders = _v_line_count >= 2
-
-    # ── Segmented vertical lines → implicit row boundaries ──
+    _ran_l1b_text = False
     # When vertical lines are segmented per row (same x, many short lines)
     # and horizontal lines are insufficient, extract implicit row boundary
     # y-coordinates from vertical-line endpoints.
@@ -402,6 +456,14 @@ def extract_tables_layered(
             logger.debug(
                 f"segmented v_lines → {len(_segmented_h_lines)} implicit row boundaries (max_segs={_max_segs})"
             )
+
+    # ── BCS ledger fast path: pdfplumber oracle before expensive L1/L2 layers ──
+    if _bcs_ledger and not fast_continuation:
+        early = _run_l09_pdfplumber()
+        if early is not None:
+            return early
+        if _has_oracle_candidate:
+            return _finalize_bcs_or_continue()
 
     # ── Layer 0.5: pipe separator (mainframe ASCII art) ──
     t0 = time.time()
@@ -517,7 +579,7 @@ def extract_tables_layered(
     )
     _ran_l1b_text = classify_hint != "char" and "L1b_text" in timings
 
-    if _run_l09:
+    if _run_l09 and not _ran_l09_early:
         t0 = time.time()
         tables = work_page.extract_tables()
         _t("L0.9_default", t0)
@@ -545,84 +607,93 @@ def extract_tables_layered(
 
     # (RapidTable at L2.5 — too slow for early pipeline, ~10s/page CPU)
 
-    # ── Layer 2 Primary: Dual-Axis Signal Processor (single O(n) pass) ──
-    t0 = time.time()
-    try:
-        from .signal_processor import extract_table_by_signal
+    _skip_l2 = _bcs_ledger and _has_oracle_candidate
 
-        signal_table = extract_table_by_signal(work_page, global_tensor_x=global_grid_x)
-        _t("L2_signal", t0)
-        if signal_table and len(signal_table) >= 2:
-            sig_vocab = _score_header_by_vocabulary(signal_table[0])
-            if sig_vocab >= 3:
-                if _tables_look_valid([signal_table], has_borders=has_borders):
-                    _done = _emit([signal_table], "signal_processor")
-                    if _done is not None:
-                        return _done
+    # ── Layer 2 Primary: Dual-Axis Signal Processor (single O(n) pass) ──
+    if not _skip_l2:
+        t0 = time.time()
+        try:
+            from .signal_processor import extract_table_by_signal
+
+            signal_table = extract_table_by_signal(work_page, global_tensor_x=global_grid_x)
+            _t("L2_signal", t0)
+            if signal_table and len(signal_table) >= 2:
+                sig_vocab = _score_header_by_vocabulary(signal_table[0])
+                if sig_vocab >= 3:
+                    if _tables_look_valid([signal_table], has_borders=has_borders):
+                        _done = _emit([signal_table], "signal_processor")
+                        if _done is not None:
+                            return _done
+                if _DEBUG:
+                    logger.debug(
+                        "L2 signal_processor: %d rows, vocab=%d (below threshold)",
+                        len(signal_table),
+                        sig_vocab,
+                    )
+        except Exception as exc:
+            _t("L2_signal", t0)
             if _DEBUG:
-                logger.debug(
-                    "L2 signal_processor: %d rows, vocab=%d (below threshold)",
-                    len(signal_table),
-                    sig_vocab,
-                )
-    except Exception as exc:
-        _t("L2_signal", t0)
-        if _DEBUG:
-            logger.debug("L2 signal_processor error: %s", exc)
+                logger.debug("L2 signal_processor error: %s", exc)
+    else:
+        timings["L2_signal"] = 0
+        timings["L2_signal_skipped"] = "bcs_oracle"
 
     # ── Layer 2 Fallback: char-level competitive selection (parallel execution) ──
-    t0 = time.time()
+    _layer2_fallback = None
+    if not _skip_l2:
+        t0 = time.time()
 
-    def _run_method(name, func, wp):
-        """Run a char-level method in a thread; return (table, name, score) or None."""
-        try:
-            tbl = func(wp)
-            if tbl and len(tbl) >= 2:
-                score = _score_header_by_vocabulary(tbl[0])
-                return (tbl, name, score)
-        except Exception as ex:
-            logger.debug(f"L2 {name} error: {ex}")
-        return None
+        def _run_method(name, func, wp):
+            """Run a char-level method in a thread; return (table, name, score) or None."""
+            try:
+                tbl = func(wp)
+                if tbl and len(tbl) >= 2:
+                    score = _score_header_by_vocabulary(tbl[0])
+                    return (tbl, name, score)
+            except Exception as ex:
+                logger.debug(f"L2 {name} error: {ex}")
+            return None
 
-    methods = [
-        ("header_anchors", detect_columns_by_header_anchors),
-        ("word_anchors", detect_columns_by_word_anchors),
-        ("data_voting", detect_columns_by_data_voting),
-        ("whitespace_projection", detect_columns_by_whitespace_projection),
-    ]
+        methods = [
+            ("header_anchors", detect_columns_by_header_anchors),
+            ("word_anchors", detect_columns_by_word_anchors),
+            ("data_voting", detect_columns_by_data_voting),
+            ("whitespace_projection", detect_columns_by_whitespace_projection),
+        ]
 
-    candidates: list[tuple[list[list[str]], str, int]] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        futures = {executor.submit(_run_method, name, func, work_page): name for name, func in methods}
-        # Deterministic: collect ALL results (no early exit) to avoid
-        # thread-race non-determinism from as_completed ordering.
-        for future in concurrent.futures.as_completed(futures):
-            result = future.result()
-            if result is not None:
-                candidates.append(result)
+        candidates: list[tuple[list[list[str]], str, int]] = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(_run_method, name, func, work_page): name for name, func in methods}
+            # Deterministic: collect ALL results (no early exit) to avoid
+            # thread-race non-determinism from as_completed ordering.
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
+                if result is not None:
+                    candidates.append(result)
 
-    _t("L2_char_level", t0)
+        _t("L2_char_level", t0)
 
-    if candidates:
-        # Penalty: if extracted table has many stuffed cells, lower its priority
-        # Tie-breaker: method name for deterministic ordering
-        def _get_sort_key(c):
-            tbl = c[0]
-            vocab_score = c[2]
-            method_name = c[1]
-            row_count = len(tbl)
-            stuffed_count = sum(1 for row in tbl[:10] for cell in row if _cell_is_stuffed(str(cell or "")))
-            return (vocab_score, row_count - stuffed_count * 10, method_name)
+        if candidates:
+            # Penalty: if extracted table has many stuffed cells, lower its priority
+            # Tie-breaker: method name for deterministic ordering
+            def _get_sort_key(c):
+                tbl = c[0]
+                vocab_score = c[2]
+                method_name = c[1]
+                row_count = len(tbl)
+                stuffed_count = sum(1 for row in tbl[:10] for cell in row if _cell_is_stuffed(str(cell or "")))
+                return (vocab_score, row_count - stuffed_count * 10, method_name)
 
-        candidates.sort(key=_get_sort_key, reverse=True)
-        best_table, best_layer, best_score = candidates[0]
-        if best_score >= 3:
-            _done = _emit([best_table], best_layer)
-            if _done is not None:
-                return _done
-        _layer2_fallback = (best_table, best_layer)
+            candidates.sort(key=_get_sort_key, reverse=True)
+            best_table, best_layer, best_score = candidates[0]
+            if best_score >= 3:
+                _done = _emit([best_table], best_layer)
+                if _done is not None:
+                    return _done
+            _layer2_fallback = (best_table, best_layer)
     else:
-        _layer2_fallback = None
+        timings["L2_char_level"] = 0
+        timings["L2_char_skipped"] = "bcs_oracle"
 
     # ── Layer 2.5: RapidTable vision model (slow ~10 s, only when L2 also fails) ──
     # G4: Skip RapidTable when document is large or upstream confidence is high enough

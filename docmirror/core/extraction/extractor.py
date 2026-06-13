@@ -372,6 +372,7 @@ class CoreExtractor:
             "scene_confidence": getattr(self, "_scene_confidence", 0.0)
             or _perf.get("scene_confidence", 0.0),
             "layout_profile_id": _perf.get("layout_profile_id"),
+            "quarantined_tables": _perf.get("quarantined_tables") or [],
             "parser": "DocMirror_CoreExtractor",
             "elapsed_ms": round(elapsed, 1),
             "block_count": total_blocks,
@@ -927,6 +928,15 @@ class CoreExtractor:
                         len(_logical),
                         len(pages),
                     )
+                from docmirror.core.table.merger import collect_quarantined_tables
+
+                _quarantined = collect_quarantined_tables(pages)
+                if _quarantined:
+                    _perf["quarantined_tables"] = _quarantined
+                    logger.info(
+                        "[DocMirror] Quarantined %d standalone table(s) (col mismatch)",
+                        len(_quarantined),
+                    )
             except Exception as _ce:
                 logger.debug("[DocMirror] Logical table composition skipped: %s", _ce)
             _perf["composition_ms"] = (_clock() - _t) * 1000
@@ -976,15 +986,32 @@ class CoreExtractor:
                     if getattr(self, "_extraction_profile", None)
                     else None
                 )
+                _quarantine = _perf.get("quarantined_tables") or []
+                _primary_logical = 0
+                if _logical_tables_payload:
+                    _primary_logical = max(
+                        int(lt.get("row_count") or 0) for lt in _logical_tables_payload
+                    )
                 _perf["extraction_audit"] = {
                     "profile_id": _profile_id,
                     "pages": list(_audit),
+                    "quarantined_pages": [
+                        {
+                            "page": q.get("page"),
+                            "row_count": q.get("row_count"),
+                            "reason": q.get("reason", "col_count_mismatch"),
+                            "loss_reason": "col_count_mismatch",
+                            "action": q.get("action", "standalone_physical_table"),
+                        }
+                        for q in _quarantine
+                    ],
                     "total_physical_rows": sum(
                         len(b.raw_content)
                         for pg in pages
                         for b in pg.blocks
                         if b.block_type == "table" and isinstance(b.raw_content, list)
                     ),
+                    "primary_logical_rows": _primary_logical,
                 }
 
             if _page_perf:
@@ -1479,6 +1506,15 @@ class CoreExtractor:
         _tbl_t = _clock()
         result_blocks: list[Block] = []
 
+        page_table_template = global_table_template if page_idx > 0 else None
+        fast_continuation = bool(
+            page_idx > 0
+            and page_table_template is not None
+            and extraction_profile
+            and extraction_profile.is_borderless_ledger()
+            and extraction_profile.should_use_bcs()
+        )
+
         # P3-2: Detect merged cells
         merged_cells = []
         try:
@@ -1499,9 +1535,11 @@ class CoreExtractor:
                 if hasattr(self, "_page_state") and self._page_state.should_use_hint()
                 else None
             ),
-            table_template=global_table_template,
+            table_template=page_table_template,
             extraction_profile=extraction_profile,
             extraction_audit=getattr(self, "_extraction_audit", None),
+            fast_continuation=fast_continuation,
+            audit_page=page_idx + 1,
         )
 
         from ..table.extraction.cell_normalizer import normalize_table_cells
@@ -1510,14 +1548,25 @@ class CoreExtractor:
 
         if getattr(self, "_extraction_audit", None) is not None:
             row_count = len(page_tables[0]) if page_tables and page_tables[0] else 0
-            audit_entry = {
-                "page": page_idx + 1,
+            page_no = page_idx + 1
+            audit_entry: dict = {
                 "layer": extraction_layer,
                 "row_count": row_count,
             }
-            if self._extraction_audit and self._extraction_audit[-1].get("page") == page_idx + 1:
-                self._extraction_audit[-1].update(audit_entry)
+            if row_count == 0:
+                audit_entry["loss_reason"] = "no_table_extracted"
+            elif row_count <= 1:
+                audit_entry["loss_reason"] = "header_only"
+
+            target = None
+            for entry in reversed(self._extraction_audit):
+                if entry.get("page") == page_no:
+                    target = entry
+                    break
+            if target is not None:
+                target.update(audit_entry)
             else:
+                audit_entry["page"] = page_no
                 self._extraction_audit.append(audit_entry)
         _table_ms = (_clock() - _tbl_t) * 1000
         zone_tables_extracted = False
@@ -1596,8 +1645,10 @@ class CoreExtractor:
                     fitz_page=fitz_page,
                     watermark_filtered=_watermark_filtered,
                     layer_hint=None,
-                    table_template=global_table_template,
+                    table_template=page_table_template,
                     pid_resample=True,
+                    extraction_profile=extraction_profile,
+                    fast_continuation=fast_continuation,
                 )
                 if re_tables and re_conf > original_conf:
                     logger.info(
@@ -1816,6 +1867,7 @@ class CoreExtractor:
             f"[Extractor] Page {page_idx}: Detected Legacy fallback (Rule-based recovery for {layout_al.table_count} layout table zones)"
         )
         result_blocks: list[Block] = []
+        page_table_template = global_table_template if page_idx > 0 else None
         page_tables, extraction_layer, extraction_confidence = extract_tables_layered(
             page_plum,
             document_page_count=len(fitz_doc),
@@ -1826,7 +1878,7 @@ class CoreExtractor:
                 if hasattr(self, "_page_state") and self._page_state.should_use_hint()
                 else None
             ),
-            table_template=global_table_template,
+            table_template=page_table_template,
         )
 
         # ── PID Loop (Fallback Path) ──
@@ -1842,7 +1894,7 @@ class CoreExtractor:
                     fitz_page=fitz_page,
                     watermark_filtered=_watermark_filtered,
                     layer_hint=None,
-                    table_template=global_table_template,
+                    table_template=page_table_template,
                     pid_resample=True,
                 )
                 if re_tables and re_conf > extraction_confidence:

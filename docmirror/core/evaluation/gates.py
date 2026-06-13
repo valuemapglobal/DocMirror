@@ -16,6 +16,14 @@ from pydantic import BaseModel, Field
 from docmirror.models.entities.parse_result import ParseResult
 
 
+class OracleMode(str, Enum):
+    """How EXTRACT_GATE derives expected row counts."""
+
+    NONE = "none"
+    ABSOLUTE = "absolute"
+    PDFPLUMBER_FULL_PAGE_SAMPLE = "pdfplumber_full_page_sample"
+
+
 class FailureClass(str, Enum):
     INPUT_QUALITY = "input_quality"
     LAYOUT_CONFLICT = "layout_conflict"
@@ -40,6 +48,8 @@ class QualityGateProfile(BaseModel):
     min_row_preservation_ratio: float = 0.0  # EXTRACT_GATE: min logical/physical row ratio
     min_logical_rows: int = 0  # EXTRACT_GATE: absolute floor for ledger documents
     max_logical_rows: int = 0  # EXTRACT_GATE: absolute ceiling (0 = no cap)
+    oracle_mode: OracleMode = OracleMode.NONE
+    oracle_sample_pages: int = 3  # pages sampled when oracle_mode=pdfplumber_full_page_sample
 
 
 GATE_PROFILES: dict[str, QualityGateProfile] = {
@@ -63,6 +73,8 @@ GATE_PROFILES: dict[str, QualityGateProfile] = {
         min_row_preservation_ratio=0.995,
         min_logical_rows=5111,
         max_logical_rows=5111,
+        oracle_mode=OracleMode.PDFPLUMBER_FULL_PAGE_SAMPLE,
+        oracle_sample_pages=3,
     ),
     "bank_statement": QualityGateProfile(
         profile_id="bank_statement",
@@ -142,6 +154,74 @@ def _primary_logical_row_count(result: ParseResult) -> int:
     return max(lt.row_count for lt in result.logical_tables)
 
 
+def _physical_row_count(result: ParseResult) -> int:
+    return sum(len(tb.rows) for pg in result.pages for tb in pg.tables)
+
+
+def dual_view_consistency_metrics(
+    result: ParseResult,
+    *,
+    quarantined_tables: list[dict[str, Any]] | None = None,
+) -> dict[str, float | int]:
+    """Physical vs logical row accounting for dual-view regression checks."""
+    quarantined = quarantined_tables or []
+    primary = _primary_logical_row_count(result)
+    total_logical = sum(lt.row_count for lt in result.logical_tables) if result.logical_tables else 0
+    physical = _physical_row_count(result)
+    quarantine_rows = sum(int(q.get("row_count") or q.get("rows") or 0) for q in quarantined)
+    return {
+        "primary_logical_rows": primary,
+        "total_logical_rows": total_logical,
+        "physical_row_count": physical,
+        "quarantine_row_count": quarantine_rows,
+        "quarantine_page_count": len(quarantined),
+        "logical_minus_primary": total_logical - primary,
+    }
+
+
+def dual_view_consistency_check(
+    result: ParseResult,
+    *,
+    quarantined_tables: list[dict[str, Any]] | None = None,
+    max_secondary_logical_rows: int = 10,
+) -> QualityGateResult:
+    """E9 guard — primary logical rows stable; secondary logical tables bounded."""
+    metrics_raw = dual_view_consistency_metrics(result, quarantined_tables=quarantined_tables)
+    metrics = {k: float(v) for k, v in metrics_raw.items()}
+    failures: list[str] = []
+    checks: dict[str, bool] = {}
+
+    primary = int(metrics_raw["primary_logical_rows"])
+    total_logical = int(metrics_raw["total_logical_rows"])
+    gap = int(metrics_raw["logical_minus_primary"])
+
+    checks["primary_le_total_logical"] = primary <= total_logical
+    if not checks["primary_le_total_logical"]:
+        failures.append(
+            f"DUAL_VIEW: primary_logical {primary} > total_logical {total_logical}"
+        )
+
+    checks["primary_present"] = primary > 0
+    if primary <= 0:
+        failures.append("DUAL_VIEW: primary logical row count is zero")
+
+    # Secondary logical tables (footnote / quarantine pages) should be small vs primary.
+    checks["secondary_logical_bounded"] = gap <= max_secondary_logical_rows
+    if gap > max_secondary_logical_rows:
+        failures.append(
+            f"DUAL_VIEW: secondary logical rows {gap} > {max_secondary_logical_rows} "
+            f"(primary={primary}, total={total_logical})"
+        )
+
+    return QualityGateResult(
+        passed=len(failures) == 0,
+        failure_class=FailureClass.TABLE_EXTRACTION if failures else None,
+        failures=failures,
+        metrics=metrics,
+        checks=checks,
+    )
+
+
 def extract_row_preservation_check(
     result: ParseResult,
     *,
@@ -185,13 +265,21 @@ def extract_row_preservation_check(
     else:
         checks["max_logical_rows"] = True
 
-    if profile and profile.min_row_preservation_ratio > 0 and oracle_row_count > 0:
+    use_oracle_ratio = (
+        profile
+        and profile.min_row_preservation_ratio > 0
+        and oracle_row_count > 0
+        and profile.oracle_mode == OracleMode.PDFPLUMBER_FULL_PAGE_SAMPLE
+    )
+    if use_oracle_ratio:
         ratio = logical_rows / oracle_row_count
         metrics["row_preservation_ratio"] = ratio
+        metrics["oracle_row_count"] = float(oracle_row_count)
         checks["row_preservation"] = ratio >= profile.min_row_preservation_ratio
         if ratio < profile.min_row_preservation_ratio:
             failures.append(
-                f"EXTRACT_GATE: row_preservation {ratio:.4f} < {profile.min_row_preservation_ratio}"
+                f"EXTRACT_GATE: row_preservation {ratio:.4f} < {profile.min_row_preservation_ratio} "
+                f"(logical={logical_rows}, oracle={oracle_row_count})"
             )
     else:
         checks["row_preservation"] = True

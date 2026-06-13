@@ -35,6 +35,7 @@ def test_wechat_profile_epo_fields():
     p = get_profile("borderless_ledger_wechat")
     assert p.is_full_page_table()
     assert p.enable_best_candidate_selection is True
+    assert p.enable_grid_template is True
     assert "pymupdf_native" in p.table_disabled_layers()
     assert p.normalize_intracellular_newlines is True
     assert len(p.expected_header_columns) == 8

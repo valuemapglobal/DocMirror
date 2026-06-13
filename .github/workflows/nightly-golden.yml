@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  wechat-full:
-    name: WeChat 219-page full golden
+  extract-golden:
+    name: EPO extract row gates (wechat/alipay)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -20,10 +20,31 @@ jobs:
           python-version: "3.12"
       - name: Install package with PDF dependencies
         run: pip install -e ".[dev,pdf,ocr,langdetect]"
-      - name: Run full wechat golden
+      - name: Run extract golden integration tests
         run: |
           DOCMIRROR_MAX_PAGE_CONCURRENCY=1 \
-          pytest tests/golden/test_wechat_payment_golden.py::test_wechat_golden_full -v --tb=short
+          pytest tests/integration/test_extract_golden.py -v --tb=short \
+            -m "integration and not benchmark"
+
+  wechat-legacy:
+    name: WeChat legacy golden (compat)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package with PDF dependencies
+        run: pip install -e ".[dev,pdf,ocr,langdetect]"
+      - name: Run legacy wechat golden if present
+        run: |
+          if [ -f tests/golden/test_wechat_payment_golden.py ]; then
+            DOCMIRROR_MAX_PAGE_CONCURRENCY=1 \
+            pytest tests/golden/test_wechat_payment_golden.py::test_wechat_golden_full -v --tb=short
+          else
+            echo "legacy golden test not found — skipped"
+          fi
 
   benchmark-matrix:
     name: Golden matrix benchmark

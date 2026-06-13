@@ -115,7 +115,6 @@ curl -X POST http://localhost:8000/v1/parse \
 - **领域插件** — `BankStatement`、`Invoice` 插件自动抽取领域特定实体
 - **防伪造检测** — 像素误差分析 (ELA) + 元数据黑名单
 - **RESTful API** — 标准 `{code, message, data, meta}` 信封格式
-- **Redis 缓存** — 基于内容哈希的自动缓存
 - **纯 CPU 支持** — 无需 GPU；支持 GPU/MPS 加速
 - **跨平台** — macOS、Linux、Windows，Python 3.10–3.13
 

@@ -108,6 +108,13 @@ def score_candidate(
     col_match = 1.0 if expected_cols and candidate.col_count == len(expected_cols) else 0.5
     layer_prior = _LAYER_PRIOR.get(candidate.layer, 0.5)
 
+    if (
+        candidate.layer == "template_injection"
+        and oracle_rows > 0
+        and candidate.row_count > oracle_rows * 1.03
+    ):
+        layer_prior = min(layer_prior, 0.55)
+
     preferred = profile.table_preferred_layers()
     if preferred and candidate.layer in preferred:
         idx = preferred.index(candidate.layer)

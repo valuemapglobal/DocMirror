@@ -8,21 +8,23 @@
 DocMirror Dependency Injection Package
 =======================================
 
-Provides centralized dependency management for the DocMirror engine.
+Provides the process-wide service container for framework singletons.
+
+Primary parsing API remains ``docmirror.core.factory.perceive_document()``.
+Use this package when tests or extensions need shared ``ParserDispatcher`` /
+``Orchestrator`` instances.
 
 Usage::
 
-    from docmirror.di import container, get_settings, get_dispatcher
+    from docmirror.di import get_dispatcher, get_orchestrator, reset_container
 
-    # Access services
-    settings = get_settings()
     dispatcher = get_dispatcher()
+    orchestrator = get_orchestrator()
 """
 
 from docmirror.di.container import (
     DocMirrorContainer,
     container,
-    get_cache,
     get_dispatcher,
     get_orchestrator,
     get_settings,
@@ -33,8 +35,7 @@ __all__ = [
     "DocMirrorContainer",
     "container",
     "get_settings",
-    "get_cache",
-    "get_orchestrator",
     "get_dispatcher",
+    "get_orchestrator",
     "reset_container",
 ]

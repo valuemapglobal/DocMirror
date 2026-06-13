@@ -14,9 +14,8 @@ First-principles design:
        parsing pipeline.  The result MUST have ``provenance`` already filled;
        ``perceive()`` no longer re-reads the file just to compute a hash.
 
-    2. ``perceive()`` — extraction + middleware enrichment.  It calls
-       ``to_parse_result()``, then runs the shared Orchestrator pipeline.
-       It does NOT re-open the file.
+    2. ``perceive()`` — extraction + middleware enrichment via the shared
+       ``Orchestrator`` singleton (``docmirror.di.get_orchestrator()``).
 """
 
 from __future__ import annotations
@@ -67,8 +66,6 @@ class BaseParser(ABC):
         Step 2 is a *safety net* — it avoids re-reading the full file by
         using a lightweight stat-only path if the adapter didn't fill provenance.
         """
-        from docmirror.framework.orchestrator import Orchestrator
-
         pr = await self.to_parse_result(file_path)
 
         # ── Safety net: fill provenance if adapter didn't ──
@@ -95,7 +92,9 @@ class BaseParser(ABC):
             pr.parser_info.parser_version = getattr(_dm, "__version__", "0.4.0")
 
         # ── Middleware enrichment ──
-        orchestrator = Orchestrator()
+        from docmirror.di.container import get_orchestrator
+
+        orchestrator = get_orchestrator()
         file_type = (
             context.get("file_type")
             or (pr.provenance.file_type if pr.provenance else None)

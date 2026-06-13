@@ -14,12 +14,17 @@ pages (like the first page) to absolutely guarantee column alignment.
 """
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import List, Optional
 
 from ...utils.watermark import is_watermark_char
+from ...utils.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE
 
 logger = logging.getLogger(__name__)
+
+_RE_PAGE_FOOTER = re.compile(r"^第?\s*\d+\s*页$")
+_RE_STANDALONE_PAGE_NUM = re.compile(r"^\d{1,4}$")
 
 
 @dataclass
@@ -111,6 +116,38 @@ def build_global_template(page_plum, extracted_table: list[list[str]]) -> Global
     return template
 
 
+def _looks_like_page_noise(row: list[str], num_cols: int) -> bool:
+    """Filter header/footer/pagination rows from injected template output."""
+    cells = [(c or "").strip() for c in row]
+    non_empty = [c for c in cells if c]
+    if not non_empty:
+        return True
+    joined = " ".join(non_empty)
+    if "微信支付" in joined and len(non_empty) <= 2:
+        return True
+    if _RE_PAGE_FOOTER.match(joined):
+        return True
+    if len(non_empty) == 1 and _RE_STANDALONE_PAGE_NUM.match(non_empty[0]):
+        return True
+    if len(non_empty) >= 2:
+        return False
+    row_text = " ".join(cells)
+    if _RE_IS_DATE.search(row_text):
+        return False
+    for cell in non_empty:
+        cleaned = cell.replace(",", "").replace("，", "")
+        if _RE_IS_AMOUNT.match(cleaned):
+            return False
+    return True
+
+
+def _row_matches_template_width(row: list[str], num_cols: int) -> bool:
+    non_empty = sum(1 for c in row if (c or "").strip())
+    if len(row) == num_cols and non_empty >= 2:
+        return True
+    return non_empty >= 2
+
+
 def extract_by_injected_template(page_plum, template: GlobalTableTemplate) -> list[list[str]] | None:
     """
     Forcefully extracts a table by chunking characters strictly into the injected
@@ -175,7 +212,7 @@ def extract_by_injected_template(page_plum, template: GlobalTableTemplate) -> li
             cell_text = "".join(text_parts).strip()
             clean_row.append(cell_text)
 
-        if any(cell for cell in clean_row):
+        if not _looks_like_page_noise(clean_row, num_cols) and _row_matches_template_width(clean_row, num_cols):
             table_data.append(clean_row)
 
     if len(table_data) >= 2:

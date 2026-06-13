@@ -257,3 +257,28 @@ def merge_cross_page_tables(pages: list[PageLayout]) -> list[PageLayout]:
         new_pages.append(new_page)
 
     return new_pages
+
+
+def collect_quarantined_tables(pages: list[PageLayout]) -> list[dict]:
+    """Collect quarantine records from cross-page merge planning (P3-2).
+
+    Each entry describes a physical table kept standalone because column counts
+    were incompatible with the preceding merge group (ratio < 0.5).
+    """
+    groups = collect_cross_page_merge_groups(pages)
+    quarantined: list[dict] = []
+    for group in groups:
+        for entry in group.get("merge_log") or []:
+            if entry.get("action") != "quarantine_col_mismatch":
+                continue
+            quarantined.append(
+                {
+                    "page": entry.get("page"),
+                    "row_count": entry.get("rows"),
+                    "reason": "col_count_mismatch",
+                    "prev_cols": entry.get("prev_cols"),
+                    "curr_cols": entry.get("curr_cols"),
+                    "action": "standalone_physical_table",
+                }
+            )
+    return quarantined

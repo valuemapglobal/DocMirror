@@ -176,6 +176,19 @@ class EvidenceEngine(BaseMiddleware):
         doc_type = verdict if confidence >= 0.3 else "generic"
         result.entities.document_type = doc_type
 
+        # Phase 3b: Refine layout profile hint for ledger archetypes (does not re-extract)
+        from docmirror.core.classification.scene_resolver import scene_to_layout_profile_id
+
+        refined_profile = scene_to_layout_profile_id(doc_type)
+        if refined_profile:
+            ds = result.entities.domain_specific
+            if not isinstance(ds, dict):
+                ds = {}
+            ds["document_scene_refined"] = doc_type
+            ds["layout_profile_id_refined"] = refined_profile
+            ds["layout_profile_refine_confidence"] = confidence
+            result.entities.domain_specific = ds
+
         # Evidence log for debugging (mirror/API only when DOCMIRROR_DEBUG=1)
         if (
             is_debug_mode()

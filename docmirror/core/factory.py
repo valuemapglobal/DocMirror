@@ -15,8 +15,8 @@ First-principles design:
       then return a fully parsed and classified ParseResult.
     - All configuration is *explicit* via PerceiveOptions, not hidden in
       environment variables or global settings.
-    - PerceptionFactory is the Configurable Factory that assembles the
-      processing pipeline; perceive_document() is the convenience shortcut.
+    - PerceptionFactory delegates to ``docmirror.di`` for shared singletons;
+      perceive_document() is the convenience shortcut.
 
 Usage::
 
@@ -39,7 +39,6 @@ from __future__ import annotations
 
 import logging
 import os
-import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
@@ -102,33 +101,27 @@ class PerceiveOptions:
 
 class PerceptionFactory:
     """
-    Configurable parsing factory.
+    Backward-compatible accessor for the shared ``ParserDispatcher``.
 
-    Maintains a thread-safe singleton of the ParserDispatcher (the orchestrator
-    that routes files to the correct adapter and runs the middleware pipeline).
-
-    Use ``perceive_document()`` for the single-call convenience API;
-    use ``PerceptionFactory`` directly when you need to customise the
-    dispatcher or test with a mock.
+    ``get_dispatcher()`` delegates to ``docmirror.di.get_dispatcher()`` —
+    there is only one process-wide singleton.  Prefer ``perceive_document()``
+    for parsing; use this class only when you need direct dispatcher access
+    in tests or custom integrations.
     """
-
-    _dispatcher: ParserDispatcher | None = None
-    _lock = threading.Lock()
 
     @classmethod
     def get_dispatcher(cls) -> ParserDispatcher:
-        """Get (or create) the singleton dispatcher."""
-        if cls._dispatcher is None:
-            with cls._lock:
-                if cls._dispatcher is None:  # double-check locking
-                    cls._dispatcher = ParserDispatcher()
-        return cls._dispatcher
+        """Return the global ``ParserDispatcher`` (via DI container)."""
+        from docmirror.di.container import get_dispatcher
+
+        return get_dispatcher()
 
     @classmethod
     def reset(cls) -> None:
-        """Reset the singleton dispatcher (useful for testing)."""
-        with cls._lock:
-            cls._dispatcher = None
+        """Reset all framework singletons (dispatcher, orchestrator, settings)."""
+        from docmirror.di.container import reset_container
+
+        reset_container()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

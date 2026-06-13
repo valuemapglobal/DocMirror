@@ -33,7 +33,7 @@ profiles:
     normalize_intracellular_newlines: true
     collapse_duplicate_spaces: true
     skip_pid_resample: true
-    enable_grid_template: false
+    enable_grid_template: true
     merge_quarantine_on_col_mismatch: true
     disabled_table_methods:
       - pymupdf_native
@@ -90,4 +90,6 @@ profiles:
       text_any:
         - 个人客户交易明细
         - 企业客户交易明细
-      min_pages: 3
+        - 账户明细信息
+        - 中国建设银行账户明细
+      min_pages: 2

@@ -10,9 +10,10 @@ DocMirror: Universal Document Parsing Engine
 Directory structure:
 - core/: Core extraction engines (CoreExtractor, LayoutAnalysis, TableExtraction)
 - models/: Data models (BaseResult, EnhancedResult, PerceptionResult)
-- middlewares/: Middleware pipeline (SceneDetector, EntityExtractor, Validator, ...)
+- middlewares/: Middleware pipeline (EvidenceEngine, EntityExtractor, Validator, ...)
 - configs/: Configuration (settings, pipeline_registry, institution_registry)
-- framework/: Pipeline orchestration (dispatcher, orchestrator, cache)
+- framework/: Pipeline orchestration (dispatcher, orchestrator, base; optional cache)
+- di/: Service container (shared dispatcher / orchestrator singletons)
 - adapters/: Format adapters (PDF, Image, Office, Email, Web)
 - plugins/: Domain plugins (bank_statement, ...)
 

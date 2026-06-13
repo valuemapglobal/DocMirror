@@ -115,7 +115,6 @@ curl -X POST http://localhost:8000/v1/parse \
 - **Domain Plugins** — `BankStatement`, `Invoice` plugins auto-extract domain-specific entities
 - **Anti-Forgery Detection** — Pixel Error Level Analysis (ELA) + metadata blacklisting
 - **RESTful API** — Standard `{code, message, data, meta}` envelope with typed cells
-- **Redis Caching** — Automatic content-hash caching for repeated documents
 - **Pure CPU Support** — No GPU required; GPU/MPS acceleration available when present
 - **Cross-Platform** — macOS, Linux, Windows with Python 3.10–3.13
 
@@ -131,7 +130,7 @@ graph TD
 
     FILE[[Any Document]]:::none --> DISPATCH
 
-    DISPATCH["L0 Dispatcher + Cache"]:::orchestrator --> ADAPTERS
+    DISPATCH["L0 Dispatcher"]:::orchestrator --> ADAPTERS
 
     subgraph "Format Adapters"
         ADAPTERS("PDF · Image · Office · Web"):::adapter --> CORE{"Core Engine"}:::core
@@ -142,7 +141,7 @@ graph TD
     BASERESULT --> ORCHESTRATOR
 
     subgraph "Enhancement Pipeline"
-        ORCHESTRATOR["Orchestrator"]:::orchestrator --> MW1["Scene Detection"]
+        ORCHESTRATOR["Orchestrator (singleton)"]:::orchestrator --> MW1["EvidenceEngine · Classification"]
         MW1 --> MW2["Entity Extraction"]
         MW2 --> MW3["Validation & Trust"]
     end
