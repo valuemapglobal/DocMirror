@@ -20,11 +20,50 @@ jobs:
           python-version: "3.12"
       - name: Install package with PDF dependencies
         run: pip install -e ".[dev,pdf,ocr,langdetect]"
+      - name: Validate middleware catalog (MEP)
+        run: python scripts/validate_middleware_catalog.py
       - name: Run extract golden integration tests
         run: |
           DOCMIRROR_MAX_PAGE_CONCURRENCY=1 \
           pytest tests/integration/test_extract_golden.py -v --tb=short \
             -m "integration and not benchmark"
+
+  mep-golden:
+    name: MEP Mirror golden (Track B)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: pip install -e ".[dev,pdf,ocr]"
+      - name: MEP golden profiles
+        run: pytest tests/integration/test_mep_golden.py -v --tb=short
+
+  mep-anomaly-smoke:
+    name: AnomalyDetector smoke (full + env)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: pip install -e ".[dev]"
+      - name: Resolver includes AnomalyDetector when enabled
+        run: |
+          DOCMIRROR_ENABLE_ANOMALY=1 python3 -c "
+          from docmirror.configs.middleware.resolver import resolve_pipeline
+          from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus
+          pr = ParseResult(status=ResultStatus.SUCCESS, pages=[PageContent(page_number=1)])
+          pr.entities = DocumentEntities()
+          names = resolve_pipeline('fixed_layout_rasterizable', 'full', pr)
+          assert 'AnomalyDetector' in names, names
+          print('AnomalyDetector enabled OK')
+          "
 
   wechat-legacy:
     name: WeChat legacy golden (compat)

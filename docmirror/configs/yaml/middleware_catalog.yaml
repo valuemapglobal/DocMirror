@@ -1,0 +1,88 @@
+# Middleware Catalog (MEP) — single source of truth for Mirror-layer middleware.
+# See docs/design/08_middleware_layer_first_principles_redesign.md
+
+version: 1
+
+middlewares:
+  LanguageDetector:
+    module: docmirror.middlewares.detection.language_detector
+    class: LanguageDetector
+    stage: NORMALIZE
+    provides: [language]
+    depends_on: []
+    enabled: true
+
+  HeaderInferrer:
+    module: docmirror.middlewares.extraction.header_inferrer
+    class: HeaderInferrerMiddleware
+    stage: STRUCTURE
+    provides: [table_headers]
+    depends_on: []
+    when: "table_count > 0"
+    enabled: true
+
+  HeaderAlignment:
+    module: docmirror.middlewares.alignment.header_alignment_middleware
+    class: HeaderAlignmentMiddleware
+    stage: STRUCTURE
+    provides: [header_alignment]
+    depends_on: [HeaderInferrer]
+    when: "table_count > 0"
+    enabled: true
+
+  EntityExtractor:
+    module: docmirror.middlewares.extraction.entity_extractor
+    class: EntityExtractor
+    stage: ENRICH
+    provides: [entities, metadata]
+    depends_on: []
+    enabled: true
+
+  GenericEntityExtractor:
+    module: docmirror.middlewares.extraction.generic_entity_extractor
+    class: GenericEntityExtractor
+    stage: ENRICH
+    provides: [entities]
+    depends_on: []
+    enabled: true
+
+  EvidenceEngine:
+    module: docmirror.core.classification.evidence_engine
+    class: EvidenceEngine
+    stage: CLASSIFY
+    provides: [document_type, classification_evidence]
+    depends_on: [EntityExtractor, GenericEntityExtractor]
+    enabled: true
+
+  InstitutionDetector:
+    module: docmirror.middlewares.detection.institution_detector
+    class: InstitutionDetector
+    stage: CONTEXT
+    provides: [institution]
+    depends_on: [EvidenceEngine]
+    enabled: true
+
+  Validator:
+    module: docmirror.middlewares.validation.validator
+    class: Validator
+    stage: VALIDATE
+    provides: [quality_score]
+    depends_on: []
+    enabled: true
+
+  AnomalyDetector:
+    module: docmirror.middlewares.validation.anomaly_detector
+    class: AnomalyDetectorMiddleware
+    stage: VALIDATE
+    provides: [structural_anomaly_report]
+    depends_on: [Validator]
+    when: "enhance_mode == 'full'"
+    enabled: false
+
+  SLMEntityExtractor:
+    module: docmirror.middlewares.extraction.slm_entity_extractor
+    class: SLMEntityExtractor
+    stage: ENRICH
+    provides: [entities]
+    depends_on: []
+    enabled: false

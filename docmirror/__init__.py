@@ -36,7 +36,7 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 
-from docmirror.core.factory import PerceptionFactory, perceive_document
+from docmirror.core.factory import PerceptionFactory, PerceiveResult, perceive_document
 from docmirror.framework.dispatcher import ParserDispatcher
 from docmirror.framework.orchestrator import Orchestrator
 from docmirror.models.construction.parse_result_bridge import ParseResultBridge
@@ -49,6 +49,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "perceive_document",
+    "PerceiveResult",
     "PerceptionFactory",
     "ParseResult",
     "ParseResultBridge",

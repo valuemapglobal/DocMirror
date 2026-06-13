@@ -1,66 +1,77 @@
 # Enhancement profiles — middleware pipelines keyed by content_model × enhance_mode.
-# SSOT for Orchestrator; pipeline/registry.py delegates here.
-# Validated by tools/validate_format_capabilities.py (middleware names vs MIDDLEWARE_REGISTRY).
-# See docs/design/07_adapter_dispatcher_first_principles_redesign.md
+# SSOT for Orchestrator MEP; validated by scripts/validate_middleware_catalog.py
+# See docs/design/08_middleware_layer_first_principles_redesign.md
 
-version: 1
+version: 2
 
 profiles:
   fixed_layout_rasterizable:
     raw: []
     standard:
-      - EntityExtractor
-      - EvidenceEngine
-      - InstitutionDetector
-      - Validator
+      stages:
+        ENRICH: [EntityExtractor]
+        CLASSIFY: [EvidenceEngine]
+        CONTEXT: [InstitutionDetector]
+        VALIDATE: [Validator]
     full:
-      - EntityExtractor
-      - EvidenceEngine
-      - InstitutionDetector
-      - LanguageDetector
-      - Validator
+      stages:
+        NORMALIZE: [LanguageDetector]
+        STRUCTURE: [HeaderInferrer, HeaderAlignment]
+        ENRICH: [EntityExtractor]
+        CLASSIFY: [EvidenceEngine]
+        CONTEXT: [InstitutionDetector]
+        VALIDATE: [Validator, AnomalyDetector]
 
   tabular_native:
     raw: []
     standard:
-      - GenericEntityExtractor
-      - EvidenceEngine
+      stages:
+        ENRICH: [GenericEntityExtractor]
+        CLASSIFY: [EvidenceEngine]
     full:
-      - GenericEntityExtractor
-      - EvidenceEngine
-      - Validator
+      stages:
+        ENRICH: [GenericEntityExtractor]
+        CLASSIFY: [EvidenceEngine]
+        VALIDATE: [Validator]
 
   markup_narrative:
     raw: []
     standard:
-      - LanguageDetector
-      - GenericEntityExtractor
-      - EvidenceEngine
+      stages:
+        NORMALIZE: [LanguageDetector]
+        ENRICH: [GenericEntityExtractor]
+        CLASSIFY: [EvidenceEngine]
     full:
-      - LanguageDetector
-      - GenericEntityExtractor
-      - EvidenceEngine
-      - Validator
+      stages:
+        NORMALIZE: [LanguageDetector]
+        ENRICH: [GenericEntityExtractor]
+        CLASSIFY: [EvidenceEngine]
+        VALIDATE: [Validator]
 
   interchange_structured:
     raw: []
     standard:
-      - GenericEntityExtractor
+      stages:
+        ENRICH: [GenericEntityExtractor]
     full:
-      - GenericEntityExtractor
-      - EvidenceEngine
+      stages:
+        ENRICH: [GenericEntityExtractor]
+        CLASSIFY: [EvidenceEngine]
 
   container:
     raw: []
-    standard: []
-    full: []
+    standard:
+      stages: {}
+    full:
+      stages: {}
 
   opaque_binary:
     raw: []
-    standard: []
-    full: []
+    standard:
+      stages: {}
+    full:
+      stages: {}
 
-# Fallback when content_model unknown — legacy transport-only lookup
 transport_fallback:
   pdf: fixed_layout_rasterizable
   image: fixed_layout_rasterizable

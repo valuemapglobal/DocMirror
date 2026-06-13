@@ -104,8 +104,13 @@ def invalidate_format_cache() -> None:
 
 
 @lru_cache(maxsize=1)
-def load_enhancement_profiles() -> tuple[dict[str, dict[str, list[str]]], dict[str, str]]:
-    """Returns (profiles, transport_fallback)."""
+def load_enhancement_profiles() -> tuple[dict[str, dict[str, list[str] | dict]], dict[str, str]]:
+    """Returns (profiles, transport_fallback).
+
+    Profile mode values are either:
+      - v1: flat ``list[str]`` of middleware names
+      - v2: ``{"stages": {STAGE: [names, ...]}}``
+    """
     path = ENHANCEMENT_PROFILES_YAML
     if not path.is_file():
         return {}, {}
@@ -113,9 +118,30 @@ def load_enhancement_profiles() -> tuple[dict[str, dict[str, list[str]]], dict[s
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
+    def _parse_mode(raw: Any) -> list[str] | dict:
+        if isinstance(raw, list):
+            return [str(n) for n in raw]
+        if isinstance(raw, dict):
+            if "stages" in raw:
+                stages = raw.get("stages") or {}
+                return {
+                    "stages": {
+                        str(stage): [str(n) for n in (names or [])]
+                        for stage, names in stages.items()
+                    }
+                }
+            return raw
+        return []
+
     profiles = {
-        str(k): {str(mode): list(mws) for mode, mws in v.items()}
+        str(k): {str(mode): _parse_mode(mws) for mode, mws in v.items()}
         for k, v in (data.get("profiles") or {}).items()
     }
     transport_fallback = {str(k): str(v) for k, v in (data.get("transport_fallback") or {}).items()}
     return profiles, transport_fallback
+
+
+def transport_to_content_model(transport: str) -> str:
+    """Map transport to content_model via enhancement_profiles transport_fallback."""
+    _, fallback = load_enhancement_profiles()
+    return fallback.get(transport, "opaque_binary")

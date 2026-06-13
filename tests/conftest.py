@@ -27,6 +27,22 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 
+def pytest_sessionstart(session):
+    """Fail fast when MEP catalog YAML is inconsistent."""
+    from docmirror.configs.middleware.catalog import validate_catalog
+    from docmirror.plugins.post_extract.catalog import load_post_extract_catalog
+
+    errors = validate_catalog()
+    if errors:
+        msg = "MEP catalog validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+        pytest.exit(msg, returncode=1)
+
+    try:
+        load_post_extract_catalog()
+    except Exception as exc:
+        pytest.exit(f"post_extract catalog load failed: {exc}", returncode=1)
+
+
 @pytest.fixture
 def fixtures_dir():
     """Return the path to the test fixtures directory."""

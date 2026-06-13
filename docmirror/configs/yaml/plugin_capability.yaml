@@ -1,0 +1,19 @@
+# Plugin capability matrix — community vs enterprise coverage per document_type.
+# See docs/design/08_middleware_layer_first_principles_redesign.md §10.1
+
+version: 1
+
+# Explicit enterprise-only types (no community plugin; mirror_only envelope on community edition)
+enterprise_only:
+  - audit_report
+  - balance_sheet
+  - income_statement
+  - cash_flow_statement
+  - aml_report
+  - court_judgment
+  - fund_contract
+  - wealth_management_contract
+  - guarantee_contract
+
+# Auto-discovery: any docmirror.plugins.*_community module with matching domain_name
+# is treated as community-capable unless listed in enterprise_only.

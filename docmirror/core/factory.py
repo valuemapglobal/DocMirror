@@ -43,6 +43,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
 
+from docmirror.core.perceive_result import PerceiveResult
 from docmirror.framework.dispatcher import ParserDispatcher
 from docmirror.models.entities.document_types import DocumentType
 
@@ -92,6 +93,13 @@ class PerceiveOptions:
     # ── Callbacks ──
     on_progress: Callable[[int, int, str, str], None] | None = None
     """Optional progress callback ``f(step, total_steps, step_name, detail)``."""
+
+    # ── Plugin layer (PEC) — optional; does not mutate Mirror ──
+    editions: list[str] = field(default_factory=list)
+    """If non-empty, run ``plugins.runner`` for each edition after parse.
+
+    Results are stored on ``PerceiveResult.editions`` (never on ``ParseResult``).
+    """
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -173,34 +181,19 @@ def _restore_env(overrides: dict[str, str]) -> None:
 async def perceive_document(
     file_path: str | Path,
     options: PerceiveOptions | None = None,
-) -> ParseResult:
+) -> PerceiveResult:
     """
-    Parse a document and return a fully structured ``ParseResult``.
+    Parse a document and return a ``PerceiveResult`` envelope.
 
-    This is the **one public function** users call. Everything below
-    (dispatcher, adapter, extractor, middlewares) is internal.
+    ``PerceiveResult.mirror`` is the frozen Mirror ``ParseResult``.
+    Attribute access (``result.full_text``, etc.) delegates to ``mirror``.
 
     Args:
         file_path: Path to the document (PDF, image, Excel, Word, etc.).
-        options:   Explicit parsing options. ``None`` → ``PerceiveOptions()``
-                   which uses env-var defaults.
+        options:   Explicit parsing options. ``None`` → ``PerceiveOptions()``.
 
     Returns:
-        A ``ParseResult`` with full text, tables, entities, classification,
-        and evidence log.
-
-    Examples::
-
-        # Default mode
-        result = await perceive_document("invoice.pdf")
-
-        # First page only, no cache
-        result = await perceive_document("large.pdf",
-            PerceiveOptions(max_pages=1, skip_cache=True))
-
-        # Full pipeline with progress
-        result = await perceive_document("report.pdf",
-            PerceiveOptions(enhance_mode="full"))
+        ``PerceiveResult`` with ``mirror`` and optional ``editions`` dicts.
     """
     opts = options or PerceiveOptions()
 
@@ -225,4 +218,28 @@ async def perceive_document(
         # Restore env vars even if an exception was raised
         _restore_env(restored)
 
-    return result
+    if opts.editions:
+        from docmirror.plugins.runner import run_plugin_extract
+
+        edition_outputs: dict[str, Any] = {}
+        full_text = getattr(result, "full_text", "") or ""
+        fp = str(file_path)
+        for edition in opts.editions:
+            if edition not in ("community", "enterprise", "finance"):
+                logger.warning("[PerceptionFactory] Unknown edition %r — skipped", edition)
+                continue
+            try:
+                payload = await run_plugin_extract(
+                    result,
+                    edition=edition,  # type: ignore[arg-type]
+                    full_text=full_text,
+                    file_path=fp,
+                )
+                if payload is not None:
+                    edition_outputs[edition] = payload
+            except Exception as exc:
+                logger.warning("[PerceptionFactory] edition %s failed: %s", edition, exc)
+        if edition_outputs:
+            return PerceiveResult(mirror=result, editions=edition_outputs)
+
+    return PerceiveResult(mirror=result)

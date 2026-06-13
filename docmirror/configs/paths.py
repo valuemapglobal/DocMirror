@@ -22,6 +22,10 @@ KEY_SYNONYMS_YAML = YAML_DIR / "key_synonyms.yaml"
 INSTITUTION_REGISTRY_YAML = YAML_DIR / "institution_registry.yaml"
 FORMAT_CAPABILITIES_YAML = YAML_DIR / "format_capabilities.yaml"
 ENHANCEMENT_PROFILES_YAML = YAML_DIR / "enhancement_profiles.yaml"
+MIDDLEWARE_CATALOG_YAML = YAML_DIR / "middleware_catalog.yaml"
+PLUGIN_CAPABILITY_YAML = YAML_DIR / "plugin_capability.yaml"
+POST_EXTRACT_YAML = YAML_DIR / "post_extract.yaml"
+MEP_GOLDEN_PROFILES_YAML = YAML_DIR / "golden" / "mep_profiles.yaml"
 
 # Legacy aliases (flat subdirs removed)
 CLASSIFICATION_DIR = YAML_DIR

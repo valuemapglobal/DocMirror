@@ -34,7 +34,6 @@ from typing import TYPE_CHECKING
 
 from docmirror.core.table.signature import TypeSignatureLibrary
 from docmirror.middlewares.base import BaseMiddleware
-from docmirror.middlewares.registry import register_middleware
 from docmirror.models.entities.parse_result import RowType
 
 if TYPE_CHECKING:
@@ -43,7 +42,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@register_middleware("HeaderInferrer", order=35)
 class HeaderInferrerMiddleware(BaseMiddleware):
     """
     基于列签名推断的表头检测中间件

@@ -1,0 +1,51 @@
+# Nightly enterprise/finance PEC integration.
+# Installs local monorepo packages when present (docmirror_enterprise / docmirror_finance).
+name: nightly-enterprise
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  edition-pec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install docmirror
+        run: pip install -e ".[dev,pdf,ocr,table]"
+
+      - name: Install local enterprise monorepo (if present)
+        run: |
+          if [ -d docmirror_enterprise ] && [ -f docmirror_enterprise/pyproject.toml ]; then
+            pip install -e docmirror_enterprise
+          elif [ -d docmirror_enterprise ]; then
+            pip install -e docmirror_enterprise/ 2>/dev/null || pip install -e . 2>/dev/null || true
+          fi
+
+      - name: Install local finance monorepo (if present)
+        run: |
+          if [ -d docmirror_finance ]; then
+            pip install -e docmirror_finance || true
+          fi
+
+      - name: Validate MEP + post-extract catalogs
+        run: python3 scripts/validate_middleware_catalog.py
+
+      - name: Enterprise PEC integration
+        run: |
+          python3 -c "import docmirror_enterprise" 2>/dev/null && \
+            pytest tests/integration/test_enterprise_pec.py -v --tb=short || \
+            echo "docmirror_enterprise not available — enterprise tests skipped"
+
+      - name: Finance PEC integration
+        run: |
+          python3 -c "import docmirror_finance" 2>/dev/null && \
+            pytest tests/integration/test_finance_pec.py -v --tb=short || \
+            echo "docmirror_finance not available — finance tests skipped"

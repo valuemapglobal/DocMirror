@@ -1,0 +1,26 @@
+# MEP Golden Track B — Mirror-layer quality gates (orthogonal to EPO row preservation).
+# See docs/design/08_middleware_layer_first_principles_redesign.md §8
+
+version: 1
+
+profiles:
+  business_license_standard:
+    fixture: tests/fixtures/business_license/林晓彤_营业执照_20220826.jpg
+    enhance_mode: standard
+    gates:
+      document_type: { equals: business_license }
+      status: { in: [success, partial] }
+
+  id_card_standard:
+    fixture: tests/fixtures/id_card/ZhangSan_身份证_1976112.pdf
+    enhance_mode: standard
+    gates:
+      document_type: { equals: id_card }
+      page_count: { min: 1 }
+
+  bank_statement_standard:
+    fixture: tests/fixtures/bank_statement/银行流水_中国建设银行_20231226.pdf
+    enhance_mode: standard
+    gates:
+      status: { in: [success, partial] }
+      table_count: { min: 0 }

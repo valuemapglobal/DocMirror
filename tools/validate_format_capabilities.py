@@ -11,9 +11,10 @@ import sys
 
 from docmirror.configs.format.enhancement import resolve_enhancement_profile, transport_to_content_model
 from docmirror.configs.format.loader import load_enhancement_profiles, load_format_registry
-from docmirror.framework.orchestrator import MIDDLEWARE_REGISTRY
+from docmirror.configs.middleware.catalog import load_catalog
+from docmirror.configs.middleware.resolver import flatten_profile_middleware_names
 
-_KNOWN_OPTIONAL = frozenset({"SLMEntityExtractor"})  # appended when DOCMIRROR_ENABLE_SLM=1
+_KNOWN_OPTIONAL = frozenset({"SLMEntityExtractor", "AnomalyDetector"})
 
 
 def main() -> int:
@@ -58,15 +59,19 @@ def main() -> int:
             errors.append(f"transport_fallback {transport}: unknown content_model {model}")
         _ = resolve_enhancement_profile(model, "standard")
 
+    catalog = load_catalog()
+
     for model, modes in profiles.items():
-        for mode, names in modes.items():
-            for name in names:
+        for mode, mode_cfg in modes.items():
+            for name in flatten_profile_middleware_names(mode_cfg):
                 if name in _KNOWN_OPTIONAL:
                     continue
-                if name not in MIDDLEWARE_REGISTRY:
+                if name not in catalog:
                     errors.append(
                         f"enhancement_profiles {model}.{mode}: unknown middleware {name!r}"
                     )
+                elif not catalog[name].enabled and name not in _KNOWN_OPTIONAL:
+                    pass
 
     seen_ext: set[str] = set()
     for ext, cid in ext_map.items():
