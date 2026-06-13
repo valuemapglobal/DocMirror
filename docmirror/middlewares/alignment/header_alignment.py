@@ -86,7 +86,7 @@ def verify_header_data_alignment(
         headers: Original list of table headers.
         data_rows: Extraction data rows matrix.
         header_type_expectations: Mapping of Header Name \u2192 Expected Datatype ("date"/"amount"/"seq").
-        mutation_recorder: Optional `EnhancedResult` dependency for mutation tracking logging.
+        mutation_recorder: Optional ParseResult for ``record_mutation`` audit logging.
         middleware_name: Name of the invoking middleware for telemetry.
 
     Returns:

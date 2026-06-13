@@ -455,20 +455,22 @@ class TableComposer:
         return match_count >= len(headers) * 0.5
 
 
-def build_table_operations(logical_tables: list[LogicalTable]) -> list[dict]:
+def build_table_operations(logical_tables: list[LogicalTable]) -> list:
     """Build document-level table_operations audit from logical tables."""
-    ops: list[dict] = []
+    from docmirror.models.entities.parse_result import TableOperation
+
+    ops: list[TableOperation] = []
     for lt in logical_tables:
         ops.append(
-            {
-                "logical_id": lt.logical_id or lt.table_id,
-                "merge_method": lt.merge_method,
-                "merge_confidence": lt.merge_confidence,
-                "source_physical_ids": lt.source_physical_ids,
-                "source_pages": lt.source_pages,
-                "row_count": lt.row_count,
-                "merge_log": lt.merge_log,
-                "merge_audit": lt.merge_audit,
-            }
+            TableOperation(
+                logical_id=lt.logical_id or lt.table_id,
+                merge_method=lt.merge_method,
+                merge_confidence=lt.merge_confidence,
+                source_physical_ids=lt.source_physical_ids,
+                source_pages=lt.source_pages,
+                row_count=lt.row_count,
+                merge_log=lt.merge_log,
+                merge_audit=lt.merge_audit,
+            )
         )
     return ops

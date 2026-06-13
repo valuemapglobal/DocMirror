@@ -14,8 +14,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from docmirror.models.entities.parse_result import ParseResult
-from docmirror.models.entities.quality_report import ParseQualityReport
+from docmirror.models.entities.parse_result import MirrorAnnex, ParseResult
+
+
+def _ehl_annex(result: ParseResult) -> MirrorAnnex | None:
+    """Return EHL annex when populated."""
+    annex = getattr(result, "annex", None)
+    if annex is None:
+        return None
+    if annex.hypotheses or annex.evidence_summary or annex.quality_report:
+        return annex
+    return None
 
 
 def build_debug_artifact(
@@ -35,11 +44,16 @@ def build_debug_artifact(
         "confidence": result.confidence,
     }
 
-    if result.hypotheses:
-        artifact["hypotheses"] = [h.model_dump() for h in result.hypotheses]
-
-    if result.evidence_summary:
-        artifact["evidence_summary"] = result.evidence_summary.model_dump()
+    annex = _ehl_annex(result)
+    if annex:
+        if annex.hypotheses:
+            artifact["hypotheses"] = [h.model_dump() for h in annex.hypotheses]
+        if annex.evidence_summary:
+            artifact["evidence_summary"] = annex.evidence_summary.model_dump()
+        if annex.quality_report:
+            artifact["quality_report"] = annex.quality_report.model_dump()
+        if annex.pipeline_debug:
+            artifact["pipeline_debug"] = annex.pipeline_debug
 
     if evidence_spans:
         artifact["evidence_spans"] = [
@@ -49,36 +63,17 @@ def build_debug_artifact(
     if crop_manifest:
         artifact["crop_manifest"] = crop_manifest
 
-    if result.kv_candidates:
-        artifact["kv_candidates"] = [kv.model_dump() for kv in result.kv_candidates]
-
-    if result.quality_report:
-        artifact["quality_report"] = result.quality_report.model_dump()
-
     # Table composition operations (for cross-page merge debugging)
     if result.logical_tables:
         artifact["table_operations"] = [
-            {
-                "table_id": lt.table_id,
-                "source_pages": lt.source_pages,
-                "page_span": list(lt.page_span) if hasattr(lt.page_span, '__iter__') else lt.page_span,
-                "row_count": lt.row_count,
-                "confidence": lt.confidence,
-                "merge_log": lt.merge_log,
-                "provenance": [
-                    {"source_page": p.source_page, "source_row_index": p.source_row_index, "is_continuation": p.is_continuation}
-                    for p in lt.provenance
-                ] if lt.provenance else [],
-            }
-            for lt in result.logical_tables
+            op.model_dump() if hasattr(op, "model_dump") else op
+            for op in result.table_operations
         ]
 
     if resolver_decisions:
         artifact["resolver_decisions"] = [
             d.model_dump() if hasattr(d, "model_dump") else d for d in resolver_decisions
         ]
-
-    # (logical_graph removed — DocGraph module deleted in 2026-06-11 cleanup)
 
     if extra:
         artifact["extra"] = extra
@@ -108,9 +103,14 @@ def write_debug_artifact(
             spans = collect_evidence_spans_from_parse_result(result)
         except Exception:
             spans = []
+    if spans:
+        from docmirror.models.ehl import attach_spans_annex
+
+        attach_spans_annex(result, spans)
     if pdf_path and is_debug_mode() and spans:
         bbox_spans = [
-            s for s in spans
+            s
+            for s in spans
             if (getattr(s, "bbox", None) or (isinstance(s, dict) and s.get("bbox")))
         ]
         if bbox_spans:

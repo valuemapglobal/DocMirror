@@ -42,13 +42,14 @@ import time
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from docmirror.models.tracking.mutation import Mutation
 
 if TYPE_CHECKING:
     from docmirror.models.entities.evidence import EvidenceSummary
     from docmirror.models.entities.hypothesis import ParseHypothesis
     from docmirror.models.entities.quality_report import ParseQualityReport
-    from docmirror.models.tracking.mutation import Mutation
 
 # Keys from domain_specific / mirror_metadata allowed in REST properties (ADR-M08)
 MIRROR_METADATA_KEYS = frozenset({
@@ -62,6 +63,7 @@ MIRROR_METADATA_KEYS = frozenset({
     "layout_profile_id_refined",
     "language",
     "region",
+    "query_period",
 })
 
 
@@ -446,6 +448,32 @@ class TrustResult(BaseModel):
     )
 
 
+class TableOperation(BaseModel):
+    """Cross-page table merge/split audit entry (Zone 1 debug)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    logical_id: str = ""
+    merge_method: str = ""
+    merge_confidence: float = 0.0
+    source_physical_ids: list[str] = Field(default_factory=list)
+    source_pages: list[int] = Field(default_factory=list)
+    row_count: int = 0
+    merge_log: list[dict[str, Any]] = Field(default_factory=list)
+    merge_audit: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class DocumentSection(BaseModel):
+    """Section tree node (section_dominant documents; debug/eval)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str = ""
+    title: str = ""
+    name: str = ""
+    page_start: int = 1
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Zone 5: Provenance — "Where it came from"
 # (Absorbed from PerceptionResult.provenance.source)
@@ -495,6 +523,10 @@ class MirrorAnnex(BaseModel):
     evidence_summary: "EvidenceSummary | None" = None
     hypotheses: list["ParseHypothesis"] = Field(default_factory=list)
     quality_report: "ParseQualityReport | None" = None
+    pipeline_debug: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Middleware/orchestrator debug payloads (mutation_analysis, etc.)",
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -530,6 +562,8 @@ class ParseResult(BaseModel):
         result.flatten_rows() # → [{col: val}, ...]
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     # ── Envelope ──
     status: ResultStatus = ResultStatus.SUCCESS
     confidence: float = 1.0
@@ -540,7 +574,7 @@ class ParseResult(BaseModel):
     logical_tables: list[LogicalTable] = Field(default_factory=list,
         description="Cross-page logical tables (composed from physical pages). "
                     "Plugin reads here; physical pages[].tables are raw per-page.")
-    table_operations: list[dict] = Field(default_factory=list,
+    table_operations: list[TableOperation] = Field(default_factory=list,
         description="Cross-page merge/split audit trail (debug / enterprise QA).")
 
     # ── Zone 2: Entities ──
@@ -556,7 +590,7 @@ class ParseResult(BaseModel):
     provenance: ProvenanceInfo | None = None
 
     # ── Pipeline state (populated by middleware) ──
-    mutations: list[Any] = Field(default_factory=list, exclude=True)  # list[Mutation]
+    mutations: list[Mutation] = Field(default_factory=list, exclude=True)
     processing_time: float = Field(default=0.0, exclude=True)
     errors: list[str] = Field(default_factory=list, exclude=True)
 
@@ -564,7 +598,37 @@ class ParseResult(BaseModel):
     annex: MirrorAnnex | None = Field(default=None, exclude=True)
 
     # ── Section tree (populated by SectionDrivenStrategy) ──
-    sections: list[dict[str, Any]] = Field(default_factory=list, exclude=True)
+    sections: list[DocumentSection] = Field(default_factory=list, exclude=True)
+
+    @field_validator("sections", mode="before")
+    @classmethod
+    def _coerce_sections(cls, value: Any) -> list[Any]:
+        if not value:
+            return []
+        out: list[Any] = []
+        for item in value:
+            if isinstance(item, DocumentSection):
+                out.append(item)
+            elif isinstance(item, dict):
+                out.append(DocumentSection.model_validate(item))
+            else:
+                out.append(item)
+        return out
+
+    @field_validator("table_operations", mode="before")
+    @classmethod
+    def _coerce_table_operations(cls, value: Any) -> list[Any]:
+        if not value:
+            return []
+        out: list[Any] = []
+        for item in value:
+            if isinstance(item, TableOperation):
+                out.append(item)
+            elif isinstance(item, dict):
+                out.append(TableOperation.model_validate(item))
+            else:
+                out.append(item)
+        return out
 
     # ── Computed properties ──
 
@@ -641,7 +705,7 @@ class ParseResult(BaseModel):
             )
         )
 
-    def add_mutation(self, mutation: Any) -> None:
+    def add_mutation(self, mutation: Mutation) -> None:
         """Append a pre-built Mutation object."""
         self.mutations.append(mutation)
 

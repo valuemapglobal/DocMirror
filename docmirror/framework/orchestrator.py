@@ -90,7 +90,9 @@ class Orchestrator:
 
                 analyzer = MutationAnalyzer()
                 analysis = analyzer.analyze(result.mutations)
-                result.entities.domain_specific["mutation_analysis"] = analysis.to_dict()
+                from docmirror.models.ehl import attach_pipeline_debug
+
+                attach_pipeline_debug(result, "mutation_analysis", analysis.to_dict())
             except Exception as e:
                 logger.debug(f"[Orchestrator] MutationAnalyzer error bypass: {e}")
 

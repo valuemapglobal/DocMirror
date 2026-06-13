@@ -56,13 +56,19 @@ async def run_single_case(case: GoldenCase, parse_fn) -> ParseQualityReport:
                     "actual": actual_txns,
                 }
             )
-    return ParseQualityReport(
+    report = ParseQualityReport(
         document_id=case.id,
         parser_version=getattr(result.parser_info, "parser_version", ""),
         metrics=metrics,
         failures=failures,
         warnings=[],
     )
+    from docmirror.models.entities.parse_result import ParseResult
+    from docmirror.models.ehl import attach_quality_report_annex
+
+    if isinstance(result, ParseResult):
+        attach_quality_report_annex(result, report)
+    return report
 
 
 async def run_benchmark_matrix(

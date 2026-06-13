@@ -103,7 +103,8 @@ def _finalize_extract(
     detected_type: str,
     plugin: Any | None = None,
 ) -> dict[str, Any]:
-    from docmirror.models.entities.domain_result import normalize_domain_result
+    from docmirror.models.edition_serializer import EditionContext, edition_serializer
+    from docmirror.models.entities.domain_result import _is_edition_v2_payload, normalize_domain_result
     from docmirror.models.schemas.loader import validate_dec
 
     dec = normalize_domain_result(extracted)
@@ -111,18 +112,33 @@ def _finalize_extract(
         dec.document_type = detected_type
     issues = validate_dec(dec)
     if issues:
-        extracted.setdefault("status", {}).setdefault("warnings", []).extend(
-            [f"dec_validation:{i}" for i in issues[:5]]
+        dec.quality.issues.extend([f"dec_validation:{i}" for i in issues[:5]])
+
+    if _is_edition_v2_payload(extracted):
+        out = extracted
+        if issues:
+            warnings = out.setdefault("status", {}).setdefault("warnings", [])
+            for item in issues[:5]:
+                tag = f"dec_validation:{item}"
+                if tag not in warnings:
+                    warnings.append(tag)
+    else:
+        ctx = EditionContext.from_finalize(
+            result,
+            detected_type=detected_type,
+            edition=edition,
+            plugin=plugin,
         )
+        out = edition_serializer(dec, context=ctx)
 
     run_post_extract_hooks(
         result,
-        extracted=extracted,
+        extracted=out,
         edition=edition,
         document_type=detected_type,
         plugin=plugin,
     )
-    return extracted
+    return out
 
 
 def _mirror_only_payload(
@@ -369,80 +385,29 @@ def _run_community_extract(
 
 
 def _kv_community_payload(result, matched_plugin, detected_type, domain_data) -> dict[str, Any]:
+    from docmirror.models.edition_serializer import EditionContext, edition_serializer
+    from docmirror.models.entities.domain_result import DomainQuality, normalize_domain_result
     from docmirror.plugins._base.dec_builder import dec_fields
 
     fields = dec_fields(domain_data)
-
-    file_path = getattr(result, "file_path", "")
-    doc_name = Path(file_path).name if file_path else matched_plugin.display_name
+    dec = normalize_domain_result(domain_data)
+    if not dec.document_type or dec.document_type == "unknown":
+        dec.document_type = detected_type
     warnings_list = ["no_fields_extracted"] if not fields else []
+    dec.quality = DomainQuality(
+        validation_passed=bool(fields),
+        issues=[f"warning:{w}" for w in warnings_list],
+    )
 
-    return {
-        "schema_version": "2.0",
-        "edition": "community",
-        "document": {
-            "document_type": detected_type,
-            "document_name": doc_name,
-            "domain": getattr(matched_plugin, "domain_name", detected_type),
-            "archetype": "key_value_document",
-            "language": "zh",
-            "region": "CN",
-            "source_format": "pdf",
-            "page_count": len(getattr(result, "pages", [])),
-            "properties": {},
-        },
-        "classification": build_classification_block(
-            document_type=detected_type,
-            domain=getattr(matched_plugin, "domain_name", detected_type),
-            archetype="key_value_document",
-            match_method="plugin_fallback",
-            text="",
-            scene_keywords=getattr(matched_plugin, "scene_keywords", ()),
-        ),
-        "status": {"success": True, "warnings": warnings_list, "errors": []},
-        "plugin": {
-            "name": matched_plugin.domain_name,
-            "display_name": matched_plugin.display_name,
-            "version": "community-2.0",
-            "support_level": "L2",
-        },
-        "data": {
-            "fields": fields,
-            "records": [],
-            "sections": [],
-            "tables": [],
-            "line_items": [],
-            "summary": {
-                "total_rows": 0,
-                "total_income": 0.0,
-                "total_expense": 0.0,
-                "net_flow": 0.0,
-                "period": {},
-                "statistics": {
-                    "income_count": 0,
-                    "expense_count": 0,
-                    "other_count": 0,
-                    "avg_income": 0.0,
-                    "avg_expense": 0.0,
-                    "max_income": 0.0,
-                    "max_expense": 0.0,
-                },
-            },
-        },
-        "plugins": {
-            matched_plugin.domain_name: {
-                "display_name": matched_plugin.display_name,
-                "edition": matched_plugin.edition,
-            }
-        },
-        "metadata": {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "parser": "docmirror-community",
-            "parser_version": "2.0.0",
-            "task_id": "",
-            "file_id": "",
-        },
-    }
+    ctx = EditionContext.from_finalize(
+        result,
+        detected_type=detected_type,
+        edition="community",
+        plugin=matched_plugin,
+    )
+    ctx.archetype = "key_value_document"
+    ctx.match_method = "plugin_fallback"
+    return edition_serializer(dec, context=ctx)
 
 
 async def _run_extended_extract_async(

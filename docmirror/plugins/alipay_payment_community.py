@@ -19,16 +19,12 @@ Per docs/design/01_community_edition_architecture_guide_v2.md
 
 from __future__ import annotations
 
-import logging
 import re
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from docmirror.plugins import DomainPlugin
-from docmirror.plugins._base import build_classification_block
-
-logger = logging.getLogger(__name__)
 
 _ALIPAY_KEYWORDS = ("支付宝（中国）网络技术有限公司", "交易流水证明", "Alipay")
 _HEADER_MARKERS = ("收/支", "交易对方", "金额", "交易订单号", "交易时间")
@@ -56,6 +52,10 @@ class AlipayPaymentPlugin(DomainPlugin):
     @property
     def edition(self) -> str:
         return "community"
+
+    @property
+    def scene_keywords(self) -> Sequence[str]:
+        return _ALIPAY_KEYWORDS
 
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
@@ -309,98 +309,18 @@ class AlipayPaymentPlugin(DomainPlugin):
         *,
         text: str = "",
     ) -> dict[str, Any]:
-        from pathlib import Path as _Path
+        from docmirror.plugins._base.table_dec import serialize_table_plugin_output
 
-        file_path = getattr(parse_result, "file_path", "")
-        doc_name = ""
-        if file_path:
-            doc_name = _Path(file_path).name
-        if not doc_name:
-            doc_name = self.display_name
-
-        page_count = len(getattr(parse_result, "pages", []))
-
-        document = {
-            "document_type": self.domain_name,
-            "document_name": doc_name,
-            "domain": "cashflow_payment",
-            "archetype": "table_document",
-            "language": "zh",
-            "region": "CN",
-            "source_format": "pdf",
-            "page_count": page_count,
-            "properties": {},
-        }
-
-        classification = build_classification_block(
-            document_type=self.domain_name,
-            domain="cashflow_payment",
-            archetype="table_document",
-            match_method="keyword_driven",
+        return serialize_table_plugin_output(
+            self,
+            parse_result,
+            identity_fields=identity_fields,
+            records=records,
+            summary=summary,
             text=text,
-            scene_keywords=self.scene_keywords,
+            domain="cashflow_payment",
+            match_method="keyword_driven",
         )
-
-        # ── Status block (cleaned) ──
-        warnings_list = []
-        # P2: Generate basic warnings for field gaps
-        if identity_fields:
-            if "account_holder" not in identity_fields:
-                warnings_list.append("missing_identity_field:account_holder")
-            if "currency" not in identity_fields:
-                warnings_list.append("missing_identity_field:currency")
-        if summary.get("total_rows", 0) == 0:
-            warnings_list.append("no_records_extracted")
-
-        status = {
-            "success": True,
-            "warnings": warnings_list,
-            "errors": [],
-        }
-
-        # ── Single plugin block (new) ──
-        plugin_block = {
-            "name": self.domain_name,
-            "display_name": self.display_name,
-            "version": "community-2.0",
-            "support_level": "L2",
-        }
-
-        # ── Metadata ──
-        metadata = {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "parser": "docmirror-community",
-            "parser_version": "2.0.0",
-            "task_id": "",
-            "file_id": "",
-        }
-
-        # ── Data block (with universal placeholders) ──
-        data: dict[str, Any] = {
-            "fields": identity_fields or {},
-            "records": records,
-            "sections": [],
-            "tables": [],
-            "line_items": [],
-            "summary": summary,
-        }
-
-        return {
-            "schema_version": "2.0",
-            "edition": "community",
-            "document": document,
-            "classification": classification,
-            "status": status,
-            "plugin": plugin_block,
-            "data": data,
-            "plugins": {
-                self.domain_name: {
-                    "display_name": self.display_name,
-                    "edition": self.edition,
-                },
-            },
-            "metadata": metadata,
-        }
 
 
 plugin = AlipayPaymentPlugin()

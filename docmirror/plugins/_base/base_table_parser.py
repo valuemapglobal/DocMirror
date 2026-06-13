@@ -14,12 +14,9 @@ import logging
 import re
 from abc import abstractmethod
 from collections.abc import Sequence
-from datetime import datetime, timezone
-from pathlib import Path as _Path
 from typing import Any
 
 from docmirror.plugins import DomainPlugin
-from docmirror.plugins._base import build_classification_block
 from docmirror.plugins._base.column_registry import ColumnMapping, ColumnMatcher
 from docmirror.plugins._base.standardizer import (
     extract_period,
@@ -458,88 +455,19 @@ class BaseTableParser(DomainPlugin):
         *,
         text: str = "",
     ) -> dict[str, Any]:
-        """构建完整 v2.0 社区版输出。"""
-        file_path = getattr(parse_result, "file_path", "")
-        doc_name = _Path(file_path).name if file_path else self.display_name
-        page_count = len(getattr(parse_result, "pages", []))
+        """Build edition v2.0 via DEC → ``edition_serializer``."""
+        from docmirror.plugins._base.table_dec import serialize_table_plugin_output
 
-        # ── Document ──
-        document = {
-            "document_type": self.domain_name,
-            "document_name": doc_name,
-            "domain": self._detect_domain(),
-            "archetype": "table_document",
-            "language": "zh",
-            "region": "CN",
-            "source_format": "pdf",
-            "page_count": page_count,
-            "properties": {},
-        }
-
-        # ── Classification ──
-        classification = build_classification_block(
-            document_type=self.domain_name,
-            domain=self._detect_domain(),
-            archetype="table_document",
-            match_method="keyword_layout_hybrid",
+        return serialize_table_plugin_output(
+            self,
+            parse_result,
+            identity_fields=identity_fields,
+            records=records,
+            summary=summary,
             text=text,
-            scene_keywords=self.scene_keywords,
+            domain=self._detect_domain(),
+            match_method="keyword_layout_hybrid",
         )
-
-        # ── Status ──
-        warnings_list: list[str] = []
-        if identity_fields:
-            if "account_holder" not in identity_fields:
-                warnings_list.append("missing_identity_field:account_holder")
-            if "currency" not in identity_fields:
-                warnings_list.append("missing_identity_field:currency")
-        if summary.get("total_rows", 0) == 0:
-            warnings_list.append("no_records_extracted")
-        status = {"success": True, "warnings": warnings_list, "errors": []}
-
-        # ── Plugin ──
-        plugin_block = {
-            "name": self.domain_name,
-            "display_name": self.display_name,
-            "version": "community-2.0",
-            "support_level": "L2",
-        }
-
-        # ── Metadata ──
-        metadata = {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "parser": "docmirror-community",
-            "parser_version": "2.0.0",
-            "task_id": "",
-            "file_id": "",
-        }
-
-        # ── Data ──
-        data: dict[str, Any] = {
-            "fields": identity_fields or {},
-            "records": records,
-            "sections": [],
-            "tables": [],
-            "line_items": [],
-            "summary": summary,
-        }
-
-        return {
-            "schema_version": "2.0",
-            "edition": self.edition,
-            "document": document,
-            "classification": classification,
-            "status": status,
-            "plugin": plugin_block,
-            "data": data,
-            "plugins": {
-                self.domain_name: {
-                    "display_name": self.display_name,
-                    "edition": self.edition,
-                },
-            },
-            "metadata": metadata,
-        }
 
     @staticmethod
     def _detect_domain() -> str:

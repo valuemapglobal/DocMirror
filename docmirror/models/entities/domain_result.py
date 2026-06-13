@@ -46,11 +46,59 @@ class ExtractionHint(BaseModel):
     reason: str = ""
 
 
+def _is_edition_v2_payload(raw: dict[str, Any]) -> bool:
+    """True when *raw* is edition JSON v2.0 (full or partial enterprise envelope)."""
+    return raw.get("schema_version") == "2.0" and isinstance(raw.get("data"), dict)
+
+
+def _normalize_edition_v2(raw: dict[str, Any]) -> DomainExtractionResult:
+    """Map edition v2.0 blocks → DEC (table plugins via ``extract_from_mirror``)."""
+    doc = raw.get("document") if isinstance(raw.get("document"), dict) else {}
+    data = raw["data"]
+    status = raw.get("status") if isinstance(raw.get("status"), dict) else {}
+
+    document_type = str(doc.get("document_type") or "unknown")
+    properties = dict(doc.get("properties") or {})
+    entities = dict(data.get("fields") or {})
+
+    structured_data = {
+        k: data.get(k)
+        for k in ("records", "summary", "sections", "tables", "line_items")
+        if data.get(k) is not None
+    }
+
+    warnings = list(status.get("warnings") or [])
+    errors = list(status.get("errors") or [])
+    success = bool(status.get("success", True))
+
+    quality = DomainQuality(
+        confidence=float(status.get("confidence") or raw.get("confidence") or 0),
+        validation_passed=success and not errors,
+        issues=[*(f"warning:{w}" for w in warnings), *(f"error:{e}" for e in errors)],
+    )
+
+    metadata = dict(raw.get("metadata") or {})
+    if raw.get("edition"):
+        metadata["edition"] = raw["edition"]
+    if raw.get("classification"):
+        metadata["classification"] = raw["classification"]
+
+    return DomainExtractionResult(
+        document_type=document_type,
+        properties=properties,
+        entities=entities,
+        structured_data=structured_data or None,
+        quality=quality,
+        metadata=metadata,
+    )
+
+
 def normalize_domain_result(raw: Any) -> DomainExtractionResult:
     """Normalize legacy plugin returns into DomainExtractionResult.
 
     Accepts:
         - DomainExtractionResult (passthrough)
+        - Edition JSON v2.0 (``schema_version`` + ``document`` + ``data``)
         - Wrapper dict with ``entities`` key
         - Flat entity dict (credit_report fast mode)
     """
@@ -61,6 +109,9 @@ def normalize_domain_result(raw: Any) -> DomainExtractionResult:
         return DomainExtractionResult(
             quality=DomainQuality(issues=[f"unexpected plugin return type: {type(raw).__name__}"]),
         )
+
+    if _is_edition_v2_payload(raw):
+        return _normalize_edition_v2(raw)
 
     # Wrapper form: {document_type, entities, quality, structured_data, ...}
     is_wrapper = "entities" in raw and isinstance(raw.get("entities"), dict)

@@ -27,7 +27,7 @@ class TestDecValidation:
         assert "bank_statement" in reg
 
     def test_validate_dec_unregistered_type_no_issues(self):
-        dec = DomainExtractionResult(document_type="wechat_payment")
+        dec = DomainExtractionResult(document_type="passport")
         assert validate_dec(dec) == []
 
     def test_validate_dec_bank_statement_empty_issues(self):
@@ -46,5 +46,5 @@ class TestDecValidation:
             "status": {"success": True, "warnings": [], "errors": []},
         }
         out = _finalize_extract(pr, payload, edition="community", detected_type="bank_statement")
-        assert out is payload
-        assert "status" in out
+        assert out["schema_version"] == "2.0"
+        assert out["data"]["fields"]["account"] == "123"

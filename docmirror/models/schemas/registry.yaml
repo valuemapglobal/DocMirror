@@ -4,5 +4,5 @@
 schemas:
   credit_report: credit_report_schema
   bank_statement: bank_statement_schema
-  wechat_payment: null
-  alipay_payment: null
+  wechat_payment: table_payment_schema
+  alipay_payment: table_payment_schema
