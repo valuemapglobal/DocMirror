@@ -47,16 +47,14 @@ class DriversLicensePlugin(DomainPlugin):
         )
 
     def build_domain_data(self, metadata, entities):
-        from docmirror.models.entities.domain_models import DomainData
-        return DomainData(
-            document_type="drivers_license",
-            raw_entities={
-                "name": entities.get("name", ""),
-                "id_number": entities.get("id_number", ""),
-                "license_number": entities.get("license_number", ""),
-                "driving_type": entities.get("driving_type", ""),
-            },
-        )
+        from docmirror.plugins._base.dec_builder import build_dec_kv
+        return build_dec_kv("drivers_license", {
+            "name": entities.get("name", ""),
+            "id_number": entities.get("id_number", ""),
+            "license_number": entities.get("license_number", ""),
+            "driving_type": entities.get("driving_type", ""),
+        })
+
 
 
 plugin = DriversLicensePlugin()

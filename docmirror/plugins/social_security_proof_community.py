@@ -46,15 +46,13 @@ class SocialSecurityProofCommunityPlugin(DomainPlugin):
         )
 
     def build_domain_data(self, metadata, entities):
-        from docmirror.models.entities.domain_models import DomainData
-        return DomainData(
-            document_type="social_security_proof",
-            raw_entities={
-                "name": entities.get("name", ""),
-                "id_number": entities.get("id_number", ""),
-                "company_name": entities.get("company_name", ""),
-            },
-        )
+        from docmirror.plugins._base.dec_builder import build_dec_kv
+        return build_dec_kv("social_security_proof", {
+            "name": entities.get("name", ""),
+            "id_number": entities.get("id_number", ""),
+            "company_name": entities.get("company_name", ""),
+        })
+
 
 
 plugin = SocialSecurityProofCommunityPlugin()

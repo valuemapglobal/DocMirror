@@ -42,10 +42,9 @@ def benchmark(golden_root: Path, baseline: Path | None, output_dir: Path, fail_o
     """Run golden matrix benchmark and report metrics."""
 
     async def _parse(path: Path):
-        from docmirror.core.factory import perceive_document
-        from docmirror.models.entities.document_types import DocumentType
+        from docmirror.core.factory import PerceiveOptions, perceive_document
 
-        return await perceive_document(path, DocumentType.OTHER, skip_cache=True)
+        return await perceive_document(path, PerceiveOptions(skip_cache=True))
 
     async def _run():
         from docmirror.core.evaluation.benchmark_runner import run_benchmark_matrix, save_benchmark_result

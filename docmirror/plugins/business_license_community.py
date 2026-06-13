@@ -49,15 +49,13 @@ class BusinessLicensePlugin(DomainPlugin):
         )
 
     def build_domain_data(self, metadata, entities):
-        from docmirror.models.entities.domain_models import DomainData
-        return DomainData(
-            document_type="business_license",
-            raw_entities={
-                "company_name": entities.get("company_name", ""),
-                "unified_social_credit_code": entities.get("unified_social_credit_code", ""),
-                "legal_representative": entities.get("legal_representative", ""),
-            },
-        )
+        from docmirror.plugins._base.dec_builder import build_dec_kv
+        return build_dec_kv("business_license", {
+            "company_name": entities.get("company_name", ""),
+            "unified_social_credit_code": entities.get("unified_social_credit_code", ""),
+            "legal_representative": entities.get("legal_representative", ""),
+        })
+
 
 
 plugin = BusinessLicensePlugin()

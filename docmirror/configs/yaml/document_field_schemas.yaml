@@ -1,0 +1,92 @@
+# Document field schemas by business_scene (migrated from document_types.py)
+# SSOT for get_field_schema() — design 09 §4.3 Phase 2
+
+field_schemas:
+  financial_report:
+    company_name: Company name
+    report_period: Report period
+    report_type: Report type (Annual/Quarter/Month)
+    total_revenue: Total revenue
+    operating_cost: Operating constraints/cost
+    gross_profit: Gross profit
+    net_profit: Net profit
+    total_assets: Total assets
+    total_liabilities: Total liabilities
+    owner_equity: Owner equity
+    cash_and_equivalents: Cash and equivalents
+    accounts_receivable: Accounts receivable
+    inventory: Inventory
+    fixed_assets: Fixed assets
+    accounts_payable: Accounts payable
+    short_term_loan: Short term loans
+    long_term_loan: Long term loans
+    operating_cash_flow: Operating cash flows
+    investing_cash_flow: Investing cash flows
+    financing_cash_flow: Financing cash flows
+  invoice:
+    invoice_code: Invoice code
+    invoice_number: Invoice number
+    invoice_date: Invoice date
+    buyer_name: Buyer name
+    buyer_tax_id: Buyer tax identification number
+    seller_name: Seller name
+    seller_tax_id: Seller tax identification number
+    items: Service or goods details
+    amount_without_tax: Amount without tax
+    tax_amount: Tax amount
+    total_amount: Total with tax
+    invoice_type: Invoice Type
+  bank_statement:
+    account_name: Account name
+    account_number: Account number
+    bank_name: Bank name
+    statement_period: Statement period
+    opening_balance: Opening balance
+    closing_balance: Closing balance
+    total_deposits: Total deposits
+    total_withdrawals: Total withdrawals
+    transaction_count: Total transaction count
+  business_license:
+    company_name: Company name
+    unified_social_credit_code: Unified social credit code
+    legal_representative: Legal representative
+    registered_capital: Registered capital
+    establishment_date: Establishment date
+    business_term: Business term
+    registered_address: Registered address
+    business_scope: Business scope
+    company_type: Company Type
+  contract:
+    contract_title: Contract Title
+    contract_number: Contract number
+    party_a: Party A
+    party_b: Party B
+    signing_date: Signing date
+    effective_date: Effective date
+    expiry_date: Expiry/Expiration date
+    contract_amount: Contract amount
+    payment_terms: Payment terms
+    contract_subject: Contract subject
+  tax_report:
+    taxpayer_name: Taxpayer name
+    taxpayer_id: Taxpayer identification number
+    tax_period: Tax period
+    tax_type: Tax type
+    taxable_income: Taxable income
+    tax_rate: Tax rate
+    tax_amount: Tax amount
+    tax_paid: Tax amount paid
+    tax_due: Tax amount due
+  id_card:
+    name: Name
+    gender: Gender
+    ethnicity: Ethnicity
+    birth_date: Birth date
+    address: Address
+    id_number: ID card number
+    issuing_authority: Issuing authority
+    valid_period: Valid period
+  other:
+    title: Title
+    content_summary: Content abstraction or summary
+    key_information: Key information

@@ -47,18 +47,16 @@ class PayrollSlipCommunityPlugin(DomainPlugin):
         )
 
     def build_domain_data(self, metadata, entities):
-        from docmirror.models.entities.domain_models import DomainData
-        return DomainData(
-            document_type="payroll_slip",
-            raw_entities={
-                "employee_name": entities.get("employee_name", ""),
-                "employee_id": entities.get("employee_id", ""),
-                "department": entities.get("department", ""),
-                "pay_period": entities.get("pay_period", ""),
-                "gross_pay": entities.get("gross_pay", ""),
-                "net_pay": entities.get("net_pay", ""),
-            },
-        )
+        from docmirror.plugins._base.dec_builder import build_dec_kv
+        return build_dec_kv("payroll_slip", {
+            "employee_name": entities.get("employee_name", ""),
+            "employee_id": entities.get("employee_id", ""),
+            "department": entities.get("department", ""),
+            "pay_period": entities.get("pay_period", ""),
+            "gross_pay": entities.get("gross_pay", ""),
+            "net_pay": entities.get("net_pay", ""),
+        })
+
 
 
 plugin = PayrollSlipCommunityPlugin()

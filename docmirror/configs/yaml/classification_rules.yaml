@@ -6,6 +6,11 @@ categories:
   # 一、身份证明类文件
   identity_personal:
     name: "身份证明类-个人"
+    maps_to_scenes:
+      - id_card
+      - passport
+      - drivers_license
+      - household_registration
     keywords:
       - "身份证"
       - "居民身份证"
@@ -24,6 +29,8 @@ categories:
 
   identity_enterprise:
     name: "身份证明类-企业"
+    maps_to_scenes:
+      - business_license
     keywords:
       - "营业执照"
       - "统一社会信用代码"

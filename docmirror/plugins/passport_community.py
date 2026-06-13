@@ -50,16 +50,14 @@ class PassportPlugin(DomainPlugin):
         )
 
     def build_domain_data(self, metadata, entities):
-        from docmirror.models.entities.domain_models import DomainData
-        return DomainData(
-            document_type="passport",
-            raw_entities={
-                "surname": entities.get("surname", ""),
-                "given_name": entities.get("given_name", ""),
-                "passport_number": entities.get("passport_number", ""),
-                "nationality": entities.get("nationality", ""),
-            },
-        )
+        from docmirror.plugins._base.dec_builder import build_dec_kv
+        return build_dec_kv("passport", {
+            "surname": entities.get("surname", ""),
+            "given_name": entities.get("given_name", ""),
+            "passport_number": entities.get("passport_number", ""),
+            "nationality": entities.get("nationality", ""),
+        })
+
 
 
 plugin = PassportPlugin()

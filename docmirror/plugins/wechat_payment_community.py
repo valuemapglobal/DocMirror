@@ -121,12 +121,8 @@ class WeChatPaymentPlugin(BaseTableParser):
     # ── 向后兼容 ──
 
     def build_domain_data(self, metadata, entities):
-        """向后兼容：旧调用方通过 build_domain_data 获取数据。
-
-        新架构优先使用 extract_from_mirror() 获取完整 v2.0 输出。
-        此方法仅用于兼容旧调用方。
-        """
-        from docmirror.models.entities.domain_models import DomainData, WeChatPaymentData
+        """Legacy KV fallback — prefer ``extract_from_mirror()`` for full v2.0 output."""
+        from docmirror.plugins._base.dec_builder import build_dec_kv
 
         account_holder = str(entities.get("account_holder", metadata.get("Account holder", "")))
         account_number = str(entities.get("account_number", metadata.get("Account number", "")))
@@ -148,15 +144,15 @@ class WeChatPaymentPlugin(BaseTableParser):
                 elif "支出" in direction or "取出" in direction:
                     total_expense += amt
 
-        return DomainData(
-            document_type="wechat_payment",
-            wechat_payment=WeChatPaymentData(
-                account_holder=account_holder,
-                account_number=account_number,
-                total_transactions=total_transactions,
-                total_income=total_income,
-                total_expense=total_expense,
-            ),
+        return build_dec_kv(
+            "wechat_payment",
+            {
+                "account_holder": account_holder,
+                "account_number": account_number,
+                "total_transactions": total_transactions,
+                "total_income": total_income,
+                "total_expense": total_expense,
+            },
         )
 
 

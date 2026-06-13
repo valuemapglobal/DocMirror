@@ -47,17 +47,15 @@ class VATInvoicePlugin(DomainPlugin):
         )
 
     def build_domain_data(self, metadata, entities):
-        from docmirror.models.entities.domain_models import DomainData
-        return DomainData(
-            document_type="vat_invoice",
-            raw_entities={
-                "invoice_number": entities.get("invoice_number", ""),
-                "invoice_code": entities.get("invoice_code", ""),
-                "seller_name": entities.get("seller_name", ""),
-                "buyer_name": entities.get("buyer_name", ""),
-                "total_amount": entities.get("total_amount", ""),
-            },
-        )
+        from docmirror.plugins._base.dec_builder import build_dec_kv
+        return build_dec_kv("vat_invoice", {
+            "invoice_number": entities.get("invoice_number", ""),
+            "invoice_code": entities.get("invoice_code", ""),
+            "seller_name": entities.get("seller_name", ""),
+            "buyer_name": entities.get("buyer_name", ""),
+            "total_amount": entities.get("total_amount", ""),
+        })
+
 
 
 plugin = VATInvoicePlugin()

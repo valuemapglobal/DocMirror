@@ -300,6 +300,19 @@ class CoreExtractor:
             except Exception as exc:
                 logger.debug(f"operation: suppressed {exc}")
 
+    async def extract_parse_result(self, file_path: Path) -> "ParseResult":
+        """
+        Single bridge point: CoreExtractor → ParseResult (MOC Path B).
+
+        Prefer this over ``extract()`` + manual ``ParseResultBridge.from_base_result()``
+        in adapters (design 09 §5 Phase 1).
+        """
+        from docmirror.core.extraction.bridge import ParseResultBridge
+        from docmirror.models.entities.parse_result import ParseResult
+
+        base_result = await self.extract(file_path)
+        return ParseResultBridge.from_base_result(base_result)
+
     async def _open_document(self, file_path: Path) -> "fitz.Document":
         """Open a document (PDF or image). Returns the PyMuPDF document."""
         import asyncio

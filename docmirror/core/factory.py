@@ -45,7 +45,6 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
 
 from docmirror.core.perceive_result import PerceiveResult
 from docmirror.framework.dispatcher import ParserDispatcher
-from docmirror.models.entities.document_types import DocumentType
 
 if TYPE_CHECKING:
     from docmirror.models.entities.parse_result import ParseResult

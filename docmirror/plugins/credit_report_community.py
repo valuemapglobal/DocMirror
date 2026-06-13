@@ -45,15 +45,13 @@ class CreditReportPlugin(DomainPlugin):
         )
 
     def build_domain_data(self, metadata, entities):
-        from docmirror.models.entities.domain_models import DomainData
-        return DomainData(
-            document_type="credit_report",
-            raw_entities={
-                "name": entities.get("name", ""),
-                "id_number": entities.get("id_number", ""),
-                "report_time": entities.get("report_time", ""),
-            },
-        )
+        from docmirror.plugins._base.dec_builder import build_dec_kv
+        return build_dec_kv("credit_report", {
+            "name": entities.get("name", ""),
+            "id_number": entities.get("id_number", ""),
+            "report_time": entities.get("report_time", ""),
+        })
+
 
 
 plugin = CreditReportPlugin()

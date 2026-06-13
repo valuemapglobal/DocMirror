@@ -42,10 +42,27 @@ import time
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
+    from docmirror.models.entities.evidence import EvidenceSummary
+    from docmirror.models.entities.hypothesis import ParseHypothesis
+    from docmirror.models.entities.quality_report import ParseQualityReport
     from docmirror.models.tracking.mutation import Mutation
+
+# Keys from domain_specific / mirror_metadata allowed in REST properties (ADR-M08)
+MIRROR_METADATA_KEYS = frozenset({
+    "currency",
+    "institution",
+    "account_number",
+    "opening_balance",
+    "closing_balance",
+    "transaction_count",
+    "layout_profile_id",
+    "layout_profile_id_refined",
+    "language",
+    "region",
+})
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -126,8 +143,8 @@ class CellValue(BaseModel):
     data_type: DataType = DataType.TEXT
     slm_entities: dict[str, Any] | None = None
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "examples": [
                 {
                     "text": "15,000.00",
@@ -138,6 +155,7 @@ class CellValue(BaseModel):
                 },
             ]
         }
+    )
 
 
 class TableRow(BaseModel):
@@ -210,8 +228,8 @@ class TableBlock(BaseModel):
             for row in self.data_rows
         ]
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "table_id": "page1_table0",
                 "headers": ["交易日期", "摘要", "交易金额", "余额"],
@@ -230,6 +248,7 @@ class TableBlock(BaseModel):
                 "confidence": 0.96,
             }
         }
+    )
 
 
 
@@ -339,11 +358,20 @@ class DocumentEntities(BaseModel):
 
     domain_specific: dict[str, Any] = Field(
         default_factory=dict,
-        description="Domain-specific fields populated by document type",
+        description="Mirror-only metadata (use mirror_metadata alias); not plugin records",
     )
 
-    class Config:
-        json_schema_extra = {
+    @property
+    def mirror_metadata(self) -> dict[str, Any]:
+        """Alias for domain_specific — Mirror debug/metadata keys only (ADR-M08)."""
+        return self.domain_specific
+
+    @mirror_metadata.setter
+    def mirror_metadata(self, value: dict[str, Any]) -> None:
+        self.domain_specific = value
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "examples": {
                 "bank_statement": {
                     "document_type": "bank_statement",
@@ -362,6 +390,7 @@ class DocumentEntities(BaseModel):
                 },
             }
         }
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -454,6 +483,21 @@ class ErrorDetail(BaseModel):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# EHL Annex (debug / eval only — exclude from mirror.json)
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class MirrorAnnex(BaseModel):
+    """Optional Evidence & Hypothesis Layer — not serialized in to_api_dict()."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    evidence_summary: "EvidenceSummary | None" = None
+    hypotheses: list["ParseHypothesis"] = Field(default_factory=list)
+    quality_report: "ParseQualityReport | None" = None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Top-Level: ParseResult
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -512,9 +556,12 @@ class ParseResult(BaseModel):
     provenance: ProvenanceInfo | None = None
 
     # ── Pipeline state (populated by middleware) ──
-    mutations: list[Any] = Field(default_factory=list, exclude=True)
+    mutations: list[Any] = Field(default_factory=list, exclude=True)  # list[Mutation]
     processing_time: float = Field(default=0.0, exclude=True)
     errors: list[str] = Field(default_factory=list, exclude=True)
+
+    # ── EHL annex (debug/eval only) ──
+    annex: MirrorAnnex | None = Field(default=None, exclude=True)
 
     # ── Section tree (populated by SectionDrivenStrategy) ──
     sections: list[dict[str, Any]] = Field(default_factory=list, exclude=True)
@@ -661,11 +708,13 @@ class ParseResult(BaseModel):
             properties["period"] = f"{self.entities.period_start} ~ {self.entities.period_end}"
         elif self.entities.period_start:
             properties["period"] = self.entities.period_start
-        # Merge domain_specific (currency, institution, etc.) into properties
+        # Merge mirror_metadata whitelist into properties (ADR-M08)
         for k, v in self.entities.domain_specific.items():
             if k in _internal_keys:
                 continue
             if k in _debug_only_keys and not is_debug_mode():
+                continue
+            if k not in MIRROR_METADATA_KEYS:
                 continue
             properties[k] = v
 
@@ -963,6 +1012,25 @@ class ParseResult(BaseModel):
         if getattr(cell, "slm_entities", None):
             d["slm_entities"] = cell.slm_entities
         return d
+
+
+def _rebuild_parse_result_models() -> None:
+    """Resolve forward refs on MirrorAnnex after dependent models load."""
+    from docmirror.models.entities.evidence import EvidenceSummary
+    from docmirror.models.entities.hypothesis import ParseHypothesis
+    from docmirror.models.entities.quality_report import ParseQualityReport
+
+    MirrorAnnex.model_rebuild(
+        _types_namespace={
+            "EvidenceSummary": EvidenceSummary,
+            "ParseHypothesis": ParseHypothesis,
+            "ParseQualityReport": ParseQualityReport,
+        }
+    )
+    ParseResult.model_rebuild()
+
+
+_rebuild_parse_result_models()
 
 
 __all__ = [

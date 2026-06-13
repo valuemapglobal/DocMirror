@@ -9,7 +9,7 @@ DocMirror: Universal Document Parsing Engine
 
 Directory structure:
 - core/: Core extraction engines (CoreExtractor, LayoutAnalysis, TableExtraction)
-- models/: Data models (BaseResult, EnhancedResult, PerceptionResult)
+- models/: Data models (ParseResult MOC, DomainExtractionResult DEC)
 - middlewares/: Middleware pipeline (EvidenceEngine, EntityExtractor, Validator, ...)
 - configs/: YAML configs (FCR, enhancement profiles, scene keywords) + loaders
 - framework/: Pipeline orchestration (dispatcher, extraction_runner, orchestrator)
@@ -40,8 +40,7 @@ from docmirror.core.factory import PerceptionFactory, PerceiveResult, perceive_d
 from docmirror.framework.dispatcher import ParserDispatcher
 from docmirror.framework.orchestrator import Orchestrator
 from docmirror.models.construction.parse_result_bridge import ParseResultBridge
-from docmirror.models.entities.document_types import DocumentType
-from docmirror.models.entities.domain_models import DomainData
+from docmirror.models.entities.domain_result import DomainExtractionResult
 from docmirror.models.entities.parse_result import ParseResult
 
 logger = logging.getLogger(__name__)
@@ -53,8 +52,7 @@ __all__ = [
     "PerceptionFactory",
     "ParseResult",
     "ParseResultBridge",
-    "DocumentType",
-    "DomainData",
+    "DomainExtractionResult",
     "ParserDispatcher",
     "Orchestrator",
 ]

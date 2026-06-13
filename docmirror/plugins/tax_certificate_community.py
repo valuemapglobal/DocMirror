@@ -47,15 +47,13 @@ class TaxCertificateCommunityPlugin(DomainPlugin):
         )
 
     def build_domain_data(self, metadata, entities):
-        from docmirror.models.entities.domain_models import DomainData
-        return DomainData(
-            document_type="tax_certificate",
-            raw_entities={
-                "taxpayer_name": entities.get("taxpayer_name", ""),
-                "taxpayer_id": entities.get("taxpayer_id", ""),
-                "tax_amount": entities.get("tax_amount", ""),
-            },
-        )
+        from docmirror.plugins._base.dec_builder import build_dec_kv
+        return build_dec_kv("tax_certificate", {
+            "taxpayer_name": entities.get("taxpayer_name", ""),
+            "taxpayer_id": entities.get("taxpayer_id", ""),
+            "tax_amount": entities.get("tax_amount", ""),
+        })
+
 
 
 plugin = TaxCertificateCommunityPlugin()

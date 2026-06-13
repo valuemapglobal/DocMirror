@@ -312,21 +312,21 @@ class TestWatermarkUtils:
         assert hasattr(watermark, 'is_watermark_char')
 
 
-# ─── Enhanced Result Integration Tests ───
+# ─── ParseResult / MOC Integration Tests ───
 
-class TestEnhancedResult:
-    """Verify EnhancedResult model construction."""
+class TestParseResultMutation:
+    """Verify ParseResult mutation audit (replaces legacy EnhancedResult)."""
 
-    def test_enhanced_result_from_base(self):
-        from docmirror.models.entities.domain import BaseResult, PageLayout, Block
-        from docmirror.models.entities.enhanced import EnhancedResult
+    def test_record_mutation_on_parse_result(self):
+        from docmirror.models.entities.parse_result import ParseResult
 
-        block = Block(block_type="text", raw_content="Test content", page=1)
-        page = PageLayout(page_number=1, blocks=(block,))
-        base = BaseResult(pages=(page,), full_text="Test content", metadata={})
-
-        enhanced = EnhancedResult.from_base_result(base)
-        assert enhanced is not None
-        assert enhanced.base_result is base
-        assert enhanced.base_result.full_text == "Test content"
-        assert len(enhanced.base_result.pages) == 1
+        pr = ParseResult()
+        pr.record_mutation(
+            middleware_name="TestMiddleware",
+            target_block_id="blk_1",
+            field_changed="document_type",
+            old_value="unknown",
+            new_value="bank_statement",
+        )
+        assert pr.mutation_count == 1
+        assert pr.mutation_summary.get("TestMiddleware") == 1

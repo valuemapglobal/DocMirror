@@ -47,15 +47,13 @@ class HouseholdRegistrationPlugin(DomainPlugin):
         )
 
     def build_domain_data(self, metadata, entities):
-        from docmirror.models.entities.domain_models import DomainData
-        return DomainData(
-            document_type="household_registration",
-            raw_entities={
-                "householder": entities.get("householder", ""),
-                "household_number": entities.get("household_number", ""),
-                "address": entities.get("address", ""),
-            },
-        )
+        from docmirror.plugins._base.dec_builder import build_dec_kv
+        return build_dec_kv("household_registration", {
+            "householder": entities.get("householder", ""),
+            "household_number": entities.get("household_number", ""),
+            "address": entities.get("address", ""),
+        })
+
 
 
 plugin = HouseholdRegistrationPlugin()

@@ -62,21 +62,26 @@ class BankStatementPlugin(DomainPlugin):
         self,
         metadata: dict[str, Any],
         entities: dict[str, Any],
-    ) -> Any | None:
-        """Build BankStatementData from extracted metadata and entities."""
-        from docmirror.models.entities.domain_models import (
-            BankStatementData,
-            DomainData,
-        )
+    ) -> dict[str, Any] | None:
+        """Build DEC KV payload from extracted metadata and entities."""
+        from docmirror.plugins._base.dec_builder import build_dec_kv
 
-        bs = BankStatementData(
-            account_holder=str(metadata.get("Account holder", entities.get("account_holder", ""))),
-            account_number=str(metadata.get("Account number", entities.get("account_number", ""))),
-            bank_name=str(entities.get("bank_name", "")),
-            query_period=str(metadata.get("Query period", entities.get("query_period", ""))),
-            currency=(str(metadata.get("Currency", entities.get("currency", "CNY"))) or "CNY"),
+        return build_dec_kv(
+            "bank_statement",
+            {
+                "account_holder": str(
+                    metadata.get("Account holder", entities.get("account_holder", ""))
+                ),
+                "account_number": str(
+                    metadata.get("Account number", entities.get("account_number", ""))
+                ),
+                "bank_name": str(entities.get("bank_name", "")),
+                "query_period": str(
+                    metadata.get("Query period", entities.get("query_period", ""))
+                ),
+                "currency": str(metadata.get("Currency", entities.get("currency", "CNY")) or "CNY"),
+            },
         )
-        return DomainData(document_type="bank_statement", bank_statement=bs)
 
     def get_middleware_config(self) -> dict[str, Any]:
         return {

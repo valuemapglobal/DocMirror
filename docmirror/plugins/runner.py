@@ -103,6 +103,18 @@ def _finalize_extract(
     detected_type: str,
     plugin: Any | None = None,
 ) -> dict[str, Any]:
+    from docmirror.models.entities.domain_result import normalize_domain_result
+    from docmirror.models.schemas.loader import validate_dec
+
+    dec = normalize_domain_result(extracted)
+    if not dec.document_type or dec.document_type == "unknown":
+        dec.document_type = detected_type
+    issues = validate_dec(dec)
+    if issues:
+        extracted.setdefault("status", {}).setdefault("warnings", []).extend(
+            [f"dec_validation:{i}" for i in issues[:5]]
+        )
+
     run_post_extract_hooks(
         result,
         extracted=extracted,
@@ -357,13 +369,9 @@ def _run_community_extract(
 
 
 def _kv_community_payload(result, matched_plugin, detected_type, domain_data) -> dict[str, Any]:
-    fields = {}
-    if hasattr(domain_data, "raw_entities") and domain_data.raw_entities:
-        fields = domain_data.raw_entities
-    elif hasattr(domain_data, "to_dict"):
-        d = domain_data.to_dict()
-        d.pop("document_type", None)
-        fields = {k: v for k, v in d.items() if v}
+    from docmirror.plugins._base.dec_builder import dec_fields
+
+    fields = dec_fields(domain_data)
 
     file_path = getattr(result, "file_path", "")
     doc_name = Path(file_path).name if file_path else matched_plugin.display_name

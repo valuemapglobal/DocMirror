@@ -147,6 +147,12 @@ class EvidenceEngine(BaseMiddleware):
         ):
             result.entities.domain_specific["evidence_log"] = fused_evidence
 
+        # EHL annex (debug only — excluded from mirror.json via exclude=True)
+        if is_debug_mode():
+            from docmirror.models.ehl import attach_classification_annex
+
+            attach_classification_annex(result, all_evidence, selected_category=doc_type)
+
         result.record_mutation(
             middleware_name=self.name,
             target_block_id="document",

@@ -26,8 +26,7 @@ from pathlib import Path
 
 async def profile_parse(file_path: Path) -> None:
     """Profile a single document parse with timing and memory tracking."""
-    from docmirror.core.factory import perceive_document
-    from docmirror.models.entities.document_types import DocumentType
+    from docmirror.core.factory import PerceiveOptions, perceive_document
 
     print(f"\n{'='*60}")
     print(f"  DocMirror Performance Profile")
@@ -43,7 +42,7 @@ async def profile_parse(file_path: Path) -> None:
     profiler.enable()
     t0 = time.perf_counter()
 
-    result = await perceive_document(file_path, DocumentType.OTHER)
+    result = await perceive_document(file_path, PerceiveOptions())
 
     elapsed = time.perf_counter() - t0
     profiler.disable()

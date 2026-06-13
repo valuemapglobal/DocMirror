@@ -5,16 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-MultiModal Data Model Layer.
+DocMirror Models — Mirror Object Contract (MOC) + Domain Extraction Contract (DEC).
 
-Core Trinity:
-    - domain.py:   BaseResult (frozen) \u2014 Immutable Extraction Result
-    - mutation.py: Mutation            \u2014 Data Lineage Tracker
-    - enhanced.py: EnhancedResult      \u2014 Final Enhanced Output
+See ``docs/design/09_models_layer_first_principles_redesign.md``.
 """
 
 from .entities.domain import BaseResult, Block, PageLayout, Style, TextSpan
-from .entities.enhanced import EnhancedResult
+from .entities.domain_result import DomainExtractionResult
+from .entities.parse_result import ParseResult
 from .tracking.mutation import Mutation
 
 __all__ = [
@@ -24,5 +22,6 @@ __all__ = [
     "PageLayout",
     "BaseResult",
     "Mutation",
-    "EnhancedResult",
+    "ParseResult",
+    "DomainExtractionResult",
 ]

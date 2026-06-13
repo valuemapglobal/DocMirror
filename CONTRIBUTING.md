@@ -80,7 +80,8 @@ docmirror/
 │   ├── alignment/  # Header alignment, amount splitting
 │   └── validation/ # Trust scoring, mutation analysis
 ├── models/         # Data models
-│   ├── entities/   # PerceptionResult, EnhancedResult, domain models
+│   ├── entities/   # ParseResult (MOC), DomainExtractionResult (DEC)
+│   configs/models/ # LayoutProfile, ExtractionProfile (EPO — not Mirror)
 │   ├── construction/ # Builder pattern for result assembly
 │   └── tracking/   # Mutation tracking
 ├── plugins/        # Domain plugins (bank_statement, ...)

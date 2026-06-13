@@ -40,22 +40,19 @@ class PDFAdapter(BaseParser):
         """
         Extract a PDF into a ParseResult with provenance pre-filled.
 
-        Pipeline: CoreExtractor → BaseResult → ParseResultBridge → ParseResult.
+        Pipeline: CoreExtractor.extract_parse_result() (single bridge point).
         """
         from docmirror.core.extraction.extractor import CoreExtractor
-        from docmirror.models.construction.parse_result_bridge import ParseResultBridge
 
         logger.info(f"[PDFAdapter] Starting extraction for: {file_path}")
         extractor = CoreExtractor()
-        base_result = await extractor.extract(file_path)
+        pr = await extractor.extract_parse_result(file_path)
         logger.info(f"[PDFAdapter] Completed extraction for: {file_path}")
-
-        pr = ParseResultBridge.from_base_result(base_result)
 
         # PDF-specific parser_info
         pr.parser_info.parser_name = "DocMirror"
         pr.parser_info.table_engine = "pymupdf_native"
-        pr.parser_info.page_count = len(base_result.pages)
+        pr.parser_info.page_count = len(pr.pages)
 
         # ── Fill provenance (lightweight, no re-read of full file) ──
         if pr.provenance is None:

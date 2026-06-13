@@ -48,6 +48,9 @@ jobs:
       - name: Validate format capability registry
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python tools/validate_format_capabilities.py
+      - name: Validate DTI (business_scene + classification maps)
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        run: python tools/validate_dti.py
       - name: Validate middleware catalog (MEP)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python scripts/validate_middleware_catalog.py

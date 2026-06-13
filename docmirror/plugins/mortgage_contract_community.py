@@ -46,16 +46,14 @@ class MortgageContractCommunityPlugin(DomainPlugin):
         )
 
     def build_domain_data(self, metadata, entities):
-        from docmirror.models.entities.domain_models import ContractData, DomainData
-        return DomainData(
-            document_type="mortgage_contract",
-            contract=ContractData(
-                contract_number=str(entities.get("contract_number", "")),
-                party_a=str(entities.get("mortgagor", "")),
-                party_b=str(entities.get("mortgagee", "")),
-                contract_amount=str(entities.get("mortgage_amount", "")),
-            ),
-        )
+        from docmirror.plugins._base.dec_builder import build_dec_kv
+        return build_dec_kv("mortgage_contract", {
+            "contract_number": str(entities.get("contract_number", "")),
+            "party_a": str(entities.get("mortgagor", "")),
+            "party_b": str(entities.get("mortgagee", "")),
+            "contract_amount": str(entities.get("mortgage_amount", "")),
+        })
+
 
 
 plugin = MortgageContractCommunityPlugin()

@@ -100,14 +100,12 @@ class DomainPlugin(ABC):
         self,
         metadata: dict[str, Any],
         entities: dict[str, Any],
-    ) -> Any | None:
+    ) -> dict[str, Any] | None:
         """
-        Build domain-specific data model from extracted metadata and entities.
+        Build DEC-compatible dict from extracted metadata and entities.
 
-        Returns a domain data object (e.g., BankStatementData) or None if
-        insufficient data is available.
-
-        Default implementation returns None (no domain-specific data).
+        Returns ``{"document_type", "entities", "properties"?}`` for
+        ``normalize_domain_result()``, or None if insufficient data.
         """
         return None
 
