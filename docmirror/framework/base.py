@@ -5,12 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-MultiModal Parsing Contract Layer
-=================================
+BaseParser — Adapter Contract
+===============================
 
-Core Components:
-1. ParserStatus: Parsing lifecycle status enumeration.
-2. BaseParser: Abstract base class — all adapters implement to_parse_result().
+First-principles design:
+
+    1. ``to_parse_result()`` — pure extraction.  Each adapter controls its own
+       parsing pipeline.  The result MUST have ``provenance`` already filled;
+       ``perceive()`` no longer re-reads the file just to compute a hash.
+
+    2. ``perceive()`` — extraction + middleware enrichment.  It calls
+       ``to_parse_result()``, then runs the shared Orchestrator pipeline.
+       It does NOT re-open the file.
 """
 
 from __future__ import annotations
@@ -32,60 +38,69 @@ class BaseParser(ABC):
     """
     Abstract base class for all document parsers.
 
-    All adapters MUST implement ``to_parse_result()``.
-    The ``perceive()`` pipeline handles middleware enhancement automatically.
+    Adapters implement ``to_parse_result()`` and return a ParseResult with
+    ``provenance`` already populated (file type, size, checksum).
+
+    ``perceive()`` is the shared pipeline: extract → middleware enrichment.
+    It never re-reads the input file.
     """
 
     @abstractmethod
-    async def to_parse_result(self, file_path: Path, **kwargs) -> ParseResult:
+    async def to_parse_result(self, file_path: Path, **kwargs) -> "ParseResult":
         """
         Extract the file into a ParseResult.
 
-        Each adapter controls how it extracts content and which
-        ParseResult types it uses (CellValue, TextBlock, etc.).
+        The returned ParseResult SHOULD have ``provenance`` filled
+        (at minimum ``file_type``).  Checksum and file size are best-effort.
         """
         ...
 
-    async def perceive(self, file_path: Path, **context) -> ParseResult:
+    async def perceive(self, file_path: Path, **context) -> "ParseResult":
         """
-        Unified pipeline: file → ParseResult → middleware → enhanced ParseResult.
+        Full pipeline: file → ParseResult → middleware → enhanced ParseResult.
 
         Pipeline:
-            1. ``to_parse_result()`` → ParseResult
-            2. Fill provenance (Zone 5) — automatic for all adapters
-            3. ``Orchestrator.enhance()`` → middleware enrichment in-place
+            1. ``to_parse_result()`` — adapter-specific extraction
+            2. Fill provenance if adapter forgot to
+            3. ``Orchestrator.enhance()`` — middleware enrichment in-place
+
+        Step 2 is a *safety net* — it avoids re-reading the full file by
+        using a lightweight stat-only path if the adapter didn't fill provenance.
         """
         from docmirror.framework.orchestrator import Orchestrator
 
         pr = await self.to_parse_result(file_path)
 
-        # ── Fill provenance (Zone 5) for all adapters ──
+        # ── Safety net: fill provenance if adapter didn't ──
+        # We deliberately avoid a full SHA256 here (that was already done
+        # in ParserDispatcher._validate).  A lightweight stat-only fallback
+        # is sufficient for the safety-net case.
         if pr.provenance is None:
-            import hashlib
-            import mimetypes
-
             from docmirror.models.entities.parse_result import ProvenanceInfo
 
-            file_stat = file_path.stat()
-            with open(file_path, "rb") as f:
-                checksum = hashlib.sha256(f.read()).hexdigest()
-            mime_type = mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
-            suffix = file_path.suffix.lstrip(".").lower()
-            pr.provenance = ProvenanceInfo(
-                file_type=suffix,
-                file_size=file_stat.st_size,
-                checksum=checksum,
-                mime_type=mime_type,
-            )
+            try:
+                stat = file_path.stat()
+                suffix = file_path.suffix.lstrip(".").lower()
+                pr.provenance = ProvenanceInfo(
+                    file_type=suffix,
+                    file_size=stat.st_size,
+                )
+            except OSError:
+                pass
 
-        # ── Fill parser_version if empty ──
+        # ── Fill parser version if empty ──
         if not pr.parser_info.parser_version:
-            import docmirror
+            import docmirror as _dm
 
-            pr.parser_info.parser_version = getattr(docmirror, "__version__", "2.1.0")
+            pr.parser_info.parser_version = getattr(_dm, "__version__", "0.4.0")
 
+        # ── Middleware enrichment ──
         orchestrator = Orchestrator()
-        file_type = (context.get("file_type") or pr.provenance.file_type or "unknown").lower()
+        file_type = (
+            context.get("file_type")
+            or (pr.provenance.file_type if pr.provenance else None)
+            or "unknown"
+        ).lower()
         enhance_mode = context.get("enhance_mode", "standard")
 
         return await orchestrator.enhance(

@@ -18,10 +18,10 @@ import time
 from pathlib import Path
 from tempfile import NamedTemporaryFile, gettempdir
 
-from fastapi import BackgroundTasks, FastAPI, File, Header, HTTPException, Query, UploadFile
+from fastapi import Body, BackgroundTasks, FastAPI, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
-from docmirror import DocumentType, __version__, perceive_document
+from docmirror import __version__, perceive_document
 from docmirror.server.schemas import ParseResponse
 
 logger = logging.getLogger(__name__)
@@ -106,12 +106,19 @@ def _verify_api_key(authorization: str | None) -> None:
 async def parse_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="The document file to parse (PDF, PNG, JPEG, DOCX, etc.)"),
+    edition: str = Query(default="all", pattern="^(community|enterprise|finance|all)$", description="Output edition: community, enterprise, finance, or all"),
     include_text: bool = Query(default=False, description="Include full markdown text in response"),
     authorization: str | None = Header(default=None),
 ):
     """
     Parse a document using the core MultiModal engine.
     The file is saved temporarily, processed, and then asynchronously cleaned up.
+
+    Supports multi-edition output via the ``edition`` parameter:
+    - ``community`` → community v2.0 schema
+    - ``enterprise`` → enterprise v2.0 schema (requires docmirror-enterprise)
+    - ``finance`` → finance v3.0 schema (requires docmirror-finance)
+    - ``all`` (default) → all available editions
     """
     _verify_api_key(authorization)
 
@@ -128,14 +135,10 @@ async def parse_document(
     background_tasks.add_task(cleanup_file, temp_path)
 
     try:
-        import uuid
+        from docmirror.server.output_builder import build_api_response
 
-        result = await perceive_document(temp_path, DocumentType.OTHER)
-
-        api_payload = result.to_api_dict(
-            include_text=include_text,
-            request_id=str(uuid.uuid4()),
-        )
+        result = await perceive_document(temp_path)
+        api_payload = build_api_response(result, edition=edition, include_text=include_text)
 
         status_code = api_payload.get("code", 200)
 
@@ -144,3 +147,78 @@ async def parse_document(
     except Exception as e:
         logger.exception("[Server] Parse failed with uncaught exception")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/parse/batch", tags=["Parsing"])
+async def batch_parse(
+    background_tasks: BackgroundTasks,
+    files: list[UploadFile] = File(..., description="Multiple document files to parse"),
+    edition: str = Query(default="all", pattern="^(community|enterprise|finance|all)$", description="Output edition"),
+    authorization: str | None = Header(default=None),
+):
+    """Batch parse multiple documents concurrently, each with multi-edition output."""
+    _verify_api_key(authorization)
+
+    import multiprocessing as _mp
+    from docmirror.server.output_builder import build_api_response
+
+    _cpu_count = _mp.cpu_count()
+    _max_concurrency = max(4, _cpu_count * 2)
+    _semaphore = asyncio.Semaphore(_max_concurrency)
+
+    async def _process_one(f):
+        if not f.filename:
+            return None
+        suffix = Path(f.filename).suffix
+        with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            import shutil as _shutil
+            _shutil.copyfileobj(f.file, temp_file)
+            temp_path = Path(temp_file.name)
+        background_tasks.add_task(cleanup_file, temp_path)
+
+        async with _semaphore:
+            try:
+                result = await perceive_document(temp_path)
+                payload = build_api_response(result, edition=edition)
+                payload["file_name"] = f.filename
+                return payload
+            except Exception as e:
+                return {
+                    "code": 500, "message": "error",
+                    "file_name": f.filename, "error": str(e),
+                }
+
+    results = await asyncio.gather(*[_process_one(f) for f in files], return_exceptions=True)
+    results = [r for r in results if r is not None]
+
+    return JSONResponse(content={"code": 200, "message": "success", "data": results})
+
+
+@app.post("/v1/parse/file", tags=["Parsing"])
+async def parse_file_on_server(
+    file_path: str = Body(..., description="Absolute path to a file on the server"),
+    edition: str = Query(default="all", pattern="^(community|enterprise|finance|all)$", description="Output edition"),
+    include_text: bool = Query(default=False, description="Include full markdown text in response"),
+    authorization: str | None = Header(default=None),
+):
+    """Parse a file already present on the server filesystem."""
+    _verify_api_key(authorization)
+
+    from docmirror.server.output_builder import build_api_response
+
+    path = Path(file_path).resolve()
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+    if not path.is_file():
+        raise HTTPException(status_code=400, detail=f"Path is not a file: {file_path}")
+
+    try:
+        result = await perceive_document(path)
+        api_payload = build_api_response(result, edition=edition, include_text=include_text)
+        status_code = api_payload.get("code", 200)
+        return JSONResponse(status_code=status_code, content=api_payload)
+    except Exception as e:
+        logger.exception("[Server] Parse file failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+

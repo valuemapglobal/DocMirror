@@ -5,19 +5,27 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-MultiModal Parser Dispatcher
-============================
+ParserDispatcher — L0 Routing Layer
+====================================
 
-This module is the L0 routing layer of the document parsing system.
-It adheres strictly to the "Single Responsibility Principle":
-1. L0: I/O validation, file-type detection → dispatch to corresponding parser.
-2. L1 & L2: Deep PDF internal business category classification and institution
-   identification are delegated explicitly to the `DigitalPDFParser` (or Adapters).
+First-principles responsibility: **turn a file path into a ParseResult.**
 
-Architecture model:
-    - Dispatcher (L0): Rapid file-format routing (PDF, Image, Office...).
-    - MultiModalParser/Adapters (L1/L2): Document structural inference.
-    - InstitutionPlugin: Deep domain-specific extraction.
+Everything else (file validation, type detection, cache, security scan) is
+a supporting sub-step.  The dispatcher is intentionally thin — it validates,
+selects the right adapter, hands off the heavy work, then writes cache.
+
+Processing is divided into 4 sequential stages:
+
+    process(path)
+      ├─ 1. _validate()       → FileContext | build_failure
+      ├─ 2. _check_cache()    → ParseResult | None  (short-circuit)
+      ├─ 3. _execute_parser() → ParseResult          (core computation)
+      └─ 4. _write_cache()    → None                 (side effect)
+
+Usage::
+
+    dispatcher = ParserDispatcher()
+    result = await dispatcher.process("invoice.pdf")
 """
 
 from __future__ import annotations
@@ -25,33 +33,257 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
-from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
 import filetype
 
-# Type alias for progress callbacks.
-# Signature: (step_number, total_steps, step_name, detail_message) -> None
-ProgressCallback = Callable[[int, int, str, str], None]
-
 from docmirror.framework.base import BaseParser
+from docmirror.models.entities.parse_result import ParseResult
 
-# Initialize logger
 logger = logging.getLogger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FileContext — immutable snapshot of everything known about a file
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@dataclass(frozen=True)
+class FileContext:
+    """Pure-data snapshot of file metadata, assembled at validate time."""
+
+    path: Path
+    file_type: str
+    file_size: int
+    mime_type: str
+    checksum: str  # fast checksum (mtime + size + first-4KB hash)
+    is_forged: bool | None = None
+    forgery_reasons: list[str] = field(default_factory=list)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Failure result builder (module-level, no self needed)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def build_failure(
+    error_code: str,
+    error_msg: str,
+    t0: float,
+    file_path: str = "",
+    file_type: str = "",
+    is_forged: bool | None = None,
+    forgery_reasons: list[str] | None = None,
+) -> ParseResult:
+    """Build a failure ParseResult with unified error code."""
+    from docmirror.models.errors import build_failure_result
+
+    return build_failure_result(
+        code=error_code,
+        message=error_msg,
+        file_path=file_path,
+        file_type=file_type,
+        is_forged=is_forged,
+        forgery_reasons=forgery_reasons,
+        t0=t0,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Parser registry (module-level cache — instantiated once, not per-call)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Logical file_type → (module_path, class_name, static_kwargs).
+# Keys are *categories*, not raw extensions — see ``_FILE_EXT_MAP`` and
+# ``detect_file_type()`` for suffix / MIME resolution.
+#
+# Scope: finance / enterprise / legal document scenarios only (120 business
+# doc types).  No entertainment or general multimedia formats.
+#
+# Priority tiers:
+#   P0 core   — high-volume business docs; all entries below are live
+#   P1 secondary — see _FILE_EXT_MAP tier-2 extensions
+#   ofd     → OFDAdapter    — national fixed-layout standard (e-invoice, fiscal receipt)
+#   archive → ArchiveAdapter — zip/rar batch uploads; decompress + recursive dispatch
+_PARSER_REGISTRY: dict[str, tuple[str, str, dict]] = {
+    # ── P0: core adapters ──
+    "pdf": ("docmirror.adapters", "PDFAdapter", {}),
+    "image": ("docmirror.adapters", "PDFAdapter", {}),
+    "word": ("docmirror.adapters", "WordAdapter", {}),
+    "excel": ("docmirror.adapters", "ExcelAdapter", {}),
+    "ppt": ("docmirror.adapters", "PPTAdapter", {}),
+    "email": ("docmirror.adapters", "EmailAdapter", {}),
+    "structured": ("docmirror.adapters", "StructuredAdapter", {}),
+    "web": ("docmirror.adapters", "WebAdapter", {}),
+    "ofd": ("docmirror.adapters", "OFDAdapter", {}),
+    "archive": ("docmirror.adapters", "ArchiveAdapter", {}),
+}
+
+# Module-level cache: {file_type: class} — avoids per-call importlib
+_PARSER_CLASS_CACHE: dict[str, type[BaseParser]] = {}
+
+
+def get_parser(file_type: str, enhance_mode: str = "standard") -> BaseParser | None:
+    """Get a parser instance for the given file type (cached class, fresh instance)."""
+    entry = _PARSER_REGISTRY.get(file_type)
+    if entry is None:
+        return None
+
+    module_path, class_name, static_kwargs = entry
+    cls = _PARSER_CLASS_CACHE.get(file_type)
+    if cls is None:
+        import importlib
+
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+        _PARSER_CLASS_CACHE[file_type] = cls
+
+    # Dynamic kwargs: only PDFAdapter accepts enhance_mode at construction
+    kwargs = dict(static_kwargs)
+    if file_type in ("pdf", "image"):
+        kwargs["enhance_mode"] = enhance_mode
+    return cls(**kwargs) if kwargs else cls()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Forgery detection helpers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _detect_forgery(path: Path, file_type: str) -> tuple[bool | None, list[str]]:
+    """Run forgery detection on the file. Returns (is_forged, reasons)."""
+    try:
+        if file_type == "pdf":
+            from docmirror.core.security.forgery_detector import detect_pdf_forgery
+
+            return detect_pdf_forgery(path)
+        elif file_type == "image":
+            from docmirror.core.security.forgery_detector import detect_image_forgery
+
+            return detect_image_forgery(path)
+    except Exception as e:
+        logger.warning(f"[Dispatcher] Forgery detection error: {e}")
+    return None, []
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# File-type detection (pure function)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Extension → logical file_type (finance / enterprise / legal scenarios).
+# Grouped by implementation priority; mirrors the 120 business-doc catalog.
+_FILE_EXT_MAP: dict[str, str] = {
+    # ── P0: fixed-layout & scan archives ──
+    ".pdf": "pdf",          # PDF/A archives keep .pdf — PDFAdapter compatible
+    ".xps": "pdf",          # MS fixed-layout export (banks, gov systems)
+    ".png": "image",
+    ".jpg": "image",
+    ".jpeg": "image",
+    ".tiff": "image",
+    ".tif": "image",        # multi-page scan archives (legacy_scan_doc)
+    ".bmp": "image",
+    # ── P0: office — Microsoft ──
+    ".doc": "word",
+    ".docx": "word",
+    ".xlsx": "excel",
+    ".xls": "excel",
+    ".pptx": "ppt",
+    ".ppt": "ppt",
+    # ── P0: office — WPS (domestic gov / SME) ──
+    ".wps": "word",
+    ".et": "excel",
+    ".dps": "ppt",
+    # ── P0: tabular exports (bank statement, regulatory filing) ──
+    ".csv": "excel",        # tabular — routed to ExcelAdapter (not Structured)
+    # ── P0: email (regulatory correspondence, vouchers) ──
+    ".eml": "email",
+    ".msg": "email",
+    # ── P0: structured interchange (customs, regulatory API dumps) ──
+    ".json": "structured",
+    ".xml": "structured",
+    # ── P0: web exports ──
+    ".html": "web",
+    ".htm": "web",
+    # ── P0 pending: detected but Adapter not yet registered ──
+    ".ofd": "ofd",
+    ".zip": "archive",
+    ".rar": "archive",
+    # ── P1 secondary: common export / archive formats ──
+    ".txt": "structured",   # SWIFT / plain-text ledgers; TextAdapter later
+    ".mhtml": "web",        # saved online-banking pages
+    ".rtf": "word",         # legacy rich-text contracts / reports
+}
+
+# MIME → file_type overrides (sniffed before extension fallback).
+_MIME_TYPE_MAP: dict[str, str] = {
+    "application/pdf": "pdf",
+    "application/vnd.ms-xpsdocument": "pdf",
+    "text/csv": "excel",
+    "application/csv": "excel",
+    "application/rtf": "word",
+    "text/rtf": "word",
+    "message/rfc822": "email",
+    "application/vnd.ms-outlook": "email",
+    "application/zip": "archive",
+    "application/x-rar-compressed": "archive",
+    "application/x-rar": "archive",
+    "application/ofd": "ofd",
+    "application/vnd.ofd": "ofd",
+}
+
+
+def detect_file_type(path: Path, known_mime: str = "") -> str:
+    """Detect file type using magic bytes, falling back to extension."""
+    mime = known_mime
+    if not mime:
+        try:
+            kind = filetype.guess(str(path))
+            if kind:
+                mime = kind.mime
+        except Exception:
+            pass
+
+    if mime:
+        mapped = _MIME_TYPE_MAP.get(mime)
+        if mapped:
+            return mapped
+        if mime.startswith("image/"):
+            return "image"
+
+    return _FILE_EXT_MAP.get(path.suffix.lower(), "unknown")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Checksum (pure function)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def compute_checksum(path: Path) -> str:
+    """Fast content-aware checksum: (size, mtime, first-4KB-md5)."""
+    try:
+        stat = path.stat()
+        with open(path, "rb") as f:
+            head = f.read(4096)
+        partial = hashlib.md5(head).hexdigest()[:8]
+        return f"fast:{stat.st_size}:{int(stat.st_mtime)}:{partial}"
+    except OSError:
+        return ""
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ParserDispatcher
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class ParserDispatcher:
     """
-    ParserDispatcher is the entry point for the parsing pipeline.
+    L0 routing layer — one responsibility: turn a file path into a ParseResult.
 
-    Responsibilities:
-    - I/O-level file validation (existence, file size safeguards).
-    - Fast file-type identification (Magic Number combined with Extension).
-    - Optimal parser selection based on detected file type.
-    - Handling fallback strategies upon primary parser failure.
-    - Delegating security checks (forgery detection).
+    The 4-stage process is fully transparent.  Any stage can return a
+    failure ParseResult; callers check ``result.status``.
     """
 
     async def process(
@@ -60,338 +292,225 @@ class ParserDispatcher:
         fallback: bool = True,
         document_type=None,
         skip_cache: bool = False,
-        on_progress: ProgressCallback | None = None,
+        on_progress=None,
         **kwargs,
-    ) -> Any:
+    ) -> ParseResult:
         """
-        Main entry point for document parsing.
+        Parse a document and return a structured ParseResult.
 
-        Invokes `adapter.perceive()` to directly return a `ParseResult`.
+        Args:
+            file_path:  Path to the document file.
+            fallback:   Try fallback parser on primary failure.
+            document_type: Pre-known type hint.
+            skip_cache: Bypass result cache.
+            on_progress: Deprecated — use ``perceive_document(…, PerceiveOptions(…))``.
+
+        Returns:
+            ParseResult — check ``result.status`` for SUCCESS / FAILURE.
         """
         _t0 = time.time()
         path = Path(file_path)
-        _total_steps = 5  # validation, cache, detect, security, parse
-        _step_timings: dict[str, float] = {}  # per-step timing breakdown
 
-        def _emit(step: int, name: str, detail: str = ""):
-            if on_progress:
-                on_progress(step, _total_steps, name, detail)
-
-        def _mark(label: str, since: float) -> float:
-            """Record elapsed time for a pipeline step and return current time."""
-            now = time.time()
-            _step_timings[label] = (now - since) * 1000
-            return now
-
-        # ── 1. File context & signature preparation ──
-        _emit(1, "Validating file", f"{path.name}")
-        _ts = time.time()
-        _file_checksum = ""
-        _file_mime = ""
-        file_size = 0
-        _file_mtime = 0.0
-        if path.exists():
-            try:
-                stat = path.stat()
-                file_size = stat.st_size
-                _file_mtime = stat.st_mtime
-                # Fast cache key: (mtime, size, partial_hash) — avoids full-file SHA256
-                # but includes first 4KB hash for collision resistance (C2 fix)
-                with open(path, "rb") as _f:
-                    _head = _f.read(4096)
-                _partial = hashlib.md5(_head).hexdigest()[:8]
-                _file_checksum = f"fast:{file_size}:{_file_mtime}:{_partial}"
-            except OSError as exc:
-                logger.debug(f"[Dispatcher] File stat failed: {exc}")
-            _ft = filetype.guess(str(path))
-            _file_mime = _ft.mime if _ft else ""
-        _ts = _mark("1_validation_checksum", _ts)
-
-        # ── 2. Cache lookup (Performance bypass) ──
-        _emit(2, "Checking cache", "")
-        if not skip_cache and _file_checksum:
-            from docmirror.framework.cache import parse_cache
-
-            try:
-                cached_json = await parse_cache.get(_file_checksum, document_type or "")
-                if cached_json:
-                    from docmirror.models.entities.parse_result import ParseResult
-
-                    logger.info(f"[Dispatcher] \u26a1 Cache HIT for {path.name}")
-                    _emit(2, "Checking cache", "Cache HIT \u26a1")
-                    return ParseResult.model_validate_json(cached_json)
-            except Exception as e:
-                logger.debug(f"[Dispatcher] Cache lookup error (non-fatal): {e}")
-
-        # ── 3. Physical validation (Constructor Theory Guards) ──
-        _file_type = ""
-        _is_forged: bool | None = None
-        _forgery_reasons: list[str] = []
-
-        if not path.exists():
-            return self._build_failure("FILE_NOT_FOUND", f"File not found: {file_path}", _t0, str(path))
-
-        # Guard: file too small for meaningful extraction (Constructor Theory)
-        from docmirror.configs.settings import default_settings
-
-        if file_size < default_settings.min_file_size:
-            return self._build_failure(
-                "FILE_TOO_SMALL",
-                f"File too small ({file_size} bytes < {default_settings.min_file_size}B minimum). "
-                "No document can encode meaningful content at this size.",
-                _t0,
-                str(path),
+        # ═══════════════════════════════════════════════════════════════════
+        # Stage 1: Validate + detect file type
+        # ═══════════════════════════════════════════════════════════════════
+        ctx = self._validate(path)
+        if ctx is None:
+            return build_failure(
+                "FILE_NOT_FOUND", f"File not found: {file_path}", _t0, str(path)
+            )
+        if ctx.file_size == 0:
+            return build_failure(
+                "FILE_EMPTY", "File is empty (0 bytes)", _t0, str(path)
             )
 
-        # Guard: file too large — prevents OOM
-        if file_size > default_settings.max_file_size:
-            return self._build_failure(
-                "FILE_TOO_LARGE",
-                f"File too large: {file_size / 1024 / 1024:.1f}MB "
-                f"(max {default_settings.max_file_size / 1024 / 1024:.0f}MB)",
-                _t0,
-                str(path),
-            )
-        if file_size == 0:
-            return self._build_failure("FILE_EMPTY", "File is empty (0 bytes)", _t0, str(path))
+        # ═══════════════════════════════════════════════════════════════════
+        # Stage 2: Cache lookup (short-circuit)
+        # ═══════════════════════════════════════════════════════════════════
+        if not skip_cache and ctx.checksum:
+            cached = await self._check_cache(ctx.checksum, document_type)
+            if cached is not None:
+                return cached
 
-        # ── 4. L0 Format Routing ──
-        file_type = self._detect_file_type(path, known_mime=_file_mime)
-        _file_type = file_type
-        _emit(3, "Detecting file type", f"{file_type} ({file_size:,} bytes)")
-        logger.info(
-            f"[Dispatcher] \u25b6 process | file={path.name} | size={file_size}B | fallback={fallback} | doc_type={document_type}"
-        )
-        logger.info(f"[Dispatcher] L0 detected file_type={file_type}")
-
-        if document_type:
-            kwargs["document_type"] = document_type
-
-        parser = self._get_parser_for_type(file_type)
-        if not parser:
-            return self._build_failure(
-                "UNSUPPORTED_FORMAT", f"Unsupported format: {file_type}", _t0, str(path), file_type=_file_type
-            )
-
-        # ── 5. Forgery / Tampering detection (Security pass) ──
-        _emit(4, "Security scan", "Checking forgery / tampering")
-        try:
-            if file_type == "pdf":
-                from docmirror.core.security.forgery_detector import detect_pdf_forgery
-
-                _is_forged, _forgery_reasons = detect_pdf_forgery(path)
-            elif file_type == "image":
-                from docmirror.core.security.forgery_detector import detect_image_forgery
-
-                _is_forged, _forgery_reasons = detect_image_forgery(path)
-            _emit(4, "Security scan", "Forged" if _is_forged else "Clean")
-        except Exception as e:
-            logger.warning(f"[Dispatcher] Forgery Detection Engine error: {e}")
-        _ts = _mark("4_security_scan", _ts)
-
-        # ── 6. Parse dispatch \u2014 invoke `perceive()` ──
-        pname = parser.__class__.__name__
-        # Build standard context for perceive / builder injection
-        context = {
-            "file_path": str(path),
-            "file_type": _file_type,
-            "file_size": file_size,
-            "parser_name": pname,
-            "started_at": datetime.fromtimestamp(_t0),
-            "mime_type": _file_mime,
-            "checksum": _file_checksum,
-            "is_forged": _is_forged,
-            "forgery_reasons": _forgery_reasons,
-        }
-        try:
-            _emit(5, "Extracting content", f"via {pname}")
-            logger.info(f"[Dispatcher] Dispatching to {pname}")
-            # The first positional arg of perceive() is file_path.
-            # To avoid "got multiple values for argument 'file_path'",
-            # exclude it before expanding **context kwargs.
-            perceive_ctx = {k: v for k, v in context.items() if k != "file_path"}
-            perception = await parser.perceive(path, **perceive_ctx)
-
-            # ── 7. Fallback error handling (Resilience) ──
-            if fallback and (not perception.success or not perception.full_text.strip()):
-                fallback_parser = self._get_fallback_parser(file_type)
-                if fallback_parser and fallback_parser.__class__ != parser.__class__:
-                    logger.info(
-                        f"[Dispatcher] Primary {pname} failed/empty, attempting fallback: {fallback_parser.__class__.__name__}"
-                    )
-                    context["parser_name"] = fallback_parser.__class__.__name__
-                    fb_ctx = {k: v for k, v in context.items() if k != "file_path"}
-                    fb_perception = await fallback_parser.perceive(path, **fb_ctx)
-                    if fb_perception.success and fb_perception.full_text.strip():
-                        _elapsed = int((time.time() - _t0) * 1000)
-                        fb_perception.parser_info.elapsed_ms = _elapsed
-                        logger.info(
-                            f"[Dispatcher] \u25c0 process | parser={fallback_parser.__class__.__name__}(fallback) | status={fb_perception.status} | elapsed={_elapsed}ms"
-                        )
-                        return fb_perception
-
-            # ── 8. Timing + Metric logging ──
-            _elapsed = int((time.time() - _t0) * 1000)
-            perception.parser_info.elapsed_ms = _elapsed
-            _emit(
-                5,
-                "Extracting content",
-                f"{len(perception.full_text):,} chars, {perception.total_tables} tables ({_elapsed}ms)",
-            )
-            logger.info(
-                f"[Dispatcher] \u25c0 process | parser={pname} | status={perception.status} | confidence={perception.confidence:.4f} | text_len={len(perception.full_text)} | tables={perception.total_tables} | forged={_is_forged} | elapsed={_elapsed}ms"
-            )
-
-            # ── 9. Write caching (Success paths only) ──
-            if _file_checksum and perception.success:
-                try:
-                    from docmirror.framework.cache import parse_cache
-
-                    await parse_cache.set(
-                        _file_checksum,
-                        document_type or "",
-                        perception.model_dump_json(),
-                    )
-                except Exception as e:
-                    logger.debug(f"[Dispatcher] Cache write error (non-fatal): {e}")
-
-            return perception
-
-        except Exception as e:
-            logger.error(f"[Dispatcher] Critical orchestration error: {e}", exc_info=True)
-            return self._build_failure(
-                "ORCHESTRATION_FAILURE",
-                f"Orchestration failure: {str(e)}",
-                _t0,
-                str(path),
-                file_type=_file_type,
-                is_forged=_is_forged,
-                forgery_reasons=_forgery_reasons,
-            )
-
-    @staticmethod
-    def _build_failure(
-        error_code: str,
-        error_msg: str,
-        t0: float,
-        file_path: str = "",
-        file_type: str = "",
-        is_forged: bool | None = None,
-        forgery_reasons: list[str] | None = None,
-    ):
-        """Build a failure ParseResult with unified error code (see docmirror.models.errors)."""
-        from docmirror.models.errors import build_failure_result
-
-        return build_failure_result(
-            code=error_code,
-            message=error_msg,
-            file_path=file_path,
-            file_type=file_type,
-            is_forged=is_forged,
-            forgery_reasons=forgery_reasons,
-            t0=t0,
-        )
-
-    def _detect_file_type(self, path: Path, known_mime: str = "") -> str:
-        """
-        Uses Magic Numbers (`filetype` lib) backed by file-extension combinations
-        for robust composite type detection.
-
-        Args:
-            path: File path to detect.
-            known_mime: Pre-detected MIME type to avoid redundant filetype.guess() call.
-        """
-        mime = known_mime
-        if not mime:
-            try:
-                kind = filetype.guess(str(path))
-                if kind:
-                    mime = kind.mime
-            except Exception as exc:
-                logger.debug(f"_detect_file_type: suppressed {exc}")
-
-        if mime:
-            if mime == "application/pdf":
-                return "pdf"
-            if mime.startswith("image/"):
-                return "image"
-
-        ext = path.suffix.lower()
-        mapping = {
-            ".pdf": "pdf",
-            ".doc": "word",
-            ".docx": "word",
-            ".xlsx": "excel",
-            ".pptx": "ppt",
-            ".png": "image",
-            ".jpg": "image",
-            ".jpeg": "image",
-            ".tiff": "image",
-            ".bmp": "image",
-            ".json": "structured",
-            ".xml": "structured",
-            ".csv": "structured",
-            ".eml": "email",
-            ".msg": "email",
-            ".html": "web",
-            ".htm": "web",
-        }
-        return mapping.get(ext, "unknown")
-
-    def _get_parser_for_type(self, file_type: str) -> BaseParser | None:
-        """L0 static mapping lookup table — prefers the Adapter pattern layer for decoupling.
-
-        PDF resolution uses the unified MultiModal Pipeline (via PDFAdapter routing).
-        """
+        # ═══════════════════════════════════════════════════════════════════
+        # Stage 3: Execute parser
+        # ═══════════════════════════════════════════════════════════════════
+        # Read enhance_mode from env (set by perceive_document → _apply_options)
         import os
 
-        # Dict Dispatch: file type → (adapter_module_path, class_name, kwargs)
-        _PARSER_REGISTRY = {
-            "pdf": (
-                "docmirror.adapters",
-                "PDFAdapter",
-                {"enhance_mode": os.environ.get("DOCMIRROR_ENHANCE_MODE", "standard")},
-            ),
-            "image": (
-                "docmirror.adapters",
-                "PDFAdapter",
-                {"enhance_mode": os.environ.get("DOCMIRROR_ENHANCE_MODE", "standard")},
-            ),
-            "word": ("docmirror.adapters", "WordAdapter", {}),
-            "excel": ("docmirror.adapters", "ExcelAdapter", {}),
-            "ppt": ("docmirror.adapters", "PPTAdapter", {}),
-            "email": ("docmirror.adapters", "EmailAdapter", {}),
-            "structured": ("docmirror.adapters", "StructuredAdapter", {}),
-            "web": ("docmirror.adapters", "WebAdapter", {}),
-        }
+        enhance_mode = os.environ.get("DOCMIRROR_ENHANCE_MODE", "standard")
+        parser = get_parser(ctx.file_type, enhance_mode)
+        if parser is None:
+            return build_failure(
+                "UNSUPPORTED_FORMAT",
+                f"Unsupported format: {ctx.file_type}",
+                _t0, str(path), file_type=ctx.file_type,
+            )
 
-        entry = _PARSER_REGISTRY.get(file_type)
-        if entry is None:
+        result = await self._execute_parser(parser, path, ctx, _t0, fallback)
+
+        # ═══════════════════════════════════════════════════════════════════
+        # Stage 4: Write cache (if successful)
+        # ═══════════════════════════════════════════════════════════════════
+        if ctx.checksum and result.success:
+            await self._write_cache(ctx.checksum, document_type, result)
+
+        # Timing + logging
+        elapsed = int((time.time() - _t0) * 1000)
+        result.parser_info.elapsed_ms = elapsed
+        logger.info(
+            f"[Dispatcher] ◀ process | parser={result.parser_info.parser_name} | "
+            f"status={result.status.value} | confidence={result.confidence:.4f} | "
+            f"text_len={len(result.full_text)} | tables={result.total_tables} | "
+            f"forged={ctx.is_forged} | elapsed={elapsed}ms"
+        )
+        return result
+
+    # ── Stage 1 internals ──
+
+    def _validate(self, path: Path) -> FileContext | None:
+        """Stage 1: validate file exists and assemble FileContext."""
+        if not path.exists():
             return None
 
-        module_path, class_name, kwargs = entry
-        import importlib
+        file_size = 0
+        mime_type = ""
+        checksum = ""
 
-        mod = importlib.import_module(module_path)
-        adapter_cls = getattr(mod, class_name)
+        try:
+            stat = path.stat()
+            file_size = stat.st_size
+            ft = filetype.guess(str(path))
+            mime_type = ft.mime if ft else ""
+            checksum = compute_checksum(path)
+        except OSError as exc:
+            logger.debug(f"[Dispatcher] File stat failed: {exc}")
 
-        if file_type in ("pdf", "image"):
-            logger.info(
-                "[Dispatcher] Using PDFAdapter (unified pipeline for %s)",
-                file_type,
+        file_type = detect_file_type(path, mime_type)
+        is_forged, forgery_reasons = _detect_forgery(path, file_type)
+
+        logger.info(
+            f"[Dispatcher] ▶ process | file={path.name} | size={file_size}B | "
+            f"file_type={file_type} | mime={mime_type}"
+        )
+
+        return FileContext(
+            path=path,
+            file_type=file_type,
+            file_size=file_size,
+            mime_type=mime_type,
+            checksum=checksum,
+            is_forged=is_forged,
+            forgery_reasons=forgery_reasons,
+        )
+
+    # ── Stage 2 internals ──
+
+    async def _check_cache(
+        self, checksum: str, document_type
+    ) -> ParseResult | None:
+        """Stage 2: check cache. Returns ParseResult on hit, None on miss."""
+        try:
+            from docmirror.framework.cache import parse_cache
+
+            cached_json = await parse_cache.get(checksum, document_type or "")
+            if cached_json:
+                result = ParseResult.model_validate_json(cached_json)
+                logger.info(f"[Dispatcher] ⚡ Cache HIT ({len(cached_json)} bytes)")
+                return result
+        except Exception as e:
+            logger.debug(f"[Dispatcher] Cache lookup error (non-fatal): {e}")
+        return None
+
+    # ── Stage 3 internals ──
+
+    async def _execute_parser(
+        self,
+        parser: BaseParser,
+        path: Path,
+        ctx: FileContext,
+        t0: float,
+        fallback: bool,
+    ) -> ParseResult:
+        """Stage 3: run primary (and optionally fallback) parser."""
+        parser_name = parser.__class__.__name__
+        logger.info(f"[Dispatcher] Dispatching to {parser_name}")
+
+        perceive_ctx = {
+            "file_type": ctx.file_type,
+            "file_size": ctx.file_size,
+            "parser_name": parser_name,
+            "started_at": datetime.fromtimestamp(t0),
+            "mime_type": ctx.mime_type,
+            "checksum": ctx.checksum,
+            "is_forged": ctx.is_forged,
+            "forgery_reasons": ctx.forgery_reasons,
+        }
+
+        try:
+            result = await parser.perceive(path, **perceive_ctx)
+
+            # Fallback-on-empty strategy
+            if fallback and (not result.success or not result.full_text.strip()):
+                fb_parser = self._get_fallback_parser(ctx.file_type)
+                if fb_parser and fb_parser.__class__ != parser.__class__:
+                    fb_name = fb_parser.__class__.__name__
+                    logger.info(
+                        f"[Dispatcher] Primary {parser_name} failed/empty, "
+                        f"attempting fallback: {fb_name}"
+                    )
+                    perceive_ctx["parser_name"] = fb_name
+                    fb_result = await fb_parser.perceive(path, **perceive_ctx)
+                    if fb_result.success and fb_result.full_text.strip():
+                        return fb_result
+
+            return result
+
+        except Exception as e:
+            logger.error(
+                f"[Dispatcher] Parser error ({parser_name}): {e}", exc_info=True
             )
-        return adapter_cls(**kwargs)
+            return build_failure(
+                "PARSER_ERROR",
+                f"{parser_name} failed: {str(e)}",
+                t0,
+                str(path),
+                file_type=ctx.file_type,
+                is_forged=ctx.is_forged,
+                forgery_reasons=ctx.forgery_reasons,
+            )
+
+    # ── Stage 4 internals ──
+
+    async def _write_cache(
+        self, checksum: str, document_type, result: ParseResult
+    ) -> None:
+        """Stage 4: write cache on success."""
+        try:
+            from docmirror.framework.cache import parse_cache
+
+            await parse_cache.set(
+                checksum,
+                document_type or "",
+                result.model_dump_json(exclude_none=True),
+            )
+        except Exception as e:
+            logger.debug(f"[Dispatcher] Cache write error (non-fatal): {e}")
+
+    # ── Fallback parser (exists only for L0 resilience) ──
 
     def _get_fallback_parser(self, file_type: str) -> BaseParser | None:
         """
-        Defines fallback parser strategy when primary orchestrator fails.
+        Fallback parser strategy.
 
-        Current policy:
-        For PDF, the MultiModal pipeline internally integrates all OCR/vLM/Heuristic mechanisms.
-        We no longer downgrade to legacy scanned-document parsers at the dispatcher level.
-        If MultiModal yields a terminal failure, we return None.
+        Current policy: PDF MultiModal pipeline internally cascades fallbacks.
+        No L0-level downgrade needed.
         """
-        if file_type == "pdf":
-            # MultiModal internally cascades fallbacks; do not attempt L0 downgrade.
-            return None
         return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Deprecated alias — keep for backwards compatibility
+# ═══════════════════════════════════════════════════════════════════════════════
+
+ParserDispatcher._build_failure = staticmethod(build_failure)

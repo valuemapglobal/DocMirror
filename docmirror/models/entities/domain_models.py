@@ -199,7 +199,29 @@ class IDCardData(BaseModel):
 # \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 
 
+
+class WeChatPaymentData(BaseModel):
+    """WeChat payment statement extracted data."""
+
+    account_holder: str = ""
+    account_number: str = ""
+    total_transactions: int = 0
+    total_income: float = 0.0
+    total_expense: float = 0.0
+
+
+class AlipayPaymentData(BaseModel):
+    """Alipay payment statement extracted data."""
+
+    account_holder: str = ""
+    account_number: str = ""
+    total_transactions: int = 0
+    total_income: float = 0.0
+    total_expense: float = 0.0
+
+
 class DomainData(BaseModel):
+
     """
     Domain-specific data wrapper context.
 
@@ -209,6 +231,8 @@ class DomainData(BaseModel):
 
     document_type: str = "other"
 
+    wechat_payment: WeChatPaymentData | None = None
+    alipay_payment: AlipayPaymentData | None = None
     bank_statement: BankStatementData | None = None
     invoice: InvoiceData | None = None
     tax_report: TaxReportData | None = None
@@ -221,6 +245,8 @@ class DomainData(BaseModel):
     def active_model(self) -> BaseModel | None:
         """Returns the actively configured explicitly defined domain."""
         for field_name in [
+            "wechat_payment",
+            "alipay_payment",
             "bank_statement",
             "invoice",
             "tax_report",

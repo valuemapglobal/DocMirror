@@ -1,0 +1,1266 @@
+scene_keywords:
+  abs_prospectus:
+    include:
+    - 资产支持证券
+    - 募集说明书
+    - Asset-Backed Securities
+    - 发行说明书
+    - Prospectus
+    - 信用评级
+    - 债项评级
+    - 评级报告
+  accident_proof:
+    include:
+    - 事故证明
+    - 保险事故
+    - Accident
+    - 事故经过
+    - 事故报告
+    - 保险出险
+    - Accident Report
+    - 事故认定
+    - 保险理赔
+    - 理赔申请
+    - Claim
+    - 事故现场
+    - 损失证明
+  account_opening_permit:
+    include:
+    - 开户许可证
+    - Account Opening
+    - 开户许可
+    - 开户核准
+    - 基本存款账户
+    - 存款账户
+    - 开户登记
+    - Account Permit
+    - 账户开立
+    - 开户证明
+    - 银行开户许可证
+    - 开户核准通知书
+    exclude:
+    - 保险单
+    - 保费
+  adverse_audit_report:
+    include:
+    - 否定意见
+    - 审计报告
+    - Adverse
+    - Audit Report
+    - 否定意见审计报告
+    - Adverse Opinion
+    - 出具否定意见
+    - 无法表示意见的审计报告
+    - 保留意见审计报告
+    - 强调事项段
+  ai_compliance_report:
+    include:
+    - AI合规
+    - 大模型合规
+    - 金融大模型
+    - AI Compliance
+    - 合规报告
+    - AI治理
+    - 模型风险管理
+    - 算法合规
+    - 算法备案
+    - 生成式人工智能
+    - AI伦理
+    - 模型审计
+    - AI安全
+  alipay_payment:
+    include:
+    - 支付宝（中国）网络技术有限公司
+    - 交易流水证明
+    - Alipay
+    - 支付宝流水
+    - Alipay账单
+    - Alipay Statement
+    - 支付宝交易记录
+    - 支付宝收支明细
+    - 支付宝收支明细证明
+    - 支付宝交易明细
+    - 支付宝付款
+    - Alipay流水
+    - 支付宝电子回单
+    - 支付宝收/支
+    - 支付宝余额
+    exclude:
+    - 微信支付交易明细证明
+  alternative_credit_report:
+    include:
+    - 百行征信
+    - 朴道征信
+    - 替代性征信
+    - 信用报告
+    - 替代数据
+    - 非银行信用
+    - Alternative Credit
+    - 征信评分
+    - 征信查询
+  aml_report:
+    include:
+    - 大额交易
+    - 可疑交易
+    - 客户身份识别
+    - Anti-Money Laundering
+    - 洗钱风险
+    - 制裁名单
+    - 尽职调查
+    - 客户尽职调查
+    - 交易监控
+    - 可疑交易报告
+  apostille_certificate:
+    include:
+    - Apostille
+    - 海牙认证
+    - 海牙认证书
+    - Apostille Certificate
+    - 海牙公约
+    - 附加证明书
+    - Apostille Convention
+    - 领事认证
+    - 公证认证
+    - 外交部认证
+  arbitration_award:
+    include:
+    - 仲裁裁决
+    - Arbitration
+    - 仲裁裁决书
+    - 仲裁委员会
+    - 仲裁协议
+    - Arbitral Award
+    - 仲裁规则
+    - 仲裁程序
+  asset_management_contract:
+    include:
+    - 资产管理
+    - 资管合同
+    - Asset Management
+    - 资产管理合同
+    - 资产管理计划
+    - 资管计划
+    - 资产托管
+    - 委托资产
+    - 投资范围
+    - 投资限制
+  audit_report:
+    include:
+    - 审计报告
+    - 审计意见
+    - 注册会计师
+    - 会计师事务所
+    - 资产负债表日
+    - 审计准则
+    - 年度审计
+    - 财务报表审计
+    - 审计发现
+    - 审计调整
+    - 审计程序
+    - 审计证据
+  balance_sheet:
+    include:
+    - 资产负债表
+    - 流动资产
+    - 非流动资产
+    - 资产总计
+    - 流动负债
+    - 负债合计
+    - 所有者权益
+    - Balance Sheet
+    - 资产总额
+    - 负债总额
+    - 货币资金
+    - 应收账款
+    - 固定资产
+    - 短期借款
+    - 长期借款
+    - 实收资本
+    - 未分配利润
+  bank_confirmation_letter:
+    include:
+    - 银行询证
+    - Confirmation
+    - 银行询证函
+    - 审计询证
+    - Bank Confirmation
+    - 询证回函
+    - 账户询证
+    - 余额询证
+  bank_reconciliation:
+    include:
+    - 银行对账单
+    - 账户余额
+    - 银行盖章
+    - Reconciliation
+    - Bank Reconciliation
+    - 余额调节
+    - 银行余额
+    - 银行回单
+    - 余额对账
+  bank_statement:
+    include:
+    - 银行流水
+    - 交易明细
+    - 个人客户交易明细
+    - 企业客户交易明细
+    - account statement
+    - bank statement
+    - Bank Statement
+    - 账户流水
+    - 流水账单
+    - Statement of Account
+    - 存取款明细
+    - 活期账号
+    - 期末余额
+    - 本期发生额
+    - 对方户名
+    - 对方账号
+    - 本期收入
+    - 本期支出
+    - 贷方发生额
+    - 借方发生额
+    - 期初余额
+    - DEBITS
+    - CREDITS
+    - BALANCE
+    - Balance Brought Forward
+    - POSTING DATE
+    - VALUE DATE
+    - DESCRIPTION
+    - 银行核算专用章
+    - 银行回单
+    - 流水明细
+    exclude:
+    - 微信支付交易明细证明
+    - 财付通支付科技有限公司
+    - 支付宝（中国）网络技术有限公司
+    - 保险单
+    - 保单号
+    - 投保人
+    - 被保险人
+    - 保险金额
+    - 开户许可证
+    - 机动车行驶证
+    - 号牌号码
+    - 品牌型号
+  bankruptcy_liquidation:
+    include:
+    - 破产清算
+    - Bankruptcy
+    - 破产重整
+    - 破产管理人
+    - Liquidation
+    - 破产申请
+    - 破产程序
+    - 债权人会议
+    - 破产财产
+    - 破产分配
+  beneficiary_proof:
+    include:
+    - Beneficiary
+    - 保险金领取
+    - 受益人证明
+    - 受益人身份证明
+    - Beneficiary Certificate
+    - 保险受益人
+    - 受益人指定
+  bill_of_lading:
+    include:
+    - 海运提单
+    - Bill of Lading
+  board_resolution:
+    include:
+    - 董事会决议
+    - 股东会决议
+    - Resolution
+    - 股东大会
+    - 决议事项
+    - 出席董事
+    - 表决结果
+    - 股东决议
+    - 临时股东大会
+  bond_audit_report:
+    include:
+    - 债券发行
+    - 审计报告
+    - Bond Audit
+    - 债券审计
+    - 发行债券
+    - 信用评级
+    - 债项评级
+    - 债券募集
+    - 公司债券
+    - 中期票据
+  business_license:
+    include:
+    - 营业执照
+    - 统一社会信用代码
+    - Business License
+    - 信用代码
+    - 营业执照副本
+    - 电子营业执照
+    - 工商登记
+    - 营业执照正本
+    - 公司注册
+    - 法人资格
+    - 营业期限
+    - 登记机关
+    exclude: []
+  capital_verification_report:
+    include:
+    - 验资报告
+    - 出资证明
+    - 实缴资本
+    - 注册资本
+    - Capital Verification
+    - 实收资本
+    - 股东出资
+    - 出资比例
+    - 验资事项
+  carbon_allowance_confirmation:
+    include:
+    - Carbon Allowance
+    - 碳排放权
+    - 碳配额确认书
+    - 碳排放配额
+  carbon_emission_audit:
+    include:
+    - Carbon
+    - 碳排放权
+    - 碳排放核查报告
+    - 温室气体
+    - 碳排放量
+    - 碳排放审计
+  cash_flow_statement:
+    include:
+    - 现金流量表
+    - 经营活动产生的现金流量
+    - 投资活动
+    - 筹资活动
+    - 现金及现金等价物
+    - Cash Flow Statement
+    - 经营活动现金流
+    - 投资活动现金流
+    - 筹资活动现金流
+  clearing_reconciliation_file:
+    include:
+    - Clearing
+    - 清算对账文件
+    - 对账文件
+    - 清算数据
+    - 资金清算
+  commercial_invoice:
+    include:
+    - 商业发票
+    - Invoice
+    - Commercial
+    - Commercial Invoice
+    - 发票日期
+    - Proforma Invoice
+    - 形式发票
+    - 出口发票
+    - 贸易发票
+  compliance_report:
+    include:
+    - Compliance
+    - 合规自查
+    - 合规培训
+    - 合规报告
+    - 合规检查
+    - 合规管理
+    - 合规风险
+  corporate_charter:
+    include:
+    - 公司章程
+    - Articles of Association
+    - 章程修正案
+    - 组织章程细则
+    - 股东权利
+    - 董事会职责
+    - 本公司及董事会
+    - 全体股东
+    - 股东大会
+    - 修订章程
+    - 签署本章程
+    exclude:
+    - 机动车行驶证
+    - 号牌号码
+  court_judgment:
+    include:
+    - 判决如下
+    - 法院判决书
+    - 民事判决书
+    - 刑事判决书
+  credit_assignment:
+    include:
+    - 债权转让
+    - 资产证券化
+    - Credit Assignment
+    - 债权转让协议
+    - 应收账款转让
+    - 资产转让
+  credit_audit_report:
+    include:
+    - 信贷审批
+    - 审计报告
+    - Credit Audit
+    - 信贷审计
+    - 授信审计
+    - 贷款审计
+  credit_report:
+    include:
+    - 个人信用报告
+    - 征信报告
+    - Credit Report
+    - 征信中心
+    - Credit Reference
+    - 企业信用报告
+    - 信贷交易信息概要
+    - 逾期状态
+    - 信用评分
+    - 逾期记录
+    - 征信查询
+    - 报告编号
+    - 被查询者
+    - 查询机构
+    - 查询原因
+    - 个人基本信息
+    - 信息概要
+    - 信贷交易信息明细
+    - 公共信息明细
+    - 本人声明
+    - 异议标注
+    - 征信中心客服电话
+    - 查询日期
+    - 报告时间
+    - 征信查询授权
+    exclude:
+    - 机动车行驶证
+  credit_report_enterprise:
+    include:
+    - 企业信用报告
+    - 企业征信
+    - Credit Report
+    - Enterprise Credit Report
+    - 企业信用
+    - 企业征信报告
+    - 贷款卡号
+    - 征信中心
+    - 工商信息
+    - 信用评级
+    - 企业信用评级
+  customs_declaration:
+    include:
+    - 海关报关
+    - Customs
+    - 出口报关
+    - 进口报关
+    - 报关单号
+    - 海关编号
+  data_asset_certificate:
+    include:
+    - 数据资产
+    - 数据凭证
+    - 数据质押
+    - Data Asset
+    - 数据资产登记
+    - 数据确权
+    - 数据资产证书
+    - 数据产品
+  debt_restructuring:
+    include:
+    - 债务重组
+    - 和解协议
+    - Debt Restructuring
+    - 债务重组协议
+    - 债务减免
+    - 债务展期
+    - 重组方案
+  derivative_trade_confirmation:
+    include:
+    - 交易确认书
+    - Trade Confirmation
+    - ISDA
+    - 衍生品交易
+    - 衍生品确认书
+    - 掉期交易
+    - 远期交易
+  disclaimer_audit_report:
+    include:
+    - 无法表示意见
+    - 审计报告
+    - Disclaimer
+    - 无法表示意见的审计报告
+    - Disclaimer Opinion
+    - 审计范围受限
+  drivers_license:
+    include:
+    - Driver's License
+    - 机动车驾驶证
+    - Driving License
+    - 准驾车型
+    - Driver License
+    - 驾驶证号
+    - 初领日期
+    - 有效期限
+    - 机动车驾驶
+  electronic_medical_record:
+    include:
+    - 电子病历
+    - Medical Record
+    - 就诊记录
+    - 出院小结
+    - 入院记录
+    - 病程记录
+    - 检查报告
+  equator_principles_assessment:
+    include:
+    - 赤道原则
+    - Equator Principles
+    - 环境评估
+    - 环境影响
+    - 社会责任评估
+    - ESG评估
+    - 绿色信贷
+  equipment_appraisal:
+    include:
+    - 设备评估
+    - 机器设备
+    - 评估报告
+    - Appraisal
+    - 设备价值
+    - 设备估价
+    - 资产评估
+    - 固定资产评估
+  equity_penetration:
+    include:
+    - 股权穿透
+    - 实际控制人
+    - 股权结构
+    - 持股比例
+    - Equity
+    - 股权架构
+    - 控股股东
+    - 最终受益人
+  equity_statement:
+    include:
+    - 所有者权益变动表
+    - 权益变动表
+    - Equity
+    - 股东权益
+    - 资本公积
+    - 盈余公积
+    - 未分配利润
+  esg_report:
+    include:
+    - 社会责任
+    - 公司治理
+    - 环境社会治理
+    - 企业社会责任
+    - ESG报告
+    - 可持续发展
+  finance_lease_contract:
+    include:
+    - 融资租赁
+    - 租赁合同
+    - Finance Lease
+    - 融资租赁合同
+  financial_license:
+    include:
+    - 金融许可证
+    - 机构编码
+    - 中国银行业监督管理委员会
+    - 中国银行保险监督管理委员会
+    - 金融业务
+    - 金融牌照
+  fiscal_invoice:
+    include:
+    - 财政票据
+    - 非税收入
+    - Fiscal
+    - 政府非税
+    - 财政电子票据
+    - 非税收入统一票据
+  foreign_residence_permit:
+    include:
+    - 外国人居留
+    - 居留许可
+    - Residence Permit
+    - 外国人居留许可
+    - 外国人工作居留
+    - 外国人居留证
+    - Foreign Residence
+    - 工作居留
+  fund_contract:
+    include:
+    - 基金合同
+    - 基金名称
+    - 基金代码
+    - 基金管理人
+    - 基金托管人
+    - 基金份额
+    - 基金运作
+  fund_nav_report:
+    include:
+    - 基金净值
+    - 净值公告
+    - 单位净值
+    - 累计净值
+    - 基金资产净值
+  fund_prospectus:
+    include:
+    - 基金招募说明书
+    - 基金合同
+    - Prospectus
+    - 基金管理人
+    - 基金托管人
+    - 招募说明书
+    - 基金份额发售
+  fund_report:
+    include:
+    - 基金年度报告
+    - 基金季度报告
+    - 基金报告
+    - 基金资产
+    - 基金投资
+    - 基金持仓
+    - 基金净值
+  green_bond_certification:
+    include:
+    - 绿色债券
+    - Green Bond
+    - 绿色认证
+    - 债券认证
+    - 绿色债券认证
+    - 碳中和债券
+    - 可持续发展
+  guarantee_contract:
+    include:
+    - 担保合同
+    - 担保金额
+    - 担保方式
+    - 保证担保
+  hong_kong_macao_permit:
+    include:
+    - 港澳通行证
+    - Hong Kong
+    - Macau Permit
+    - 往来港澳通行证
+    - 港澳居民来往内地通行证
+  household_registration:
+    include:
+    - 常住人口登记卡
+    - Household
+    - 居民户口簿
+    - 户籍证明
+    - Household Registration
+    - 户口登记
+    - 户籍信息
+    - 户口登记机关
+    - 户口专用章
+    - 何时由何地迁来本址
+    - 登记日期
+    - 承办人签章
+    - 户口簿编号
+  id_card:
+    include:
+    - 居民身份证
+    - 公民身份号码
+    - ID Number
+    - Identity Card
+    - 中华人民共和国
+    - 中华人民共和国居民身份证
+    - 身份证号码
+    - 身份证号
+    - 签发机关
+    - 有效期限
+    - 身份证正面
+    - 身份证反面
+    - 身份证人像面
+    - 身份证国徽面
+  income_statement:
+    include:
+    - 营业收入
+    - 营业成本
+    - 利润总额
+    - Income Statement
+    - 营业利润
+    - 投资收益
+    - 营业外收入
+  industry_research_report:
+    include:
+    - 行业研究
+    - 研究报告
+    - Industry
+    - 公司研究
+    - 行业分析
+    - 行业深度
+    - 投资研究
+    - 行业报告
+  institution_credit_code_cert:
+    include:
+    - 机构信用代码
+    - 信用代码证
+    - Credit Code
+    - 机构信用代码证
+    - 信用代码证书
+  insurance_claim:
+    include:
+    - 保险理赔
+    - Insurance Claim
+    - 理赔申请
+    - 理赔资料
+    - 理赔结果
+  insurance_claim_form:
+    include:
+    - 理赔申请书
+    - 索赔申请书
+    - Claim Form
+    - 理赔申请表
+    - 索赔申请
+    - 出险通知书
+  insurance_policy:
+    include:
+    - 被保险人
+    - 保险金额
+    - Insurance Policy
+    - 保险合同
+    - 保险期间
+    - 保险条款
+    - 保险责任
+    - 特别约定
+    - 保险期间自
+    - 投保份数
+    - 保险期限
+    - 保险险种
+    - 保险类别
+    - Insurance Certificate
+    - Certificate of Insurance
+    - 保险凭证
+    - 保险批单
+    - 承运人责任保险
+    - 危险货物运输
+    - 货物运输保险
+    - 财产保险
+    - 责任保险
+    - 保险金额合计
+    - 保险费合计
+    - 保险单签发
+    - 保险公司签章
+    - 保险起期
+    - 保险止期
+    exclude:
+    - 机动车行驶证
+    - 号牌号码
+    - 品牌型号
+    - 车辆识别代号
+  intangible_asset_appraisal:
+    include:
+    - 无形资产
+    - 专利评估
+    - 商标评估
+    - 知识产权
+    - Intangible Asset
+    - 无形资产评估
+  interbank_cd_offering:
+    include:
+    - 同业存单
+    - 发行公告
+    - 募集说明书
+    - 同业存单发行
+  interbank_lending_agreement:
+    include:
+    - 同业拆借
+    - 拆借协议
+    - Interbank
+    - 同业拆借合同
+    - 拆借资金
+    - 拆借利率
+  intercompany_confirmation:
+    include:
+    - Intercompany
+    - 应收账款
+    - 内部往来询证函
+    - 应付账款
+    - 内部往来
+    - 关联交易
+  investment_analysis_report:
+    include:
+    - 投资分析
+    - 财务分析
+    - Investment
+    - Analysis
+    - 投资可行性
+    - 投资项目
+    - 投资回报
+  investment_audit_report:
+    include:
+    - 投资决策
+    - 审计报告
+    - Investment Audit
+    - 投资审计
+    - 项目审计
+    - 投资合规
+  investment_strategy_report:
+    include:
+    - 投资策略
+    - 策略报告
+    - Investment Strategy
+    - 资产配置
+    - 投资组合
+    - 策略分析
+  isda_master_agreement:
+    include:
+    - ISDA
+    - Master Agreement
+    - ISDA主协议
+    - 国际掉期
+    - 衍生品主协议
+  land_appraisal:
+    include:
+    - 土地评估
+    - 土地使用权
+    - 土地估价
+    - Land
+    - 土地价值
+    - 土地出让
+    - 土地价格
+    - 地价评估
+  legacy_scan_doc:
+    include:
+    - 历史档案
+    - Legacy Document
+    - 扫描文件
+    - 历史文件
+    - 文档扫描
+    - 纸质存档
+    - 历史记录
+    - 道路运输证
+    - 中华人民共和国道路运输证
+    - 车辆类型
+    - 车辆号牌
+    - 车辆尺寸
+    - 业户名称
+    - 危险货物运输
+    - 重型半挂
+  letter_of_credit:
+    include:
+    - Letter of Credit
+    - 跟单信用证
+    - 信用证开证
+    - 信用证通知
+    - 信用证保兑
+  listing_announcement:
+    include:
+    - 上市公告书
+    - 股票上市
+    - Listing
+    - 发行公告
+    - 招股说明书
+    - 上市公司
+    - 上市公告
+  loan_contract:
+    include:
+    - 贷款合同
+    - 借款金额
+    - 贷款利率
+    - 借款期限
+    - 贷款协议
+    - 借款协议
+    - Loan Agreement
+    - 还款计划
+    - 抵押贷款
+    - 信用贷款
+  market_trend_report:
+    include:
+    - 市场趋势
+    - 趋势分析
+    - Market Trend
+    - 市场分析
+    - 走势分析
+    - 行情分析
+    - 市场调研
+  medical_diagnosis_report:
+    include:
+    - 诊断证明
+    - 诊断报告
+    - Medical Report
+    - CT检查
+    - 检查报告
+    - 超声报告
+  medication_detail:
+    include:
+    - 药品费用
+    - 用药明细
+    - 药品清单
+    - 用药记录
+  military_id:
+    include:
+    - Military ID
+    - 军人身份证
+  mortgage_contract:
+    include:
+    - 抵押合同
+    - 抵押金额
+    - 抵押权人
+    - 抵押协议
+    - Mortgage Agreement
+    - 不动产抵押
+    - 最高额抵押
+  organization_code_cert:
+    include:
+    - 组织机构代码
+    - 组织机构代码证
+    - Organization Code
+    - 统一社会信用代码
+  origin_declaration:
+    include:
+    - 原产地声明
+    - Origin Declaration
+    - 原产地证
+    - 原产地证明
+  passport:
+    include:
+    - Passport
+    - PASSPORT
+    - 中华人民共和国
+    - 签发机关
+    - Date of Birth
+    - 护照号码
+    - 护照有效期
+  payment_voucher:
+    include:
+    - 电子回单
+    - 支付凭证
+    - 转账凭证
+    - 业务回单
+    - 记账凭证
+    - 银行回执
+    - 汇款凭证
+  payroll_slip:
+    include:
+    - Payroll
+    - Salary Slip
+    - 应发工资
+    - 实发工资
+    - 工资明细
+  performance_evaluation_report:
+    include:
+    - 业绩评估
+    - 投资业绩
+    - Performance
+    - 评估报告
+    - 业绩报告
+    - 绩效评估
+    - 考核结果
+  police_id:
+    include:
+    - Police ID
+    - 公安机关
+  portfolio_analysis_report:
+    include:
+    - 投资组合
+    - 资产配置
+    - Portfolio
+    - 组合分析
+    - 组合管理
+    - 持仓分析
+  property_loss_assessment:
+    include:
+    - 财产损失
+    - 损失评估
+    - Loss Assessment
+    - 损失鉴定
+    - 损失清单
+  property_preservation:
+    include:
+    - 财产保全
+    - 保全裁定
+    - 诉讼保全
+    - Preservation
+    - 保全申请
+  qualified_audit_report:
+    include:
+    - 保留意见
+    - 审计报告
+    - Qualified
+    - 保留意见审计报告
+    - Qualified Opinion
+    - 除保留意见
+  real_estate_appraisal:
+    include:
+    - 房地产评估
+    - 房产评估
+    - 估价报告
+    - Appraisal
+    - 不动产评估
+    - 物业评估
+    - 房价评估
+  real_estate_certificate:
+    include:
+    - 不动产权证
+    - 不动产权第
+    - 国有建设用地使用权
+    - 房屋所有权
+    - 不动产单元号
+    - Real Estate Certificate
+    - 不动产权证书
+    - 土地使用权
+    - 房屋所有权证
+  regulatory_audit_report:
+    include:
+    - 监管报送
+    - 审计报告
+    - Regulatory Audit
+    - 监管审计
+    - 监管报告
+    - 合规审计
+    - 外部监管
+    - 监管检查
+  regulatory_filing:
+    include:
+    - 监管报送
+    - 监管数据
+    - Regulatory
+    - 监管报表
+    - 监管报送文件
+    - Regulatory Filing
+    - 数据报送
+    - EAST
+  regulatory_inquiry:
+    include:
+    - 监管问询
+    - Inquiry
+    - Regulatory Inquiry
+    - 交易所问询
+    - 证监会问询
+    - 问询函件
+  regulatory_inspection_letter:
+    include:
+    - 监管检查
+    - 处罚决定
+    - Inspection
+    - 检查通知
+    - Inspection Notice
+    - 行政处罚
+    - 监管处罚
+    - 整改通知
+    - 监管决定
+  risk_assessment_report:
+    include:
+    - 风险评估
+    - 内部控制
+    - Risk Assessment
+    - 风险评价
+    - Risk Assessment Report
+    - 内部风险
+    - 风险控制
+    - 市场风险
+    - 信用风险
+    - 操作风险
+  securities_prospectus:
+    include:
+    - 证券发行
+    - 债券募集
+    - Prospectus
+    - 发行公告
+    - 证券募集说明书
+    - 债券募集说明书
+    - Securities Prospectus
+    - 股票募集
+    - 上市公司
+  social_security_card:
+    include:
+    - 社会保障卡
+    - Social Security
+    - 社会保障
+    - 社保卡号
+    - Social Security Card
+    - 医疗保险卡
+    - 城乡居民社保
+    - 职工社保
+  social_security_proof:
+    include:
+    - 社保缴纳证明
+    - 社会保险
+    - 社保缴费
+    - Social Security
+    - 参保情况
+    - 社会保障
+    - 社保参保证明
+    - 社保证明
+    - Social Security Certificate
+    - 参保凭证
+    - 社保缴费记录
+    - 养老保险
+  structured_product:
+    include:
+    - 结构性产品
+    - 结构化产品
+    - 产品说明书
+    - 收益凭证
+    - Structured Product
+    - 结构性存款
+    - 理财计划
+    - 结构化理财
+    - 保本浮动
+  swift_message:
+    include:
+    - SWIFT
+    - MT报文
+    - 跨境支付
+    - SWIFT报文
+    - MT103
+    - MT202
+    - SWIFT Message
+    - 汇款报文
+    - 跨境汇款
+    - 国际结算
+  taiwan_permit:
+    include:
+    - 台湾居民
+    - Taiwan Permit
+    - 台湾居民来往大陆通行证
+    - 台湾同胞
+    - Macau Permit
+  tax_certificate:
+    include:
+    - 完税证明
+    - 纳税人识别号
+    - 实缴金额
+    - 税务机关
+    - 个人所得税
+    - 税收完税证明
+    - 完税凭证
+    - Tax Certificate
+    - 纳税证明
+    - 纳税凭证
+  tax_payment_certificate:
+    include:
+    - 缴税证明
+    - 纳税证明
+    - 税收完税
+    - 实缴税款
+    - Tax Payment
+    - 税收缴款书
+    - Tax Payment Certificate
+    - 税款缴纳
+    - 扣缴税款
+  tax_return:
+    include:
+    - 税务申报
+    - 纳税申报
+    - Tax Return
+    - 应纳税额
+    - 企业所得税
+    - 个人所得税
+    - 汇算清缴
+    - 税务清算
+    - 增值税申报
+    - 申报纳税
+  third_party_credit_score:
+    include:
+    - 信用评分
+    - Credit Score
+    - 企业信用查询
+    - 第三方征信
+    - Credit Scoring
+    - 企业查询
+    - 工商查询
+    - 企业信用信息
+  traffic_accident_verdict:
+    include:
+    - 交通事故
+    - 责任认定
+    - 事故认定书
+    - Traffic Accident
+    - 交通事故认定书
+    - 交通责任
+    - 交通肇事
+    - Traffic Accident Verdict
+    - 道路交通事故
+  unqualified_audit_report:
+    include:
+    - 无保留意见
+    - 审计报告
+    - Unqualified
+    - 无保留意见审计报告
+    - Unqualified Opinion
+    - 标准审计意见
+    - 清洁审计意见
+    - 审计无保留
+  valuation_report:
+    include:
+    - 估值分析
+    - 企业估值
+    - Valuation
+    - 估值报告
+    - Valuation Report
+    - 企业价值评估
+    - 公司估值
+    - 资产评估
+  vam_agreement:
+    include:
+    - 对赌协议
+    - 回购协议
+    - 估值调整
+    - Valuation Adjustment Mechanism
+    - 业绩对赌
+    - 股权回购
+    - 业绩承诺
+    - 补偿条款
+  vat_invoice:
+    include:
+    - 增值税发票
+    - Invoice
+    - 发票号码
+    - 发票代码
+    - 价税合计
+    - 专用发票
+    - 普通发票
+    - VAT Invoice
+    - 不含税金额
+    - 增值税专用发票
+    - 增值税普通发票
+    - 开票日期
+    - 增值税电子普通发票
+    - 全电发票
+  warehouse_receipt:
+    include:
+    - 存货质押
+    - Warehouse
+    - Warehouse Receipt
+    - 仓储合同
+  wealth_management_contract:
+    include:
+    - 理财合同
+    - 理财产品
+    - 预期收益率
+    - 投资金额
+    - 产品期限
+    - Wealth Management
+    - 理财协议
+    - 理财计划
+    - 理财产品说明书
+    - 保本理财
+    - 非保本理财
+  wechat_payment:
+    include:
+    - 微信支付交易明细证明
+    - 微信流水
+    - WeChat Pay
+    - 微信支付
+    - WeChat Pay流水
+    - 微信转账流水
+    - 财付通支付科技有限公司
+    - 微信账单
+    - 微信零钱明细
+    - 微信商户单号
+    - 微信支付单号
+    - 零钱明细
+    - 扫二维码付款
+    - 微信支付记录
+    - 零钱收支明细
+    exclude:
+    - 支付宝（中国）网络技术有限公司

@@ -181,6 +181,94 @@ def _read_exif_orientation(fitz_page) -> int:
     return 0
 
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Shared Preprocessing Primitives
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _adaptive_upscale(img_bgr):
+    """Adaptive upscaling for low-resolution images (shared preprocessing)."""
+    import cv2
+    import numpy as np
+    h, w = img_bgr.shape[:2]
+    min_dim = min(h, w)
+    if min_dim < 500:
+        scale = 4.0
+    elif min_dim < 1000:
+        scale = 2.0
+    else:
+        scale = 0
+    if scale > 0:
+        img_bgr = cv2.resize(
+            img_bgr,
+            None,
+            fx=scale,
+            fy=scale,
+            interpolation=cv2.INTER_LANCZOS4,
+        )
+        sharp_kernel = np.array(
+            [
+                [0, -0.5, 0],
+                [-0.5, 3, -0.5],
+                [0, -0.5, 0],
+            ],
+            dtype=np.float32,
+        )
+        img_bgr = cv2.filter2D(img_bgr, -1, sharp_kernel)
+    return img_bgr
+
+
+def _gamma_histogram_stretch(img_bgr):
+    """Apply gamma correction + histogram stretch for dark/low-contrast images."""
+    import cv2
+    import numpy as np
+    gray_check = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    mean_br = float(gray_check.mean())
+    contrast = float(gray_check.std())
+    if mean_br < 80:
+        gamma = 0.6
+        lut = np.array([min(255, int(((i / 255.0) ** gamma) * 255)) for i in range(256)], dtype=np.uint8)
+        img_bgr = cv2.LUT(img_bgr, lut)
+    if contrast < 25:
+        for c in range(3):
+            ch = img_bgr[:, :, c]
+            p_lo, p_hi = np.percentile(ch, (1, 99))
+            if p_hi - p_lo > 10:
+                img_bgr[:, :, c] = np.clip(
+                    (ch.astype(np.float32) - p_lo) / (p_hi - p_lo) * 255, 0, 255,
+                ).astype(np.uint8)
+    return img_bgr
+
+
+def _remove_red_seal(img_bgr):
+    """Remove red seal/chop marks from document images."""
+    import cv2
+    import numpy as np
+    try:
+        hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+        mask1 = cv2.inRange(hsv, (0, 70, 50), (10, 255, 255))
+        mask2 = cv2.inRange(hsv, (160, 70, 50), (180, 255, 255))
+        red_mask = cv2.bitwise_or(mask1, mask2)
+        kernel_seal = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        red_mask = cv2.dilate(red_mask, kernel_seal, iterations=1)
+        img_bgr[red_mask > 0] = (255, 255, 255)
+    except Exception:
+        pass
+    return img_bgr
+
+
+def _clahe_bilateral(gray, clip_limit=2.0):
+    """Apply CLAHE + bilateral filter to enhance text contrast."""
+    import cv2
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(8, 8))
+    gray = clahe.apply(gray)
+    gray = cv2.bilateralFilter(gray, d=5, sigmaColor=50, sigmaSpace=50)
+    return gray
+
+
+
+
 def _preprocess_minimal(img_bgr):
     """Minimal preprocessing (Strategy B): preserves maximum information.
 
@@ -196,143 +284,19 @@ def _preprocess_minimal(img_bgr):
     gradient information for character recognition.
     """
     import cv2
-    import numpy as np
-
-    h, w = img_bgr.shape[:2]
-
-    # ── Adaptive upscale ──
-    min_dim = min(h, w)
-    if min_dim < 500:
-        scale = 4.0
-    elif min_dim < 1000:
-        scale = 2.0
-    else:
-        scale = 0
-    if scale > 0:
-        img_bgr = cv2.resize(
-            img_bgr,
-            None,
-            fx=scale,
-            fy=scale,
-            interpolation=cv2.INTER_LANCZOS4,
-        )
-        sharp_kernel = np.array(
-            [
-                [0, -0.5, 0],
-                [-0.5, 3, -0.5],
-                [0, -0.5, 0],
-            ],
-            dtype=np.float32,
-        )
-        img_bgr = cv2.filter2D(img_bgr, -1, sharp_kernel)
-        h, w = img_bgr.shape[:2]
-
-    # ── Gamma for dark images ──
-    gray_check = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    mean_br = float(gray_check.mean())
-    contrast = float(gray_check.std())
-    if mean_br < 80:
-        gamma = 0.6
-        lut = np.array([min(255, int(((i / 255.0) ** gamma) * 255)) for i in range(256)], dtype=np.uint8)
-        img_bgr = cv2.LUT(img_bgr, lut)
-
-    # ── Histogram stretch for low contrast ──
-    if contrast < 25:
-        for c in range(3):
-            ch = img_bgr[:, :, c]
-            p_lo, p_hi = np.percentile(ch, (1, 99))
-            if p_hi - p_lo > 10:
-                img_bgr[:, :, c] = np.clip(
-                    (ch.astype(np.float32) - p_lo) / (p_hi - p_lo) * 255,
-                    0,
-                    255,
-                ).astype(np.uint8)
-
-    # ── Red seal removal (same as full pipeline) ──
-    try:
-        hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
-        mask1 = cv2.inRange(hsv, (0, 70, 50), (10, 255, 255))
-        mask2 = cv2.inRange(hsv, (160, 70, 50), (180, 255, 255))
-        red_mask = cv2.bitwise_or(mask1, mask2)
-        kernel_seal = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        red_mask = cv2.dilate(red_mask, kernel_seal, iterations=1)
-        img_bgr[red_mask > 0] = (255, 255, 255)
-    except Exception as exc:
-        logger.debug(f"operation: suppressed {exc}")
-
-    # ── CLAHE on grayscale ──
+    img_bgr = _adaptive_upscale(img_bgr)
+    img_bgr = _gamma_histogram_stretch(img_bgr)
+    img_bgr = _remove_red_seal(img_bgr)
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    gray = clahe.apply(gray)
-
-    # ── Light bilateral smoothing ──
-    gray = cv2.bilateralFilter(gray, d=5, sigmaColor=50, sigmaSpace=50)
-
-    # Return as BGR (3-channel grayscale) — NO binarisation
+    gray = _clahe_bilateral(gray, clip_limit=2.0)
     return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
 
 def _ocr_upscale_and_normalize(img_bgr, cv2, np):
     """Stage 1: Upscale low-res images, gamma correct, histogram stretch, edge pad."""
     h, w = img_bgr.shape[:2]
-
-    # ── Adaptive upscaling for low-resolution images ──
-    min_dim = min(h, w)
-    if min_dim < 500:
-        scale = 4.0
-    elif min_dim < 1000:
-        scale = 2.0
-    else:
-        scale = 0
-    if scale > 0:
-        img_bgr = cv2.resize(
-            img_bgr,
-            None,
-            fx=scale,
-            fy=scale,
-            interpolation=cv2.INTER_LANCZOS4,
-        )
-        sharp_kernel = np.array(
-            [
-                [0, -0.5, 0],
-                [-0.5, 3, -0.5],
-                [0, -0.5, 0],
-            ],
-            dtype=np.float32,
-        )
-        img_bgr = cv2.filter2D(img_bgr, -1, sharp_kernel)
-        h, w = img_bgr.shape[:2]
-        logger.debug(f"[OCR] Upscaled {scale:.0f}\u00d7 (Lanczos+sharp) \u2192 {w}x{h}")
-
-    # ── Gamma correction for dark images ──
-    gray_check = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    mean_brightness = float(gray_check.mean())
-    img_contrast = float(gray_check.std())
-    if mean_brightness < 80:
-        gamma = 0.6
-        lut = np.array([min(255, int(((i / 255.0) ** gamma) * 255)) for i in range(256)], dtype=np.uint8)
-        img_bgr = cv2.LUT(img_bgr, lut)
-        logger.debug(
-            f"[OCR] Gamma correction (\u03b3={gamma}): "
-            f"brightness {mean_brightness:.0f} \u2192 {cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY).mean():.0f}"
-        )
-
-    # ── Histogram stretch for very low contrast ──
-    if img_contrast < 25:
-        for c in range(3):
-            channel = img_bgr[:, :, c]
-            p_lo, p_hi = np.percentile(channel, (1, 99))
-            if p_hi - p_lo > 10:
-                channel = np.clip(
-                    (channel.astype(np.float32) - p_lo) / (p_hi - p_lo) * 255,
-                    0,
-                    255,
-                ).astype(np.uint8)
-                img_bgr[:, :, c] = channel
-        logger.debug(
-            f"[OCR] Histogram stretch: contrast {img_contrast:.0f} \u2192 "
-            f"{cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY).std():.0f}"
-        )
+    img_bgr = _adaptive_upscale(img_bgr)
+    img_bgr = _gamma_histogram_stretch(img_bgr)
 
     # ── Edge padding to prevent border text clipping ──
     pad = 20

@@ -8,6 +8,5 @@
 
 from .institution_detector import InstitutionDetector
 from .language_detector import LanguageDetector
-from .scene_detector import SceneDetector
 
-__all__ = ["SceneDetector", "LanguageDetector", "InstitutionDetector"]
+__all__ = ["LanguageDetector", "InstitutionDetector"]

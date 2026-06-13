@@ -16,7 +16,11 @@ import logging
 import re
 import time
 from collections import Counter, defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from docmirror.models.entities.extraction_profile import ExtractionProfile
+    from .template_injector import GlobalTableTemplate
 
 from ...utils.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE, _is_header_cell, _is_header_row, _score_header_by_vocabulary
 
@@ -46,6 +50,75 @@ from .classifier import (
 )
 from .pdfplumber_strategy import _recover_header_from_zone
 from .pipe_strategy import _extract_by_pipe_delimited
+
+
+class _ProfileRunState:
+    """Tracks candidates and gating when ExtractionProfile is active."""
+
+    def __init__(self, profile: ExtractionProfile | None, audit_out: list | None):
+        from .best_candidate import ExtractCandidate
+
+        self.profile = profile
+        self.audit_out = audit_out
+        self.candidates: list = []
+        self._ExtractCandidate = ExtractCandidate
+        self.disabled = set(profile.table_disabled_layers()) if profile else set()
+        self.min_conf = profile.effective_min_confidence() if profile else 0.0
+        self.use_bcs = profile.should_use_bcs() if profile else False
+        self.picked: tuple | None = None
+
+    def layer_disabled(self, layer: str) -> bool:
+        return layer in self.disabled
+
+    def offer(self, tables: list, layer: str, conf: float) -> bool:
+        """Record candidate; return True if extraction should stop now."""
+        if not self.profile:
+            return True
+        row_count = len(tables[0]) if tables and tables[0] else 0
+        self.candidates.append(
+            self._ExtractCandidate(tables=tables, layer=layer, confidence=conf, row_count=row_count)
+        )
+        if self.use_bcs:
+            return False
+        if self.min_conf > 0 and conf < self.min_conf:
+            return False
+        return True
+
+    def finalize(self, default_tables: list, default_layer: str, default_conf: float):
+        from .best_candidate import pick_best_candidate, count_data_rows
+
+        if not self.profile or not self.candidates:
+            return default_tables, default_layer, default_conf
+
+        oracle_rows = 0
+        if self.use_bcs and self.profile.bcs_oracle_layer:
+            for c in self.candidates:
+                if c.layer == self.profile.bcs_oracle_layer:
+                    oracle_rows = count_data_rows(c.tables[0] if c.tables else [])
+                    break
+            if oracle_rows == 0:
+                oracle_rows = max((c.row_count for c in self.candidates), default=0)
+
+        if self.use_bcs:
+            pick = pick_best_candidate(self.candidates, self.profile, oracle_rows=oracle_rows)
+            if pick:
+                c = pick.candidate
+                if self.audit_out is not None:
+                    self.audit_out.append(
+                        {
+                            "picked": c.layer,
+                            "score": pick.score,
+                            "row_count": c.row_count,
+                            "candidates": [
+                                {"layer": x.layer, "rows": x.row_count, "conf": round(x.confidence, 3)}
+                                for x in pick.all_candidates
+                            ],
+                        }
+                    )
+                return c.tables, c.layer, c.confidence
+
+        best = max(self.candidates, key=lambda c: (c.confidence, c.row_count))
+        return best.tables, best.layer, best.confidence
 
 
 def _crop_to_table_zone(
@@ -157,6 +230,8 @@ def extract_tables_layered(
     global_grid_x: list[float] | None = None,
     table_template: GlobalTableTemplate | None = None,
     pid_resample: bool = False,
+    extraction_profile: ExtractionProfile | None = None,
+    extraction_audit: list | None = None,
 ) -> tuple[list[list[list[str]]], str, float]:
     """Progressively layered table extraction.
 
@@ -180,6 +255,7 @@ def extract_tables_layered(
     """
     timings: dict[str, float] = {}
     t_total = time.time()
+    _pr = _ProfileRunState(extraction_profile, extraction_audit)
 
     def _t(label: str, t0: float):
         """Record per-layer elapsed time (ms)."""
@@ -187,11 +263,20 @@ def extract_tables_layered(
 
     def _return(tables, layer):
         """Unified return: compute confidence and record total time."""
+        conf = _compute_table_confidence(tables, layer)
+        if extraction_profile and not _pr.offer(tables, layer, conf):
+            return None
         timings["total"] = round((time.time() - t_total) * 1000, 2)
         _layer_timings_var.set(dict(timings))
-        conf = _compute_table_confidence(tables, layer)
         logger.info(f"[TableEngine] Extraction completed using layer='{layer}' (conf={conf:.3f}, timings={timings})")
         return tables, layer, conf
+
+    def _emit(tables, layer):
+        """Return from layer if profile allows, else continue cascade."""
+        result = _return(tables, layer)
+        if result is not None:
+            return result
+        return None
 
     # ── Crop to table zone (all layers work on the cropped page) ──
     work_page = page_plum
@@ -270,7 +355,9 @@ def extract_tables_layered(
                                 hint_vocab,
                                 len(hint_table),
                             )
-                        return _return([hint_table], layer_hint)
+                        _done = _emit([hint_table], layer_hint)
+                        if _done is not None:
+                            return _done
             except Exception as exc:
                 _t(f"L_hint_{layer_hint}", t0)
                 if _DEBUG:
@@ -321,11 +408,13 @@ def extract_tables_layered(
     pipe_table = _extract_by_pipe_delimited(work_page)
     _t("L0.5_pipe", t0)
     if pipe_table and len(pipe_table) >= 3:
-        return _return([pipe_table], "pipe_delimited")
+        _done = _emit([pipe_table], "pipe_delimited")
+        if _done is not None:
+            return _done
 
     # ── Layer 0.8: PyMuPDF native table detection (C implementation, ~50-70% faster) ──
     # T4-3: Only when fitz_page is provided. Falls through for borderless/complex tables.
-    if fitz_page is not None and not watermark_filtered:
+    if fitz_page is not None and not watermark_filtered and not _pr.layer_disabled("pymupdf_native"):
         t0 = time.time()
         try:
             # Use full page width and expanded y-range (matching pdfplumber crop).
@@ -340,7 +429,9 @@ def extract_tables_layered(
                 for tbl in _pymupdf_tables:
                     if tbl and len(tbl) >= 3 and len(tbl[0]) >= 2:
                         if _tables_look_valid([tbl], has_borders=has_borders):
-                            return _return([tbl], "pymupdf_native")
+                            _done = _emit([tbl], "pymupdf_native")
+                            if _done is not None:
+                                return _done
         except Exception as exc:
             _t("L0.8_pymupdf", t0)
             if _DEBUG:
@@ -358,10 +449,12 @@ def extract_tables_layered(
             tables = work_page.extract_tables(table_settings=TABLE_SETTINGS_LINES)
         _t("L1_lines", t0)
         if tables and _tables_look_valid(tables, has_borders=has_borders):
-            return _return(
+            _done = _emit(
                 _recover_header_from_zone(tables, work_page, table_zone_bbox, page_plum),
                 "lines",
             )
+            if _done is not None:
+                return _done
 
         # Pre-classification jump: if hint='text', skip L1a/L1.5 to L1b
         # Also skip when excessive h_lines but v_lines=0 (degenerate case —
@@ -381,10 +474,12 @@ def extract_tables_layered(
                 )
                 logger.debug(f"L1a header check: first_cell={_first_cell!r} looks_like_data={_header_looks_like_data}")
                 if not _header_looks_like_data:
-                    return _return(
+                    _done = _emit(
                         _recover_header_from_zone([table], work_page, table_zone_bbox, page_plum),
                         "hline_columns",
                     )
+                    if _done is not None:
+                        return _done
                 else:
                     logger.info("L1a rejected: header looks like data row")
 
@@ -395,45 +490,56 @@ def extract_tables_layered(
                 table = _extract_by_rect_columns(work_page)
                 _t("L1.5_rect", t0)
                 if table and len(table) >= 3:
-                    return _return(
+                    _done = _emit(
                         _recover_header_from_zone([table], work_page, table_zone_bbox, page_plum),
                         "rect_columns",
                     )
+                    if _done is not None:
+                        return _done
 
         # ── Layer 1b: text strategy ──
         t0 = time.time()
         tables = work_page.extract_tables(table_settings=TABLE_SETTINGS)
         _t("L1b_text", t0)
         if tables and _tables_look_valid(tables, has_borders=has_borders):
-            return _return(
+            _done = _emit(
                 _recover_header_from_zone(tables, work_page, table_zone_bbox, page_plum),
                 "text",
             )
+            if _done is not None:
+                return _done
 
     # ── Layer 0.9: pdfplumber safety net ──
     # T3-1: Skip when classify_hint is 'char' (pdfplumber can't handle char-only tables)
-    # Also skip L0.9_text when L1b_text already ran with same settings (identical result)
+    # EPO: Always run oracle layer when BCS requests pdfplumber_default (borderless ledgers)
+    _run_l09 = classify_hint != "char" or (
+        _pr.use_bcs and _pr.profile and _pr.profile.bcs_oracle_layer == "pdfplumber_default"
+    )
     _ran_l1b_text = classify_hint != "char" and "L1b_text" in timings
 
-    if classify_hint != "char":
+    if _run_l09:
         t0 = time.time()
         tables = work_page.extract_tables()
         _t("L0.9_default", t0)
         if tables and _tables_look_valid(tables, has_borders=has_borders):
-            return _return(
+            _done = _emit(
                 _recover_header_from_zone(tables, work_page, table_zone_bbox, page_plum),
                 "pdfplumber_default",
             )
+            if _done is not None:
+                return _done
 
         if not _ran_l1b_text:
             t0 = time.time()
             tables = work_page.extract_tables(table_settings=TABLE_SETTINGS)
             _t("L0.9_text", t0)
             if tables and _tables_look_valid(tables, has_borders=has_borders):
-                return _return(
+                _done = _emit(
                     _recover_header_from_zone(tables, work_page, table_zone_bbox, page_plum),
                     "text_fallback",
                 )
+                if _done is not None:
+                    return _done
     else:
         timings["L0.9_skipped"] = "char_hint"
 
@@ -450,7 +556,9 @@ def extract_tables_layered(
             sig_vocab = _score_header_by_vocabulary(signal_table[0])
             if sig_vocab >= 3:
                 if _tables_look_valid([signal_table], has_borders=has_borders):
-                    return _return([signal_table], "signal_processor")
+                    _done = _emit([signal_table], "signal_processor")
+                    if _done is not None:
+                        return _done
             if _DEBUG:
                 logger.debug(
                     "L2 signal_processor: %d rows, vocab=%d (below threshold)",
@@ -509,7 +617,9 @@ def extract_tables_layered(
         candidates.sort(key=_get_sort_key, reverse=True)
         best_table, best_layer, best_score = candidates[0]
         if best_score >= 3:
-            return _return([best_table], best_layer)
+            _done = _emit([best_table], best_layer)
+            if _done is not None:
+                return _done
         _layer2_fallback = (best_table, best_layer)
     else:
         _layer2_fallback = None
@@ -543,20 +653,28 @@ def extract_tables_layered(
     if rapid_result and len(rapid_result) >= 2:
         rt_vocab = _score_header_by_vocabulary(rapid_result[0])
         if rt_vocab >= 2:  # At least 2 header vocabulary matches
-            return _return([rapid_result], "rapid_table")
+            _done = _emit([rapid_result], "rapid_table")
+            if _done is not None:
+                return _done
 
     # ── Layer 3: x-coordinate clustering ──
     t0 = time.time()
     table = detect_columns_by_clustering(work_page)
     _t("L3_clustering", t0)
     if table and len(table) >= 2:
-        return _return([table], "x_clustering")
+        _done = _emit([table], "x_clustering")
+        if _done is not None:
+            return _done
 
     # Layer 2 low-score candidate fallback (still better than pdfplumber default)
     if _layer2_fallback:
-        return _return([_layer2_fallback[0]], _layer2_fallback[1])
+        _done = _emit([_layer2_fallback[0]], _layer2_fallback[1])
+        if _done is not None:
+            return _done
 
-    return _return(page_plum.extract_tables() or [], "fallback")
+    tables, layer, conf = _pr.finalize(page_plum.extract_tables() or [], "fallback", 0.0)
+    result = _return(tables, layer)
+    return result if result is not None else (tables, layer, conf)
 
 
 def _extract_by_pymupdf(

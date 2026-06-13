@@ -1,0 +1,41 @@
+name: Nightly Golden
+
+on:
+  schedule:
+    - cron: "0 18 * * *"  # 02:00 CST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wechat-full:
+    name: WeChat 219-page full golden
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package with PDF dependencies
+        run: pip install -e ".[dev,pdf,ocr,langdetect]"
+      - name: Run full wechat golden
+        run: |
+          DOCMIRROR_MAX_PAGE_CONCURRENCY=1 \
+          pytest tests/golden/test_wechat_payment_golden.py::test_wechat_golden_full -v --tb=short
+
+  benchmark-matrix:
+    name: Golden matrix benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: pip install -e ".[dev,pdf]"
+      - name: Generate synthetic golden PDFs
+        run: python3 scripts/generate_synthetic_golden_pdfs.py
+      - name: Benchmark regression smoke
+        run: python3 scripts/run_golden_gate.py

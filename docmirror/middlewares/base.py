@@ -17,7 +17,6 @@ Design principles:
 
 from __future__ import annotations
 
-import concurrent.futures
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -100,74 +99,14 @@ class MiddlewarePipeline:
         middlewares: list[BaseMiddleware],
         result: ParseResult,
     ) -> ParseResult:
-        """
-        Executes the Middleware Pipeline with parallel batching.
-
-        T4-1: Middlewares with no DEPENDS_ON (or whose dependencies are
-        already satisfied) are grouped into parallel batches and executed
-        concurrently.  Middlewares with unsatisfied dependencies wait for
-        their batch predecessors to complete first.
-
-        Args:
-            middlewares: Ordered list of Middlewares.
-            result: Initial ParseResult.
-
-        Returns:
-            The processed ParseResult.
-        """
-        logger.info(f"[Middleware] Pipeline \u25b6 {len(middlewares)} middlewares: {[m.name for m in middlewares]}")
-
-        # ── Validate causal ordering (Deutsch V5) ──
-        seen: set = set()
-        for mw in middlewares:
-            for dep in mw.DEPENDS_ON:
-                if dep not in seen:
-                    logger.warning(
-                        f"[DocMirror] ⚠ Causal violation: {mw.name} depends on "
-                        f"{dep}, but {dep} has not run yet in this pipeline."
-                    )
-            seen.add(mw.name)
+        """Executes the Middleware Pipeline sequentially."""
+        logger.info(f"[Middleware] Pipeline ▶ {len(middlewares)} middlewares: {[m.name for m in middlewares]}")
 
         step_timings: dict[str, float] = {}
 
-        # ── T4-1: Group into parallel batches ──
-        # Batch = set of middlewares whose DEPENDS_ON are all in `completed` set
-        completed: set = set()
-        remaining = list(middlewares)
+        for mw in middlewares:
+            self._run_single(mw, result, step_timings)
 
-        while remaining:
-            # Find all middlewares whose dependencies are satisfied
-            batch = []
-            deferred = []
-            for mw in remaining:
-                deps_satisfied = all(dep in completed for dep in mw.DEPENDS_ON)
-                if deps_satisfied:
-                    batch.append(mw)
-                else:
-                    deferred.append(mw)
-            remaining = deferred
-
-            if not batch:
-                # Circular dependency or bug — run remaining sequentially
-                logger.warning(
-                    f"[DocMirror] ⚠ Pipeline: unsatisfied deps for {[m.name for m in remaining]}, running sequentially"
-                )
-                batch = remaining
-                remaining = []
-
-            if len(batch) == 1:
-                # Single middleware — run directly (no thread overhead)
-                mw = batch[0]
-                self._run_single(mw, result, step_timings)
-                completed.add(mw.name)
-            else:
-                # Multiple independent middlewares — run in parallel
-                self._run_parallel_batch(batch, result, step_timings, remaining)
-
-                for mw in batch:
-                    completed.add(mw.name)
-
-        # Record step timings as structured data (not string in warnings)
         result.entities.domain_specific["step_timings"] = step_timings
 
         total_mutations = result.mutation_count
@@ -217,67 +156,3 @@ class MiddlewarePipeline:
                 from ..models.entities.parse_result import ResultStatus
 
                 result.status = ResultStatus.FAILURE
-
-    def _run_parallel_batch(
-        self,
-        batch: list[BaseMiddleware],
-        result: ParseResult,
-        step_timings: dict[str, float],
-        remaining: list,
-    ) -> None:
-        """Execute a batch of independent middlewares in parallel threads.
-
-        Thread-safety: each middleware runs process() with a shared lock
-        protecting mutation/error list access.
-        """
-        import threading
-
-        logger.debug(f"[Middleware] T4-1: parallel batch: {[m.name for m in batch]}")
-
-        _lock = threading.Lock()
-
-        def _run_mw(m):
-            if m.should_skip(result):
-                return (m.name, 0, 0.0, None)
-            t0 = time.time()
-            try:
-                # Middleware calls result.record_mutation() / result.add_error()
-                # which append to result.mutations / result.errors lists.
-                # We need to serialize these appends.
-                # Since Pydantic doesn't allow monkey-patching, we'll
-                # use the lock at the process boundary level.
-                with _lock:
-                    m.process(result)
-                elapsed = (time.time() - t0) * 1000
-                with _lock:
-                    num_mut = sum(1 for mut in result.mutations if mut.middleware_name == m.name)
-                return (m.name, num_mut, elapsed, None)
-            except Exception as e:
-                elapsed = (time.time() - t0) * 1000
-                return (m.name, 0, elapsed, e)
-
-        try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=len(batch)) as executor:
-                futures = {executor.submit(_run_mw, mw): mw for mw in batch}
-                for future in concurrent.futures.as_completed(futures):
-                    name, num_mut, elapsed, error = future.result()
-                    step_timings[name] = round(elapsed, 1)
-                    if error:
-                        from ..core.exceptions import MiddlewareError
-
-                        mw_error = MiddlewareError(str(error), middleware_name=name)
-                        logger.warning(f"[Middleware] {mw_error}", exc_info=True)
-                        result.add_error(str(mw_error))
-                        if self.fail_strategy == "abort":
-                            logger.warning(f"[Middleware] Pipeline aborted at {name}")
-                            from ..models.entities.parse_result import ResultStatus
-
-                            result.status = ResultStatus.FAILURE
-                            remaining.clear()
-                            break
-                    elif elapsed > 0:
-                        logger.info(f"[Middleware] {name} ◀ {elapsed:.0f}ms | mutations=+{num_mut}")
-                    else:
-                        logger.info(f"[Middleware] {name} ⏭ skipped")
-        except Exception as e:
-            logger.warning(f"[Middleware] Parallel batch error: {e}", exc_info=True)

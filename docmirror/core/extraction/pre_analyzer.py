@@ -732,18 +732,12 @@ class PreAnalyzer:
     }
 
     def _detect_scene_hint(self, text_sample: str) -> tuple[str, float]:
-        """Detect document scene from first-page text sample.
+        """Detect document scene via SceneResolver (same keyword corpus as EvidenceEngine)."""
+        from docmirror.core.classification.scene_resolver import resolve_document_scene
 
-        This is a lightweight O(1) classification for known document
-        templates.  Used to populate ``scene_hint`` and
-        ``template_confidence`` in PreAnalysisResult.
-
-        Args:
-            text_sample: First ~200 chars of page 1.
-
-        Returns:
-            (scene, confidence): e.g. ("credit_report", 0.95)
-        """
+        resolution = resolve_document_scene(text_sample, min_confidence=0.70)
+        if resolution.scene != "unknown":
+            return resolution.scene, resolution.confidence
         for scene, (keywords, conf) in self._SCENE_SIGNATURES.items():
             if any(kw in text_sample for kw in keywords):
                 return scene, conf

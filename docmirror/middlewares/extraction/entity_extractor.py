@@ -134,6 +134,12 @@ class EntityExtractor(BaseMiddleware):
             r"(?:Account name称|Customer name|Account holder|"
             r"Card holder)[：:]\\s*(.+?)(?:\\n|$)",
             r"(?:Account name称|Customer name)\\n(.+?)(?:\\n|$)",
+            # Markdown粗体: **兹证明**: 张三(
+            r"\*\*兹证明\*\*[：:]\s*([^\n(（]+)",
+            # Markdown: **客户名称**: 张三
+            r"\*\*客户名称\*\*[：:]\s*([^\n]+)",
+            # Markdown: **姓名**: 张三
+            r"\*\*姓名\*\*[：:]\s*([^\n]+)",
             r"戶名[：:]?\\s*(.+?)(?:\\n|$)",
             r"Account\\s*Name[：:]?\\s*(.+?)(?:\\n|$)",
             r"(?:账户名称|Account name称)\\s*Account\\s*Name\\s*([\\u4e00-\\u9fa5].+?)(?:[\\n账客]|$)",
@@ -217,9 +223,14 @@ class EntityExtractor(BaseMiddleware):
     def _extract_print_date(self, entities: dict, text: str) -> None:
         if "Print date" in entities:
             return
-        m = re.search(r"Print date[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)", text)
-        if m:
-            entities["Print date"] = m.group(1).strip()
+        for pat in [
+            r"Print date[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)",
+            r"\*\*打印日期\*\*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)",
+        ]:
+            m = re.search(pat, text)
+            if m:
+                entities["Print date"] = m.group(1).strip()
+                return
 
     def _extract_currency(self, entities: dict, text: str) -> None:
         if "Currency" in entities:

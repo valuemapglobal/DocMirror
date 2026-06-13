@@ -1,0 +1,164 @@
+"""
+WeChat Payment Domain Plugin (Community Edition) v2.0
+=====================================================
+
+社区版 v2.0 微信流水插件。
+
+Archetype: table_document
+Domain: cashflow_payment
+Support level: L2
+
+基于 BaseTableParser 实现，仅提供列映射注册表和标准化配置。
+符合 docs/design/wechat_payment/01_community_plugin_redesign.md 设计要求。
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Sequence
+from typing import Any
+
+from docmirror.plugins._base.base_table_parser import BaseTableParser
+from docmirror.plugins._base.column_registry import ColumnMapping
+from docmirror.plugins._base.standardizer import normalize_amount
+
+logger = logging.getLogger(__name__)
+
+# ──────────────────────────────────────────────
+# 列映射注册表 — 微信流水特有列配置
+# ──────────────────────────────────────────────
+
+WECHAT_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
+    "收/支/其他": ColumnMapping(
+        field="direction",
+        enum_map={"收入": "income", "支出": "expense", "/": "other"},
+        aliases=["收/支", "收支其他"],
+    ),
+    "金额(元)": ColumnMapping(
+        field="amount",
+        unit="CNY",
+        aliases=["金额", "交易金额（元）", "交易金额(元)", "金额（元）"],
+    ),
+    "交易单号": ColumnMapping(
+        field="trade_no",
+        aliases=["交易单号/交易编号", "商户订单号", "微信单号"],
+    ),
+    "交易时间": ColumnMapping(
+        field="timestamp",
+        format_hint="datetime",
+        aliases=["交易日期", "时间", "日期"],
+    ),
+    "交易对方": ColumnMapping(
+        field="counter_party",
+        aliases=["对方", "交易对手", "对方名称"],
+    ),
+    "交易类型": ColumnMapping(
+        field="transaction_type",
+        aliases=["类型", "交易方式", "支付方式"],
+    ),
+    "交易对象": ColumnMapping(
+        field="counter_object",
+        aliases=["对象", "对方账户", "对方账号"],
+    ),
+}
+
+# 标准化字段顺序
+WECHAT_STANDARD_FIELDS = [
+    "direction",
+    "counter_party",
+    "transaction_type",
+    "counter_object",
+    "amount",
+    "trade_no",
+    "timestamp",
+]
+
+# 场景关键词
+WECHAT_SCENE_KEYWORDS = (
+    "微信支付交易明细证明",
+    "财付通",
+    "微信流水",
+    "WeChat Pay",
+    "微信支付",
+)
+
+# KV 身份字段配置
+WECHAT_IDENTITY_FIELDS: Sequence[tuple[str, Sequence[str]]] = (
+    ("account_holder", ("户名", "姓名", "Account holder")),
+    ("account_number", ("账号", "卡号", "Account number")),
+    ("query_period", ("查询时间段", "起始日期", "终止日期", "Query period")),
+    ("currency", ("币种", "Currency")),
+)
+
+
+class WeChatPaymentPlugin(BaseTableParser):
+    """社区版 v2.0：微信支付流水插件。
+
+    列注册表驱动解析，自适应列匹配，输出 raw + normalized 双格式。
+    通过继承 BaseTableParser 复用 80% 的解析逻辑。
+    """
+
+    @property
+    def domain_name(self) -> str:
+        return "wechat_payment"
+
+    @property
+    def display_name(self) -> str:
+        return "WeChat Payment (Community)"
+
+    @property
+    def column_registry(self) -> dict[str, ColumnMapping]:
+        return WECHAT_COLUMN_REGISTRY
+
+    @property
+    def standard_fields(self) -> list[str]:
+        return WECHAT_STANDARD_FIELDS
+
+    @property
+    def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
+        return WECHAT_IDENTITY_FIELDS
+
+    # ── 向后兼容 ──
+
+    def build_domain_data(self, metadata, entities):
+        """向后兼容：旧调用方通过 build_domain_data 获取数据。
+
+        新架构优先使用 extract_from_mirror() 获取完整 v2.0 输出。
+        此方法仅用于兼容旧调用方。
+        """
+        from docmirror.models.entities.domain_models import DomainData, WeChatPaymentData
+
+        account_holder = str(entities.get("account_holder", metadata.get("Account holder", "")))
+        account_number = str(entities.get("account_number", metadata.get("Account number", "")))
+        transactions = entities.get("transactions", metadata.get("transactions", []))
+        total_income = 0.0
+        total_expense = 0.0
+        total_transactions = len(transactions) if isinstance(transactions, list) else 0
+
+        if isinstance(transactions, list):
+            for txn in transactions:
+                try:
+                    amount_str = txn.get("金额(元)", txn.get("金额", "0"))
+                    amt = normalize_amount(amount_str) or 0.0
+                except (ValueError, AttributeError):
+                    continue
+                direction = txn.get("收/支", txn.get("收/支/其他", ""))
+                if "收入" in direction or "存入" in direction:
+                    total_income += amt
+                elif "支出" in direction or "取出" in direction:
+                    total_expense += amt
+
+        return DomainData(
+            document_type="wechat_payment",
+            wechat_payment=WeChatPaymentData(
+                account_holder=account_holder,
+                account_number=account_number,
+                total_transactions=total_transactions,
+                total_income=total_income,
+                total_expense=total_expense,
+            ),
+        )
+
+
+# ── 模块级实例（供 registry 和 __main__.py 使用）──
+plugin = WeChatPaymentPlugin()

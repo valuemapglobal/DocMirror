@@ -1,0 +1,93 @@
+# Layout profiles — document-scoped extraction hints (EFPA)
+# Auto match: specific profiles first, then generic fallback.
+
+profiles:
+  generic:
+    force_cross_page_merge: true
+    mirror_skip_cross_page_merge: false
+    sidebar_x_ratio: null
+    preferred_table_methods: []
+    disabled_table_methods: []
+
+  credit_report_section_dominant:
+    inherits: generic
+    document_type_hint: credit_report
+    strategy: section_driven
+    mirror_skip_cross_page_merge: true
+    match:
+      text_any:
+        - "个人信用报告"
+        - "企业信用报告"
+      scene_hint: credit_report
+
+  borderless_ledger_wechat:
+    inherits: generic
+    document_type_hint: wechat_payment
+    segmentation_mode: full_page_table
+    sidebar_x_ratio: 0.72
+    force_cross_page_merge: true
+    mirror_skip_cross_page_merge: false
+    min_confidence_to_accept: 0.85
+    enable_best_candidate_selection: true
+    bcs_oracle_layer: pdfplumber_default
+    normalize_intracellular_newlines: true
+    collapse_duplicate_spaces: true
+    skip_pid_resample: true
+    enable_grid_template: false
+    merge_quarantine_on_col_mismatch: true
+    disabled_table_methods:
+      - pymupdf_native
+    preferred_table_methods:
+      - pdfplumber_default
+      - char_strategy
+      - pipe_delimited
+      - signal_processor
+    expected_header_columns:
+      - 交易单号
+      - 交易时间
+      - 交易类型
+      - 收/支/其他
+      - 交易方式
+      - 金额(元)
+      - 交易对方
+      - 商户单号
+    match:
+      text_any:
+        - 微信支付交易明细证明
+        - 财付通
+      min_pages: 10
+
+  borderless_ledger_alipay:
+    inherits: borderless_ledger_wechat
+    document_type_hint: alipay_payment
+    match:
+      text_any:
+        - 支付宝
+        - 蚂蚁集团
+      min_pages: 3
+
+  borderless_ledger_bank:
+    inherits: generic
+    document_type_hint: bank_statement
+    segmentation_mode: full_page_table
+    sidebar_x_ratio: null
+    force_cross_page_merge: true
+    mirror_skip_cross_page_merge: false
+    min_confidence_to_accept: 0.85
+    enable_best_candidate_selection: true
+    bcs_oracle_layer: pdfplumber_default
+    normalize_intracellular_newlines: true
+    collapse_duplicate_spaces: true
+    skip_pid_resample: true
+    enable_grid_template: false
+    disabled_table_methods:
+      - pymupdf_native
+    preferred_table_methods:
+      - pdfplumber_default
+      - char_strategy
+      - lines
+    match:
+      text_any:
+        - 个人客户交易明细
+        - 企业客户交易明细
+      min_pages: 3

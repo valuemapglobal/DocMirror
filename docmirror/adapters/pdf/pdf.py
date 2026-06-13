@@ -1,15 +1,15 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 PDF Adapter — PDF → ParseResult
-====================================================
+=================================
 
-Converts PDF files into structured output.
-
-- ``to_parse_result()``: Extracts via ``CoreExtractor`` → BaseResult,
-  then bridges to ParseResult via ``ParseResultBridge``.
-
-- ``perceive()``: Inherited from ``BaseParser``. Routes through the
-  shared ``Orchestrator`` middleware pipeline (SceneDetector,
-  EntityExtractor, Validator, etc.) then produces ``ParseResult``.
+Extracts PDF content via ``CoreExtractor``, bridges to ParseResult,
+then delegates to ``BaseParser.perceive()`` for middleware enrichment.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ import logging
 from pathlib import Path
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.entities.domain import BaseResult
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +30,15 @@ class PDFAdapter(BaseParser):
     ``perceive()`` to run the shared Orchestrator middleware pipeline.
 
     Args:
-        enhance_mode: Enhancement level for the middleware pipeline.
-            One of "raw" (extraction only), "standard" (default), or "full".
+        enhance_mode: Enhancement level. One of "raw", "standard", or "full".
     """
 
     def __init__(self, enhance_mode: str = "standard", **kwargs):
         self._enhance_mode = enhance_mode
 
-    async def to_parse_result(self, file_path: Path, **kwargs) -> ParseResult:
+    async def to_parse_result(self, file_path: Path, **kwargs) -> "ParseResult":
         """
-        Extract a PDF into a ParseResult.
+        Extract a PDF into a ParseResult with provenance pre-filled.
 
         Pipeline: CoreExtractor → BaseResult → ParseResultBridge → ParseResult.
         """
@@ -59,14 +57,26 @@ class PDFAdapter(BaseParser):
         pr.parser_info.table_engine = "pymupdf_native"
         pr.parser_info.page_count = len(base_result.pages)
 
+        # ── Fill provenance (lightweight, no re-read of full file) ──
+        if pr.provenance is None:
+            from docmirror.models.entities.parse_result import ProvenanceInfo
+
+            try:
+                stat = file_path.stat()
+                pr.provenance = ProvenanceInfo(
+                    file_type="pdf",
+                    file_size=stat.st_size,
+                )
+            except OSError:
+                pass
+
         return pr
 
-    async def perceive(self, file_path: Path, **context) -> ParseResult:
+    async def perceive(self, file_path: Path, **context) -> "ParseResult":
         """
         Full pipeline: PDF → middleware → ParseResult.
 
-        Injects the adapter's enhance_mode into context before delegating
-        to the base class implementation.
+        Injects the adapter's enhance_mode before delegating to base class.
         """
         context.setdefault("enhance_mode", self._enhance_mode)
         context.setdefault("file_type", "pdf")

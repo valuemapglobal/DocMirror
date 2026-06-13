@@ -1,0 +1,288 @@
+# DocMirror Configuration File
+# =============================
+#
+# This file contains all configurable settings for DocMirror.
+# Environment variables can be referenced using ${VAR_NAME} syntax.
+#
+# Usage:
+#   export DOCMIRROR_CONFIG=/path/to/this/file.yaml
+#   docmirror process document.pdf
+#
+# Or in code:
+#   from docmirror.configs.yaml_loader import YamlConfigLoader
+#   config = YamlConfigLoader().load()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Physics-based Parameters (Scientific Justification)
+# These parameters have scientific/engineering basis and should not be changed
+# without understanding the implications.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+physics:
+  # OCR image upscaling threshold
+  # DBNet table detection model trained on 640x640 images
+  # Images smaller than this will be upscaled
+  ocr_upscale_threshold: 500
+  
+  # Gamma correction for image preprocessing
+  # 0.6 restores contrast in dark edge regions
+  ocr_gamma_correction: 0.6
+  
+  # Minimum text length to consider a page has text layer
+  # Pages with < this many chars are treated as scanned
+  min_text_threshold: 50
+  
+  # Table detection confidence threshold
+  # Lower = more tables detected (but more false positives)
+  table_detection_threshold: 0.5
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Business Parameters (Adjustable per use case)
+# These parameters can be tuned based on your specific requirements.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+business:
+  # Validation pass threshold
+  # Documents with quality score >= this are considered valid
+  validator_pass_threshold: 0.7
+  
+  # Maximum pages to process (0 = unlimited)
+  # Useful for preventing runaway processing on large documents
+  max_pages: 200
+  
+  # Minimum file size (bytes)
+  # Files smaller than this are rejected as too small
+  min_file_size: 100
+  
+  # Maximum file size (bytes) - default 500MB
+  max_file_size: 524288000
+  
+  # Enable enhancement mode (standard | enhanced | forensic)
+  enhance_mode: standard
+  
+  # Fail strategy (skip | abort | retry)
+  fail_strategy: skip
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Performance Parameters (Auto-tuned, can be manually overridden)
+# These parameters affect performance and resource usage.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+performance:
+  # Maximum page-level concurrency
+  # 'auto' = CPU count / 2 (thread) or full CPU count (process)
+  # Higher = faster but more memory
+  max_page_concurrency: auto
+
+  # Page extraction pool: thread (default) | process (bypass GIL, opt-in)
+  # Env override: DOCMIRROR_PAGE_EXECUTOR=thread|process
+  page_executor: process
+
+  # Global cap on process-pool workers across concurrent API requests (OOM guard).
+  # Env override: DOCMIRROR_MAX_PROCESS_WORKERS=<int> (default: logical CPU count)
+  # max_process_workers: auto
+  
+  # Layout model workers
+  # 'auto' = min(max_page_concurrency, num_pages, CPU count)
+  layout_model_workers: auto
+  
+  # Cache TTL (seconds) - default 24 hours
+  cache_ttl: 86400
+  
+  # Thread pool max workers for CPU-bound tasks
+  thread_pool_workers: auto
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# OCR Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+ocr:
+  # OCR provider (rapid | paddle | external)
+  # rapid = RapidOCR (default, fast)
+  # paddle = PaddleOCR (more accurate, slower)
+  # external = External API (Alibaba, Tencent, etc.)
+  provider: rapid
+  
+  # External OCR quality threshold
+  # If page quality < this, delegate to external OCR
+  quality_threshold: 60
+  
+  # External OCR configuration
+  external:
+    # Provider name (alibaba | tencent | baidu)
+    provider: null
+    
+    # API credentials (use environment variables for security)
+    api_key: ${EXTERNAL_OCR_API_KEY}
+    api_secret: ${EXTERNAL_OCR_API_SECRET}
+    
+    # API endpoint
+    endpoint: null
+    
+    # Timeout (seconds)
+    timeout: 30
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Layout Detection
+# ═══════════════════════════════════════════════════════════════════════════════
+
+layout:
+  # Layout detection model
+  # 'auto' = download from HuggingFace (doclayout_docstructbench)
+  # 'rule_based' = use rule-based fallback (no model needed)
+  model: auto
+  
+  # Page rendering DPI for layout detection
+  # Higher = more precise but slower
+  render_dpi: 200
+  
+  # Enable parallel layout analysis
+  parallel_enabled: true
+  
+  # Minimum pages to enable parallel processing
+  parallel_min_pages: 4
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Formula Recognition
+# ═══════════════════════════════════════════════════════════════════════════════
+
+formula:
+  # Enable formula recognition
+  enabled: true
+  
+  # Model path (null = use rapid_latex_ocr fallback)
+  model_path: null
+  
+  # Model render DPI
+  render_dpi: 200
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Cache Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+cache:
+  # Enable caching
+  enabled: true
+  
+  # Redis URL (use environment variable for security)
+  redis_url: ${REDIS_URL}
+  
+  # Cache TTL (seconds)
+  ttl: 86400
+  
+  # Circuit breaker settings
+  circuit_breaker:
+    # Number of failures before opening circuit
+    failure_threshold: 3
+    
+    # Cooldown period (seconds)
+    cooldown_seconds: 60
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Seal Detection
+# ═══════════════════════════════════════════════════════════════════════════════
+
+seal:
+  # Enable seal/stamp detection
+  enabled: false
+  
+  # Detection model path
+  model_path: null
+  
+  # Confidence threshold
+  confidence_threshold: 0.7
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Logging Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+logging:
+  # Log level (DEBUG | INFO | WARNING | ERROR | CRITICAL)
+  level: INFO
+  
+  # Log format
+  format: "%(asctime)s - [%(levelname)s] [%(process)d:%(threadName)s] %(name)s:%(lineno)d - %(message)s"
+  
+  # Log to file
+  file: null
+  
+  # Max log file size (MB)
+  max_file_size: 100
+  
+  # Log file backup count
+  backup_count: 5
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Table Extraction
+# ═══════════════════════════════════════════════════════════════════════════════
+
+table:
+  # Table extraction strategy (layered | pymupdf | pdfplumber)
+  strategy: layered
+  
+  # Enable cross-page table merging
+  cross_page_merge: true
+  
+  # Enable table post-processing
+  post_processing: true
+  
+  # Vocabulary-based header correction
+  header_correction: true
+  
+  # Summary row extraction
+  summary_extraction: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Structure-Invariant Table Path (SITP)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+  reuse_anchor_drift_max: 0.015
+# ═══════════════════════════════════════════════════════════════════════════════
+
+entity:
+  # Enable entity extraction
+  enabled: true
+  
+  # Extraction mode (regex | llm | hybrid)
+  mode: regex
+  
+  # LLM configuration (if mode includes llm)
+  llm:
+    provider: null
+    api_key: ${LLM_API_KEY}
+    model: gpt-4
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Output Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+output:
+  # Default output format (json | markdown | html)
+  format: json
+  
+  # Include metadata
+  include_metadata: true
+  
+  # Include full text
+  include_full_text: true
+  
+  # Include bounding boxes
+  include_bboxes: false
+  
+  # Pretty print JSON
+  pretty_print: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Security Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+security:
+  # Enable forgery detection
+  forgery_detection: false
+  
+  # Forgery detection model
+  model_path: null
+  
+  # Confidence threshold
+  confidence_threshold: 0.8

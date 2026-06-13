@@ -281,6 +281,7 @@ def post_process_table(
     if not table_data or len(table_data) < 2:
         return table_data, {}
 
+    table_data = [list(row) for row in table_data]
     table_data = normalize_table(table_data)
 
     # ── If confirmed_header exists, strip continuation-page preamble rows ──

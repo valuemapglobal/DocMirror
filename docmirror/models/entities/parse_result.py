@@ -156,6 +156,8 @@ class TableRow(BaseModel):
     row_type: RowType = RowType.DATA
     confidence: float = 1.0
     source_page: int = 0
+    source_physical_id: str = ""
+    source_row_index: int = -1
 
     @property
     def cell_texts(self) -> list[str]:
@@ -228,6 +230,46 @@ class TableBlock(BaseModel):
                 "confidence": 0.96,
             }
         }
+
+
+
+
+class RowProvenance(BaseModel):
+    """Provenance metadata for a logical table row — tracks physical origin."""
+    source_page: int = 1
+    source_table_id: str = ""
+    source_row_index: int = 0
+    is_continuation: bool = False
+
+
+class LogicalTable(BaseModel):
+    """A cross-page logical table — result of TableComposer composition.
+
+    Unlike ``TableBlock`` (which is per-page physical), ``LogicalTable``
+    represents the **inferred** complete table after cross-page merge.
+
+    Design:
+      - ``logical_id`` / ``table_id`` identify the composed table (e.g. ``lt_0``).
+      - ``source_physical_ids`` reference per-page physical tables (``pt_N_0``).
+      - ``headers`` are the deduplicated, merged header row.
+      - ``rows`` carry per-row provenance (source_page, source_physical_id).
+      - ``merge_confidence`` reflects cross-page merge quality.
+      - ``merge_log`` / ``merge_audit`` record composition decisions.
+    """
+    table_id: str = ""
+    logical_id: str = ""
+    headers: list[str] = Field(default_factory=list)
+    rows: list[TableRow] = Field(default_factory=list)
+    confidence: float = 1.0
+    source_physical_ids: list[str] = Field(default_factory=list)
+    source_pages: list[int] = Field(default_factory=list)
+    page_span: tuple[int, int] = (1, 1)
+    row_count: int = 0
+    merge_method: str = "none"
+    merge_confidence: float = 1.0
+    provenance: list[RowProvenance] = Field(default_factory=list)
+    merge_log: list[dict] = Field(default_factory=list)
+    merge_audit: list[dict] = Field(default_factory=list)
 
 
 class TextBlock(BaseModel):
@@ -443,6 +485,11 @@ class ParseResult(BaseModel):
 
     # ── Zone 1: Content ──
     pages: list[PageContent] = Field(default_factory=list)
+    logical_tables: list[LogicalTable] = Field(default_factory=list,
+        description="Cross-page logical tables (composed from physical pages). "
+                    "Plugin reads here; physical pages[].tables are raw per-page.")
+    table_operations: list[dict] = Field(default_factory=list,
+        description="Cross-page merge/split audit trail (debug / enterprise QA).")
 
     # ── Zone 2: Entities ──
     entities: DocumentEntities = Field(default_factory=DocumentEntities)
@@ -576,40 +623,23 @@ class ParseResult(BaseModel):
         *,
         include_text: bool = False,
         request_id: str = "",
+        mirror_level: str = "standard",
     ) -> dict[str, Any]:
         """Serialize to RESTful API dict per ``parser_interface.md`` v1.0.
 
-        Structure::
-
-            Success (HTTP 200):
-            {
-              "code": 200,
-              "message": "success",
-              "api_version": "1.0",
-              "request_id": "...",
-              "timestamp": "...",
-              "data": { "document": {...}, "quality": {...} },
-              "meta": { ... }
-            }
-
-            Failure (HTTP 422):
-            {
-              "code": 422,
-              "message": "error",
-              ...
-              "error": { "type": "...", "detail": "..." },
-              "meta": { ... }
-            }
-
         Args:
-            include_text: If True, include ``data.document.text`` with
-                full markdown rendering of the document.
+            include_text: If True, include ``data.document.text``.
             request_id: Optional request ID for traceability.
+            mirror_level: ``standard`` (physical + logical), ``slim`` (logical only),
+                or ``forensic`` (physical only).
         """
         from datetime import datetime, timezone
+        from docmirror.core.debug.artifact import is_debug_mode
 
         # ── data.document ──
         # properties: flat dict from entities (exclude document_type + domain_specific)
+        _internal_keys = {"extracted_entities", "step_timings", "mutation_analysis"}
+        _debug_only_keys = {"evidence_log"}
         properties: dict[str, Any] = {}
         if self.entities.organization:
             properties["organization"] = self.entities.organization
@@ -625,14 +655,53 @@ class ParseResult(BaseModel):
             properties["period"] = self.entities.period_start
         # Merge domain_specific (currency, institution, etc.) into properties
         for k, v in self.entities.domain_specific.items():
-            if k not in ("extracted_entities", "step_timings", "mutation_analysis"):
-                properties[k] = v
+            if k in _internal_keys:
+                continue
+            if k in _debug_only_keys and not is_debug_mode():
+                continue
+            properties[k] = v
+
+        # Physical pages (filter empty pages with no content)
+        api_pages = self._build_api_pages()
+        non_empty_pages = [p for p in api_pages if p.get("tables") or p.get("texts") or p.get("key_values")]
 
         document: dict[str, Any] = {
             "type": self.entities.document_type,
             "properties": properties,
-            "pages": self._build_api_pages(),
         }
+        if mirror_level != "slim":
+            document["pages"] = non_empty_pages if non_empty_pages else api_pages
+
+        # Logical tables (composed cross-page tables)
+        if mirror_level != "forensic" and self.logical_tables:
+            document["logical_tables"] = [
+                {
+                    "logical_id": lt.logical_id or lt.table_id,
+                    "table_id": lt.table_id,
+                    "source_physical_ids": lt.source_physical_ids,
+                    "headers": lt.headers,
+                    "rows": [
+                        {
+                            "cells": [self._serialize_cell(c) for c in row.cells],
+                            "row_type": row.row_type.value if hasattr(row.row_type, "value") else row.row_type,
+                            "confidence": row.confidence,
+                            "source_page": row.source_page,
+                            "source_physical_id": row.source_physical_id,
+                            "source_row_index": row.source_row_index,
+                        }
+                        for row in lt.rows
+                    ],
+                    "source_pages": lt.source_pages,
+                    "page_span": list(lt.page_span),
+                    "row_count": lt.row_count,
+                    "confidence": lt.confidence,
+                    "merge_method": lt.merge_method,
+                    "merge_confidence": lt.merge_confidence,
+                    "merge_log": lt.merge_log if is_debug_mode() else [],
+                    "merge_audit": lt.merge_audit if is_debug_mode() else [],
+                }
+                for lt in self.logical_tables
+            ]
 
         # Section tree (populated by SectionDrivenStrategy for section_dominant docs)
         if self.sections:
@@ -664,6 +733,8 @@ class ParseResult(BaseModel):
             "page_count": self.parser_info.page_count or self.page_count,
             "table_count": self.total_tables,
             "row_count": self.total_rows,
+            "physical_table_count": sum(len(p.tables) for p in self.pages),
+            "logical_table_count": len(self.logical_tables),
         }
         if self.parser_info.table_engine:
             meta["table_engine"] = self.parser_info.table_engine
@@ -835,10 +906,13 @@ class ParseResult(BaseModel):
                                     "row_type": row.row_type.value,
                                     "confidence": row.confidence,
                                     "source_page": row.source_page,
+                                    "source_physical_id": row.source_physical_id,
+                                    "source_row_index": row.source_row_index,
                                 }
                                 for row in table.rows
                             ],
                             "page": table.page,
+                            "page_span": table.page_span,
                             "row_count": table.row_count,
                             "confidence": table.confidence,
                         }

@@ -127,6 +127,7 @@ class PageExtractionContext:
     zone_template: list | None = None  # zone template for homogeneous docs
     global_grid_x: list | None = None  # global x-coordinate grid
     global_table_template: Any = None  # golden page template
+    extraction_profile: Any = None  # ExtractionProfile (EPO)
 
 
 def _extract_single_page_digital_worker(
@@ -148,6 +149,7 @@ def _extract_single_page_digital_worker(
         ext_ocr_prov,
         global_grid_x,
         global_table_template,
+        extraction_profile,
     ) = args
     import fitz
     import pdfplumber
@@ -155,6 +157,9 @@ def _extract_single_page_digital_worker(
     path = str(Path(path).resolve())
     extractor = CoreExtractor(layout_model_path=None)
     extractor._formula_engine = None  # no model in worker path
+    if extraction_profile is not None:
+        extractor._extraction_profile = extraction_profile
+        extractor._extraction_audit = []
     fitz_doc = fitz.open(path)
     plum_doc = pdfplumber.open(path)
     try:
@@ -173,6 +178,7 @@ def _extract_single_page_digital_worker(
             content_type=content_type,
             global_grid_x=global_grid_x,
             global_table_template=global_table_template,
+            extraction_profile=extraction_profile,
         )
         page_layout, ocr_parts, extraction_layer, extraction_confidence = extractor._extract_page(ctx)
         return (page_idx, page_layout, ocr_parts, extraction_layer, extraction_confidence)
@@ -257,150 +263,20 @@ class CoreExtractor:
             - ImageFile (.jpg, .png, .tiff, .bmp, .webp)
 
         Image files are automatically converted to virtual PDFs and run through the
-        full parsing pipeline (layout analysis -> table extraction -> formula recognition -> reading order).
+        full parsing pipeline.
 
-        Args:
-            file_path: Path to PDF or image file.
-
-        Returns:
-            BaseResult: Immutable extraction result.
+        Note: this is a facade for ``_run_extraction()``.  The actual work is
+        done in ``asyncio.to_thread()`` — the CPU-bound parsing is synchronous.
         """
-        t0 = _clock()
         file_path = Path(file_path)
         doc_id = str(uuid.uuid4())
-        is_image_input = file_path.suffix.lower() in self._IMAGE_SUFFIXES
+        logger.info(f"[DocMirror] ▶ extract | file={file_path.name}")
 
-        logger.info(f"[DocMirror] ▶ extract | file={file_path.name} | image={is_image_input}")
-
-        # === [Main parsing logic (Heuristics)] ===
         fitz_doc = None
         try:
-            import asyncio
-
-            # === Step 0: Image -> virtual PDF ===
-            if is_image_input:
-                fitz_doc = await asyncio.to_thread(self._image_to_virtual_pdf, file_path)
-                has_text = False  # images have no text layer
-                logger.info("[DocMirror] Image input -> virtual PDF, marked as scanned document")
-            else:
-                # === Step 1: Pre-processing + pre-check ===
-                cleaned_path = await asyncio.to_thread(preprocess_document, file_path)
-                fitz_doc = await asyncio.to_thread(FitzEngine.open, cleaned_path)
-                has_text = await asyncio.to_thread(FitzEngine.has_text_layer, fitz_doc)
-
-            if not has_text:
-                logger.info("[DocMirror] Text layer missing, marked as scanned document")
-
-            # === Step 1.5: Pre-analysis (human cognition stage 2) ===
-            from .pre_analyzer import PreAnalyzer
-
-            pre_analysis = await asyncio.to_thread(PreAnalyzer().analyze, fitz_doc)
-
-            # Define the heavy CPU-bound parsing block to run in a thread
-            def _process_pdf_sync(fitz_doc, pre_analysis, has_text):
-                return self._process_pdf_sync(
-                    fitz_doc=fitz_doc,
-                    pre_analysis=pre_analysis,
-                    has_text=has_text,
-                    is_image_input=is_image_input,
-                    cleaned_path=cleaned_path if not is_image_input else None,
-                    file_path=file_path,
-                )
-
-            # Execute the heavy synchronous block in a thread
-            pages, full_text, extraction_layer, extraction_confidence, _perf, _page_perf = await asyncio.to_thread(
-                _process_pdf_sync, fitz_doc, pre_analysis, has_text
-            )
-
-            # === Step 6: Assemble BaseResult ===
-            elapsed = (_clock() - t0) * 1000
-
-            total_blocks = sum(len(p.blocks) for p in pages)
-            table_count = sum(1 for p in pages for b in p.blocks if b.block_type == "table")
-
-            # Extract entities (regex + KV blocks)
-            extracted_entities = self._collect_kv_entities(pages)
-
-            # -- Optional: Seal detection (first page) -- via dependency injection --
-            seal_info = None
-            if self._seal_detector_fn:
-                try:
-                    seal_info = self._seal_detector_fn(fitz_doc)
-                except Exception as e:
-                    logger.debug(f"[DocMirror] Seal detection skip: {e}")
-            if seal_info:
-                pass  # merged into metadata below
-
-            metadata = {
-                "file_name": file_path.name,
-                "file_size": file_path.stat().st_size if file_path.exists() else 0,
-                "page_count": len(pages),
-                "parser": "DocMirror_CoreExtractor",
-                "elapsed_ms": round(elapsed, 1),
-                "block_count": total_blocks,
-                "table_count": table_count,
-                "has_text_layer": has_text,
-                "scanned_pages": [p.page_number for p in pages if p.is_scanned],
-                "pre_analysis": pre_analysis.to_dict(),
-                "extracted_entities": extracted_entities,
-                "perf_breakdown": _perf,
-                "perf_per_page": _page_perf,
-            }
-            # Inject section tree from SectionDrivenStrategy (if present)
-            section_tree = _perf.pop("_section_tree", None)
-            if section_tree:
-                metadata["sections"] = section_tree
-            if seal_info:
-                metadata["seal_info"] = seal_info
-
-            # -- Extraction quality assessment metadata --
-            if table_count > 0:
-                # Find main table (largest table block)
-                main_table = None
-                for p in pages:
-                    for b in p.blocks:
-                        if b.block_type == "table" and isinstance(b.raw_content, list):
-                            if main_table is None or len(b.raw_content) > len(main_table):
-                                main_table = b.raw_content
-
-                header_detected = False
-                data_row_count = 0
-                col_count_stable = True
-                empty_cell_ratio = 0.0
-
-                if main_table and len(main_table) >= 2:
-                    header_detected = _is_header_row(main_table[0])
-                    data_row_count = len(main_table) - 1
-                    expected_cols = len(main_table[0])
-                    col_count_stable = all(len(row) == expected_cols for row in main_table)
-                    total_cells = sum(len(row) for row in main_table)
-                    empty_cells = sum(1 for row in main_table for c in row if not (c or "").strip())
-                    empty_cell_ratio = round(empty_cells / max(1, total_cells), 3)
-
-                metadata["extraction_quality"] = {
-                    "extraction_layer": extraction_layer,
-                    "extraction_confidence": extraction_confidence,
-                    "header_detected": header_detected,
-                    "data_row_count": data_row_count,
-                    "col_count_stable": col_count_stable,
-                    "empty_cell_ratio": empty_cell_ratio,
-                    "layer_timings_ms": get_last_layer_timings(),
-                }
-
-            result = BaseResult(
-                document_id=doc_id,
-                pages=tuple(pages),
-                metadata=metadata,
-                full_text=full_text,
-            )
-
-            logger.info(
-                f"[DocMirror] ◀ extract | pages={len(pages)} | blocks={total_blocks} | "
-                f"tables={table_count} | elapsed={elapsed:.0f}ms"
-            )
-
+            fitz_doc = await self._open_document(file_path)
+            result = await self._run_extraction(fitz_doc, file_path, doc_id)
             return result
-
         except ExtractionError as e:
             logger.error(f"[DocMirror] extraction error: {e}", exc_info=True)
             return BaseResult(
@@ -421,6 +297,160 @@ class CoreExtractor:
                     fitz_doc.close()
             except Exception as exc:
                 logger.debug(f"operation: suppressed {exc}")
+
+    async def _open_document(self, file_path: Path) -> "fitz.Document":
+        """Open a document (PDF or image). Returns the PyMuPDF document."""
+        import asyncio
+
+        is_image = file_path.suffix.lower() in self._IMAGE_SUFFIXES
+        if is_image:
+            fitz_doc = await asyncio.to_thread(self._image_to_virtual_pdf, file_path)
+            logger.info("[DocMirror] Image input -> virtual PDF, marked as scanned document")
+            return fitz_doc
+
+        cleaned_path = await asyncio.to_thread(preprocess_document, file_path)
+        fitz_doc = await asyncio.to_thread(FitzEngine.open, cleaned_path)
+        has_text = await asyncio.to_thread(FitzEngine.has_text_layer, fitz_doc)
+        if not has_text:
+            logger.info("[DocMirror] Text layer missing, marked as scanned document")
+        return fitz_doc
+
+    async def _run_extraction(
+        self, fitz_doc: "fitz.Document", file_path: Path, doc_id: str
+    ) -> BaseResult:
+        """Core extraction logic, extracted from try block.
+        
+        Steps:
+          1. Pre-analysis
+          2. CPU-bound parsing (in thread)
+          3. Assemble BaseResult
+        """
+        import asyncio
+        t0 = _clock()
+        file_path = Path(file_path)
+        is_image_input = file_path.suffix.lower() in self._IMAGE_SUFFIXES
+
+        # Step 1.5: Pre-analysis
+        from .pre_analyzer import PreAnalyzer
+
+        pre_analysis = await asyncio.to_thread(PreAnalyzer().analyze, fitz_doc)
+
+        # Step 2-5: CPU-bound parsing (layout, page extraction, tables, post-processing)
+        pages, full_text, extraction_layer, extraction_confidence, _perf, _page_perf = await asyncio.to_thread(
+            self._process_pdf_sync,
+            fitz_doc=fitz_doc,
+            pre_analysis=pre_analysis,
+            has_text=fitz_doc is not None,  # has_text is known from _open_document
+            is_image_input=is_image_input,
+            cleaned_path=None,  # _process_pdf_sync handles this internally
+            file_path=file_path,
+        )
+
+        # Step 6: Assemble BaseResult
+        elapsed = (_clock() - t0) * 1000
+        total_blocks = sum(len(p.blocks) for p in pages)
+        table_count = sum(1 for p in pages for b in p.blocks if b.block_type == "table")
+        extracted_entities = self._collect_kv_entities(pages)
+
+        # Seal detection (optional, DI)
+        seal_info = None
+        if self._seal_detector_fn:
+            try:
+                seal_info = self._seal_detector_fn(fitz_doc)
+            except Exception as e:
+                logger.debug(f"[DocMirror] Seal detection skip: {e}")
+
+        # Extract logical tables from _perf before it's nested
+        _logical_tables_data = _perf.pop("_logical_tables", None) if isinstance(_perf, dict) else None
+
+        metadata: dict[str, Any] = {
+            "file_name": file_path.name,
+            "file_size": file_path.stat().st_size,  # L2 guarantees file exists
+            "page_count": len(pages),
+            "document_scene": getattr(self, "_document_scene", None)
+            or _perf.get("document_scene", "unknown"),
+            "scene_confidence": getattr(self, "_scene_confidence", 0.0)
+            or _perf.get("scene_confidence", 0.0),
+            "layout_profile_id": _perf.get("layout_profile_id"),
+            "parser": "DocMirror_CoreExtractor",
+            "elapsed_ms": round(elapsed, 1),
+            "block_count": total_blocks,
+            "table_count": table_count,
+            "has_text_layer": fitz_doc is not None,
+            "scanned_pages": [p.page_number for p in pages if p.is_scanned],
+            "pre_analysis": pre_analysis.to_dict(),
+            "extracted_entities": extracted_entities,
+            "perf_breakdown": _perf,
+            "perf_per_page": _page_perf,
+        }
+
+        # Pass logical tables to bridge layer via metadata
+        if _logical_tables_data:
+            metadata["_logical_tables"] = _logical_tables_data
+
+        section_tree = _perf.pop("_section_tree", None)
+        if section_tree:
+            metadata["sections"] = section_tree
+        if seal_info:
+            metadata["seal_info"] = seal_info
+
+        if table_count > 0:
+            metadata["extraction_quality"] = self._assess_extraction_quality(
+                pages, extraction_layer, extraction_confidence
+            )
+
+        result = BaseResult(
+            document_id=doc_id,
+            pages=tuple(pages),
+            metadata=metadata,
+            full_text=full_text,
+        )
+
+        logger.info(
+            f"[DocMirror] ◀ extract | pages={len(pages)} | blocks={total_blocks} | "
+            f"tables={table_count} | elapsed={elapsed:.0f}ms"
+        )
+        return result
+
+    def _assess_extraction_quality(
+        self, pages, extraction_layer: str, extraction_confidence: float
+    ) -> dict[str, Any]:
+        """Assess extraction quality for the main table."""
+        table_count = sum(1 for p in pages for b in p.blocks if b.block_type == "table")
+        if table_count == 0:
+            return {"extraction_layer": extraction_layer, "extraction_confidence": extraction_confidence}
+
+        # Find main table (largest table block)
+        main_table = None
+        for p in pages:
+            for b in p.blocks:
+                if b.block_type == "table" and isinstance(b.raw_content, list):
+                    if main_table is None or len(b.raw_content) > len(main_table):
+                        main_table = b.raw_content
+
+        header_detected = False
+        data_row_count = 0
+        col_count_stable = True
+        empty_cell_ratio = 0.0
+
+        if main_table and len(main_table) >= 2:
+            header_detected = _is_header_row(main_table[0])
+            data_row_count = len(main_table) - 1
+            expected_cols = len(main_table[0])
+            col_count_stable = all(len(row) == expected_cols for row in main_table)
+            total_cells = sum(len(row) for row in main_table)
+            empty_cells = sum(1 for row in main_table for c in row if not (c or "").strip())
+            empty_cell_ratio = round(empty_cells / max(1, total_cells), 3)
+
+        return {
+            "extraction_layer": extraction_layer,
+            "extraction_confidence": extraction_confidence,
+            "header_detected": header_detected,
+            "data_row_count": data_row_count,
+            "col_count_stable": col_count_stable,
+            "empty_cell_ratio": empty_cell_ratio,
+            "layer_timings_ms": get_last_layer_timings(),
+        }
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Scanned Document OCR Extraction
@@ -502,6 +532,47 @@ class CoreExtractor:
         # Delay NFKC: only normalize at assembly time, not eagerly
         full_text = full_text_raw
 
+        # === Step 1.5: Global scene + layout profile (SceneResolver + EPO) ===
+        from docmirror.core.classification.scene_resolver import resolve_document_scene
+        from docmirror.core.layout.profile_resolver import resolve_layout_profile
+
+        _title_text = _page_text_cache.get(0, "") or full_text_raw[:5000]
+        _scene_resolution = resolve_document_scene(_title_text)
+        if _scene_resolution.scene == "unknown" and getattr(pre_analysis, "scene_hint", None) not in (
+            None,
+            "unknown",
+        ):
+            from docmirror.core.classification.scene_resolver import SceneResolution
+
+            _scene_resolution = SceneResolution(
+                scene=pre_analysis.scene_hint,
+                confidence=float(getattr(pre_analysis, "template_confidence", 0.0) or 0.85),
+                source="pre_analyzer",
+            )
+        _extraction_profile = resolve_layout_profile(
+            text_sample=full_text_raw[:12000],
+            num_pages=num_pages,
+            scene_hint=getattr(pre_analysis, "scene_hint", None) or "unknown",
+            content_type=getattr(pre_analysis, "content_type", None) or "unknown",
+            resolved_scene=_scene_resolution.scene,
+            scene_confidence=_scene_resolution.confidence,
+        )
+        self._extraction_profile = _extraction_profile
+        self._document_scene = _scene_resolution.scene
+        self._scene_confidence = _scene_resolution.confidence
+        self._extraction_audit: list[dict] = []
+        _perf["layout_profile_id"] = _extraction_profile.profile_id
+        _perf["document_scene"] = _scene_resolution.scene
+        _perf["scene_confidence"] = _scene_resolution.confidence
+        logger.info(
+            "[DocMirror] EPO profile=%s scene=%s (conf=%.2f) segmentation=%s bcs=%s",
+            _extraction_profile.profile_id,
+            _scene_resolution.scene,
+            _scene_resolution.confidence,
+            _extraction_profile.segmentation_mode,
+            _extraction_profile.enable_best_candidate_selection,
+        )
+
         # === Step 3: Per-page extraction -- Zone -> Block ===
         # P0: Per-page hybrid routing — each page individually assessed
         # P1: Smart early-exit — honor DOCMIRROR_MAX_PAGES at core layer
@@ -567,7 +638,64 @@ class CoreExtractor:
 
         # -- Phase 1.8: Golden Page Template Sampling (Graph-Propagated Injection) --
         global_table_template = None
-        if plumber_doc and len(fitz_doc) >= 3:
+        if (
+            plumber_doc
+            and len(fitz_doc) >= 3
+            and _extraction_profile.enable_grid_template
+        ):
+            try:
+                from ..table.extraction.segmentation import segment_page_for_extraction
+                from ..table.extraction.template_injector import build_global_template
+
+                sample_idx = 1 if len(fitz_doc) > 1 else 0
+                if page_has_text[sample_idx]:
+                    sp_t0 = _clock()
+                    sample_plum = plumber_doc.pages[sample_idx]
+                    sample_fitz = fitz_doc[sample_idx]
+                    sample_zones = segment_page_for_extraction(
+                        sample_plum, sample_idx, _extraction_profile
+                    )
+
+                    table_zone = None
+                    for z in sample_zones:
+                        if z.type == "data_table":
+                            table_zone = z
+                            break
+
+                    if table_zone:
+                        stabs, slayer, sconf = extract_tables_layered(
+                            sample_plum,
+                            table_zone_bbox=table_zone.bbox,
+                            document_page_count=len(fitz_doc),
+                            fitz_page=sample_fitz,
+                            extraction_profile=_extraction_profile,
+                        )
+                        if stabs and len(stabs[0]) >= 2 and (
+                            sconf >= 0.85 or _extraction_profile.is_borderless_ledger()
+                        ):
+                            logger.info(
+                                "[DocMirror] Golden Page Sampling: page %d layer=%s conf=%.2f → GlobalTableTemplate",
+                                sample_idx,
+                                slayer,
+                                sconf,
+                            )
+                            crop_x0, crop_x1 = 0, sample_plum.width
+                            y0, y1 = table_zone.bbox[1], table_zone.bbox[3]
+                            work_page = sample_plum.crop((crop_x0, y0, crop_x1, y1))
+                            global_table_template = build_global_template(work_page, stabs[0])
+
+                    logger.debug(
+                        "[DocMirror] Golden Page Sampling finished in %.1fms",
+                        (_clock() - sp_t0) * 1000,
+                    )
+            except Exception as e:
+                logger.warning(f"[DocMirror] Golden Page Template Sampling failed: {e}")
+        elif (
+            plumber_doc
+            and len(fitz_doc) >= 3
+            and _extraction_profile.profile_id == "generic"
+        ):
+            # Legacy template sampling — generic docs only (EPO profiles use enable_grid_template branch)
             try:
                 # extract_tables_layered already imported at module level (via layout_analysis re-export)
                 from ..table.extraction.template_injector import build_global_template
@@ -611,6 +739,12 @@ class CoreExtractor:
 
         num_digital = sum(1 for i in range(len(page_has_text)) if page_has_text[i])
         use_page_concurrency = self._max_page_concurrency > 1 and plumber_doc is not None and num_digital >= 2
+        if use_page_concurrency and _extraction_profile.is_borderless_ledger():
+            logger.info(
+                "[DocMirror] EPO: sequential extraction for profile=%s (audit + template consistency)",
+                _extraction_profile.profile_id,
+            )
+            use_page_concurrency = False
         max_workers = min(self._max_page_concurrency, 4, len(fitz_doc)) if use_page_concurrency else 1
 
         try:
@@ -640,6 +774,7 @@ class CoreExtractor:
                                         _ext_ocr_provider,
                                         global_grid_x,
                                         global_table_template,
+                                        _extraction_profile,
                                     ),
                                 )
                                 results_by_idx[page_idx] = future
@@ -719,6 +854,7 @@ class CoreExtractor:
                                 zone_template=_pass_template,
                                 global_grid_x=global_grid_x,
                                 global_table_template=global_table_template,
+                                extraction_profile=_extraction_profile,
                             )
                             page_layout, page_ocr_parts, extraction_layer, extraction_confidence = self._extract_page(
                                 ctx
@@ -759,25 +895,98 @@ class CoreExtractor:
             # ═══ Step 4: Table post-processing (header detection + cleanup) ═══
             # Run BEFORE merge so each page's table has a confirmed header row
             _t = _clock()
-            pages = self._post_process_tables(pages)
+            pages = self._post_process_tables(pages, extraction_profile=_extraction_profile)
             _perf["table_postprocess_ms"] = (_clock() - _t) * 1000
 
-            # ═══ Step 5: Cross-page merge ═══
+            # ═══ Step 4.5: Non-destructive logical table composition ═══
             _t = _clock()
-            pages = self._merge_cross_page_tables(pages)
-            _perf["cross_page_merge_ms"] = (_clock() - _t) * 1000
+            _logical_tables_payload = None
+            _dual_view = False
+            try:
+                from docmirror.core.layout.profile_registry import match_layout_profile
+                from docmirror.core.table.composer import (
+                    TableComposer,
+                    serialize_logical_tables_for_metadata,
+                )
 
-            # ═══ Step 5.5: Table structure fix (post-merge) ═══
-            pages = self._fix_table_structures(pages)
+                _profile = getattr(self, "_extraction_profile", None) or match_layout_profile(
+                    text_sample=full_text,
+                    num_pages=len(pages),
+                    scene_hint=getattr(pre_analysis, "scene_hint", None),
+                    content_type=getattr(pre_analysis, "content_type", None),
+                )
+                if _profile and _profile.mirror_skip_cross_page_merge:
+                    _logical = TableComposer.clone_physical_from_layouts(pages)
+                else:
+                    _logical = TableComposer.from_page_layouts(pages, profile=_profile)
+                if _logical:
+                    _logical_tables_payload = serialize_logical_tables_for_metadata(_logical)
+                    _dual_view = True
+                    logger.info(
+                        "[DocMirror] Logical table composition: %d logical tables from %d pages (dual-view)",
+                        len(_logical),
+                        len(pages),
+                    )
+            except Exception as _ce:
+                logger.debug("[DocMirror] Logical table composition skipped: %s", _ce)
+            _perf["composition_ms"] = (_clock() - _t) * 1000
+            if _logical_tables_payload is not None:
+                _perf["_logical_tables"] = _logical_tables_payload
 
-            # ═══ Step 5.6: Post-merge header inference ═══
-            pages = self._infer_missing_headers(pages)
+            # ═══ Step 5: Cross-page merge (legacy destructive — skipped in dual-view) ═══
+            _t = _clock()
+            if _dual_view:
+                logger.info(
+                    "[DocMirror] Dual-view mode: preserving per-page physical tables "
+                    "(skipping destructive merge)"
+                )
+                _perf["dual_view"] = True
+                _perf["cross_page_merge_ms"] = 0
+            else:
+                pages = self._merge_cross_page_tables(pages)
+                _perf["cross_page_merge_ms"] = (_clock() - _t) * 1000
+
+            # ═══ Step 5.5/5.6: Post-merge structure fix — skip in dual-view (physical fidelity) ═══
+            if _dual_view:
+                logger.info(
+                    "[DocMirror] Dual-view: skipping fix_table_structures / infer_missing_headers "
+                    "(preserve per-page physical rows for borderless ledgers)"
+                )
+            else:
+                pages = self._fix_table_structures(pages)
+                pages = self._infer_missing_headers(pages)
 
             # ── Log performance breakdown ──
+            _logical_payload = _perf.pop("_logical_tables", None)
             logger.info(
                 "[DocMirror] ⏱ Pipeline timing breakdown:\n"
-                + "\n".join(f"    {k}: {v:.0f}ms" for k, v in _perf.items())
+                + "\n".join(
+                    f"    {k}: {v:.0f}ms"
+                    for k, v in _perf.items()
+                    if isinstance(v, (int, float))
+                )
             )
+            if _logical_payload is not None:
+                _perf["_logical_tables"] = _logical_payload
+
+            _audit = getattr(self, "_extraction_audit", None)
+            if _audit:
+                _profile_id = (
+                    self._extraction_profile.profile_id
+                    if getattr(self, "_extraction_profile", None)
+                    else None
+                )
+                _perf["extraction_audit"] = {
+                    "profile_id": _profile_id,
+                    "pages": list(_audit),
+                    "total_physical_rows": sum(
+                        len(b.raw_content)
+                        for pg in pages
+                        for b in pg.blocks
+                        if b.block_type == "table" and isinstance(b.raw_content, list)
+                    ),
+                }
+
             if _page_perf:
                 for pp in _page_perf:
                     logger.debug(
@@ -1260,6 +1469,7 @@ class CoreExtractor:
         _watermark_filtered: bool,
         _router,
         global_table_template,
+        extraction_profile=None,
     ) -> tuple[list[Block], str, float, float, bool]:
         """Handle a data_table-type zone → Block conversion + PID retry loop.
 
@@ -1290,7 +1500,25 @@ class CoreExtractor:
                 else None
             ),
             table_template=global_table_template,
+            extraction_profile=extraction_profile,
+            extraction_audit=getattr(self, "_extraction_audit", None),
         )
+
+        from ..table.extraction.cell_normalizer import normalize_table_cells
+
+        page_tables = normalize_table_cells(page_tables, extraction_profile)
+
+        if getattr(self, "_extraction_audit", None) is not None:
+            row_count = len(page_tables[0]) if page_tables and page_tables[0] else 0
+            audit_entry = {
+                "page": page_idx + 1,
+                "layer": extraction_layer,
+                "row_count": row_count,
+            }
+            if self._extraction_audit and self._extraction_audit[-1].get("page") == page_idx + 1:
+                self._extraction_audit[-1].update(audit_entry)
+            else:
+                self._extraction_audit.append(audit_entry)
         _table_ms = (_clock() - _tbl_t) * 1000
         zone_tables_extracted = False
         ro = reading_order
@@ -1346,7 +1574,13 @@ class CoreExtractor:
             f"Trace PID Before Block: router={bool(_router)}, zone_tables_extracted={zone_tables_extracted}, page_tables=[{len(page_tables) if page_tables else 0}], extraction_confidence={extraction_confidence}"
         )
 
-        if _router and zone_tables_extracted and page_tables and extraction_confidence < 0.85:
+        if (
+            _router
+            and zone_tables_extracted
+            and page_tables
+            and extraction_confidence < 0.85
+            and not (extraction_profile and extraction_profile.skip_pid_resample)
+        ):
             original_conf = extraction_confidence
             best_table = page_tables[0]
 
@@ -1699,6 +1933,7 @@ class CoreExtractor:
         content_type = ctx.content_type
         zone_template = ctx.zone_template
         global_table_template = ctx.global_table_template
+        extraction_profile = ctx.extraction_profile
 
         width, height = FitzEngine.get_page_dimensions(fitz_page)
 
@@ -1743,7 +1978,8 @@ class CoreExtractor:
         zones = None
 
         # Perf #9: Try zone template first (skips full segmentation)
-        if zone_template is not None:
+        _skip_zone_template = extraction_profile and extraction_profile.is_full_page_table()
+        if zone_template is not None and not _skip_zone_template:
             from ..layout.layout_analysis import apply_zone_template
 
             zones = apply_zone_template(zone_template, page_plum, page_idx)
@@ -1752,10 +1988,12 @@ class CoreExtractor:
 
         # Fallback: full segmentation
         if zones is None:
-            if self._layout_detector:
+            if self._layout_detector and not _skip_zone_template:
                 zones = self._model_segmentation(fitz_page, page_plum, page_idx)
             else:
-                zones = segment_page_into_zones(page_plum, page_idx)
+                from ..table.extraction.segmentation import segment_page_for_extraction
+
+                zones = segment_page_for_extraction(page_plum, page_idx, extraction_profile)
         _seg_ms = (_clock() - _seg_t) * 1000
         if _used_template:
             logger.debug(f"[DocMirror] Perf #9: page {page_idx} segmentation via template ({_seg_ms:.0f}ms)")
@@ -1890,6 +2128,7 @@ class CoreExtractor:
                         _watermark_filtered,
                         _router,
                         global_table_template,
+                        extraction_profile,
                     )
                 )
                 _table_ms += tbl_ms
@@ -2174,6 +2413,8 @@ class CoreExtractor:
 
         return merge_cross_page_tables(pages)
 
-    def _post_process_tables(self, pages: list[PageLayout]) -> list[PageLayout]:
+    def _post_process_tables(
+        self, pages: list[PageLayout], extraction_profile: Any | None = None
+    ) -> list[PageLayout]:
         """Table post-processing — delegated to table_postprocessor module."""
-        return process_page_tables(pages)
+        return process_page_tables(pages, extraction_profile=extraction_profile)

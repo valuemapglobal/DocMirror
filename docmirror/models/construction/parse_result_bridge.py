@@ -108,9 +108,11 @@ def _blocks_to_pages(base: BaseResult):
                 raw = block.raw_content
                 headers = []
                 rows = []
+                table_index = len(tables)
+                pt_id = f"pt_{page_layout.page_number}_{table_index}"
                 if raw:
                     headers = [str(h) for h in raw[0]]
-                    for row_data in raw[1:]:
+                    for row_idx, row_data in enumerate(raw[1:]):
                         if isinstance(row_data, list):
                             cells = [_infer_cell_value(v) for v in row_data]
                             rows.append(
@@ -118,14 +120,17 @@ def _blocks_to_pages(base: BaseResult):
                                     cells=cells,
                                     row_type=RowType.DATA,
                                     source_page=page_layout.page_number,
+                                    source_physical_id=pt_id,
+                                    source_row_index=row_idx,
                                 )
                             )
                 tables.append(
                     TableBlock(
-                        table_id=f"page{page_layout.page_number}_table{len(tables)}",
+                        table_id=pt_id,
                         headers=headers,
                         rows=rows,
                         page=page_layout.page_number,
+                        page_span=1,
                     )
                 )
 
@@ -201,7 +206,7 @@ class ParseResultBridge:
 
         pages = _blocks_to_pages(base)
         meta = base.metadata or {}
-        return ParseResult(
+        pr = ParseResult(
             pages=pages,
             parser_info=ParserInfo(
                 parser=meta.get("parser", ""),
@@ -210,6 +215,10 @@ class ParseResultBridge:
             ),
             sections=meta.get("sections", []),
         )
+
+        # ── Compose logical tables (from extractor metadata or physical pages) ──
+        _compose_logical_tables(pr, base_metadata=meta)
+        return pr
 
     @staticmethod
     def to_base_result(pr: ParseResult) -> BaseResult:
@@ -418,7 +427,8 @@ class ParseResultBridge:
             else validation.get("trust_score", 1.0)
         )
 
-        return ParseResult(
+        # Compose logical tables from base_result metadata (pre-composed in extractor)
+        _pr_tmp = ParseResult(
             status=status,
             confidence=confidence,
             pages=pages,
@@ -428,6 +438,8 @@ class ParseResultBridge:
             provenance=provenance,
             sections=meta.get("sections", []),
         )
+        _compose_logical_tables(_pr_tmp, base_metadata=meta)
+        return _pr_tmp
 
     # ══════════════════════════════════════════════════════════════════════
     # Merge enhanced data into existing ParseResult (Path A support)
@@ -527,9 +539,100 @@ class ParseResultBridge:
             status=pr.status,
             confidence=confidence,
             error=pr.error,
-            pages=pr.pages,  # ← preserved: typed CellValue precision intact
+            pages=pr.pages,
+            logical_tables=pr.logical_tables,
             entities=entities,
             parser_info=parser_info,
             trust=trust,
             provenance=provenance,
         )
+
+
+def _compose_logical_tables(pr, base_metadata: dict | None = None):
+    """Compose logical tables from physical pages and set ParseResult.logical_tables.
+
+    Priority:
+      1. Pre-composed logical tables from extractor metadata (most accurate —
+         composed before destructive merge, preserves cross-page provenance).
+      2. Live composition from physical pages (fallback when metadata unavailable).
+    """
+    from docmirror.models.entities.parse_result import CellValue, DataType, RowType, TableRow, RowProvenance, LogicalTable
+    from docmirror.core.table.composer import build_table_operations
+
+    # Priority 1: Pre-composed from extractor metadata
+    raw_tables = None
+    if base_metadata:
+        raw_tables = base_metadata.get("_logical_tables")
+
+    if raw_tables:
+        logical = []
+        for raw in raw_tables:
+            rows = []
+            provenance = []
+            for ri, raw_row in enumerate(raw.get("rows", [])):
+                cells = []
+                for rc in raw_row.get("cells", []):
+                    text = rc.get("text", "")
+                    dt_str = rc.get("data_type", "text")
+                    try:
+                        dt = DataType(dt_str)
+                    except ValueError:
+                        dt = DataType.TEXT
+                    cells.append(CellValue(text=text, data_type=dt))
+                src_page = raw_row.get("source_page", 1)
+                src_phys = raw_row.get("source_physical_id", "")
+                src_idx = raw_row.get("source_row_index", ri)
+                rows.append(
+                    TableRow(
+                        cells=cells,
+                        row_type=RowType.DATA,
+                        source_page=src_page,
+                        source_physical_id=src_phys,
+                        source_row_index=src_idx,
+                    )
+                )
+                provenance.append(
+                    RowProvenance(
+                        source_page=src_page,
+                        source_table_id=src_phys,
+                        source_row_index=src_idx,
+                    )
+                )
+
+            sp = raw.get("source_pages", [])
+            ps = raw.get("page_span", [1, 1])
+            lid = raw.get("logical_id") or raw.get("table_id", "logical_0")
+            logical.append(
+                LogicalTable(
+                    table_id=lid,
+                    logical_id=lid,
+                    headers=raw.get("headers", []),
+                    rows=rows,
+                    row_count=raw.get("row_count", len(rows)),
+                    source_physical_ids=raw.get("source_physical_ids", []),
+                    source_pages=sp,
+                    page_span=(ps[0], ps[1]) if len(ps) >= 2 else (1, 1),
+                    confidence=raw.get("confidence", 1.0),
+                    merge_method=raw.get("merge_method", "cross_page_continuation"),
+                    merge_confidence=raw.get("merge_confidence", raw.get("confidence", 1.0)),
+                    provenance=provenance,
+                    merge_log=raw.get("merge_log", []),
+                    merge_audit=raw.get("merge_audit", []),
+                )
+            )
+        if logical:
+            pr.logical_tables = logical
+            pr.table_operations = build_table_operations(logical)
+            return
+
+    # Priority 2: Live composition from physical pages (fallback)
+    try:
+        from docmirror.core.table.composer import TableComposer
+
+        composer = TableComposer()
+        logical = composer.compose(pr.pages)
+        if logical:
+            pr.logical_tables = logical
+            pr.table_operations = build_table_operations(logical)
+    except Exception:
+        pass

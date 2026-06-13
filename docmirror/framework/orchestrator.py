@@ -39,10 +39,10 @@ from ..middlewares import (
     InstitutionDetector,
     LanguageDetector,
     MiddlewarePipeline,
-    SceneDetector,
     SLMEntityExtractor,
     Validator,
 )
+from ..core.classification.evidence_engine import EvidenceEngine
 from ..models.entities.parse_result import ParseResult, ResultStatus
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 MIDDLEWARE_REGISTRY: dict[str, type[BaseMiddleware]] = {
-    "SceneDetector": SceneDetector,
+    "EvidenceEngine": EvidenceEngine,
     "EntityExtractor": EntityExtractor,
     "InstitutionDetector": InstitutionDetector,
     "Validator": Validator,
@@ -150,35 +150,6 @@ class Orchestrator:
         )
 
         return result
-
-    # Legacy alias for backward compatibility
-    async def run_pipeline(
-        self,
-        file_path: Path,
-        enhance_mode: Literal["raw", "standard", "full"] = "standard",
-        file_type: str = "pdf",
-        *,
-        pre_extracted: Any | None = None,
-        **kwargs,
-    ) -> ParseResult:
-        """Legacy wrapper — delegates to enhance()."""
-        if pre_extracted is not None and isinstance(pre_extracted, ParseResult):
-            return await self.enhance(pre_extracted, enhance_mode, file_type)
-        # If pre_extracted is a BaseResult, convert first
-        if pre_extracted is not None:
-            from ..models.construction.parse_result_bridge import ParseResultBridge
-
-            pr = ParseResultBridge.from_base_result(pre_extracted)
-            return await self.enhance(pr, enhance_mode, file_type)
-        # Fallback: extract from file
-        from ..core.extraction.extractor import CoreExtractor
-
-        extractor = CoreExtractor()
-        base_result = await extractor.extract(file_path)
-        from ..models.construction.parse_result_bridge import ParseResultBridge
-
-        pr = ParseResultBridge.from_base_result(base_result)
-        return await self.enhance(pr, enhance_mode, file_type)
 
     def _build_middlewares(
         self,

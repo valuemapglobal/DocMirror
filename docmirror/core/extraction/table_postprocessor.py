@@ -11,7 +11,7 @@ Table Postprocessing Utilities
 from __future__ import annotations
 
 import logging
-from typing import List
+from typing import List, Any
 
 from docmirror.core.layout.layout_analysis import post_process_table
 from docmirror.models.entities.domain import Block, PageLayout
@@ -19,7 +19,10 @@ from docmirror.models.entities.domain import Block, PageLayout
 logger = logging.getLogger(__name__)
 
 
-def process_page_tables(pages: list[PageLayout]) -> list[PageLayout]:
+def process_page_tables(
+    pages: list[PageLayout],
+    extraction_profile: Any | None = None,
+) -> list[PageLayout]:
     """Table post-processing -- header detection + preamble KV extraction + data row cleaning.
 
     For each table Block, execute the following steps:
@@ -45,7 +48,18 @@ def process_page_tables(pages: list[PageLayout]) -> list[PageLayout]:
                     logger.debug("[DocMirror] skipped empty table")
                     continue
                 try:
-                    processed, preamble_kv = post_process_table(block.raw_content)
+                    table_copy = [list(row) for row in block.raw_content]
+                    if (
+                        extraction_profile is not None
+                        and getattr(extraction_profile, "is_borderless_ledger", lambda: False)()
+                    ):
+                        from docmirror.core.table.ledger_postprocess import post_process_ledger_table
+
+                        processed, preamble_kv = post_process_ledger_table(
+                            table_copy, extraction_profile
+                        )
+                    else:
+                        processed, preamble_kv = post_process_table(table_copy)
 
                     # NOTE: fix_table_structure (column removal, line merging) is
                     # intentionally NOT called here. It runs AFTER cross-page merge

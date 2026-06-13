@@ -20,6 +20,7 @@ env/
 .idea/
 *.swp
 *.swo
+*.bak
 *~
 
 ## OS
@@ -58,3 +59,6 @@ tests/fixtures/*.zip
 tests/fixtures/*.jpg
 tests/fixtures/*.png
 tests/golden/
+
+# Enterprise plugins (private package)
+docmirror_enterprise/

@@ -34,6 +34,11 @@ _ERROR_META: dict[str, dict[str, Any]] = {
     "EXTRACTION_FAILED": {"recoverable": False, "user_message": "Document extraction failed."},
     "ORCHESTRATION_FAILURE": {"recoverable": False, "user_message": "Parsing pipeline failed."},
     "ENCRYPTED_PDF": {"recoverable": True, "user_message": "PDF is password-protected."},
+    "ARCHIVE_PASSWORD_PROTECTED": {
+        "recoverable": False,
+        "user_message": "Password-protected archives are not supported yet. "
+        "Please provide an unencrypted archive.",
+    },
     "TIMEOUT": {"recoverable": True, "user_message": "Processing timed out."},
     "unknown": {"recoverable": False, "user_message": "An unexpected error occurred."},
 }
@@ -51,6 +56,7 @@ class DocMirrorErrorCode(str, Enum):
     EXTRACTION_FAILED = "EXTRACTION_FAILED"
     ORCHESTRATION_FAILURE = "ORCHESTRATION_FAILURE"
     ENCRYPTED_PDF = "ENCRYPTED_PDF"
+    ARCHIVE_PASSWORD_PROTECTED = "ARCHIVE_PASSWORD_PROTECTED"
     TIMEOUT = "TIMEOUT"
     UNKNOWN = "unknown"
 

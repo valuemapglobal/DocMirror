@@ -5,122 +5,190 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Plugin system tests — verify plugin interface, registry, and built-in plugins.
+Plugin system tests — verify DomainPlugin contracts, edition-aware registry,
+and built-in community/enterprise plugin discovery.
 """
 
-import pytest
-from docmirror.plugins import DomainPlugin, PluginRegistry, registry
-from docmirror.plugins.bank_statement import BankStatementPlugin
+from docmirror.plugins import PluginRegistry
+from docmirror.plugins.bank_statement_community import BankStatementCommunityPlugin
+from docmirror_enterprise.plugins.bank_statement import BankStatementPlugin, plugin as bank_statement_plugin
+from docmirror_enterprise.plugins.bank_statement.plugin import plugin as bank_statement_module_plugin
 
 
-class TestPluginInterface:
-    """Test the DomainPlugin interface and PluginRegistry."""
+class TestBankStatementEnterprisePlugin:
+    """Enterprise bank_statement plugin (docmirror_enterprise)."""
 
-    def test_bank_statement_plugin_instantiable(self):
-        """BankStatementPlugin should be instantiable."""
+    def test_instantiable(self):
         plugin = BankStatementPlugin()
         assert plugin.domain_name == "bank_statement"
-        assert plugin.display_name == "Bank Statement"
+        assert plugin.display_name == "Bank Statement (银行流水)"
 
-    def test_bank_statement_scene_keywords(self):
-        """Plugin should provide scene keywords."""
+    def test_edition_metadata(self):
+        plugin = BankStatementPlugin()
+        assert plugin.edition == "enterprise"
+        assert plugin.requires_license is True
+
+    def test_scene_keywords_from_config(self):
+        """Scene keywords are loaded from scene_keywords.yaml via DomainPlugin base."""
         plugin = BankStatementPlugin()
         assert len(plugin.scene_keywords) > 0
-        assert "bank statement" in plugin.scene_keywords
+        assert "银行流水" in plugin.scene_keywords
 
-    def test_bank_statement_identity_fields(self):
-        """Plugin should define identity fields."""
+    def test_default_identity_fields_empty(self):
         plugin = BankStatementPlugin()
-        fields = plugin.identity_fields
-        assert len(fields) > 0
-        names = [f[0] for f in fields]
-        assert "account_holder" in names
-        assert "account_number" in names
+        assert plugin.identity_fields == ()
 
-
-    def test_bank_statement_build_domain_data(self):
-        """Plugin should build domain data from metadata and entities."""
+    def test_build_domain_data_default_none(self):
         plugin = BankStatementPlugin()
+        assert plugin.build_domain_data({}, {}) is None
+
+    def test_module_exports_plugin_singleton(self):
+        assert isinstance(bank_statement_plugin, BankStatementPlugin)
+        assert bank_statement_plugin is bank_statement_module_plugin
+
+
+class TestBankStatementCommunityPlugin:
+    """Community bank_statement plugin (docmirror.plugins)."""
+
+    def test_instantiable(self):
+        plugin = BankStatementCommunityPlugin()
+        assert plugin.domain_name == "bank_statement"
+        assert plugin.display_name == "Bank Statement (Community)"
+
+    def test_edition_metadata(self):
+        plugin = BankStatementCommunityPlugin()
+        assert plugin.edition == "community"
+        assert plugin.requires_license is False
+
+    def test_identity_fields(self):
+        plugin = BankStatementCommunityPlugin()
+        field_names = {name for name, _ in plugin.identity_fields}
+        assert "account_holder" in field_names
+        assert "account_number" in field_names
+
+    def test_build_domain_data(self):
+        plugin = BankStatementCommunityPlugin()
         result = plugin.build_domain_data(
-            metadata={"Account holder": "John Doe", "Account number": "1234"},
-            entities={"bank_name": "HSBC"},
+            {"Account holder": "Alice"},
+            {"account_holder": "Alice", "account_number": "6222", "currency": "CNY"},
         )
         assert result is not None
         assert result.document_type == "bank_statement"
-        assert result.bank_statement.account_holder == "John Doe"
-        assert result.bank_statement.bank_name == "HSBC"
+        assert result.bank_statement.account_holder == "Alice"
+        assert result.bank_statement.account_number == "6222"
 
 
 class TestPluginRegistry:
-    """Test the PluginRegistry."""
+    """Edition-aware PluginRegistry behavior."""
 
-    def test_register_and_get(self):
-        """Should register and retrieve a plugin."""
+    @staticmethod
+    def _isolated_registry() -> PluginRegistry:
         reg = PluginRegistry()
-        plugin = BankStatementPlugin()
-        reg.register(plugin)
-        assert reg.get("bank_statement") is plugin
+        reg._discovered = True
+        return reg
+
+    def test_register_and_get_by_edition(self):
+        reg = self._isolated_registry()
+        enterprise = BankStatementPlugin()
+        reg.register(enterprise, override=True)
+        assert reg.get("bank_statement", "enterprise") is enterprise
+        assert reg.get("bank_statement", "community") is None
+
+    def test_get_defaults_to_community_edition(self):
+        reg = self._isolated_registry()
+        community = BankStatementCommunityPlugin()
+        enterprise = BankStatementPlugin()
+        reg.register(community)
+        reg.register(enterprise, override=True)
+        assert reg.get("bank_statement") is community
+
+    def test_get_first_prefers_highest_edition(self):
+        reg = self._isolated_registry()
+        community = BankStatementCommunityPlugin()
+        enterprise = BankStatementPlugin()
+        reg.register(community)
+        reg.register(enterprise, override=True)
+        assert reg.get_first("bank_statement") is enterprise
 
     def test_get_nonexistent_returns_none(self):
-        """Should return None for unregistered domain."""
         reg = PluginRegistry()
-        assert reg.get("nonexistent") is None
+        assert reg.get("nonexistent_domain") is None
+        assert reg.get_first("nonexistent_domain") is None
 
-    def test_list_plugins(self):
-        """Should list registered plugins."""
+    def test_list_plugins_keeps_first_sorted_edition(self):
+        reg = self._isolated_registry()
+        reg.register(BankStatementCommunityPlugin())
+        reg.register(BankStatementPlugin(), override=True)
+        plugins = reg.list_plugins()
+        assert plugins["bank_statement"] == "Bank Statement (Community)"
+
+    def test_list_domains_tracks_all_editions(self):
+        reg = self._isolated_registry()
+        reg.register(BankStatementCommunityPlugin())
+        reg.register(BankStatementPlugin(), override=True)
+        assert set(reg.list_domains()["bank_statement"]) == {"community", "enterprise"}
+
+    def test_auto_discovery_registers_bank_statement_editions(self):
         reg = PluginRegistry()
-        reg.register(BankStatementPlugin())
+        reg._ensure_discovered()
+        assert reg.get("bank_statement", "community") is not None
+        assert reg.get("bank_statement", "enterprise") is not None
+        assert reg.get_first("bank_statement") is not None
+
+    def test_auto_discovery_lists_bank_statement(self):
+        reg = PluginRegistry()
         plugins = reg.list_plugins()
         assert "bank_statement" in plugins
-        assert plugins["bank_statement"] == "Bank Statement"
 
-    def test_auto_discovery(self):
-        """Global registry should auto-discover bank_statement plugin."""
-        # Force re-discovery
-        fresh_reg = PluginRegistry()
-        fresh_reg._ensure_discovered()
-        assert "bank_statement" in fresh_reg.list_plugins()
-
-    def test_build_domain_data_via_registry(self):
-        """Registry should delegate domain data building to plugin."""
+    def test_plugin_scene_keywords_via_registry(self):
         reg = PluginRegistry()
-        reg.register(BankStatementPlugin())
-        result = reg.build_domain_data(
-            "bank_statement",
-            metadata={"Account holder": "Alice"},
-            entities={"bank_name": "BoC"},
-        )
-        assert result is not None
-        assert result.bank_statement.account_holder == "Alice"
+        keywords = reg.get_all_scene_keywords()
+        assert "bank_statement" in keywords
+        assert "银行流水" in keywords["bank_statement"]
 
     def test_build_domain_data_unknown_returns_none(self):
-        """Registry should return None for unknown domain."""
         reg = PluginRegistry()
-        result = reg.build_domain_data("unknown", {}, {})
-        assert result is None
+        assert reg.build_domain_data("unknown_domain", {}, {}) is None
 
-    def test_duplicate_register_warns(self):
-        """Duplicate registration without override should be ignored."""
-        reg = PluginRegistry()
+    def test_build_domain_data_uses_get_first_plugin(self):
+        reg = self._isolated_registry()
+        community = BankStatementCommunityPlugin()
+        enterprise = BankStatementPlugin()
+        reg.register(community)
+        reg.register(enterprise, override=True)
+        # get_first resolves enterprise, which has no build_domain_data implementation
+        assert reg.build_domain_data("bank_statement", {}, {}) is None
+
+    def test_build_domain_data_community_only_registry(self):
+        reg = self._isolated_registry()
+        reg.register(BankStatementCommunityPlugin())
+        result = reg.build_domain_data(
+            "bank_statement",
+            {"Account holder": "Bob"},
+            {"account_holder": "Bob", "account_number": "1234", "currency": "CNY"},
+        )
+        assert result is not None
+        assert result.bank_statement.account_holder == "Bob"
+
+    def test_duplicate_register_same_edition_warns(self):
+        reg = self._isolated_registry()
         p1 = BankStatementPlugin()
         p2 = BankStatementPlugin()
         reg.register(p1)
-        reg.register(p2)  # Should warn, not replace
-        assert reg.get("bank_statement") is p1
+        reg.register(p2)
+        assert reg.get("bank_statement", "enterprise") is p1
 
-    def test_duplicate_register_with_override(self):
-        """Duplicate registration with override should replace."""
-        reg = PluginRegistry()
+    def test_duplicate_register_with_override_replaces(self):
+        reg = self._isolated_registry()
         p1 = BankStatementPlugin()
         p2 = BankStatementPlugin()
         reg.register(p1)
         reg.register(p2, override=True)
-        assert reg.get("bank_statement") is p2
+        assert reg.get("bank_statement", "enterprise") is p2
 
-    def test_get_all_scene_keywords(self):
-        """Should aggregate scene keywords from all plugins."""
+    def test_list_by_edition_enterprise(self):
         reg = PluginRegistry()
-        reg.register(BankStatementPlugin())
-        kw = reg.get_all_scene_keywords()
-        assert "bank_statement" in kw
-        assert len(kw["bank_statement"]) > 0
+        enterprise_plugins = reg.list_by_edition("enterprise")
+        domain_names = {p.domain_name for p in enterprise_plugins}
+        assert "bank_statement" in domain_names
+        assert len(enterprise_plugins) >= 100

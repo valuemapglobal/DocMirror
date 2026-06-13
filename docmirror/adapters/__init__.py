@@ -19,15 +19,19 @@ Supported formats:
     - PDF      → PDFAdapter
     - Image    → ImageAdapter (VLM + OCR fallback)
     - Word     → WordAdapter (.docx via python-docx)
-    - Excel    → ExcelAdapter (.xlsx via openpyxl)
+    - Excel    → ExcelAdapter (.xlsx/.xls/.csv/.et via openpyxl or CSV delegate)
     - PPT      → PPTAdapter (.pptx via python-pptx)
     - Email    → EmailAdapter (.eml via stdlib email)
     - HTML     → WebAdapter (raw text extraction)
-    - JSON/CSV → StructuredAdapter
+    - JSON/CSV → StructuredAdapter (JSON/XML); CSV also routable via ExcelAdapter
+    - OFD      → OFDAdapter (e-invoice / fiscal receipt — ZIP/XML text extraction)
+    - Archive  → ArchiveAdapter (.zip/.rar batch — recursive child dispatch)
 """
 
+from .archive import ArchiveAdapter
 from .data.structured import StructuredAdapter
 from .image.image import ImageAdapter
+from .ofd import OFDAdapter
 from .office.excel import ExcelAdapter
 from .office.ppt import PPTAdapter
 from .office.word import WordAdapter
@@ -36,6 +40,7 @@ from .web.email import EmailAdapter
 from .web.web import WebAdapter
 
 __all__ = [
+    "ArchiveAdapter",
     "PDFAdapter",
     "ImageAdapter",
     "EmailAdapter",
@@ -44,4 +49,5 @@ __all__ = [
     "PPTAdapter",
     "StructuredAdapter",
     "WebAdapter",
+    "OFDAdapter",
 ]

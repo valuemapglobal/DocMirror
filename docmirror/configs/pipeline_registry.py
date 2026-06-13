@@ -52,14 +52,14 @@ FORMAT_PIPELINES: dict[str, dict[str, list[str]]] = {
     "pdf": {
         "raw": [],
         "standard": [
-            "SceneDetector",
             "EntityExtractor",
+            "EvidenceEngine",
             "InstitutionDetector",
             "Validator",
         ],
         "full": [
-            "SceneDetector",
             "EntityExtractor",
+            "EvidenceEngine",
             "InstitutionDetector",
             "TableStructureFixer",
             "LanguageDetector",

@@ -134,6 +134,15 @@ class ExcelAdapter(BaseParser):
             TextLevel,
         )
 
+        ext = file_path.suffix.lower()
+        if ext == ".csv":
+            # Tabular export (bank statement, regulatory filing) — same table
+            # semantics as Excel; CSV parsing delegated to StructuredAdapter.
+            from docmirror.adapters.data.structured import StructuredAdapter
+
+            logger.info(f"[ExcelAdapter] Delegating CSV to StructuredAdapter: {file_path}")
+            return await StructuredAdapter().to_parse_result(file_path, **kwargs)
+
         logger.info(f"[ExcelAdapter] Cell-level extraction for: {file_path}")
         wb = openpyxl.load_workbook(str(file_path), data_only=True)
 

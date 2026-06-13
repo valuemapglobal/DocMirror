@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import copy
 import json
+import os
 from pathlib import Path
 
 from rich.console import Console
@@ -77,19 +79,22 @@ def show_authors():
     )
 
 
-def save_result(result_dict: dict, source_path: Path, output_dir: Path) -> Path:
-    """Save parse result as JSON to the output directory. Returns the saved file path."""
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / f"{source_path.stem}.json"
-
-    # Avoid overwriting: append a numeric suffix if the file already exists
-    counter = 1
-    while output_file.exists():
-        output_file = output_dir / f"{source_path.stem}_{counter}.json"
-        counter += 1
-
+def save_result(result_dict: dict, source_path: Path, output_dir: Path) -> tuple[Path, str]:
+    """Save parse result as JSON under a timestamped subdirectory.
+    
+    Returns (saved_file_path, task_id) where task_id is the directory name
+    (e.g. "20260613_084225_07e4").
+    """
+    from datetime import datetime as _dt
+    import uuid as _uuid
+    ts = _dt.now().strftime("%Y%m%d_%H%M%S")
+    short_id = _uuid.uuid4().hex[:4]
+    task_id = f"{ts}_{short_id}"
+    task_dir = output_dir / task_id
+    task_dir.mkdir(parents=True, exist_ok=True)
+    output_file = task_dir / "001_mirror.json"
     output_file.write_text(json.dumps(result_dict, ensure_ascii=False, indent=2), encoding="utf-8")
-    return output_file
+    return output_file, task_id
 
 
 async def parse_document(
@@ -99,9 +104,10 @@ async def parse_document(
     no_save: bool,
     skip_cache: bool = False,
     include_text: bool = False,
+    mirror_level: str = "standard",
 ) -> None:
     from docmirror.core.factory import perceive_document
-    from docmirror.models.entities.document_types import DocumentType
+    from docmirror.core.factory import PerceiveOptions
 
     path = Path(file_path).resolve()
     if not path.exists():
@@ -163,7 +169,7 @@ async def parse_document(
         _wall_start = _time.monotonic()
         anim_task = asyncio.create_task(_animate_progress(progress, task_id))
         try:
-            result = await perceive_document(path, DocumentType.OTHER, skip_cache=skip_cache)
+            result = await perceive_document(path, PerceiveOptions(skip_cache=skip_cache))
             progress.update(task_id, completed=100, description="[bold green]✅ Done![/bold green]")
             anim_task.cancel()
         except Exception as e:
@@ -176,7 +182,7 @@ async def parse_document(
 
     # ── Display results (outside spinner) ──
     try:
-        api_dict = result.to_api_dict(include_text=include_text)
+        api_dict = result.to_api_dict(include_text=include_text, mirror_level=mirror_level)
 
         if result.success:
             console.print("\n[bold green]\u2705 Parsing Complete![/bold green]")
@@ -222,11 +228,128 @@ async def parse_document(
 
         # Save result to disk (both success and failure, for diagnostics)
         if not no_save:
-            saved_path = save_result(api_dict, path, output_dir)
-            console.print(f"\n[bold blue]\U0001f4be Result saved to:[/bold blue] [white]{saved_path}[/white]")
+            saved_path, task_id = save_result(api_dict, path, output_dir)
+            file_id = "001"
+            document_id = f"doc_{task_id}_{file_id}"
+
+            # Inject task/file/document IDs into the mirror output
+            api_dict["document_id"] = document_id
+            api_dict.setdefault("metadata", {})
+            api_dict["metadata"]["task_id"] = task_id
+            api_dict["metadata"]["file_id"] = file_id
+            # Rewrite with IDs
+            saved_path.write_text(json.dumps(api_dict, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            # Generate community edition output with IDs
+            community_schema = _build_community_output(result, result.full_text or "")
+            if community_schema:
+                community_schema.setdefault("document", {})["document_id"] = document_id
+                community_schema["metadata"]["task_id"] = task_id
+                community_schema["metadata"]["file_id"] = file_id
+                community_path = saved_path.parent / f"{file_id}_community.json"
+                community_path.write_text(json.dumps(community_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+                rows = community_schema.get("data", {}).get("summary", {}).get("total_rows", 0)
+                doctype = community_schema.get("document", {}).get("document_type", "unknown")
+                console.print(f"[cyan]📦 Community:[/cyan] {community_path.name}  → {doctype} ({rows} rows)")
+
+            # Generate enterprise edition output (docmirror-enterprise)
+            enterprise_schema = _build_extended_output(result, "enterprise", result.full_text or "", str(path))
+            if enterprise_schema:
+                enterprise_schema.setdefault("document", {})["document_id"] = document_id
+                enterprise_schema["metadata"]["task_id"] = task_id
+                enterprise_schema["metadata"]["file_id"] = file_id
+                enterprise_path = saved_path.parent / f"{file_id}_enterprise.json"
+                enterprise_path.write_text(json.dumps(enterprise_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+                rows = enterprise_schema.get("data", {}).get("summary", {}).get("total_rows", 0)
+                doctype = enterprise_schema.get("document", {}).get("document_type", "unknown")
+                console.print(f"[cyan]📦 Enterprise:[/cyan] {enterprise_path.name}  → {doctype} ({rows} rows)")
+
+            # Generate finance edition output (docmirror-finance)
+            finance_schema = _build_extended_output(result, "finance", result.full_text or "", str(path))
+            if finance_schema:
+                finance_schema.setdefault("document", {})["document_id"] = document_id
+                finance_schema["metadata"]["task_id"] = task_id
+                finance_schema["metadata"]["file_id"] = file_id
+                finance_path = saved_path.parent / f"{file_id}_finance.json"
+                finance_path.write_text(json.dumps(finance_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+                rows = finance_schema.get("data", {}).get("summary", {}).get("total_rows", 0)
+                doctype = finance_schema.get("document", {}).get("document_type", "unknown")
+                console.print(f"[cyan]📦 Finance:[/cyan] {finance_path.name}  → {doctype} ({rows} rows)")
+
+            console.print(f"[bold blue]\U0001f4be Mirror saved to:[/bold blue] [white]{saved_path}[/white]")
 
     except Exception as e:
         console.print(f"[bold red]Critical Error:[/bold red] {_safe_str(str(e))}")
+
+
+
+
+
+def _save_multi_edition(result, api_dict: dict, path: Path, output_dir: Path, include_text: bool = False) -> str:
+    """Save mirror + community + enterprise + finance outputs to a timestamped subdirectory.
+    
+    Returns task_id (directory name).
+    """
+    import json
+    from datetime import datetime as _dt
+    import uuid as _uuid
+    ts = _dt.now().strftime("%Y%m%d_%H%M%S")
+    short_id = _uuid.uuid4().hex[:4]
+    task_id = f"{ts}_{short_id}"
+    task_dir = output_dir / task_id
+    task_dir.mkdir(parents=True, exist_ok=True)
+    
+    file_id = "001"
+    document_id = f"doc_{task_id}_{file_id}"
+    
+    # Inject IDs into mirror
+    api_dict["document_id"] = document_id
+    api_dict.setdefault("metadata", {})
+    api_dict["metadata"]["task_id"] = task_id
+    api_dict["metadata"]["file_id"] = file_id
+    
+    saved_path = task_dir / "001_mirror.json"
+    saved_path.write_text(json.dumps(api_dict, ensure_ascii=False, indent=2), encoding="utf-8")
+    
+    # Community edition
+    community_schema = _build_community_output(result, getattr(result, "full_text", "") or "")
+    if community_schema:
+        community_schema.setdefault("document", {})["document_id"] = document_id
+        community_schema["metadata"]["task_id"] = task_id
+        community_schema["metadata"]["file_id"] = file_id
+        community_path = task_dir / f"{file_id}_community.json"
+        community_path.write_text(json.dumps(community_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+    
+    # Enterprise edition
+    enterprise_schema = _build_extended_output(result, "enterprise", getattr(result, "full_text", "") or "", str(path))
+    if enterprise_schema:
+        enterprise_schema.setdefault("document", {})["document_id"] = document_id
+        enterprise_schema["metadata"]["task_id"] = task_id
+        enterprise_schema["metadata"]["file_id"] = file_id
+        enterprise_path = task_dir / f"{file_id}_enterprise.json"
+        enterprise_path.write_text(json.dumps(enterprise_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+    
+    # Finance edition
+    finance_schema = _build_extended_output(result, "finance", getattr(result, "full_text", "") or "", str(path))
+    if finance_schema:
+        finance_schema.setdefault("document", {})["document_id"] = document_id
+        finance_schema["metadata"]["task_id"] = task_id
+        finance_schema["metadata"]["file_id"] = file_id
+        finance_path = task_dir / f"{file_id}_finance.json"
+        finance_path.write_text(json.dumps(finance_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+    
+    return task_id
+
+def _build_community_output(result, full_text: str = "") -> dict | None:
+    """Delegate to shared output_builder (CLI/API shared)."""
+    from docmirror.server.output_builder import build_community_output
+    return build_community_output(result, full_text)
+
+
+def _build_extended_output(result, edition: str, full_text: str = "", file_path: str = "") -> dict | None:
+    """Delegate to shared output_builder (CLI/API shared)."""
+    from docmirror.server.output_builder import build_extended_output
+    return build_extended_output(result, edition, full_text, file_path)
 
 
 def main() -> None:
@@ -253,6 +376,12 @@ def main() -> None:
     )
     parser.add_argument("--authors", action="store_true", help="Show contributors and authors")
     parser.add_argument("--include-text", action="store_true", help="Include full markdown text in output")
+    parser.add_argument(
+        "--mirror-level",
+        default=os.environ.get("DOCMIRROR_MIRROR_LEVEL", "standard"),
+        choices=["standard", "slim", "forensic"],
+        help="Mirror output level: standard (physical+logical), slim (logical only), forensic (physical only)",
+    )
     parser.add_argument("--slm", action="store_true", help="[Experimental] Enable pure CPU Small Language Model (SLM) semantic KV extraction")
 
     args = parser.parse_args()
@@ -289,17 +418,58 @@ def main() -> None:
             return
         console.print(f"[bold cyan]Batch mode:[/bold cyan] {len(files)} file(s) under [white]{path}[/white]\n")
 
+        import multiprocessing as _mp
+        _cpu_count = _mp.cpu_count()
+        _max_concurrency = max(4, _cpu_count * 2)
+        _semaphore = asyncio.Semaphore(_max_concurrency)
+        console.print(f"[dim]🔥 File-level concurrency: {_max_concurrency} ({_cpu_count} CPU cores)[/dim]\n")
+
+        async def _process_one(fp: Path, idx: int, total: int):
+            """Parse a single file in batch mode (no Rich Progress per file)."""
+            async with _semaphore:
+                name = fp.name
+                console.print(f"[bold cyan][{idx}/{total}][/bold cyan] ⏳ {name}")
+                try:
+                    from docmirror.core.factory import perceive_document, PerceiveOptions
+                    path = fp.resolve()
+                    result = await perceive_document(path, PerceiveOptions(skip_cache=args.skip_cache))
+
+                    api_dict = result.to_api_dict(
+                        include_text=args.include_text,
+                        mirror_level=args.mirror_level,
+                    )
+                    if result.success:
+                        doctype = getattr(result.entities, "document_type", "unknown")
+                        pages = getattr(result, "page_count", 0)
+                        text_len = len(getattr(result, "full_text", ""))
+                        console.print(f"[bold cyan][{idx}/{total}][/bold cyan] ✅ {name}  → {doctype} ({pages}p, {text_len} chars)")
+                    else:
+                        console.print(f"[bold yellow][{idx}/{total}][/bold yellow] ⚠️ {name}  → parse returned failure")
+
+                    if not args.no_save:
+                        _save_multi_edition(result, api_dict, path, args.output_dir, args.include_text)
+                except Exception as e:
+                    import traceback
+                    console.print(f"[bold red][{idx}/{total}][/bold red] ❌ {name}: {e}")
+                    console.print(f"[dim red]{traceback.format_exc()[:300]}[/dim red]")
+
         async def _batch_parse():
-            for i, fp in enumerate(files, 1):
-                console.print(f"\n[bold blue][{i}/{len(files)}][/bold blue] {fp.name}")
-                await parse_document(
-                    str(fp), args.format, args.output_dir, args.no_save, args.skip_cache, args.include_text
-                )
+            tasks = [_process_one(fp, i, len(files)) for i, fp in enumerate(files, 1)]
+            await asyncio.gather(*tasks)
+            console.print(f"[bold green]\n🎉 All {len(files)} files processed![/bold green]")
 
         asyncio.run(_batch_parse())
     else:
         asyncio.run(
-            parse_document(args.file, args.format, args.output_dir, args.no_save, args.skip_cache, args.include_text)
+            parse_document(
+                args.file,
+                args.format,
+                args.output_dir,
+                args.no_save,
+                args.skip_cache,
+                args.include_text,
+                args.mirror_level,
+            )
         )
 
 

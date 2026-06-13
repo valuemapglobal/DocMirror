@@ -43,8 +43,152 @@ def _median_col_count(rows: list) -> int:
     return counts[len(counts) // 2]
 
 
+def collect_cross_page_merge_groups(pages: list[PageLayout]) -> list[dict]:
+    """Plan cross-page table merges without mutating pages.
+
+    Returns a list of merge groups, each:
+        {"rows": list[list], "pages": list[int], "block": Block, "merge_log": list[dict]}
+    """
+    if not pages:
+        return []
+
+    all_blocks = []
+    for page in pages:
+        for block in page.blocks:
+            all_blocks.append({"block": block, "page_number": page.page_number})
+
+    merged_table_data: list[dict] = []
+
+    for entry in all_blocks:
+        block = entry["block"]
+        if block.block_type != "table" or not isinstance(block.raw_content, list):
+            continue
+
+        curr_rows = block.raw_content
+        page_no = entry["page_number"]
+
+        if not merged_table_data:
+            merged_table_data.append(
+                {
+                    "rows": list(curr_rows),
+                    "row_pages": [page_no] * len(curr_rows),
+                    "pages": [page_no],
+                    "block": block,
+                    "merge_log": [{"action": "start", "page": page_no, "rows": len(curr_rows)}],
+                }
+            )
+            continue
+
+        prev = merged_table_data[-1]
+        prev_rows = prev["rows"]
+        first_row = curr_rows[0] if curr_rows else []
+        is_header = _is_header_row(first_row)
+
+        prev_col_count = _median_col_count(prev_rows)
+        curr_col_count = _median_col_count(curr_rows)
+        col_count_mismatch = abs(prev_col_count - curr_col_count) > 1
+
+        if col_count_mismatch:
+            max_cc = max(prev_col_count, curr_col_count, 1)
+            min_cc = min(prev_col_count, curr_col_count)
+            ratio = min_cc / max_cc
+            if ratio < 0.5:
+                logger.warning(
+                    "[TableMerger] quarantine col-mismatch page "
+                    "%s (%s cols vs expected %s) — standalone table preserved",
+                    page_no,
+                    curr_col_count,
+                    prev_col_count,
+                )
+                merged_table_data.append(
+                    {
+                        "rows": list(curr_rows),
+                        "row_pages": [page_no] * len(curr_rows),
+                        "pages": [page_no],
+                        "block": block,
+                        "merge_log": [
+                            {
+                                "action": "quarantine_col_mismatch",
+                                "page": page_no,
+                                "rows": len(curr_rows),
+                                "prev_cols": prev_col_count,
+                                "curr_cols": curr_col_count,
+                            }
+                        ],
+                    }
+                )
+                continue
+            merged_table_data.append(
+                {
+                    "rows": list(curr_rows),
+                    "row_pages": [page_no] * len(curr_rows),
+                    "pages": [page_no],
+                    "block": block,
+                    "merge_log": [{"action": "start", "page": page_no, "rows": len(curr_rows)}],
+                }
+            )
+        elif is_header and prev_rows:
+            prev_header = prev_rows[0] if prev_rows else []
+            if headers_match(prev_header, first_row):
+                added = curr_rows[1:]
+                prev["rows"].extend(added)
+                prev.setdefault("row_pages", [prev["pages"][0]] * len(prev_rows))
+                prev["row_pages"].extend([page_no] * len(added))
+                prev["pages"].append(page_no)
+                prev["merge_log"].append(
+                    {"action": "merge_header_page", "page": page_no, "rows_added": max(len(curr_rows) - 1, 0)}
+                )
+            else:
+                merged_table_data.append(
+                    {
+                        "rows": list(curr_rows),
+                        "row_pages": [page_no] * len(curr_rows),
+                        "pages": [page_no],
+                        "block": block,
+                        "merge_log": [{"action": "start", "page": page_no, "rows": len(curr_rows)}],
+                    }
+                )
+        elif not is_header and prev_rows:
+            confirmed_hdr = prev_rows[0] if prev_rows else []
+            stripped = _strip_preamble(list(curr_rows), confirmed_hdr)
+            stripped = [r for r in stripped if any((c or "").strip() for c in r)]
+            if stripped:
+                prev.setdefault("row_pages", [prev["pages"][0]] * len(prev_rows))
+                prev["rows"].extend(stripped)
+                prev["row_pages"].extend([page_no] * len(stripped))
+                prev["pages"].append(page_no)
+                prev["merge_log"].append(
+                    {"action": "merge_continuation", "page": page_no, "rows_added": len(stripped)}
+                )
+        else:
+            merged_table_data.append(
+                {
+                    "rows": list(curr_rows),
+                    "row_pages": [page_no] * len(curr_rows),
+                    "pages": [page_no],
+                    "block": block,
+                    "merge_log": [{"action": "start", "page": page_no, "rows": len(curr_rows)}],
+                }
+            )
+
+    for mdata in merged_table_data:
+        if len(mdata["pages"]) > 1:
+            logger.info(
+                "[TableMerger] F-7 audit: merged %d pages → %d rows (table starts page %s)",
+                len(mdata["pages"]),
+                len(mdata["rows"]),
+                mdata["pages"][0],
+            )
+
+    return merged_table_data
+
+
 def merge_cross_page_tables(pages: list[PageLayout]) -> list[PageLayout]:
     """Cross-page table merging — operates at the Block level.
+
+    .. deprecated::
+        Prefer ``TableComposer.from_page_layouts()`` + dual-view mode.
+        This destructive merge mutates physical pages and will be removed.
 
     Args:
         pages: List of PageLayout objects for all pages.
@@ -52,6 +196,13 @@ def merge_cross_page_tables(pages: list[PageLayout]) -> list[PageLayout]:
     Returns:
         PageLayout list with cross-page tables merged.
     """
+    import warnings
+
+    warnings.warn(
+        "merge_cross_page_tables() is deprecated; use TableComposer dual-view instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if len(pages) <= 1:
         return pages
 
@@ -65,96 +216,13 @@ def merge_cross_page_tables(pages: list[PageLayout]) -> list[PageLayout]:
                 }
             )
 
-    merged_table_data: list[dict] = []
-    non_table_blocks: list[dict] = []
-
-    for entry in all_blocks:
-        block = entry["block"]
-        if block.block_type != "table" or not isinstance(block.raw_content, list):
-            non_table_blocks.append(entry)
-            continue
-
-        curr_rows = block.raw_content
-
-        if not merged_table_data:
-            merged_table_data.append(
-                {
-                    "rows": list(curr_rows),
-                    "pages": [entry["page_number"]],
-                    "block": block,
-                }
-            )
-            continue
-
-        prev = merged_table_data[-1]
-        prev_rows = prev["rows"]
-
-        first_row = curr_rows[0] if curr_rows else []
-        is_header = _is_header_row(first_row)
-
-        # P3-6: column count validation — prevent merging different tables
-        prev_col_count = _median_col_count(prev_rows)
-        curr_col_count = _median_col_count(curr_rows)
-        col_count_mismatch = abs(prev_col_count - curr_col_count) > 1
-
-        if col_count_mismatch:
-            # Column count ratio check: ratio < 0.5 = extraction failure (skip, don't break chain)
-            max_cc = max(prev_col_count, curr_col_count, 1)
-            min_cc = min(prev_col_count, curr_col_count)
-            ratio = min_cc / max_cc
-            if ratio < 0.5:
-                logger.warning(
-                    f"[TableMerger] skipped extraction-failed table on page "
-                    f"{entry['page_number']} ({curr_col_count} cols vs "
-                    f"expected {prev_col_count})"
-                )
-                continue  # Skip, don't break the merge chain
-            # Similar but different column counts → treat as independent table
-            merged_table_data.append(
-                {
-                    "rows": list(curr_rows),
-                    "pages": [entry["page_number"]],
-                    "block": block,
-                }
-            )
-        elif is_header and prev_rows:
-            prev_header = prev_rows[0] if prev_rows else []
-            if headers_match(prev_header, first_row):
-                prev["rows"].extend(curr_rows[1:])
-                prev["pages"].append(entry["page_number"])
-            else:
-                merged_table_data.append(
-                    {
-                        "rows": list(curr_rows),
-                        "pages": [entry["page_number"]],
-                        "block": block,
-                    }
-                )
-        elif not is_header and prev_rows:
-            # Continuation page: strip summary / duplicate header rows, then merge
-            confirmed_hdr = prev_rows[0] if prev_rows else []
-            stripped = _strip_preamble(list(curr_rows), confirmed_hdr)
-            stripped = [r for r in stripped if any((c or "").strip() for c in r)]
-            if stripped:
-                prev["rows"].extend(stripped)
-                prev["pages"].append(entry["page_number"])
-        else:
-            merged_table_data.append(
-                {
-                    "rows": list(curr_rows),
-                    "pages": [entry["page_number"]],
-                    "block": block,
-                }
-            )
-
-    # F-7: post-merge row count audit
-    for mdata in merged_table_data:
-        if len(mdata["pages"]) > 1:
-            merged_rows = len(mdata["rows"])
-            logger.info(
-                f"[TableMerger] F-7 audit: merged {len(mdata['pages'])} pages → "
-                f"{merged_rows} rows (table starts page {mdata['pages'][0]})"
-            )
+    merged_table_data = collect_cross_page_merge_groups(pages)
+    non_table_blocks: list[dict] = [
+        entry
+        for entry in all_blocks
+        if entry["block"].block_type != "table"
+        or not isinstance(entry["block"].raw_content, list)
+    ]
 
     new_pages = []
     for page in pages:

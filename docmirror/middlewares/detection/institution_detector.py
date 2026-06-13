@@ -126,6 +126,14 @@ class InstitutionDetector(BaseMiddleware):
             result.entities.domain_specific["institution"] = None
             return result
 
+        # Priority 1: Use EntityExtractor's result if available
+        extracted = result.entities.domain_specific.get("extracted_entities", {})
+        if extracted.get("bank_name") and result.entities.organization:
+            logger.info(f"[InstitutionDetector] Using EntityExtractor result: {result.entities.organization}")
+            result.entities.domain_specific["institution"] = result.entities.organization
+            return result
+
+        # Priority 2: Scan full_text
         full_text = result.full_text or ""
         registry = self._get_registry()
         institution = detect_institution(full_text, registry)
