@@ -91,17 +91,21 @@ docmirror/
 
 1. Create `docmirror/adapters/your_format/your_format.py`
 2. Subclass `BaseParser` from `docmirror.framework.base`
-3. Implement `to_base_result(file_path) -> BaseResult`
-4. Register in the dispatcher's `_get_parser()` method
-5. Add tests in `tests/test_your_format.py`
+3. Implement `to_parse_result(file_path) -> ParseResult` (canonical format only)
+4. Register in `docmirror/configs/yaml/format_capabilities.yaml`:
+   - set `transport`, `content_model`, `extensions`, `binding.adapter`, `status: supported`
+   - use `binding.transcode` if the adapter needs a converted canonical file
+5. Run `python tools/validate_format_capabilities.py`
+6. Add tests in `tests/unit/` or `tests/`
 
 ## Adding a New Middleware
 
 1. Create `docmirror/middlewares/your_category/your_middleware.py`
 2. Subclass `BaseMiddleware` from `docmirror.middlewares.base`
-3. Implement `process(result: EnhancedResult) -> EnhancedResult`
-4. Register in `docmirror/configs/pipeline/registry.py`
-5. Add tests
+3. Implement `process(result: ParseResult) -> ParseResult`
+4. Register class in `docmirror/framework/orchestrator.py` → `MIDDLEWARE_REGISTRY`
+5. Add the middleware name to `docmirror/configs/yaml/enhancement_profiles.yaml` (by `content_model`)
+6. Add tests
 
 ## Reporting Issues
 

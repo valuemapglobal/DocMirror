@@ -5,32 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Excel Adapter — .xlsx → ParseResult (Cell-level precision)
-============================================================
+Excel Adapter — .xlsx / .csv → ParseResult (Cell-level precision)
+=================================================================
 
-Extracts worksheet data from Excel files using openpyxl with full
-Cell-level type preservation.
-
-Processing logic:
-    1. Opens the workbook in read-only/data-only mode (formulas are
-       resolved to their cached values).
-    2. Each worksheet becomes a separate ``PageContent`` (page index
-       matches the sheet order).
-    3. For each sheet:
-       - A ``TextBlock(level=H2)`` is created with the sheet name.
-       - All non-empty rows are collected with typed ``CellValue``:
-         - Numbers → ``CellValue(numeric=..., data_type=NUMBER)``
-         - Dates → ``CellValue(data_type=DATE)``
-         - Currency-like → ``CellValue(numeric=..., data_type=CURRENCY)``
-         - Empty → ``CellValue(data_type=EMPTY)``
-       - The first non-empty row is used as headers.
-    4. The full_text preview includes the first 5 rows of each sheet
-       in a pipe-delimited format.
-
-Metadata includes:
-    - source_format: "excel"
-    - sheet_names: list of all worksheet names
-    - table_count: total tables extracted
+Native ``.xlsx`` via openpyxl; ``.csv`` delegated to StructuredAdapter.
+Legacy ``.xls`` is transcoded to ``.xlsx`` upstream by ``TranscodingGate`` (FCR).
 """
 
 from __future__ import annotations
@@ -105,14 +84,7 @@ def _classify_cell(value) -> CellValue:
 
 
 class ExcelAdapter(BaseParser):
-    """Excel (.xlsx/.xls) format adapter — native parsing with Cell-level precision.
-
-    Processing strategy:
-        1. **Modern formats (.xlsx):** Direct deep extraction via ``openpyxl``
-           preserving tabular accuracy, numeric types, and sheet separations.
-        2. **Legacy formats (.xls):** Automatically transcoded to PDF via LibreOffice,
-           then processed through the standard PDF pipeline.
-    """
+    """Excel (.xlsx / .csv) adapter — openpyxl or CSV delegate; .xls via FCR transcode."""
 
     async def to_parse_result(self, file_path: Path, **kwargs) -> ParseResult:
         """
@@ -134,7 +106,18 @@ class ExcelAdapter(BaseParser):
             TextLevel,
         )
 
+        from docmirror.models.errors import build_failure_result
+
         ext = file_path.suffix.lower()
+        if ext not in (".xlsx", ".csv"):
+            return build_failure_result(
+                "FORMAT_REQUIRES_CONVERTER",
+                f"ExcelAdapter requires .xlsx or .csv; got {ext}. "
+                "Legacy .xls is transcoded by the extraction pipeline.",
+                file_path=str(file_path),
+                file_type="excel",
+            )
+
         if ext == ".csv":
             # Tabular export (bank statement, regulatory filing) — same table
             # semantics as Excel; CSV parsing delegated to StructuredAdapter.

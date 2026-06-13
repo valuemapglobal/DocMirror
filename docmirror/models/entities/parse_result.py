@@ -309,6 +309,10 @@ class PageContent(BaseModel):
     page_confidence: float = 1.0
     width: int | None = None
     height: int | None = None
+    source_member: str = Field(
+        default="",
+        description="Relative path inside a parent archive/container, if applicable.",
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -426,6 +430,10 @@ class ProvenanceInfo(BaseModel):
     file_size: int = 0
     checksum: str = ""
     mime_type: str = ""
+    source_member: str = Field(
+        default="",
+        description="Relative path when this file was extracted from an archive.",
+    )
     document_properties: dict[str, Any] = Field(
         default_factory=dict,
         description="PDF metadata, EXIF data, etc.",

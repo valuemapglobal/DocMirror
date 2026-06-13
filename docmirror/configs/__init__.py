@@ -34,7 +34,7 @@ from docmirror.configs.paths import (
     SCENE_KEYWORDS_YAML,
     YAML_DIR,
 )
-from docmirror.configs.pipeline.registry import FORMAT_PIPELINES, get_pipeline_config
+from docmirror.configs.pipeline.registry import get_pipeline_config
 from docmirror.configs.runtime.settings import DocMirrorSettings, default_settings
 from docmirror.configs.runtime.yaml_loader import YamlConfigLoader, config_loader, get_config
 from docmirror.configs.scene.loader import (
@@ -50,7 +50,6 @@ __all__ = [
     "DOCMIRROR_YAML",
     "DOMAIN_IDENTITY",
     "DocMirrorSettings",
-    "FORMAT_PIPELINES",
     "INSTITUTION_REGISTRY_YAML",
     "KEY_SYNONYMS",
     "KEY_SYNONYMS_YAML",

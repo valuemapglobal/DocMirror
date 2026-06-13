@@ -1,0 +1,224 @@
+# Format Capability Registry (FCR) — single source of truth for L0 routing.
+# See docs/design/07_adapter_dispatcher_first_principles_redesign.md
+
+version: 1
+
+content_models:
+  - fixed_layout_rasterizable
+  - tabular_native
+  - markup_narrative
+  - interchange_structured
+  - container
+  - opaque_binary
+
+# Global MIME → capability id (exact match, checked before extension)
+mime_map:
+  application/pdf: pdf_native
+  application/vnd.ms-xpsdocument: xps_fixed_layout
+  text/csv: excel_csv
+  application/csv: excel_csv
+  application/rtf: word_rtf
+  text/rtf: word_rtf
+  message/rfc822: email_eml
+  application/vnd.ms-outlook: email_msg
+  application/zip: archive_zip
+  application/x-rar-compressed: archive_zip
+  application/x-rar: archive_zip
+  application/ofd: ofd_native
+  application/vnd.ofd: ofd_native
+
+capabilities:
+  # ── P0: fixed layout ──
+  - id: pdf_native
+    transport: pdf
+    content_model: fixed_layout_rasterizable
+    extensions: [.pdf]
+    binding:
+      adapter: docmirror.adapters.PDFAdapter
+    status: supported
+
+  - id: xps_fixed_layout
+    transport: pdf
+    content_model: fixed_layout_rasterizable
+    extensions: [.xps]
+    binding:
+      transcode: { tool: libreoffice, target: pdf }
+      adapter: docmirror.adapters.PDFAdapter
+    status: supported
+
+  - id: image_raster
+    transport: image
+    content_model: fixed_layout_rasterizable
+    extensions: [.png, .jpg, .jpeg, .tiff, .tif, .bmp]
+    mime_prefix: image/
+    binding:
+      adapter: docmirror.adapters.PDFAdapter
+      fallback:
+        adapter: docmirror.adapters.ImageAdapter
+        when: primary_empty
+    status: supported
+
+  - id: ofd_native
+    transport: ofd
+    content_model: fixed_layout_rasterizable
+    extensions: [.ofd]
+    binding:
+      adapter: docmirror.adapters.OFDAdapter
+    status: supported
+
+  # ── P0: office ──
+  - id: word_docx
+    transport: word
+    content_model: markup_narrative
+    extensions: [.docx]
+    binding:
+      adapter: docmirror.adapters.WordAdapter
+    status: supported
+
+  - id: word_legacy_doc
+    transport: word
+    content_model: markup_narrative
+    extensions: [.doc]
+    binding:
+      transcode: { tool: libreoffice, target: pdf, on_missing: FORMAT_REQUIRES_CONVERTER }
+      adapter: docmirror.adapters.PDFAdapter
+    status: supported
+
+  - id: word_rtf
+    transport: word
+    content_model: markup_narrative
+    extensions: [.rtf]
+    binding:
+      transcode: { tool: libreoffice, target: docx, on_missing: FORMAT_REQUIRES_CONVERTER }
+      adapter: docmirror.adapters.WordAdapter
+    status: supported
+
+  - id: wps_word
+    transport: word
+    content_model: opaque_binary
+    extensions: [.wps]
+    status: unsupported
+
+  - id: excel_xlsx
+    transport: excel
+    content_model: tabular_native
+    extensions: [.xlsx]
+    binding:
+      adapter: docmirror.adapters.ExcelAdapter
+    status: supported
+
+  - id: excel_xls
+    transport: excel
+    content_model: tabular_native
+    extensions: [.xls]
+    binding:
+      transcode: { tool: libreoffice, target: xlsx, on_missing: FORMAT_REQUIRES_CONVERTER }
+      adapter: docmirror.adapters.ExcelAdapter
+    status: supported
+
+  - id: excel_csv
+    transport: excel
+    content_model: tabular_native
+    extensions: [.csv]
+    binding:
+      adapter: docmirror.adapters.ExcelAdapter
+    status: supported
+
+  - id: wps_excel
+    transport: excel
+    content_model: opaque_binary
+    extensions: [.et]
+    status: unsupported
+
+  - id: ppt_pptx
+    transport: ppt
+    content_model: markup_narrative
+    extensions: [.pptx]
+    binding:
+      adapter: docmirror.adapters.PPTAdapter
+    status: supported
+
+  - id: ppt_legacy
+    transport: ppt
+    content_model: markup_narrative
+    extensions: [.ppt]
+    binding:
+      transcode: { tool: libreoffice, target: pdf, on_missing: FORMAT_REQUIRES_CONVERTER }
+      adapter: docmirror.adapters.PDFAdapter
+    status: supported
+
+  - id: wps_ppt
+    transport: ppt
+    content_model: opaque_binary
+    extensions: [.dps]
+    status: unsupported
+
+  # ── P0: email / web / structured ──
+  - id: email_eml
+    transport: email
+    content_model: markup_narrative
+    extensions: [.eml]
+    binding:
+      adapter: docmirror.adapters.EmailAdapter
+    status: supported
+
+  - id: email_msg
+    transport: email
+    content_model: markup_narrative
+    extensions: [.msg]
+    binding:
+      transcode: { tool: extract_msg, target: eml, on_missing: FORMAT_REQUIRES_CONVERTER }
+      adapter: docmirror.adapters.EmailAdapter
+    status: supported
+
+  - id: web_html
+    transport: web
+    content_model: markup_narrative
+    extensions: [.html, .htm]
+    binding:
+      adapter: docmirror.adapters.WebAdapter
+    status: supported
+
+  - id: web_mhtml
+    transport: web
+    content_model: markup_narrative
+    extensions: [.mhtml]
+    binding:
+      transcode: { tool: internal, target: html }
+      adapter: docmirror.adapters.WebAdapter
+    status: supported
+
+  - id: structured_json
+    transport: structured
+    content_model: interchange_structured
+    extensions: [.json]
+    binding:
+      adapter: docmirror.adapters.StructuredAdapter
+    status: supported
+
+  - id: structured_xml
+    transport: structured
+    content_model: interchange_structured
+    extensions: [.xml]
+    binding:
+      adapter: docmirror.adapters.StructuredAdapter
+      deserializer: xml
+    status: supported
+
+  - id: structured_txt
+    transport: structured
+    content_model: interchange_structured
+    extensions: [.txt]
+    binding:
+      adapter: docmirror.adapters.StructuredAdapter
+      deserializer: txt
+    status: supported
+
+  # ── P0: container ──
+  - id: archive_zip
+    transport: archive
+    content_model: container
+    extensions: [.zip, .rar]
+    binding:
+      adapter: docmirror.adapters.ArchiveAdapter
+    status: supported

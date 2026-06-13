@@ -21,7 +21,8 @@ Position in the end-to-end flow::
 
 Responsibilities (this file only):
     1. Guard against empty extraction (no pages → FAILURE, skip middleware).
-    2. Resolve which middlewares to run from ``configs/pipeline/registry.py``.
+    2. Resolve which middlewares to run from ``enhancement_profiles.yaml``
+       (via ``resolve_enhancement_profile``).
     3. Instantiate middleware classes via ``MIDDLEWARE_REGISTRY``.
     4. Execute them sequentially through ``MiddlewarePipeline`` (in-place).
     5. Record timing and optional mutation analysis.
@@ -37,20 +38,17 @@ Enhancement modes (``enhance_mode``):
         ``DOCMIRROR_ENHANCE_MODE=raw``.
 
     ``standard`` (default)
-        Format-specific pipeline from ``FORMAT_PIPELINES`` in
-        ``pipeline/registry.py``.  Examples as of current config:
+        Middleware list from ``enhancement_profiles.yaml`` for the file's
+        ``content_model`` (from FCR / dispatcher context). Examples:
 
-        - ``pdf``   → EntityExtractor → EvidenceEngine → InstitutionDetector
-                      → Validator
-        - ``image`` / ``word`` → LanguageDetector → GenericEntityExtractor
-        - ``excel`` → GenericEntityExtractor
-        - other types (ppt, email, ofd, archive, …) → ``*`` fallback
-                      → LanguageDetector
+        - ``fixed_layout_rasterizable`` → EntityExtractor → EvidenceEngine → …
+        - ``markup_narrative`` → LanguageDetector → GenericEntityExtractor → …
 
     ``full``
-        Longer pipeline where defined (currently PDF only).  Names listed in
-        ``pipeline/registry`` must also exist in ``MIDDLEWARE_REGISTRY`` below
-        or they are skipped with a warning (e.g. ``TableStructureFixer``).
+        Longer pipeline where defined (currently PDF/image/OFD via
+        ``fixed_layout_rasterizable`` full profile). Names in
+        ``enhancement_profiles.yaml`` must exist in ``MIDDLEWARE_REGISTRY`` below
+        or they are skipped with a warning.
 
 Optional runtime append (not in this file):
     ``DOCMIRROR_ENABLE_SLM=1`` → ``get_pipeline_config()`` appends
@@ -96,7 +94,7 @@ logger = logging.getLogger(__name__)
 # Middleware Registry
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# Maps string names (used in pipeline.registry.FORMAT_PIPELINES) to classes.
+# Maps string names (used in enhancement_profiles.yaml) to classes.
 #
 # To add a new middleware:
 #   1. Implement ``BaseMiddleware`` in ``middlewares/``.
@@ -167,6 +165,7 @@ class Orchestrator:
         result: ParseResult,
         enhance_mode: Literal["raw", "standard", "full"] = "standard",
         file_type: str = "unknown",
+        content_model: str = "",
         **kwargs,
     ) -> ParseResult:
         """
@@ -180,7 +179,8 @@ class Orchestrator:
             result: Raw ``ParseResult`` from ``Adapter.to_parse_result()``.
             enhance_mode: ``raw`` | ``standard`` | ``full`` (see module docstring).
             file_type: Logical format from dispatcher (``pdf``, ``excel``,
-                ``archive``, …) — selects ``FORMAT_PIPELINES`` entry.
+                ``archive``, …) — used for logging; pipeline uses ``content_model``.
+            content_model: Content shape from FCR (``fixed_layout_rasterizable``, …).
             **kwargs: Unused; accepted for forward compatibility.
 
         Returns:
@@ -206,7 +206,7 @@ class Orchestrator:
         if enhance_mode == "raw":
             logger.info("[Orchestrator] Raw mode — skipping middleware pipeline")
         else:
-            middlewares = self._build_middlewares(enhance_mode, file_type)
+            middlewares = self._build_middlewares(enhance_mode, file_type, content_model)
             result = self.pipeline.execute(middlewares, result)
 
         # ── Step 3: Orchestrator-level timing ──
@@ -240,19 +240,18 @@ class Orchestrator:
         self,
         enhance_mode: str,
         file_type: str = "pdf",
+        content_model: str = "",
     ) -> list[BaseMiddleware]:
         """
-        Resolve middleware **names** from ``pipeline/registry`` into instances.
+        Resolve middleware **names** from enhancement profile into instances.
 
-        Lookup is delegated to ``get_pipeline_config(file_type, enhance_mode)``,
-        which applies format/mode fallbacks and optional SLM append.
-
-        Each instance receives ``config=self.config.get(middleware_name, {})``.
-        Unknown names are logged and omitted (pipeline continues with the rest).
+        Lookup uses ``content_model`` when provided; otherwise falls back to
+        ``transport_to_content_model(file_type)``.
         """
-        from ..configs.pipeline.registry import get_pipeline_config
+        from ..configs.format.enhancement import resolve_enhancement_profile, transport_to_content_model
 
-        middleware_names = get_pipeline_config(file_type, enhance_mode)
+        model = content_model or transport_to_content_model(file_type)
+        middleware_names = resolve_enhancement_profile(model, enhance_mode)
         middlewares: list[BaseMiddleware] = []
 
         for name in middleware_names:

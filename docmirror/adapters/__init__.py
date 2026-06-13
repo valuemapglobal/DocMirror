@@ -17,10 +17,10 @@ is handled by the middleware pipeline downstream.
 
 Supported formats:
     - PDF      → PDFAdapter
-    - Image    → ImageAdapter (VLM + OCR fallback)
+    - Image    → PDFAdapter (CoreExtractor) with ImageAdapter OCR fallback
     - Word     → WordAdapter (.docx via python-docx)
-    - Excel    → ExcelAdapter (.xlsx/.xls/.csv/.et via openpyxl or CSV delegate)
-    - PPT      → PPTAdapter (.pptx via python-pptx)
+    - Excel    → ExcelAdapter (.xlsx / .csv; .xls via TranscodingGate)
+    - PPT      → PPTAdapter (.pptx; .ppt via TranscodingGate)
     - Email    → EmailAdapter (.eml via stdlib email)
     - HTML     → WebAdapter (raw text extraction)
     - JSON/CSV → StructuredAdapter (JSON/XML); CSV also routable via ExcelAdapter

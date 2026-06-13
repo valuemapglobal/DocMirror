@@ -208,7 +208,7 @@ DocMirror 产出标准化的 RESTful JSON 响应信封：
 |---|---|---|
 | PDF（数字版） | `PDFAdapter` | PyMuPDF 原生表格 |
 | PDF（扫描版） | `PDFAdapter` | RapidOCR + Layout YOLO |
-| PNG / JPG / TIFF | `ImageAdapter` | RapidOCR + 布局分析 |
+| PNG / JPG / TIFF | `PDFAdapter` → CoreExtractor（兜底：`ImageAdapter` OCR） | 布局 + 表格提取 |
 | DOCX | `WordAdapter` | python-docx |
 | XLSX | `ExcelAdapter` | openpyxl |
 | PPTX | `PPTAdapter` | python-pptx |

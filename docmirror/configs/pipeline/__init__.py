@@ -1,8 +1,8 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Middleware pipeline composition per file format."""
+"""Middleware pipeline composition — backed by enhancement_profiles.yaml."""
 
-from docmirror.configs.pipeline.registry import FORMAT_PIPELINES, get_pipeline_config
+from docmirror.configs.pipeline.registry import get_pipeline_config
 
-__all__ = ["FORMAT_PIPELINES", "get_pipeline_config"]
+__all__ = ["get_pipeline_config"]

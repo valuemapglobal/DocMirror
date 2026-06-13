@@ -8,19 +8,8 @@
 PPT Adapter — .pptx → ParseResult
 ==================================
 
-Extracts slide content from PowerPoint presentations using python-pptx.
-
-Processing logic:
-    1. Opens the .pptx file via ``python-pptx.Presentation``.
-    2. Each slide becomes a separate ``PageContent`` (page index = slide order).
-    3. For each slide:
-       - Slide title → ``TextBlock(level=H2)``
-       - Text shapes → ``TextBlock(level=BODY)``
-       - Table shapes → ``TableBlock`` with typed ``CellValue``
-
-Metadata includes:
-    - parser_name: "PPTAdapter"
-    - page_count: total number of slides
+Extracts slide content via python-pptx. Legacy ``.ppt`` is transcoded upstream
+by ``TranscodingGate`` (FCR); this adapter only receives ``.pptx``.
 """
 
 from __future__ import annotations
@@ -35,14 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class PPTAdapter(BaseParser):
-    """PowerPoint (.pptx/.ppt) format adapter — native parsing prioritizing `python-pptx`.
-
-    Processing strategy:
-        1. **Modern formats (.pptx):** Direct deep extraction via ``python-pptx``
-           preserving slides, shapes, text, and tables natively.
-        2. **Legacy formats (.ppt):** Automatically transcoded to PDF via LibreOffice,
-           then processed through the standard PDF pipeline.
-    """
+    """PowerPoint (.pptx) adapter — python-pptx native parsing only."""
 
     async def to_parse_result(self, file_path: Path, **kwargs) -> ParseResult:
         """
@@ -51,6 +33,18 @@ class PPTAdapter(BaseParser):
         Each slide maps to a PageContent. Slide titles become H2 TextBlocks,
         text shapes become BODY TextBlocks, and table shapes become TableBlocks.
         """
+        from docmirror.models.errors import build_failure_result
+
+        path = Path(file_path)
+        if path.suffix.lower() != ".pptx":
+            return build_failure_result(
+                "FORMAT_REQUIRES_CONVERTER",
+                f"PPTAdapter requires .pptx input; got {path.suffix}. "
+                "Legacy .ppt is transcoded by the extraction pipeline.",
+                file_path=str(path),
+                file_type="ppt",
+            )
+
         from pptx import Presentation
 
         from docmirror.models.entities.parse_result import (

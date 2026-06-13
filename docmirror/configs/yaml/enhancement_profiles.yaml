@@ -1,0 +1,74 @@
+# Enhancement profiles — middleware pipelines keyed by content_model × enhance_mode.
+# SSOT for Orchestrator; pipeline/registry.py delegates here.
+# Validated by tools/validate_format_capabilities.py (middleware names vs MIDDLEWARE_REGISTRY).
+# See docs/design/07_adapter_dispatcher_first_principles_redesign.md
+
+version: 1
+
+profiles:
+  fixed_layout_rasterizable:
+    raw: []
+    standard:
+      - EntityExtractor
+      - EvidenceEngine
+      - InstitutionDetector
+      - Validator
+    full:
+      - EntityExtractor
+      - EvidenceEngine
+      - InstitutionDetector
+      - LanguageDetector
+      - Validator
+
+  tabular_native:
+    raw: []
+    standard:
+      - GenericEntityExtractor
+      - EvidenceEngine
+    full:
+      - GenericEntityExtractor
+      - EvidenceEngine
+      - Validator
+
+  markup_narrative:
+    raw: []
+    standard:
+      - LanguageDetector
+      - GenericEntityExtractor
+      - EvidenceEngine
+    full:
+      - LanguageDetector
+      - GenericEntityExtractor
+      - EvidenceEngine
+      - Validator
+
+  interchange_structured:
+    raw: []
+    standard:
+      - GenericEntityExtractor
+    full:
+      - GenericEntityExtractor
+      - EvidenceEngine
+
+  container:
+    raw: []
+    standard: []
+    full: []
+
+  opaque_binary:
+    raw: []
+    standard: []
+    full: []
+
+# Fallback when content_model unknown — legacy transport-only lookup
+transport_fallback:
+  pdf: fixed_layout_rasterizable
+  image: fixed_layout_rasterizable
+  ofd: fixed_layout_rasterizable
+  excel: tabular_native
+  word: markup_narrative
+  ppt: markup_narrative
+  email: markup_narrative
+  web: markup_narrative
+  structured: interchange_structured
+  archive: container

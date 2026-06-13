@@ -1,26 +1,23 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
-# Author: Adam Lin <adamlin@valuemapglobal.com>
-#
-# This source code is licensed under the Apache 2.0 license found in the
-# LICENSE file in the root directory of this source tree.
+# SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for WordAdapter .doc handling (G1: FORMAT_REQUIRES_CONVERTER when no soffice)."""
+"""Unit tests for WordAdapter .doc handling via dispatcher (TranscodingGate)."""
 
 import pytest
 from pathlib import Path
 from unittest.mock import patch
 
-from docmirror.adapters.office.word import WordAdapter
+from docmirror.framework.dispatcher import ParserDispatcher
 
 
 @pytest.mark.asyncio
-async def test_perceive_doc_without_soffice_returns_recoverable_failure():
-    """When file is .doc and soffice is not found, return failure with FORMAT_REQUIRES_CONVERTER."""
+async def test_perceive_doc_without_soffice_returns_recoverable_failure(tmp_path):
+    """When file is .doc and soffice is not found, dispatcher returns FORMAT_REQUIRES_CONVERTER."""
+    doc = tmp_path / "sample.doc"
+    doc.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1")
     with patch("shutil.which", return_value=None):
-        adapter = WordAdapter()
-        path = Path("/tmp/sample.doc")
-        result = await adapter.perceive(path)
-        assert result.status.value == "failure"
-        assert result.error is not None
-        assert result.error.code == "FORMAT_REQUIRES_CONVERTER"
-        assert "LibreOffice" in result.error.message or "soffice" in result.error.message
+        result = await ParserDispatcher().process(doc)
+    assert result.status.value == "failure"
+    assert result.error is not None
+    assert result.error.code == "FORMAT_REQUIRES_CONVERTER"
+    assert "LibreOffice" in result.error.message or "soffice" in result.error.message

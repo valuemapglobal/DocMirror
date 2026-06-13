@@ -208,7 +208,7 @@ DocMirror produces a standardized RESTful JSON envelope:
 |---|---|---|
 | PDF (digital) | `PDFAdapter` | PyMuPDF native tables |
 | PDF (scanned) | `PDFAdapter` | RapidOCR + Layout YOLO |
-| PNG / JPG / TIFF | `ImageAdapter` | RapidOCR + Layout analysis |
+| PNG / JPG / TIFF | `PDFAdapter` → CoreExtractor (fallback: `ImageAdapter` OCR) | Layout + table extraction |
 | DOCX | `WordAdapter` | python-docx |
 | XLSX | `ExcelAdapter` | openpyxl |
 | PPTX | `PPTAdapter` | python-pptx |

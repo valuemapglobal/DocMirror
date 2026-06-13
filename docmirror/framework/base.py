@@ -101,9 +101,11 @@ class BaseParser(ABC):
             or "unknown"
         ).lower()
         enhance_mode = context.get("enhance_mode", "standard")
+        content_model = context.get("content_model", "")
 
         return await orchestrator.enhance(
             pr,
             enhance_mode=enhance_mode,
             file_type=file_type,
+            content_model=content_model,
         )

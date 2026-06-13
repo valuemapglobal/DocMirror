@@ -288,14 +288,19 @@ class ArchiveAdapter(BaseParser):
         depth: int,
         parent_context: dict,
     ) -> _ChildOutcome:
-        from docmirror.framework.dispatcher import detect_file_type, get_parser
+        from docmirror.configs.format.resolver import resolve_capability
+        from docmirror.framework.extraction_runner import (
+            build_perceive_context,
+            run_extraction_chain,
+        )
         from docmirror.models.entities.parse_result import TextBlock, TextLevel
 
         outcome = _ChildOutcome()
         page_offset = 0
 
         for child in child_paths:
-            child_type = detect_file_type(child)
+            child_cap = resolve_capability(child)
+            child_type = child_cap.transport
 
             if child_type == "archive":
                 if depth + 1 >= _MAX_ARCHIVE_DEPTH:
@@ -327,26 +332,39 @@ class ArchiveAdapter(BaseParser):
                 page_offset = len(outcome.pages)
                 continue
 
-            if child_type == "unknown":
-                outcome.skipped.append(f"{child.name}: unsupported format")
+            if child_cap.status != "supported":
+                outcome.skipped.append(
+                    f"{child.name}: {child_cap.status} ({child_cap.id})"
+                )
                 continue
 
-            parser = get_parser(child_type, enhance_mode)
-            if parser is None:
-                outcome.skipped.append(f"{child.name}: no parser for {child_type}")
-                continue
+            member_name = child.name
+            try:
+                child_stat = child.stat()
+                child_size = child_stat.st_size
+            except OSError:
+                child_size = 0
 
-            child_ctx = {
-                "file_type": child_type,
-                "enhance_mode": enhance_mode,
-                "parser_name": parser.__class__.__name__,
-            }
+            child_ctx = build_perceive_context(
+                child,
+                child_cap,
+                file_size=child_size,
+                t0=time.time(),
+            )
+            child_ctx["enhance_mode"] = enhance_mode
+            child_ctx["source_member"] = member_name
             if parent_context.get("started_at") is not None:
                 child_ctx["started_at"] = parent_context["started_at"]
 
             t0 = time.time()
             try:
-                child_result = await parser.perceive(child, **child_ctx)
+                child_result = await run_extraction_chain(
+                    child_cap,
+                    child,
+                    child_ctx,
+                    enhance_mode=enhance_mode,
+                    t0=t0,
+                )
             except Exception as exc:
                 logger.warning(
                     f"[ArchiveAdapter] Child parse failed {child.name}: {exc}"
@@ -381,6 +399,7 @@ class ArchiveAdapter(BaseParser):
             child_result.pages[0].texts = [header, *child_result.pages[0].texts]
             for page in child_result.pages:
                 page.page_number += page_offset
+                page.source_member = member_name
                 outcome.pages.append(page)
             page_offset = len(outcome.pages)
 

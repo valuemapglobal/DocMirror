@@ -20,6 +20,8 @@ SCENE_KEYWORDS_YAML = YAML_DIR / "scene_keywords.yaml"
 CLASSIFICATION_RULES_YAML = YAML_DIR / "classification_rules.yaml"
 KEY_SYNONYMS_YAML = YAML_DIR / "key_synonyms.yaml"
 INSTITUTION_REGISTRY_YAML = YAML_DIR / "institution_registry.yaml"
+FORMAT_CAPABILITIES_YAML = YAML_DIR / "format_capabilities.yaml"
+ENHANCEMENT_PROFILES_YAML = YAML_DIR / "enhancement_profiles.yaml"
 
 # Legacy aliases (flat subdirs removed)
 CLASSIFICATION_DIR = YAML_DIR
