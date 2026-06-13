@@ -88,7 +88,7 @@ class PerceiveOptions:
 
     # ── Cache ──
     skip_cache: bool = False
-    """Bypass the result cache (useful for force-reparse)."""
+    """No-op (parse cache removed from the default pipeline). Kept for API compat."""
 
     # ── Callbacks ──
     on_progress: Callable[[int, int, str, str], None] | None = None

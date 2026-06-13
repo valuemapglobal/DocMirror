@@ -10,17 +10,19 @@ ParserDispatcher — L0 Routing Layer
 
 First-principles responsibility: **turn a file path into a ParseResult.**
 
-Everything else (file validation, type detection, cache, security scan) is
+Everything else (file validation, type detection, security scan) is
 a supporting sub-step.  The dispatcher is intentionally thin — it validates,
-selects the right adapter, hands off the heavy work, then writes cache.
+selects the right adapter, and hands off the heavy work.
 
-Processing is divided into 4 sequential stages:
+Processing is divided into 3 sequential stages:
 
     process(path)
       ├─ 1. _validate()       → FileContext | build_failure
-      ├─ 2. _check_cache()    → ParseResult | None  (short-circuit)
-      ├─ 3. _execute_parser() → ParseResult          (core computation)
-      └─ 4. _write_cache()    → None                 (side effect)
+      ├─ 2. _execute_parser() → ParseResult          (core computation)
+      └─  (timing + logging)
+
+Parse-result caching (``framework/cache.py``) is kept for future API use but
+is not wired into this pipeline.
 
 Usage::
 
@@ -302,7 +304,7 @@ class ParserDispatcher:
             file_path:  Path to the document file.
             fallback:   Try fallback parser on primary failure.
             document_type: Pre-known type hint.
-            skip_cache: Bypass result cache.
+            skip_cache: Deprecated, no-op (cache not used in the pipeline).
             on_progress: Deprecated — use ``perceive_document(…, PerceiveOptions(…))``.
 
         Returns:
@@ -325,15 +327,7 @@ class ParserDispatcher:
             )
 
         # ═══════════════════════════════════════════════════════════════════
-        # Stage 2: Cache lookup (short-circuit)
-        # ═══════════════════════════════════════════════════════════════════
-        if not skip_cache and ctx.checksum:
-            cached = await self._check_cache(ctx.checksum, document_type)
-            if cached is not None:
-                return cached
-
-        # ═══════════════════════════════════════════════════════════════════
-        # Stage 3: Execute parser
+        # Stage 2: Execute parser
         # ═══════════════════════════════════════════════════════════════════
         # Read enhance_mode from env (set by perceive_document → _apply_options)
         import os
@@ -348,12 +342,6 @@ class ParserDispatcher:
             )
 
         result = await self._execute_parser(parser, path, ctx, _t0, fallback)
-
-        # ═══════════════════════════════════════════════════════════════════
-        # Stage 4: Write cache (if successful)
-        # ═══════════════════════════════════════════════════════════════════
-        if ctx.checksum and result.success:
-            await self._write_cache(ctx.checksum, document_type, result)
 
         # Timing + logging
         elapsed = int((time.time() - _t0) * 1000)
@@ -405,24 +393,6 @@ class ParserDispatcher:
         )
 
     # ── Stage 2 internals ──
-
-    async def _check_cache(
-        self, checksum: str, document_type
-    ) -> ParseResult | None:
-        """Stage 2: check cache. Returns ParseResult on hit, None on miss."""
-        try:
-            from docmirror.framework.cache import parse_cache
-
-            cached_json = await parse_cache.get(checksum, document_type or "")
-            if cached_json:
-                result = ParseResult.model_validate_json(cached_json)
-                logger.info(f"[Dispatcher] ⚡ Cache HIT ({len(cached_json)} bytes)")
-                return result
-        except Exception as e:
-            logger.debug(f"[Dispatcher] Cache lookup error (non-fatal): {e}")
-        return None
-
-    # ── Stage 3 internals ──
 
     async def _execute_parser(
         self,
@@ -479,23 +449,6 @@ class ParserDispatcher:
                 is_forged=ctx.is_forged,
                 forgery_reasons=ctx.forgery_reasons,
             )
-
-    # ── Stage 4 internals ──
-
-    async def _write_cache(
-        self, checksum: str, document_type, result: ParseResult
-    ) -> None:
-        """Stage 4: write cache on success."""
-        try:
-            from docmirror.framework.cache import parse_cache
-
-            await parse_cache.set(
-                checksum,
-                document_type or "",
-                result.model_dump_json(exclude_none=True),
-            )
-        except Exception as e:
-            logger.debug(f"[Dispatcher] Cache write error (non-fatal): {e}")
 
     # ── Fallback parser (exists only for L0 resilience) ──
 

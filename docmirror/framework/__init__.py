@@ -7,7 +7,8 @@
 """
 Framework — MultiModal Backbone Layer
 
-Contains: BaseParser, ParserDispatcher, Orchestrator, ParseCache
+Contains: BaseParser, ParserDispatcher, Orchestrator
+(parse cache module exists but is not on the default pipeline)
 """
 
 from .base import BaseParser, ParserStatus  # noqa: F401

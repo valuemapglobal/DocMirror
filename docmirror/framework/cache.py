@@ -5,27 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Parsed Result Cache (Redis-backed)
-===================================
+Parsed Result Cache (Redis-backed) — optional, not used by default
+================================================================
 
-File-level Redis cache keyed by SHA256. Avoids redundant parsing of the same file.
+File-level Redis cache keyed by checksum. **Not wired into ParserDispatcher**
+as of current releases (finance/enterprise docs are typically parsed once).
 
-Features:
-    - Lazy connection with socket timeout and connection pool limits
-    - Circuit breaker: after 3 consecutive failures, skip Redis for 60s
-    - Retry on timeout for transient network issues
-
-Usage::
-
-    from docmirror.framework.cache import parse_cache
-
-    # Lookup cache
-    cached = await parse_cache.get(checksum, doc_type)
-    if cached:
-        return cached  # PerceptionResult JSON string
-
-    # Write cache
-    await parse_cache.set(checksum, doc_type, result_json)
+Kept for future multi-tenant API deployments. Enable by connecting this
+module in ``dispatcher.py`` and setting ``REDIS_URL``.
 """
 
 from __future__ import annotations
