@@ -22,11 +22,11 @@ jobs:
         run: pip install -e ".[dev,pdf,ocr,langdetect]"
       - name: Validate middleware catalog (MEP)
         run: python scripts/validate_middleware_catalog.py
-      - name: Run extract golden integration tests
+      - name: Run tier_slow extract regression (TQG + legacy golden)
         run: |
           DOCMIRROR_MAX_PAGE_CONCURRENCY=1 \
-          pytest tests/integration/test_extract_golden.py -v --tb=short \
-            -m "integration and not benchmark"
+          pytest tests/regression/test_tqg_extract.py tests/integration/test_extract_golden.py -v --tb=short \
+            -m "tier_slow and not benchmark"
 
   mep-golden:
     name: MEP Mirror golden (Track B)
@@ -41,6 +41,38 @@ jobs:
         run: pip install -e ".[dev,pdf,ocr]"
       - name: MEP golden profiles
         run: pytest tests/integration/test_mep_golden.py -v --tb=short
+
+  edition-golden:
+    name: Edition TQG regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package with PDF dependencies
+        run: pip install -e ".[dev,pdf,ocr,langdetect]"
+      - name: Validate TQG manifests
+        run: python tools/validate_test_manifest.py
+      - name: Run edition TQG regression (incl. tier_slow subset)
+        run: |
+          pytest tests/regression/test_tqg_edition.py -v --tb=short \
+            -m "tier_regression or tier_contract"
+
+  dti-validate:
+    name: DTI SSOT validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: pip install -e ".[dev]"
+      - name: Validate DTI maps
+        run: python tools/validate_dti.py
 
   mep-anomaly-smoke:
     name: AnomalyDetector smoke (full + env)

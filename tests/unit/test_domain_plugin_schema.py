@@ -47,3 +47,16 @@ def test_credit_report_schema_snapshot():
     assert dumped["document_type"] == "credit_report"
     assert dumped["entities"]["姓名"] == "张三"
     assert dumped["quality"]["confidence"] == 0.7
+
+
+def test_field_coverage_dict_coerced_to_mean():
+    raw = {
+        "document_type": "alipay_payment",
+        "entities": {"records": []},
+        "quality": {
+            "confidence": 0.8,
+            "field_coverage": {"amount": 1.0, "date": 0.5},
+        },
+    }
+    result = normalize_domain_result(raw)
+    assert result.quality.field_coverage == 0.75

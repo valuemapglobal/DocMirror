@@ -1,0 +1,38 @@
+# TQG classify case template — copy into classify.yaml when adding document type #121+
+# Reference only; not loaded by runner or validate_test_manifest (underscore prefix + subdir).
+#
+# Schema (Design 10 §4.3):
+#   id              — unique case id (snake_case)
+#   tier            — smoke | contract | regression | slow
+#   fixture         — path under tests/fixtures/ or tests/fixtures/text_samples/
+#   pipeline        — perceive (PDF/image) | classify_text (keyword text sample)
+#   options         — enhance_mode, max_pages, etc.
+#   gates           — document_type, status, page_count, table_count
+#   tags            — optional labels for coverage reports
+#   tier_tags       — [slow] when tier is slow or full-doc extract
+#   failure_class   — optional FailureClass attribution
+
+version: 1
+track: classify
+layer: mep
+
+cases:
+  - id: new_document_type_standard
+    tier: regression
+    fixture: fixtures/new_type/sample.pdf
+    pipeline: perceive
+    options:
+      enhance_mode: standard
+    gates:
+      document_type: { equals: new_document_type }
+      status: { in: [success, partial] }
+      page_count: { min: 1 }
+    tags: [new_type, smoke_candidate]
+
+  - id: new_document_type_text
+    tier: regression
+    fixture: fixtures/text_samples/new_document_type.txt
+    pipeline: classify_text
+    gates:
+      document_type: { equals: new_document_type }
+    tags: [new_type, text_sample]

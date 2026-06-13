@@ -1,0 +1,80 @@
+# TQG transport track — FCR format capability and dispatcher routing (07 adapter)
+version: 1
+track: transport
+layer: fcr
+
+cases:
+  - id: pdf_native_capability
+    tier: smoke
+    pipeline: transport_capability
+    options:
+      path_hint: invoice.pdf
+    gates:
+      capability_id: { equals: pdf_native }
+      capability_status: { equals: supported }
+      capability_transport: { equals: pdf }
+    tags: [pdf, smoke]
+
+  - id: image_png_capability
+    tier: smoke
+    pipeline: transport_capability
+    options:
+      path_hint: scan.png
+    gates:
+      capability_transport: { equals: image }
+      capability_binding_present: { equals: true }
+    tags: [image, smoke]
+
+  - id: wps_unsupported
+    tier: smoke
+    pipeline: transport_capability
+    options:
+      path_hint: doc.wps
+    gates:
+      capability_status: { equals: unsupported }
+      capability_id: { equals: wps_word }
+    tags: [unsupported, smoke]
+
+  - id: xml_supported_via_fcr
+    tier: smoke
+    pipeline: transport_capability
+    options:
+      path_hint: data.xml
+    gates:
+      capability_status: { equals: supported }
+      binding_deserializer: { equals: xml }
+    tags: [structured, smoke]
+
+  - id: excel_xlsx_capability
+    tier: smoke
+    pipeline: transport_capability
+    options:
+      path_hint: sheet.xlsx
+    gates:
+      capability_id: { equals: excel_xlsx }
+      capability_transport: { equals: excel }
+      capability_status: { equals: supported }
+    tags: [excel, smoke]
+
+  - id: dispatcher_rejects_wps
+    tier: smoke
+    pipeline: transport_dispatch
+    options:
+      path_hint: file.wps
+      bytes_hex: "0001"
+    gates:
+      dispatch_status: { equals: failure }
+      error_code: { equals: UNSUPPORTED_FORMAT }
+    tags: [dispatcher, smoke]
+
+  - id: dispatcher_doc_converter_missing
+    tier: smoke
+    pipeline: transport_dispatch
+    options:
+      path_hint: legacy.doc
+      bytes_hex: d0cf11e0
+      mock_soffice_missing: true
+    gates:
+      dispatch_status: { equals: failure }
+      error_code: { equals: FORMAT_REQUIRES_CONVERTER }
+    tags: [dispatcher, smoke]

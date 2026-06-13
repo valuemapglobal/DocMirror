@@ -114,8 +114,14 @@ class EvidenceEngine(BaseMiddleware):
         all_evidence: list[Evidence] = []
 
         # Phase 1: Collect evidence from all sources
-        all_evidence.extend(self._keyword_evidence(result.full_text))
+        classification_text = result.full_text
+        cover_text = self._cover_page_text(result)
+        if cover_text:
+            # Cover letter / title block often holds issuer keywords omitted from table cells.
+            classification_text = f"{cover_text}\n{classification_text}"
+        all_evidence.extend(self._keyword_evidence(classification_text))
         all_evidence.extend(self._header_evidence(result.all_tables()))
+        all_evidence.extend(self._extractor_scene_evidence(result))
         all_evidence.extend(self._entity_evidence(result.kv_entities))
         all_evidence.extend(self._visual_evidence(result.pages))
 
@@ -168,6 +174,42 @@ class EvidenceEngine(BaseMiddleware):
             f"{len(all_evidence)} evidence items"
         )
         return result
+
+    def _cover_page_text(self, result: ParseResult) -> str:
+        """First-page narrative text + table headers (issuer lines often live here)."""
+        if not result.pages:
+            return ""
+        page = result.pages[0]
+        parts: list[str] = []
+        for block in page.texts:
+            if block.content:
+                parts.append(block.content)
+        for table in page.tables:
+            if table.headers:
+                parts.extend(str(h) for h in table.headers if h)
+        return "\n".join(parts)
+
+    def _extractor_scene_evidence(self, result: ParseResult) -> list[Evidence]:
+        """Use PreAnalyzer / EPO scene hint when extraction already resolved the archetype."""
+        ds = getattr(result.entities, "domain_specific", None) or {}
+        if not isinstance(ds, dict):
+            return []
+        scene = ds.get("extractor_scene_hint") or ds.get("pre_analyzer_scene_hint")
+        if not scene or scene in ("unknown", "generic"):
+            return []
+        confidence = float(ds.get("extractor_scene_confidence") or 0.85)
+        if confidence < 0.70:
+            return []
+        weight = min(0.55, 0.30 + confidence * 0.25)
+        return [
+            Evidence(
+                source="extractor_scene",
+                category=str(scene),
+                weight=weight,
+                direction=1,
+                detail=f"extractor scene_hint={scene} conf={confidence:.2f}",
+            )
+        ]
 
     # ─── Keyword Evidence (with exclusion veto) ───
 
@@ -254,6 +296,13 @@ class EvidenceEngine(BaseMiddleware):
             "alipay_payment": [
                 {"\u4ea4\u6613\u8bb0\u5f55", "\u4ea4\u6613\u53f7", "\u65f6\u95f4", "\u91d1\u989d", "\u5bf9\u65b9"},
                 {"\u4ea4\u6613\u53f7", "\u5546\u54c1\u8bf4\u660e", "\u65f6\u95f4", "\u91d1\u989d", "\u72b6\u6001"},
+                {
+                    "\u5546\u54c1\u8bf4\u660e",
+                    "\u6536/\u4ed8\u6b3e\u65b9\u5f0f",
+                    "\u4ea4\u6613\u8ba2\u5355\u53f7",
+                    "\u5546\u5bb6\u8ba2\u5355\u53f7",
+                    "\u4ea4\u6613\u65f6\u95f4",
+                },
             ],
             "insurance_policy": [
                 {"\u4fdd\u9669\u5355\u53f7", "\u88ab\u4fdd\u9669\u4eba", "\u4fdd\u9669\u4eba", "\u4fdd\u9669\u671f\u95f4", "\u4fdd\u8d39"},
@@ -281,25 +330,49 @@ class EvidenceEngine(BaseMiddleware):
                 if not table.headers:
                     continue
                 header_set = {str(h).strip() for h in table.headers if h}
+                best_conf = 0.0
+                best_matched = 0
+                best_required_len = 0
                 for required in feature_groups:
                     matched = 0
                     for req_kw in required:
                         for h in header_set:
-                            if req_kw in h or h in req_kw:
-                                matched += 1
-                                break
+                            if not self._header_keyword_match(req_kw, h):
+                                continue
+                            matched += 1
+                            break
                     if matched >= len(required) * 0.6:
                         conf = min(0.35, 0.15 + 0.04 * matched)
-                        evidence.append(Evidence(
-                            source="header",
-                            category=scene,
-                            weight=conf,
-                            direction=1,
-                            detail=f"matched {matched}/{len(required)} header columns",
-                        ))
-                        break  # one match per category is enough
+                        if conf > best_conf:
+                            best_conf = conf
+                            best_matched = matched
+                            best_required_len = len(required)
+                if best_conf > 0:
+                    evidence.append(Evidence(
+                        source="header",
+                        category=scene,
+                        weight=best_conf,
+                        direction=1,
+                        detail=f"matched {best_matched}/{best_required_len} header columns",
+                    ))
+                    break
 
         return evidence
+
+    @staticmethod
+    def _header_keyword_match(req_kw: str, header: str) -> bool:
+        """Match header column names; avoid wechat 交易单号 ⊂ alipay 交易订单号 false positives."""
+        if req_kw == header or header == req_kw:
+            return True
+        if req_kw in header:
+            if req_kw == "交易单号" and "交易订单号" in header:
+                return False
+            if req_kw == "商户单号" and "商家订单号" in header:
+                return False
+            return True
+        if header in req_kw:
+            return True
+        return False
 
     # ─── Entity Evidence ───
 
@@ -467,9 +540,64 @@ class EvidenceEngine(BaseMiddleware):
         })
 
         if gap < 0.15 and len(sorted_scores) >= 2:
-            # Ambiguous — but still return best scene, confidence will be low
-            logger.info(f"[EvidenceEngine] Ambiguous: {best_scene} vs {sorted_scores[1][0]} (gap={gap:.3f})")
+            second_scene = sorted_scores[1][0]
+            logger.info(
+                f"[EvidenceEngine] Ambiguous: {best_scene} vs {second_scene} (gap={gap:.3f})"
+            )
+            best_scene, best_score, second_score = self._disambiguate_payment_ledgers(
+                sorted_scores,
+                positive,
+                vetoed,
+                best_scene,
+                best_score,
+                second_score,
+            )
+            rel_confidence = best_score / (best_score + second_score + epsilon)
+            best_count = sum(1 for ev in positive if ev.category == best_scene)
+            abs_confidence = best_count / max(len(positive), 1)
+            confidence = 0.7 * rel_confidence + 0.3 * abs_confidence
 
         return best_scene, confidence, fused_evidence
+
+    _PAYMENT_LEDGER_SCENES = frozenset({"wechat_payment", "alipay_payment"})
+
+    def _disambiguate_payment_ledgers(
+        self,
+        sorted_scores: list[tuple[str, float]],
+        positive: list[Evidence],
+        vetoed: set[str],
+        best_scene: str,
+        best_score: float,
+        second_score: float,
+    ) -> tuple[str, float, float]:
+        """Break wechat/alipay ties using distinctive header hits and cover keywords."""
+        if len(sorted_scores) < 2:
+            return best_scene, best_score, second_score
+        top, second = sorted_scores[0][0], sorted_scores[1][0]
+        if {top, second} != self._PAYMENT_LEDGER_SCENES:
+            return best_scene, best_score, second_score
+
+        score_map = dict(sorted_scores)
+        alipay_score = score_map.get("alipay_payment", 0.0)
+        wechat_score = score_map.get("wechat_payment", 0.0)
+
+        header_weight = {"alipay_payment": 0.0, "wechat_payment": 0.0}
+        for ev in positive:
+            if ev.source == "header" and ev.category in header_weight:
+                header_weight[ev.category] += ev.weight
+
+        alipay_headers = header_weight["alipay_payment"]
+        wechat_headers = header_weight["wechat_payment"]
+        if alipay_headers > wechat_headers + 0.05:
+            return "alipay_payment", alipay_score, wechat_score
+        if wechat_headers > alipay_headers + 0.05:
+            return "wechat_payment", wechat_score, alipay_score
+
+        if "wechat_payment" in vetoed and "alipay_payment" not in vetoed:
+            return "alipay_payment", alipay_score, wechat_score
+        if "alipay_payment" in vetoed and "wechat_payment" not in vetoed:
+            return "wechat_payment", wechat_score, alipay_score
+
+        return best_scene, best_score, second_score
 
 

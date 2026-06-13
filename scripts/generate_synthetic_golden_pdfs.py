@@ -37,7 +37,7 @@ def ensure_bank_synthetic() -> Path:
 
 
 def ensure_credit_synthetic() -> Path:
-    """Single-page credit report section-dominant smoke PDF."""
+    """Single-page credit report section-dominant smoke PDF (china-s for CJK fast path)."""
     try:
         import fitz
     except ImportError as exc:
@@ -45,11 +45,9 @@ def ensure_credit_synthetic() -> Path:
 
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / "credit_report_section_smoke.pdf"
-    if path.exists():
-        return path
 
     doc = fitz.open()
-    page = doc.new_page()
+    page = doc.new_page(width=595, height=842)
     for y, text in [
         (60, "个人信用报告"),
         (90, "一 个人基本信息"),
@@ -57,8 +55,9 @@ def ensure_credit_synthetic() -> Path:
         (140, "二 信息概要"),
         (165, "（一）信贷交易信息概要"),
         (190, "三 信贷交易信息明细"),
+        (215, "（一）非循环贷账户"),
     ]:
-        page.insert_text((72, y), text, fontsize=11)
+        page.insert_text((72, y), text, fontname="china-s", fontsize=11)
     doc.save(str(path))
     doc.close()
     return path

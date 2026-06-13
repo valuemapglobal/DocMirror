@@ -1,0 +1,39 @@
+# TQG mirror track — migrated from configs/yaml/golden/mep_profiles.yaml
+version: 1
+track: mirror
+layer: mep
+
+cases:
+  - id: business_license_standard
+    tier: regression
+    fixture: fixtures/business_license/林晓彤_营业执照_20220826.jpg
+    pipeline: perceive
+    options:
+      enhance_mode: standard
+    gates:
+      document_type: { equals: business_license }
+      status: { in: [success, partial] }
+    tags: [identity, license]
+
+  - id: id_card_standard
+    tier: regression
+    fixture: fixtures/id_card/ZhangSan_身份证_1976112.pdf
+    pipeline: perceive
+    options:
+      enhance_mode: standard
+    gates:
+      document_type: { equals: id_card }
+      page_count: { min: 1 }
+    tags: [identity, smoke_candidate]
+
+  - id: bank_statement_standard
+    tier: regression
+    fixture: fixtures/bank_statement/银行流水_中国建设银行_20231226.pdf
+    pipeline: perceive
+    options:
+      enhance_mode: standard
+    gates:
+      document_type: { equals: bank_statement }
+      status: { in: [success, partial] }
+      table_count: { min: 0 }
+    tags: [cashflow, bank]

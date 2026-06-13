@@ -1,0 +1,1239 @@
+version: 1
+track: classify
+layer: mep
+cases:
+- id: id_card_standard
+  tier: regression
+  fixture: fixtures/id_card/ZhangSan_身份证_1976112.pdf
+  pipeline: perceive
+  options:
+    enhance_mode: standard
+  gates:
+    document_type:
+      equals: id_card
+    status:
+      in:
+      - success
+      - partial
+    page_count:
+      min: 1
+  tags:
+  - identity
+  - smoke_candidate
+- id: business_license_standard
+  tier: regression
+  fixture: fixtures/business_license/林晓彤_营业执照_20220826.jpg
+  pipeline: perceive
+  options:
+    enhance_mode: standard
+  gates:
+    document_type:
+      equals: business_license
+    status:
+      in:
+      - success
+      - partial
+  tags:
+  - identity
+  - license
+- id: wechat_payment_classify
+  tier: regression
+  fixture: fixtures/wechat_payment/DemoUser+微信流水.pdf
+  pipeline: perceive
+  options:
+    enhance_mode: standard
+    max_pages: 10
+  gates:
+    document_type:
+      equals: wechat_payment
+  tags:
+  - cashflow
+  - wechat
+- id: alipay_payment_classify
+  tier: regression
+  fixture: fixtures/alipay_payment/DemoUser+支付宝流水.pdf
+  pipeline: perceive
+  options:
+    enhance_mode: standard
+    max_pages: 10
+  gates:
+    document_type:
+      equals: alipay_payment
+    status:
+      in:
+      - success
+      - partial
+  tags:
+  - cashflow
+  - alipay
+- id: bank_statement_classify
+  tier: regression
+  fixture: fixtures/bank_statement/银行流水_中国建设银行_20231226.pdf
+  pipeline: perceive
+  options:
+    enhance_mode: standard
+  gates:
+    document_type:
+      equals: bank_statement
+    status:
+      in:
+      - success
+      - partial
+  tags:
+  - cashflow
+  - bank
+- id: vat_invoice_classify
+  tier: regression
+  fixture: fixtures/vat_invoice/董业伟_增值税发票_上海闵行支行_20191005.jpg
+  pipeline: perceive
+  options:
+    enhance_mode: standard
+  gates:
+    document_type:
+      equals: vat_invoice
+    status:
+      in:
+      - success
+      - partial
+  tags:
+  - invoice
+- id: credit_report_text
+  tier: regression
+  fixture: fixtures/text_samples/credit_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: credit_report
+  tags:
+  - text_sample
+  - credit
+- id: credit_report_enterprise_text
+  tier: regression
+  fixture: fixtures/text_samples/credit_report_enterprise.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: credit_report_enterprise
+  tags:
+  - text_sample
+  - credit
+- id: drivers_license_text
+  tier: regression
+  fixture: fixtures/text_samples/drivers_license.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: drivers_license
+  tags:
+  - text_sample
+  - identity
+- id: passport_text
+  tier: regression
+  fixture: fixtures/text_samples/passport.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: passport
+  tags:
+  - text_sample
+  - identity
+- id: household_registration_text
+  tier: regression
+  fixture: fixtures/text_samples/household_registration.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: household_registration
+  tags:
+  - text_sample
+  - identity
+- id: insurance_policy_text
+  tier: regression
+  fixture: fixtures/text_samples/insurance_policy.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: insurance_policy
+  tags:
+  - text_sample
+  - insurance
+- id: tax_certificate_text
+  tier: regression
+  fixture: fixtures/text_samples/tax_certificate.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: tax_certificate
+  tags:
+  - text_sample
+  - tax
+- id: social_security_card_text
+  tier: regression
+  fixture: fixtures/text_samples/social_security_card.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: social_security_card
+  tags:
+  - text_sample
+  - social
+- id: social_security_proof_text
+  tier: regression
+  fixture: fixtures/text_samples/social_security_proof.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: social_security_proof
+  tags:
+  - text_sample
+  - social
+- id: real_estate_certificate_text
+  tier: regression
+  fixture: fixtures/text_samples/real_estate_certificate.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: real_estate_certificate
+  tags:
+  - text_sample
+  - property
+- id: loan_contract_text
+  tier: regression
+  fixture: fixtures/text_samples/loan_contract.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: loan_contract
+  tags:
+  - text_sample
+  - contract
+- id: mortgage_contract_text
+  tier: regression
+  fixture: fixtures/text_samples/mortgage_contract.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: mortgage_contract
+  tags:
+  - text_sample
+  - contract
+- id: payroll_slip_text
+  tier: regression
+  fixture: fixtures/text_samples/payroll_slip.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: payroll_slip
+  tags:
+  - text_sample
+  - payroll
+- id: fiscal_invoice_text
+  tier: regression
+  fixture: fixtures/text_samples/fiscal_invoice.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: fiscal_invoice
+  tags:
+  - text_sample
+  - invoice
+- id: audit_report_text
+  tier: regression
+  fixture: fixtures/text_samples/audit_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: audit_report
+  tags:
+  - text_sample
+  - p1_batch
+- id: balance_sheet_text
+  tier: regression
+  fixture: fixtures/text_samples/balance_sheet.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: balance_sheet
+  tags:
+  - text_sample
+  - p1_batch
+- id: cash_flow_statement_text
+  tier: regression
+  fixture: fixtures/text_samples/cash_flow_statement.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: cash_flow_statement
+  tags:
+  - text_sample
+  - p1_batch
+- id: income_statement_text
+  tier: regression
+  fixture: fixtures/text_samples/income_statement.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: income_statement
+  tags:
+  - text_sample
+  - p1_batch
+- id: commercial_invoice_text
+  tier: regression
+  fixture: fixtures/text_samples/commercial_invoice.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: commercial_invoice
+  tags:
+  - text_sample
+  - p1_batch
+- id: customs_declaration_text
+  tier: regression
+  fixture: fixtures/text_samples/customs_declaration.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: customs_declaration
+  tags:
+  - text_sample
+  - p1_batch
+- id: court_judgment_text
+  tier: regression
+  fixture: fixtures/text_samples/court_judgment.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: court_judgment
+  tags:
+  - text_sample
+  - p1_batch
+- id: board_resolution_text
+  tier: regression
+  fixture: fixtures/text_samples/board_resolution.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: board_resolution
+  tags:
+  - text_sample
+  - p1_batch
+- id: guarantee_contract_text
+  tier: regression
+  fixture: fixtures/text_samples/guarantee_contract.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: guarantee_contract
+  tags:
+  - text_sample
+  - p1_batch
+- id: finance_lease_contract_text
+  tier: regression
+  fixture: fixtures/text_samples/finance_lease_contract.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: finance_lease_contract
+  tags:
+  - text_sample
+  - p1_batch
+- id: fund_contract_text
+  tier: regression
+  fixture: fixtures/text_samples/fund_contract.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: fund_contract
+  tags:
+  - text_sample
+  - p1_batch
+- id: letter_of_credit_text
+  tier: regression
+  fixture: fixtures/text_samples/letter_of_credit.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: letter_of_credit
+  tags:
+  - text_sample
+  - p1_batch
+- id: listing_announcement_text
+  tier: regression
+  fixture: fixtures/text_samples/listing_announcement.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: listing_announcement
+  tags:
+  - text_sample
+  - p1_batch
+- id: esg_report_text
+  tier: regression
+  fixture: fixtures/text_samples/esg_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: esg_report
+  tags:
+  - text_sample
+  - p1_batch
+- id: equipment_appraisal_text
+  tier: regression
+  fixture: fixtures/text_samples/equipment_appraisal.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: equipment_appraisal
+  tags:
+  - text_sample
+  - p1_batch
+- id: financial_license_text
+  tier: regression
+  fixture: fixtures/text_samples/financial_license.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: financial_license
+  tags:
+  - text_sample
+  - p1_batch
+- id: institution_credit_code_cert_text
+  tier: regression
+  fixture: fixtures/text_samples/institution_credit_code_cert.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: institution_credit_code_cert
+  tags:
+  - text_sample
+  - p1_batch
+- id: insurance_claim_text
+  tier: regression
+  fixture: fixtures/text_samples/insurance_claim.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: insurance_claim
+  tags:
+  - text_sample
+  - p1_batch
+- id: corporate_charter_text
+  tier: regression
+  fixture: fixtures/text_samples/corporate_charter.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: corporate_charter
+  tags:
+  - text_sample
+  - p1_batch
+- id: aml_report_text
+  tier: regression
+  fixture: fixtures/text_samples/aml_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: aml_report
+  tags:
+  - text_sample
+  - p1_batch
+- id: abs_prospectus_text
+  tier: regression
+  fixture: fixtures/text_samples/abs_prospectus.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: abs_prospectus
+  tags:
+  - text_sample
+  - auto_batch
+- id: accident_proof_text
+  tier: regression
+  fixture: fixtures/text_samples/accident_proof.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: accident_proof
+  tags:
+  - text_sample
+  - auto_batch
+- id: account_opening_permit_text
+  tier: regression
+  fixture: fixtures/text_samples/account_opening_permit.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: account_opening_permit
+  tags:
+  - text_sample
+  - auto_batch
+- id: adverse_audit_report_text
+  tier: regression
+  fixture: fixtures/text_samples/adverse_audit_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: adverse_audit_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: ai_compliance_report_text
+  tier: regression
+  fixture: fixtures/text_samples/ai_compliance_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: ai_compliance_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: alternative_credit_report_text
+  tier: regression
+  fixture: fixtures/text_samples/alternative_credit_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: alternative_credit_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: apostille_certificate_text
+  tier: regression
+  fixture: fixtures/text_samples/apostille_certificate.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: apostille_certificate
+  tags:
+  - text_sample
+  - auto_batch
+- id: arbitration_award_text
+  tier: regression
+  fixture: fixtures/text_samples/arbitration_award.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: arbitration_award
+  tags:
+  - text_sample
+  - auto_batch
+- id: asset_management_contract_text
+  tier: regression
+  fixture: fixtures/text_samples/asset_management_contract.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: asset_management_contract
+  tags:
+  - text_sample
+  - auto_batch
+- id: bank_confirmation_letter_text
+  tier: regression
+  fixture: fixtures/text_samples/bank_confirmation_letter.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: bank_confirmation_letter
+  tags:
+  - text_sample
+  - auto_batch
+- id: bank_reconciliation_text
+  tier: regression
+  fixture: fixtures/text_samples/bank_reconciliation.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: bank_reconciliation
+  tags:
+  - text_sample
+  - auto_batch
+- id: bankruptcy_liquidation_text
+  tier: regression
+  fixture: fixtures/text_samples/bankruptcy_liquidation.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: bankruptcy_liquidation
+  tags:
+  - text_sample
+  - auto_batch
+- id: beneficiary_proof_text
+  tier: regression
+  fixture: fixtures/text_samples/beneficiary_proof.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: beneficiary_proof
+  tags:
+  - text_sample
+  - auto_batch
+- id: bill_of_lading_text
+  tier: regression
+  fixture: fixtures/text_samples/bill_of_lading.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: bill_of_lading
+  tags:
+  - text_sample
+  - auto_batch
+- id: bond_audit_report_text
+  tier: regression
+  fixture: fixtures/text_samples/bond_audit_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: bond_audit_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: capital_verification_report_text
+  tier: regression
+  fixture: fixtures/text_samples/capital_verification_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: capital_verification_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: carbon_allowance_confirmation_text
+  tier: regression
+  fixture: fixtures/text_samples/carbon_allowance_confirmation.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: carbon_allowance_confirmation
+  tags:
+  - text_sample
+  - auto_batch
+- id: carbon_emission_audit_text
+  tier: regression
+  fixture: fixtures/text_samples/carbon_emission_audit.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: carbon_emission_audit
+  tags:
+  - text_sample
+  - auto_batch
+- id: clearing_reconciliation_file_text
+  tier: regression
+  fixture: fixtures/text_samples/clearing_reconciliation_file.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: clearing_reconciliation_file
+  tags:
+  - text_sample
+  - auto_batch
+- id: compliance_report_text
+  tier: regression
+  fixture: fixtures/text_samples/compliance_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: compliance_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: credit_assignment_text
+  tier: regression
+  fixture: fixtures/text_samples/credit_assignment.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: credit_assignment
+  tags:
+  - text_sample
+  - auto_batch
+- id: credit_audit_report_text
+  tier: regression
+  fixture: fixtures/text_samples/credit_audit_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: credit_audit_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: data_asset_certificate_text
+  tier: regression
+  fixture: fixtures/text_samples/data_asset_certificate.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: data_asset_certificate
+  tags:
+  - text_sample
+  - auto_batch
+- id: debt_restructuring_text
+  tier: regression
+  fixture: fixtures/text_samples/debt_restructuring.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: debt_restructuring
+  tags:
+  - text_sample
+  - auto_batch
+- id: derivative_trade_confirmation_text
+  tier: regression
+  fixture: fixtures/text_samples/derivative_trade_confirmation.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: derivative_trade_confirmation
+  tags:
+  - text_sample
+  - auto_batch
+- id: disclaimer_audit_report_text
+  tier: regression
+  fixture: fixtures/text_samples/disclaimer_audit_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: disclaimer_audit_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: electronic_medical_record_text
+  tier: regression
+  fixture: fixtures/text_samples/electronic_medical_record.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: electronic_medical_record
+  tags:
+  - text_sample
+  - auto_batch
+- id: equator_principles_assessment_text
+  tier: regression
+  fixture: fixtures/text_samples/equator_principles_assessment.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: equator_principles_assessment
+  tags:
+  - text_sample
+  - auto_batch
+- id: equity_penetration_text
+  tier: regression
+  fixture: fixtures/text_samples/equity_penetration.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: equity_penetration
+  tags:
+  - text_sample
+  - auto_batch
+- id: equity_statement_text
+  tier: regression
+  fixture: fixtures/text_samples/equity_statement.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: equity_statement
+  tags:
+  - text_sample
+  - auto_batch
+- id: foreign_residence_permit_text
+  tier: regression
+  fixture: fixtures/text_samples/foreign_residence_permit.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: foreign_residence_permit
+  tags:
+  - text_sample
+  - auto_batch
+- id: fund_nav_report_text
+  tier: regression
+  fixture: fixtures/text_samples/fund_nav_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: fund_nav_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: fund_prospectus_text
+  tier: regression
+  fixture: fixtures/text_samples/fund_prospectus.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: fund_prospectus
+  tags:
+  - text_sample
+  - auto_batch
+- id: fund_report_text
+  tier: regression
+  fixture: fixtures/text_samples/fund_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: fund_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: green_bond_certification_text
+  tier: regression
+  fixture: fixtures/text_samples/green_bond_certification.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: green_bond_certification
+  tags:
+  - text_sample
+  - auto_batch
+- id: hong_kong_macao_permit_text
+  tier: regression
+  fixture: fixtures/text_samples/hong_kong_macao_permit.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: hong_kong_macao_permit
+  tags:
+  - text_sample
+  - auto_batch
+- id: industry_research_report_text
+  tier: regression
+  fixture: fixtures/text_samples/industry_research_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: industry_research_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: insurance_claim_form_text
+  tier: regression
+  fixture: fixtures/text_samples/insurance_claim_form.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: insurance_claim_form
+  tags:
+  - text_sample
+  - auto_batch
+- id: intangible_asset_appraisal_text
+  tier: regression
+  fixture: fixtures/text_samples/intangible_asset_appraisal.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: intangible_asset_appraisal
+  tags:
+  - text_sample
+  - auto_batch
+- id: interbank_cd_offering_text
+  tier: regression
+  fixture: fixtures/text_samples/interbank_cd_offering.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: interbank_cd_offering
+  tags:
+  - text_sample
+  - auto_batch
+- id: interbank_lending_agreement_text
+  tier: regression
+  fixture: fixtures/text_samples/interbank_lending_agreement.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: interbank_lending_agreement
+  tags:
+  - text_sample
+  - auto_batch
+- id: intercompany_confirmation_text
+  tier: regression
+  fixture: fixtures/text_samples/intercompany_confirmation.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: intercompany_confirmation
+  tags:
+  - text_sample
+  - auto_batch
+- id: investment_analysis_report_text
+  tier: regression
+  fixture: fixtures/text_samples/investment_analysis_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: investment_analysis_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: investment_audit_report_text
+  tier: regression
+  fixture: fixtures/text_samples/investment_audit_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: investment_audit_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: investment_strategy_report_text
+  tier: regression
+  fixture: fixtures/text_samples/investment_strategy_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: investment_strategy_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: isda_master_agreement_text
+  tier: regression
+  fixture: fixtures/text_samples/isda_master_agreement.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: isda_master_agreement
+  tags:
+  - text_sample
+  - auto_batch
+- id: land_appraisal_text
+  tier: regression
+  fixture: fixtures/text_samples/land_appraisal.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: land_appraisal
+  tags:
+  - text_sample
+  - auto_batch
+- id: legacy_scan_doc_text
+  tier: regression
+  fixture: fixtures/text_samples/legacy_scan_doc.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: legacy_scan_doc
+  tags:
+  - text_sample
+  - auto_batch
+- id: market_trend_report_text
+  tier: regression
+  fixture: fixtures/text_samples/market_trend_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: market_trend_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: medical_diagnosis_report_text
+  tier: regression
+  fixture: fixtures/text_samples/medical_diagnosis_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: medical_diagnosis_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: medication_detail_text
+  tier: regression
+  fixture: fixtures/text_samples/medication_detail.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: medication_detail
+  tags:
+  - text_sample
+  - auto_batch
+- id: military_id_text
+  tier: regression
+  fixture: fixtures/text_samples/military_id.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: military_id
+  tags:
+  - text_sample
+  - auto_batch
+- id: organization_code_cert_text
+  tier: regression
+  fixture: fixtures/text_samples/organization_code_cert.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: organization_code_cert
+  tags:
+  - text_sample
+  - auto_batch
+- id: origin_declaration_text
+  tier: regression
+  fixture: fixtures/text_samples/origin_declaration.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: origin_declaration
+  tags:
+  - text_sample
+  - auto_batch
+- id: payment_voucher_text
+  tier: regression
+  fixture: fixtures/text_samples/payment_voucher.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: payment_voucher
+  tags:
+  - text_sample
+  - auto_batch
+- id: performance_evaluation_report_text
+  tier: regression
+  fixture: fixtures/text_samples/performance_evaluation_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: performance_evaluation_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: police_id_text
+  tier: regression
+  fixture: fixtures/text_samples/police_id.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: police_id
+  tags:
+  - text_sample
+  - auto_batch
+- id: portfolio_analysis_report_text
+  tier: regression
+  fixture: fixtures/text_samples/portfolio_analysis_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: portfolio_analysis_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: property_loss_assessment_text
+  tier: regression
+  fixture: fixtures/text_samples/property_loss_assessment.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: property_loss_assessment
+  tags:
+  - text_sample
+  - auto_batch
+- id: property_preservation_text
+  tier: regression
+  fixture: fixtures/text_samples/property_preservation.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: property_preservation
+  tags:
+  - text_sample
+  - auto_batch
+- id: qualified_audit_report_text
+  tier: regression
+  fixture: fixtures/text_samples/qualified_audit_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: qualified_audit_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: real_estate_appraisal_text
+  tier: regression
+  fixture: fixtures/text_samples/real_estate_appraisal.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: real_estate_appraisal
+  tags:
+  - text_sample
+  - auto_batch
+- id: regulatory_audit_report_text
+  tier: regression
+  fixture: fixtures/text_samples/regulatory_audit_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: regulatory_audit_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: regulatory_filing_text
+  tier: regression
+  fixture: fixtures/text_samples/regulatory_filing.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: regulatory_filing
+  tags:
+  - text_sample
+  - auto_batch
+- id: regulatory_inquiry_text
+  tier: regression
+  fixture: fixtures/text_samples/regulatory_inquiry.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: regulatory_inquiry
+  tags:
+  - text_sample
+  - auto_batch
+- id: regulatory_inspection_letter_text
+  tier: regression
+  fixture: fixtures/text_samples/regulatory_inspection_letter.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: regulatory_inspection_letter
+  tags:
+  - text_sample
+  - auto_batch
+- id: risk_assessment_report_text
+  tier: regression
+  fixture: fixtures/text_samples/risk_assessment_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: risk_assessment_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: securities_prospectus_text
+  tier: regression
+  fixture: fixtures/text_samples/securities_prospectus.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: securities_prospectus
+  tags:
+  - text_sample
+  - auto_batch
+- id: structured_product_text
+  tier: regression
+  fixture: fixtures/text_samples/structured_product.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: structured_product
+  tags:
+  - text_sample
+  - auto_batch
+- id: swift_message_text
+  tier: regression
+  fixture: fixtures/text_samples/swift_message.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: swift_message
+  tags:
+  - text_sample
+  - auto_batch
+- id: taiwan_permit_text
+  tier: regression
+  fixture: fixtures/text_samples/taiwan_permit.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: taiwan_permit
+  tags:
+  - text_sample
+  - auto_batch
+- id: tax_payment_certificate_text
+  tier: regression
+  fixture: fixtures/text_samples/tax_payment_certificate.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: tax_payment_certificate
+  tags:
+  - text_sample
+  - auto_batch
+- id: tax_return_text
+  tier: regression
+  fixture: fixtures/text_samples/tax_return.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: tax_return
+  tags:
+  - text_sample
+  - auto_batch
+- id: third_party_credit_score_text
+  tier: regression
+  fixture: fixtures/text_samples/third_party_credit_score.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: third_party_credit_score
+  tags:
+  - text_sample
+  - auto_batch
+- id: traffic_accident_verdict_text
+  tier: regression
+  fixture: fixtures/text_samples/traffic_accident_verdict.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: traffic_accident_verdict
+  tags:
+  - text_sample
+  - auto_batch
+- id: unqualified_audit_report_text
+  tier: regression
+  fixture: fixtures/text_samples/unqualified_audit_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: unqualified_audit_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: valuation_report_text
+  tier: regression
+  fixture: fixtures/text_samples/valuation_report.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: valuation_report
+  tags:
+  - text_sample
+  - auto_batch
+- id: vam_agreement_text
+  tier: regression
+  fixture: fixtures/text_samples/vam_agreement.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: vam_agreement
+  tags:
+  - text_sample
+  - auto_batch
+- id: warehouse_receipt_text
+  tier: regression
+  fixture: fixtures/text_samples/warehouse_receipt.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: warehouse_receipt
+  tags:
+  - text_sample
+  - auto_batch
+- id: wealth_management_contract_text
+  tier: regression
+  fixture: fixtures/text_samples/wealth_management_contract.txt
+  pipeline: classify_text
+  gates:
+    document_type:
+      equals: wealth_management_contract
+  tags:
+  - text_sample
+  - auto_batch

@@ -1,0 +1,48 @@
+# TQG e2e track — four-file output, CLI perceive, API envelope (04 CLI redesign)
+version: 1
+track: e2e
+layer: cli
+
+cases:
+  - id: four_file_synthetic_mirror
+    tier: contract
+    pipeline: e2e_four_file
+    options:
+      mode: synthetic
+      document_type: business_license
+    gates:
+      mirror_file_written: { equals: true }
+      community_file_written: { equals: true }
+      mirror_has_no_editions_key: { equals: true }
+    tags: [four_file, contract]
+
+  - id: mirror_envelope_no_edition_on_mirror
+    tier: contract
+    pipeline: e2e_contract
+    options:
+      contract: perceive_result_envelope
+    gates:
+      contract_passed: { equals: true }
+    tags: [pec, contract]
+
+  - id: enterprise_absent_without_package
+    tier: contract
+    pipeline: e2e_contract
+    options:
+      contract: enterprise_not_generated
+    optional_edition: true
+    gates:
+      contract_passed: { equals: true }
+    tags: [pec, contract, optional_edition]
+
+  - id: four_file_after_perceive
+    tier: regression
+    fixture: fixtures/business_license/林晓彤_营业执照_20220826.jpg
+    pipeline: e2e_four_file
+    options:
+      mode: perceive
+      enhance_mode: standard
+    gates:
+      mirror_file_written: { equals: true }
+      community_file_written: { equals: true }
+    tags: [four_file, perceive, smoke_candidate]

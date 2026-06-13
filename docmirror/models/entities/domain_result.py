@@ -93,6 +93,19 @@ def _normalize_edition_v2(raw: dict[str, Any]) -> DomainExtractionResult:
     )
 
 
+def _coerce_field_coverage(value: Any) -> float:
+    """Map per-field coverage dicts to a single scalar for DomainQuality."""
+    if isinstance(value, dict):
+        nums = [float(v) for v in value.values() if isinstance(v, (int, float))]
+        return sum(nums) / len(nums) if nums else 0.0
+    if value is None:
+        return 0.0
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def normalize_domain_result(raw: Any) -> DomainExtractionResult:
     """Normalize legacy plugin returns into DomainExtractionResult.
 
@@ -123,7 +136,7 @@ def normalize_domain_result(raw: Any) -> DomainExtractionResult:
             quality = DomainQuality(
                 confidence=float(quality_raw.get("confidence", 0)),
                 trust_score=float(quality_raw.get("trust_score", 0)),
-                field_coverage=float(quality_raw.get("field_coverage", 0)),
+                field_coverage=_coerce_field_coverage(quality_raw.get("field_coverage", 0)),
                 validation_passed=bool(quality_raw.get("validation_passed", False)),
                 issues=list(quality_raw.get("issues") or []),
             )
@@ -149,7 +162,7 @@ def normalize_domain_result(raw: Any) -> DomainExtractionResult:
         quality = DomainQuality(
             confidence=float(quality_raw.get("confidence", 0)),
             trust_score=float(quality_raw.get("trust_score", 0)),
-            field_coverage=float(quality_raw.get("field_coverage", 0)),
+            field_coverage=_coerce_field_coverage(quality_raw.get("field_coverage", 0)),
             validation_passed=bool(quality_raw.get("validation_passed", False)),
             issues=list(quality_raw.get("issues") or []),
         )

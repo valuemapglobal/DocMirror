@@ -105,6 +105,17 @@ markers = [
     "integration: integration tests requiring fixtures",
     "slow: slow tests (full-document extract)",
     "benchmark: timing benchmark tests (opt-in via DOCMIRROR_RUN_BENCHMARK=1)",
+    "tier_smoke: Tier SMOKE — PR must run, target < 60s",
+    "tier_contract: Tier CONTRACT — PR must run, mock-heavy boundary tests",
+    "tier_regression: Tier REGRESSION — golden manifest gates",
+    "tier_slow: Tier REGRESSION full document — nightly only",
+    "tier_benchmark: opt-in benchmark tier",
+    "track_extract: table/core extract gates",
+    "track_classify: DTI / document_type gates",
+    "track_mirror: MEP mirror quality gates",
+    "track_edition: PEC / DEC edition gates",
+    "track_e2e: CLI/API/full perceive gates",
+    "track_transport: FCR format capability and routing gates",
 ]
 
 [tool.mypy]

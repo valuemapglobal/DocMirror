@@ -1,0 +1,197 @@
+# TQG extract track — GATE_PROFILES + integration golden cases
+version: 1
+track: extract
+layer: epo
+
+profiles:
+  generic:
+    profile_id: generic
+    min_char_preservation: 0.90
+    min_reading_order: 0.70
+    min_transaction_rows: 0
+    min_table_count: 0
+    max_empty_row_ratio: 0.50
+    expected_merged_table: false
+    min_merge_confidence: 0.65
+    min_row_preservation_ratio: 0.0
+    min_logical_rows: 0
+    max_logical_rows: 0
+    oracle_mode: none
+    oracle_sample_pages: 3
+
+  alipay_payment:
+    profile_id: alipay_payment
+    min_char_preservation: 0.99
+    min_transaction_rows: 10
+    min_table_count: 1
+    max_empty_row_ratio: 0.30
+    expected_merged_table: true
+    min_logical_rows: 1400
+    oracle_mode: none
+
+  wechat_payment:
+    profile_id: wechat_payment
+    min_char_preservation: 0.99
+    min_transaction_rows: 10
+    min_table_count: 1
+    max_empty_row_ratio: 0.30
+    expected_merged_table: true
+    min_row_preservation_ratio: 0.995
+    min_logical_rows: 5111
+    max_logical_rows: 5111
+    oracle_mode: pdfplumber_full_page_sample
+    oracle_sample_pages: 3
+
+  bank_statement:
+    profile_id: bank_statement
+    min_char_preservation: 0.95
+    min_transaction_rows: 3
+    oracle_mode: none
+
+  credit_report:
+    profile_id: credit_report
+    min_char_preservation: 0.98
+    min_reading_order: 0.85
+    oracle_mode: none
+
+cases:
+  - id: wechat_logical_rows_full
+    tier: regression
+    tier_tags: [slow]
+    fixture: fixtures/wechat_payment/DemoUser+微信流水.pdf
+    pipeline: extract_only
+    gate_profile: wechat_payment
+    gates:
+      primary_logical_rows: { equals: 5111 }
+    oracle:
+      mode: pdfplumber_full_page_sample
+      sample_pages: 3
+    failure_class: table_extraction
+    tags: [cashflow, wechat]
+
+  - id: wechat_dual_view_oracle
+    tier: regression
+    tier_tags: [slow]
+    fixture: fixtures/wechat_payment/DemoUser+微信流水.pdf
+    pipeline: extract_only
+    gate_profile: wechat_payment
+    gates:
+      primary_logical_rows: { equals: 5111 }
+    oracle:
+      mode: pdfplumber_full_page_sample
+      sample_pages: 3
+      dual_view: true
+      audit:
+        profile_id: borderless_ledger_wechat
+        primary_logical_rows: 5111
+        min_audit_pages: 200
+        quarantine_page: 219
+        quarantine_loss_reason: col_count_mismatch
+        require_bcs_candidates: true
+    failure_class: table_extraction
+    tags: [cashflow, wechat, dual_view]
+
+  - id: alipay_logical_rows
+    tier: regression
+    fixture: fixtures/alipay_payment/DemoUser+支付宝流水.pdf
+    pipeline: extract_only
+    gate_profile: alipay_payment
+    gates:
+      logical_row_count: { min: 1400 }
+    tags: [cashflow, alipay]
+
+  - id: wechat_first_pages_smoke
+    tier: regression
+    fixture: fixtures/wechat_payment/DemoUser+微信流水.pdf
+    pipeline: extract_only
+    options:
+      max_pages: 5
+    gates:
+      table_rows: { min: 80 }
+    tags: [cashflow, wechat, smoke_subset]
+
+  - id: bank_statement_three_page_merge
+    tier: regression
+    fixture: fixtures/bank_statement/银行流水_中国建设银行_20231226.pdf
+    pipeline: extract_only
+    gates:
+      page_count: { equals: 3 }
+      merged_logical_row_count: { min: 10 }
+    tags: [cashflow, bank]
+
+  - id: id_card_generic_extract
+    tier: regression
+    fixture: fixtures/id_card/ZhangSan_身份证_1976112.pdf
+    pipeline: extract_only
+    gates:
+      page_count: { min: 1 }
+      table_count: { max: 3 }
+    tags: [identity]
+
+  - id: id_card_text_snapshot
+    tier: regression
+    fixture: fixtures/id_card/ZhangSan_身份证_1976112.pdf
+    pipeline: extract_only
+    gates:
+      page_count: { min: 1 }
+    oracle:
+      text_snapshot:
+        min_text_lines: 5
+        expected_sha256: b4e16e6ed5c30f62172e3607bd6e40f732973856940ae995a4d85d58abc38b52
+        contains:
+          - ZhangSan
+          - "110101199001011234"
+          - SamplePSB
+    tags: [identity, text_snapshot]
+
+  - id: business_license_no_table
+    tier: regression
+    fixture: fixtures/business_license/林晓彤_营业执照_20220826.jpg
+    pipeline: extract_only
+    gates:
+      table_count: { max: 2 }
+    tags: [identity, license]
+
+  - id: wechat_column_fidelity
+    tier: regression
+    tier_tags: [slow]
+    fixture: fixtures/wechat_payment/DemoUser+微信流水.pdf
+    pipeline: extract_only
+    gates:
+      primary_logical_rows: { equals: 5111 }
+    oracle:
+      column_fidelity:
+        min_columns: 8
+        column_ratio_min: 0.99
+        trade_no_header: 交易单号
+        time_header: 交易时间
+        max_trade_no_whitespace: 0
+        max_bad_timestamp_ratio: 0.01
+    failure_class: table_extraction
+    tags: [cashflow, wechat, column_fidelity]
+
+  - id: wechat_quarantine_metadata
+    tier: regression
+    tier_tags: [slow]
+    fixture: fixtures/wechat_payment/DemoUser+微信流水.pdf
+    pipeline: extract_only
+    oracle:
+      quarantine_metadata:
+        page: 219
+        reason: col_count_mismatch
+        action: standalone_physical_table
+        require_nonempty: true
+    failure_class: table_extraction
+    tags: [cashflow, wechat, quarantine]
+
+  - id: credit_report_section_mode
+    tier: regression
+    fixture: fixtures/synthetic/credit_report_section_smoke.pdf
+    pipeline: extract_only
+    gate_profile: credit_report
+    gates:
+      content_type: { equals: section_dominant }
+      layout_profile_id:
+        in: [credit_report_section_dominant, generic, null]
+      table_count: { max: 2 }
+    tags: [credit_report, section_driven, synthetic]

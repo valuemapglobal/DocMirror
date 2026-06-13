@@ -8,12 +8,17 @@
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from typing import Any
 
+import yaml
 from pydantic import BaseModel, Field
 
+from docmirror.configs.paths import YAML_DIR
 from docmirror.models.entities.parse_result import ParseResult
+
+logger = logging.getLogger(__name__)
 
 
 class OracleMode(str, Enum):
@@ -52,41 +57,94 @@ class QualityGateProfile(BaseModel):
     oracle_sample_pages: int = 3  # pages sampled when oracle_mode=pdfplumber_full_page_sample
 
 
-GATE_PROFILES: dict[str, QualityGateProfile] = {
-    "generic": QualityGateProfile(profile_id="generic"),
-    "alipay_payment": QualityGateProfile(
-        profile_id="alipay_payment",
-        min_char_preservation=0.99,
-        min_transaction_rows=10,
-        min_table_count=1,
-        max_empty_row_ratio=0.30,
-        expected_merged_table=True,
-        min_logical_rows=1400,
-    ),
-    "wechat_payment": QualityGateProfile(
-        profile_id="wechat_payment",
-        min_char_preservation=0.99,
-        min_transaction_rows=10,
-        min_table_count=1,
-        max_empty_row_ratio=0.30,
-        expected_merged_table=True,
-        min_row_preservation_ratio=0.995,
-        min_logical_rows=5111,
-        max_logical_rows=5111,
-        oracle_mode=OracleMode.PDFPLUMBER_FULL_PAGE_SAMPLE,
-        oracle_sample_pages=3,
-    ),
-    "bank_statement": QualityGateProfile(
-        profile_id="bank_statement",
-        min_char_preservation=0.95,
-        min_transaction_rows=3,
-    ),
-    "credit_report": QualityGateProfile(
-        profile_id="credit_report",
-        min_char_preservation=0.98,
-        min_reading_order=0.85,
-    ),
-}
+def _builtin_gate_profiles() -> dict[str, QualityGateProfile]:
+    return {
+        "generic": QualityGateProfile(profile_id="generic"),
+        "alipay_payment": QualityGateProfile(
+            profile_id="alipay_payment",
+            min_char_preservation=0.99,
+            min_transaction_rows=10,
+            min_table_count=1,
+            max_empty_row_ratio=0.30,
+            expected_merged_table=True,
+            min_logical_rows=1400,
+        ),
+        "wechat_payment": QualityGateProfile(
+            profile_id="wechat_payment",
+            min_char_preservation=0.99,
+            min_transaction_rows=10,
+            min_table_count=1,
+            max_empty_row_ratio=0.30,
+            expected_merged_table=True,
+            min_row_preservation_ratio=0.995,
+            min_logical_rows=5111,
+            max_logical_rows=5111,
+            oracle_mode=OracleMode.PDFPLUMBER_FULL_PAGE_SAMPLE,
+            oracle_sample_pages=3,
+        ),
+        "bank_statement": QualityGateProfile(
+            profile_id="bank_statement",
+            min_char_preservation=0.95,
+            min_transaction_rows=3,
+        ),
+        "credit_report": QualityGateProfile(
+            profile_id="credit_report",
+            min_char_preservation=0.98,
+            min_reading_order=0.85,
+        ),
+    }
+
+
+def _profile_from_yaml_entry(entry: dict[str, Any]) -> QualityGateProfile:
+    oracle_raw = str(entry.get("oracle_mode", "none")).lower()
+    oracle_mode = OracleMode.NONE
+    if oracle_raw == "pdfplumber_full_page_sample":
+        oracle_mode = OracleMode.PDFPLUMBER_FULL_PAGE_SAMPLE
+    elif oracle_raw == "absolute":
+        oracle_mode = OracleMode.ABSOLUTE
+    return QualityGateProfile(
+        profile_id=str(entry.get("profile_id", "generic")),
+        min_char_preservation=float(entry.get("min_char_preservation", 0.90)),
+        min_reading_order=float(entry.get("min_reading_order", 0.70)),
+        min_transaction_rows=int(entry.get("min_transaction_rows", 0)),
+        min_table_count=int(entry.get("min_table_count", 0)),
+        max_empty_row_ratio=float(entry.get("max_empty_row_ratio", 0.50)),
+        expected_merged_table=bool(entry.get("expected_merged_table", False)),
+        min_merge_confidence=float(entry.get("min_merge_confidence", 0.65)),
+        min_row_preservation_ratio=float(entry.get("min_row_preservation_ratio", 0.0)),
+        min_logical_rows=int(entry.get("min_logical_rows", 0)),
+        max_logical_rows=int(entry.get("max_logical_rows", 0)),
+        oracle_mode=oracle_mode,
+        oracle_sample_pages=int(entry.get("oracle_sample_pages", 3)),
+    )
+
+
+def load_gate_profiles_from_yaml() -> dict[str, QualityGateProfile]:
+    """Load GATE_PROFILES from configs/yaml/test/gates/extract.yaml profiles section."""
+    path = YAML_DIR / "test" / "gates" / "extract.yaml"
+    if not path.is_file():
+        return {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        logger.warning("Failed to load gate profiles YAML: %s", exc)
+        return {}
+    profiles_raw = data.get("profiles") or {}
+    out: dict[str, QualityGateProfile] = {}
+    for key, entry in profiles_raw.items():
+        if isinstance(entry, dict):
+            out[str(key)] = _profile_from_yaml_entry(entry)
+    return out
+
+
+def _merge_gate_profiles() -> dict[str, QualityGateProfile]:
+    merged = _builtin_gate_profiles()
+    yaml_profiles = load_gate_profiles_from_yaml()
+    merged.update(yaml_profiles)
+    return merged
+
+
+GATE_PROFILES: dict[str, QualityGateProfile] = _merge_gate_profiles()
 
 
 class QualityGateResult(BaseModel):

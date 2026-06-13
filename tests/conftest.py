@@ -26,6 +26,23 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+# Root-level shim files — collected implementations live in smoke/e2e/contract/
+collect_ignore = [
+    "test_imports.py",
+    "test_settings.py",
+    "test_plugins.py",
+    "test_models.py",
+    "test_domain_registry.py",
+    "test_quality_router.py",
+    "test_semantic_closure_direct.py",
+    "test_omml_extractor.py",
+    "test_server.py",
+    "test_integration.py",
+    "test_edition_schema_conformance.py",
+    "contracts/test_pec_contract.py",
+    "contracts/test_four_file_output.py",
+]
+
 
 def pytest_sessionstart(session):
     """Fail fast when MEP catalog YAML is inconsistent."""
@@ -42,8 +59,50 @@ def pytest_sessionstart(session):
     except Exception as exc:
         pytest.exit(f"post_extract catalog load failed: {exc}", returncode=1)
 
+    # TQG manifest validation (Design 10)
+    gates_dir = Path(PROJECT_ROOT) / "docmirror" / "configs" / "yaml" / "test" / "gates"
+    if gates_dir.is_dir():
+        from tools.validate_test_manifest import validate_manifest_file
+
+        manifest_errors: list[str] = []
+        for path in sorted(gates_dir.glob("*.yaml")):
+            if path.name.startswith("_"):
+                continue
+            manifest_errors.extend(validate_manifest_file(path))
+        if manifest_errors:
+            msg = "TQG manifest validation failed:\n" + "\n".join(f"  - {e}" for e in manifest_errors)
+            pytest.exit(msg, returncode=1)
+
 
 @pytest.fixture
 def fixtures_dir():
     """Return the path to the test fixtures directory."""
     return Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture(scope="session")
+def tqg_report_dir():
+    """TQG GateReport JSON output directory (shared by regression + integration shims)."""
+    path = Path(os.environ.get("TQG_REPORT_DIR", PROJECT_ROOT + "/artifacts/tqg"))
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def pytest_collection_modifyitems(config, items):
+    """Apply TQG tier/track markers to parametrized case tests (regression + integration shims)."""
+    from docmirror.core.evaluation.tqg.manifest import TQGCase
+
+    for item in items:
+        case = None
+        if hasattr(item, "callspec") and item.callspec is not None:
+            case = item.callspec.params.get("case")
+        if not isinstance(case, TQGCase):
+            continue
+        item.add_marker(pytest.mark.tier_regression)
+        item.add_marker(pytest.mark.integration)
+        if case.is_slow:
+            item.add_marker(pytest.mark.tier_slow)
+            item.add_marker(pytest.mark.slow)
+        track_marker = f"track_{case.track}"
+        if hasattr(pytest.mark, track_marker):
+            item.add_marker(getattr(pytest.mark, track_marker))

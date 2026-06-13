@@ -209,6 +209,16 @@ class ParseResultBridge:
 
         # ── Compose logical tables (from extractor metadata or physical pages) ──
         _compose_logical_tables(pr, base_metadata=meta)
+        scene = meta.get("document_scene")
+        scene_conf = float(meta.get("scene_confidence") or 0.0)
+        if scene and scene not in ("unknown", "generic"):
+            ds = dict(getattr(pr.entities, "domain_specific", None) or {})
+            ds["extractor_scene_hint"] = scene
+            ds["extractor_scene_confidence"] = scene_conf
+            pre = meta.get("pre_analysis") or {}
+            if isinstance(pre, dict) and pre.get("scene_hint"):
+                ds["pre_analyzer_scene_hint"] = pre.get("scene_hint")
+            pr.entities.domain_specific = ds
         return pr
 
     @staticmethod

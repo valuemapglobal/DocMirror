@@ -1,0 +1,29 @@
+# TQG tier definitions — marker names, timeouts, CI inclusion hints
+version: 1
+
+tiers:
+  smoke:
+    marker: tier_smoke
+    timeout_budget_s: 60
+    description: "Full-repo smoke — imports, boot, minimal fixtures"
+
+  contract:
+    marker: tier_contract
+    timeout_budget_s: 120
+    description: "Boundary invariants — mock-heavy, no large fixtures"
+
+  regression:
+    marker: tier_regression
+    timeout_budget_s: 600
+    description: "Golden manifest gates — oracle-backed regression"
+
+  slow:
+    marker: tier_slow
+    parent: regression
+    timeout_budget_s: 3600
+    description: "Full-document extract (e.g. 5111-row wechat)"
+
+  benchmark:
+    marker: tier_benchmark
+    timeout_budget_s: 3600
+    description: "Opt-in timing benchmarks — not PR gate"
