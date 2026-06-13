@@ -20,7 +20,7 @@ import pytest
 REQUIRED_PACKAGES = [
     "docmirror",
     "docmirror.configs",
-    "docmirror.configs.settings",
+    "docmirror.configs.runtime.settings",
     "docmirror.core",
     "docmirror.core.exceptions",
     "docmirror.framework",
@@ -50,12 +50,12 @@ class TestImports:
 
     def test_settings_importable(self):
         """DocMirrorSettings should be importable from configs."""
-        from docmirror.configs.settings import DocMirrorSettings
+        from docmirror.configs.runtime.settings import DocMirrorSettings
         assert DocMirrorSettings is not None
 
     def test_settings_from_env(self):
         """Settings should load from env without errors."""
-        from docmirror.configs.settings import DocMirrorSettings
+        from docmirror.configs.runtime.settings import DocMirrorSettings
         settings = DocMirrorSettings.from_env()
         assert settings.default_enhance_mode in ("raw", "standard", "full")
         assert settings.max_pages > 0

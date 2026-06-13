@@ -56,7 +56,7 @@ class EntityExtractor(BaseMiddleware):
         self._extract_currency(entities, first_page_text)
 
         # 3. Normalize locale-specific keys
-        from docmirror.configs.domain_registry import normalize_entity_keys
+        from docmirror.configs.domain.registry import normalize_entity_keys
 
         entities = normalize_entity_keys(entities)
 

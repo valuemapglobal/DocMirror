@@ -23,6 +23,17 @@ class LayoutProfileMatchRules(BaseModel):
     scene_hint: str | None = None
 
 
+class InstitutionVariant(BaseModel):
+    """Per-bank template overrides (migrated from legacy hints.yaml)."""
+
+    id: str
+    display_name: str = ""
+    keywords: list[str] = Field(default_factory=list)
+    column_map: dict[str, str] = Field(default_factory=dict)
+    date_format: str | None = None
+    amount_sign_rule: str | None = None
+
+
 class LayoutProfile(BaseModel):
     """Document layout profile — drives extraction without hardcoding in CoreExtractor."""
 
@@ -41,6 +52,9 @@ class LayoutProfile(BaseModel):
     mirror_skip_cross_page_merge: bool = False
 
     document_type_hint: str | None = None
+
+    header_aliases: dict[str, list[str]] = Field(default_factory=dict)
+    institution_variants: list[InstitutionVariant] = Field(default_factory=list)
 
     match: LayoutProfileMatchRules | None = None
 

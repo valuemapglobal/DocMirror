@@ -76,7 +76,7 @@ class TestDIContainer:
 
     def test_settings_type(self):
         """Test settings type."""
-        from docmirror.configs.settings import DocMirrorSettings
+        from docmirror.configs.runtime.settings import DocMirrorSettings
 
         settings = get_settings()
         assert isinstance(settings, DocMirrorSettings)

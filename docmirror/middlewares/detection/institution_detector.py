@@ -30,7 +30,9 @@ def _load_registry() -> dict[str, dict[str, Any]]:
     try:
         import yaml
 
-        registry_path = Path(__file__).parent.parent.parent / "configs" / "institution_registry.yaml"
+        from docmirror.configs.paths import INSTITUTION_REGISTRY_YAML
+
+        registry_path = INSTITUTION_REGISTRY_YAML
         if registry_path.exists():
             with open(registry_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}

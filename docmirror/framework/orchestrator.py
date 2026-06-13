@@ -21,7 +21,7 @@ Position in the end-to-end flow::
 
 Responsibilities (this file only):
     1. Guard against empty extraction (no pages → FAILURE, skip middleware).
-    2. Resolve which middlewares to run from ``configs/pipeline_registry.py``.
+    2. Resolve which middlewares to run from ``configs/pipeline/registry.py``.
     3. Instantiate middleware classes via ``MIDDLEWARE_REGISTRY``.
     4. Execute them sequentially through ``MiddlewarePipeline`` (in-place).
     5. Record timing and optional mutation analysis.
@@ -38,7 +38,7 @@ Enhancement modes (``enhance_mode``):
 
     ``standard`` (default)
         Format-specific pipeline from ``FORMAT_PIPELINES`` in
-        ``pipeline_registry.py``.  Examples as of current config:
+        ``pipeline/registry.py``.  Examples as of current config:
 
         - ``pdf``   → EntityExtractor → EvidenceEngine → InstitutionDetector
                       → Validator
@@ -49,7 +49,7 @@ Enhancement modes (``enhance_mode``):
 
     ``full``
         Longer pipeline where defined (currently PDF only).  Names listed in
-        ``pipeline_registry`` must also exist in ``MIDDLEWARE_REGISTRY`` below
+        ``pipeline/registry`` must also exist in ``MIDDLEWARE_REGISTRY`` below
         or they are skipped with a warning (e.g. ``TableStructureFixer``).
 
 Optional runtime append (not in this file):
@@ -75,7 +75,7 @@ import time
 from collections.abc import Callable
 from typing import Any, Literal
 
-from ..configs.settings import DocMirrorSettings
+from ..configs.runtime.settings import DocMirrorSettings
 from ..core.classification.evidence_engine import EvidenceEngine
 from ..middlewares import (
     BaseMiddleware,
@@ -96,14 +96,14 @@ logger = logging.getLogger(__name__)
 # Middleware Registry
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# Maps string names (used in pipeline_registry.FORMAT_PIPELINES) to classes.
+# Maps string names (used in pipeline.registry.FORMAT_PIPELINES) to classes.
 #
 # To add a new middleware:
 #   1. Implement ``BaseMiddleware`` in ``middlewares/``.
 #   2. Register the class here under its ``__name__``.
-#   3. Append that name to the appropriate list in ``pipeline_registry.py``.
+#   3. Append that name to the appropriate list in ``pipeline/registry.py``.
 #
-# Names referenced in pipeline_registry but missing here are skipped at runtime
+# Names referenced in pipeline registry but missing here are skipped at runtime
 # with ``[Orchestrator] Unresolved middleware`` (see ``_build_middlewares``).
 
 MIDDLEWARE_REGISTRY: dict[str, type[BaseMiddleware]] = {
@@ -242,7 +242,7 @@ class Orchestrator:
         file_type: str = "pdf",
     ) -> list[BaseMiddleware]:
         """
-        Resolve middleware **names** from ``pipeline_registry`` into instances.
+        Resolve middleware **names** from ``pipeline/registry`` into instances.
 
         Lookup is delegated to ``get_pipeline_config(file_type, enhance_mode)``,
         which applies format/mode fallbacks and optional SLM append.
@@ -250,7 +250,7 @@ class Orchestrator:
         Each instance receives ``config=self.config.get(middleware_name, {})``.
         Unknown names are logged and omitted (pipeline continues with the rest).
         """
-        from ..configs.pipeline_registry import get_pipeline_config
+        from ..configs.pipeline.registry import get_pipeline_config
 
         middleware_names = get_pipeline_config(file_type, enhance_mode)
         middlewares: list[BaseMiddleware] = []

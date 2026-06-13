@@ -80,18 +80,18 @@ class DomainPlugin(ABC):
     def scene_keywords(self) -> Sequence[str]:
         """
         Keywords that indicate this domain when found in document text.
-        Loaded from the unified config file docmirror/configs/scene_keywords.yaml.
-        Used by SceneDetector for automatic classification and by plugins
+        Loaded from ``configs/yaml/scene_keywords.yaml`` via scene loader.
+        Used by EvidenceEngine for automatic classification and by plugins
         for output metadata (matched_keywords field).
         Returns empty sequence if the domain is not in the config.
         """
-        return _load_scene_keywords().get(self.domain_name, ())
+        return get_plugin_scene_keywords().get(self.domain_name, ())
 
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         """
         Identity field definitions: (display_name, candidate_keys...).
-        Used by domain_registry for entity extraction.
+        Used by domain registry for entity extraction.
         Returns empty sequence if not applicable.
         """
         return ()
@@ -292,42 +292,7 @@ __all__ = [
     "plugin_manager",
 ]
 
-# ── Unified scene keyword loader ──
-
-_SCENE_KEYWORDS_CACHE: dict[str, tuple[str, ...]] | None = None
-_SCENE_KEYWORDS_PATH = Path(__file__).resolve().parent.parent / "configs" / "scene_keywords.yaml"
-
-
-def _load_scene_keywords() -> dict[str, tuple[str, ...]]:
-    """Load all scene keywords from the unified YAML config file.
-    
-    Cached after first load for performance.
-    """
-    global _SCENE_KEYWORDS_CACHE
-    if _SCENE_KEYWORDS_CACHE is not None:
-        return _SCENE_KEYWORDS_CACHE
-
-    try:
-        if _SCENE_KEYWORDS_PATH.exists():
-            with open(_SCENE_KEYWORDS_PATH) as f:
-                data = yaml.safe_load(f)
-            raw = data.get("scene_keywords", {})
-            _cache: dict[str, tuple[str, ...]] = {}
-            for k, v in raw.items():
-                if isinstance(v, dict):
-                    # New format: {"include": [...], "exclude": [...]}
-                    include_kws = v.get("include", [])
-                    _cache[k] = tuple(kw for kw in include_kws if isinstance(kw, str))
-                elif isinstance(v, list):
-                    # Old flat format
-                    _cache[k] = tuple(kw for kw in v if isinstance(kw, str))
-            _SCENE_KEYWORDS_CACHE = _cache
-        else:
-            _SCENE_KEYWORDS_CACHE = {}
-    except Exception:
-        _SCENE_KEYWORDS_CACHE = {}
-
-    return _SCENE_KEYWORDS_CACHE
+from docmirror.configs.scene.loader import get_plugin_scene_keywords
 
 
 

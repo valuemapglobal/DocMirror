@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from docmirror.configs.settings import DocMirrorSettings
+    from docmirror.configs.runtime.settings import DocMirrorSettings
     from docmirror.framework.dispatcher import ParserDispatcher
     from docmirror.framework.orchestrator import Orchestrator
 
@@ -66,7 +66,7 @@ class DocMirrorContainer:
         if self._settings is None:
             with self._lock:
                 if self._settings is None:
-                    from docmirror.configs.settings import DocMirrorSettings
+                    from docmirror.configs.runtime.settings import DocMirrorSettings
 
                     self._settings = DocMirrorSettings.from_env()
                     logger.info("[DI Container] Initialized DocMirrorSettings")

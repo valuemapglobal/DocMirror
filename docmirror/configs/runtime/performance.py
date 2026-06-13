@@ -70,7 +70,7 @@ def _coerce_page_executor(raw: Any) -> str | None:
 
 def _yaml_page_executor_raw() -> Any:
     try:
-        from docmirror.configs.yaml_loader import config_loader
+        from docmirror.configs.runtime.yaml_loader import config_loader
 
         return config_loader.get("performance.page_executor")
     except Exception:
@@ -127,7 +127,7 @@ def _coerce_concurrency_value(raw: Any) -> int | str | None:
 
 def _yaml_concurrency_raw() -> Any:
     try:
-        from docmirror.configs.yaml_loader import config_loader
+        from docmirror.configs.runtime.yaml_loader import config_loader
 
         return config_loader.get("performance.max_page_concurrency")
     except Exception:
@@ -202,7 +202,7 @@ def _coerce_positive_int(raw: Any, *, name: str) -> int | None:
 
 def _yaml_max_process_workers_raw() -> Any:
     try:
-        from docmirror.configs.yaml_loader import config_loader
+        from docmirror.configs.runtime.yaml_loader import config_loader
 
         return config_loader.get("performance.max_process_workers")
     except Exception:

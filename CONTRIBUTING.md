@@ -100,7 +100,7 @@ docmirror/
 1. Create `docmirror/middlewares/your_category/your_middleware.py`
 2. Subclass `BaseMiddleware` from `docmirror.middlewares.base`
 3. Implement `process(result: EnhancedResult) -> EnhancedResult`
-4. Register in `docmirror/configs/pipeline_registry.py`
+4. Register in `docmirror/configs/pipeline/registry.py`
 5. Add tests
 
 ## Reporting Issues

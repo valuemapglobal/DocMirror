@@ -93,3 +93,65 @@ profiles:
         - 账户明细信息
         - 中国建设银行账户明细
       min_pages: 2
+    header_aliases:
+      交易时间:
+        - 记账日
+        - 值日
+        - 入账时间
+        - 交易日期
+        - 日期
+        - 交易日
+      交易金额:
+        - 发生金额
+        - 交易额(元)
+      账户余额:
+        - 账面余额
+        - 卡余额
+        - 结余
+        - 余额（元）
+        - 余额
+      摘要:
+        - 交易摘要
+      对方账号与户名:
+        - 对方户名
+    institution_variants:
+      - id: cmb
+        display_name: 招行流水
+        keywords: ["招商银行", "交易明细"]
+        column_map:
+          交易日: 交易时间
+          人民币: 交易金额
+          结余: 账户余额
+      - id: ccb
+        display_name: 建行流水
+        keywords: ["中国建设银行"]
+        column_map:
+          交易日期: 交易时间
+          对方户名: 对方账号与户名
+      - id: icbc
+        display_name: 工行流水
+        keywords: ["中国工商银行"]
+        column_map:
+          日期: 交易时间
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+        amount_sign_rule: split
+      - id: abc
+        display_name: 农行流水
+        keywords: ["中国农业银行"]
+        column_map:
+          交易日期: 交易时间
+          交易摘要: 摘要
+          交易金额（元）: 交易金额
+          余额（元）: 账户余额
+      - id: citic
+        display_name: 中信银行
+        keywords: ["中信银行"]
+        date_format: YYYYMMDD
+        amount_sign_rule: split
+      - id: pab
+        display_name: 平安银行
+        keywords: ["平安银行"]
+        date_format: "YYYY-MM-DD HH:MM:SS"
+        amount_sign_rule: standard

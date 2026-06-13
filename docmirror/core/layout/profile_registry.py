@@ -17,11 +17,11 @@ from typing import Any
 import yaml
 
 from docmirror.models.entities.extraction_profile import ExtractionProfile
-from docmirror.models.entities.layout_profile import LayoutProfile, LayoutProfileMatchRules
+from docmirror.models.entities.layout_profile import InstitutionVariant, LayoutProfile, LayoutProfileMatchRules
 
 logger = logging.getLogger(__name__)
 
-_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "layout_profiles.yaml"
+from docmirror.configs.paths import LAYOUT_PROFILES_YAML as _CONFIG_PATH
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -61,6 +61,12 @@ def _resolve_inheritance(raw_profiles: dict[str, dict[str, Any]]) -> dict[str, E
         data["profile_id"] = pid
         if match_rules:
             data["match"] = match_rules
+        variants_raw = data.pop("institution_variants", None) or []
+        variants: list[InstitutionVariant] = []
+        for item in variants_raw:
+            if isinstance(item, dict):
+                variants.append(InstitutionVariant(**item))
+        data["institution_variants"] = variants
         resolved[pid] = ExtractionProfile(**{k: v for k, v in data.items() if k != "inherits"})
     return resolved
 
@@ -191,3 +197,34 @@ def is_borderless_ledger_profile(profile: LayoutProfile | None) -> bool:
     if profile is None:
         return False
     return profile.profile_id.startswith("borderless_ledger")
+
+
+def match_institution_variant(
+    profile: LayoutProfile | None,
+    text_sample: str,
+) -> InstitutionVariant | None:
+    """Pick the best institution variant for a layout profile (bank-specific column maps)."""
+    if profile is None or not text_sample or not profile.institution_variants:
+        return None
+    text = text_sample
+    best: InstitutionVariant | None = None
+    best_score = 0
+    for variant in profile.institution_variants:
+        score = 0
+        for kw in variant.keywords:
+            if kw and kw in text:
+                score += len(kw)
+        if score > best_score:
+            best_score = score
+            best = variant
+    return best if best_score > 0 else None
+
+
+def resolve_header_aliases(profile: LayoutProfile | None, header: str) -> str:
+    """Map a raw header cell to canonical name using profile header_aliases."""
+    if profile is None or not header:
+        return header
+    for canonical, aliases in profile.header_aliases.items():
+        if header == canonical or header in aliases:
+            return canonical
+    return header

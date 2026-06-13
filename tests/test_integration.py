@@ -280,14 +280,14 @@ class TestSettingsIntegration:
     """Verify settings model extensions."""
 
     def test_settings_to_dict_complete(self):
-        from docmirror.configs.settings import DocMirrorSettings
+        from docmirror.configs.runtime.settings import DocMirrorSettings
         settings = DocMirrorSettings.from_env()
         d = settings.to_dict()
         assert isinstance(d, dict)
         assert len(d) > 0  # has actual config keys
 
     def test_settings_from_env_consistent(self):
-        from docmirror.configs.settings import DocMirrorSettings
+        from docmirror.configs.runtime.settings import DocMirrorSettings
         s1 = DocMirrorSettings.from_env()
         s2 = DocMirrorSettings.from_env()
         assert s1.to_dict() == s2.to_dict()

@@ -9,17 +9,12 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
 
-import yaml
+from docmirror.configs.scene.loader import get_scene_specs
 
 logger = logging.getLogger(__name__)
-
-_SCENE_KEYWORDS_PATH = (
-    Path(__file__).resolve().parent.parent.parent / "configs" / "scene_keywords.yaml"
-)
 
 
 @dataclass(frozen=True)
@@ -32,19 +27,8 @@ class SceneResolution:
     source: str = "scene_keywords"
 
 
-@lru_cache(maxsize=1)
-def _load_scene_keywords() -> dict[str, dict[str, list[str]]]:
-    if not _SCENE_KEYWORDS_PATH.exists():
-        return {}
-    with open(_SCENE_KEYWORDS_PATH, encoding="utf-8") as f:
-        raw = yaml.safe_load(f) or {}
-    return raw.get("scene_keywords", {})
-
-
 def _normalize_for_keyword_match(text: str) -> str:
     """Collapse whitespace so PDF line-breaks do not split CJK keywords."""
-    import re
-
     return re.sub(r"\s+", "", text or "")
 
 
@@ -53,25 +37,19 @@ def resolve_document_scene(
     *,
     min_confidence: float = 0.75,
 ) -> SceneResolution:
-    """Classify document scene from text using the same keyword corpus as EvidenceEngine.
-
-    Scoring: longest keyword match wins; confidence scales with keyword length.
-    Whitespace is collapsed for matching (PDF often breaks 对方户名 → 对方户\\n名).
-    """
+    """Classify document scene from text using the shared scene keyword corpus."""
     text = text_sample or ""
     if not text.strip():
         return SceneResolution(scene="unknown", confidence=0.0)
 
     text_compact = _normalize_for_keyword_match(text)
-    keywords_map = _load_scene_keywords()
+    keywords_map = get_scene_specs()
     best: SceneResolution | None = None
 
     for scene, spec in keywords_map.items():
         includes = spec.get("include") or []
         excludes = spec.get("exclude") or []
-        if excludes and any(
-            kw in text or (kw and kw in text_compact) for kw in excludes
-        ):
+        if excludes and any(kw in text or (kw and kw in text_compact) for kw in excludes):
             continue
         for kw in includes:
             if not kw:

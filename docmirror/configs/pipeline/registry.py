@@ -32,7 +32,7 @@ To add a new middleware to an existing pipeline:
 
 Usage::
 
-    from docmirror.configs.pipeline_registry import get_pipeline_config
+    from docmirror.configs.pipeline.registry import get_pipeline_config
 
     middlewares = get_pipeline_config("pdf", "full")
     # ['SceneDetector', 'EntityExtractor', 'InstitutionDetector',

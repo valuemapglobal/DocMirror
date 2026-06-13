@@ -23,7 +23,7 @@ Integration:
 Usage::
 
     # 自动通过中间件注册使用
-    # 在 pipeline_registry.py 中添加：
+    # 在 pipeline/registry.py 中添加：
     # "standard": [..., "HeaderInferrer", "Validator"]
 """
 

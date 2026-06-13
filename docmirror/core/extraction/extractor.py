@@ -204,7 +204,7 @@ class CoreExtractor:
         self,
         seal_detector_fn=None,
         layout_model_path: str | None = None,
-        max_page_concurrency: int = 1,
+        max_page_concurrency: int | None = None,
         formula_model_path: str | None = None,
         model_render_dpi: int = 200,
     ):
@@ -224,9 +224,11 @@ class CoreExtractor:
             model_render_dpi: Page rendering DPI for DocLayout-YOLO model inference.
                 Default 200; higher values improve layout detection precision but increase inference time.
         """
+        from docmirror.configs.runtime.performance import resolve_max_page_concurrency
+
         self._seal_detector_fn = seal_detector_fn
         self._layout_detector = None
-        self._max_page_concurrency = max_page_concurrency
+        self._max_page_concurrency = resolve_max_page_concurrency(max_page_concurrency)
         self._model_render_dpi = model_render_dpi
 
         # Formula recognition engine (Strategy pattern: UniMERNet ONNX > rapid_latex_ocr > empty)
@@ -608,7 +610,7 @@ class CoreExtractor:
             plumber_doc = pdfplumber.open(str(plumber_path))
 
         # External OCR: resolve once for all scanned pages (quality < threshold → delegate)
-        from docmirror.configs.settings import default_settings
+        from docmirror.configs.runtime.settings import default_settings
         from docmirror.core.ocr.fallback import _resolve_external_ocr_provider
 
         _ext_ocr_threshold = getattr(default_settings, "external_ocr_quality_threshold", None)

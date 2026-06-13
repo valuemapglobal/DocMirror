@@ -11,7 +11,7 @@ Directory structure:
 - core/: Core extraction engines (CoreExtractor, LayoutAnalysis, TableExtraction)
 - models/: Data models (BaseResult, EnhancedResult, PerceptionResult)
 - middlewares/: Middleware pipeline (EvidenceEngine, EntityExtractor, Validator, ...)
-- configs/: Configuration (settings, pipeline_registry, institution_registry)
+- configs/: Configuration (runtime settings, pipeline registry, institution registry)
 - framework/: Pipeline orchestration (dispatcher, orchestrator, base; optional cache)
 - di/: Service container (shared dispatcher / orchestrator singletons)
 - adapters/: Format adapters (PDF, Image, Office, Email, Web)

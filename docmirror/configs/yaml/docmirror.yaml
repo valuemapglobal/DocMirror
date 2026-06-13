@@ -9,7 +9,7 @@
 #   docmirror process document.pdf
 #
 # Or in code:
-#   from docmirror.configs.yaml_loader import YamlConfigLoader
+#   from docmirror.configs.runtime.yaml_loader import YamlConfigLoader
 #   config = YamlConfigLoader().load()
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -76,7 +76,7 @@ performance:
 
   # Page extraction pool: thread (default) | process (bypass GIL, opt-in)
   # Env override: DOCMIRROR_PAGE_EXECUTOR=thread|process
-  page_executor: process
+  page_executor: thread
 
   # Global cap on process-pool workers across concurrent API requests (OOM guard).
   # Env override: DOCMIRROR_MAX_PROCESS_WORKERS=<int> (default: logical CPU count)
@@ -232,12 +232,12 @@ table:
   # Summary row extraction
   summary_extraction: true
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Structure-Invariant Table Path (SITP)
-# ═══════════════════════════════════════════════════════════════════════════════
+  # Structure-Invariant Table Path (SITP)
+  sitp:
+    reuse_anchor_drift_max: 0.015
 
-
-  reuse_anchor_drift_max: 0.015
+# ═══════════════════════════════════════════════════════════════════════════════
+# Entity Extraction
 # ═══════════════════════════════════════════════════════════════════════════════
 
 entity:

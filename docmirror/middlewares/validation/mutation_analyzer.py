@@ -16,7 +16,7 @@ structural adjustment recommendations.
 Functions:
     1. Aggregates mutations grouped by Middleware/Field/Scene.
     2. Recognizes top-N high-frequency fix patterns appropriately.
-    3. Generates `hints.yaml` update suggestions algorithmically explicitly.
+    3. Generates ``layout_profiles.yaml`` institution_variants update suggestions.
     4. Outputs structured analysis reports structurally dynamically.
 
 Usage::
@@ -100,7 +100,7 @@ class AnalysisReport:
 
         if self.hints_suggestions:
             lines.append("")
-            lines.append("\U0001f4a1 Suggested hints.yaml updates:")
+            lines.append("\U0001f4a1 Suggested layout_profiles institution_variants updates:")
             for key, val in self.hints_suggestions.items():
                 lines.append(f"  \u2022 {key}: {val}")
 
@@ -200,28 +200,25 @@ class MutationAnalyzer:
         return "text"
 
     def _generate_suggestions(self, patterns: list[ErrorPattern]) -> dict[str, Any]:
-        """Harvests hints.yaml updating proposals via pattern heuristics."""
+        """Harvest layout_profiles institution_variants / header_aliases suggestions."""
         suggestions: dict[str, Any] = {}
 
         for p in patterns:
             if not p.is_high_frequency:
                 continue
 
-            # High-Frequency Date Fix -> Suggest adding date_format rules
             if p.field == "date":
-                suggestions["institution_hints.date_format"] = (
+                suggestions["institution_variants.date_format"] = (
                     f"Add normalize rule: '{p.old_pattern}' \u2192 '{p.new_pattern}' (seen {p.count}\u00d7)"
                 )
 
-            # High-Frequency Column Map -> Suggest adding column_alias
             if p.field == "column_mapping":
-                suggestions["column_aliases"] = (
+                suggestions["header_aliases"] = (
                     f"Add alias: '{p.old_pattern}' \u2192 '{p.new_pattern}' (seen {p.count}\u00d7)"
                 )
 
-            # High-Frequency Amount Fix -> Suggest adding amount rules
             if "amount" in p.field.lower():
-                suggestions["institution_hints.amount_sign_rule"] = (
+                suggestions["institution_variants.amount_sign_rule"] = (
                     f"Check sign convention: '{p.old_pattern}' \u2192 '{p.new_pattern}' (seen {p.count}\u00d7)"
                 )
 

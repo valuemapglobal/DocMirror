@@ -24,7 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from docmirror.core.factory import perceive_document
-from docmirror.core.classification.evidence_engine import _SCENE_KEYWORDS as CLASSIFICATION_CATEGORIES
+from docmirror.configs.scene.loader import get_scene_includes as CLASSIFICATION_CATEGORIES
 
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn

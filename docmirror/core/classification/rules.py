@@ -144,8 +144,9 @@ class RuleManager:
 
     def _get_default_rules_path(self) -> Path:
         """获取默认规则文件路径"""
-        # docmirror/config/classification_rules.yaml
-        return Path(__file__).parent.parent.parent / "configs" / "classification_rules.yaml"
+        from docmirror.configs.paths import CLASSIFICATION_RULES_YAML
+
+        return CLASSIFICATION_RULES_YAML
 
     def _load_rules(self, path: Path) -> None:
         """

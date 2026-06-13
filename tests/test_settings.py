@@ -10,7 +10,7 @@ Settings configuration tests.
 
 import os
 import pytest
-from docmirror.configs.settings import DocMirrorSettings
+from docmirror.configs.runtime.settings import DocMirrorSettings
 
 
 class TestDocMirrorSettings:

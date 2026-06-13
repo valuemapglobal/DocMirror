@@ -3,7 +3,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # Maps locale-specific raw key names (as extracted from documents) to their
-# canonical English equivalents used by DOMAIN_IDENTITY in domain_registry.py.
+# canonical English equivalents used by DOMAIN_IDENTITY in domain/registry.py.
 #
 # This file is the single source of truth for key normalization. To support
 # a new language or document variant, simply add entries under the appropriate
@@ -11,7 +11,7 @@
 #
 # Rules:
 #   - Keys are raw strings exactly as they appear in extracted KV blocks.
-#   - Values MUST match a candidate key in DOMAIN_IDENTITY (domain_registry.py).
+#   - Values MUST match a candidate key in DOMAIN_IDENTITY (domain/registry.py).
 #   - Organized by domain → locale for readability.
 #   - At runtime, all entries are flattened into a single lookup table.
 

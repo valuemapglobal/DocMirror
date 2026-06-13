@@ -25,7 +25,7 @@ document types, providing minimal identity extraction (title, date, author).
 
 Usage::
 
-    from docmirror.configs.domain_registry import resolve_identity
+    from docmirror.configs.domain.registry import resolve_identity
 
     identity = resolve_identity("bank_statement", extracted_entities)
     # {'document_type': 'bank_statement', 'institution': 'HSBC', ...}
@@ -34,14 +34,13 @@ Usage::
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import yaml
 
 logger = logging.getLogger(__name__)
 
-_CONFIGS_DIR = Path(__file__).parent
+from docmirror.configs.paths import KEY_SYNONYMS_YAML as _KEY_SYNONYMS_PATH
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -58,7 +57,7 @@ def _load_key_synonyms() -> dict[str, str]:
     If the YAML file is missing or malformed, returns an empty dict and logs
     a warning (graceful degradation — English-key documents still work).
     """
-    yaml_path = _CONFIGS_DIR / "key_synonyms.yaml"
+    yaml_path = _KEY_SYNONYMS_PATH
     if not yaml_path.exists():
         logger.warning("key_synonyms.yaml not found at %s, key normalization disabled", yaml_path)
         return {}

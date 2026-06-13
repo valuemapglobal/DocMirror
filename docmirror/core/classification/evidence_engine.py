@@ -81,61 +81,11 @@ class Evidence:
 # Keyword Data Loading
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_SCENE_KEYWORDS: dict[str, list[str]] | None = None
-_SCENE_EXCLUDE: dict[str, list[str]] | None = None
-
-
-def _load_scene_keywords() -> None:
-    """Load all scene keywords (include + exclude) from YAML config."""
-    global _SCENE_KEYWORDS, _SCENE_EXCLUDE
-    if _SCENE_KEYWORDS is not None:
-        return
-
-    _path = Path(__file__).resolve().parent.parent.parent / "configs" / "scene_keywords.yaml"
-    _includes: dict[str, list[str]] = {}
-    _excludes: dict[str, list[str]] = {}
-    try:
-        if _path.exists():
-            with open(_path) as f:
-                raw = yaml.safe_load(f).get("scene_keywords", {})
-            for category, content in raw.items():
-                if isinstance(content, dict):
-                    inc = content.get("include", [])
-                    exc = content.get("exclude", [])
-                    if inc:
-                        _includes[category] = [kw for kw in inc if isinstance(kw, str) and len(kw) >= 2]
-                    if exc:
-                        _excludes[category] = [kw for kw in exc if isinstance(kw, str) and len(kw) >= 2]
-                elif isinstance(content, list):
-                    _includes[category] = [kw for kw in content if isinstance(kw, str) and len(kw) >= 2]
-    except Exception as exc:
-        logger.error(f"[EvidenceEngine] Failed to load scene keywords: {exc}")
-
-    _SCENE_KEYWORDS = _includes
-    _SCENE_EXCLUDE = _excludes
-    logger.info(f"[EvidenceEngine] Loaded {len(_includes)} categories, {len(_excludes)} with exclude rules")
-
-
-_load_scene_keywords()
-
-# Precomputed keyword uniqueness weights: shared across all EvidenceEngine instances
-_KW_UNIQUENESS: dict[str, float] | None = None
-
-
-def _compute_uniqueness() -> None:
-    """Compute how unique each keyword is across categories."""
-    global _KW_UNIQUENESS
-    if _KW_UNIQUENESS is not None:
-        return
-    _kws = _SCENE_KEYWORDS or {}
-    cnt: dict[str, int] = {}
-    for _kws_list in _kws.values():
-        for _kw in _kws_list:
-            cnt[_kw] = cnt.get(_kw, 0) + 1
-    _KW_UNIQUENESS = {_kw: 1.0 / max(_cnt, 1) for _kw, _cnt in cnt.items()}
-
-
-_compute_uniqueness()
+from docmirror.configs.scene.loader import (
+    compute_keyword_uniqueness,
+    get_scene_excludes,
+    get_scene_includes,
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -221,21 +171,15 @@ class EvidenceEngine(BaseMiddleware):
             return []
 
         evidence: list[Evidence] = []
-        includes = _SCENE_KEYWORDS or {}
-        excludes = _SCENE_EXCLUDE or {}
+        includes = get_scene_includes()
+        excludes = get_scene_excludes()
 
         if not includes:
             return []
 
         # Precompute uniqueness weights
-        if not hasattr(self, '_kw_uniqueness'):
-            self._kw_uniqueness = {}
-            cnt_cache: dict[str, int] = {}
-            for _scene, _kws in includes.items():
-                for _kw in _kws:
-                    cnt_cache[_kw] = cnt_cache.get(_kw, 0) + 1
-            for _kw, _cnt in cnt_cache.items():
-                self._kw_uniqueness[_kw] = 1.0 / max(_cnt, 1)
+        if not hasattr(self, "_kw_uniqueness"):
+            self._kw_uniqueness = compute_keyword_uniqueness()
 
         # Include keyword scoring
         for scene, kws in includes.items():
@@ -417,7 +361,8 @@ class EvidenceEngine(BaseMiddleware):
         return evidence
     def _visual_evidence(self, pages) -> list[Evidence]:
         """Use title/heading text to boost confidence — driven by include keywords."""
-        if not pages or not _SCENE_KEYWORDS:
+        includes = get_scene_includes()
+        if not pages or not includes:
             return []
 
         evidence: list[Evidence] = []
@@ -428,7 +373,7 @@ class EvidenceEngine(BaseMiddleware):
                 if text_block.level.value not in ("title", "h1", "h2"):
                     continue
                 content = text_block.content
-                for scene, kws in _SCENE_KEYWORDS.items():
+                for scene, kws in includes.items():
                     if scene in seen_scenes:
                         continue
                     for kw in kws[:20]:  # only check first 20 keywords per category for speed
