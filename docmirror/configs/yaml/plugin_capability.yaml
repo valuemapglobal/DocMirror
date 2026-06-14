@@ -1,9 +1,21 @@
 # Plugin capability matrix — community vs enterprise coverage per document_type.
-# See docs/design/08_middleware_layer_first_principles_redesign.md §10.1
+# See docs/design/14_community_focus_six_plus_generic_checklist.md
 
-version: 1
+version: 2
 
-# Explicit enterprise-only types (no community plugin; mirror_only envelope on community edition)
+# Community premium plugins (full structured extract — 6 domains)
+community_premium_domains:
+  - bank_statement
+  - wechat_payment
+  - alipay_payment
+  - vat_invoice
+  - business_license
+  - credit_report
+
+# When true, classified non-premium non-enterprise types use generic_community fallback
+community_generic_enabled: true
+
+# Explicit enterprise-only types (mirror_only envelope on community edition; no generic)
 enterprise_only:
   - audit_report
   - balance_sheet
@@ -14,6 +26,3 @@ enterprise_only:
   - fund_contract
   - wealth_management_contract
   - guarantee_contract
-
-# Auto-discovery: any docmirror.plugins.*_community module with matching domain_name
-# is treated as community-capable unless listed in enterprise_only.

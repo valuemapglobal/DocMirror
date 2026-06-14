@@ -93,3 +93,68 @@ receipt:
     商户: "Merchant"
     交易金额: "Transaction amount"
     交易日期: "Transaction date"
+
+# ── WeChat Payment (6 premium) ────────────────────────────────────────────────
+wechat_payment:
+  zh:
+    查询时间段: "Query period"
+    起始日期: "Query period"
+    终止日期: "Query period"
+    收/支/其他: "Direction"
+    交易单号: "Trade number"
+    金额(元): "Amount"
+    金额（元）: "Amount"
+    交易类型: "Transaction type"
+    交易对象: "Counter object"
+
+# ── Alipay Payment (6 premium) ────────────────────────────────────────────────
+alipay_payment:
+  zh:
+    查询时间段: "Query period"
+    起始日期: "Query period"
+    终止日期: "Query period"
+    收/支: "Direction"
+    商品说明: "Description"
+    收/付款方式: "Payment method"
+    收/支方式: "Payment method"
+    交易订单号: "Trade number"
+    商家订单号: "Merchant order number"
+    商户单号: "Merchant order number"
+
+# ── VAT Invoice (6 premium) ─────────────────────────────────────────────────
+vat_invoice:
+  zh:
+    销售方名称: "Supplier"
+    卖方名称: "Supplier"
+    购买方名称: "Buyer"
+    买方名称: "Buyer"
+    价税合计: "Total with tax"
+    开票日期: "Invoice date"
+    发票号: "Invoice number"
+
+# ── Business License (6 premium) ────────────────────────────────────────────
+business_license:
+  zh:
+    名称: "Company name"
+    公司名称: "Company name"
+    统一社会信用代码: "USCC"
+    信用代码: "USCC"
+    法定代表人: "Legal representative"
+    负责人: "Legal representative"
+    注册资本: "Registered capital"
+    成立日期: "Date of establishment"
+    成立时间: "Date of establishment"
+    营业期限: "Business term"
+    住所: "Address"
+    地址: "Address"
+    经营范围: "Business scope"
+
+# ── Credit Report (6 premium) ─────────────────────────────────────────────────
+credit_report:
+  zh:
+    报告主体: "Name"
+    身份证号: "ID number"
+    证件号码: "ID number"
+    报告时间: "Report time"
+    查询时间: "Report time"
+    报告编号: "Report number"

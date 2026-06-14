@@ -17,14 +17,24 @@ cases:
       edition_drift_ratio: { max: 0.005 }
     tags: [cashflow, wechat, community]
 
-  - id: wechat_community_dec_validation
+  - id: business_license_community_kv
     tier: regression
-    fixture: fixtures/wechat_payment/DemoUser+微信流水.pdf
+    fixture: fixtures/business_license/林晓彤_营业执照_20220826.jpg
     pipeline: edition
     editions: [community]
     options:
       enhance_mode: standard
-      max_pages: 5
     gates:
       dec_validation: { max_issues: 0 }
-    tags: [cashflow, wechat, community, smoke_subset]
+    tags: [identity, license, community, premium]
+
+  - id: id_card_generic_community
+    tier: regression
+    fixture: fixtures/id_card/ZhangSan_身份证_1976112.pdf
+    pipeline: edition
+    editions: [community]
+    options:
+      enhance_mode: standard
+    gates:
+      dec_validation: { max_issues: 0 }
+    tags: [identity, generic, community]

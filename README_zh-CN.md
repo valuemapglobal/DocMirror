@@ -112,7 +112,7 @@ curl -X POST http://localhost:8000/v1/parse \
 - **结构化表格提取** — 表头识别、类型化单元格（货币/日期/数字/文本）、行分类
 - **智能 OCR 降级** — 自动检测扫描件，应用 RapidOCR 动态对比度增强
 - **布局分析** — DocLayout-YOLO + 空间聚类，支持复杂多栏布局
-- **领域插件** — `BankStatement`、`Invoice` 插件自动抽取领域特定实体
+- **领域插件（6+1）** — 6 个 premium 社区插件（银行/微信/支付宝/发票/营业执照/征信）+ 通用兜底，覆盖 120+ 识别类型
 - **防伪造检测** — 像素误差分析 (ELA) + 元数据黑名单
 - **RESTful API** — 标准 `{code, message, data, meta}` 信封格式
 - **纯 CPU 支持** — 无需 GPU；支持 GPU/MPS 加速

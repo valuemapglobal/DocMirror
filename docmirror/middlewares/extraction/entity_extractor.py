@@ -89,8 +89,6 @@ class EntityExtractor(BaseMiddleware):
     @staticmethod
     def _split_period(result: ParseResult, period: str) -> None:
         """Split period string into period_start and period_end."""
-        import re
-
         # Pattern: 2025年01月01日-2025年03月31日
         m = re.match(
             r"(\d{4}年\d{1,2}月\d{1,2}日?)\s*[-~至到–]\s*(\d{4}年\d{1,2}月\d{1,2}日?)",

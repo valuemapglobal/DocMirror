@@ -147,8 +147,18 @@ async def _execute_edition(case: TQGCase) -> tuple[dict[str, Any], dict[str, Any
     if perceive_result and getattr(perceive_result, "editions", None):
         edition_payload = perceive_result.editions.get(edition_name)
     if edition_payload is None:
-        doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
-        edition_payload = _edition_from_plugin(mirror, doc_type)
+        if edition_name == "community":
+            from docmirror.plugins.runner import run_plugin_extract_sync
+
+            edition_payload = run_plugin_extract_sync(
+                mirror,
+                edition="community",
+                full_text=getattr(mirror, "full_text", "") or "",
+                file_path=str(getattr(mirror, "file_path", "") or case.fixture),
+            )
+        else:
+            doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
+            edition_payload = _edition_from_plugin(mirror, doc_type)
     meta["edition_payload"] = edition_payload
     meta["edition_name"] = edition_name
     return {"mirror": mirror, "edition": edition_payload}, meta
@@ -317,11 +327,15 @@ def _dec_validation_issues(edition: dict[str, Any] | None) -> list[Any]:
     if not edition:
         return ["missing edition payload"]
     status = edition.get("status") or {}
-    errors = status.get("errors") or []
+    errors = list(status.get("errors") or [])
+    warnings = [
+        w for w in (status.get("warnings") or [])
+        if isinstance(w, str) and w.startswith("dec_validation:")
+    ]
     quality = edition.get("quality") or {}
     if quality.get("validation_passed") is False:
-        return errors or ["validation_passed is false"]
-    return errors
+        return errors or warnings or ["validation_passed is false"]
+    return errors + warnings
 
 
 def _resolve_gate_actual(gate_name: str, result: Any, meta: dict[str, Any]) -> Any:
@@ -374,6 +388,10 @@ def _resolve_gate_actual(gate_name: str, result: Any, meta: dict[str, Any]) -> A
         if edition is None and isinstance(result, dict):
             edition = result.get("edition")
         return _dec_validation_issues(edition)
+    if gate_name == "warning_contains":
+        return meta.get("edition_warnings") or []
+    if gate_name in ("is_entitled", "lifecycle_state", "has_license_warning", "premium_feature", "lifecycle_days"):
+        return meta.get(gate_name)
     if gate_name == "row_preservation_ratio":
         return meta.get("row_preservation_ratio")
     if gate_name in meta:
@@ -443,6 +461,10 @@ async def run_tqg_case_async(case: TQGCase) -> GateReport:
         result, meta = await _execute_e2e_four_file(case)
     elif pipeline == "e2e_contract":
         result, meta = await _execute_e2e_contract(case)
+    elif pipeline == "licensing":
+        from docmirror.eval.tqg.licensing_exec import execute_licensing
+
+        result, meta = await execute_licensing(case)
     elif pipeline in ("edition", "full_perceive"):
         result, meta = await _execute_edition(case)
         if case.optional_edition and meta.get("edition_skipped"):

@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from docmirror.plugins._base.dec_builder import build_dec_kv, dec_fields
-from docmirror.plugins.id_card_community import plugin as id_card_plugin
 
 
 class TestDecBuilder:
@@ -19,10 +18,10 @@ class TestDecBuilder:
         raw = build_dec_kv("id_card", {"name": "李四"})
         assert dec_fields(raw) == {"name": "李四"}
 
-    def test_plugin_build_domain_data_returns_dec(self):
-        raw = id_card_plugin.build_domain_data(
-            {"Name": "王五"},
-            {"id_number": "110101199001011234"},
+    def test_build_domain_data_kv_pattern(self):
+        raw = build_dec_kv(
+            "id_card",
+            {"name": "王五", "id_number": "110101199001011234"},
         )
         assert raw is not None
         fields = dec_fields(raw)

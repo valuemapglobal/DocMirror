@@ -20,7 +20,6 @@ def test_builtin_templates_registered():
 
 
 def test_detector_extracts_three_transactions_from_clean_table():
-    from docmirror_enterprise.plugins.bank_statement.configs.registry import ensure_builtin_templates, reset_registry
     from docmirror_enterprise.plugins.bank_statement.detectors.template_detector import BankStatementDetector
 
     reset_registry()

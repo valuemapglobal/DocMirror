@@ -43,6 +43,7 @@ def normalize_timestamp(raw: str) -> str:
     - 2022-01-01
     - 2022/01/01 10:30:39
     - 2022年01月01日 10:30:39
+    - 2022-09-2810:30:39（支付宝/OCR 缺空格）
     """
     raw = raw.strip()
     if not raw:
@@ -60,6 +61,16 @@ def normalize_timestamp(raw: str) -> str:
             return datetime.strptime(cleaned, fmt).isoformat()
         except ValueError:
             continue
+
+    # 支付宝/OCR：日期与时间之间缺空格，如 2022-09-2810:30:39
+    m = re.match(r"^(\d{4}-\d{2}-\d{2})(\d{1,2}:\d{2}(?::\d{2})?)$", cleaned)
+    if m:
+        date_part, time_part = m.group(1), m.group(2)
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+            try:
+                return datetime.strptime(f"{date_part} {time_part}", fmt).isoformat()
+            except ValueError:
+                continue
 
     # 紧凑格式：20220928 103039
     m = re.match(r"(\d{4})(\d{2})(\d{2})\s*(\d{2})(\d{2})(\d{2})", cleaned)

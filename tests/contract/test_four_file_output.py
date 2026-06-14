@@ -13,6 +13,7 @@ pytestmark = [pytest.mark.tier_contract]
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
 from docmirror.server.edition_outputs import build_all_edition_outputs
+from tests.contract.test_edition_schema_conformance import check_community
 
 _FORBIDDEN_MIRROR_KEYS = frozenset({"records", "mirror_ref", "edition"})
 
@@ -53,6 +54,20 @@ def test_enterprise_not_generated_when_package_missing():
     pytest.skip("docmirror_enterprise installed — skip missing-package assertion")
 
 
+def test_generic_community_envelope_conforms():
+    from docmirror.plugins.generic_community import plugin
+
+    mirror = ParseResult(status=ResultStatus.SUCCESS)
+    mirror.entities = DocumentEntities(document_type="id_card")
+    mirror.entities.domain_specific = {"name": "测试", "id_number": "110101199001011234"}
+
+    out = plugin.extract_from_mirror(mirror)
+    errors = check_community(out)
+    assert errors == [], f"generic envelope errors: {errors}"
+    assert out["plugin"]["name"] == "generic"
+    assert out["document"]["archetype"] == "generic_mirror"
+
+
 def test_mirror_only_envelope_for_enterprise_only_type():
     from docmirror.plugins.runner import run_plugin_extract_sync
 
@@ -61,6 +76,31 @@ def test_mirror_only_envelope_for_enterprise_only_type():
     assert out is not None
     assert "mirror_only:no_community_plugin" in out["status"]["warnings"]
     assert out.get("mirror_ref", {}).get("document_type") == "audit_report"
+
+
+def test_generic_envelope_for_demoted_type():
+    from docmirror.plugins.runner import run_plugin_extract_sync
+
+    result = _minimal_mirror("id_card")
+    result.entities.domain_specific = {"name": "张三"}
+    out = run_plugin_extract_sync(result, edition="community")
+    assert out is not None
+    assert out["plugin"]["name"] == "generic"
+    assert out["document"]["archetype"] == "generic_mirror"
+    assert "community_generic_fallback" in out["status"]["warnings"]
+    assert not check_community(out)
+
+
+def test_generic_fallback_envelope_for_demoted_type():
+    from docmirror.plugins.runner import run_plugin_extract_sync
+
+    result = _minimal_mirror("id_card")
+    result.entities.domain_specific = {"name": "ZhangSan"}
+    out = run_plugin_extract_sync(result, edition="community")
+    assert out is not None
+    assert out["plugin"]["name"] == "generic"
+    assert out["classification"]["matched_document_type"] == "id_card"
+    assert "community_generic_fallback" in out["status"]["warnings"]
 
 
 def test_perceive_result_envelope_no_edition_on_mirror():

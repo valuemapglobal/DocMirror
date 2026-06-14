@@ -146,8 +146,6 @@ class MiddlewarePipeline:
         except Exception as e:
             elapsed = (time.time() - t0) * 1000
             step_timings[mw.name] = round(elapsed, 1)
-            from ..core.entry.exceptions import MiddlewareError
-
             mw_error = MiddlewareError(str(e), middleware_name=mw.name)
             logger.warning(f"[Middleware] {mw_error}", exc_info=True)
             result.add_error(str(mw_error))

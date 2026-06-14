@@ -33,8 +33,6 @@ def detect_columns_by_whitespace_projection(
         return None
 
     # F-1: adaptive row-grouping tolerance
-    from .utils import _adaptive_row_tolerance
-
     row_tol = _adaptive_row_tolerance(chars)
 
     # Collect non-space chars, group into rows by y (using adaptive tolerance)

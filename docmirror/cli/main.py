@@ -14,11 +14,16 @@ Usage:
     docmirror [file]                    # Parse document
     docmirror classify <dir>            # Classify documents
     docmirror plugins list              # List plugins
+    docmirror plugins community         # Community 6 premium + 1 generic
     docmirror plugins enable <name>     # Enable plugin
     docmirror plugins license show      # Show license
 """
 
 from __future__ import annotations
+
+import asyncio
+import os
+from pathlib import Path
 
 import click
 
@@ -30,7 +35,10 @@ from docmirror.cli.plugins import plugins
 @click.group()
 @click.version_option(version="0.4.0", prog_name="DocMirror")
 def main():
-    """DocMirror - Universal Document Parsing Engine"""
+    """DocMirror - Universal Document Parsing Engine.
+
+    Community structured output: 6 premium domains + generic_community fallback.
+    """
     pass
 
 
@@ -60,10 +68,6 @@ main.add_command(benchmark)
 @click.option("--slm", is_flag=True, help="Enable SLM extraction")
 def parse(file, output_dir, skip_cache, split_layers, no_stage_output, export_csv, export_chunks, include_text, mirror_level, debug_artifact, slm):
     """Parse a document and save results."""
-    import asyncio
-    import os
-    from pathlib import Path
-
     if slm:
         os.environ["DOCMIRROR_ENABLE_SLM"] = "1"
 

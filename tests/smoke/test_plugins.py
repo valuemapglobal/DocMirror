@@ -15,6 +15,8 @@ pytestmark = [pytest.mark.tier_smoke]
 
 from docmirror.plugins import PluginRegistry
 from docmirror.plugins.bank_statement_community import BankStatementCommunityPlugin
+from docmirror.plugins.capability import get_community_premium_domains
+from docmirror.plugins.generic_community import GenericCommunityPlugin
 from docmirror_enterprise.plugins.bank_statement import BankStatementPlugin, plugin as bank_statement_plugin
 from docmirror_enterprise.plugins.bank_statement.plugin import plugin as bank_statement_module_plugin
 
@@ -80,6 +82,24 @@ class TestBankStatementCommunityPlugin:
         assert result["document_type"] == "bank_statement"
         assert result["entities"]["account_holder"] == "Alice"
         assert result["entities"]["account_number"] == "6222"
+
+
+class TestCommunitySixPlusGeneric:
+    """Community edition ships 6 premium plugins + 1 generic fallback."""
+
+    def test_premium_domain_count(self):
+        assert len(get_community_premium_domains()) == 6
+
+    def test_generic_plugin_instantiable(self):
+        plugin = GenericCommunityPlugin()
+        assert plugin.domain_name == "generic"
+        assert plugin.requires_license is False
+
+    def test_registry_discovers_generic_not_archived(self):
+        reg = PluginRegistry()
+        reg._ensure_discovered()
+        assert reg.get("generic", "community") is not None
+        assert reg.get("id_card", "community") is None
 
 
 class TestPluginRegistry:

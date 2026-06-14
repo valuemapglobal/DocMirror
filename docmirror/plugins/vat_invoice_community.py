@@ -56,6 +56,18 @@ class VATInvoicePlugin(DomainPlugin):
             "total_amount": entities.get("total_amount", ""),
         })
 
+    def extract_from_mirror(self, parse_result, text: str = ""):
+        from docmirror.plugins._base.kv_community_enrich import enrich_vat_invoice_output
+        from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
+
+        out = extract_kv_community_output(
+            self,
+            parse_result,
+            identity_specs=self.identity_fields,
+            full_text=text,
+        )
+        return enrich_vat_invoice_output(out)
+
 
 
 plugin = VATInvoicePlugin()

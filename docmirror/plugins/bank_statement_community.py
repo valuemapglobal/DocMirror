@@ -94,5 +94,9 @@ class BankStatementCommunityPlugin(BaseTableParser):
         })
 
 
+    def extract_from_mirror(self, parse_result, text: str = ""):
+        """Delegate to BaseTableParser for full v2.0 table community output."""
+        return super().extract_from_mirror(parse_result, text)
+
 
 plugin = BankStatementCommunityPlugin()

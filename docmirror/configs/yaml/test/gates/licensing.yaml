@@ -1,0 +1,87 @@
+# TQG licensing track — entitlement + LEP lifecycle gates
+version: 1
+track: licensing
+layer: pec
+
+cases:
+  - id: lic01_premium_feature_naming
+    tier: regression
+    pipeline: licensing
+    options:
+      check: premium_feature
+      domain: alipay_payment
+    gates:
+      premium_feature: { equals: alipay_payment_premium }
+
+  - id: lic02_community_free_not_bypass_enterprise
+    tier: regression
+    pipeline: licensing
+    options:
+      setup: no_license
+      domain: bank_statement
+    gates:
+      is_entitled: { equals: false }
+
+  - id: lic03_entitled_with_premium_feature
+    tier: regression
+    pipeline: licensing
+    options:
+      setup: valid_premium
+      domain: alipay_payment
+    gates:
+      is_entitled: { equals: true }
+
+  - id: lic04_bare_domain_in_lic_not_entitled
+    tier: regression
+    pipeline: licensing
+    options:
+      setup: bare_domain_bug
+      domain: alipay_payment
+    gates:
+      is_entitled: { equals: false }
+
+  - id: lic05_expired_degrades_enterprise
+    tier: regression
+    pipeline: licensing
+    options:
+      setup: expired
+      domain: audit_report
+      run_enterprise_extract: true
+      document_type: audit_report
+    gates:
+      is_entitled: { equals: false }
+      has_license_warning: { equals: true }
+
+  - id: lic06_grace_period_still_entitled
+    tier: regression
+    pipeline: licensing
+    options:
+      setup: grace_period
+      domain: alipay_payment
+    gates:
+      is_entitled: { equals: true }
+      lifecycle_state: { equals: grace_period }
+
+  - id: lic07_expiring_soon_emits_warning
+    tier: regression
+    pipeline: licensing
+    options:
+      setup: expiring_soon
+      domain: alipay_payment
+      run_enterprise_extract: true
+      document_type: alipay_payment
+    gates:
+      lifecycle_state: { equals: expiring_soon }
+      warning_contains: { contains: _license_expiring_soon }
+
+  - id: lic08_entitled_enterprise_no_degrade_warning
+    tier: regression
+    pipeline: licensing
+    options:
+      setup: valid_premium
+      domain: alipay_payment
+      run_enterprise_extract: true
+      document_type: alipay_payment
+    gates:
+      is_entitled: { equals: true }
+      has_license_warning: { equals: false }

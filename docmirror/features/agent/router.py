@@ -14,40 +14,61 @@ class DocumentRoute(BaseModel):
     enhance_mode: str = "standard"
     layout_profile_hint: str | None = None
     recommended_plugins: list[str] = Field(default_factory=list)
+    community_tier: str = "generic"
     export_formats: list[str] = Field(default_factory=lambda: ["json", "udif"])
     notes: list[str] = Field(default_factory=list)
 
 
 _DOMAIN_ROUTES: dict[str, dict] = {
-    "wechat_payment": {
-        "enhance_mode": "full",
-        "layout_profile_hint": "borderless_ledger_wechat",
-        "plugins": ["wechat_payment"],
-        "exports": ["json", "udif", "csv", "chunks"],
-        "notes": ["Requires cross-page merge; use full enhance mode"],
-    },
     "bank_statement": {
         "enhance_mode": "standard",
         "layout_profile_hint": "borderless_ledger_bank",
         "plugins": ["bank_statement"],
+        "community_tier": "premium",
         "exports": ["json", "udif", "csv", "parquet", "chunks"],
+    },
+    "wechat_payment": {
+        "enhance_mode": "full",
+        "layout_profile_hint": "borderless_ledger_wechat",
+        "plugins": ["wechat_payment"],
+        "community_tier": "premium",
+        "exports": ["json", "udif", "csv", "chunks"],
+        "notes": ["Requires cross-page merge; use full enhance mode"],
+    },
+    "alipay_payment": {
+        "enhance_mode": "full",
+        "layout_profile_hint": "borderless_ledger_alipay",
+        "plugins": ["alipay_payment"],
+        "community_tier": "premium",
+        "exports": ["json", "udif", "csv", "chunks"],
+        "notes": ["Requires cross-page merge; use full enhance mode"],
+    },
+    "vat_invoice": {
+        "enhance_mode": "standard",
+        "plugins": ["vat_invoice"],
+        "community_tier": "premium",
+        "exports": ["json", "udif", "chunks"],
+    },
+    "business_license": {
+        "enhance_mode": "standard",
+        "plugins": ["business_license"],
+        "community_tier": "premium",
+        "exports": ["json", "udif", "chunks"],
     },
     "credit_report": {
         "enhance_mode": "full",
         "layout_profile_hint": "credit_report_section_dominant",
         "plugins": ["credit_report"],
+        "community_tier": "premium",
         "exports": ["json", "udif", "chunks"],
         "notes": ["Section-driven layout; L6 graph available"],
-    },
-    "business_license": {
-        "enhance_mode": "standard",
-        "plugins": ["business_license"],
-        "exports": ["json", "udif", "chunks"],
     },
     "audit_report": {
         "enhance_mode": "standard",
         "plugins": ["audit_report"],
+        "community_tier": "enterprise_only",
         "exports": ["json", "udif", "chunks"],
+        "notes": ["Community edition emits mirror_only envelope"],
     },
 }
 
@@ -58,14 +79,44 @@ def route_document(
     page_count: int = 1,
     confidence: float = 0.0,
 ) -> DocumentRoute:
-    """Map document type to enhance mode and plugin hints."""
+    """Map document type to enhance mode and plugin hints (6 premium + generic fallback)."""
+    from docmirror.plugins.capability import (
+        get_community_premium_domains,
+        is_community_premium,
+        is_enterprise_only,
+    )
+
     doc_type = document_type or "generic"
     cfg = _DOMAIN_ROUTES.get(doc_type, {})
     plugins = list(cfg.get("plugins") or [])
-    if doc_type not in _DOMAIN_ROUTES and doc_type not in ("generic", "unknown", ""):
-        plugins = [doc_type]
+    community_tier = cfg.get("community_tier", "")
+
+    if not plugins:
+        if is_community_premium(doc_type):
+            plugins = [doc_type]
+            community_tier = "premium"
+        elif is_enterprise_only(doc_type):
+            plugins = [doc_type]
+            community_tier = "enterprise_only"
+        elif doc_type not in ("generic", "unknown", ""):
+            plugins = ["generic"]
+            community_tier = "generic"
+
+    if not community_tier:
+        if is_community_premium(doc_type):
+            community_tier = "premium"
+        elif is_enterprise_only(doc_type):
+            community_tier = "enterprise_only"
+        elif doc_type in get_community_premium_domains():
+            community_tier = "premium"
+        elif doc_type not in ("generic", "unknown", ""):
+            community_tier = "generic"
+        else:
+            community_tier = "unclassified"
 
     notes = list(cfg.get("notes") or [])
+    if community_tier == "generic":
+        notes.append("Community structured output via generic_community fallback")
     if page_count >= 50:
         notes.append("Large document: set DOCMIRROR_MAX_PAGE_CONCURRENCY conservatively")
     if confidence < 0.5:
@@ -76,6 +127,7 @@ def route_document(
         enhance_mode=cfg.get("enhance_mode", "standard"),
         layout_profile_hint=cfg.get("layout_profile_hint"),
         recommended_plugins=plugins,
+        community_tier=community_tier,
         export_formats=list(cfg.get("exports") or ["json", "udif", "chunks"]),
         notes=notes,
     )

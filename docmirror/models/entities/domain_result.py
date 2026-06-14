@@ -46,9 +46,132 @@ class ExtractionHint(BaseModel):
     reason: str = ""
 
 
+def _is_finance_envelope(raw: dict[str, Any]) -> bool:
+    """True when *raw* is finance edition JSON v3.0 (decision-layer blocks)."""
+    return (
+        raw.get("schema_version") == "3.0"
+        and raw.get("edition") == "finance"
+        and isinstance(raw.get("scenario"), dict)
+    )
+
+
+def _is_enterprise_envelope(raw: dict[str, Any]) -> bool:
+    """True when *raw* is enterprise DEC v2.0 (``extraction`` block, schema 2.0)."""
+    return (
+        raw.get("schema_version") == "2.0"
+        and raw.get("edition") == "enterprise"
+        and isinstance(raw.get("extraction"), dict)
+    )
+
+
 def _is_edition_v2_payload(raw: dict[str, Any]) -> bool:
-    """True when *raw* is edition JSON v2.0 (full or partial enterprise envelope)."""
+    """True when *raw* is community edition JSON v2.0 (``schema_version`` + ``data``)."""
     return raw.get("schema_version") == "2.0" and isinstance(raw.get("data"), dict)
+
+
+def _is_edition_envelope_passthrough(raw: dict[str, Any]) -> bool:
+    """True when plugin output must bypass ``edition_serializer`` (full edition envelope)."""
+    return (
+        _is_edition_v2_payload(raw)
+        or _is_enterprise_envelope(raw)
+        or _is_finance_envelope(raw)
+    )
+
+
+def _normalize_finance_envelope(raw: dict[str, Any]) -> DomainExtractionResult:
+    """Map finance v3.0 blocks → DEC for validation."""
+    doc = raw.get("document") if isinstance(raw.get("document"), dict) else {}
+    extraction = raw.get("extraction") if isinstance(raw.get("extraction"), dict) else {}
+    normalization = raw.get("normalization") if isinstance(raw.get("normalization"), dict) else {}
+    status = raw.get("status") if isinstance(raw.get("status"), dict) else {}
+    quality_raw = raw.get("quality") if isinstance(raw.get("quality"), dict) else {}
+    validation = raw.get("validation") if isinstance(raw.get("validation"), dict) else {}
+    subject = raw.get("subject") if isinstance(raw.get("subject"), dict) else {}
+
+    document_type = str(doc.get("document_type") or "unknown")
+    properties = dict(doc.get("properties") or {})
+    entities = dict(extraction.get("fields") or {})
+    if subject.get("subject_name"):
+        entities.setdefault("subject_name", subject["subject_name"])
+
+    structured_data = {
+        k: extraction.get(k)
+        for k in ("records", "summary", "sections", "tables", "line_items")
+        if extraction.get(k) is not None
+    }
+    if not structured_data.get("records") and normalization.get("standard_records"):
+        structured_data["records"] = normalization["standard_records"]
+    fi = raw.get("financial_indicators")
+    if isinstance(fi, dict):
+        structured_data["financial_indicators"] = fi
+
+    warnings = list(status.get("warnings") or [])
+    errors = list(status.get("errors") or [])
+    success = bool(status.get("success", True))
+
+    quality = DomainQuality(
+        confidence=float(quality_raw.get("overall_score") or status.get("confidence") or 0),
+        field_coverage=_coerce_field_coverage(quality_raw.get("field_coverage")),
+        validation_passed=success and not errors and bool(validation.get("passed", True)),
+        issues=[*(f"warning:{w}" for w in warnings), *(f"error:{e}" for e in errors)],
+    )
+
+    metadata = dict(raw.get("metadata") or {})
+    metadata.setdefault("edition", "finance")
+
+    return DomainExtractionResult(
+        document_type=document_type,
+        properties=properties,
+        entities=entities,
+        structured_data=structured_data or None,
+        quality=quality,
+        metadata=metadata,
+    )
+
+
+def _normalize_enterprise_envelope(raw: dict[str, Any]) -> DomainExtractionResult:
+    """Map enterprise/finance v2.0 blocks → DEC for validation."""
+    doc = raw.get("document") if isinstance(raw.get("document"), dict) else {}
+    extraction = raw.get("extraction") if isinstance(raw.get("extraction"), dict) else {}
+    normalization = raw.get("normalization") if isinstance(raw.get("normalization"), dict) else {}
+    status = raw.get("status") if isinstance(raw.get("status"), dict) else {}
+    quality_raw = raw.get("quality") if isinstance(raw.get("quality"), dict) else {}
+    validation = raw.get("validation") if isinstance(raw.get("validation"), dict) else {}
+
+    document_type = str(doc.get("document_type") or "unknown")
+    properties = dict(doc.get("properties") or {})
+    entities = dict(extraction.get("fields") or {})
+
+    structured_data = {
+        k: extraction.get(k)
+        for k in ("records", "summary", "sections", "tables", "line_items")
+        if extraction.get(k) is not None
+    }
+    if not structured_data.get("records") and normalization.get("standard_records"):
+        structured_data["records"] = normalization["standard_records"]
+
+    warnings = list(status.get("warnings") or [])
+    errors = list(status.get("errors") or [])
+    success = bool(status.get("success", True))
+
+    quality = DomainQuality(
+        confidence=float(quality_raw.get("overall_score") or status.get("confidence") or 0),
+        field_coverage=_coerce_field_coverage(quality_raw.get("field_coverage")),
+        validation_passed=success and not errors and bool(validation.get("passed", True)),
+        issues=[*(f"warning:{w}" for w in warnings), *(f"error:{e}" for e in errors)],
+    )
+
+    metadata = dict(raw.get("metadata") or {})
+    metadata.setdefault("edition", raw.get("edition"))
+
+    return DomainExtractionResult(
+        document_type=document_type,
+        properties=properties,
+        entities=entities,
+        structured_data=structured_data or None,
+        quality=quality,
+        metadata=metadata,
+    )
 
 
 def _normalize_edition_v2(raw: dict[str, Any]) -> DomainExtractionResult:
@@ -125,6 +248,12 @@ def normalize_domain_result(raw: Any) -> DomainExtractionResult:
 
     if _is_edition_v2_payload(raw):
         return _normalize_edition_v2(raw)
+
+    if _is_enterprise_envelope(raw):
+        return _normalize_enterprise_envelope(raw)
+
+    if _is_finance_envelope(raw):
+        return _normalize_finance_envelope(raw)
 
     # Wrapper form: {document_type, entities, quality, structured_data, ...}
     is_wrapper = "entities" in raw and isinstance(raw.get("entities"), dict)

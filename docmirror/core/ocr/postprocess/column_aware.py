@@ -51,6 +51,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import Counter
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -258,8 +259,6 @@ class ContextAwareOCRPostProcessor:
         1. 如果匹配，直接返回
         2. 如果不匹配，尝试修复
         """
-        import re
-
         # 如果已经匹配，直接返回
         if re.match(format_pattern, text):
             return text
@@ -278,8 +277,6 @@ class ContextAwareOCRPostProcessor:
     @classmethod
     def _fix_amount_format(cls, text: str) -> str:
         """修复金额格式"""
-        import re
-
         # 移除非数字字符（除了,. -）
         text = re.sub(r"[^0-9,.\- ]", "", text)
 
@@ -293,8 +290,6 @@ class ContextAwareOCRPostProcessor:
     @classmethod
     def _fix_date_format(cls, text: str) -> str:
         """修复日期格式"""
-        import re
-
         # 标准化分隔符
         text = re.sub(r"[年月日]", "-", text)
         text = re.sub(r"[/\.]", "-", text)
@@ -353,9 +348,6 @@ class ContextAwareOCRPostProcessor:
     @classmethod
     def _normalize_date_format(cls, date: str, target_format: str) -> str:
         """标准化日期格式"""
-        import re
-        from datetime import datetime
-
         # 尝试解析
         cleaned = re.sub(r"[年/\.月日号]", "-", date).strip("-")
 

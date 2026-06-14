@@ -18,6 +18,14 @@ profiles:
       document_type: { equals: id_card }
       page_count: { min: 1 }
 
+  generic_community_smoke:
+    fixture: tests/fixtures/id_card/ZhangSan_身份证_1976112.pdf
+    enhance_mode: standard
+    gates:
+      document_type: { equals: id_card }
+      page_count: { min: 1 }
+    notes: Mirror unchanged; community uses generic_community fallback (see edition.yaml id_card_generic_community)
+
   bank_statement_standard:
     fixture: tests/fixtures/bank_statement/银行流水_中国建设银行_20231226.pdf
     enhance_mode: standard

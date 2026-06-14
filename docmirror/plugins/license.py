@@ -129,8 +129,11 @@ class LicenseManager:
         Returns:
             True if plugin is licensed and valid
         """
-        # Free plugins don't need license
-        if plugin_name in self._get_free_plugins():
+        # Free community domains only apply to bare domain names, not *_premium features.
+        from docmirror.plugins.licensing.tiers_loader import feature_suffix
+
+        suffix = feature_suffix()
+        if not plugin_name.endswith(suffix) and plugin_name in self._get_free_plugins():
             return True
 
         # Check if we have a license
@@ -425,56 +428,16 @@ class LicenseManager:
         return hashlib.sha256(raw_id.encode()).hexdigest()
 
     def _get_free_plugins(self) -> list[str]:
-        """Get list of free plugins that don't need license.
+        """Community premium domains (aligned with offline + tiers.yaml)."""
+        from docmirror.plugins.licensing.tiers_loader import community_free_domains
 
-        Returns:
-            List of plugin names
-        """
-        return [
-            "id_card",
-            "business_license",
-            "passport",
-            "financial_license",
-            "balance_sheet",
-            "income_statement",
-            "cash_flow_statement",
-            "vat_invoice",
-            "tax_certificate",
-            "loan_contract",
-            "mortgage_contract",
-            "wealth_management_contract",
-            "guarantee_contract",
-            "aml_report",
-            "insurance_policy",
-            "fund_contract",
-            "court_judgment",
-        ]
+        return community_free_domains()
 
     def _get_tier_plugins(self, tier: str) -> list[str]:
-        """Get plugins included in a tier.
+        """Get plugins included in a tier from tiers.yaml SSOT."""
+        from docmirror.plugins.licensing.tiers_loader import tier_features
 
-        Args:
-            tier: Tier name (professional, enterprise)
-
-        Returns:
-            List of plugin names
-        """
-        tier_map = {
-            "professional": [
-                "bank_statement_premium",
-                "audit_report_premium",
-                "credit_report_premium",
-            ],
-            "enterprise": [
-                "bank_statement_premium",
-                "audit_report_premium",
-                "credit_report_premium",
-                "real_estate_premium",
-                "contract_analysis_premium",
-            ],
-        }
-
-        return tier_map.get(tier, [])
+        return tier_features(tier)
 
     def _load_cache(self) -> None:
         """Load license from cache file."""

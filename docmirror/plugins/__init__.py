@@ -209,18 +209,20 @@ class PluginRegistry:
         self._discover_builtin_plugins()
 
     def _discover_builtin_plugins(self) -> None:
-        """Discover and load plugins from docmirror.plugins subpackage.
-
-        Two-phase loading:
-          1. Single-file plugins (*.py, community baseline)
-          2. Directory plugins (enterprise edition, override community versions)
-        """
+        """Discover community premium (6) + generic (1) + enterprise/finance packages."""
         try:
             import docmirror.plugins as plugins_pkg
 
-            # Phase 1: single-file community plugins (*_community.py)
+            from docmirror.plugins.capability import get_community_premium_domains
+            from docmirror.plugins.discovery import list_premium_community_modules
+
+            allowed = set(list_premium_community_modules()) | {"generic_community"}
+
+            # Phase 1: community 6 premium + 1 generic (see doc 14)
             for _, modname, ispkg in pkgutil.iter_modules(plugins_pkg.__path__):
-                if ispkg or not modname.endswith("_community") or modname.startswith("_"):
+                if ispkg or modname.startswith("_"):
+                    continue
+                if modname not in allowed:
                     continue
                 try:
                     mod = importlib.import_module(f"docmirror.plugins.{modname}")
@@ -229,7 +231,11 @@ class PluginRegistry:
                     elif hasattr(mod, "Plugin"):
                         self.register(mod.Plugin())
                 except Exception as e:
-                    logger.warning(f"[PluginRegistry] Failed to load community plugin docmirror.plugins.{modname}: {e}")
+                    logger.warning(
+                        "[PluginRegistry] Failed to load community plugin docmirror.plugins.%s: %s",
+                        modname,
+                        e,
+                    )
 
             # Phase 2: enterprise plugins (from docmirror-enterprise package, if installed)
             try:

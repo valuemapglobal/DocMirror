@@ -90,3 +90,20 @@ field_schemas:
     title: Title
     content_summary: Content abstraction or summary
     key_information: Key information
+  generic_mirror:
+    note: Wildcard community fallback — fields from Mirror KV/entities; matched type in classification
+    matched_document_type: Preserved real document_type from classifier
+    fields: Dynamic key-value map from Mirror
+    records: Optional logical table rows without column standardization
+  vat_invoice:
+    invoice_number: Invoice number
+    invoice_code: Invoice code
+    total_amount: Total amount with tax
+    seller_name: Seller name
+    buyer_name: Buyer name
+    invoice_date: Invoice date
+  credit_report:
+    name: Report subject name
+    id_number: ID number
+    report_time: Report time
+    report_number: Report number

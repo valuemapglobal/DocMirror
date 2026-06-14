@@ -112,7 +112,7 @@ curl -X POST http://localhost:8000/v1/parse \
 - **Structured Table Extraction** — Headers, typed cells (currency/date/number/text), row classification
 - **Smart OCR Fallback** — Auto-detects scanned documents, applies RapidOCR with dynamic contrast boosting
 - **Layout Analysis** — DocLayout-YOLO + spatial clustering for complex multi-column layouts
-- **Domain Plugins** — `BankStatement`, `Invoice` plugins auto-extract domain-specific entities
+- **Domain Plugins (6+1)** — 6 premium community plugins (bank/wechat/alipay/invoice/license/credit) + generic fallback for 120+ classified types
 - **Anti-Forgery Detection** — Pixel Error Level Analysis (ELA) + metadata blacklisting
 - **RESTful API** — Standard `{code, message, data, meta}` envelope with typed cells
 - **Pure CPU Support** — No GPU required; GPU/MPS acceleration available when present

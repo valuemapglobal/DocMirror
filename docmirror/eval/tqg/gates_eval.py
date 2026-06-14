@@ -55,4 +55,13 @@ def eval_gate(actual: Any, spec: dict[str, Any]) -> tuple[bool, str | None]:
         if not ok:
             return False, f"expected <= {spec['max_issues']} issues, got {count}"
         return True, None
+    if "contains" in spec:
+        needle = str(spec["contains"])
+        if isinstance(actual, list):
+            ok = any(needle in str(item) for item in actual)
+        else:
+            ok = needle in str(actual or "")
+        if not ok:
+            return False, f"expected to contain {needle!r} in {actual!r}"
+        return True, None
     return True, None

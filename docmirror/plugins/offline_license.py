@@ -39,6 +39,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import base64
 import platform
 import uuid
 from datetime import datetime, timedelta
@@ -171,7 +173,13 @@ class OfflineLicenseManager:
                 logger.error("[OfflineLicense] Machine ID mismatch")
                 return False
 
-            # Store license
+            # Store license (replace same license_id if re-loaded)
+            license_id = license_file.license_info.get("license_id")
+            if license_id:
+                self._licenses = [
+                    lic for lic in self._licenses
+                    if lic.license_info.get("license_id") != license_id
+                ]
             self._licenses.append(license_file)
 
             # Save to license directory
@@ -191,26 +199,23 @@ class OfflineLicenseManager:
             return False
 
     def is_licensed(self, plugin_name: str) -> bool:
-        """Check if a plugin is licensed.
+        """Check if a plugin is licensed."""
+        from docmirror.plugins.licensing.contract import premium_feature
+        from docmirror.plugins.licensing.tiers_loader import feature_suffix
 
-        Args:
-            plugin_name: Plugin name
-
-        Returns:
-            True if plugin is licensed and valid
-        """
-        # Check free plugins
-        if plugin_name in self._get_free_plugins():
+        suffix = feature_suffix()
+        if not plugin_name.endswith(suffix) and plugin_name in self._get_free_plugins():
             return True
 
-        # Find valid license that includes this plugin
+        check_name = plugin_name if plugin_name.endswith(suffix) else premium_feature(plugin_name)
+
         for license_file in self._licenses:
-            # Check if license is still valid (including grace period)
             if not license_file.is_valid:
                 continue
-
-            # Check if plugin is included
-            if plugin_name in license_file.get_features():
+            features = set(license_file.get_features())
+            if "*" in features:
+                return True
+            if check_name in features:
                 return True
 
         return False
@@ -326,11 +331,6 @@ class OfflineLicenseManager:
         Returns:
             True if signature is valid
         """
-        import os
-        import base64
-        import hashlib
-        import json
-        
         security = data.get("security", {})
         signature = security.get("signature")
         if not signature:
@@ -342,6 +342,9 @@ class OfflineLicenseManager:
         content_str = json.dumps(license_info, sort_keys=True)
 
         if signature.startswith("simplified:"):
+            if os.getenv("DOCMIRROR_LICENSE_DEV_MODE") != "1":
+                logger.error("[OfflineLicense] Simplified signature requires DOCMIRROR_LICENSE_DEV_MODE=1")
+                return False
             expected_hash = hashlib.sha256(content_str.encode()).hexdigest()
             actual_hash = signature.split("simplified:", 1)[1]
             return expected_hash == actual_hash
@@ -392,35 +395,10 @@ class OfflineLicenseManager:
             return False
 
     def _get_free_plugins(self) -> list[str]:
-        """Get list of free (community edition) plugins.
+        """Community premium domains that do not require enterprise license."""
+        from docmirror.plugins.licensing.tiers_loader import community_free_domains
 
-        These plugin domains are always free in the community edition.
-        Enterprise plugins require a valid license file.
-        """
-        # Community edition plugins (18 baseline domains)
-        return [
-            # P0 — 普通人最高频
-            "bank_statement",
-            "wechat_payment",
-            "alipay_payment",
-            "id_card",
-            "passport",
-            "business_license",
-            "vat_invoice",
-            "credit_report",
-            "loan_contract",
-            # P1 — 中频实用
-            "real_estate_certificate",
-            "mortgage_contract",
-            "insurance_policy",
-            "tax_certificate",
-            "social_security_proof",
-            "payroll_slip",
-            # P2 — 可用
-            "drivers_license",
-            "household_registration",
-            "social_security_card",
-        ]
+        return community_free_domains()
 
 
 # Global singleton

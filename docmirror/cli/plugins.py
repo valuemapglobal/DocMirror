@@ -96,6 +96,41 @@ def list(enabled: bool, disabled: bool, fmt: str):
 
 
 @plugins.command()
+def community():
+    """List community edition plugins (6 premium + 1 generic)."""
+    from docmirror.plugins import registry
+    from docmirror.plugins.capability import get_community_premium_domains
+
+    registry._ensure_discovered()
+    premium = get_community_premium_domains()
+    generic = registry.get("generic", "community")
+
+    table = Table(title="Community 6+1 Plugins")
+    table.add_column("Tier", style="cyan", width=12)
+    table.add_column("Domain", style="green", width=22)
+    table.add_column("Module", style="white", width=30)
+    table.add_column("Display Name", style="yellow", width=35)
+
+    for domain in premium:
+        plugin = registry.get(domain, "community")
+        if plugin is None:
+            table.add_row("premium", domain, f"{domain}_community", "(missing)")
+        else:
+            table.add_row("premium", domain, f"{domain}_community", plugin.display_name)
+
+    if generic is not None:
+        table.add_row("generic", "generic", "generic_community", generic.display_name)
+    else:
+        table.add_row("generic", "generic", "generic_community", "(missing)")
+
+    console.print(table)
+    console.print(
+        "\n[dim]Premium: structured extract for 6 domains. "
+        "Generic: fallback for all other classified non-enterprise types.[/dim]"
+    )
+
+
+@plugins.command()
 @click.argument("name")
 def enable(name: str):
     """Enable a plugin."""
@@ -202,31 +237,103 @@ def license():
 
 @license.command()
 def show():
-    """Show current license information."""
-    info = license_manager.get_license_info()
+    """Show current license information (offline + online)."""
+    from docmirror.plugins.licensing.snapshot import resolve_license_snapshot
 
-    if info is None:
+    snapshot = resolve_license_snapshot()
+    offline = snapshot.get("offline")
+    online = snapshot.get("online")
+    channel = snapshot.get("active_channel")
+
+    if not offline and not online:
         console.print(
             Panel(
                 "[yellow]No active license[/yellow]\n\n"
-                "Visit [cyan]https://docmirror.com/pricing[/cyan] to purchase a license.",
+                "Load offline: [cyan]docmirror plugins license load company.lic[/cyan]\n"
+                "Or activate online: [cyan]docmirror plugins license activate KEY[/cyan]\n\n"
+                "Visit [cyan]https://docmirror.com/pricing[/cyan] to purchase.",
                 title="License Status",
                 border_style="yellow",
             )
         )
         return
 
-    # License info table
-    table = Table(title="License Information", border_style="green")
+    table = Table(title="License Snapshot", border_style="green")
     table.add_column("Property", style="cyan")
     table.add_column("Value", style="white")
 
-    table.add_row("Tier", info["tier"].upper())
-    table.add_row("Status", "✅ Active" if not info["is_expired"] else "❌ Expired")
-    table.add_row("Expires At", info["expires_at"])
-    table.add_row("Days Remaining", str(info["days_remaining"]))
-    table.add_row("Plugins", ", ".join(info["plugins"]))
+    table.add_row("Active Channel", channel or "none")
+    table.add_row("Lifecycle", str(snapshot.get("lifecycle_state", "missing")))
+    if snapshot.get("lifecycle_days_remaining") is not None:
+        table.add_row("Days Remaining", str(snapshot.get("lifecycle_days_remaining", "")))
+    if snapshot.get("lifecycle_state") == "expiring_soon":
+        table.add_row("Expiring Soon", "⚠️ Yes")
+    elif snapshot.get("lifecycle_state") == "grace_period":
+        table.add_row("Grace Period", "⚠️ Active")
+    if offline:
+        table.add_row("Offline Tier", str(offline.get("tier", "N/A")).upper())
+        table.add_row("Offline Valid", "✅" if offline.get("is_valid") else "❌")
+        table.add_row("Offline Expires", str(offline.get("expires_at", "N/A")))
+        table.add_row("Grace (days)", str(offline.get("grace_period_days", "N/A")))
+        table.add_row("Effective Expiry", str(offline.get("effective_expiry", "N/A")))
+        sample = snapshot.get("entitled_features_sample") or []
+        table.add_row("Features (sample)", ", ".join(sample[:8]) + ("…" if len(sample) > 8 else ""))
+    if online:
+        table.add_row("Online Tier", str(online.get("tier", "N/A")).upper())
+        table.add_row("Online Status", "✅ Active" if not online.get("is_expired") else "❌ Expired")
+        table.add_row("Online Expires", str(online.get("expires_at", "N/A")))
+        table.add_row("Online Days Left", str(online.get("days_remaining", "N/A")))
 
+    console.print(table)
+
+    offline_list = snapshot.get("offline_licenses") or []
+    if len(offline_list) > 1:
+        console.print(f"[dim]Loaded offline licenses: {len(offline_list)}[/dim]")
+
+
+@license.command("check-expiring")
+def check_expiring():
+    """List licenses expiring within the configured threshold (default 90 days)."""
+    from docmirror.plugins.license import license_manager
+    from docmirror.plugins.offline_license import offline_license_manager
+    from docmirror.plugins.licensing.tiers_loader import load_tiers
+
+    threshold = int((load_tiers().get("lifecycle") or {}).get("expiring_soon_days") or 90)
+    rows: list[tuple[str, str, str, str]] = []
+
+    for item in offline_license_manager.check_expiring_licenses():
+        rows.append(
+            (
+                "offline",
+                str(item.get("license_id", "")),
+                str(item.get("tier", "")),
+                str(item.get("days_until_expiry", "")),
+            )
+        )
+
+    online = license_manager.get_license_info()
+    if online and not online.get("is_expired"):
+        days = int(online.get("days_remaining") or 0)
+        if 0 < days <= threshold:
+            rows.append(("online", "cached", str(online.get("tier", "")), str(days)))
+
+    if not rows:
+        console.print(
+            Panel(
+                f"[green]No licenses expiring within {threshold} days.[/green]",
+                title="License Expiry Check",
+                border_style="green",
+            )
+        )
+        return
+
+    table = Table(title=f"Licenses Expiring Within {threshold} Days", border_style="yellow")
+    table.add_column("Channel", style="cyan")
+    table.add_column("License ID", style="white")
+    table.add_column("Tier", style="white")
+    table.add_column("Days Left", style="yellow")
+    for row in rows:
+        table.add_row(*row)
     console.print(table)
 
 
@@ -379,24 +486,34 @@ def generate_demo():
     """Generate a demo license file for development/testing."""
     import json
     import hashlib
-    import uuid
+    import os
     from datetime import datetime, timedelta
     from pathlib import Path
+
+    if os.getenv("DOCMIRROR_LICENSE_DEV_MODE") != "1":
+        console.print(
+            Panel(
+                "[yellow]Demo license generation is disabled in production mode.[/yellow]\n\n"
+                "Set [cyan]DOCMIRROR_LICENSE_DEV_MODE=1[/cyan] and retry.",
+                title="Dev Mode Required",
+                border_style="yellow",
+            )
+        )
+        sys.exit(1)
 
     lic_dir = Path.home() / ".docmirror" / "licenses"
     lic_dir.mkdir(parents=True, exist_ok=True)
 
-    # Collect all enterprise plugin domains
-    from docmirror.plugins import registry
-    all_plugins = registry.list_plugins()
-    enterprise_domains = [
-        name for name in all_plugins
-        if getattr(registry.get(name), "edition", "") == "enterprise"
-    ]
+    for stale in lic_dir.glob("DEMO-*.lic"):
+        stale.unlink(missing_ok=True)
 
-    import json as _json
+    from docmirror.plugins.licensing.entitlements import demo_features
+    from docmirror.plugins.offline_license import offline_license_manager
+
+    feature_list = demo_features()
+
     license_info = {
-        "license_id": f"DEMO-{uuid.uuid4().hex[:8].upper()}",
+        "license_id": "DEMO-CURRENT",
         "tier": "enterprise",
         "type": "demo",
         "customer": {"name": "Development Environment", "company": "DocMirror Dev", "email": "dev@docmirror.local"},
@@ -405,10 +522,9 @@ def generate_demo():
             "expires_at": (datetime.now() + timedelta(days=365)).isoformat(),
             "grace_period_days": 30,
         },
-        "features": enterprise_domains,
+        "features": feature_list,
     }
-    # Signature must match _verify_signature: sha256(json.dumps(license_info, sort_keys=True))
-    content_str = _json.dumps(license_info, sort_keys=True)
+    content_str = json.dumps(license_info, sort_keys=True)
     signature = hashlib.sha256(content_str.encode()).hexdigest()
     license_data = {
         "license_info": license_info,
@@ -422,12 +538,15 @@ def generate_demo():
     with open(lic_path, "w") as f:
         json.dump(license_data, f, indent=2, ensure_ascii=False)
 
+    offline_license_manager._licenses.clear()
+    offline_license_manager._load_all_licenses()
+
     console.print(Panel(
         f"[green]Demo license generated[/green]\n\n"
         f"  License ID: [cyan]{license_data['license_info']['license_id']}[/cyan]\n"
         f"  Tier: [cyan]enterprise (demo)[/cyan]\n"
         f"  Expires: [cyan]{license_data['license_info']['validity']['expires_at']}[/cyan]\n"
-        f"  Plugins: [cyan]{len(enterprise_domains)} enterprise domains[/cyan]\n\n"
+        f"  Features: [cyan]{len(feature_list)} entitlement features[/cyan]\n\n"
         f"  Saved to: [yellow]{lic_path}[/yellow]",
         title="Demo License",
         border_style="green",

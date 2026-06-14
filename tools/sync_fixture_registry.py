@@ -32,9 +32,10 @@ _TRACKS_BY_TYPE: dict[str, list[str]] = {
     "wechat_payment": ["extract", "classify", "edition"],
     "alipay_payment": ["extract", "classify"],
     "bank_statement": ["extract", "classify", "mirror"],
-    "id_card": ["classify", "mirror", "extract"],
-    "business_license": ["classify", "mirror", "extract"],
-    "vat_invoice": ["classify"],
+    "id_card": ["classify", "mirror", "generic-community"],
+    "business_license": ["classify", "mirror", "extract", "edition"],
+    "vat_invoice": ["classify", "edition"],
+    "credit_report": ["classify", "edition"],
 }
 
 

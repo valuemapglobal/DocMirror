@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docmirror.com/schemas/license_file.schema.json",
+  "title": "DocMirror Offline License File",
+  "type": "object",
+  "required": ["license_info", "security"],
+  "properties": {
+    "license_info": {
+      "type": "object",
+      "required": ["license_id", "tier", "validity", "features"],
+      "properties": {
+        "license_id": { "type": "string" },
+        "tier": { "type": "string" },
+        "type": { "type": "string" },
+        "validity": {
+          "type": "object",
+          "required": ["issued_at", "expires_at"],
+          "properties": {
+            "issued_at": { "type": "string" },
+            "expires_at": { "type": "string" },
+            "grace_period_days": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "features": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "customer": { "type": "object" }
+      }
+    },
+    "security": {
+      "type": "object",
+      "required": ["signature"],
+      "properties": {
+        "signature": { "type": "string" },
+        "algorithm": { "type": "string" },
+        "public_key_id": { "type": "string" }
+      }
+    }
+  }
+}

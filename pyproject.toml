@@ -6,6 +6,10 @@ build-backend = "hatchling.build"
 packages = [
     "docmirror",
 ]
+exclude = [
+    "docmirror/plugins/_archive",
+    "docmirror/tools",
+]
 
 [tool.hatch.build.targets.wheel.enterprise]
 packages = [
@@ -117,6 +121,7 @@ markers = [
     "track_edition: PEC / DEC edition gates",
     "track_e2e: CLI/API/full perceive gates",
     "track_transport: FCR format capability and routing gates",
+    "track_licensing: PEC entitlement and LEP lifecycle gates",
 ]
 
 [tool.mypy]

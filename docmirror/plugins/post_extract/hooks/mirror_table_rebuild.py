@@ -39,7 +39,6 @@ class MirrorTableRebuildHook(PostExtractHook):
         rebuild_fn = None
         for mod_path in (
             "docmirror_enterprise.plugins.bank_statement.table_rebuild",
-            "docmirror.plugins.bank_statement.table_rebuild",
         ):
             try:
                 mod = __import__(mod_path, fromlist=["rebuild_bank_table_from_transactions"])

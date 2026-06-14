@@ -25,9 +25,27 @@ logger = logging.getLogger(__name__)
 
 def build_community_output(result, full_text: str = "") -> dict | None:
     """Build community v2.0 output via PEC plugin runner (does not mutate Mirror)."""
+    from docmirror.plugins.capability import is_community_premium
     from docmirror.plugins.runner import run_plugin_extract_sync
 
-    return run_plugin_extract_sync(result, edition="community", full_text=full_text)
+    out = run_plugin_extract_sync(result, edition="community", full_text=full_text)
+    if out is None:
+        return None
+
+    plugin_name = (out.get("plugin") or {}).get("name", "")
+    meta = out.setdefault("metadata", {})
+    if plugin_name == "generic":
+        meta["community_tier"] = "generic"
+        meta["community_route"] = "generic_community"
+    elif is_community_premium(plugin_name):
+        meta["community_tier"] = "premium"
+        meta["community_route"] = plugin_name
+    elif (out.get("status") or {}).get("warnings") and any(
+        "mirror_only" in str(w) for w in out["status"]["warnings"]
+    ):
+        meta["community_tier"] = "enterprise_only"
+        meta["community_route"] = "mirror_only"
+    return out
 
 
 
@@ -39,7 +57,6 @@ def _patch_edition_compliance(output: dict, edition: str, detected_type: str) ->
     which plugin produced the output. This avoids per-plugin fixes for empty
     audit/processing/metadata fields.
     """
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()
     
     # ── audit block ──
@@ -178,6 +195,20 @@ def build_api_response(result, edition: str = "all", include_text: bool = False,
 
     if editions_map:
         api_dict["data"]["editions"] = editions_map
+
+    from docmirror.plugins.licensing.lifecycle import lifecycle_cli_message, resolve_entitlement_lifecycle
+    from docmirror.plugins.licensing.snapshot import resolve_license_snapshot
+
+    lc = resolve_entitlement_lifecycle()
+    snapshot = resolve_license_snapshot()
+    api_dict.setdefault("meta", {})
+    api_dict["meta"]["license"] = {
+        "lifecycle_state": lc.state.value,
+        "days_remaining": lc.days_remaining,
+        "active_channel": snapshot.get("active_channel"),
+        "renewal_url": lc.renewal_url,
+        "message": lifecycle_cli_message(lc),
+    }
 
     # Ensure standard fields
     api_dict.setdefault("code", 200)

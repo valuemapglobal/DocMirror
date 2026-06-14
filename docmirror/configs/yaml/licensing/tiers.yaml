@@ -1,0 +1,56 @@
+# DocMirror Licensing SSOT — community 6+1 + enterprise tiers
+# See docs/design/13_commercial_launch_mvp_execution_plan.md
+
+version: 1
+schema_version: "1.0"
+feature_suffix: "_premium"
+
+community_free_domains:
+  - bank_statement
+  - wechat_payment
+  - alipay_payment
+  - vat_invoice
+  - business_license
+  - credit_report
+
+tiers:
+  professional:
+    features:
+      - bank_statement_premium
+      - audit_report_premium
+      - credit_report_premium
+  enterprise:
+    features:
+      - bank_statement_premium
+      - audit_report_premium
+      - credit_report_premium
+      - wechat_payment_premium
+      - alipay_payment_premium
+      - vat_invoice_premium
+      - business_license_premium
+      - real_estate_premium
+      - contract_analysis_premium
+      - batch_processing
+      - priority_support
+  finance:
+    include_all_finance_domains: true
+    features:
+      - batch_processing
+  ultimate:
+    features:
+      - "*"
+
+demo:
+  tier: enterprise
+  include_all_enterprise_domains: true
+
+lifecycle:
+  expiring_soon_days: 90
+  offline_grace_period_days: 30
+  online_verify_grace_days: 7
+  renewal_url: "https://docmirror.com/pricing/renew"
+  warn_on_parse: true
+  warn_in_edition_json: true
+
+dev:
+  allow_simplified_signature: true

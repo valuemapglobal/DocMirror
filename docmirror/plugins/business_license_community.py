@@ -56,6 +56,18 @@ class BusinessLicensePlugin(DomainPlugin):
             "legal_representative": entities.get("legal_representative", ""),
         })
 
+    def extract_from_mirror(self, parse_result, text: str = ""):
+        from docmirror.plugins._base.kv_community_enrich import enrich_business_license_output
+        from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
+
+        out = extract_kv_community_output(
+            self,
+            parse_result,
+            identity_specs=self.identity_fields,
+            full_text=text,
+        )
+        return enrich_business_license_output(out, parse_result=parse_result, full_text=text)
+
 
 
 plugin = BusinessLicensePlugin()

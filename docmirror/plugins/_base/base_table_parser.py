@@ -182,8 +182,6 @@ class BaseTableParser(DomainPlugin):
 
         返回 [[[cell_text, ...], ...], ...] 结构。
         """
-        import re
-
         out: list[list[list[str]]] = []
 
         if not parse_result or not hasattr(parse_result, "pages"):

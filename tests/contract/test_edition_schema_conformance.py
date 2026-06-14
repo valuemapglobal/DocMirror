@@ -127,9 +127,17 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
         val = doc[key]
         if not isinstance(val, expected_type):
             errors.append(f"[C06] document.{key} 类型错误: 期望 {expected_type}, 实际 {type(val).__name__}")
-    if doc.get("archetype") not in ("key_value_document", "table_document", "report_document",
-                                    "contract_document", "voucher_document", "legal_document", "package_document"):
-        errors.append(f"[C07] document.archetype 不在七类形态中: {doc.get('archetype')}")
+    if doc.get("archetype") not in (
+        "key_value_document",
+        "table_document",
+        "report_document",
+        "contract_document",
+        "voucher_document",
+        "legal_document",
+        "package_document",
+        "generic_mirror",
+    ):
+        errors.append(f"[C07] document.archetype 不在允许形态中: {doc.get('archetype')}")
 
     # 5. classification 块
     cls = schema.get("classification", {})
@@ -150,8 +158,8 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
     for key, expected_type in COMMUNITY_PLUGIN_KEYS.items():
         if key not in pl:
             errors.append(f"[C11] plugin 缺少字段: {key}")
-    if pl.get("support_level") not in ("L1", "L2", "L3"):
-        errors.append(f"[C12] plugin.support_level 应为 L1/L2/L3, 实际为 {pl.get('support_level')}")
+    if pl.get("support_level") not in ("L1", "L2", "L3", "generic"):
+        errors.append(f"[C12] plugin.support_level 应为 L1/L2/L3/generic, 实际为 {pl.get('support_level')}")
 
     # 8. data 块
     dt = schema.get("data", {})
@@ -470,6 +478,10 @@ FINANCE_QUALITY_GATE_KEYS = {
     "warnings": list,
 }
 
+FINANCE_QUALITY_KEYS = ENTERPRISE_QUALITY_KEYS
+
+FINANCE_VALIDATION_KEYS = ENTERPRISE_VALIDATION_KEYS
+
 FINANCE_RISK_SIGNAL_KEYS = {
     "signal_code": str,
     "signal_name": str,
@@ -551,14 +563,84 @@ def check_finance(schema: dict, path_hint: str = "") -> list[str]:
     if assess_manual != rec_manual:
         errors.append("[F11] assessment.manual_review_required 与 recommendation.manual_review_required 不一致")
 
-    # 7. assessment
+    # 7. quality — 结构与 coverage/confidence 一致性
+    qual = schema.get("quality", {})
+    for key, expected_type in FINANCE_QUALITY_KEYS.items():
+        if key not in qual:
+            errors.append(f"[F31] quality 缺少字段: {key}")
+    overall = qual.get("overall_score", 0)
+    if overall <= 0 or overall > 1:
+        errors.append(f"[F32] quality.overall_score 应在 (0, 1] 范围内: {overall}")
+
+    fc = qual.get("field_coverage") or {}
+    fconf = qual.get("field_confidence") or {}
+    if fc and fconf:
+        if set(fc.keys()) != set(fconf.keys()):
+            errors.append("[F33] field_coverage 与 field_confidence 字段集不一致")
+        for field, cov in fc.items():
+            conf = fconf.get(field, 0)
+            if conf > cov + 0.001:
+                errors.append(
+                    f"[F34] field_confidence.{field} ({conf}) 不应高于 field_coverage ({cov})"
+                )
+
+    rc = qual.get("record_confidence") or []
+    if len(rc) > 1:
+        indices = [r.get("index") for r in rc]
+        if len(set(indices)) == 1 and indices[0] == 0:
+            errors.append("[F35] record_confidence 全部 index=0，应有不同 row_index")
+
+    page_count = schema.get("document", {}).get("page_count") or schema.get("source", {}).get("page_count")
+    pq = qual.get("page_quality") or []
+    if page_count and pq and len(pq) < page_count:
+        errors.append(
+            f"[F36] page_quality 仅 {len(pq)} 页，document/source.page_count={page_count}"
+        )
+
+    # 8. validation — 规则完整性 + TIME_ORDER / FORMAT 与 quality 一致
+    val = schema.get("validation", {})
+    for key, expected_type in FINANCE_VALIDATION_KEYS.items():
+        if key not in val:
+            errors.append(f"[F37] validation 缺少字段: {key}")
+    rules = val.get("rules", [])
+    if not rules:
+        errors.append("[F38] validation.rules 不应为空")
+    for i, r in enumerate(rules):
+        if not (r.get("rule") or r.get("rule_code")):
+            errors.append(f"[F39] validation rule[{i}] 缺少 rule/rule_code")
+        level = r.get("level") or r.get("severity")
+        if not level:
+            errors.append(f"[F39] validation rule[{i}] 缺少 level/severity")
+        if not r.get("message"):
+            errors.append(f"[F39] validation rule[{i}] 缺少 message")
+
+    fmt_rule = next((r for r in rules if r.get("rule_code") == "FORMAT_CHECK"), None)
+    if fmt_rule and fconf.get("timestamp", 0) >= 0.9:
+        bad_ts = next(
+            (e.get("value", 0) for e in fmt_rule.get("evidence", []) if e.get("field") == "bad_timestamp"),
+            0,
+        )
+        if bad_ts > 0:
+            errors.append(
+                f"[F40] field_confidence.timestamp≥0.9 但 FORMAT_CHECK bad_timestamp={bad_ts}"
+            )
+
+    time_rule = next((r for r in rules if r.get("rule_code") == "TIME_ORDER_CHECK"), None)
+    if time_rule and time_rule.get("status") == "passed":
+        evidence = {e.get("field"): e.get("value") for e in time_rule.get("evidence", [])}
+        total_ts = evidence.get("total_timestamps", 0)
+        parseable = evidence.get("parseable_timestamps", 0)
+        if total_ts >= 2 and parseable < 2:
+            errors.append("[F41] TIME_ORDER_CHECK passed 但 parseable_timestamps < 2")
+
+    # 9. assessment
     for key, expected_type in FINANCE_ASSESSMENT_KEYS.items():
         if key not in assess:
             errors.append(f"[F12] assessment 缺少字段: {key}")
     if assess.get("decision_strength") not in ("weak", "normal", "strong"):
         errors.append(f"[F13] assessment.decision_strength 非法: {assess.get('decision_strength')}")
 
-    # 8. recommendation
+    # 10. recommendation
     for key, expected_type in FINANCE_RECOMMENDATION_KEYS.items():
         if key not in rec:
             errors.append(f"[F14] recommendation 缺少字段: {key}")

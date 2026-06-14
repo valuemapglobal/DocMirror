@@ -52,6 +52,19 @@ class CreditReportPlugin(DomainPlugin):
             "report_time": entities.get("report_time", ""),
         })
 
+    def extract_from_mirror(self, parse_result, text: str = ""):
+        from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
+        from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
+
+        out = extract_kv_community_output(
+            self,
+            parse_result,
+            identity_specs=self.identity_fields,
+            full_text=text,
+            support_level="L2",
+        )
+        return enrich_credit_report_output(out, parse_result=parse_result, full_text=text)
+
 
 
 plugin = CreditReportPlugin()

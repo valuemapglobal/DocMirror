@@ -4,7 +4,12 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Lightweight document-type classification without full parse (EFPA L1 / Phase 5.5)."""
+"""Lightweight document-type classification without full parse (EFPA L1 / Phase 5.5).
+
+Returns one of 120+ ``document_type`` values from scene keywords / evidence engine.
+Community **structured** output (``001_community.json``) follows the 6+1 strategy:
+6 premium domains + ``generic_community`` fallback; see ``plugin_capability.yaml``.
+"""
 
 from __future__ import annotations
 

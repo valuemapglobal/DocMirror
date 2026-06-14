@@ -62,7 +62,6 @@ def normalize_punctuation(rows, type_col=None):
     1. Remove space before Chinese punct: " 、" -> "、", " ）" -> "）"
     2. For type column: ASCII brackets with Chinese content -> fullwidth
     """
-    import re
     _CLEAN_PRE_SPACE = re.compile(r' ([、。，）；】\u3001\uff0c\uff09])')
     for row in rows:
         for ci in range(len(row)):
@@ -106,7 +105,6 @@ def complete_truncated_times(
     for row in rows:
         time_val = row[time_col].strip()
         # 只有日期(YYYY-MM-DD)，没有时分秒 → 需要补齐
-        import re
         if re.match(r'^\d{4}-\d{2}-\d{2}$', time_val):
             trade_id = row[trade_id_col].strip()
             # 从 trade_id 中提取时间：格式 YYYYMMDDHHMMSS

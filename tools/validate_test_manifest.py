@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 GATES_DIR = REPO_ROOT / "docmirror" / "configs" / "yaml" / "test" / "gates"
 
 ALLOWED_GATE_KEYS = frozenset(
-    {"equals", "in", "min", "max", "max_issues"}
+    {"equals", "in", "min", "max", "max_issues", "contains"}
 )
 
 PIPELINES_WITHOUT_FIXTURE = frozenset(
@@ -25,6 +25,7 @@ PIPELINES_WITHOUT_FIXTURE = frozenset(
         "e2e_four_file",
         "e2e_contract",
         "metadata_only",
+        "licensing",
     }
 )
 

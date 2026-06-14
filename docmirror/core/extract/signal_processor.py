@@ -324,9 +324,7 @@ def extract_table_by_signal(
     if pid_resample:
         threshold_ratio = 0.05
         min_col_gap = max(1.0, min_col_gap / 1.5)
-        import logging
-
-        logging.getLogger(__name__).debug(
+        logger.debug(
             f"PID Resample Triggered: tightening threshold_ratio to {threshold_ratio} and min_col_gap to {min_col_gap:.1f}"
         )
 

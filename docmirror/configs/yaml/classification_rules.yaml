@@ -1,6 +1,9 @@
 # 金融机构全生命周期文件分类规则
 # 基于《金融机构全生命周期文件清单分析报告》生成
 # 包含240类文件的分类规则
+#
+# Community PEC note (6+1): identity_personal cluster types (id_card, passport, …)
+# still classify here; community structured output uses generic_community fallback.
 
 categories:
   # 一、身份证明类文件

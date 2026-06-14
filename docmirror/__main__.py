@@ -16,7 +16,12 @@ import argparse
 import asyncio
 import copy
 import json
+import multiprocessing
 import os
+import time
+import traceback
+import uuid
+from datetime import datetime as _dt
 from pathlib import Path
 
 from rich.console import Console
@@ -28,6 +33,7 @@ console = Console()
 
 # Default output directory (relative to cwd)
 DEFAULT_OUTPUT_DIR = Path("output")
+DEFAULT_MIRROR_LEVEL = os.environ.get("DOCMIRROR_MIRROR_LEVEL", "standard")
 
 
 def _safe_str(s: str) -> str:
@@ -85,10 +91,8 @@ def save_result(result_dict: dict, source_path: Path, output_dir: Path) -> tuple
     Returns (saved_file_path, task_id) where task_id is the directory name
     (e.g. "20260613_084225_07e4").
     """
-    from datetime import datetime as _dt
-    import uuid as _uuid
     ts = _dt.now().strftime("%Y%m%d_%H%M%S")
-    short_id = _uuid.uuid4().hex[:4]
+    short_id = uuid.uuid4().hex[:4]
     task_id = f"{ts}_{short_id}"
     task_dir = output_dir / task_id
     task_dir.mkdir(parents=True, exist_ok=True)
@@ -143,8 +147,6 @@ async def parse_document(
 
     async def _animate_progress(progress, task_id):
         """Simulate stage-based progress while parsing runs."""
-        import time
-
         start = time.monotonic()
         stage_idx = 0
         while not progress.tasks[task_id].finished:
@@ -164,9 +166,7 @@ async def parse_document(
             total=100,
         )
         # Start progress animation concurrently with parsing
-        import time as _time
-
-        _wall_start = _time.monotonic()
+        _wall_start = time.monotonic()
         anim_task = asyncio.create_task(_animate_progress(progress, task_id))
         try:
             result = await perceive_document(path, PerceiveOptions(skip_cache=skip_cache))
@@ -178,7 +178,7 @@ async def parse_document(
             console.print(f"[bold red]Critical Error:[/bold red] {_safe_str(str(e))}")
             return
 
-    wall_elapsed_ms = (_time.monotonic() - _wall_start) * 1000
+    wall_elapsed_ms = (time.monotonic() - _wall_start) * 1000
 
     # ── Display results (outside spinner) ──
     try:
@@ -249,8 +249,8 @@ async def parse_document(
                 community_path = saved_path.parent / f"{file_id}_community.json"
                 community_path.write_text(json.dumps(community_schema, ensure_ascii=False, indent=2), encoding="utf-8")
                 rows = community_schema.get("data", {}).get("summary", {}).get("total_rows", 0)
-                doctype = community_schema.get("document", {}).get("document_type", "unknown")
-                console.print(f"[cyan]📦 Community:[/cyan] {community_path.name}  → {doctype} ({rows} rows)")
+                summary = _format_community_summary(community_schema)
+                console.print(f"[cyan]📦 Community:[/cyan] {community_path.name}  → {summary}")
 
             # Generate enterprise edition output (docmirror-enterprise)
             enterprise_schema = _build_extended_output(result, "enterprise", result.full_text or "", str(path))
@@ -276,6 +276,8 @@ async def parse_document(
                 doctype = finance_schema.get("document", {}).get("document_type", "unknown")
                 console.print(f"[cyan]📦 Finance:[/cyan] {finance_path.name}  → {doctype} ({rows} rows)")
 
+            _print_entitlement_warnings(enterprise_schema, finance_schema)
+
             console.print(f"[bold blue]\U0001f4be Mirror saved to:[/bold blue] [white]{saved_path}[/white]")
 
     except Exception as e:
@@ -290,11 +292,8 @@ def _save_multi_edition(result, api_dict: dict, path: Path, output_dir: Path, in
     
     Returns task_id (directory name).
     """
-    import json
-    from datetime import datetime as _dt
-    import uuid as _uuid
     ts = _dt.now().strftime("%Y%m%d_%H%M%S")
-    short_id = _uuid.uuid4().hex[:4]
+    short_id = uuid.uuid4().hex[:4]
     task_id = f"{ts}_{short_id}"
     task_dir = output_dir / task_id
     task_dir.mkdir(parents=True, exist_ok=True)
@@ -340,6 +339,45 @@ def _save_multi_edition(result, api_dict: dict, path: Path, output_dir: Path, in
     
     return task_id
 
+
+def _print_entitlement_warnings(*schemas: dict | None) -> None:
+    """Print entitlement / lifecycle summaries after edition outputs."""
+    from docmirror.plugins.licensing.lifecycle import lifecycle_cli_message
+
+    msg = lifecycle_cli_message()
+    if msg:
+        console.print(f"[yellow]⚠ License:[/yellow] {msg}")
+
+    for schema in schemas:
+        if not schema:
+            continue
+        warnings = (schema.get("status") or {}).get("warnings") or []
+        if "_license_warning" not in warnings:
+            continue
+        edition = schema.get("edition") or "enterprise"
+        console.print(
+            f"[yellow]⚠ Entitlement:[/yellow] {edition} output degraded "
+            f"(missing license). Run [cyan]docmirror plugins license show[/cyan]"
+        )
+
+
+def _format_community_summary(community_schema: dict) -> str:
+    """Human-readable community 6+1 summary for CLI."""
+    data = community_schema.get("data") or {}
+    plugin = community_schema.get("plugin") or {}
+    doctype = community_schema.get("document", {}).get("document_type", "unknown")
+    name = plugin.get("name", doctype)
+    rows = (data.get("summary") or {}).get("total_rows", 0)
+    if name == "generic":
+        nf = len(data.get("fields") or {})
+        ns = len(data.get("sections") or [])
+        return f"{doctype} via generic ({nf} fields, {ns} sections, {rows} rows)"
+    if rows:
+        return f"{name} premium ({rows} rows)"
+    nf = len(data.get("fields") or {})
+    return f"{name} premium ({nf} fields)"
+
+
 def _build_community_output(result, full_text: str = "") -> dict | None:
     """Delegate to shared output_builder (CLI/API shared)."""
     from docmirror.server.output_builder import build_community_output
@@ -378,7 +416,7 @@ def main() -> None:
     parser.add_argument("--include-text", action="store_true", help="Include full markdown text in output")
     parser.add_argument(
         "--mirror-level",
-        default=os.environ.get("DOCMIRROR_MIRROR_LEVEL", "standard"),
+        default=DEFAULT_MIRROR_LEVEL,
         choices=["standard", "slim", "forensic"],
         help="Mirror output level: standard (physical+logical), slim (logical only), forensic (physical only)",
     )
@@ -386,7 +424,6 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    import os
     if args.slm:
         os.environ["DOCMIRROR_ENABLE_SLM"] = "1"
 
@@ -418,8 +455,7 @@ def main() -> None:
             return
         console.print(f"[bold cyan]Batch mode:[/bold cyan] {len(files)} file(s) under [white]{path}[/white]\n")
 
-        import multiprocessing as _mp
-        _cpu_count = _mp.cpu_count()
+        _cpu_count = multiprocessing.cpu_count()
         _max_concurrency = max(4, _cpu_count * 2)
         _semaphore = asyncio.Semaphore(_max_concurrency)
         console.print(f"[dim]🔥 File-level concurrency: {_max_concurrency} ({_cpu_count} CPU cores)[/dim]\n")
@@ -449,7 +485,6 @@ def main() -> None:
                     if not args.no_save:
                         _save_multi_edition(result, api_dict, path, args.output_dir, args.include_text)
                 except Exception as e:
-                    import traceback
                     console.print(f"[bold red][{idx}/{total}][/bold red] ❌ {name}: {e}")
                     console.print(f"[dim red]{traceback.format_exc()[:300]}[/dim red]")
 

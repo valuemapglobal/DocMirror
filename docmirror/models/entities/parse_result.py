@@ -691,8 +691,6 @@ class ParseResult(BaseModel):
         reason: str = "",
     ) -> None:
         """Create and attach a Mutation audit record."""
-        from docmirror.models.tracking.mutation import Mutation
-
         self.mutations.append(
             Mutation.create(
                 middleware_name=middleware_name,

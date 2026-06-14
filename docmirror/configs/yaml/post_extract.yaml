@@ -1,5 +1,8 @@
 # Post-Extract Hooks (PEC) — run after plugin extract; may mutate Mirror with audit trail.
 # See docs/design/08_middleware_layer_first_principles_redesign.md §10.1
+#
+# credit_report_sections: runs for community + enterprise when splitter available;
+# community credit_report_community also emits lightweight section skeleton in-plugin.
 
 version: 1
 

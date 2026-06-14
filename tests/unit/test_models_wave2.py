@@ -36,13 +36,14 @@ class TestEditionSerializer:
             document_name="test.pdf",
             archetype="key_value_document",
             domain="id_card",
-            plugin_name="id_card",
-            plugin_display_name="ID Card",
+            plugin_name="generic",
+            plugin_display_name="Generic Community",
         )
         out = edition_serializer(dec, context=ctx)
         assert out["schema_version"] == "2.0"
         assert out["data"]["fields"]["name"] == "张三"
         assert out["document"]["document_type"] == "id_card"
+        assert out["plugin"]["name"] == "generic"
 
     def test_serialize_table_dec(self):
         dec = build_table_dec(
@@ -116,13 +117,15 @@ class TestRunnerWave2:
     def test_kv_community_payload_uses_serializer(self):
         pr = ParseResult()
 
-        class _Plugin:
-            domain_name = "id_card"
-            display_name = "ID Card"
+        class _GenericPlugin:
+            domain_name = "generic"
+            display_name = "Generic Community"
             edition = "community"
             scene_keywords = ()
 
         raw = build_dec_kv("id_card", {"name": "李四"})
-        out = _kv_community_payload(pr, _Plugin(), "id_card", raw)
+        out = _kv_community_payload(pr, _GenericPlugin(), "id_card", raw)
         assert out["schema_version"] == "2.0"
         assert out["data"]["fields"]["name"] == "李四"
+        assert out["plugin"]["name"] == "generic"
+        assert out["document"]["document_type"] == "id_card"

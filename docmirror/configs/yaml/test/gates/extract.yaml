@@ -119,7 +119,7 @@ cases:
       merged_logical_row_count: { min: 10 }
     tags: [cashflow, bank]
 
-  - id: id_card_generic_extract
+  - id: generic_plugin_extract
     tier: regression
     fixture: fixtures/id_card/ZhangSan_身份证_1976112.pdf
     pipeline: extract_only

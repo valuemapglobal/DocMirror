@@ -31,6 +31,24 @@ def test_runner_skips_generic_type():
     assert run_plugin_extract_sync(_mirror("generic"), edition="community") is None
 
 
+def test_runner_id_card_uses_generic_fallback():
+    mirror = _mirror("id_card")
+    mirror.entities.domain_specific = {"name": "张三"}
+
+    out = run_plugin_extract_sync(mirror, edition="community")
+    assert out is not None
+    assert out["plugin"]["name"] == "generic"
+    assert out["classification"]["matched_document_type"] == "id_card"
+    assert "community_generic_fallback" in out["status"]["warnings"]
+
+
+def test_runner_audit_report_mirror_only():
+    out = run_plugin_extract_sync(_mirror("audit_report"), edition="community")
+    assert out is not None
+    assert out["data"]["summary"]["total_rows"] == 0
+    assert "mirror_only" in " ".join(out["status"]["warnings"])
+
+
 def test_runner_skips_when_edition_package_missing():
     with patch("docmirror.plugins.runner._edition_package_available", return_value=False):
         assert (

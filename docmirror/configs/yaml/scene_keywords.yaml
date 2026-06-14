@@ -1,3 +1,9 @@
+# Scene keywords for 120+ document_type classification (MEP layer).
+# Community structured output tiers (6+1) — SSOT: plugin_capability.yaml
+#   premium: community_premium_domains (6)
+#   generic: generic_community fallback for other classified types
+#   enterprise_only: mirror_only on community edition
+
 scene_keywords:
   abs_prospectus:
     include:

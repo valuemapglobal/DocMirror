@@ -16,7 +16,6 @@ import copy
 import importlib
 import inspect
 import logging
-import pkgutil
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,8 +23,8 @@ from typing import Any, Literal
 
 from docmirror.models.entities.parse_result import ParseResult
 from docmirror.plugins._base import build_classification_block
-from docmirror.plugins.capability import should_mirror_only
-from docmirror.plugins.discovery import find_community_plugin
+from docmirror.plugins.capability import is_community_generic_enabled, should_mirror_only
+from docmirror.plugins.discovery import find_premium_community_plugin, get_generic_community_plugin
 from docmirror.plugins.post_extract.runner import run_post_extract_hooks
 
 logger = logging.getLogger(__name__)
@@ -38,39 +37,23 @@ _MIRROR_ONLY_WARNING = "mirror_only:no_community_plugin"
 
 
 def _premium_feature_name(domain_name: str) -> str:
-    return f"{domain_name}_premium"
+    from docmirror.plugins.licensing.contract import premium_feature
+
+    return premium_feature(domain_name)
 
 
 def _is_edition_plugin_licensed(plugin: Any) -> bool:
     """
     Check enterprise/finance license for plugins with ``requires_license=True``.
 
-    Uses ``{domain}_premium`` feature names so community free-list domains
-    (e.g. ``bank_statement``) do not bypass enterprise licensing.
+    Delegates to ``licensing.entitlements.is_entitled`` (SSOT).
     """
     if not getattr(plugin, "requires_license", False):
         return True
 
-    premium = _premium_feature_name(plugin.domain_name)
+    from docmirror.plugins.licensing.entitlements import is_entitled
 
-    try:
-        from docmirror.plugins.offline_license import offline_license_manager
-
-        for license_file in offline_license_manager._licenses:
-            if license_file.is_valid and premium in license_file.get_features():
-                return True
-    except Exception as exc:
-        logger.debug("[PluginRunner] Offline license check failed: %s", exc)
-
-    try:
-        from docmirror.plugins.license import license_manager
-
-        if license_manager.is_licensed(premium):
-            return True
-    except Exception as exc:
-        logger.debug("[PluginRunner] Online license check failed: %s", exc)
-
-    return False
+    return is_entitled(getattr(plugin, "domain_name", "") or "")
 
 
 def _wrap_license_degraded(
@@ -104,7 +87,10 @@ def _finalize_extract(
     plugin: Any | None = None,
 ) -> dict[str, Any]:
     from docmirror.models.edition_serializer import EditionContext, edition_serializer
-    from docmirror.models.entities.domain_result import _is_edition_v2_payload, normalize_domain_result
+    from docmirror.models.entities.domain_result import (
+        _is_edition_envelope_passthrough,
+        normalize_domain_result,
+    )
     from docmirror.models.schemas.loader import validate_dec
 
     dec = normalize_domain_result(extracted)
@@ -114,7 +100,7 @@ def _finalize_extract(
     if issues:
         dec.quality.issues.extend([f"dec_validation:{i}" for i in issues[:5]])
 
-    if _is_edition_v2_payload(extracted):
+    if _is_edition_envelope_passthrough(extracted):
         out = extracted
         if issues:
             warnings = out.setdefault("status", {}).setdefault("warnings", [])
@@ -259,6 +245,15 @@ async def run_plugin_extract(
         from docmirror.plugins import registry
 
         plugin = registry.get(detected_type, edition)
+        if (
+            edition in ("enterprise", "finance")
+            and plugin is not None
+            and getattr(plugin, "requires_license", False)
+            and _LICENSE_WARNING not in (out.get("status") or {}).get("warnings", [])
+        ):
+            from docmirror.plugins.licensing.lifecycle import inject_edition_lifecycle_warnings
+
+            out = inject_edition_lifecycle_warnings(out)
         return _finalize_extract(
             result, out, edition=edition, detected_type=detected_type, plugin=plugin
         )
@@ -316,7 +311,7 @@ def _run_community_extract(
     detected_type: str,
     full_text: str,
 ) -> dict[str, Any] | None:
-    matched_plugin, matched_modname = find_community_plugin(detected_type)
+    matched_plugin, matched_modname = find_premium_community_plugin(detected_type)
 
     if matched_plugin is not None:
         extract_fn = getattr(matched_plugin, "extract_from_mirror", None)
@@ -325,8 +320,9 @@ def _run_community_extract(
                 result_data = extract_fn(result, full_text)
                 data_block = result_data.get("data", {})
                 records = data_block.get("records", [])
+                fields = data_block.get("fields", {})
                 total_rows = data_block.get("summary", {}).get("total_rows", len(records))
-                if total_rows > 0:
+                if total_rows > 0 or fields:
                     return result_data
             except Exception as e:
                 logger.error(
@@ -334,41 +330,6 @@ def _run_community_extract(
                     matched_modname,
                     e,
                 )
-
-        import docmirror.plugins as _plugins_pkg
-
-        if hasattr(matched_plugin, "extract_from_mirror"):
-            for _, modname2, _ in pkgutil.iter_modules(_plugins_pkg.__path__):
-                if (
-                    modname2 == matched_modname
-                    or not modname2.endswith("_community")
-                    or modname2.startswith("_")
-                ):
-                    continue
-                try:
-                    mod2 = importlib.import_module(f"docmirror.plugins.{modname2}")
-                except Exception:
-                    continue
-                if not hasattr(mod2, "plugin"):
-                    continue
-                fb = mod2.plugin
-                fn = getattr(fb, "extract_from_mirror", None)
-                if fn is None:
-                    continue
-                try:
-                    fb_data = fn(result, full_text)
-                    fb_records = fb_data.get("data", {}).get("records", [])
-                    if len(fb_records) > 0:
-                        fb_data.setdefault("document", {})["document_type"] = detected_type
-                        fb_data.setdefault("classification", {})["matched_document_type"] = detected_type
-                        fb_data["classification"]["matched"] = True
-                        fb_data.setdefault("plugin", {})["name"] = detected_type
-                        fb_data.setdefault("status", {}).setdefault("warnings", []).append(
-                            f"fallback_from:{matched_modname}_to:{modname2}"
-                        )
-                        return fb_data
-                except Exception:
-                    continue
 
         try:
             domain_data = matched_plugin.build_domain_data(
@@ -380,6 +341,17 @@ def _run_community_extract(
 
         if domain_data is not None:
             return _kv_community_payload(result, matched_plugin, detected_type, domain_data)
+
+    if is_community_generic_enabled() and detected_type not in _GENERIC_TYPES:
+        if not should_mirror_only(detected_type, "community"):
+            generic_plugin, _gmod = get_generic_community_plugin()
+            if generic_plugin is not None:
+                from docmirror.plugins._base.generic_mirror_adapter import build_generic_community_output
+
+                try:
+                    return build_generic_community_output(result, detected_type, full_text)
+                except Exception as e:
+                    logger.error("[PluginRunner] generic community extract failed: %s", e)
 
     return None
 
@@ -431,7 +403,7 @@ async def _run_extended_extract_async(
         )
         community = _run_community_extract(result, detected_type, full_text)
         if community is None:
-            return None
+            community = _mirror_only_payload(result, detected_type, "community")
         return _wrap_license_degraded(community, edition=edition, plugin=plugin)
 
     extract_fn = getattr(plugin, "extract", None)
