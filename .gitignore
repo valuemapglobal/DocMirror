@@ -36,8 +36,6 @@ Thumbs.db
 models_cache/
 
 ## Test artifacts
-*.pdf
-!tests/fixtures/*.pdf
 htmlcov/
 .coverage
 .coverage.*
@@ -53,12 +51,28 @@ output/
 ## Cache
 .mypy_cache/
 
-## Test fixtures (real documents)
+## TQG / CI generated reports (regenerate via pytest)
+artifacts/
+
+## Customer licenses & signing keys (never commit)
+licenses/
+*.lic
+*.pem
+*.key
+
+## Paid edition packages (private wheels — not part of public docmirror OSS)
+docmirror_enterprise/
+docmirror_finance/
+
+## Vendor Ops Plane — license issuance tools (not shipped in docmirror wheel)
+vendor/
+
+## Test fixtures — real documents (PII); synthetic smoke PDFs may be committed
 tests/fixtures/银行流水/
 tests/fixtures/*.zip
-tests/fixtures/*.jpg
-tests/fixtures/*.png
+tests/fixtures/**/*.jpg
+tests/fixtures/**/*.jpeg
+tests/fixtures/**/*.png
+tests/fixtures/**/*.pdf
+!tests/fixtures/synthetic/**/*.pdf
 tests/golden/
-
-# Enterprise plugins (private package)
-docmirror_enterprise/
