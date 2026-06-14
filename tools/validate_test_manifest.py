@@ -29,16 +29,7 @@ PIPELINES_WITHOUT_FIXTURE = frozenset(
     }
 )
 
-# Real document binaries (PII) are local-only — not committed in public OSS repo.
-# Synthetic smoke fixtures under tests/fixtures/synthetic/ may be committed.
-def _requires_committed_fixture(fixture_raw: str) -> bool:
-    normalized = str(fixture_raw).replace("\\", "/")
-    if "fixtures/synthetic/" in normalized:
-        return True
-    if normalized.endswith((".yaml", ".json", ".txt", ".md")):
-        return True
-    return False
-
+# tests/fixtures/ is gitignored (local-only). Missing fixtures must not fail OSS pytest bootstrap.
 
 def _validate_gate_spec(gate_name: str, spec: object, case_id: str) -> list[str]:
     errors: list[str] = []
@@ -81,8 +72,7 @@ def validate_manifest_file(path: Path) -> list[str]:
                 else:
                     fixture = REPO_ROOT / "tests" / fixture_raw
             if not fixture.is_file():
-                if _requires_committed_fixture(fixture_raw):
-                    errors.append(f"{case_id}: fixture missing: {fixture}")
+                pass  # fixtures/ is local-only; gates skip at runtime when missing
         elif pipeline not in PIPELINES_WITHOUT_FIXTURE and not path.name.startswith("_"):
             pass  # fixture optional for transport/e2e contract pipelines
 

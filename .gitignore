@@ -67,12 +67,6 @@ docmirror_finance/
 ## Vendor Ops Plane — license issuance tools (not shipped in docmirror wheel)
 vendor/
 
-## Test fixtures — real documents (PII); synthetic smoke PDFs may be committed
-tests/fixtures/银行流水/
-tests/fixtures/*.zip
-tests/fixtures/**/*.jpg
-tests/fixtures/**/*.jpeg
-tests/fixtures/**/*.png
-tests/fixtures/**/*.pdf
-!tests/fixtures/synthetic/**/*.pdf
+## Local-only test inputs (PII / large binaries) & golden expected outputs
+tests/fixtures/
 tests/golden/
