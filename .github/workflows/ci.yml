@@ -60,6 +60,20 @@ jobs:
       - name: Validate TQG manifests
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python tools/validate_test_manifest.py
+      - name: Validate CPA CPS layout (design 12)
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        run: python scripts/validate_core_cps_layout.py
+      - name: Validate core god-file gate (design 12 §7.2)
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        run: python scripts/validate_core_god_files.py
+      - name: Audit core imports (CPA §13)
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        run: |
+          python scripts/audit_core_imports.py --json reports/ci_core_import_audit.json
+          python -c "import json; r=json.load(open('reports/ci_core_import_audit.json')); assert not r['plugin_forbidden_imports'], r['plugin_forbidden_imports']; assert not r['lazy_hub_present']"
+      - name: CCP import-linter contract
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        run: python -m lint_imports
       - name: Run unit tests
         run: pytest tests/unit/ -v --tb=short -q
       - name: Run tests (PR tier matrix)

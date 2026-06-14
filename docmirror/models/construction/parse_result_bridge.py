@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Re-export shim — ParseResultBridge moved to ``core/extraction/bridge.py``.
+Re-export shim — ParseResultBridge at ``core/bridge/parse_result_bridge.py``.
 
 See ``docs/design/09_models_layer_first_principles_redesign.md`` §4.6 / Appendix C.
 """
 
-from docmirror.core.extraction.bridge import (
+from docmirror.core.bridge.parse_result_bridge import (
     ParseResultBridge,
     _blocks_to_pages,
     _compose_logical_tables,

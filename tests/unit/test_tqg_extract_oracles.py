@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.evaluation.tqg.extract_oracles import (
+from docmirror.eval.tqg.extract_oracles import (
     run_column_fidelity_oracle,
     run_quarantine_metadata_oracle,
 )
@@ -76,7 +76,7 @@ def test_quarantine_metadata_oracle_passes():
 
 
 def test_text_snapshot_oracle_passes():
-    from docmirror.core.evaluation.tqg.extract_oracles import run_text_snapshot_oracle
+    from docmirror.eval.tqg.extract_oracles import run_text_snapshot_oracle
 
     class _Block:
         def __init__(self, content: str):

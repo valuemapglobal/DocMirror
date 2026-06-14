@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.classification.evidence_engine import EvidenceEngine
+from docmirror.core.scene.evidence_engine import EvidenceEngine
 from docmirror.models.entities.parse_result import (
     CellValue,
     PageContent,

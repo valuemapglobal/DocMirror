@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.evaluation.metrics import (
+from docmirror.eval.metrics import (
     compute_metrics,
     domain_field_f1,
     extract_domain_fields,

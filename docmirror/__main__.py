@@ -106,8 +106,8 @@ async def parse_document(
     include_text: bool = False,
     mirror_level: str = "standard",
 ) -> None:
-    from docmirror.core.factory import perceive_document
-    from docmirror.core.factory import PerceiveOptions
+    from docmirror.core.entry.factory import perceive_document
+    from docmirror.core.entry.factory import PerceiveOptions
 
     path = Path(file_path).resolve()
     if not path.exists():
@@ -430,7 +430,7 @@ def main() -> None:
                 name = fp.name
                 console.print(f"[bold cyan][{idx}/{total}][/bold cyan] ⏳ {name}")
                 try:
-                    from docmirror.core.factory import perceive_document, PerceiveOptions
+                    from docmirror.core.entry.factory import perceive_document, PerceiveOptions
                     path = fp.resolve()
                     result = await perceive_document(path, PerceiveOptions(skip_cache=args.skip_cache))
 

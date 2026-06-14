@@ -3,7 +3,7 @@
 
 """Unit tests for merger quarantine collection."""
 
-from docmirror.core.table.merger import collect_quarantined_tables
+from docmirror.core.table.merge.merger import collect_quarantined_tables
 from docmirror.models.entities.domain import Block, PageLayout
 
 
@@ -40,3 +40,23 @@ def test_collect_quarantined_tables_detects_col_mismatch():
     assert quarantined[0]["page"] == 2
     assert quarantined[0]["reason"] == "col_count_mismatch"
     assert quarantined[0]["action"] == "standalone_physical_table"
+
+
+def test_collect_quarantined_tables_header_mismatch_with_profile():
+    """Borderless ledger: pseudo-header tail page quarantined (wechat page 219 pattern)."""
+
+    class _Profile:
+        merge_quarantine_on_col_mismatch = True
+
+        def is_borderless_ledger(self):
+            return True
+
+    pages = [
+        _page(1, [["交易单号", "交易时间", "交易类型", "收/支/其他", "交易方式", "金额(元)", "交易对方", "商户单号"]]
+        + [["d"] * 8] * 2),
+        _page(2, [["1.免责声明", "col2", "col3", "col4", "col5", "col6", "col7", "col8"]]),
+    ]
+    quarantined = collect_quarantined_tables(pages, profile=_Profile())
+    assert len(quarantined) == 1
+    assert quarantined[0]["page"] == 2
+    assert quarantined[0]["reason"] == "col_count_mismatch"

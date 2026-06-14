@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.evaluation.tqg.audit_oracle import run_extraction_audit_oracle
+from docmirror.eval.tqg.audit_oracle import run_extraction_audit_oracle
 
 
 def test_audit_oracle_passes_minimal():

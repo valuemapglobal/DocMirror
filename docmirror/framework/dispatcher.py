@@ -111,11 +111,11 @@ def compute_checksum(path: Path) -> str:
 def _detect_forgery(path: Path, file_type: str) -> tuple[bool | None, list[str]]:
     try:
         if file_type == "pdf":
-            from docmirror.core.security.forgery_detector import detect_pdf_forgery
+            from docmirror.framework.security.forgery_detector import detect_pdf_forgery
 
             return detect_pdf_forgery(path)
         if file_type == "image":
-            from docmirror.core.security.forgery_detector import detect_image_forgery
+            from docmirror.framework.security.forgery_detector import detect_image_forgery
 
             return detect_image_forgery(path)
     except Exception as exc:

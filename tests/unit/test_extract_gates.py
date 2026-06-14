@@ -3,7 +3,7 @@
 
 """Unit tests for EXTRACT_GATE oracle mode and dual-view consistency."""
 
-from docmirror.core.evaluation.gates import (
+from docmirror.eval.gates import (
     GATE_PROFILES,
     OracleMode,
     dual_view_consistency_check,

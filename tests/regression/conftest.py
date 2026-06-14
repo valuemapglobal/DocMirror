@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.core.evaluation.tqg.manifest import TQGCase, TQG_GATES_DIR, load_track_manifest
+from docmirror.eval.tqg.manifest import TQGCase, TQG_GATES_DIR, load_track_manifest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TQG_REPORT_DIR = REPO_ROOT / "artifacts" / "tqg"
@@ -42,7 +42,7 @@ def tqg_report_dir() -> Path:
 
 
 def _run_and_assert(case: TQGCase, tqg_report_dir: Path | None = None) -> None:
-    from docmirror.core.evaluation.tqg.runner import run_tqg_case
+    from docmirror.eval.tqg.runner import run_tqg_case
 
     if case.optional_edition and case.editions:
         for edition in case.editions:

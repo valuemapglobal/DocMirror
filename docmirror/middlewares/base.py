@@ -22,7 +22,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-from ..core.exceptions import MiddlewareError
+from ..core.entry.exceptions import MiddlewareError
 from ..models.entities.parse_result import ParseResult
 
 logger = logging.getLogger(__name__)
@@ -146,7 +146,7 @@ class MiddlewarePipeline:
         except Exception as e:
             elapsed = (time.time() - t0) * 1000
             step_timings[mw.name] = round(elapsed, 1)
-            from ..core.exceptions import MiddlewareError
+            from ..core.entry.exceptions import MiddlewareError
 
             mw_error = MiddlewareError(str(e), middleware_name=mw.name)
             logger.warning(f"[Middleware] {mw_error}", exc_info=True)

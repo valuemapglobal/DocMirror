@@ -2,8 +2,8 @@
 
 """Unit tests for TableComposer and cross-page merge group planning."""
 
-from docmirror.core.table.composer import TableComposer
-from docmirror.core.table.merger import collect_cross_page_merge_groups
+from docmirror.core.table.compose.composer import TableComposer
+from docmirror.core.table.merge.merger import collect_cross_page_merge_groups
 from docmirror.models.entities.domain import Block, PageLayout
 from docmirror.models.entities.layout_profile import LayoutProfile
 

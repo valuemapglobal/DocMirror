@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.core.table.composer import TableComposer
+from docmirror.core.table.compose.composer import TableComposer
 from docmirror.models.entities.domain import Block, PageLayout
 
 
@@ -66,7 +66,7 @@ class TestTableLayerAlipayFixture:
     def mirror_json(self):
         import asyncio
 
-        from docmirror.core.factory import PerceiveOptions, perceive_document
+        from docmirror.core.entry.factory import PerceiveOptions, perceive_document
 
         result = asyncio.run(
             perceive_document(ALIPAY_PDF, PerceiveOptions(skip_cache=True))

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from docmirror.core.table.semantic_understanding import (
+from docmirror.eval.oracles.semantic_understanding import (
     understand_table_semantics,
     TableType,
     ColumnRelationType,

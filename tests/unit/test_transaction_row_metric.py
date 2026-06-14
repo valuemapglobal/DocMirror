@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.evaluation.metrics import compute_metrics, transaction_row_count
+from docmirror.eval.metrics import compute_metrics, transaction_row_count
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, TableBlock, TableRow
 
 

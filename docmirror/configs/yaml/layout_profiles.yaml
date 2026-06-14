@@ -34,6 +34,12 @@ profiles:
     collapse_duplicate_spaces: true
     skip_pid_resample: true
     enable_grid_template: true
+    enable_global_grid_tensor: false
+    # Ledger profiles: ledger hook ONLY (generic hook drops ~1 row/page — see design-12 P6-bench RCA)
+    table_normalize_hooks:
+      - ledger_borderless
+    use_tnp_staged: true
+    ocr_column_aware: false
     merge_quarantine_on_col_mismatch: true
     disabled_table_methods:
       - pymupdf_native

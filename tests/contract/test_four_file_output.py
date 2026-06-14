@@ -64,7 +64,7 @@ def test_mirror_only_envelope_for_enterprise_only_type():
 
 
 def test_perceive_result_envelope_no_edition_on_mirror():
-    from docmirror.core.perceive_result import PerceiveResult
+    from docmirror.core.entry.perceive_result import PerceiveResult
 
     mirror = _minimal_mirror()
     env = PerceiveResult(mirror=mirror, editions={"community": {"edition": "community"}})

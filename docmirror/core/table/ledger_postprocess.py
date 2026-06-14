@@ -85,7 +85,7 @@ def post_process_ledger_table(
         preamble_kv: dict[str, str] = {}
         if preamble_rows:
             try:
-                from docmirror.core.table.postprocess import _extract_preamble_kv
+                from docmirror.core.table.pipeline.stage_preamble import _extract_preamble_kv
 
                 preamble_kv = _extract_preamble_kv(preamble_rows)
             except Exception:

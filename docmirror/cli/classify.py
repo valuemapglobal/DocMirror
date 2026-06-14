@@ -98,8 +98,8 @@ def classify(source_dir, output_dir, rules, dry_run, report_format):
 
     # 运行分类
     try:
-        from docmirror.core.classification import (
-            FileClassifier,
+        from docmirror.cli.classify_engine import FileClassifier
+        from docmirror.cli.classify_report import (
             generate_pending_report,
             generate_report,
             print_summary,

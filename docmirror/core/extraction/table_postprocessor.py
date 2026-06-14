@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from typing import List, Any
 
-from docmirror.core.layout.layout_analysis import post_process_table
+from docmirror.core.table.pipeline import TableNormalizeContext, normalize_table
 from docmirror.models.entities.domain import Block, PageLayout
 
 logger = logging.getLogger(__name__)
@@ -49,17 +49,12 @@ def process_page_tables(
                     continue
                 try:
                     table_copy = [list(row) for row in block.raw_content]
-                    if (
-                        extraction_profile is not None
-                        and getattr(extraction_profile, "is_borderless_ledger", lambda: False)()
-                    ):
-                        from docmirror.core.table.ledger_postprocess import post_process_ledger_table
-
-                        processed, preamble_kv = post_process_ledger_table(
-                            table_copy, extraction_profile
-                        )
-                    else:
-                        processed, preamble_kv = post_process_table(table_copy)
+                    ctx = TableNormalizeContext(
+                        rows=table_copy,
+                        profile=extraction_profile,
+                        page_idx=page.page_number - 1,
+                    )
+                    processed, preamble_kv = normalize_table(ctx)
 
                     # NOTE: fix_table_structure (column removal, line merging) is
                     # intentionally NOT called here. It runs AFTER cross-page merge

@@ -90,7 +90,7 @@ def tqg_report_dir():
 
 def pytest_collection_modifyitems(config, items):
     """Apply TQG tier/track markers to parametrized case tests (regression + integration shims)."""
-    from docmirror.core.evaluation.tqg.manifest import TQGCase
+    from docmirror.eval.tqg.manifest import TQGCase
 
     for item in items:
         case = None

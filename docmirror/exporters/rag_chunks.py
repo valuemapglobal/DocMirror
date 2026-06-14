@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 
-from docmirror.core.rag.chunker import chunk_parse_result
+from docmirror.features.rag.chunker import chunk_parse_result
 from docmirror.models.entities.parse_result import ParseResult
 
 

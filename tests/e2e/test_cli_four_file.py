@@ -15,7 +15,7 @@ import pytest
 
 pytestmark = [pytest.mark.tier_e2e, pytest.mark.tier_regression, pytest.mark.integration]
 
-from docmirror.core.factory import PerceiveOptions, perceive_document
+from docmirror.core.entry.factory import PerceiveOptions, perceive_document
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
 from docmirror.server.edition_outputs import write_four_files
 

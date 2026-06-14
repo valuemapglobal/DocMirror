@@ -3,6 +3,6 @@
 
 """Shim — 120-type classification middleware entry (see middleware_catalog.yaml)."""
 
-from docmirror.core.classification.evidence_engine import EvidenceEngine
+from docmirror.core.scene.evidence_engine import EvidenceEngine
 
 __all__ = ["EvidenceEngine"]

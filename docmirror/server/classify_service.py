@@ -59,7 +59,7 @@ def classify_document_path(path: Path) -> dict[str, Any]:
         doc_type = "generic"
 
     confidence = decisions[0].final_score if decisions else 0.0
-    from docmirror.core.agent.router import route_document
+    from docmirror.features.agent.router import route_document
 
     route = route_document(doc_type, page_count=page_count, confidence=confidence)
     return {

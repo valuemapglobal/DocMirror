@@ -47,7 +47,7 @@ middlewares:
     enabled: true
 
   EvidenceEngine:
-    module: docmirror.core.classification.evidence_engine
+    module: docmirror.core.scene.evidence_engine
     class: EvidenceEngine
     stage: CLASSIFY
     provides: [document_type, classification_evidence]

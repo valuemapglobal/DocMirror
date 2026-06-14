@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.evaluation.metrics import evidence_fingerprint
+from docmirror.eval.metrics import evidence_fingerprint
 from docmirror.models.entities.parse_result import ParseResult
 
 

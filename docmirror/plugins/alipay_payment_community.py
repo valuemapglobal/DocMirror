@@ -146,7 +146,7 @@ class AlipayPaymentPlugin(DomainPlugin):
             return [], []
 
         all_rows: list[list[str]] = []
-        from docmirror.core.table.table_access import get_logical_tables, table_flatten
+        from docmirror.core.table.access import get_logical_tables, table_flatten
 
         logical = get_logical_tables(parse_result)
         if logical:

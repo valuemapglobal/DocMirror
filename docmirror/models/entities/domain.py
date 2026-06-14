@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Re-export shim — physical models live in ``core/internal/physical.py``.
+Re-export shim — physical models live in ``core/physical/models.py``.
 
 See ``docs/design/09_models_layer_first_principles_redesign.md`` §4.6.
 """
 
-from docmirror.core.internal.physical import (
+from docmirror.core.physical.models import (
     BaseResult,
     Block,
     PageLayout,

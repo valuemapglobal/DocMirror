@@ -20,7 +20,7 @@ Directory structure:
 Single public entry point: perceive_document()
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __author__ = "Adam Lin <adamlin@valuemapglobal.com>"
 __copyright__ = "Copyright 2026, ValueMap Global"
 __license__ = "Apache 2.0"
@@ -36,7 +36,7 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 
-from docmirror.core.factory import PerceptionFactory, PerceiveResult, perceive_document
+from docmirror.core.entry.factory import PerceptionFactory, PerceiveResult, perceive_document
 from docmirror.framework.dispatcher import ParserDispatcher
 from docmirror.framework.orchestrator import Orchestrator
 from docmirror.models.construction.parse_result_bridge import ParseResultBridge

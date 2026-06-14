@@ -3,7 +3,7 @@
 
 """Tests for layout profile institution variants."""
 
-from docmirror.core.layout.profile_registry import (
+from docmirror.core.profile.registry import (
     get_profile,
     load_profiles,
     match_institution_variant,

@@ -51,6 +51,10 @@ class ExtractionProfile(LayoutProfile):
 
     skip_pid_resample: bool = False
     enable_grid_template: bool = False
+    enable_global_grid_tensor: bool = True
+    table_normalize_hooks: list[str] | None = None
+    use_tnp_staged: bool = False
+    ocr_column_aware: bool = False
 
     @classmethod
     def from_layout_profile(cls, profile: LayoutProfile) -> ExtractionProfile:
@@ -82,6 +86,16 @@ class ExtractionProfile(LayoutProfile):
 
     def should_use_bcs(self) -> bool:
         return self.enable_best_candidate_selection
+
+    def needs_global_grid_tensor(self) -> bool:
+        """Skip expensive 50-page char scan when oracle path does not use signal_processor."""
+        if not self.enable_global_grid_tensor:
+            return False
+        if self.is_borderless_ledger() and self.bcs_oracle_layer == "pdfplumber_default":
+            return False
+        if "signal_processor" in self.table_disabled_layers():
+            return False
+        return True
 
     def table_x_right(self, page_width: float) -> float:
         """Effective right edge for table crop (sidebar noise exclusion)."""

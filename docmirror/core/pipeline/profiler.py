@@ -1,0 +1,29 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+"""Pipeline stage timing helpers (CPA design 12 P3 DoD)."""
+
+from __future__ import annotations
+
+import time
+from contextlib import contextmanager
+from typing import Any, Iterator
+
+_clock = time.perf_counter
+
+
+@contextmanager
+def stage_timer(bucket: dict[str, float], key: str) -> Iterator[None]:
+    """Record elapsed ms under ``key`` in ``bucket``."""
+    t0 = _clock()
+    try:
+        yield
+    finally:
+        bucket[key] = bucket.get(key, 0.0) + (_clock() - t0) * 1000
+
+
+def merge_page_stage_timings(page_perf: dict[str, Any], stages: dict[str, float]) -> None:
+    """Attach CPS stage breakdown to a per-page perf entry."""
+    page_perf["stages_ms"] = {k: round(v, 2) for k, v in stages.items()}
+
+
+__all__ = ["merge_page_stage_timings", "stage_timer"]

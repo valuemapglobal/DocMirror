@@ -54,13 +54,24 @@ docmirror/plugins/{plugin_name}/
 跨页流水/明细插件 **必须** 通过统一读表层消费 Mirror，不要直接假设 `pages[0].tables` 已合并：
 
 ```python
-from docmirror.core.table.table_access import get_logical_tables, table_flatten
+from docmirror.core.table.access import get_logical_tables, table_flatten
 
 logical = get_logical_tables(parse_result)  # 优先 logical_tables，fallback legacy
 rows = table_flatten(parse_result)
 ```
 
 详见 `docs/design/05_table_layer_first_principles_redesign.md`。
+
+### Core Consumer Contract（CCP，design 12）
+
+Plugin **允许** import：
+
+| 符号 | 模块 |
+|------|------|
+| `get_logical_tables`, `table_flatten` | `docmirror.core.table.access` |
+| `perceive_document`, `PerceiveOptions` | `docmirror.core.entry.factory` |
+
+Plugin **禁止** import core 内部：`CoreExtractor`、`layout_analysis`、`table.extraction.engine`、`ocr.fallback` 等。CI 通过 `scripts/audit_core_imports.py` 与 `tests/contracts/test_ccp_imports.py` 校验。
 
 ---
 

@@ -1,0 +1,45 @@
+{
+  "layout_analysis_consumers": {
+    "docmirror.core.layout.graph_router": [
+      "# To avoid circular imports, we reference the Zone structure from layout_analysis."
+    ],
+    "docmirror.core.layout.layout_analysis": [
+      "f\"docmirror.core.layout.layout_analysis.{name} is deprecated; import from {mod_path}\","
+    ],
+    "docmirror.core.extraction.extractor": [
+      "from ..layout.layout_analysis import (",
+      "from ..layout.layout_analysis import analyze_document_layout_parallel",
+      "# extract_tables_layered already imported at module level (via layout_analysis re-export)",
+      "from ..layout.layout_analysis import apply_zone_template",
+      "from ..layout.layout_analysis import build_zone_template"
+    ],
+    "docmirror.core.table.extraction.segmentation": [
+      "from docmirror.core.layout.layout_analysis import Zone, segment_page_into_zones"
+    ]
+  },
+  "plugin_forbidden_imports": [],
+  "zero_inbound_core_modules": [],
+  "god_files_over_800_loc": [
+    {
+      "module": "docmirror.core.extraction.extractor",
+      "lines": 2490
+    },
+    {
+      "module": "docmirror.core.ocr.fallback",
+      "lines": 1774
+    },
+    {
+      "module": "docmirror.core.layout.layout_analysis",
+      "lines": 1442
+    },
+    {
+      "module": "docmirror.core.table.extraction.engine",
+      "lines": 1021
+    },
+    {
+      "module": "docmirror.core.table.extraction.char_strategy",
+      "lines": 802
+    }
+  ],
+  "lazy_hub_present": true
+}

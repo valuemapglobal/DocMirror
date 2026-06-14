@@ -46,12 +46,14 @@ def test_bank_statement_scan_image_smoke():
 
 def test_wechat_profile_grid_template_enabled():
     """P4-1: grid template enabled after BCS + row filtering fixes."""
-    from docmirror.core.layout.profile_registry import get_profile
+    from docmirror.core.profile.registry import get_profile
 
     profile = get_profile("borderless_ledger_wechat")
     assert profile.enable_grid_template is True
+    assert profile.use_tnp_staged is True
     alipay = get_profile("borderless_ledger_alipay")
     assert alipay.enable_grid_template is True
+    assert alipay.use_tnp_staged is True
 
 
 @pytest.mark.integration
@@ -70,9 +72,14 @@ def test_credit_report_section_mode(tqg_report_dir):
 )
 @pytest.mark.skipif(not WECHAT_PDF.exists(), reason="wechat fixture missing")
 def test_wechat_extract_benchmark():
-    """P4-3: record 219-page extract timing (design target < 60s; current ~64s)."""
+    """P4-5: 219-page extract timing (design target < 60s)."""
     extractor = CoreExtractor(max_page_concurrency=1)
     base = asyncio.run(extractor.extract(WECHAT_PDF))
     elapsed_ms = base.metadata.get("elapsed_ms", 0)
+    logical = base.metadata.get("_logical_tables") or base.metadata.get("perf_breakdown", {}).get("_logical_tables")
+    rows = 0
+    if logical:
+        rows = max(int(lt.get("row_count", 0)) for lt in logical)
+    assert rows == 5111, f"logical rows {rows} != 5111"
     assert elapsed_ms > 0
-    assert elapsed_ms < 300_000, f"extract took {elapsed_ms}ms (>5min regression)"
+    assert elapsed_ms < 60_000, f"extract took {elapsed_ms:.0f}ms (target < 60s)"

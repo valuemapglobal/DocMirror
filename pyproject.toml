@@ -15,7 +15,7 @@ packages = [
 
 [project]
 name = "docmirror"
-version = "0.4.0"
+version = "0.5.0"
 description = "Universal document parsing engine with OCR, layout analysis, and table extraction"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
@@ -72,6 +72,7 @@ dev = [
     "mypy>=1.8",
     "coverage>=7.4",
     "pre-commit>=3.5",
+    "import-linter>=2.0",
 ]
 docs = [
     "mkdocs-material>=9.5",
@@ -142,5 +143,18 @@ exclude_lines = [
     "raise ImportError",
 ]
 
+[tool.importlinter]
+root_package = "docmirror"
+
+[[tool.importlinter.contracts]]
+name = "CCP — plugins must not import core internals"
+type = "forbidden"
+source_modules = ["docmirror.plugins"]
+forbidden_modules = [
+    "docmirror.core.extraction.extractor",
+    "docmirror.core.segment.zones",
+    "docmirror.core.extract.engine",
+    "docmirror.core.ocr.fallback",
+]
 
 

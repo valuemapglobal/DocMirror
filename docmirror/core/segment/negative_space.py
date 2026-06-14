@@ -22,7 +22,7 @@ Core Philosophy:
 
 Usage::
 
-    from docmirror.core.layout.negative_space import NegativeSpaceAnalyzer
+    from docmirror.core.segment.negative_space import NegativeSpaceAnalyzer
 
     # 分析页面负空间
     profile = NegativeSpaceAnalyzer.analyze(page_words)

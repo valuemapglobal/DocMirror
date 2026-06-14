@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from docmirror.core.extraction.bridge import ParseResultBridge
+from docmirror.core.bridge.parse_result_bridge import ParseResultBridge
 from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 
@@ -27,8 +27,8 @@ class TestParseResultBridge:
         assert len(pr.pages[0].tables) == 1
         assert pr.pages[0].tables[0].rows
 
-    def test_bridge_lives_in_core_extraction(self):
-        import docmirror.core.extraction.bridge as bridge_mod
+    def test_bridge_lives_in_core_bridge(self):
+        import docmirror.core.bridge.parse_result_bridge as bridge_mod
 
         assert hasattr(bridge_mod, "ParseResultBridge")
 

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.package.manifest import PackageManifest, check_package_consistency
+from docmirror.features.package.manifest import PackageManifest, check_package_consistency
 from docmirror.models.entities.file_registry import FileRegistryEntry
 
 

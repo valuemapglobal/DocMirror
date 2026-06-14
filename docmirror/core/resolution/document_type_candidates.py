@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from docmirror.core.classification.evidence_engine import _SCENE_KEYWORDS as EVIDENCE_KEYWORDS
+from docmirror.core.scene.evidence_engine import _SCENE_KEYWORDS as EVIDENCE_KEYWORDS
 from docmirror.models.entities.hypothesis import ParseHypothesis
 from docmirror.models.entities.parse_result import ParseResult
 

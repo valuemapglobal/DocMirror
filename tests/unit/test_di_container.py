@@ -97,7 +97,7 @@ class TestDIContainer:
 
     def test_perception_factory_shares_dispatcher(self):
         """PerceptionFactory must delegate to the same dispatcher singleton."""
-        from docmirror.core.factory import PerceptionFactory
+        from docmirror.core.entry.factory import PerceptionFactory
 
         assert PerceptionFactory.get_dispatcher() is get_dispatcher()
 

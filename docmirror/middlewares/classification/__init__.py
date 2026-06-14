@@ -3,6 +3,6 @@
 
 """Re-export EvidenceEngine for MEP catalog discoverability."""
 
-from docmirror.core.classification.evidence_engine import EvidenceEngine
+from docmirror.core.scene.evidence_engine import EvidenceEngine
 
 __all__ = ["EvidenceEngine"]

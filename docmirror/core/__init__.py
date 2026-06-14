@@ -8,6 +8,6 @@
 
 from .extraction.extractor import CoreExtractor
 from .extraction.foundation import FitzEngine
-from .extraction.pre_analyzer import PreAnalysisResult, PreAnalyzer
+from .analyze.pre_analyzer import PreAnalysisResult, PreAnalyzer
 
 __all__ = ["CoreExtractor", "FitzEngine", "PreAnalyzer", "PreAnalysisResult"]

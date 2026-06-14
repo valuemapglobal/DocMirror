@@ -1,0 +1,15 @@
+{
+  "layout_analysis_consumers": {
+    "docmirror.core.segment.graph_router": [
+      "# To avoid circular imports, we reference the Zone structure from layout_analysis."
+    ],
+    "docmirror.core.segment.zones": [
+      "from docmirror.core.segment.layout_analysis import (",
+      "from docmirror.core.segment.layout_analysis import _reconstruct_rows_from_chars"
+    ]
+  },
+  "plugin_forbidden_imports": [],
+  "zero_inbound_core_modules": [],
+  "god_files_over_800_loc": [],
+  "lazy_hub_present": false
+}

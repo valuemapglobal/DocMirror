@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.agent.router import route_document
+from docmirror.features.agent.router import route_document
 
 
 def test_route_wechat_payment():

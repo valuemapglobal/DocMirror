@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+"""Audit docmirror/core import graph (CPA design 12 §13)."""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import json
+import re
+from collections import defaultdict
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+CORE = ROOT / "docmirror" / "core"
+PLUGINS = ROOT / "docmirror" / "plugins"
+
+FORBIDDEN_FOR_PLUGINS = {
+    "docmirror.core.extraction.extractor",
+    "docmirror.core.segment.zones",
+    "docmirror.core.extract.engine",
+    "docmirror.core.ocr.fallback",
+}
+
+LAZY_HUB_FILE = CORE / "segment" / "zones.py"
+LAZY_HUB_MARKERS = ("def __getattr__", "_DEPRECATED_REEXPORTS")
+GOD_FILE_LOC = 800
+
+
+def _py_files(base: Path) -> list[Path]:
+    return [p for p in base.rglob("*.py") if "__pycache__" not in p.parts]
+
+
+def _module_name(path: Path) -> str:
+    rel = path.relative_to(ROOT).with_suffix("")
+    return ".".join(rel.parts)
+
+
+def _imports_in_file(path: Path) -> list[str]:
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except SyntaxError:
+        return []
+    out: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                out.append(alias.name)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            out.append(node.module)
+    return out
+
+
+def layout_analysis_consumers() -> dict[str, list[str]]:
+    pattern = re.compile(r"layout_analysis")
+    consumers: dict[str, list[str]] = defaultdict(list)
+    for path in _py_files(ROOT):
+        if "docmirror" not in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if pattern.search(text):
+            mod = _module_name(path)
+            for line in text.splitlines():
+                if "layout_analysis" in line and ("import" in line):
+                    consumers[mod].append(line.strip())
+    return dict(consumers)
+
+
+def plugin_forbidden_imports() -> list[dict[str, str]]:
+    violations: list[dict[str, str]] = []
+    for path in _py_files(PLUGINS):
+        for imp in _imports_in_file(path):
+            for forbidden in FORBIDDEN_FOR_PLUGINS:
+                if imp == forbidden or imp.startswith(forbidden + "."):
+                    violations.append(
+                        {"file": str(path.relative_to(ROOT)), "import": imp, "forbidden": forbidden}
+                    )
+    return violations
+
+
+def inbound_reference_counts() -> dict[str, int]:
+    counts: dict[str, int] = defaultdict(int)
+    core_modules = {_module_name(p): p for p in _py_files(CORE)}
+    for path in _py_files(ROOT):
+        if path.is_relative_to(CORE) and path.suffix == ".py":
+            continue
+        for imp in _imports_in_file(path):
+            for mod in core_modules:
+                if imp == mod or imp.startswith(mod + "."):
+                    counts[mod] += 1
+    # internal core refs
+    for path in _py_files(CORE):
+        src = _module_name(path)
+        for imp in _imports_in_file(path):
+            for mod in core_modules:
+                if mod == src:
+                    continue
+                if imp == mod or imp.startswith(mod + "."):
+                    counts[mod] += 1
+    return dict(counts)
+
+
+def god_files() -> list[dict[str, int]]:
+    rows: list[dict[str, int]] = []
+    for path in _py_files(CORE):
+        n = sum(1 for _ in path.open(encoding="utf-8"))
+        if n > GOD_FILE_LOC:
+            rows.append({"module": _module_name(path), "lines": n})
+    return sorted(rows, key=lambda r: -r["lines"])
+
+
+def lazy_hub_present() -> bool:
+    if not LAZY_HUB_FILE.is_file():
+        return False
+    text = LAZY_HUB_FILE.read_text(encoding="utf-8")
+    return any(marker in text for marker in LAZY_HUB_MARKERS)
+
+
+def run_audit() -> dict:
+    refs = inbound_reference_counts()
+    dead = [m for m, c in refs.items() if c == 0 and m.startswith("docmirror.core")]
+    return {
+        "layout_analysis_consumers": layout_analysis_consumers(),
+        "plugin_forbidden_imports": plugin_forbidden_imports(),
+        "zero_inbound_core_modules": sorted(dead),
+        "god_files_over_800_loc": god_files(),
+        "lazy_hub_present": lazy_hub_present(),
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Audit docmirror/core imports (CPA §13)")
+    parser.add_argument("--json", type=Path, help="Write JSON report to path")
+    args = parser.parse_args()
+    report = run_audit()
+    if args.json:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
+        args.json.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"Wrote {args.json}")
+    else:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

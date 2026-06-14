@@ -35,7 +35,7 @@ class FakeZone:
 
 class TestAdaptiveQualityRouter:
     def _make_router(self, params=None):
-        from docmirror.core.extraction.quality_router import AdaptiveQualityRouter
+        from docmirror.core.analyze.quality_router import AdaptiveQualityRouter
         return AdaptiveQualityRouter(params)
 
     def test_default_returns_rule(self):

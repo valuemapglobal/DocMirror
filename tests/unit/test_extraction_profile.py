@@ -8,11 +8,11 @@ from __future__ import annotations
 import pdfplumber
 import pytest
 
-from docmirror.core.layout.profile_registry import get_profile, load_profiles, match_layout_profile
-from docmirror.core.table.extraction.best_candidate import ExtractCandidate, pick_best_candidate
-from docmirror.core.table.extraction.cell_normalizer import normalize_cell_text, normalize_table_cells
-from docmirror.core.table.extraction.engine import extract_tables_layered
-from docmirror.core.table.extraction.segmentation import segment_page_for_extraction
+from docmirror.core.profile.registry import get_profile, load_profiles, match_layout_profile
+from docmirror.core.extract.best_candidate import ExtractCandidate, pick_best_candidate
+from docmirror.core.extract.cell_normalizer import normalize_cell_text, normalize_table_cells
+from docmirror.core.extract.engine import extract_tables_layered
+from docmirror.core.extract.segmentation import segment_page_for_extraction
 from docmirror.models.entities.extraction_profile import ExtractionProfile, SegmentationMode
 
 

@@ -3,7 +3,7 @@
 
 """Unit tests for SceneResolver keyword matching."""
 
-from docmirror.core.classification.scene_resolver import resolve_document_scene
+from docmirror.core.scene.scene_resolver import resolve_document_scene
 
 
 def test_scene_resolver_collapses_whitespace_for_cjk_keywords():
