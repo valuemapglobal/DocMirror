@@ -70,3 +70,9 @@ vendor/
 ## Local-only test inputs (PII / large binaries) & golden expected outputs
 tests/fixtures/
 tests/golden/
+
+## Docs: track root-level files only; subfolders stay local
+docs/*
+!docs/*.md
+!docs/*.rst
+!docs/*.txt
