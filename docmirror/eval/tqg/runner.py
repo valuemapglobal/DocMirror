@@ -1,7 +1,14 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""TQG unified runner — manifest cases → GateReport."""
+"""
+TQG unified runner — executes manifest cases and produces gate reports.
+
+Orchestrates end-to-end TQG evaluation: resolves fixture paths, runs
+``perceive_document`` (or targeted oracle hooks), evaluates gate specs via
+``gates_eval``, and aggregates ``GateReport`` results with failure-class
+attribution. Supports async batch execution and licensing-track mocks.
+"""
 
 from __future__ import annotations
 
@@ -553,6 +560,19 @@ async def run_tqg_case_async(case: TQGCase) -> GateReport:
             tier=case.tier,
         )
         report.merge(ts_report)
+
+    mirror_structure_spec = oracle_spec.get("mirror_structure")
+    if mirror_structure_spec:
+        from docmirror.eval.tqg.mirror_structure_oracles import run_mirror_structure_oracle
+
+        ms_report = run_mirror_structure_oracle(
+            meta,
+            mirror_structure_spec,
+            case_id=case.id,
+            track=case.track,
+            tier=case.tier,
+        )
+        report.merge(ms_report)
 
     for gate_name, spec in case.gates.items():
         actual = _resolve_gate_actual(gate_name, result, meta)

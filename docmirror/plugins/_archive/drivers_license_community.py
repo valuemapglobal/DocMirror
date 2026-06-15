@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Driver's License Domain Plugin (Community Edition)
-===================================================
+Archived driver's license community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` for driver's license documents. Superseded by
+enterprise plugins or generic fallback; kept under ``_archive`` for historical tests.
+
+Pipeline role: none — not discovered by ``plugin_registry``.
+
+Key exports: ``DriversLicensePlugin``, ``plugin``.
 """
 
 from __future__ import annotations

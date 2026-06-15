@@ -5,28 +5,25 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Plugin Management CLI
-=====================
+Plugin management CLI for DocMirror premium and community extensions.
 
-Command-line interface for managing DocMirror plugins.
+Provides Click commands to list, enable, disable, inspect, and search plugins
+from the local registry, plus license activation and entitlement diagnostics.
+Community edition exposes six premium domain plugins plus one generic fallback;
+enterprise and finance editions unlock additional structured output paths.
 
-Commands:
-  - docmirror plugins list          # List all plugins
-  - docmirror plugins enable <name> # Enable a plugin
-  - docmirror plugins disable <name> # Disable a plugin
-  - docmirror plugins info <name>   # Show plugin details
-  - docmirror plugins search <kw>   # Search plugins
-  - docmirror plugins license show  # Show license info
-  - docmirror plugins license activate <key> # Activate license
-  - docmirror plugins license deactivate # Deactivate license
-  - docmirror plugins stats         # Show statistics
+Commands::
 
-Usage:
     docmirror plugins list
-    docmirror plugins enable id_card
-    docmirror plugins disable passport
-    docmirror plugins info bank_statement
-    docmirror plugins license activate DOC-PRO-XXXX-XXXX
+    docmirror plugins enable <name>
+    docmirror plugins disable <name>
+    docmirror plugins info <name>
+    docmirror plugins search <keyword>
+    docmirror plugins community
+    docmirror plugins license show
+    docmirror plugins license activate <key>
+    docmirror plugins license deactivate
+    docmirror plugins stats
 """
 
 from __future__ import annotations

@@ -5,17 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Foundation Engine Wrappers
-==========================================
+FitzEngine — PyMuPDF wrapper for low-level PDF access.
 
-Unified wrappers around low-level PDF libraries, isolating third-party
-dependencies:
-    - FitzEngine:       PyMuPDF fast text/font/metadata extraction
-    - PDFPlumberEngine: pdfplumber high-precision table recognition
-    - OCREngine:        PaddleOCR/RapidOCR lazy-loading wrapper
+Purpose: Provides page rendering, char/word extraction, image rasterization,
+and document metadata via a thin, testable abstraction over PyMuPDF.
 
-Upstream code accesses low-level capabilities only through these Engine
-classes, making future library replacements straightforward.
+Main components: ``FitzEngine``.
+
+Upstream: File path from ``CoreExtractor`` / pipeline.
+
+Downstream: ``segment``, ``extract``, ``ocr.preprocess``, ``pipeline.page_extractor``.
 """
 
 from __future__ import annotations

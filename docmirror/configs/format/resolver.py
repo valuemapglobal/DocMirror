@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Resolve file path + MIME to FormatCapability."""
+"""
+Format capability resolver — map file path and MIME type to ``FormatCapability``.
+
+Resolution priority::
+
+    1. Exact MIME match from ``format_capabilities.yaml`` mime_map
+    2. MIME prefix match (e.g. ``image/*``)
+    3. Longest extension suffix match (``.tar.gz`` before ``.gz``)
+    4. ``UNKNOWN_CAPABILITY`` sentinel
+
+Also provides ``detect_transport()`` for backward compatibility with legacy
+``detect_file_type`` callers, and ``get_capability_by_transport()`` for parser
+fallback selection.
+"""
 
 from __future__ import annotations
 

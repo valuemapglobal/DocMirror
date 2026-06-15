@@ -5,20 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Global Image Preprocessor
-=========================
+Global image preprocessor — document-wide image enhancement modes.
 
-Universal image preprocessing for all document types.
+Purpose: Applies configurable preprocess modes (denoise, contrast, binarize)
+to page images before OCR or layout models.
 
-This module provides:
-1. Denoising (remove scan artifacts)
-2. Binarization (black & white conversion)
-3. Deskewing (rotation correction)
-4. Contrast enhancement (improve text clarity)
-5. Sharpening (edge enhancement)
+Main components: ``GlobalImagePreprocessor``, ``PreprocessMode``, ``PreprocessResult``.
 
-Core insight: Better input quality → better OCR → better extraction.
-This is the foundation for optimal document parsing.
+Upstream: Rendered page images from ``FitzEngine``.
+
+Downstream: ``ocr.image_preprocessing``, ``ocr.preprocess.legacy_fallback``.
 """
 
 import logging

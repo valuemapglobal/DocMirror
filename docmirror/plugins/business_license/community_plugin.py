@@ -5,11 +5,19 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Business License Domain Plugin (Community Edition)
-===================================================
+Business license community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Premium community plugin for Chinese business registration certificates (key-value
+archetype). Maps identity labels (company name, USCC, legal representative, etc.),
+validates USCC checksum in enrich step, and emits v2.0 community JSON.
+
+Pipeline role: ``runner._run_community_extract`` invokes ``extract_from_mirror``;
+``build_domain_data`` provides KV fallback for legacy entity paths.
+
+Key exports: ``BusinessLicensePlugin``, ``plugin``.
+
+Dependencies: ``DomainPlugin``, ``dec_builder``, ``kv_community_extract``,
+``kv_community_enrich.enrich_business_license_output``.
 """
 
 from __future__ import annotations

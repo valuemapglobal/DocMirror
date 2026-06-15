@@ -1,7 +1,23 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""DTI (Document Type Identity) validators — design 09 §4.3."""
+"""
+DTI (Document Type Identity) validators — design 09 §4.3.
+
+Validates that ``business_scene`` strings used in plugins, middleware, and API
+responses exist in the SSOT keyword corpus loaded from ``scene_keywords.yaml``.
+
+Functions::
+
+    load_business_scenes()       Frozenset of all valid scene keys
+    validate_business_scene()    True for known scenes (and sentinel values)
+    validate_business_scenes()   Return list of unknown scenes from an iterable
+    assert_business_scene()      Raise ``ValueError`` for unknown scenes
+
+Sentinel values ``unknown``, ``generic``, and empty string always pass validation.
+Use ``assert_business_scene`` at plugin registration or config authoring time
+to catch typos before they reach production classification.
+"""
 
 from __future__ import annotations
 

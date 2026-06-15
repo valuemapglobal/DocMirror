@@ -1,7 +1,25 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Resolve middleware pipeline names from enhancement profiles + catalog guards."""
+"""
+Middleware pipeline resolver — enhancement profiles + catalog guards.
+
+Resolves the ordered list of middleware names to execute for a given
+``content_model`` and ``enhance_mode`` by reading ``enhancement_profiles.yaml``
+and applying catalog-level filters.
+
+Resolution steps::
+
+    1. Look up profile for content_model × enhance_mode (fallback to ``standard``)
+    2. Flatten v1 flat list or v2 ``stages`` dict in ``GLOBAL_STAGE_ORDER``
+    3. Filter by catalog ``enabled``, ``when`` guard eval, and runtime flags
+       (``DOCMIRROR_ENABLE_ANOMALY``, ``DOCMIRROR_ENABLE_SLM``)
+    4. Topologically sort by ``depends_on`` edges
+
+``when`` guards are Python expressions evaluated against a namespace containing
+``result``, ``table_count``, ``document_type``, ``content_model``, and
+``enhance_mode``. Guard eval failures default to including the middleware.
+"""
 
 from __future__ import annotations
 

@@ -1,7 +1,25 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""EHL helpers — map classification evidence to ParseResult annex (design 09 §4.5)."""
+"""
+Evidence and Hypothesis Layer (EHL) helpers — classification annex for ``ParseResult``.
+
+Bridges EvidenceEngine outputs (``EvidenceSpan``, ``Evidence`` objects) into the
+``ParseResult.annex`` field for debug, evaluation, and audit. Annex data is
+excluded from ``mirror.json`` serialization.
+
+Functions::
+
+    spans_to_evidence_summary()      Aggregate layout/OCR spans into ``EvidenceSummary``
+    attach_spans_annex()             Merge crop/layout evidence into annex
+    attach_pipeline_debug()          Store middleware debug payloads by key
+    attach_quality_report_annex()    Attach eval ``ParseQualityReport``
+    evidence_items_to_hypotheses()   Map EvidenceEngine items → ``ParseHypothesis`` list
+    build_evidence_summary()         Lightweight summary from evidence iterables
+    attach_classification_annex()  Populate hypotheses + evidence_summary on annex
+
+See design 09 §4.5 for the EHL annex contract.
+"""
 
 from __future__ import annotations
 

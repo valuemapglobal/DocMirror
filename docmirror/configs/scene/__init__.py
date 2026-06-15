@@ -1,7 +1,26 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Document scene / classification keyword corpus."""
+"""
+Document scene classification keyword corpus.
+
+Re-exports the scene keyword loader API used by the EvidenceEngine, domain
+plugins, and classification middleware. Keywords are defined in
+``scene_keywords.yaml`` and organized by ``business_scene`` (e.g.
+``bank_statement``, ``invoice``).
+
+Each scene spec contains ``include`` and ``exclude`` keyword lists used for
+softmax priors, plugin ``scene_keywords`` tuples, and DTI validation.
+
+Public API::
+
+    get_scene_specs()           Raw per-scene include/exclude dicts
+    get_scene_includes()        Include keywords (EvidenceEngine format)
+    get_scene_excludes()        Exclude keywords per scene
+    get_plugin_scene_keywords() Include-only tuples for ``DomainPlugin``
+    compute_keyword_uniqueness()  Rarity weights across scenes
+    invalidate_scene_cache()    Clear mtime cache (tests / hot-reload)
+"""
 
 from docmirror.configs.scene.loader import (
     compute_keyword_uniqueness,

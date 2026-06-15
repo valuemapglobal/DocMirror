@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Char strategy: _extract_by_hline_columns."""
+"""
+H-line columns — extraction using detected horizontal rules.
+
+Purpose: Splits columns at horizontal line intersections when PDF vector
+lines define cell boundaries.
+
+Main components: ``_extract_by_hline_columns``.
+
+Upstream: Fitz vector drawings / line detection.
+
+Downstream: ``extract.engine`` ruled-table path.
+"""
 
 from __future__ import annotations
 

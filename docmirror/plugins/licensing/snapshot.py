@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unified license snapshot for CLI ``license show``."""
+"""
+Unified license snapshot for CLI ``license show``.
+
+Merges offline ``.lic`` inventory, online cache state, lifecycle resolution, and
+tier configuration into one dict suitable for human-readable CLI output.
+
+Pipeline role: read-only aggregation for administrative commands; not used during
+PEC extract.
+
+Key exports: ``resolve_license_snapshot``.
+
+Dependencies: ``licensing.online``, ``licensing.offline``, ``licensing.lifecycle``,
+``licensing.tiers_loader``.
+"""
 
 from __future__ import annotations
 

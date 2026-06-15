@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Tax Certificate Domain Plugin (Community Edition)
-==================================================
+Archived tax certificate community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` for tax payment/certificate documents. Not included
+in the refactored six premium community plugin set.
+
+Pipeline role: none — historical reference.
+
+Key exports: ``TaxCertificateCommunityPlugin``, ``plugin``.
 """
 
 from __future__ import annotations

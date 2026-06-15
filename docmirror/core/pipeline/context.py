@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Pipeline context objects (CPA design 12 §4.1)."""
+"""
+Pipeline context objects — shared state for document and page extraction.
+
+Purpose: Holds per-page and per-document mutable state (fitz page, profile,
+template, timings) passed through pipeline stages without global side effects.
+
+Main components: ``PageExtractionContext``, ``DocumentPipelineContext``.
+
+Upstream: ``CoreExtractor`` / ``PagePipeline.run``.
+
+Downstream: All ``pipeline.stages`` and ``pipeline.handlers``.
+"""
 
 from __future__ import annotations
 

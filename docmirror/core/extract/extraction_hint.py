@@ -5,23 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-ExtractionHint — per-page hint from layout analysis to table engine
-====================================================================
+Extraction hint — carries profile and geometry hints into extractors.
 
-Bridges the gap between ``analyze_document_layout`` (PyMuPDF) and
-``extract_tables_layered`` (pdfplumber), eliminating redundant
-analysis.
+Purpose: Dataclass bundling column anchors, header expectations, and profile
+flags so backends make consistent decisions.
 
-``_quick_classify()`` in ``classifier.py`` still runs as a
-verification step but no longer needs to recompute column/row
-statistics from scratch.
+Main components: ``ExtractionHint``.
 
-Usage::
+Upstream: ``pipeline.context``, ``table.column_anchor``.
 
-    hint = ExtractionHint.from_al_page_layout(layout_al)
-    tables, layer, conf = extract_tables_layered(
-        page_plum, layout_hint=hint, ...
-    )
+Downstream: ``extract.engine``, ``extract.template_injector``.
 """
 
 from __future__ import annotations

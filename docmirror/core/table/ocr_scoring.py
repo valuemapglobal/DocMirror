@@ -1,53 +1,14 @@
-"""OCR复合评分优化引擎 — OCR Composite Scoring Optimization.
+"""
+OCR scoring — confidence decay and low-confidence word detection.
 
-道法自然 · 第十八重境界:
-  引入低置信度词指数衰减惩罚
+Purpose: Computes OCR-enhanced confidence scores for table cells using word
+confidence, char confusion patterns, and decay factors.
 
-核心设计:
-  1. 原始公式 (第十二重境界):
-     confidence = vocab*0.25 + row*0.15 + col*0.20 + type*0.25 + content*0.15 + bonus
+Main components: ``compute_ocr_enhanced_confidence``, ``detect_low_confidence_words``.
 
-  2. 优化公式 (第十八重境界):
-     confidence = [原始公式] × decay_factor
+Upstream: OCR metadata on table cells.
 
-     decay_factor = exp(-λ × low_confidence_ratio^2)
-
-     其中:
-       low_confidence_ratio = low_confidence_words / total_words
-       λ = 衰减系数 (默认2.0)
-
-  3. 指数衰减特性:
-     - 0个低置信度词: decay = 1.00 (无惩罚)
-     - 1个低置信度词 (10%): decay = 0.98 (惩罚2%)
-     - 3个低置信度词 (30%): decay = 0.83 (惩罚17%)
-     - 5个低置信度词 (50%): decay = 0.61 (惩罚39%)
-     - 全部低置信度 (100%): decay = 0.14 (惩罚86%)
-
-  4. 低置信度词检测:
-     - OCR字符级置信度 < 0.7
-     - 词汇匹配失败 (不在KNOWN_HEADER_WORDS中)
-     - 包含非常见字符 (非CJK、非ASCII)
-     - 形近字错误 (0↔O, 1↔l, 日↔曰)
-
-使用示例:
-    from docmirror.core.table.ocr_scoring import compute_ocr_enhanced_confidence
-
-    # 原始五维评分
-    base_confidence = compute_table_confidence(tables, layer, hint)
-
-    # OCR增强评分 (第十八重境界)
-    enhanced_confidence = compute_ocr_enhanced_confidence(
-        base_confidence=base_confidence,
-        header_cells=["交易日期", "交另金额", "余额"],  # "交另"是OCR错误
-        ocr_char_confidences=[0.95, 0.65, 0.92],  # 字符级置信度
-        decay_lambda=2.0
-    )
-
-    logger.debug(f"原始置信度: {base_confidence:.3f}")
-    logger.debug(f"增强置信度: {enhanced_confidence:.3f}")
-    # 输出:
-    # 原始置信度: 0.820
-    # 增强置信度: 0.689  (衰减16%)
+Downstream: ``extract.classifier``, quality metrics on ``ParseResult``.
 """
 
 from __future__ import annotations

@@ -1,7 +1,18 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Post-Extract Hook base class."""
+"""
+Post-extract hook abstract base class.
+
+Defines the contract for hooks that run after PEC extract completes. Implementations
+receive the Mirror ``ParseResult``, the serialized ``extracted`` edition dict, edition
+name, document type, and optional plugin reference.
+
+Pipeline role: subclassed by modules under ``post_extract.hooks``; catalog loader
+validates ``issubclass(..., PostExtractHook)`` before ``runner`` instantiates hooks.
+
+Key exports: ``PostExtractHook``.
+"""
 
 from __future__ import annotations
 

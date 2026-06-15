@@ -4,8 +4,14 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""MultiModal MiddlewarePipeline。"""
+"""
+Mirror-layer middleware pipeline package (MEP).
 
+Re-exports ``BaseMiddleware``, ``MiddlewarePipeline``, and the default
+detection, extraction, and validation middleware classes wired into standard
+parse profiles. Middleware runs after format adapters via the ``Orchestrator``
+and enriches ``ParseResult`` in place.
+"""
 from .base import BaseMiddleware, MiddlewarePipeline
 from .detection.institution_detector import InstitutionDetector
 from .detection.language_detector import LanguageDetector

@@ -5,10 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-CLI 分类报告生成
-================
+Classification report generator for the DocMirror CLI.
 
-生成详细的分类统计报告，支持 Markdown、JSON、CSV。
+Builds aggregate statistics from a completed ``docmirror classify`` run and
+writes human-readable or machine-readable summaries. Supports Markdown tables
+for terminal review, JSON for downstream automation, and CSV for spreadsheet
+import. Report sections typically include per-type counts, confidence
+distribution, unmatched files, and institution breakdowns when available.
 """
 
 from __future__ import annotations

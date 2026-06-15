@@ -4,7 +4,19 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Shared utility functions split from table_extraction.py."""
+"""
+Extract utilities — shared char grouping and column assignment helpers.
+
+Purpose: Adaptive row tolerance grouping, x-clustering, and char-to-text
+conversion reused across char strategies.
+
+Main components: ``_group_chars_into_rows``, ``_cluster_x_positions``,
+``_assign_chars_to_columns``.
+
+Upstream: Raw fitz char lists.
+
+Downstream: All ``extract.char.*`` and ``extract.signal_processor``.
+"""
 
 from __future__ import annotations
 

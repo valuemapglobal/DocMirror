@@ -1,45 +1,14 @@
-"""字符级信号加权融合引擎 — Character-level Signal Fusion Engine.
+"""
+Signal fusion — votes among multiple column boundary signals.
 
-道法自然 · 第十七重境界:
-  4种列边界信号加权融合而非竞争选择
+Purpose: Clusters and fuses column boundary candidates from projection,
+clustering, and anchor detectors into consensus dividers.
 
-核心设计:
-  1. 输入层: 4种信号源并行提取列边界候选
-     - header_anchors (权重25%): 基于表头词锚点
-     - word_anchors (权重25%): 基于词汇锚点
-     - data_voting (权重30%): 基于数据行投票
-     - whitespace_projection (权重20%): 基于空白投影
+Main components: ``fuse_column_signals``, ``should_use_fusion``.
 
-  2. 融合层: 加权投票确定最终边界
-     - 边界候选聚类 (±5pt容差)
-     - 加权投票计算置信度
-     - DBSCAN去噪（移除孤立点）
+Upstream: Multiple column signal lists from extract char modules.
 
-  3. 决策层: 自适应阈值
-     - 高置信度(>0.8): 直接采用融合边界
-     - 中置信度(0.5-0.8): 信号处理器验证
-     - 低置信度(<0.5): 降级到单一最佳方法
-
-使用示例:
-    from docmirror.core.table.signal_fusion import fuse_column_signals
-
-    # 4种方法并行提取
-    signals = {
-        "header_anchors": extract_header_anchors(page),
-        "word_anchors": extract_word_anchors(page),
-        "data_voting": extract_data_voting(page),
-        "whitespace_projection": extract_whitespace_projection(page),
-    }
-
-    # 加权融合
-    fused_boundaries, confidence = fuse_column_signals(signals)
-
-    if confidence > 0.8:
-        # 高置信度，直接使用
-        table = assemble_table_with_boundaries(page, fused_boundaries)
-    else:
-        # 降级到传统方法
-        table = fallback_extraction(page)
+Downstream: ``extract.char_strategy`` final boundaries.
 """
 
 from __future__ import annotations

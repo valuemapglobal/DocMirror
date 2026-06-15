@@ -1,3 +1,17 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
+"""
+PDF security gate — DRM stripping and password unlock helper.
+
+Probes PDF files for encryption, attempts heuristic and user-supplied
+password unlock via fitz, and writes decrypted copies to disk for downstream
+``CoreExtractor`` parsing. Used internally by the PDF adapter path.
+"""
+
 import logging
 import re
 from pathlib import Path

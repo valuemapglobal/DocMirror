@@ -5,17 +5,23 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Domain Plugin Interface
-=======================
+Domain plugin package — public entry point for DocMirror's plugin system.
 
-Extensible plugin system for domain-specific document processing.
+Re-exports the core registry types (``DomainPlugin``, ``PluginRegistry``,
+``registry``) and lazily loads ``license_manager`` and ``plugin_manager`` so
+importing ``docmirror.plugins`` does not pull in licensing or state I/O until
+needed.
 
-Usage::
+Pipeline role: after Mirror produces a ``ParseResult``, callers use
+``runner.run_plugin_extract`` (not imported here) to match a domain plugin and
+emit edition JSON; ``registry`` is the SSOT for registered plugins, while
+``plugin_manager`` controls per-domain enable flags via ``state``.
 
-    from docmirror.plugins import registry
+Key exports: ``DomainPlugin``, ``PluginRegistry``, ``registry``,
+``license_manager``, ``plugin_manager``.
 
-    registry.list_plugins()
-    plugin = registry.get("bank_statement")
+Dependencies: ``plugin_registry`` (registry singleton), ``manager`` (enable/disable),
+``licensing.online`` (lazy license manager).
 """
 
 from __future__ import annotations

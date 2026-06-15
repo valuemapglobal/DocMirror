@@ -1,7 +1,15 @@
-"""Cell Newline Recovery & Data Enhancement.
+"""
+Wrap recovery — fixes line-wrapped and truncated cell content.
 
-Post-processing for cells with embedded newlines from multi-line PDF cells.
-Primarily handles \n cleanup from pdfplumber.extract_tables() output.
+Purpose: Recovers wrapped newlines in cells, completes truncated time/direction
+columns, and normalizes char encoding in ledger cells.
+
+Main components: ``ColumnWrapRecovery``, ``clean_cell_newlines``,
+``complete_truncated_times``.
+
+Upstream: Ledger/borderless tables after initial normalize.
+
+Downstream: ``table.ledger_postprocess``, exported cell text.
 """
 
 from __future__ import annotations

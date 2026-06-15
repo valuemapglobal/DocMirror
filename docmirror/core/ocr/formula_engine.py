@@ -5,23 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Formula Recognition Engine
-============================
+Formula engine — image-based mathematical formula OCR.
 
-Unified formula recognition entry point using the Strategy pattern.
+Purpose: Preprocesses formula crops, runs OCR, and post-processes recognized
+LaTeX (bracket balance, symbol corrections).
 
-Backend priority::
+Main components: ``FormulaEngine``.
 
-    UniMERNet ONNX (if model path is valid) > rapid_latex_ocr > empty string
+Upstream: Formula zone images from handlers.
 
-Usage::
-
-    engine = FormulaEngine()
-    latex = engine.recognize(image_bytes)
-
-Relationship with CoreExtractor:
-    - ``CoreExtractor._recognize_formula()`` delegates to this engine.
-    - This engine is self-contained and can be used / tested independently.
+Downstream: ``physical.models.Block`` (formula type).
 """
 
 from __future__ import annotations

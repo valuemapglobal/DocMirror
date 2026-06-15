@@ -1,7 +1,14 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Load TQG manifest YAML files."""
+"""
+TQG manifest loader — parses YAML gate specifications into executable cases.
+
+Reads track manifests from ``configs/yaml/test/gates/`` and produces
+``TQGCase`` dataclass instances with file paths, tier labels, gate specs, and
+optional environment overrides. Supports loading individual tracks or the full
+manifest corpus for batch runners.
+"""
 
 from __future__ import annotations
 
@@ -124,6 +131,7 @@ def validate_manifest_file(path: Path, *, repo_root: Path | None = None) -> list
                     or oracle.get("column_fidelity")
                     or oracle.get("quarantine_metadata")
                     or oracle.get("text_snapshot")
+                    or oracle.get("mirror_structure")
                     or oracle.get("mode")
                 )
             )

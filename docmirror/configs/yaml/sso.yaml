@@ -1,0 +1,6 @@
+# SSO / SDU thresholds (design 13 — ADR-M13, tunable via TQG)
+version: 1
+
+pipe_grid_veto_threshold: 0.85
+pipe_grid_enrich_threshold: 0.85
+scene_hint_prior_delta: 0.05

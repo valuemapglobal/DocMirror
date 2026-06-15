@@ -4,7 +4,26 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Formal domain plugin output protocol (L5 Domain Sandbox)."""
+"""
+Domain Extraction Contract (DEC) — formal domain plugin output protocol (L5).
+
+Defines the typed contract that all domain plugins must produce, plus helpers
+for normalizing legacy and edition-specific plugin payloads into ``DEC`` form.
+
+Core types::
+
+    DomainQuality            Confidence, trust, field coverage, validation status, issues
+    DomainExtractionResult   document_type, entities, structured_data, derived_variables,
+                             quality, metadata, evidence_ids
+    ExtractionHint           Domain-scoped hints for the universal table resolver
+
+Envelope detection helpers (``_is_edition_v2_payload``, ``_is_enterprise_envelope``,
+``_is_finance_envelope``) identify when plugin output is already a full edition
+JSON envelope and should bypass ``edition_serializer``.
+
+``normalize_plugin_output`` is the main entry for converting raw plugin dicts
+into validated ``DomainExtractionResult`` instances.
+"""
 
 from __future__ import annotations
 

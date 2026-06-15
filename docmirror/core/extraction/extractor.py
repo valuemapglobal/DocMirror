@@ -5,44 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Core Extractor
-============================
+CoreExtractor — orchestrates PDF → BaseResult extraction.
 
-The core extraction engine responsible for parsing raw PDF files into
-immutable ``BaseResult`` data structures.
+Purpose: Main extraction engine: opens PDFs, iterates pages, runs layout
+segmentation, table extraction (layered tiers), OCR fallback for scanned
+pages, logical table composition, and assembles frozen ``BaseResult``.
 
-=== Extraction Flow ===
+Main components: ``CoreExtractor``.
 
-  Step 1: Pre-processing + pre-check
-          PyMuPDF fast text layer check → mark digital/scanned
+Upstream: ``entry.factory``, ``FitzEngine``, ``analyze.pre_analyzer``.
 
-  Step 2: Page iteration + layout analysis
-          Call segment_page_into_zones per page to partition semantic zones
-
-  Step 3: TableExtract
-          Call extract_tables_layered for each data_table zone (4-tier progressive).
-          ExtractResult collected as table Blocks into PageLayout.
-          Scanned documents use OCR fallback path (analyze_scanned_page).
-
-  Step 4: Logical table composition (TableComposer dual-view)
-          Call post_process_table for each table Block:
-            - VOCAB_BY_CATEGORY scan to find best header row
-            - Summary rows before header → extract as KV via _extract_preamble_kv
-            - Summary/repeat headers after header → strip via _strip_preamble
-            - Data row cleanup (_is_junk_row / _is_data_row / cell alignment)
-          After extraction, call get_and_clear_preamble_kv():
-            - If KV exists, create key_value Block inserted before table
-
-  Step 6: Assemble BaseResult
-          Assemble per-page Block lists into frozen BaseResult
-
-=== Output Structure ===
-
-  Per-page blocks list (reading_order order):
-    [title]      → PageTitle
-    [title]      → Account information rows
-    [key_value]  → Preamble summary KV (if any. e.g., total amount/count/start date)
-    [table]      → Transaction detail table (header + data rows)
+Downstream: ``pipeline.document_pipeline``, ``bridge.parse_result_bridge``,
+``extraction.table_postprocessor``.
 """
 
 from __future__ import annotations
@@ -285,6 +259,18 @@ class CoreExtractor:
                 pages, extraction_layer, extraction_confidence
             )
 
+        metadata["structure"] = self._build_structure_metadata(
+            pre_analysis=pre_analysis,
+            fitz_doc=fitz_doc,
+            table_count=table_count,
+            extraction_layer=extraction_layer,
+            layout_profile_id=_perf.get("layout_profile_id"),
+            pipe_table_enrich=bool(_perf.get("pipe_table_enrich")),
+            logical_table_count=len(_logical_tables_data) if _logical_tables_data else None,
+            physical_table_count=sum(len(getattr(p, "tables", []) or []) for p in pages),
+            dual_view=_perf.get("dual_view") if isinstance(_perf, dict) else None,
+        )
+
         result = BaseResult(
             document_id=doc_id,
             pages=tuple(pages),
@@ -297,6 +283,63 @@ class CoreExtractor:
             f"tables={table_count} | elapsed={elapsed:.0f}ms"
         )
         return result
+
+    @staticmethod
+    def _build_structure_metadata(
+        *,
+        pre_analysis,
+        fitz_doc,
+        table_count: int,
+        extraction_layer: str,
+        layout_profile_id: str | None,
+        pipe_table_enrich: bool = False,
+        logical_table_count: int | None = None,
+        physical_table_count: int | None = None,
+        dual_view: bool | None = None,
+    ) -> dict[str, Any]:
+        """Build SPE dict for parser_info.structure (ADR-M13-02)."""
+        from docmirror.core.analyze.structure_provenance import (
+            apply_logical_tables_spe,
+            apply_pipe_enrich_spe,
+            build_structure_provenance,
+        )
+        from docmirror.core.analyze.structure_signals import build_sso_sample_text
+
+        sample_text = build_sso_sample_text(fitz_doc) if fitz_doc is not None else ""
+
+        def _with_logical_tables(spe_dict: dict[str, Any]) -> dict[str, Any]:
+            return apply_logical_tables_spe(
+                spe_dict,
+                logical_table_count=logical_table_count,
+                physical_table_count=physical_table_count,
+                dual_view=dual_view,
+            )
+
+        structural = getattr(pre_analysis, "structure_spe", None)
+        if structural:
+            out = dict(structural)
+            out["extraction_layer"] = extraction_layer
+            out["layout_profile_id"] = layout_profile_id
+            if pipe_table_enrich:
+                return _with_logical_tables(apply_pipe_enrich_spe(out))
+            if table_count > 0:
+                out["table_extraction"] = "full"
+                out["table_extraction_skipped_reason"] = None
+            elif out.get("table_extraction") == "full" and table_count == 0:
+                out["table_extraction_skipped_reason"] = out.get("table_extraction_skipped_reason") or "extraction_failed"
+            return _with_logical_tables(out)
+
+        spe = build_structure_provenance(
+            content_type=getattr(pre_analysis, "content_type", "unknown"),
+            sample_text=sample_text,
+            table_count=table_count,
+            extraction_layer=extraction_layer,
+            layout_profile_id=layout_profile_id,
+            table_extraction="enrich_only" if pipe_table_enrich else None,
+        )
+        if pipe_table_enrich:
+            return _with_logical_tables(apply_pipe_enrich_spe(spe.to_dict()))
+        return _with_logical_tables(spe.to_dict())
 
     def _assess_extraction_quality(
         self, pages, extraction_layer: str, extraction_confidence: float

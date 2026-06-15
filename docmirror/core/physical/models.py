@@ -5,10 +5,20 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Core-internal immutable physical models (frozen dataclass).
+Physical document models — immutable block graph for extracted content.
 
-Moved from ``models/entities/domain.py`` per design 09 Phase 4.
-Public re-export shim remains at ``docmirror.models.entities.domain``.
+Purpose: Defines ``BaseResult``, ``PageLayout``, ``Block``, ``TextSpan``,
+and ``Style`` — the frozen structures that flow through the pipeline before
+bridge conversion.
+
+Main components: ``BaseResult``, ``PageLayout``, ``Block``, ``TextSpan``,
+``Style``.
+
+Upstream: ``pipeline`` assemble/finalize stages, ``segment``, ``extract``,
+``ocr``.
+
+Downstream: ``bridge.parse_result_bridge``, ``extraction.provenance_stamps``,
+``output.markdown_exporter``.
 """
 
 from __future__ import annotations

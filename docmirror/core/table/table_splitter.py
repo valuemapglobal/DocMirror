@@ -5,19 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Table Splitter - Column Clustering & Parallel Table Separation (v11 Optimization)
-==================================================================================
+Table splitter — detects parallel side-by-side tables on one page.
 
-列聚类与双表分离算法 - 解决并排表格展平问题
+Purpose: Finds column gaps and semantic boundaries to split a single wide
+region into independent table blocks.
 
-算法原理:
-1. 检测垂直空白间隙（>30pt）
-2. 验证间隙两侧的列是否构成独立语义单元
-3. 分割为多个TableBlock
+Main components: ``detect_and_split_parallel_tables``.
 
-应用场景：
-- 征信报告中常见的左右并排KV表
-- 左侧业务字段 + 右侧"信息来源机构"
+Upstream: Wide table zones or merged regions.
+
+Downstream: Separate ``Block`` tables per ``page_assemble``.
 """
 
 from __future__ import annotations

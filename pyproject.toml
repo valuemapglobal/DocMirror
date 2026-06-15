@@ -118,6 +118,7 @@ markers = [
     "track_extract: table/core extract gates",
     "track_classify: DTI / document_type gates",
     "track_mirror: MEP mirror quality gates",
+    "track_mirror_structure: SSO/SPE/SDU mirror structure gates",
     "track_edition: PEC / DEC edition gates",
     "track_e2e: CLI/API/full perceive gates",
     "track_transport: FCR format capability and routing gates",

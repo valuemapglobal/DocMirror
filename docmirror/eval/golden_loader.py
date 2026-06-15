@@ -4,7 +4,14 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Golden test case loader."""
+"""
+Golden test case loader for the evaluation matrix.
+
+Discovers fixture files and expected-oracle metadata under a golden root
+directory, yielding ``GoldenCase`` records consumed by ``benchmark_runner`` and
+TQG manifest expansion. Supports tier tags, document-type labels, and
+per-case gate overrides embedded in sidecar JSON.
+"""
 
 from __future__ import annotations
 

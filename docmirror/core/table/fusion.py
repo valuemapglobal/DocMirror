@@ -5,34 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Result Fusion Engine — 结果融合引擎
-=====================================
+Result fusion engine — merges competing table extraction results.
 
-基于第一性原理的结果融合：不是简单替代，而是多层结果达成共识。
+Purpose: Fuses multiple table candidates (different tiers/engines) into one
+best grid using cell-level voting and structure agreement.
 
-Design Principle (道德经):
-    "万物负阴而抱阳" — 每个结果都有价值，融合而非抛弃。
-    "和其光，同其尘" — 让多层结果和谐统一。
+Main components: ``ResultFusionEngine``.
 
-Core Philosophy:
-    多策略提取不是竞争关系，而是互补关系。
-    通过投票、加权、对齐，找到最接近真相的共识。
+Upstream: Multiple ``ExtractCandidate`` outputs.
 
-Usage::
-
-    from docmirror.core.table.fusion import ResultFusionEngine
-    from docmirror.core.result import ExtractResult
-
-    # 多层提取结果
-    results = [
-        ExtractResult(tables=[...], confidence=0.85),  # L1
-        ExtractResult(tables=[...], confidence=0.78),  # L2
-        ExtractResult(tables=[...], confidence=0.82),  # L3
-    ]
-
-    # 融合结果
-    fused = ResultFusionEngine.fuse(results)
-    # fused.confidence = 0.88  (融合后更高)
+Downstream: ``extract.best_candidate``, ``table.signal_fusion``.
 """
 
 from __future__ import annotations

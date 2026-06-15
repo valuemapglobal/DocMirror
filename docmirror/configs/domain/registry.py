@@ -5,23 +5,26 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Domain Registry — Document-type-specific identity field definitions.
-=====================================================================
+Domain Registry — document-type identity fields and multilingual key normalization.
+=====================================================================================
 
-Maps each document type (e.g., bank_statement, invoice, contract) to a list
-of identity field definitions. Each definition specifies:
+Maps each document type (e.g. ``bank_statement``, ``invoice``, ``contract``) to
+identity field definitions and loads multilingual key synonyms from YAML.
 
-    (display_name, candidate_key_1, candidate_key_2, ...)
+Identity resolution::
 
-The ``resolve_identity()`` function looks up fields for a given domain,
-then searches the provided entities dict for the first matching candidate
-key that has a non-empty value. This allows flexible extraction from
-documents where the same concept may appear under different key names
-(e.g., "Account holder", "Card holder", "Customer name" all map to
-the "account_holder" identity field).
+    Each field definition is ``(display_name, candidate_key_1, candidate_key_2, …)``.
+    ``resolve_identity(domain, entities)`` normalizes keys via ``KEY_SYNONYMS``,
+    then returns the first non-empty candidate value per field.
 
-The wildcard domain ``"*"`` serves as a fallback for unrecognized
-document types, providing minimal identity extraction (title, date, author).
+Key synonyms::
+
+    ``key_synonyms.yaml`` structure: ``domain → locale → {raw_key: canonical_key}``.
+    Flattened at import into ``KEY_SYNONYMS`` for O(1) lookup. Missing YAML
+    degrades gracefully — English-key documents still work.
+
+Wildcard domain ``"*"`` provides fallback identity (title, date, author) for
+unrecognized document types.
 
 Usage::
 

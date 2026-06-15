@@ -45,15 +45,17 @@ class EntityExtractor(BaseMiddleware):
                 if kv.key:
                     entities[kv.key] = kv.value
 
-        # 2. Regex Fallback from first page text
-        first_page_text = full_text[:500] if full_text else ""
+        # 2. Regex Fallback from header zone only (ADR-M13 / M6)
+        from docmirror.core.table.structure_detect import extract_header_zone
 
-        self._extract_bank_name(entities, first_page_text)
-        self._extract_account_holder(entities, first_page_text, result.pages)
-        self._extract_account_number(entities, first_page_text, result.pages)
-        self._extract_period(entities, first_page_text)
-        self._extract_print_date(entities, first_page_text)
-        self._extract_currency(entities, first_page_text)
+        header_text = extract_header_zone(full_text, parse_result=result) if full_text else ""
+
+        self._extract_bank_name(entities, header_text)
+        self._extract_account_holder(entities, header_text, result.pages)
+        self._extract_account_number(entities, header_text, result.pages)
+        self._extract_period(entities, header_text)
+        self._extract_print_date(entities, header_text)
+        self._extract_currency(entities, header_text)
 
         # 3. Normalize locale-specific keys
         from docmirror.configs.domain.registry import normalize_entity_keys
@@ -128,20 +130,18 @@ class EntityExtractor(BaseMiddleware):
         if any(k in entities for k in ("Account name", "Customer name")):
             return
         for pat in [
-            r"(?:本方)?Account name[：:]\\s*(.+?)(?:\\n|$)",
+            r"(?:本方)?Account name[：:]\s*(.+?)(?:\n|$)",
             r"(?:Account name称|Customer name|Account holder|"
-            r"Card holder)[：:]\\s*(.+?)(?:\\n|$)",
-            r"(?:Account name称|Customer name)\\n(.+?)(?:\\n|$)",
-            # Markdown粗体: **兹证明**: 张三(
+            r"Card holder)[：:]\s*(.+?)(?:\n|$)",
+            r"(?:Account name称|Customer name)\n(.+?)(?:\n|$)",
             r"\*\*兹证明\*\*[：:]\s*([^\n(（]+)",
-            # Markdown: **客户名称**: 张三
             r"\*\*客户名称\*\*[：:]\s*([^\n]+)",
-            # Markdown: **姓名**: 张三
             r"\*\*姓名\*\*[：:]\s*([^\n]+)",
-            r"戶名[：:]?\\s*(.+?)(?:\\n|$)",
-            r"Account\\s*Name[：:]?\\s*(.+?)(?:\\n|$)",
-            r"(?:账户名称|Account name称)\\s*Account\\s*Name\\s*([\\u4e00-\\u9fa5].+?)(?:[\\n账客]|$)",
-            r"客户名称\\s*Customer\\s*Name\\s*([\\u4e00-\\u9fa5].+?)(?:客户号|Customer\\s*Number|[\\n]|$)",
+            r"戶名[：:]?\s*(.+?)(?:\n|$)",
+            r"Account\s*Name[：:]?\s*(.+?)(?:\n|$)",
+            r"(?:账户名称|Account name称)\s+([^\n\d]{2,40}?)(?:\s{2,}|$)",
+            r"(?:账户名称|Account name称)\s*Account\s*Name\s*([\u4e00-\u9fa5].+?)(?:[\n账客]|$)",
+            r"客户名称\s*Customer\s*Name\s*([\u4e00-\u9fa5].+?)(?:客户号|Customer\s*Number|[\n]|$)",
         ]:
             m = re.search(pat, text)
             if m:
@@ -179,7 +179,8 @@ class EntityExtractor(BaseMiddleware):
         if "Account number" in entities:
             return
         for pat in [
-            r"账\s*号[：:]\s*(\d{10,25})",
+            r"账\s*号[：:\s]+(\d{10,25})",
+            r"账号\s+(\d{10,25})",
             r"卡\s*号[：:]\s*(\d{10,25})",
             r"Account\s*(?:No\.?|Number)[：:]?\s*(\d{10,25})",
             r"账戶[：:]?\s*(\d{10,25})",

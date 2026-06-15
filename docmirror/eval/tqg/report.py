@@ -1,7 +1,13 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""TQG gate report with failure attribution."""
+"""
+TQG gate report model with structured failure attribution.
+
+Defines the ``GateReport`` dataclass used across TQG tracks to record pass/fail
+status, individual check results, failure messages, and ``FailureClass`` labels
+for downstream CI annotations and HTML/JSON report generation.
+"""
 
 from __future__ import annotations
 

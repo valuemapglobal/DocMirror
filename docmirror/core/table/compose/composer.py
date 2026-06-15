@@ -5,12 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-TableComposer — Logical table composition (non-destructive)
-=============================================================
+Table composer — physical/logical dual-view table assembly.
 
-Produces ``LogicalTable`` views alongside physical per-page tables.
-Physical pages are never mutated; composition uses the same merge heuristics
-as ``merger.collect_cross_page_merge_groups`` without destructive rebuild.
+Purpose: Builds logical table IDs, serializes logical tables for metadata, and
+generates table operations for the dual-view model.
+
+Main components: ``TableComposer``, ``serialize_logical_tables_for_metadata``,
+``build_table_operations``.
+
+Upstream: Merged physical tables, ``document_pipeline.compose_logical_tables``.
+
+Downstream: ``ParseResult.logical_tables``, ``table.access``.
 """
 
 from __future__ import annotations

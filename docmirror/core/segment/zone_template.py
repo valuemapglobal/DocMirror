@@ -1,6 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Zone template — cross-page zone layout replay.
+
+Purpose: Builds and applies ``ZoneTemplate`` from a reference page so
+subsequent pages inherit consistent column/table geometry (ledger statements).
+
+Main components: ``build_zone_template``, ``apply_zone_template``.
+
+Upstream: First-page zones, ``extraction_profile``.
+
+Downstream: ``segment.zone_segment``, ``extract.template_injector``.
+"""
+
 from __future__ import annotations
 
 import logging

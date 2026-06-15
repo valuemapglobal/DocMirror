@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Insurance Policy Domain Plugin (Community Edition)
-===================================================
+Archived insurance policy community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` for insurance policy documents with baseline
+identity extraction. Retained under ``_archive`` for migration reference.
+
+Pipeline role: none — superseded by enterprise or generic paths.
+
+Key exports: ``InsurancePolicyCommunityPlugin``, ``plugin``.
 """
 
 from __future__ import annotations

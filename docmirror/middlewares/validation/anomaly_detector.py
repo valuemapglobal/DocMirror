@@ -1,7 +1,13 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Structural anomaly detection middleware (Mirror quality signals only)."""
+"""
+Structural anomaly detection middleware — mirror quality signals only.
+
+Scans ``ParseResult`` tables and text blocks for layout irregularities (ragged
+columns, repeated headers, orphan rows) and attaches quality hints without
+mutating extracted content. Signals feed fidelity scoring and diagnostics.
+"""
 
 from __future__ import annotations
 

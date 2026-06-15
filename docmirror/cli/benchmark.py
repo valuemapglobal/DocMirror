@@ -4,7 +4,14 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Golden matrix benchmark CLI."""
+"""
+Golden-matrix benchmark CLI command.
+
+Runs the evaluation benchmark suite against the golden test corpus under
+``tests/golden``, compares metrics to an optional baseline JSON snapshot, and
+prints regression deltas via Rich. Intended for CI and local quality gates
+before release.
+"""
 
 from __future__ import annotations
 

@@ -2,11 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Plugin Execution Contract (PEC) — unified plugin runner (Mirror layer之后).
+Plugin Execution Contract (PEC) — unified plugin runner after Mirror extraction.
 
-Does **not** mutate ParseResult during extract; optional post-extract hooks may
-mutate Mirror with ``record_mutation`` audit (see ``post_extract.yaml``).
-See docs/design/08_middleware_layer_first_principles_redesign.md §5.4.
+Orchestrates community, enterprise, and finance edition extract in one code path:
+match plugin by ``document_type``, run ``extract_from_mirror`` / ``extract`` /
+``build_domain_data``, normalize through DEC validation, serialize edition JSON,
+then invoke post-extract hooks. Does **not** mutate ``ParseResult`` during extract;
+hooks that touch Mirror must audit via ``record_mutation`` (see ``post_extract.yaml``).
+
+Pipeline role: called by CLI and ``output_builder`` after Mirror is complete; sits
+between ``ParseResult`` and per-edition output files. Community path tries six
+premium plugins, then generic fallback, then mirror-only for enterprise-only types.
+
+Key exports: ``run_plugin_extract``, ``run_plugin_extract_sync``.
+
+Dependencies: ``community`` (discovery), ``post_extract.runner`` (hooks),
+``licensing.entitlements`` / ``licensing.lifecycle`` (edition gating),
+``models.edition_serializer``, ``models.entities.domain_result``.
 """
 
 from __future__ import annotations
@@ -23,8 +35,13 @@ from typing import Any, Literal
 
 from docmirror.models.entities.parse_result import ParseResult
 from docmirror.plugins._base import build_classification_block
-from docmirror.plugins.community import is_community_generic_enabled, should_mirror_only
-from docmirror.plugins.community import find_premium_community_plugin, get_generic_community_plugin
+from docmirror.plugins.community import (
+    find_premium_community_plugin,
+    get_generic_community_plugin,
+    is_community_generic_enabled,
+    normalize_premium_document_type,
+    should_mirror_only,
+)
 from docmirror.plugins.post_extract.runner import run_post_extract_hooks
 
 logger = logging.getLogger(__name__)
@@ -34,6 +51,16 @@ Edition = Literal["community", "enterprise", "finance"]
 _GENERIC_TYPES = frozenset({"", "unknown", "generic"})
 _LICENSE_WARNING = "_license_warning"
 _MIRROR_ONLY_WARNING = "mirror_only:no_community_plugin"
+
+
+def _plugin_document_type(result: ParseResult, detected_type: str) -> str:
+    """Resolve PEC plugin domain (M9: MEP hint or alias map)."""
+    ds = getattr(result.entities, "domain_specific", None)
+    if isinstance(ds, dict):
+        hinted = ds.get("plugin_document_type")
+        if hinted:
+            return str(hinted)
+    return normalize_premium_document_type(detected_type)
 
 
 def _premium_feature_name(domain_name: str) -> str:
@@ -222,6 +249,7 @@ async def run_plugin_extract(
     Mirror ``ParseResult`` is not mutated during extract; post-extract hooks may apply audited mutations.
     """
     detected_type = getattr(result.entities, "document_type", "") or ""
+    plugin_document_type = _plugin_document_type(result, detected_type)
     if detected_type in _GENERIC_TYPES:
         logger.debug("[PluginRunner] Skip edition=%s: unclassified document", edition)
         return None
@@ -231,7 +259,7 @@ async def run_plugin_extract(
         return None
 
     if edition == "community":
-        out = _run_community_extract(result, detected_type, full_text)
+        out = _run_community_extract(result, plugin_document_type, full_text)
         if out is None and should_mirror_only(detected_type, "community"):
             out = _mirror_only_payload(result, detected_type, "community")
         if out is not None:
@@ -240,11 +268,13 @@ async def run_plugin_extract(
             )
         return None
 
-    out = await _run_extended_extract_async(result, edition, detected_type, full_text, file_path)
+    out = await _run_extended_extract_async(
+        result, edition, plugin_document_type, full_text, file_path
+    )
     if out is not None:
         from docmirror.plugins import registry
 
-        plugin = registry.get(detected_type, edition)
+        plugin = registry.get(plugin_document_type, edition)
         if (
             edition in ("enterprise", "finance")
             and plugin is not None

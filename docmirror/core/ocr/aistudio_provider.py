@@ -5,20 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-AI Studio Layout-Parsing API — External OCR Provider
-====================================================
+AI Studio provider — cloud layout OCR via external API.
 
-Integrates the AI Studio layout-parsing HTTP API as an external OCR provider.
-Used when image quality is below ``external_ocr_quality_threshold`` and
-``DOCMIRROR_EXTERNAL_OCR_PROVIDER`` is set to
-``docmirror.core.ocr.aistudio_provider:call_aistudio_layout_ocr``.
+Purpose: Encodes page/zone images and calls AI Studio layout OCR when local
+engines are insufficient or configured as provider.
 
-Requires: ``requests`` (install with ``pip install docmirror[external-ocr]``).
-Image encoding uses OpenCV when available (from the ``ocr`` extra).
+Main components: ``call_aistudio_layout_ocr``, ``_encode_image_bgr_to_base64``.
 
-Environment variables:
-    DOCMIRROR_AISTUDIO_OCR_API_URL   — API endpoint (default from integration spec)
-    DOCMIRROR_AISTUDIO_OCR_TOKEN    — Bearer token for Authorization
+Upstream: ``ocr.preprocess.legacy_fallback`` provider resolution.
+
+Downstream: Layout boxes and text for ``ocr.scanned`` paths.
 """
 
 from __future__ import annotations

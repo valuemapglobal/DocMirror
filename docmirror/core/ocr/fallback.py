@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Scanned page OCR fallback facade (CPA design 12 UOP)."""
+"""
+OCR fallback — dispatches to configured external OCR when primary fails.
+
+Purpose: Resolves fallback OCR provider chain and normalizes outputs into
+word/char structures compatible with reconstruction.
+
+Main components: Fallback dispatch helpers.
+
+Upstream: Failed local OCR, ``ocr.preprocess.legacy_fallback``.
+
+Downstream: ``ocr.scanned.analyze_page``, ``pipeline.handlers.scanned_page``.
+"""
 
 from docmirror.core.ocr.preprocess.legacy_fallback import (
     _resolve_external_ocr_provider,

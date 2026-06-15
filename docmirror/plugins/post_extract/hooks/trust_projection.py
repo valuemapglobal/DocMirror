@@ -1,7 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Post-extract hook: project plugin quality trust scores onto Mirror."""
+"""
+Post-extract hook: project plugin quality trust scores onto Mirror.
+
+Copies ``trust_score``, validation coverage, and confidence from the extracted
+edition ``quality`` block onto ``ParseResult.trust`` when present.
+
+Pipeline role: bridges plugin-side quality metrics back to Mirror for downstream
+consumers; runs for any document type whose extract payload includes trust fields.
+
+Key exports: ``PluginTrustProjectionHook``.
+
+Dependencies: ``models.entities.parse_result.TrustResult``.
+"""
 
 from __future__ import annotations
 

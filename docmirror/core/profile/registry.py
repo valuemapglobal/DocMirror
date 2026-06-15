@@ -4,7 +4,18 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Layout profile registry — load YAML and match documents to profiles."""
+"""
+Profile registry — loads and inherits extraction profiles.
+
+Purpose: Deep-merges profile inheritance chains and exposes ``get_profile``,
+``match_layout_profile``, and document-type mapping helpers.
+
+Main components: ``load_profiles``, ``get_profile``, ``match_layout_profile``.
+
+Upstream: Profile config on disk.
+
+Downstream: ``profile.resolver``, ``pipeline.document_profile``.
+"""
 
 from __future__ import annotations
 

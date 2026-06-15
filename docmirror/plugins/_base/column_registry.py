@@ -1,9 +1,15 @@
 """
-Column Registry — 列映射注册表
-=================================
+Column registry — declarative header-to-field mapping for table parsers.
 
-定义 ColumnMapping 数据类和列匹配器。
-社区版插件通过 column_registry 配置驱动解析，而非硬编码列名。
+Defines ``ColumnMapping`` (standard field name, enum map, format hints, aliases)
+and ``ColumnMatcher`` (fuzzy header row matching). Community plugins configure
+parsing through a registry dict rather than hard-coded column names.
+
+Pipeline role: ``BaseTableParser`` and bank-statement ``header_resolve`` use
+``ColumnMatcher`` during ``extract_from_mirror`` to map Mirror table headers to
+canonical transaction fields.
+
+Key exports: ``ColumnMapping``, ``ColumnMatcher``.
 """
 
 from __future__ import annotations

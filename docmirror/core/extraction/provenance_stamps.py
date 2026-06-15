@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 
-"""Stable evidence_ids for mirror blocks missing extractor-level provenance."""
+"""
+Provenance stamps — attaches extraction lineage to mirror blocks.
+
+Purpose: Records which engine, tier, and confidence produced each block so
+downstream auditing and debug artifacts remain traceable.
+
+Main components: ``stamp_mirror_block_provenance``.
+
+Upstream: ``pipeline.stages.page_finalize``, extraction handlers.
+
+Downstream: ``debug.artifact``, ``ParseResult`` block metadata.
+"""
 
 from __future__ import annotations
 

@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Page image block extraction."""
+"""
+Page images handler — extracts embedded and rendered page images.
+
+Purpose: Collects image blocks (figures, stamps, logos) with bboxes for
+inclusion in ``PageLayout``.
+
+Main components: ``extract_page_images``.
+
+Upstream: ``PageExtractor`` / assemble stage for image zones.
+
+Downstream: ``physical.models.Block`` (image type).
+"""
 
 from __future__ import annotations
 

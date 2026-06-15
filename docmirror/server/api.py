@@ -5,7 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-DocMirror Universal Parsing API
+DocMirror REST API — FastAPI application and HTTP endpoints.
+
+Exposes document upload and parse routes, health checks, and optional
+background task hooks. Uploads are written to a temp path, passed through
+``perceive_document()``, and returned using the standardized envelope defined
+in ``docmirror.server.schemas``. Multi-edition structured outputs can be
+generated through shared ``output_builder`` helpers when requested.
 """
 
 from __future__ import annotations

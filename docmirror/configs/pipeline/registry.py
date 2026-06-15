@@ -5,7 +5,21 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Pipeline config — resolves middleware lists from enhancement_profiles.yaml.
+Pipeline configuration — resolve middleware lists from enhancement profiles.
+
+``get_pipeline_config`` is the high-level API used by the dispatcher and
+orchestrator to determine which middlewares run for a given document.
+
+Resolution path::
+
+    1. Map ``file_type`` transport → ``content_model`` via ``transport_fallback``
+       (unless ``content_model`` is provided explicitly from FCR)
+    2. Call ``resolve_enhancement_profile(content_model, enhance_mode)``
+    3. Return ordered middleware name list
+
+Prefer passing ``content_model`` from the Format Capability Registry when
+available; the transport-only path uses ``enhancement_profiles.yaml`` fallback
+mapping and may be less precise for compound formats.
 """
 
 from __future__ import annotations

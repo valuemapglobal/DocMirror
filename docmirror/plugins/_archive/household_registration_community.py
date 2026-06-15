@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Household Registration Domain Plugin (Community Edition)
-=========================================================
+Archived household registration (hukou) community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` for household registration booklet documents.
+Archived before the 6+1 premium community consolidation.
+
+Pipeline role: none — not registered at runtime.
+
+Key exports: ``HouseholdRegistrationPlugin``, ``plugin``.
 """
 
 from __future__ import annotations

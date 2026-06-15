@@ -4,9 +4,17 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Layered table extraction engine — main entry point.
+"""
+Extract engine — four-tier layered table extraction.
 
-Split from ``table_extraction.py``.
+Purpose: Main table extraction entry ``extract_tables_layered`` that
+progressively tries PyMuPDF, RapidTable, char/signal, and fallback backends.
+
+Main components: ``extract_tables_layered``.
+
+Upstream: ``pipeline.handlers.table_zone``, ``ExtractionProfile``.
+
+Downstream: ``extract.best_candidate``, ``extraction.table_postprocessor``.
 """
 
 from __future__ import annotations
@@ -315,6 +323,27 @@ def extract_tables_layered(
                 f"segmented v_lines → {len(_segmented_h_lines)} implicit row boundaries (max_segs={_max_segs})"
             )
 
+    # ── SALO: pipe-first when SDU detects ASCII pipe grid (ADR-M13) ──
+    from docmirror.core.table.structure_detect import detect_pipe_grid_page, page_has_no_drawing_primitives
+
+    _pipe_signal = None
+    if page_has_no_drawing_primitives(work_page):
+        _pipe_signal = detect_pipe_grid_page(work_page)
+
+    if _pipe_signal and _pipe_signal.confidence >= 0.5:
+        t0 = time.time()
+        pipe_table = _extract_by_pipe_delimited(work_page)
+        _t("L0.5_pipe", t0)
+        if pipe_table and len(pipe_table) >= 3:
+            _done = _emit([pipe_table], "pipe_delimited")
+            if _done is not None:
+                return _done
+            if _bcs_ledger:
+                for c in _pr.candidates:
+                    if c.layer == "pipe_delimited" and c.row_count >= 2:
+                        _has_oracle_candidate = True
+                        break
+
     # ── BCS ledger fast path: pdfplumber oracle before expensive L1/L2 layers ──
     if _bcs_ledger and not fast_continuation:
         early = _run_l09_pdfplumber()
@@ -323,14 +352,15 @@ def extract_tables_layered(
         if _has_oracle_candidate:
             return _finalize_bcs_or_continue()
 
-    # ── Layer 0.5: pipe separator (mainframe ASCII art) ──
-    t0 = time.time()
-    pipe_table = _extract_by_pipe_delimited(work_page)
-    _t("L0.5_pipe", t0)
-    if pipe_table and len(pipe_table) >= 3:
-        _done = _emit([pipe_table], "pipe_delimited")
-        if _done is not None:
-            return _done
+    # ── Layer 0.5: pipe separator (fallback when SALO block did not early-return) ──
+    if not (_pipe_signal and _pipe_signal.confidence >= 0.5):
+        t0 = time.time()
+        pipe_table = _extract_by_pipe_delimited(work_page)
+        _t("L0.5_pipe", t0)
+        if pipe_table and len(pipe_table) >= 3:
+            _done = _emit([pipe_table], "pipe_delimited")
+            if _done is not None:
+                return _done
 
     # ── Layer 0.8: PyMuPDF native table detection (C implementation, ~50-70% faster) ──
     # T4-3: Only when fitz_page is provided. Falls through for borderless/complex tables.

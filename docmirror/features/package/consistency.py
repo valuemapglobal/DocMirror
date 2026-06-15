@@ -1,6 +1,13 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 
-"""Cross-file consistency hypotheses for file packages (L20 / P7)."""
+"""
+Cross-file consistency hypothesis engine for document packages (L20 / P7).
+
+Evaluates a ``PackageManifest`` and emits ``ConsistencyHypothesis`` records
+when member files disagree on shared identifiers (account numbers, date ranges,
+amount totals, etc.). Hypotheses are advisory signals for review workflows, not
+hard validation failures.
+"""
 
 from __future__ import annotations
 

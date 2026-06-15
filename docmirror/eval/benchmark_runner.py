@@ -4,7 +4,13 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Benchmark runner with regression delta reporting."""
+"""
+Golden-matrix benchmark runner with regression delta reporting.
+
+Executes all cases from a golden corpus, aggregates ``ParseQualityReport``
+metrics via ``compute_metrics``, and optionally diffs against a saved baseline
+JSON to surface regressions in row counts, fidelity scores, and gate failures.
+"""
 
 from __future__ import annotations
 

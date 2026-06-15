@@ -5,22 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Evidence Engine (EvidenceEngine)
-==================================
+Evidence engine — accumulates and weighs classification evidence.
 
-Multi-dimensional evidence-based document classification middleware.
+Purpose: Collects ``Evidence`` objects from rules and plugins, scores them,
+and supports conflict resolution for scene classification.
 
-Replaces SceneDetector with a more robust, first-principles approach:
-    - Collects evidence from multiple sources (keyword, header, entity, visual, metadata)
-    - Each evidence is a weighted signal (+1 for support, -1 for exclusion)
-    - Final classification is softmax fusion across all evidence sources
-    - Exclusion is a hard veto (if exclude keyword matches, category is eliminated)
+Main components: ``EvidenceEngine``, ``Evidence``.
 
-Architecture:
-    EvidenceEngine collects all evidence → fuses with softmax → outputs verdict
+Upstream: ``scene.rules``, plugin signals, OCR text.
 
-Usage::
-    from docmirror.core.scene.evidence_engine import EvidenceEngine
+Downstream: ``scene.scene_resolver``.
 """
 
 from __future__ import annotations
@@ -134,15 +128,20 @@ class EvidenceEngine(BaseMiddleware):
 
         # Phase 3b: Refine layout profile hint for ledger archetypes (does not re-extract)
         from docmirror.core.scene.scene_resolver import scene_to_layout_profile_id
+        from docmirror.plugins.community import normalize_premium_document_type
 
         refined_profile = scene_to_layout_profile_id(doc_type)
+        plugin_doc_type = normalize_premium_document_type(doc_type)
+        ds = result.entities.domain_specific
+        if not isinstance(ds, dict):
+            ds = {}
+        if plugin_doc_type != doc_type:
+            ds["plugin_document_type"] = plugin_doc_type
         if refined_profile:
-            ds = result.entities.domain_specific
-            if not isinstance(ds, dict):
-                ds = {}
             ds["document_scene_refined"] = doc_type
             ds["layout_profile_id_refined"] = refined_profile
             ds["layout_profile_refine_confidence"] = confidence
+        if ds:
             result.entities.domain_specific = ds
 
         # Evidence log for debugging (mirror/API only when DOCMIRROR_DEBUG=1)

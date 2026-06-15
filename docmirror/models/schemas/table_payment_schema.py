@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""DEC validation for cashflow table plugins (design 09 Wave 2 P1-4)."""
+"""
+DEC validation for cashflow table payment plugins (design 09 Wave 2 P1-4).
+
+Validates ``DomainExtractionResult`` payloads for WeChat Pay and Alipay payment
+export document types (``wechat_payment``, ``alipay_payment``).
+
+Checks::
+
+    structured_data is a dict with a list ``records`` field
+    Empty records with ``validation_passed=True`` is flagged as an issue
+    Optional ``summary`` sub-dict type correctness
+
+Entry point: ``validate_dec(dec: DomainExtractionResult) -> list[str]``
+"""
 
 from __future__ import annotations
 

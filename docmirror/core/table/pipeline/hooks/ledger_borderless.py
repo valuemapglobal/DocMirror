@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""TNP domain hook: borderless ledger (precision-first, no row loss)."""
+"""
+Ledger borderless hook — borderless bank statement table finalize.
+
+Purpose: Runs ledger-specific validation and column completion for borderless
+statement profiles after generic structure stages.
+
+Main components: ``run_ledger_borderless_hook``.
+
+Upstream: ``stage_domain`` for borderless ledger profiles.
+
+Downstream: ``table.ledger_postprocess``, ``table.wrap_recovery``.
+"""
 
 from __future__ import annotations
 

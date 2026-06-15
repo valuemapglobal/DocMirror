@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Char strategy: detect_columns_by_word_anchors."""
+"""
+Word anchors — column detection from word bounding-box alignment.
+
+Purpose: Aligns columns using consistent word left/right edges across data
+rows when char-level noise is high.
+
+Main components: ``detect_columns_by_word_anchors``.
+
+Upstream: Fitz word list in zone.
+
+Downstream: ``extract.char_strategy``.
+"""
 
 from __future__ import annotations
 

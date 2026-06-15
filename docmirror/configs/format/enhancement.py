@@ -1,7 +1,16 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Enhancement profile resolution — delegates to MEP resolver."""
+"""
+Enhancement profile resolution — bridge from FCR to MEP pipeline.
+
+Thin delegation layer that maps a ``content_model`` and ``enhance_mode`` to an
+ordered list of middleware names by calling ``middleware.resolver.resolve_pipeline``.
+
+Also re-exports ``transport_to_content_model`` from ``format.loader`` for callers
+that only know the transport string (e.g. ``pdf``, ``xlsx``) and need the
+content model key used in ``enhancement_profiles.yaml``.
+"""
 
 from __future__ import annotations
 

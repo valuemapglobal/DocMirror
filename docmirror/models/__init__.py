@@ -5,9 +5,24 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-DocMirror Models — Mirror Object Contract (MOC) + Domain Extraction Contract (DEC).
+DocMirror models package — Mirror Object Contract (MOC) and Domain Extraction Contract (DEC).
 
-See ``docs/design/09_models_layer_first_principles_redesign.md``.
+This package defines the typed data contracts that flow through the DocMirror
+parsing pipeline, from physical layout representation through domain plugin
+output to edition JSON serialization.
+
+Architecture layers (see ``docs/design/09_models_layer_first_principles_redesign.md``)::
+
+    entities/       Core MOC types: ``ParseResult``, physical blocks, DEC output
+    construction/   Builders bridging legacy parser output to ``ParseResult``
+    schemas/        DEC validation schemas per document type
+    tracking/       Data lineage via ``Mutation`` records
+    edition_serializer   DEC → community/enterprise JSON v2.0
+    ehl.py          Evidence/Hypothesis Layer annex helpers
+    errors.py       Canonical error codes and failure ``ParseResult`` builders
+
+Public exports: ``ParseResult``, ``DomainExtractionResult``, ``BaseResult``,
+``Block``, ``PageLayout``, ``Style``, ``TextSpan``, ``Mutation``.
 """
 
 from .entities.domain import BaseResult, Block, PageLayout, Style, TextSpan

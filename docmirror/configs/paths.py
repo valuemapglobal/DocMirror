@@ -4,7 +4,28 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Central paths for DocMirror configuration files."""
+"""
+Central path constants for DocMirror configuration files.
+
+All declarative configuration lives under ``configs/yaml/``. This module defines
+``Path`` objects for every YAML file and subdirectory so loaders never hard-code
+filesystem locations.
+
+Key paths::
+
+    DOCMIRROR_YAML              Root runtime config (business, OCR, performance, logging)
+    LAYOUT_PROFILES_YAML        Document layout profiles for table extraction
+    SCENE_KEYWORDS_YAML         Classification keyword corpus (120+ business scenes)
+    CLASSIFICATION_RULES_YAML   File-sort category definitions
+    KEY_SYNONYMS_YAML           Multilingual entity key → canonical English mappings
+    FORMAT_CAPABILITIES_YAML    Format Capability Registry (FCR)
+    ENHANCEMENT_PROFILES_YAML   Content-model × enhance-mode middleware profiles
+    MIDDLEWARE_CATALOG_YAML     Middleware Execution Platform (MEP) catalog
+    INSTITUTION_REGISTRY_YAML   Financial institution metadata
+
+Legacy directory aliases (``CLASSIFICATION_DIR``, ``DOMAINS_DIR``, etc.) point at
+``YAML_DIR`` for backward compatibility after the flat-subdir layout was removed.
+"""
 
 from __future__ import annotations
 

@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Social Security Proof Domain Plugin (Community Edition)
-========================================================
+Archived social security proof community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` for social insurance contribution proof documents.
+Superseded by enterprise plugins or generic community fallback.
+
+Pipeline role: none — ``_archive`` reference only.
+
+Key exports: ``SocialSecurityProofCommunityPlugin``, ``plugin``.
 """
 
 from __future__ import annotations

@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Page-level extraction facade — handlers in ``pipeline/handlers/`` (CPA design 12)."""
+"""
+PageExtractor — facade for single-page extraction operations.
+
+Purpose: Encapsulates page-level helpers (style extraction, zone handlers,
+scanned path) used by ``PagePipeline`` stages.
+
+Main components: ``PageExtractor``.
+
+Upstream: ``PagePipeline``, ``CoreExtractor``.
+
+Downstream: ``pipeline.handlers``, ``pipeline.stages``.
+"""
 
 from __future__ import annotations
 

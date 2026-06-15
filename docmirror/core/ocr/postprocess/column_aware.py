@@ -5,45 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Context-Aware OCR Post-Processor — 上下文感知的OCR后处理器
-===========================================================
+Column-aware OCR postprocessor — layout-constrained text correction.
 
-基于第一性原理的领域感知纠错：根据列类型智能选择纠错策略。
+Purpose: Uses ``ColumnConstraints`` and neighbor context to fix OCR errors
+per column (amounts, dates, IDs) without cross-column bleed.
 
-Design Principle (道德经):
-    "天下难事，必作于易" — 利用列类型简化纠错。
-    "天下大事，必作于细" — 在微观层面精确纠错。
+Main components: ``ContextAwareOCRPostProcessor``, ``ColumnConstraints``.
 
-Core Philosophy:
-    金额列：O→0, l→1（因为金额中不会出现字母O）
-    日期列：l→1, O→0（日期中l2应该是12）
-    文本列：不纠错（Order不应该变成0rder）
+Upstream: OCR output + column anchor geometry.
 
-Usage::
-
-    from docmirror.core.ocr.postprocess.column_aware import ContextAwareOCRPostProcessor
-
-    # 金额列纠错
-    corrected = ContextAwareOCRPostProcessor.correct(
-        text='O,l00.50',
-        column_context={
-            'column_type': 'amount',
-            'column_name': '金额',
-            'adjacent_values': ['1,000.00', '2,500.00']
-        }
-    )
-    # 结果: '0,100.50'
-
-    # 日期列纠错
-    corrected = ContextAwareOCRPostProcessor.correct(
-        text='l2-O5-2024',
-        column_context={
-            'column_type': 'date',
-            'column_name': '日期',
-            'adjacent_values': ['2024-01-15', '2024-02-20']
-        }
-    )
-    # 结果: '12-05-2024'
+Downstream: ``table.ocr_scoring``, normalized table cells.
 """
 
 from __future__ import annotations

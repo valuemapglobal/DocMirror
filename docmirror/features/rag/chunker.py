@@ -1,6 +1,13 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 
-"""Structure-aware RAG chunker — consumes EFPA ParseResult (L10 / P6)."""
+"""
+Structure-aware RAG chunker for retrieval-augmented generation (L10 / P6).
+
+Splits a completed ``ParseResult`` into semantically coherent ``RagChunk``
+records that respect headings, paragraphs, tables, and page boundaries.
+Chunks carry stable IDs, source provenance, and optional embedding metadata
+fields for downstream vector stores.
+"""
 
 from __future__ import annotations
 

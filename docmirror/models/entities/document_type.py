@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""DTI field-schema helper — replaces legacy DocumentType Enum (design 09 §4.3)."""
+"""
+DTI field-schema helper — expected entity labels per business scene.
+
+Replaces the legacy ``DocumentType`` enum with YAML-driven field schemas loaded
+from ``document_field_schemas.yaml``. Each ``business_scene`` may define expected
+field label mappings used by validators and plugin scaffolding.
+
+Functions::
+
+    get_field_schema(business_scene)   Return expected field labels (may be empty)
+    list_scenes_with_schemas()         Sorted list of scenes with defined schemas
+
+See design 09 §4.3 for Document Type Identity (DTI) integration.
+"""
 
 from __future__ import annotations
 

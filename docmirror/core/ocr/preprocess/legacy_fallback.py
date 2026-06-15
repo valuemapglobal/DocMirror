@@ -1,6 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Legacy OCR preprocess — full scanned-page image preparation pipeline.
+
+Purpose: Renders pages to BGR, assesses quality, deskews, adaptive upscales,
+and resolves external OCR provider configuration.
+
+Main components: ``_render_page_to_bgr``, ``_preprocess_image_for_ocr``,
+``assess_image_quality_from_bgr``, ``_resolve_external_ocr_provider``.
+
+Upstream: Fitz pages, environment/provider config.
+
+Downstream: ``ocr.recognize.runner_legacy``, ``ocr.aistudio_provider``.
+"""
+
 from __future__ import annotations
 
 import logging

@@ -1,8 +1,16 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Character-level table extraction strategies — Layer 2 (facade).
+"""
+Char strategy — orchestrates char-level column detection algorithms.
 
-Implementations live in ``docmirror.core.extract.char.*``.
+Purpose: Selects and combines char-level column detectors (projection,
+clustering, anchors) for borderless and weakly ruled tables.
+
+Main components: Char strategy dispatch functions.
+
+Upstream: ``extract.engine`` tier-3/4 paths, zone char dicts.
+
+Downstream: ``extract.char.*`` submodules.
 """
 
 from docmirror.core.extract.char.clustering import detect_columns_by_clustering

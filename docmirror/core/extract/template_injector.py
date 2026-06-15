@@ -5,12 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-template_injector - Graph-Propagated Template Injection
-=========================================================
+Template injector — global table template replay across pages.
 
-Handles the extraction of a rigid, absolutely positioned grid template from a highly
-confident golden sample page, and the forced injection of this template onto noisier
-pages (like the first page) to absolutely guarantee column alignment.
+Purpose: Builds ``GlobalTableTemplate`` from the first ledger page and
+extracts subsequent pages by injected column template matching.
+
+Main components: ``GlobalTableTemplate``, ``build_global_template``,
+``extract_by_injected_template``.
+
+Upstream: ``segment.zone_template``, ``ProfileRunState``.
+
+Downstream: ``extract.engine``, ``table.ledger_postprocess``.
 """
 
 import logging

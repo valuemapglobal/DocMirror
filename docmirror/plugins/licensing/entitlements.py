@@ -1,7 +1,22 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Enterprise/Finance entitlement checks — PEC single entry point."""
+"""
+Enterprise and finance entitlement checks — PEC single entry point.
+
+Answers whether a domain's ``{domain}_premium`` feature is present in a valid
+offline ``.lic`` file or online license cache. Community-free domains do not
+bypass this check for edition plugins that set ``requires_license=True``.
+
+Pipeline role: ``runner._is_edition_plugin_licensed`` delegates here before
+running enterprise/finance ``extract``; unlicensed plugins degrade to community
+baseline with ``_license_warning`` markers.
+
+Key exports: ``is_entitled``, ``demo_features``.
+
+Dependencies: ``licensing.contract``, ``licensing.offline``, ``licensing.online``,
+``licensing.tiers_loader``.
+"""
 
 from __future__ import annotations
 

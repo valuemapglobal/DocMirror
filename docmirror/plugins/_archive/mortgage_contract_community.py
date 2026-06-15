@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Mortgage Contract Domain Plugin (Community Edition)
-====================================================
+Archived mortgage contract community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` for mortgage/loan security contract documents.
+Retained in ``_archive`` after community plugin system refactor.
+
+Pipeline role: none — reference and migration tests only.
+
+Key exports: ``MortgageContractCommunityPlugin``, ``plugin``.
 """
 
 from __future__ import annotations

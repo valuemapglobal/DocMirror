@@ -1,7 +1,23 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""DEC validation against schemas/registry.yaml (design 09 §4.4)."""
+"""
+DEC schema registry loader and validator (design 09 §4.4).
+
+Loads ``schemas/registry.yaml`` which maps ``document_type`` strings to Python
+schema module names under ``docmirror.models.schemas``. Validates
+``DomainExtractionResult`` instances against the registered schema for their
+document type.
+
+Functions::
+
+    load_schema_registry()   LRU-cached document_type → module_key mapping
+    validate_dec()             Return issue strings (empty = ok); optional strict mode
+
+Each schema module exposes ``validate_dec(dec) -> list[str]`` or the legacy
+``validate_entities`` alias. Unknown document types with no registry entry pass
+validation silently. Strict mode raises ``ValueError`` on import or validation errors.
+"""
 
 from __future__ import annotations
 

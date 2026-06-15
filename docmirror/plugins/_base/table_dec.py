@@ -1,7 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Table plugin DEC builders + edition output (design 09 Wave 2 P1-3)."""
+"""
+Table-document DEC builders and edition serialization helpers.
+
+Constructs ``DomainExtractionResult`` instances from table extract steps (identity
+fields, transaction records, summary) and serializes them to v2.0 edition JSON
+with classification metadata. Shared by payment ledger plugins and bank statement.
+
+Pipeline role: ``BaseTableParser.extract_from_mirror`` and
+``bank_statement.community_plugin`` call ``build_table_dec`` / ``serialize_table_plugin_output``
+before ``runner._finalize_extract`` validates and runs post-extract hooks.
+
+Key exports: ``table_dec_warnings``, ``build_table_dec``, ``serialize_table_plugin_output``.
+
+Dependencies: ``models.entities.domain_result``, ``models.edition_serializer``.
+"""
 
 from __future__ import annotations
 

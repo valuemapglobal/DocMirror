@@ -1,7 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Post-extract hook: rebuild bank ledger table from plugin transactions."""
+"""
+Post-extract hook: rebuild bank ledger table from plugin transactions.
+
+When enterprise bank-statement extract produces structured transactions, attempts
+to rebuild Mirror table geometry via ``docmirror_enterprise.plugins.bank_statement.table_rebuild``.
+Only runs for ``document_type == "bank_statement"`` and when ``mutates_mirror`` is
+enabled in catalog.
+
+Pipeline role: optional Mirror enrichment after enterprise/finance bank extract;
+records mutation audit via ``runner.run_post_extract_hooks``.
+
+Key exports: ``MirrorTableRebuildHook``.
+
+Dependencies: optional ``docmirror_enterprise`` table rebuild module.
+"""
 
 from __future__ import annotations
 

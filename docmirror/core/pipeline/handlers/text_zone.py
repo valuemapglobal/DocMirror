@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Text zone handler."""
+"""
+Text zone handler — native text extraction for prose zones.
+
+Purpose: Groups words into lines, applies watermark filtering, and builds
+text/title blocks from digital text layers.
+
+Main components: ``handle_text_zone``.
+
+Upstream: Text zones, ``pipeline.handlers.zone_utils``.
+
+Downstream: ``physical.models.Block`` (text/title types).
+"""
 
 from __future__ import annotations
 

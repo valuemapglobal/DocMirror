@@ -5,30 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-License Manager
-===============
+Online license manager — activation, verification, and caching.
 
-Manages plugin license validation and activation.
+Handles license key activation against DocMirror servers, periodic online
+verification with offline grace period, machine fingerprint binding, and local
+cache persistence for entitled feature lists.
 
-Features:
-- Online license verification
-- Offline grace period (7 days)
-- Machine fingerprint binding
-- License caching
-- User-friendly error messages
+Pipeline role: secondary channel after offline in ``entitlements.is_entitled``;
+``plugins.__init__`` exposes ``license_manager`` for CLI activate/status commands.
 
-Usage:
-    from docmirror.plugins import license_manager
+Key exports: ``LicenseInfo``, ``LicenseManager``, ``license_manager``.
 
-    # Check if plugin is licensed
-    if license_manager.is_licensed("bank_statement_premium"):
-        print("✅ Licensed")
-    else:
-        print("❌ Not licensed")
-        print(license_manager.get_upgrade_message())
-
-    # Activate license
-    license_manager.activate("DOC-PRO-XXXX-XXXX-XXXX")
+Dependencies: HTTP client for activation API, local cache file under user config dir.
 """
 
 from __future__ import annotations

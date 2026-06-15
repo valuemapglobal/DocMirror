@@ -1,6 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Analyze scanned page — end-to-end OCR for image-only pages.
+
+Purpose: Preprocesses scanned pages, runs OCR, detects table lines, and
+reconstructs 2D table grids into extract-compatible structures.
+
+Main components: ``analyze_scanned_page``.
+
+Upstream: ``ocr.pipeline.run_scanned_page``, fitz page render.
+
+Downstream: ``CoreExtractor`` scanned path, ``table.postprocess``.
+"""
+
 from __future__ import annotations
 
 import logging

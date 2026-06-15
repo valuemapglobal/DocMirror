@@ -5,29 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Vocabulary & Row Classifiers
-=============================
+Vocabulary — domain dictionary and header/data row classification.
 
-Vocabulary-driven row classification system extracted from layout_analysis.py.
+Purpose: Aho-Corasick vocabulary matching, header row scoring, junk/data row
+filters, and category-aware header detection for financial documents.
 
-Contents:
-    - ``VOCAB_BY_CATEGORY`` — per-document-type header keyword sets (currently
-      only ``BANK_STATEMENT``; extensible to VAT invoices, contracts, etc.).
-    - ``KNOWN_HEADER_WORDS`` — union of all category vocab sets
-      (backward-compatible shortcut).
-    - Row classification functions:
-        * ``_score_header_by_vocabulary`` — count how many cells match
-          known header words (NFKC + Traditional→Simplified normalised).
-        * ``_is_header_cell`` — single-cell heuristic (short text, not a
-          date / amount / time / long digit string / currency).
-        * ``_is_header_row`` — dual-gate algorithm:
-            Gate 1 (definitive reject):  any strong data signal → False.
-            Gate 2 (definitive accept):  vocab score ≥ 3 → True.
-            Fallback (structural):       ≥ 60 % header-like cells → True.
-        * ``_is_junk_row`` — detect page headers, footers, totals.
-        * ``_is_data_row`` — detect rows containing a date or an amount.
-    - ``PIPE_CHARS`` / ``HLINE_CHARS`` / ``_ALL_BORDER_CHARS`` — character
-      sets for identifying mainframe ASCII-art table borders.
+Main components: ``AhoCorasick``, ``_is_header_row``, ``_is_data_row``,
+``_score_header_by_vocabulary``.
+
+Upstream: Table header cells, config vocabulary lists.
+
+Downstream: ``table.pipeline.stage_header``, ``extract.char.header_anchors``.
 """
 
 from __future__ import annotations

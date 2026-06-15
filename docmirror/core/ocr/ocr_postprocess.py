@@ -5,23 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-OCR Post-Processing Correction Engine
-======================================
+OCR postprocess — text normalization after recognition.
 
-General-purpose, domain-agnostic OCR text correction module.
+Purpose: Fixes common OCR errors in amounts, dates, domain terms, and digit
+noise using Levenshtein and rule-based correctors.
 
-Correction layers:
-    - Amount format fixing (punctuation confusion: colon / semicolon /
-      space → decimal point).
-    - Date format fixing (tilde / space → hyphen).
-    - Digit clean-up (common OCR misrecognition corrections).
-    - Domain dictionary correction (glyph confusion, extensible).
+Main components: ``normalize_chars``, ``fix_amount_format``, ``fix_date_format``,
+``fix_domain_terms``.
 
-Design principles:
-    1. Pure functions — no state, no side-effects.
-    2. Domain-agnostic — not bound to any specific bank or industry.
-    3. Layered correction — fix format first, then content.
-    4. Safety first — only correct high-confidence errors.
+Upstream: Raw OCR strings from any engine.
+
+Downstream: ``ocr.postprocess.column_aware``, ``table.ocr_scoring``.
 """
 
 from __future__ import annotations

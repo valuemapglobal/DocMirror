@@ -4,7 +4,18 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Resolve LayoutProfile from text rules + plugin ExtractionHint (EFPA Phase 3.4)."""
+"""
+Profile resolver — maps document signals to layout profile ID.
+
+Purpose: Combines pre-analysis, scene, and title cues to select the active
+layout/extraction profile for a document run.
+
+Main components: ``resolve_layout_profile``.
+
+Upstream: ``PreAnalysisResult``, ``scene.scene_resolver``.
+
+Downstream: ``bind_extraction_profile``, ``ExtractionProfile`` binding.
+"""
 
 from __future__ import annotations
 

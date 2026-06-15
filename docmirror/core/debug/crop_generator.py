@@ -4,7 +4,19 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Evidence crop generator for debug / human review (EFPA)."""
+"""
+Crop generator — evidence bounding-box crops from ParseResult.
+
+Purpose: Crops field evidence regions and collects evidence spans for visual
+verification of extracted entities.
+
+Main components: ``generate_field_crops``, ``crop_evidence_bbox``,
+``collect_evidence_spans_from_parse_result``.
+
+Upstream: ``ParseResult`` blocks with evidence bboxes.
+
+Downstream: Debug zip bundles, human QA review.
+"""
 
 from __future__ import annotations
 

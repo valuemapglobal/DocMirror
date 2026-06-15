@@ -4,7 +4,25 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Runtime performance tuning — page concurrency and worker caps."""
+"""
+Runtime performance tuning — page concurrency, executor backend, and worker caps.
+
+Resolves parallel extraction settings from explicit arguments, ``DOCMIRROR_*``
+environment variables, and ``docmirror.yaml`` ``performance`` section.
+
+Key functions::
+
+    resolve_page_executor()          ``thread`` (default) or ``process`` page pool backend
+    resolve_max_page_concurrency() Effective page-level parallelism (``auto`` or int)
+    auto_page_concurrency()        CPU-aware default (half CPUs for threads, full for processes)
+    effective_page_workers()       Cap workers by concurrency, page count, and CPU count
+    resolve_max_process_workers()  Global process-pool cap for API safety
+    process_worker_allocation()    Context manager acquiring global process-worker slots
+
+``page_level_parallel_context`` sets a context variable so nested char-level
+``ThreadPool`` usage is skipped when pages are already extracted in parallel
+(avoiding GIL contention and pool nesting).
+"""
 
 from __future__ import annotations
 

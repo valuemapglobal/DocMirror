@@ -5,7 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Image to Virtual PDF Converter
+Image converter — wraps raster images as virtual single-page PDFs.
+
+Purpose: Allows image inputs (PNG/JPEG) to flow through the same PDF
+extraction pipeline by synthesizing a one-page PDF document.
+
+Main components: ``image_to_virtual_pdf``.
+
+Upstream: ``entry.factory`` for non-PDF inputs.
+
+Downstream: ``FitzEngine``, ``CoreExtractor``.
 """
 
 from __future__ import annotations

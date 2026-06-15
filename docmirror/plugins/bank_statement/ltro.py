@@ -36,6 +36,8 @@ class ReconstructionMeta:
     pipe_header_detected: bool = False
     pipe_parse_failed: bool = False
     pages_scanned: int = 0
+    spe_primary: str | None = None
+    spe_table_extraction: str | None = None
 
 
 def reconstruct_tables(
@@ -43,8 +45,12 @@ def reconstruct_tables(
     full_text: str,
     *,
     page_count: int = 0,
+    structure_spe: dict | None = None,
 ) -> tuple[list[list[list[str]]], ReconstructionMeta]:
     """Rebuild logical tables from Mirror tables or full text."""
+    spe_primary = (structure_spe or {}).get("primary")
+    spe_mode = (structure_spe or {}).get("table_extraction")
+
     if mirror_tables:
         expected = max(len(tbl) - 1 for tbl in mirror_tables if tbl) if mirror_tables else 0
         return mirror_tables, ReconstructionMeta(
@@ -52,10 +58,24 @@ def reconstruct_tables(
             expected_primary_rows=expected,
             pipe_header_detected=detect_pipe_header_in_text(full_text),
             pages_scanned=page_count,
+            spe_primary=spe_primary,
+            spe_table_extraction=spe_mode,
         )
 
-    pipe_detected = detect_pipe_header_in_text(full_text)
-    pipe_tables = build_tables_from_pipe_text(full_text)
+    from docmirror.core.analyze.spe_consumer import should_block_pipe_ltro, should_force_ltro
+
+    blocked = should_block_pipe_ltro(structure_spe)
+    if blocked:
+        force_pipe = False
+        pipe_detected = False
+    else:
+        force_pipe = should_force_ltro(
+            mirror_tables=mirror_tables,
+            full_text=full_text,
+            structure_spe=structure_spe,
+        )
+        pipe_detected = detect_pipe_header_in_text(full_text) or force_pipe
+    pipe_tables = build_tables_from_pipe_text(full_text) if pipe_detected else []
     if pipe_tables:
         data_rows = len(pipe_tables[0]) - 1
         return pipe_tables, ReconstructionMeta(
@@ -63,6 +83,8 @@ def reconstruct_tables(
             expected_primary_rows=data_rows,
             pipe_header_detected=True,
             pages_scanned=page_count,
+            spe_primary=spe_primary,
+            spe_table_extraction=spe_mode,
         )
 
     if pipe_detected:

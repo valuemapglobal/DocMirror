@@ -5,19 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-table_merger — Cross-page table merging
-========================================
+Table merger — cross-page physical table merge.
 
-Independent module extracted from ``CoreExtractor._merge_cross_page_tables``.
-Responsible for detecting content-continuous cross-page tables and merging
-them into a single Block.
+Purpose: Groups continuation tables across pages, merges rows, and quarantines
+column-mismatched fragments with logging.
 
-Merge strategy:
-  1. Next page's first row is a header (matching the previous page's header)
-     → skip the duplicate header and merge data rows directly.
-  2. First row is not a header (continuation page) → ``_strip_preamble``
-     strips summary rows / duplicate headers before merging.
-  3. Completely different table (header mismatch) → treat as an independent table.
+Main components: ``merge_cross_page_tables``, ``collect_cross_page_merge_groups``.
+
+Upstream: Per-page physical tables, ``table.cross_page_predictor``.
+
+Downstream: ``table.compose.composer``, ``bridge.parse_result_bridge``.
 """
 
 from __future__ import annotations

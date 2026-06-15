@@ -146,7 +146,7 @@ cases:
 
   - id: business_license_no_table
     tier: regression
-    fixture: fixtures/business_license/林晓彤_营业执照_20220826.jpg
+    fixture: fixtures/business_license/成立日期注册资本营业期限中国_营业执照_万元整营业执照一人有限责任公司_201264.pdf
     pipeline: extract_only
     gates:
       table_count: { max: 2 }

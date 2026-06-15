@@ -5,13 +5,15 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Bank Statement Domain Plugin (Built-in)
-=======================================
+Archived bank statement domain plugin (pre style-family refactor).
 
-Provides bank-statement-specific processing:
-- Scene detection keywords
-- Identity field definitions (account holder, account number, etc.)
-- Domain data construction (BankStatementData)
+Legacy built-in plugin with scene keywords, identity fields, and
+``build_domain_data`` for bank statements. Superseded by
+``bank_statement.community_plugin`` with StyleDetector → Registry pipeline.
+
+Pipeline role: none — not discovered by ``plugin_registry``; retained for migration reference.
+
+Key exports: ``BankStatementPlugin``, ``plugin`` (if present).
 """
 
 from __future__ import annotations

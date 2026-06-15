@@ -1,7 +1,13 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Header alignment middleware — wraps verify_header_data_alignment for MEP."""
+"""
+Header alignment middleware — MEP wrapper for structural column verification.
+
+Applies ``verify_header_data_alignment`` to each ``TableBlock`` in a
+``ParseResult``, correcting systematic header/data row offsets and recording
+mutations when alignment shifts are applied.
+"""
 
 from __future__ import annotations
 

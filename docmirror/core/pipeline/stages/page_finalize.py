@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""CPS page stage: images, table/OCR fallbacks, PageLayout assembly."""
+"""
+Page finalize stage — provenance, confidence, and PageLayout assembly.
+
+Purpose: Stamps block provenance, merges OCR parts, computes page confidence,
+and returns the finalized ``PageLayout``.
+
+Main components: ``run_finalize``.
+
+Upstream: Assembled blocks from ``page_assemble``.
+
+Downstream: ``CoreExtractor`` page aggregation, ``provenance_stamps``.
+"""
 
 from __future__ import annotations
 

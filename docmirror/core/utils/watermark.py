@@ -5,20 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Preprocessing & Watermark Filter
-=================================
+Watermark utilities — detect and filter watermark text layers.
 
-PDF preprocessing helpers extracted from layout_analysis.py.
+Purpose: Preprocesses documents for watermark patterns, filters watermark
+chars per page, and deduplicates overlapping OCR/native chars.
 
-Contents:
-    - ``preprocess_document`` — Layer-0 physical clean-up: strips annotation
-      layers using pikepdf.
-    - ``is_watermark_char`` — triple-check heuristic (rotation / matrix /
-      colour) to identify watermark characters in pdfplumber output.
-    - ``filter_watermark_page`` — applies the watermark filter to a
-      pdfplumber page.
-    - ``_dedup_overlapping_chars`` — removes pseudo-bold duplicate
-      characters (same text at nearly the same position).
+Main components: ``filter_watermark_page``, ``is_watermark_char``,
+``fused_filter_and_dedup``.
+
+Upstream: Fitz char/word streams.
+
+Downstream: ``pipeline.stages.page_prepare``, ``pipeline.handlers.text_zone``.
 """
 
 from __future__ import annotations

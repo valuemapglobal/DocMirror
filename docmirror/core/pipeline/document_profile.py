@@ -1,6 +1,18 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Document-level profile binding and logical table composition (CPA design 12 §4.1)."""
+"""
+Document profile binding — links pre-analysis to extraction profile.
+
+Purpose: Selects and binds ``ExtractionProfile`` (ledger, borderless, BCS,
+etc.) from full-text samples and pre-analysis, then triggers logical table
+composition.
+
+Main components: ``bind_extraction_profile``, ``compose_logical_tables``.
+
+Upstream: ``analyze.pre_analyzer``, ``profile.resolver``.
+
+Downstream: ``PagePipeline``, ``extract.template_injector``, ``table.pipeline``.
+"""
 
 from __future__ import annotations
 

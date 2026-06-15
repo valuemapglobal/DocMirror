@@ -1,7 +1,27 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Community plugin capability (SSOT yaml) and discovery (6 premium + 1 generic)."""
+"""
+Community plugin capability matrix and discovery helpers.
+
+Single source of truth for which document types ship as premium community
+plugins (six domains) versus the generic fallback, driven by
+``configs/yaml/plugin_capability.yaml``. Resolves import paths, loads
+``community_plugin`` modules on demand, and gates discovery on per-domain
+enable state from ``state``.
+
+Pipeline role: ``runner`` and ``plugin_registry`` call ``find_premium_community_plugin``
+and ``get_generic_community_plugin`` to select the community plugin before
+extract; ``should_mirror_only`` decides when enterprise-only types emit a
+mirror-only envelope instead of generic fallback.
+
+Key exports: ``load_plugin_capability``, ``get_community_premium_domains``,
+``find_premium_community_plugin``, ``get_generic_community_plugin``,
+``find_community_plugin``, ``community_plugin_module``, ``should_mirror_only``.
+
+Dependencies: ``configs.paths.PLUGIN_CAPABILITY_YAML``, ``state.is_domain_enabled``,
+``importlib`` for lazy plugin module loading.
+"""
 
 from __future__ import annotations
 
@@ -90,8 +110,19 @@ def _load_plugin(module_path: str) -> Any | None:
     return getattr(mod, "plugin", None)
 
 
+_PLUGIN_TYPE_ALIASES: dict[str, str] = {
+    "bank_reconciliation": "bank_statement",
+}
+
+
+def normalize_premium_document_type(document_type: str) -> str:
+    """Map legacy mirror document types to premium plugin domain names (M9)."""
+    return _PLUGIN_TYPE_ALIASES.get(document_type, document_type)
+
+
 def find_premium_community_plugin(detected_type: str) -> tuple[Any, str]:
     """Match one of the six premium community plugins by domain_name."""
+    detected_type = normalize_premium_document_type(detected_type)
     if not is_community_premium(detected_type):
         return None, ""
     if not is_domain_enabled(detected_type):

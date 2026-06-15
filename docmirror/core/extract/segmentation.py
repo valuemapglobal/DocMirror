@@ -4,7 +4,18 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Profile-driven page segmentation for Core Extract (EPO)."""
+"""
+Extract segmentation — table-focused page segmentation for extraction.
+
+Purpose: Locates full-page and in-zone table regions via header anchors and
+y-margin expansion before layered extraction.
+
+Main components: ``segment_page_for_extraction``, ``_segment_full_page_table``.
+
+Upstream: Page chars, ``segment.layout_analysis`` hints.
+
+Downstream: ``extract.engine``, ``extract.zone_crop``.
+"""
 
 from __future__ import annotations
 

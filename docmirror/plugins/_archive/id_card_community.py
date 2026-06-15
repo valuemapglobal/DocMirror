@@ -5,11 +5,15 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-ID Card Domain Plugin (Community Edition)
-==========================================
+Archived ID card community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` with scene keywords, identity field specs, and
+``build_domain_data`` for national ID cards. Not part of the current six premium
+plus generic community strategy and not registered at runtime.
+
+Pipeline role: none — reference implementation only.
+
+Key exports: ``IDCardPlugin``, ``plugin``.
 """
 
 from __future__ import annotations

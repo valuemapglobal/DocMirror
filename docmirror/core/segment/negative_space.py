@@ -5,34 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Negative Space Analyzer — 负空间分析器
-=======================================
+Negative space analyzer — whitespace-driven layout profiling.
 
-基于第一性原理的负空间感知：从"空白"中提取结构信息。
+Purpose: Profiles vertical/horizontal whitespace bands to infer column
+structure and table boundaries on dense pages.
 
-Design Principle (道德经):
-    "知其白，守其黑" — 理解空白（白）的价值，利用它推断结构（黑）。
-    "有无相生" — 空白（无）与内容（有）相互定义结构。
+Main components: ``NegativeSpaceAnalyzer``, ``NegativeSpaceProfile``.
 
-Core Philosophy:
-    空白不是"无信息"，而是"高信息"。
-    大的空白间隙 = 列边界
-    规律性空白 = 表格结构
-    对齐规律 = 隐式网格
+Upstream: Page char bounding boxes.
 
-Usage::
-
-    from docmirror.core.segment.negative_space import NegativeSpaceAnalyzer
-
-    # 分析页面负空间
-    profile = NegativeSpaceAnalyzer.analyze(page_words)
-
-    # 获取列边界（空白谷值）
-    col_boundaries = profile.column_gaps
-    # [150.5, 320.8, 485.2]
-
-    # 获取密度热图
-    density_map = profile.density_map
+Downstream: ``segment.zone_builder``, ``extract.signal_processor``.
 """
 
 from __future__ import annotations

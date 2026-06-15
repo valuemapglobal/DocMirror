@@ -4,11 +4,22 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Debug artifact builder for evidence-first parsing."""
+"""
+Debug artifact — structured JSON debug bundle writer.
+
+Purpose: Builds and writes debug artifacts capturing blocks, timings, and
+extraction lineage when ``is_debug_mode()`` is active.
+
+Main components: ``build_debug_artifact``, ``write_debug_artifact``,
+``is_debug_mode``.
+
+Upstream: Pipeline completion hooks, provenance metadata.
+
+Downstream: Filesystem debug output, ``_ehl_annex`` integrations.
+"""
 
 from __future__ import annotations
 
-import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,33 +58,29 @@ def build_debug_artifact(
     annex = _ehl_annex(result)
     if annex:
         if annex.hypotheses:
-            artifact["hypotheses"] = [h.model_dump() for h in annex.hypotheses]
+            artifact["hypotheses"] = annex.hypotheses
         if annex.evidence_summary:
-            artifact["evidence_summary"] = annex.evidence_summary.model_dump()
+            artifact["evidence_summary"] = annex.evidence_summary
         if annex.quality_report:
-            artifact["quality_report"] = annex.quality_report.model_dump()
+            artifact["quality_report"] = annex.quality_report
         if annex.pipeline_debug:
             artifact["pipeline_debug"] = annex.pipeline_debug
 
     if evidence_spans:
-        artifact["evidence_spans"] = [
-            s.model_dump() if hasattr(s, "model_dump") else s for s in evidence_spans
-        ]
+        artifact["evidence_spans"] = evidence_spans
 
     if crop_manifest:
         artifact["crop_manifest"] = crop_manifest
 
     # Table composition operations (for cross-page merge debugging)
-    if result.logical_tables:
-        artifact["table_operations"] = [
-            op.model_dump() if hasattr(op, "model_dump") else op
-            for op in result.table_operations
-        ]
+    if result.table_operations:
+        artifact["table_operations"] = result.table_operations
+
+    if result.sections:
+        artifact["sections"] = result.sections
 
     if resolver_decisions:
-        artifact["resolver_decisions"] = [
-            d.model_dump() if hasattr(d, "model_dump") else d for d in resolver_decisions
-        ]
+        artifact["resolver_decisions"] = resolver_decisions
 
     if extra:
         artifact["extra"] = extra
@@ -125,6 +132,8 @@ def write_debug_artifact(
             except Exception:
                 crop_manifest = None
 
+    from docmirror.models.serialization import dumps_json
+
     artifact = build_debug_artifact(
         result,
         resolver_decisions=resolver_decisions,
@@ -132,7 +141,7 @@ def write_debug_artifact(
         evidence_spans=spans or evidence_spans,
         crop_manifest=crop_manifest,
     )
-    path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8")
+    path.write_text(dumps_json(artifact, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
 
 

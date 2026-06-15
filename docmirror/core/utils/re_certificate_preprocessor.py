@@ -5,14 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Backward-compatibility shim.
+RE certificate preprocessor — domain-specific certificate image cleanup.
 
-The real estate certificate image preprocessor has been migrated to the
-enterprise plugin package:
-    docmirror_enterprise.plugins.real_estate_certificate.preprocessors.image_preprocessor
+Purpose: Specialized preprocessing for real-estate certificate scans before
+OCR (border trim, contrast boost).
 
-This module re-exports all public symbols so that existing imports
-continue to work when the enterprise package is installed.
+Main components: Certificate-specific preprocess functions.
+
+Upstream: Certificate document images.
+
+Downstream: ``ocr`` recognition on certificate pages.
 """
 
 try:

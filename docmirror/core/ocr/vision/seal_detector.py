@@ -5,20 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Seal Detection & Polar Coordinate Unwarping
-=============================================
+Seal detector — stamp and seal region detection on page images.
 
-Based on OpenCV (cv2).
+Purpose: Detects circular seals/stamps so they can be filtered or extracted
+as image blocks without polluting OCR text.
 
-Supports two detection modes:
-    1. **Colour seal**: HSV red-channel segmentation (for colour scans).
-    2. **Greyscale seal**: grey-level thresholding + circularity filtering
-       (for B&W / greyscale scans).
+Main components: ``SealDetector``, ``get_seal_detector``.
 
-Solves the problem of extremely curved seals (e.g. bank chops) that
-cannot be recognised by standard OCR.  Uses ``cv2.warpPolar`` for
-polar-coordinate transformation to "straighten" the curved text into
-a horizontal image strip.
+Upstream: Page render images.
+
+Downstream: Watermark/seal filtering, ``pipeline.handlers.page_images``.
 """
 
 from __future__ import annotations

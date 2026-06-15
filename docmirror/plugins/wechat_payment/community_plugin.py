@@ -5,17 +5,21 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-WeChat Payment Domain Plugin (Community Edition) v2.0
-=====================================================
+WeChat payment community domain plugin (v2.0).
 
-社区版 v2.0 微信流水插件。
+Premium community plugin for WeChat transaction export PDFs. Extends ``BaseTableParser``
+with WeChat-specific column registry, scene keywords, identity field specs, and custom
+row normalization (trade number cleanup, direction mapping).
 
-Archetype: table_document
-Domain: cashflow_payment
-Support level: L2
+Pipeline role: one of six premium plugins discovered by ``community`` and executed
+via ``runner._run_community_extract`` → ``extract_from_mirror``.
 
-基于 BaseTableParser 实现，仅提供列映射注册表和标准化配置。
-符合 docs/design/wechat_payment/01_community_plugin_redesign.md 设计要求。
+Archetype: ``table_document``; domain: ``cashflow_payment``; support level: L2.
+
+Key exports: ``WeChatPaymentPlugin``, ``plugin``, ``WECHAT_COLUMN_REGISTRY``,
+``WECHAT_STANDARD_FIELDS``, ``WECHAT_IDENTITY_FIELDS``, ``WECHAT_SCENE_KEYWORDS``.
+
+Dependencies: ``_base.base_table_parser``, ``_base.column_registry``, ``standardizer``.
 """
 
 from __future__ import annotations

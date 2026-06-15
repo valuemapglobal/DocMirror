@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Vocabulary matching helpers (shared by TNP header + char projection)."""
+"""
+Vocab match — finds dictionary terms inside header strings.
+
+Purpose: Locates vocabulary category words in header cell text to score and
+align header rows during normalization.
+
+Main components: ``find_vocab_words_in_string``.
+
+Upstream: Header cell strings, ``utils.vocabulary``.
+
+Downstream: ``table.pipeline.stage_header``, ``extract.char.vocab_boundary``.
+"""
 
 from __future__ import annotations
 

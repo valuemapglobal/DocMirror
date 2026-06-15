@@ -1,7 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""PerceiveResult — Mirror + optional edition outputs without polluting ParseResult."""
+"""
+PerceiveResult envelope — mirror output plus optional edition payloads.
+
+Purpose: Wraps the frozen Mirror ``ParseResult`` separately from optional
+PEC edition outputs so ``001_mirror.json`` stays clean while editions can
+carry enriched views.
+
+Main components: ``PerceiveResult`` (delegates attribute access to ``mirror``).
+
+Upstream: ``entry.factory`` after ``ParserDispatcher`` completes.
+
+Downstream: API serializers and clients consuming ``to_api_dict()``.
+"""
 
 from __future__ import annotations
 

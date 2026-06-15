@@ -4,7 +4,18 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Unified document scene resolution — shared by PreAnalyzer, Extract EPO, and Middleware."""
+"""
+Scene resolver — maps evidence to document scene and layout profile.
+
+Purpose: Normalizes keyword matches and resolves ``SceneResolution`` including
+layout profile ID for downstream profile binding.
+
+Main components: ``resolve_document_scene``, ``scene_to_layout_profile_id``.
+
+Upstream: ``EvidenceEngine`` output, ``PreAnalysisResult``.
+
+Downstream: ``profile.resolver``, ``pipeline.document_profile``.
+"""
 
 from __future__ import annotations
 

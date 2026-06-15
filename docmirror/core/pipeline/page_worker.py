@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Thread-pool worker for parallel digital page extraction."""
+"""
+Page worker — multiprocessing entry for digital page extraction.
+
+Purpose: Picklable worker function that extracts one digital page in a child
+process for parallel document parsing.
+
+Main components: ``extract_single_page_digital_worker``.
+
+Upstream: ``pipeline.pdf_processor`` parallel page pool.
+
+Downstream: ``PagePipeline`` (in worker process).
+"""
 
 from __future__ import annotations
 

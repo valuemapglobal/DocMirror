@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Model-based page segmentation."""
+"""
+Model segmentation handler — ML-based layout fallback.
+
+Purpose: Invokes layout detection models when rule-based segmentation is
+insufficient, returning refined region bboxes.
+
+Main components: ``model_segmentation``.
+
+Upstream: ``page_segment`` when template/heuristic segmentation fails.
+
+Downstream: ``segment.layout_model``, zone builder.
+"""
 
 from __future__ import annotations
 

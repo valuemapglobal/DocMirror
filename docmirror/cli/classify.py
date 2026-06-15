@@ -5,15 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-智能文件分类CLI命令
-===================
+Click command group for intelligent document classification.
 
-提供命令行接口,实现金融机构文件自动分类。
+Exposes ``docmirror classify`` — a directory-oriented workflow that walks
+files, samples or parses content, and sorts them into financial and general
+document types using the plugin and evidence engines. Supports dry-run preview,
+custom output directories, and report generation via ``classify_report``.
 
-用法:
-    docmirror classify <目录>              # 基本使用
-    docmirror classify <目录> -o <输出>    # 指定输出目录
-    docmirror classify <目录> --dry-run    # 预览模式
+Usage::
+
+    docmirror classify <directory>
+    docmirror classify <directory> -o <output_dir>
+    docmirror classify <directory> --dry-run
 """
 
 from __future__ import annotations

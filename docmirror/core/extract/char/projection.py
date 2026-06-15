@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Char strategy: detect_columns_by_whitespace_projection."""
+"""
+Whitespace projection — column detection via x-axis whitespace valleys.
+
+Purpose: Projects char occupancy onto the x-axis and finds valley gaps as
+column separators (classic whitespace column finder).
+
+Main components: ``detect_columns_by_whitespace_projection``.
+
+Upstream: Char rows in table zone.
+
+Downstream: ``extract.char_strategy``, ``table.projection``.
+"""
 
 from __future__ import annotations
 

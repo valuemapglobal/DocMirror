@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Mutation (Data Lineage Tracker)
-========================================
+Mutation — data lineage tracker for middleware audit trail.
+===========================================================
 
-Every operation performed by a Middleware on the Data is recorded via a
-Mutation, implementing 100% operation traceability to meet audit requirements.
+Every operation performed by a middleware on parse data is recorded via a
+``Mutation``, implementing 100% operation traceability to meet audit requirements.
+
+Mutations are appended to ``ParseResult.parser_info.mutations`` (or equivalent
+trace collections) and serialized via ``to_dict()`` for logging and persistence.
 
 Usage::
 

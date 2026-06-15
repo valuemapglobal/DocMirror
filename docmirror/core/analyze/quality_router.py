@@ -5,32 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Adaptive Quality Router
-========================
+Adaptive quality router — per-zone extraction strategy selection.
 
-Per-zone extraction strategy router that consumes PreAnalyzer's
-``strategy_params`` and ``Zone`` metadata to recommend the optimal
-extraction path for each zone — without modifying any existing
-function signatures.
+Purpose: Given page quality metrics, chooses OCR vs native text, table
+engine tier, and zone-level strategies so degraded pages still produce
+usable blocks.
 
-Design principles:
-    - **Stateless**: Pure function calls, no internal state.
-    - **Non-breaking**: Returns current-behavior defaults when
-      ``strategy_params`` is empty or absent.
-    - **CPU-only**: All logic is algorithmic; no VLM or GPU required.
+Main components: ``AdaptiveQualityRouter``, ``ZoneStrategy``.
 
-Usage::
+Upstream: ``pipeline.stages.page_prepare``, pre-analysis signals.
 
-    from docmirror.core.analyze.quality_router import (
-        AdaptiveQualityRouter, ZoneStrategy,
-    )
-
-    router = AdaptiveQualityRouter(strategy_params)
-    strategy = router.recommend(zone, page_has_text=True)
-
-    if strategy.extract_method == "ocr_enhanced":
-        # re-extract at higher DPI
-        ...
+Downstream: ``pipeline.handlers`` (text/table/formula zones), ``ocr.pipeline``,
+``extract.engine``.
 """
 
 from __future__ import annotations

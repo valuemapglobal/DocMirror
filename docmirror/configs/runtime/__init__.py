@@ -1,7 +1,18 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Runtime deployment settings — yaml defaults + env overrides."""
+"""
+Runtime configuration subpackage — YAML defaults with environment overrides.
+
+Combines three concerns used at process startup and during extraction:
+
+    settings        ``DocMirrorSettings`` dataclass (business limits, OCR params, logging)
+    yaml_loader     ``YamlConfigLoader`` for ``docmirror.yaml`` with mtime-based reload
+    performance     Page/process concurrency, executor backend, worker caps
+
+Environment variables (``DOCMIRROR_*``) override YAML values where supported.
+Import from here for a single entry point to runtime configuration.
+"""
 
 from docmirror.configs.runtime.performance import (
     auto_page_concurrency,

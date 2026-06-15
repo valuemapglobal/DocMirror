@@ -1,6 +1,18 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""TNP preamble stage — KV extraction and continuation-page strip."""
+"""
+Table pipeline preamble stage — strip summary rows before header.
+
+Purpose: Extracts preamble KV entities and strips non-data rows above the
+detected header row.
+
+Main components: ``run`` (preamble stage), ``_extract_preamble_kv``,
+``_strip_preamble``.
+
+Upstream: Raw table with summary header bands.
+
+Downstream: ``stage_header``, ``table.pipeline.kv_summary``.
+"""
 
 from __future__ import annotations
 

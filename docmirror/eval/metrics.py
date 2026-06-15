@@ -4,7 +4,14 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Parse quality metrics for evaluation loop."""
+"""
+Parse quality metrics for the evaluation feedback loop.
+
+Computes quantitative scores from a ``ParseResult`` — row preservation ratios,
+table coverage, text fingerprint stability, and evidence fingerprints used to
+detect silent regressions between parser releases. Consumed by benchmark and
+TQG gate evaluation.
+"""
 
 from __future__ import annotations
 

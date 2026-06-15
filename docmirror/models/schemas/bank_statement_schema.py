@@ -1,7 +1,15 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Optional bank_statement DEC entity validation (design 09 Phase 3 example)."""
+"""
+Optional ``bank_statement`` DEC entity validation (design 09 Phase 3 example).
+
+Lightweight schema checks for bank statement domain extraction results. Full
+field typing is deferred to the domain plugin; this module catches structural
+gaps (empty entities and empty structured_data records) at the DEC validation layer.
+
+Entry point: ``validate_dec(dec: DomainExtractionResult) -> list[str]``
+"""
 
 from __future__ import annotations
 

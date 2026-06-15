@@ -1,6 +1,18 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Optional extraction backends: PyMuPDF native, RapidTable HTML."""
+"""
+Extract backends — PyMuPDF, RapidTable, and HTML table parsers.
+
+Purpose: Implements ``extract_by_pymupdf``, ``extract_by_rapid_table``, and
+``parse_html_table`` as swappable tier backends.
+
+Main components: ``extract_by_pymupdf``, ``extract_by_rapid_table``,
+``parse_html_table``.
+
+Upstream: Zone crops, ``RapidTableEngine``, fitz page objects.
+
+Downstream: ``extract.engine``, ``extract.classifier``.
+"""
 
 from __future__ import annotations
 

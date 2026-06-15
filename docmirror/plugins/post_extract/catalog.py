@@ -1,7 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Post-Extract Hook catalog loader (PEC layer)."""
+"""
+Post-extract hook catalog loader (PEC layer).
+
+Reads ``configs/yaml/post_extract.yaml`` into ``PostExtractHookSpec`` records,
+resolves which hooks apply for a given document type/edition/extracted payload,
+and dynamically imports hook classes.
+
+Pipeline role: ``post_extract.runner`` calls ``resolve_post_extract_hooks`` then
+``get_hook_class`` for each matching entry after main extract serialization.
+
+Key exports: ``PostExtractHookSpec``, ``load_post_extract_catalog``,
+``get_hook_class``, ``resolve_post_extract_hooks``.
+
+Dependencies: ``configs.paths.POST_EXTRACT_YAML``, ``post_extract.base``.
+"""
 
 from __future__ import annotations
 

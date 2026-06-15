@@ -1,11 +1,19 @@
 """
-BaseTableParser — 通用流水解析器基类
-======================================
+BaseTableParser — shared base class for cashflow table_document community plugins.
 
-社区版 table_document 形态的基础解析器。
+Implements the Mirror → v2.0 community JSON pipeline for ledger-style documents:
+extract identity KV fields, match table headers via ``ColumnMatcher``, normalize
+rows, and serialize through ``table_dec``. Subclasses supply only domain config
+(``column_registry``, ``standard_fields``, ``scene_keywords``, ``identity_fields``).
 
-所有 cashflow_payment 领域的插件（微信流水、支付宝流水、银行流水等）
-都应继承此类，仅提供 column_registry、identity_fields、scene_keywords 等配置。
+Pipeline role: extended by ``wechat_payment``, ``alipay_payment``, and partially
+by ``bank_statement`` community plugin; ``runner`` invokes ``extract_from_mirror``
+on registered plugin instances.
+
+Key exports: ``BaseTableParser``.
+
+Dependencies: ``DomainPlugin``, ``column_registry``, ``standardizer``, table access
+via Mirror ``ParseResult`` pages/tables.
 """
 
 from __future__ import annotations
@@ -372,6 +380,9 @@ class BaseTableParser(DomainPlugin):
                 normalized["amount_cny"] = normalized[mapping.field]  # 默认为自身
             elif mapping.field == "timestamp":
                 normalized[mapping.field] = normalize_timestamp(raw_val)
+            elif mapping.field == "date" or mapping.format_hint == "date":
+                ts = normalize_timestamp(raw_val)
+                normalized[mapping.field] = ts[:10] if ts and len(ts) >= 10 else ts
             else:
                 normalized[mapping.field] = raw_val
 

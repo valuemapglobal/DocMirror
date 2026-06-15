@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Character-level column detection strategies (Layer 2 extract)."""
+"""
+Char extraction subpackage — column detection algorithms at char granularity.
+
+Purpose: Aggregates char-level column detectors (projection, clustering,
+anchors, h-lines) used by ``extract.char_strategy``.
+
+Main components: Re-exports from ``extract.char.*`` modules.
+
+Upstream: ``extract.char_strategy``.
+
+Downstream: ``extract.engine`` tier 3/4.
+"""
 
 from docmirror.core.extract.char.clustering import detect_columns_by_clustering
 from docmirror.core.extract.char.data_voting import detect_columns_by_data_voting

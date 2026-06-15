@@ -85,6 +85,7 @@ def validate_manifest_file(path: Path) -> list[str]:
                 or oracle.get("column_fidelity")
                 or oracle.get("quarantine_metadata")
                 or oracle.get("text_snapshot")
+                or oracle.get("mirror_structure")
                 or oracle.get("mode")
             )
         )

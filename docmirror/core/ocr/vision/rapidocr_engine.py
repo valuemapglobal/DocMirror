@@ -4,11 +4,17 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""RapidOCR engine wrapper for word-level text detection and recognition.
+"""
+RapidOCR engine — singleton wrapper for RapidOCR inference.
 
-Provides a singleton ``get_ocr_engine()`` accessor that lazy-loads the
-RapidOCR CPU backend.  Supports multi-scale detection and per-word
-bounding-box output used by the zone OCR fallback path.
+Purpose: Loads and runs RapidOCR ONNX models, splitting blocks into words
+with confidence scores for downstream reconstruction.
+
+Main components: ``RapidOCREngine``, ``get_ocr_engine``.
+
+Upstream: ``ocr.image_preprocessing`` prepared images.
+
+Downstream: ``ocr.recognize.runner_legacy``, ``ocr.ocr_postprocess``.
 """
 
 from __future__ import annotations

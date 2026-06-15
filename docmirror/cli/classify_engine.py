@@ -5,11 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-智能文件分类引擎
-================
+Core classification engine used by the ``docmirror classify`` CLI.
 
-核心分类逻辑,实现文件遍历、解析、匹配和分类功能。
-集成DocMirror的插件系统和文件解析能力。
+Orchestrates directory traversal, optional lightweight parsing, document-type
+matching against the 120-type taxonomy, and physical file organization into
+type-specific output folders. Integrates DocMirror's plugin registry and
+parse pipeline so classification decisions can use both text samples and
+structured entity hints from partial parses.
 """
 
 from __future__ import annotations

@@ -5,20 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Spatial Proximity Graph Engine
-===============================
+Spatial graph — geometric adjacency and column detection.
 
-Computational geometry module for layout analysis, replacing O(n²) brute-force
-adjacency construction with Delaunay triangulation and 1D signal projection.
+Purpose: Builds Delaunay adjacency, detects columns geometrically, and
+computes reading order for connected components.
 
-Three core algorithms:
+Main components: ``build_delaunay_adjacency``, ``detect_columns_geometric``,
+``compute_reading_order``.
 
-1. **Delaunay Adjacency** — O(n log n) spatial neighbor graph via SciPy Delaunay.
-2. **Geometric Column Detection** — 1D X-axis projection with peak finding.
-3. **Topological Reading Order** — Kahn's algorithm over the pruned DAG.
+Upstream: Char/word bounding boxes from Fitz.
 
-All algorithms are CPU-only, use no GPU or VLM, and require only SciPy
-(already a project dependency via pre_analyzer.py).
+Downstream: ``segment.graph_router``, ``segment.zone_builder``.
 """
 
 from __future__ import annotations

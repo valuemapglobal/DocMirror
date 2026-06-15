@@ -1,6 +1,13 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 
-"""Document routing hints for Agent workflows (L11 / P7)."""
+"""
+Document routing hints for agent and automation workflows (L11 / P7).
+
+Derives recommended parse parameters — document type, enhancement mode, layout
+profile hints — from an existing ``ParseResult`` or lightweight metadata.
+Does not execute parsing; downstream agents use ``DocumentRoute`` to choose
+plugins, middleware profiles, or re-parse options.
+"""
 
 from __future__ import annotations
 

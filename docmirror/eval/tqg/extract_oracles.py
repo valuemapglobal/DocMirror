@@ -1,4 +1,13 @@
-# TQG extract oracles — column fidelity + quarantine metadata
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+TQG extract-layer oracles — column fidelity and quarantine metadata checks.
+
+Validates logical-table column integrity (header counts, required columns,
+trade/time field presence) and extraction-audit metadata emitted in
+``perf_breakdown``. Returns ``GateReport`` instances for P2-tier TQG tracks.
+"""
 
 from __future__ import annotations
 

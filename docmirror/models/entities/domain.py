@@ -2,9 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Re-export shim — physical models live in ``core/physical/models.py``.
+Physical layout model re-export shim.
 
-See ``docs/design/09_models_layer_first_principles_redesign.md`` §4.6.
+Canonical implementations live in ``docmirror.core.physical.models``. This
+module re-exports them at the models layer boundary so callers following
+design 09 §4.6 import physical types from ``docmirror.models.entities.domain``
+without depending on the core package path directly.
+
+Exports: ``Style``, ``TextSpan``, ``Block``, ``PageLayout``, ``BaseResult``.
 """
 
 from docmirror.core.physical.models import (

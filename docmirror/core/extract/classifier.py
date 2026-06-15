@@ -5,9 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Table pre-classification, confidence scoring, and validation gates.
+Extract classifier — quick table validity and layer classification.
 
-Split from ``table_extraction.py``.
+Purpose: Classifies extraction outcomes (valid table vs junk), computes table
+confidence, and records per-layer timings for profiling.
+
+Main components: ``_quick_classify``, ``_compute_table_confidence``,
+``get_last_layer_timings``.
+
+Upstream: Candidate tables from ``extract.engine``.
+
+Downstream: ``extract.best_candidate``, ``pipeline.profiler``.
 """
 
 from __future__ import annotations

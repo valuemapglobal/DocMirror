@@ -1,7 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Field enrichment helpers for premium L2 KV community plugins."""
+"""
+Field enrichment and validation helpers for premium L2 KV community plugins.
+
+Post-processes plugin extract output with domain-specific normalization: VAT invoice
+OCR digit correction, unified social credit code (USCC) checksum validation,
+business license field cleanup, and credit report section heuristics.
+
+Pipeline role: invoked at the end of ``extract_from_mirror`` in
+``vat_invoice``, ``business_license``, and ``credit_report`` community plugins
+after ``extract_kv_community_output`` builds the base envelope.
+
+Key exports: ``normalize_vat_fields``, ``validate_uscc``,
+``enrich_business_license_output``, ``enrich_credit_report_output``,
+``enrich_vat_invoice_output``.
+"""
 
 from __future__ import annotations
 

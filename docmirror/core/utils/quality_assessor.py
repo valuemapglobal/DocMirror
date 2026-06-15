@@ -5,19 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Document Quality Assessor
-========================
+Document quality assessor — digital vs scanned and quality scoring.
 
-Assess document quality and recommend optimal processing strategy.
+Purpose: Produces ``QualityReport`` with document type guess, blur/noise
+metrics, and recommendations for router decisions.
 
-This module provides:
-1. Image quality assessment (contrast, sharpness, noise)
-2. OCR quality prediction
-3. Processing strategy recommendation
-4. Difficulty scoring
+Main components: ``DocumentQualityAssessor``, ``QualityReport``, ``DocumentQuality``.
 
-Core insight: Different documents need different processing strategies.
-By assessing quality upfront, we can choose the optimal path.
+Upstream: Sample page renders and text layer stats.
+
+Downstream: ``analyze.quality_router``, ``analyze.pre_analyzer``.
 """
 
 import logging

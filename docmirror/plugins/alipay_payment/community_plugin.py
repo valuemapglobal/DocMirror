@@ -5,17 +5,21 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Alipay Payment Domain Plugin (Community Edition) v2.0
-=====================================================
+Alipay payment community domain plugin (v2.0).
 
-社区版 v2.0 支付宝流水插件。
+Premium community plugin for Alipay transaction proof PDFs. Extends ``BaseTableParser``
+with Alipay column registry, header marker heuristics, default column ordering for
+headerless tables, and normalized field alignment with finance edition plugins.
 
-Archetype: table_document
-Domain: cashflow_payment
-Support level: L2
+Pipeline role: discovered as ``alipay_payment`` premium plugin; ``runner`` calls
+``extract_from_mirror`` after Mirror classification.
 
-基于 BaseTableParser 实现，列映射与 Finance 插件 normalized 字段对齐。
-见 docs/design/alipay_payment/04_community_finance_field_alignment.md
+Archetype: ``table_document``; domain: ``cashflow_payment``; support level: L2.
+
+Key exports: ``AlipayPaymentPlugin``, ``plugin``, ``ALIPAY_COLUMN_REGISTRY``,
+``ALIPAY_STANDARD_FIELDS``, ``ALIPAY_IDENTITY_FIELDS``.
+
+Dependencies: ``_base.base_table_parser``, ``ColumnMatcher``, ``standardizer``.
 """
 
 from __future__ import annotations

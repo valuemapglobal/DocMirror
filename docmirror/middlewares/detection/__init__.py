@@ -4,7 +4,13 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Detection middlewares \u2013 scene, language, institution."""
+"""
+Detection middleware package — scene, language, and institution identification.
+
+Re-exports ``InstitutionDetector`` and ``LanguageDetector`` for pipeline
+profiles that run early in the MEP stack to populate ``ParseResult.entities``
+before extraction and validation stages.
+"""
 
 from .institution_detector import InstitutionDetector
 from .language_detector import LanguageDetector

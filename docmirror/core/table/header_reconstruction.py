@@ -5,17 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Column-Aware Header Reconstruction (v11 Optimization)
-======================================================
+Header reconstruction — repairs split and multi-row headers.
 
-列感知Header重组算法 - 解决表格Header文字粘连与乱序问题
+Purpose: Rejoins vertically split header cells, fixes sticky headers, and
+splits compound semantic header units (e.g. credit report layouts).
 
-算法原理:
-1. 领域词典快速校正（优先）
-2. 垂直投影分析（基于字符坐标）
-3. 启发式分割（备选）
+Main components: ``reconstruct_headers_by_columns``, ``_fix_sticky_headers_heuristic``.
 
-模拟人类阅读表格时的列边界识别机制。
+Upstream: Normalized table with broken header rows.
+
+Downstream: ``table.pipeline.stage_header``, ``table.column_anchor``.
 """
 
 from __future__ import annotations

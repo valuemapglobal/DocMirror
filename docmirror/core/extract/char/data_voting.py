@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Char strategy: detect_columns_by_data_voting."""
+"""
+Data voting — column detection by data-row x-position voting.
+
+Purpose: Votes on column x-ranges using populated data cells below the header
+row for borderless tables.
+
+Main components: ``detect_columns_by_data_voting``.
+
+Upstream: Grouped char rows with inferred header index.
+
+Downstream: ``extract.char_strategy`` boundary merge.
+"""
 
 from __future__ import annotations
 

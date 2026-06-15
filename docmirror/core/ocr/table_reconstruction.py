@@ -5,10 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Table Reconstruction from OCR Characters
-==========================================
+Table reconstruction — builds 2D grids from OCR char streams.
 
-Converts raw OCR character outputs into 2D table grids using spatial clustering.
+Purpose: Groups OCR chars into rows, clusters x-positions into columns, and
+reconstructs table grids (including multi-table y-gap splits).
+
+Main components: ``reconstruct_table_grid_2d``, ``group_chars_into_rows``,
+``cluster_x_positions``.
+
+Upstream: OCR char/word output with bboxes.
+
+Downstream: ``ocr.scanned.analyze_page``, ``table.postprocess``.
 """
 
 from __future__ import annotations

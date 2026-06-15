@@ -1,10 +1,16 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """
-Unified OCR Pipeline (UOP) — scanned-page extraction facade.
+OCR pipeline — orchestrates full scanned-page OCR flow.
 
-Digital documents with a text layer must not use this module; they follow
-the extract/ table engine path instead (CPA design 12 §2.4).
+Purpose: Top-level scanned page runner wiring preprocess → recognize →
+reconstruct → postprocess for ``pipeline.handlers.scanned_page``.
+
+Main components: ``run_scanned_page``.
+
+Upstream: ``pipeline.handlers.scanned_page``.
+
+Downstream: ``ocr.scanned.analyze_page``, ``physical.models.Block``.
 """
 
 from __future__ import annotations

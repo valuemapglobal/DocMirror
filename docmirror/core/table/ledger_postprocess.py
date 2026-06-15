@@ -4,7 +4,18 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Borderless ledger table post-processing — precision-first, no row loss."""
+"""
+Ledger postprocess — bank statement / ledger-specific table cleanup.
+
+Purpose: Validates ledger data rows, locates header indices, and enforces
+minimum column counts for borderless ledger profiles.
+
+Main components: ``post_process_ledger_table``.
+
+Upstream: ``table.pipeline`` hooks, ``ExtractionProfile`` ledger mode.
+
+Downstream: Clean ledger ``Block`` tables in ``PageLayout``.
+"""
 
 from __future__ import annotations
 

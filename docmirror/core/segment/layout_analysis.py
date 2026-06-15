@@ -1,6 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Layout analysis — page-level region detection and row reconstruction.
+
+Purpose: Detects borderless tables, analyzes page/document layout (including
+parallel workers), and reconstructs text rows from raw chars.
+
+Main components: ``analyze_page_layout``, ``analyze_document_layout``,
+``_reconstruct_rows_from_chars``.
+
+Upstream: Fitz page extraction, ``segment.layout_model``.
+
+Downstream: ``segment.zone_segment``, ``extract.segmentation``.
+"""
+
 from __future__ import annotations
 
 import logging

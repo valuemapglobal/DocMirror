@@ -4,7 +4,13 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Validation middlewares \u2014 validator, entropy, mutation analysis."""
+"""
+Validation middleware package — fidelity scoring and mutation analysis.
+
+Re-exports the mirror fidelity ``Validator`` and ``MutationAnalyzer`` for
+post-extraction quality measurement and iterative layout-profile tuning
+suggestions.
+"""
 
 from .mutation_analyzer import MutationAnalyzer
 from .validator import Validator

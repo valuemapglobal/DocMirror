@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""CPS page stage: watermark filter + quality router."""
+"""
+Page prepare stage — rasterize, watermark filter, quality routing.
+
+Purpose: Opens the fitz page, filters watermark chars, runs
+``AdaptiveQualityRouter``, and returns page_plumber state for segmentation.
+
+Main components: ``run_prepare``.
+
+Upstream: ``PageExtractionContext``, ``FitzEngine``.
+
+Downstream: ``page_segment``, ``analyze.quality_router``, ``utils.watermark``.
+"""
 
 from __future__ import annotations
 

@@ -4,3 +4,10 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""
+Image adapter subpackage — OCR-based image-to-ParseResult conversion.
+
+Re-exports ``ImageAdapter`` for raster formats handled by RapidOCR when PDF
+routing is not applicable.
+"""
+

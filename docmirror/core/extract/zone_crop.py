@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Crop pdfplumber page to table zone with header probe."""
+"""
+Zone crop — geometry helpers to crop pages to table zones.
+
+Purpose: Crops fitz pages or images to table zone bboxes (simple and padded
+variants) before backend extraction.
+
+Main components: ``crop_to_table_zone``, ``crop_simple_to_table_zone``.
+
+Upstream: ``Zone`` bboxes from segmentation.
+
+Downstream: ``extract.engine``, ``ocr`` preprocess paths.
+"""
 
 from __future__ import annotations
 

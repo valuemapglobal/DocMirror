@@ -4,7 +4,18 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Base resolver scoring framework."""
+"""
+Resolver base — shared scoring weights and decision types.
+
+Purpose: Defines ``BaseResolver``, ``ResolverDecision``, and score weighting
+used by all document-type candidate collectors.
+
+Main components: ``BaseResolver``, ``ResolverScoreWeights``, ``compute_final_score``.
+
+Upstream: Candidate evidence lists.
+
+Downstream: ``resolution.document_type_resolver``.
+"""
 
 from __future__ import annotations
 

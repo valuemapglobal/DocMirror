@@ -1,7 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Load licensing/tiers.yaml SSOT."""
+"""
+Tier and feature catalog loader — ``configs/yaml/licensing/tiers.yaml`` SSOT.
+
+Caches YAML defining ``feature_suffix``, ``community_free_domains``, per-tier
+feature lists, and optional finance/enterprise registry expansion for demo licenses.
+
+Pipeline role: feeds ``contract.premium_feature``, ``entitlements.demo_features``,
+``lifecycle`` thresholds, and ``snapshot`` display metadata.
+
+Key exports: ``load_tiers``, ``community_free_domains``, ``feature_suffix``,
+``tier_features``, ``premium_feature``.
+
+Dependencies: ``configs.paths.TIERS_YAML``, optional ``docmirror_finance`` /
+``docmirror_enterprise`` registries for feature expansion.
+"""
 
 from __future__ import annotations
 

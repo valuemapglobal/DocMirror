@@ -5,33 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-table_access — Unified table access layer
-===========================================
+Table access layer — unified API for reading tables from ParseResult.
 
-Provides a single entry point for Plugin and downstream code to read
-tables from a ParseResult, with the following priority:
+Purpose: Provides ``get_logical_tables``, ``table_flatten``, and
+``get_physical_tables`` so plugins prefer composed logical tables with legacy
+fallback to page tables.
 
-  1. ``logical_tables`` — composed cross-page tables (preferred).
-  2. Fallback to ``pages[0].tables`` — legacy merged physical tables.
+Main components: ``get_logical_tables``, ``table_flatten``, ``get_physical_tables``.
 
-This decouples consumers from the internal representation and enables
-the Physical + Logical dual-view transition described in the table layer
-first-principles redesign.
+Upstream: ``ParseResult`` from bridge (logical + physical tables).
 
-Usage::
-
-    from docmirror.core.table.access import get_logical_tables, table_flatten
-
-    result = await perceive_document("statement.pdf")
-
-    # Get all logical tables
-    tables = get_logical_tables(result)
-
-    # Flatten to list of dicts (for plugin consumption)
-    rows = table_flatten(result)
-
-    # Flatten with provenance
-    rows = table_flatten(result, include_source=True)
+Downstream: Plugins, benchmarks, and external consumers.
 """
 
 from __future__ import annotations

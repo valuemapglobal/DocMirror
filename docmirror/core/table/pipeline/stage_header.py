@@ -1,6 +1,18 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""TNP header stage — detection, vocabulary fix, multi-row merge."""
+"""
+Table pipeline header stage — header row detection and repair.
+
+Purpose: Vocabulary-guided header index detection, multi-row header merge,
+and header cell fixes.
+
+Main components: ``run_header_stage``, ``detect_header_index``,
+``_fix_header_by_vocabulary``.
+
+Upstream: Preamble-stripped table matrix.
+
+Downstream: ``table.pipeline.stage_structure``, ``table.column_anchor``.
+"""
 
 from __future__ import annotations
 

@@ -5,7 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Table Postprocessing Utilities
+Table postprocessor — page-level table normalization hook.
+
+Purpose: Runs registered table-normalization pipeline hooks on all table
+blocks extracted from a single page before assembly.
+
+Main components: ``process_page_tables``.
+
+Upstream: ``extract.engine`` table blocks, ``table.pipeline``.
+
+Downstream: ``pipeline.stages.page_assemble``, ``table.compose``.
 """
 
 from __future__ import annotations

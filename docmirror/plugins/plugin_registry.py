@@ -4,7 +4,25 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Domain plugin registry — ``DomainPlugin`` ABC and ``PluginRegistry`` singleton."""
+"""
+Domain plugin registry — ``DomainPlugin`` ABC and ``PluginRegistry`` singleton.
+
+Defines the abstract contract every domain plugin implements (``domain_name``,
+``display_name``, optional ``extract`` / ``extract_from_mirror`` /
+``build_domain_data``) and maintains a keyed registry of
+``(domain_name, edition)`` instances. On first access, auto-discovers community
+plugins via ``community.list_community_plugin_domains`` and optionally loads
+``docmirror_enterprise`` / ``docmirror_finance`` extension packages.
+
+Pipeline role: ``runner`` looks up edition-specific plugins through ``registry.get``;
+``manager`` lists registered domains for CLI enable/disable; scene keywords and
+``build_domain_data`` support classification and KV fallback paths.
+
+Key exports: ``DomainPlugin``, ``PluginRegistry``, ``registry``.
+
+Dependencies: ``community`` (builtin discovery), ``configs.scene.loader`` (scene
+keywords), optional ``docmirror_enterprise`` / ``docmirror_finance`` packages.
+"""
 
 from __future__ import annotations
 

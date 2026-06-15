@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Licensing SSOT helpers."""
+"""
+Licensing package — single source of truth for entitlement naming and checks.
+
+Re-exports contract helpers (premium feature strings), entitlement gates used by
+PEC, online/offline license managers, lifecycle warnings, tier YAML loading, and
+CLI license snapshot assembly.
+
+Pipeline role: ``runner`` calls ``is_entitled`` before enterprise/finance extract;
+``licensing.lifecycle`` injects expiry warnings into edition output; CLI license
+commands use ``resolve_license_snapshot``.
+
+Key exports: see ``__all__`` — ``is_entitled``, ``license_manager``,
+``offline_license_manager``, ``premium_feature``, lifecycle types, tier loaders.
+"""
 
 from docmirror.plugins.licensing.contract import FEATURE_SUFFIX, is_community_free, premium_feature
 from docmirror.plugins.licensing.entitlements import demo_features, is_entitled

@@ -5,24 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Graph-Based Semantic Router
-============================
+Graph router — syntactic bridging and reading-order routing on layout graphs.
 
-Inspired by DeepSeek-OCR 2's Visual Causal Flow (VCF) concept, this module
-replaces rigid top-to-bottom scanning with a topology-aware reading-order
-algorithm.  It constructs a spatial graph of visual blocks and determines
-their causal reading sequence through topological sorting.
+Purpose: Connects spatial layout nodes via Delaunay/graph edges and resolves
+reading order for multi-column pages.
 
-Three-stage pipeline:
-    1. **Spatial Graph Construction** — build a 2-D connectivity graph where
-       a directed edge i → j means "block *i* should be read before block *j*".
-    2. **Sidebar Penalisation** — suppress outlier nodes (narrow edge strips).
-    3. **Causal Reading Sequence** — Kahn-style topological sort with a
-       priority heap that breaks ties by column → semantic type → y-position.
+Main components: ``GraphRouter``, ``SyntacticBridger``.
 
-The router also supports an optional **model branch**: when a
-``reading_order_model`` path is provided (or ``"auto"``), LayoutLMv3
-(``hantian/layoutreader``) is used to predict token-level reading order.
+Upstream: ``segment.spatial_graph`` adjacency, detected regions.
+
+Downstream: ``segment.zone_builder``, ``pipeline.handlers.text_zone``.
 """
 
 from __future__ import annotations

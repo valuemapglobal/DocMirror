@@ -5,17 +5,31 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-DocMirror configuration package.
+DocMirror configuration package — declarative YAML loaders and runtime resolution.
 
-Layout::
+This package is the single source of truth (SSOT) for all DocMirror configuration
+that lives outside application code. It loads YAML files under ``configs/yaml/``,
+exposes typed path constants, and provides resolver functions used by the
+dispatcher, middleware pipeline, format router, and domain plugins.
 
-    configs/
-      paths.py              # path constants
-      yaml/                 # all declarative YAML
-      runtime/              # settings, performance, yaml loader
-      pipeline/             # middleware orchestration
-      scene/                # scene keyword corpus loader
-      domain/               # entity identity + key synonyms
+Subpackages::
+
+    paths.py              Path constants for every YAML file and config directory
+    runtime/              ``docmirror.yaml`` loader, global settings, performance tuning
+    format/               Format Capability Registry (FCR) — transport/content_model routing
+    middleware/           Middleware Execution Platform (MEP) — catalog + pipeline resolver
+    pipeline/             High-level middleware list composition for a file type
+    scene/                Scene keyword corpus for document classification
+    domain/               Entity identity fields and multilingual key synonym normalization
+    models/               Layout and extraction profile Pydantic models (EPO)
+    classification/       File-sort category rules and scene mapping
+    validators/           Document Type Identity (DTI) validation helpers
+
+Public API::
+
+    Import path constants (``DOCMIRROR_YAML``, ``SCENE_KEYWORDS_YAML``, …),
+    ``DocMirrorSettings``, ``get_config``, ``get_pipeline_config``,
+    scene keyword accessors, and domain identity resolution from this module.
 """
 
 from docmirror.configs.domain.registry import (

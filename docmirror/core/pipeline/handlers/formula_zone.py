@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Formula zone handler."""
+"""
+Formula zone handler — math/formula recognition for formula zones.
+
+Purpose: Crops formula regions and runs ``FormulaEngine`` / char-based LaTeX
+extraction to produce formula blocks.
+
+Main components: ``handle_formula_zone``.
+
+Upstream: Formula zones from ``page_segment``.
+
+Downstream: ``ocr.formula_engine``, ``ocr.formula_chars``.
+"""
 
 from __future__ import annotations
 

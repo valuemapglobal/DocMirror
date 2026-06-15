@@ -4,7 +4,28 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Unified YAML configuration loader for docmirror.yaml."""
+"""
+Unified YAML configuration loader for ``docmirror.yaml``.
+
+``YamlConfigLoader`` loads the root runtime config file, expands ``${VAR}`` and
+``${VAR:-default}`` environment references recursively, and caches the result
+with mtime-based invalidation for hot-reload in long-running processes.
+
+Path resolution priority::
+
+    1. Explicit path passed to ``YamlConfigLoader(path=...)``
+    2. ``DOCMIRROR_CONFIG`` environment variable
+    3. Package default: ``configs/yaml/docmirror.yaml``
+
+Public helpers::
+
+    config_loader   Module-level singleton ``YamlConfigLoader`` instance
+    get_config()    Return the full merged config dict
+    resolve_config_path()   Resolve the effective config file path
+
+Dot-path lookups (``config_loader.get("performance.max_page_concurrency")``)
+traverse nested dict keys without loading callers into YAML parsing details.
+"""
 
 from __future__ import annotations
 

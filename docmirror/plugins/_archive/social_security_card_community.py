@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Social Security Card Domain Plugin (Community Edition)
-=======================================================
+Archived social security card community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` for social security card (社保卡) documents.
+Kept for historical compatibility tests only.
+
+Pipeline role: none — not registered in production builds.
+
+Key exports: ``SocialSecurityCardPlugin``, ``plugin``.
 """
 
 from __future__ import annotations

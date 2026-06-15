@@ -2,12 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Generic Community Plugin
-========================
+Generic community fallback plugin.
 
-Fallback structured output for classified document types outside the six
-premium community domains. Mirror layer remains complete; this plugin maps
-Mirror → generic v2.0 community JSON.
+Universal community plugin for classified document types outside the six premium
+domains. Delegates ``extract_from_mirror`` to ``build_generic_community_output``,
+mapping Mirror entities, KV pairs, and tables into a minimal v2.0 envelope with
+``community_generic_fallback`` warning.
+
+Pipeline role: last community extract attempt before ``mirror_only`` for
+enterprise-only types; gated by ``community.is_community_generic_enabled`` and
+``state.is_domain_enabled("generic")``.
+
+Key exports: ``GenericCommunityPlugin``, ``plugin``.
+
+Dependencies: ``DomainPlugin``, ``generic_mirror_adapter.build_generic_community_output``.
 """
 
 from __future__ import annotations

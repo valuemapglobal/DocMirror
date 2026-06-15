@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Merged-cell detection via pdfplumber find_tables."""
+"""
+Merged cells detector — identifies colspan/rowspan from char geometry.
+
+Purpose: Detects merged cell regions in extracted grids so structure fix
+stages can expand or split cells correctly.
+
+Main components: ``detect_merged_cells``.
+
+Upstream: Char-assigned table grids.
+
+Downstream: ``table.table_structure_fix``, ``table.pipeline.stage_structure``.
+"""
 
 from __future__ import annotations
 

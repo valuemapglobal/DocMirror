@@ -1,9 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Document sync processing: layout → per-page extraction → table post-process (CPA design 12)."""
+"""
+PDF sync processor — synchronous multi-page extraction with optional parallelism.
+
+Purpose: Drives the page iteration loop, attaches stage timings, and
+coordinates worker pools for large digital PDFs.
+
+Main components: ``PdfSyncProcessor``, ``_attach_stage_timings``.
+
+Upstream: ``CoreExtractor.extract_sync``.
+
+Downstream: ``PagePipeline``, ``page_worker``.
+"""
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import os
 import time
@@ -33,6 +45,33 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _clock = time.perf_counter
+
+_active_pdf_processor: contextvars.ContextVar["PdfSyncProcessor | None"] = contextvars.ContextVar(
+    "active_pdf_processor",
+    default=None,
+)
+
+
+def reenter_generic_pipeline(fitz_doc, pre_analysis):
+    """Re-enter generic CPS from a thin strategy wrapper (Phase 4)."""
+    from docmirror.core.extraction.strategies.strategy_registry import _bypass_content_type
+
+    proc = _active_pdf_processor.get()
+    if proc is None:
+        raise RuntimeError("reenter_generic_pipeline called without active PdfSyncProcessor")
+    has_text, is_image_input, cleaned_path, file_path = proc._process_ctx
+    token = _bypass_content_type.set(pre_analysis.content_type)
+    try:
+        return proc.process(
+            fitz_doc,
+            pre_analysis,
+            has_text,
+            is_image_input,
+            cleaned_path,
+            file_path,
+        )
+    finally:
+        _bypass_content_type.reset(token)
 
 
 class PdfSyncProcessor:
@@ -66,16 +105,44 @@ class PdfSyncProcessor:
 
         # Import to trigger @register_strategy decorators
         import docmirror.core.extraction.strategies.section_driven  # noqa: F401
+        import docmirror.core.extraction.strategies.table_led  # noqa: F401
+        import docmirror.core.extraction.strategies.scanned  # noqa: F401
+        import docmirror.core.extraction.strategies.mixed  # noqa: F401
+        import docmirror.core.extraction.strategies.text_dominant  # noqa: F401
 
-        strategy = get_strategy(pre_analysis.content_type)
-        if strategy is not None:
-            logger.info(
-                f"[DocMirror] Strategy Registry → {strategy.__class__.__name__} "
-                f"(content_type={pre_analysis.content_type})"
+        self._process_ctx = (has_text, is_image_input, cleaned_path, file_path)
+        proc_token = _active_pdf_processor.set(self)
+        try:
+            strategy = get_strategy(pre_analysis.content_type)
+            if strategy is not None:
+                logger.info(
+                    f"[DocMirror] Strategy Registry → {strategy.__class__.__name__} "
+                    f"(content_type={pre_analysis.content_type})"
+                )
+                return strategy.extract(fitz_doc, pre_analysis)
+
+            # === Generic pipeline (unchanged) ===
+            return self._run_generic_pipeline(
+                fitz_doc,
+                pre_analysis,
+                has_text,
+                is_image_input,
+                cleaned_path,
+                file_path,
             )
-            return strategy.extract(fitz_doc, pre_analysis)
+        finally:
+            _active_pdf_processor.reset(proc_token)
 
-        # === Generic pipeline (unchanged) ===
+    def _run_generic_pipeline(
+        self,
+        fitz_doc,
+        pre_analysis,
+        has_text: bool,
+        is_image_input: bool,
+        cleaned_path,
+        file_path,
+    ):
+        """Generic CPS path (table/scanned/mixed documents)."""
         # ── Per-step timing instrumentation ──
         _perf: dict[str, float] = {}
         _page_perf: list = []  # per-page timing breakdown

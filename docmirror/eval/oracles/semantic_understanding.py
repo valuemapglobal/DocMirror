@@ -1,34 +1,19 @@
-"""语义级表格理解引擎 — Semantic Table Understanding Engine.
+"""
+Semantic table understanding engine for evaluation oracles.
 
-道法自然 · 第十九重境界:
-  从"结构提取"升级到"语义理解"
+Elevates structural table extraction to semantic interpretation across four
+layers: table-type classification (transaction, summary, financial,
+statistical), column-relationship inference (opposite, calculation, causal,
+master-detail), row semantic grouping, and confidence scoring. Produces a
+semantic knowledge graph suitable for TQG semantic-tier gates and research
+benchmarks. Not used in the production parse pipeline.
 
-核心设计:
-  Layer 1: 表格类型识别 (Transaction/Summary/Financial/Statistical)
-  Layer 2: 列关系推断 (Opposite/Calculation/Causal/Master-Detail)
-  Layer 3: 行语义分组 (Time/Entity/Type/Summary)
-  Layer 4: 语义置信度评估 (Logical/Business/Temporal/Numerical)
+Example::
 
-输出: 语义知识图谱
-  {
-    "table_type": "bank_statement_transaction",
-    "column_relations": [...],
-    "row_groups": [...],
-    "semantic_confidence": 0.92
-  }
-
-使用示例:
     from docmirror.eval.oracles.semantic_understanding import understand_table_semantics
 
-    table = [
-        ["交易日期", "借方金额", "贷方金额", "账户余额"],
-        ["2024-05-01", "1000.00", "0.00", "5000.00"],
-        ["2024-05-02", "0.00", "2000.00", "7000.00"],
-    ]
-
-    semantics = understand_table_semantics(table)
-    logger.debug(f"表格类型: {semantics.table_type}")  # "bank_statement_transaction"
-    logger.debug(f"语义置信度: {semantics.semantic_confidence}")  # 0.92
+    semantics = understand_table_semantics(table_rows)
+    # semantics.table_type, semantics.semantic_confidence, ...
 """
 
 from __future__ import annotations

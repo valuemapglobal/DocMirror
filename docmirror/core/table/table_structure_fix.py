@@ -5,30 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Table Structure Fix Engine
-===========================
+Table structure fix — row merge, cell split, and column alignment repairs.
 
-A general-purpose, domain-agnostic module for post-processing table
-structure defects.  Runs after OCR / extraction and before final output.
+Purpose: Comprehensive post-OCR structure repairs: merge split rows, clean
+cells, split concatenated cells, and align ragged columns.
 
-10 independent fix functions + 1 unified entry point:
-    1. ``merge_split_rows``             — Merge records split across multiple rows
-    2. ``clean_cell_text``              — Remove excess whitespace / newlines in cells
-    3. ``split_concatenated_cells``     — Split concatenated cells (e.g. balance + account number)
-    4. ``align_row_columns``            — Align row column counts to the header
-    5. ``strip_underline_footer``       — Remove underline-delimited footer statistics
-    6. ``trim_trailing_empty_columns``  — Trim all-empty trailing columns
-    7. ``merge_digit_spaces``           — Remove spaces inside pure-digit cells
-    8. ``strip_header_labels_from_cells`` — Remove bilingual column-title suffixes from data cells
-    9. ``remove_empty_tables``          — Remove fully empty tables
-   10. ``split_account_from_name``      — Split account numbers prefixed to account names
-   11. ``strip_currency_prefix``        — Strip currency code prefixes from amounts
-   12. ``remove_empty_interior_columns``— Remove all-empty interior columns
+Main components: ``merge_split_rows``, ``clean_table_cells``, ``align_row_columns``.
 
-Design principles:
-    - Pure functions, no state, no side effects.
-    - Every fix performs a safety check; uncertain cases are left unmodified.
-    - Empty / single-row tables are returned as-is.
+Upstream: ``table.pipeline.stage_structure`` output.
+
+Downstream: Final table matrices in ``PageLayout``.
 """
 
 from __future__ import annotations

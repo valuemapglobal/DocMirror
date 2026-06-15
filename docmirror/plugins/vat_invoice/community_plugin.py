@@ -5,11 +5,20 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-VAT Invoice Domain Plugin (Community Edition)
-==============================================
+VAT invoice community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Premium community plugin for Chinese VAT invoices (key-value archetype). Declares
+identity field label specs, builds minimal DEC via ``build_domain_data``, and
+implements ``extract_from_mirror`` with ``extract_kv_community_output`` plus VAT-specific
+OCR field normalization.
+
+Pipeline role: one of six premium plugins; ``runner`` prefers ``extract_from_mirror``
+when it returns records/fields, otherwise falls back to ``build_domain_data``.
+
+Key exports: ``VATInvoicePlugin``, ``plugin``.
+
+Dependencies: ``DomainPlugin``, ``dec_builder``, ``kv_community_extract``,
+``kv_community_enrich.enrich_vat_invoice_output``.
 """
 
 from __future__ import annotations

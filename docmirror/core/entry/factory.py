@@ -5,34 +5,19 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-MultiModal Perception Factory
-==============================
+Document perception factory — single public entry point for parsing.
 
-Single public entry point for document parsing.
+Purpose: Accepts a file path and explicit ``PerceiveOptions``, delegates to
+``ParserDispatcher``, and returns a ``PerceiveResult`` / ``ParseResult``.
+All configuration is explicit; no hidden globals.
 
-First-principles design:
-    - The entry function's only job is to accept a file path + explicit options,
-      then return a fully parsed and classified ParseResult.
-    - All configuration is *explicit* via PerceiveOptions, not hidden in
-      environment variables or global settings.
-    - PerceptionFactory delegates to ``docmirror.di`` for shared singletons;
-      perceive_document() is the convenience shortcut.
+Main components: ``perceive_document``, ``PerceptionFactory``,
+``PerceiveOptions``.
 
-Usage::
+Upstream: Application / API layer.
 
-    from docmirror.core.entry.factory import perceive_document, PerceiveOptions
-
-    # Quick mode: first page only
-    result = await perceive_document("report.pdf", PerceiveOptions(max_pages=1))
-
-    # Full mode with progress
-    async def on_progress(step, total, name, detail):
-        print(f"[{step}/{total}] {name}: {detail}")
-
-    result = await perceive_document(
-        "report.pdf",
-        PerceiveOptions(enhance_mode="full", on_progress=on_progress),
-    )
+Downstream: ``framework.dispatcher``, ``bridge.parse_result_bridge``,
+``extraction.extractor``.
 """
 
 from __future__ import annotations

@@ -1,6 +1,18 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Table Normalize Pipeline (TNP) — CPA design 12 §4.2."""
+"""
+Table normalization pipeline — staged table cleanup orchestrator.
+
+Purpose: Registers hooks and runs preamble → header → structure → domain
+stages via ``normalize_table`` and ``TableNormalizeContext``.
+
+Main components: ``normalize_table``, ``TableNormalizeContext``,
+``register_tnp_hook``.
+
+Upstream: ``table.postprocess``, ``extraction.table_postprocessor``.
+
+Downstream: Composed table blocks, ``table.compose``.
+"""
 
 from __future__ import annotations
 

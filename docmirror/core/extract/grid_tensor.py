@@ -5,12 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Global Invisible Grid Tensor
-=============================
-Builds a document-level alignment matrix (1D projection) based on invariant
-structural anchors (like aligned decimal points in numerical columns).
-This globally protects column boundaries from drifting in borderless, sparse tables
-where a single page might lack sufficient data to form robust local peaks.
+Grid tensor — builds document-wide column grid representation.
+
+Purpose: Constructs a global grid tensor from page char positions for
+cross-page column alignment and template injection.
+
+Main components: ``build_global_grid_tensor``.
+
+Upstream: Multi-page char streams, ``GlobalTableTemplate``.
+
+Downstream: ``extract.template_injector``, ``table.column_anchor``.
 """
 
 from __future__ import annotations

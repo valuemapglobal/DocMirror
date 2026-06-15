@@ -4,7 +4,19 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Best-Candidate Selection (BCS) for profile-driven table extraction."""
+"""
+Best candidate picker — scores and selects among extraction candidates.
+
+Purpose: Implements BCS (best-candidate selection) scoring using column
+consistency, header vocabulary match, and data-row counts.
+
+Main components: ``pick_best_candidate``, ``score_candidate``,
+``ExtractCandidate``, ``BCSPickResult``.
+
+Upstream: Multiple ``extract.engine`` tier outputs.
+
+Downstream: ``extract.engine`` final table choice, ``extract.classifier``.
+"""
 
 from __future__ import annotations
 
@@ -119,6 +131,11 @@ def score_candidate(
     if preferred and candidate.layer in preferred:
         idx = preferred.index(candidate.layer)
         layer_prior = max(layer_prior, 1.0 - idx * 0.05)
+
+    if candidate.layer == "pipe_delimited" and (
+        profile.is_borderless_ledger() or (preferred and preferred[0] == "pipe_delimited")
+    ):
+        layer_prior = max(layer_prior, 1.0)
 
     return (
         0.35 * row_ratio

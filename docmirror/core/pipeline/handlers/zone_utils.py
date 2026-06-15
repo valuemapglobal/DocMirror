@@ -1,6 +1,18 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Zone image crop and formula recognition utilities."""
+"""
+Zone utilities — shared line grouping, cropping, and formula OCR helpers.
+
+Purpose: Common geometry and OCR helpers reused by multiple zone handlers
+(line grouping, zone image crops, inline formula recognition).
+
+Main components: ``group_words_into_lines``, ``crop_zone_image``,
+``recognize_formula``.
+
+Upstream: Fitz words/chars and zone bboxes.
+
+Downstream: ``text_zone``, ``table_zone``, ``formula_zone`` handlers.
+"""
 
 from __future__ import annotations
 

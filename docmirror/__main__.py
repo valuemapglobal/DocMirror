@@ -4,10 +4,14 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""CLI entry point for DocMirror document parsing engine.
+"""Executable module entry for ``python -m docmirror``.
 
-Provides single-file and batch-directory parsing with rich progress
-display, multiple output formats, and result persistence.
+Implements the default parse workflow invoked by the ``docmirror`` console
+script: single-file parsing with Rich progress stages, recursive batch mode
+with configurable concurrency, multi-edition JSON output (mirror, community,
+enterprise, finance), optional cache bypass, and timestamped persistence
+under ``output/``. Argument parsing lives in ``main()``; subcommands such as
+``classify`` and ``plugins`` are registered separately in ``docmirror.cli.main``.
 """
 
 from __future__ import annotations
@@ -15,7 +19,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import copy
-import json
+from docmirror.models.serialization import dumps_json
 import multiprocessing
 import os
 import time
@@ -97,7 +101,7 @@ def save_result(result_dict: dict, source_path: Path, output_dir: Path) -> tuple
     task_dir = output_dir / task_id
     task_dir.mkdir(parents=True, exist_ok=True)
     output_file = task_dir / "001_mirror.json"
-    output_file.write_text(json.dumps(result_dict, ensure_ascii=False, indent=2), encoding="utf-8")
+    output_file.write_text(dumps_json(result_dict, ensure_ascii=False, indent=2), encoding="utf-8")
     return output_file, task_id
 
 
@@ -238,7 +242,7 @@ async def parse_document(
             api_dict["metadata"]["task_id"] = task_id
             api_dict["metadata"]["file_id"] = file_id
             # Rewrite with IDs
-            saved_path.write_text(json.dumps(api_dict, ensure_ascii=False, indent=2), encoding="utf-8")
+            saved_path.write_text(dumps_json(api_dict, ensure_ascii=False, indent=2), encoding="utf-8")
 
             # Generate community edition output with IDs
             community_schema = _build_community_output(result, result.full_text or "")
@@ -247,7 +251,7 @@ async def parse_document(
                 community_schema["metadata"]["task_id"] = task_id
                 community_schema["metadata"]["file_id"] = file_id
                 community_path = saved_path.parent / f"{file_id}_community.json"
-                community_path.write_text(json.dumps(community_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+                community_path.write_text(dumps_json(community_schema, ensure_ascii=False, indent=2), encoding="utf-8")
                 rows = community_schema.get("data", {}).get("summary", {}).get("total_rows", 0)
                 summary = _format_community_summary(community_schema)
                 console.print(f"[cyan]📦 Community:[/cyan] {community_path.name}  → {summary}")
@@ -259,7 +263,7 @@ async def parse_document(
                 enterprise_schema["metadata"]["task_id"] = task_id
                 enterprise_schema["metadata"]["file_id"] = file_id
                 enterprise_path = saved_path.parent / f"{file_id}_enterprise.json"
-                enterprise_path.write_text(json.dumps(enterprise_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+                enterprise_path.write_text(dumps_json(enterprise_schema, ensure_ascii=False, indent=2), encoding="utf-8")
                 rows = enterprise_schema.get("data", {}).get("summary", {}).get("total_rows", 0)
                 doctype = enterprise_schema.get("document", {}).get("document_type", "unknown")
                 console.print(f"[cyan]📦 Enterprise:[/cyan] {enterprise_path.name}  → {doctype} ({rows} rows)")
@@ -271,7 +275,7 @@ async def parse_document(
                 finance_schema["metadata"]["task_id"] = task_id
                 finance_schema["metadata"]["file_id"] = file_id
                 finance_path = saved_path.parent / f"{file_id}_finance.json"
-                finance_path.write_text(json.dumps(finance_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+                finance_path.write_text(dumps_json(finance_schema, ensure_ascii=False, indent=2), encoding="utf-8")
                 rows = finance_schema.get("data", {}).get("summary", {}).get("total_rows", 0)
                 doctype = finance_schema.get("document", {}).get("document_type", "unknown")
                 console.print(f"[cyan]📦 Finance:[/cyan] {finance_path.name}  → {doctype} ({rows} rows)")
@@ -308,7 +312,7 @@ def _save_multi_edition(result, api_dict: dict, path: Path, output_dir: Path, in
     api_dict["metadata"]["file_id"] = file_id
     
     saved_path = task_dir / "001_mirror.json"
-    saved_path.write_text(json.dumps(api_dict, ensure_ascii=False, indent=2), encoding="utf-8")
+    saved_path.write_text(dumps_json(api_dict, ensure_ascii=False, indent=2), encoding="utf-8")
     
     # Community edition
     community_schema = _build_community_output(result, getattr(result, "full_text", "") or "")
@@ -317,7 +321,7 @@ def _save_multi_edition(result, api_dict: dict, path: Path, output_dir: Path, in
         community_schema["metadata"]["task_id"] = task_id
         community_schema["metadata"]["file_id"] = file_id
         community_path = task_dir / f"{file_id}_community.json"
-        community_path.write_text(json.dumps(community_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+        community_path.write_text(dumps_json(community_schema, ensure_ascii=False, indent=2), encoding="utf-8")
     
     # Enterprise edition
     enterprise_schema = _build_extended_output(result, "enterprise", getattr(result, "full_text", "") or "", str(path))
@@ -326,7 +330,7 @@ def _save_multi_edition(result, api_dict: dict, path: Path, output_dir: Path, in
         enterprise_schema["metadata"]["task_id"] = task_id
         enterprise_schema["metadata"]["file_id"] = file_id
         enterprise_path = task_dir / f"{file_id}_enterprise.json"
-        enterprise_path.write_text(json.dumps(enterprise_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+        enterprise_path.write_text(dumps_json(enterprise_schema, ensure_ascii=False, indent=2), encoding="utf-8")
     
     # Finance edition
     finance_schema = _build_extended_output(result, "finance", getattr(result, "full_text", "") or "", str(path))
@@ -335,7 +339,7 @@ def _save_multi_edition(result, api_dict: dict, path: Path, output_dir: Path, in
         finance_schema["metadata"]["task_id"] = task_id
         finance_schema["metadata"]["file_id"] = file_id
         finance_path = task_dir / f"{file_id}_finance.json"
-        finance_path.write_text(json.dumps(finance_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+        finance_path.write_text(dumps_json(finance_schema, ensure_ascii=False, indent=2), encoding="utf-8")
     
     return task_id
 

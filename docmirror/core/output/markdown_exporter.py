@@ -5,22 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Markdown Exporter (OmniDocBench Adapt)
-======================================
+Markdown exporter — BaseResult to per-page Markdown for benchmarks.
 
-Convert the BaseResult produced by CoreExtractor into the per-page Markdown File required for OmniDocBench evaluation.
+Purpose: Renders title, text, table, and formula blocks as Markdown (OmniDocBench
+-compatible) for evaluation pipelines.
 
-OmniDocBench evaluation process::
+Main components: ``export_document``, ``export_page``, ``_render_block``.
 
-    model Parse PDF -> per-page .md -> EvalScript compares GT -> score
+Upstream: ``physical.models.BaseResult`` or ``ParseResult``.
 
-Core Map:
-    - title  → # / ## / ### (by heading_level)
-    - text   → Paragraph (Double newlines separated)
-    - table  → Markdown table (header + |---| + rows)
-    - formula → $$LaTeX$$
-    - key_value / footer / image → Skip (benchmark not evaluated)
+Downstream: OmniDocBench eval scripts, filesystem ``.md`` outputs.
 """
+
 from __future__ import annotations
 
 

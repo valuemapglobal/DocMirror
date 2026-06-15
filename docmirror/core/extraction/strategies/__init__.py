@@ -5,13 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Extraction Strategies
-=====================
+Extraction strategies package — pluggable document-structure extractors.
 
-Pluggable extraction strategies selected by ``content_type``
-detected during PreAnalysis.
+Purpose: Registry and implementations for alternative extraction strategies
+(e.g. section-driven parsing) selected by document profile.
 
-Available strategies:
-    - SectionDrivenStrategy: hierarchical section-header-driven extraction
-      for ``section_dominant`` documents (credit reports, audit reports, etc.)
+Main components: ``BaseExtractionStrategy``, ``SectionDrivenStrategy``,
+``register_strategy``, ``get_strategy``.
+
+Upstream: ``extraction.strategies.strategy_registry``, document profile.
+
+Downstream: ``CoreExtractor`` when profile selects a non-default strategy.
 """
+

@@ -4,7 +4,19 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Collect document-type hypotheses for DocumentTypeResolver (EFPA Phase 2.4)."""
+"""
+Document type candidates — multi-source evidence collectors.
+
+Purpose: Gathers keyword, header, entity, plugin, and visual classification
+hypotheses with scores for resolver fusion.
+
+Main components: ``collect_keyword_candidates``, ``collect_header_candidates``,
+``collect_entity_candidates``.
+
+Upstream: Full text, headers, plugin registry, page renders.
+
+Downstream: ``DocumentTypeResolver.resolve``.
+"""
 
 from __future__ import annotations
 

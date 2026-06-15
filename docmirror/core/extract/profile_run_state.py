@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""BCS / profile gating state for layered table extraction."""
+"""
+Profile run state — mutable cross-page extraction state.
+
+Purpose: Tracks ledger continuation, template width, and per-document flags
+shared across pages during one extraction run.
+
+Main components: ``ProfileRunState``.
+
+Upstream: ``pipeline.context``, ``document_profile`` binding.
+
+Downstream: ``PagePipeline``, ``extract.template_injector``.
+"""
 
 from __future__ import annotations
 
@@ -51,9 +62,14 @@ class ProfileRunState:
         oracle_rows = 0
         if self.use_bcs and self.profile.bcs_oracle_layer:
             for c in self.candidates:
-                if c.layer == self.profile.bcs_oracle_layer:
+                if c.layer == "pipe_delimited" and c.row_count >= 2:
                     oracle_rows = count_data_rows(c.tables[0] if c.tables else [])
                     break
+            if oracle_rows == 0:
+                for c in self.candidates:
+                    if c.layer == self.profile.bcs_oracle_layer:
+                        oracle_rows = count_data_rows(c.tables[0] if c.tables else [])
+                        break
             if oracle_rows == 0:
                 oracle_rows = max((c.row_count for c in self.candidates), default=0)
 

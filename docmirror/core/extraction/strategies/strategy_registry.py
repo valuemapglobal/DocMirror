@@ -5,33 +5,32 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Strategy Registry
-=================
+Strategy registry — registers and resolves extraction strategies by name.
 
-Routes ``content_type`` → optimal extraction strategy.
+Purpose: Plugin-style registry mapping profile/strategy names to
+``BaseExtractionStrategy`` implementations.
 
-Architecture:
-    PreAnalyzer detects structural content_type
-    → Registry resolves matching strategy (or None → generic pipeline)
-    → Strategy.extract() returns standard 6-tuple
+Main components: ``BaseExtractionStrategy``, ``register_strategy``,
+``get_strategy``.
 
-Usage::
+Upstream: Strategy modules at import time.
 
-    from .strategy_registry import get_strategy
-
-    strategy = get_strategy(pre_analysis.content_type)
-    if strategy is not None:
-        return strategy.extract(fitz_doc, pre_analysis)
-    # else: fall through to generic pipeline
+Downstream: ``CoreExtractor``, ``extraction.strategies.section_driven``.
 """
 
 from __future__ import annotations
 
+import contextvars
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+_bypass_content_type: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "strategy_bypass_content_type",
+    default=None,
+)
 
 
 class BaseExtractionStrategy(ABC):
@@ -98,6 +97,8 @@ def get_strategy(content_type: str) -> Optional[BaseExtractionStrategy]:
         Strategy instance if registered, None otherwise.
         None means the caller should fall through to the generic pipeline.
     """
+    if content_type and content_type == _bypass_content_type.get():
+        return None
     cls = _REGISTRY.get(content_type)
     if cls is not None:
         return cls()

@@ -5,13 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-RapidTable Singleton Engine — Thread-safe table structure recognition.
+RapidTable engine — wrapper for RapidTable ONNX table detection.
 
-Usage::
+Purpose: Singleton wrapper around RapidTable model inference for tier-2
+table structure detection on page/zone images.
 
-    from .rapid_table_engine import get_rapid_table_engine
-    engine = get_rapid_table_engine()
-    result = engine(img_np)  # -> RapidTableOutput
+Main components: ``RapidTableEngine``, ``get_rapid_table_engine``.
+
+Upstream: Zone crops from ``extract.engine``.
+
+Downstream: ``extract.layers.backends``, HTML/cell grids.
 """
 
 from __future__ import annotations

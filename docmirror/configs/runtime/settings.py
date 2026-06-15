@@ -4,7 +4,29 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Global DocMirror settings — YAML defaults with env overrides."""
+"""
+Global DocMirror runtime settings — YAML defaults with environment overrides.
+
+``DocMirrorSettings`` is the process-wide configuration object instantiated at
+import time via ``default_settings = DocMirrorSettings.from_env()``.
+
+Configuration sources (highest priority first)::
+
+    1. ``DOCMIRROR_*`` environment variables
+    2. ``docmirror.yaml`` sections: ``business``, ``physics``, ``ocr``, ``layout``, ``logging``
+    3. Built-in dataclass defaults
+
+Key settings::
+
+    default_enhance_mode       Middleware profile mode (``standard``, ``rapid``, …)
+    max_pages / max_page_concurrency   Document size and parallelism limits
+    ocr_params                 ``OCRHyperParams`` — physically justified preprocessing constants
+    validator_pass_threshold   Minimum score for validation middleware to pass
+    fail_strategy              How to handle partial extraction failures (``skip``, …)
+
+``OCRHyperParams`` holds OCR preprocessing hyperparameters with documented rationale;
+changing values should update the corresponding justification comments.
+"""
 
 from __future__ import annotations
 

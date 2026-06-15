@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Data table zone handler."""
+"""
+Table zone handler — layered table extraction for data_table zones.
+
+Purpose: Crops table zones and runs ``extract_tables_layered`` with profile-
+aware strategy selection and post-processing.
+
+Main components: ``handle_data_table_zone``.
+
+Upstream: ``data_table`` zones from segmentation.
+
+Downstream: ``extract.engine``, ``extraction.table_postprocessor``.
+"""
 
 from __future__ import annotations
 

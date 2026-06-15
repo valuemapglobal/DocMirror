@@ -5,18 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-PageState — Cross-page table extraction state machine.
-========================================================
+Page state — cross-page table merge state tracker.
 
-Carries confirmed extraction metadata across pages:
-  - ``winning_layer``: the extraction layer that succeeded on page N.
-  - ``confirmed_header``: the validated header row.
-  - ``col_count``: column count of the current table.
-  - ``confidence``: extraction confidence from the winning layer.
+Purpose: Maintains running state (open table, column profile, quarantine list)
+while iterating pages for merge and composition decisions.
 
-Used by ``extract_tables_layered()`` (via ``layer_hint``) and
-``post_process_table()`` (via ``confirmed_header``) to skip
-redundant exploration on subsequent pages.
+Main components: ``PageState``.
+
+Upstream: Per-page table blocks during document loop.
+
+Downstream: ``table.merge.merger``, ``table.cross_page_predictor``.
 """
 
 from __future__ import annotations

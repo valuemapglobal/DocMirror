@@ -5,27 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Projection Histogram Table Detection - T-11
-=============================================
+Table projection — x-projection column boundary detection.
 
-基于 X 轴投影直方图的列检测算法,作为 Column Consensus 的增强替代方案。
+Purpose: Fallback column detection via char x-projection when line-based and
+char-strategy paths fail.
 
-优势:
-- 不受单元格空白影响
-- 对噪声更鲁棒
-- 适用于复杂无边框表格
+Main components: ``detect_column_boundaries``, ``detect_table_by_projection``,
+``projection_fallback``.
 
-Algorithm:
-  1. 按 y 分组字符 (行检测)
-  2. 对每行计算 X 轴投影直方图
-  3. 检测直方图谷值 (列边界)
-  4. 验证列一致性 (多行共享相同列边界)
-  5. 返回表格结构和列位置
+Upstream: Char streams in table zones.
 
-Design principles:
-    - Pure functions, no state, no side effects.
-    - Works as fallback when gap-based clustering fails.
-    - Compatible with existing Column Consensus interface.
+Downstream: ``pipeline.handlers.fallback_table``, ``extract.signal_processor``.
 """
 
 from __future__ import annotations

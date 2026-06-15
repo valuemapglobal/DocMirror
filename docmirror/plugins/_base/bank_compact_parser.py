@@ -2,9 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Deprecated: use ``docmirror.plugins.bank_statement.styles.compact_merged``.
+Deprecated re-export shim for compact merged bank ledger parsing.
 
-Re-export shim for backward compatibility (remove after 2 minor versions).
+Forwards all symbols from ``bank_statement.styles.compact_merged``. New code
+should import from that module directly; this file exists for backward
+compatibility and will be removed after two minor versions.
+
+Pipeline role: none for new code — legacy import path only.
+
+Dependencies: ``bank_statement.styles.compact_merged``.
 """
 
 from docmirror.plugins.bank_statement.styles.compact_merged import *  # noqa: F403

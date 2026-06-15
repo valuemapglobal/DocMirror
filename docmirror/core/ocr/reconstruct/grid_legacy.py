@@ -1,6 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Legacy grid reconstruction — row/column clustering for OCR tables.
+
+Purpose: Legacy implementations of row grouping, x-clustering, Hough line
+detection, and 2D grid assembly used by scanned page analysis.
+
+Main components: ``_reconstruct_table_grid_2d``, ``_group_chars_into_rows``,
+``_detect_table_lines_hough``.
+
+Upstream: OCR char lists, preprocessed images.
+
+Downstream: ``ocr.scanned.analyze_page``, ``ocr.table_reconstruction``.
+"""
+
 from __future__ import annotations
 
 import logging

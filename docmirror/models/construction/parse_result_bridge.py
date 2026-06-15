@@ -2,9 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Re-export shim — ParseResultBridge at ``core/bridge/parse_result_bridge.py``.
+ParseResultBridge re-export shim — legacy-to-MOC construction bridge.
 
-See ``docs/design/09_models_layer_first_principles_redesign.md`` §4.6 / Appendix C.
+Canonical implementation lives in ``docmirror.core.bridge.parse_result_bridge``.
+This module re-exports ``ParseResultBridge`` and internal helpers at the models
+layer boundary per design 09 §4.6 / Appendix C.
+
+``ParseResultBridge`` converts adapter and legacy parser outputs into typed
+``ParseResult`` instances, composing logical tables from blocks and inferring
+cell values from physical evidence.
 """
 
 from docmirror.core.bridge.parse_result_bridge import (

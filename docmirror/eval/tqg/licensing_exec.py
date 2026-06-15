@@ -1,7 +1,14 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""TQG licensing track — mock .lic setups and entitlement probes."""
+"""
+TQG licensing track — mock license files and entitlement probes.
+
+Builds temporary ``.lic`` fixtures and patches entitlement resolution so TQG
+cases can assert premium-feature gating, lifecycle warnings, and edition
+degradation without requiring real license servers. Used exclusively in tests
+and CI gate runs.
+"""
 
 from __future__ import annotations
 

@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""CPS page stage: zone → block extraction and assembly."""
+"""
+Page assemble stage — zone handlers produce blocks.
+
+Purpose: Dispatches each zone to the appropriate handler (text, table,
+formula, scanned, fallback) and collects ``Block`` lists into page layout.
+
+Main components: ``run_assemble_zones``.
+
+Upstream: Segmented zones, ``PageExtractor``, quality router.
+
+Downstream: ``page_finalize``, ``physical.models.Block``.
+"""
 
 from __future__ import annotations
 

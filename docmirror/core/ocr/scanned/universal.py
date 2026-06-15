@@ -1,6 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Universal scanned OCR — generic OCR extraction without table assumptions.
+
+Purpose: Detects table presence, groups OCR words into lines, and extracts
+universal text/table content for mixed scanned layouts.
+
+Main components: ``ocr_extract_universal``, ``_group_words_into_lines``.
+
+Upstream: OCR word stream from ``runner_legacy``.
+
+Downstream: ``ocr.scanned.analyze_page``, text block assembly.
+"""
+
 from __future__ import annotations
 
 import logging

@@ -1,7 +1,13 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Evaluate TQG gate specifications against actual values."""
+"""
+TQG gate specification evaluator.
+
+Resolves dot-path expressions on ``ParseResult`` objects or dicts and compares
+actual values against manifest predicates (thresholds, equality, presence).
+Shared by the TQG runner and standalone oracle modules.
+"""
 
 from __future__ import annotations
 

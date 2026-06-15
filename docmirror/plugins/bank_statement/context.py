@@ -25,6 +25,12 @@ from docmirror.plugins.bank_statement.institution_authority import resolve_insti
 from docmirror.plugins.bank_statement.ltro import ReconstructionMeta, reconstruct_tables
 
 
+def _structure_spe_from_parse_result(parse_result: Any) -> dict | None:
+    from docmirror.core.analyze.spe_consumer import read_structure_spe
+
+    return read_structure_spe(parse_result)
+
+
 @dataclass
 class StyleContext:
     tables: list[list[list[str]]]
@@ -65,10 +71,12 @@ def build_style_context(parse_result: Any, full_text: str = "") -> StyleContext:
 
     pages = getattr(parse_result, "pages", []) or []
     mirror_tables = collect_tables_from_parse_result(parse_result)
+    structure_spe = _structure_spe_from_parse_result(parse_result)
     tables, reconstruction = reconstruct_tables(
         mirror_tables,
         text,
         page_count=len(pages),
+        structure_spe=structure_spe,
     )
 
     return StyleContext(

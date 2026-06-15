@@ -1,7 +1,14 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Extraction chain runner — transcode, primary adapter, optional fallback."""
+"""
+Extraction chain runner — transcode gate, primary adapter, optional fallback.
+
+Executes the L0 adapter sequence for a resolved ``FormatCapability``: optional
+disk-to-disk transcoding via ``TranscodingGate``, primary ``BaseParser``
+extraction, and configured fallback adapters on failure. Invoked by
+``ParserDispatcher`` after FCR routing.
+"""
 
 from __future__ import annotations
 

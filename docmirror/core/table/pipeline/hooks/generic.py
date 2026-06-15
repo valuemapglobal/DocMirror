@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""TNP domain hook: generic table normalization."""
+"""
+Generic table hook — default post-normalization pass.
+
+Purpose: Applies standard cleanup when no specialized ledger or domain hook
+is registered for the document profile.
+
+Main components: ``run_generic_hook``.
+
+Upstream: ``table.pipeline.stage_domain``.
+
+Downstream: Normalized table ready for ``table.compose``.
+"""
 
 from __future__ import annotations
 

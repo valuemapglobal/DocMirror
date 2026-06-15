@@ -5,13 +5,23 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-DocMirror Error Codes and Failure Helpers
-=========================================
+DocMirror error codes and failure helpers.
+==========================================
 
-Unified error codes and recoverability for PerceptionResult.error.
-Used by Dispatcher._build_failure, Adapters, and API responses.
+Unified error codes, recoverability metadata, and ``ParseResult`` failure builders
+used by the dispatcher, format adapters, and REST API responses.
 
-See docs/design/solution-design.md §4 (G3).
+Components::
+
+    DocMirrorErrorCode     Canonical enum (FILE_NOT_FOUND, UNSUPPORTED_FORMAT, …)
+    get_error_meta()       Recoverable flag and user-facing message per code
+    make_error_detail()    Build ``ErrorDetail`` with code and message
+    build_failure_result() Construct a failure ``ParseResult`` with timing and trust info
+
+Error metadata includes recoverability hints (e.g. ``FORMAT_REQUIRES_CONVERTER`` and
+``ENCRYPTED_PDF`` are recoverable; ``UNSUPPORTED_FORMAT`` is not) for client retry logic.
+
+See ``docs/design/solution-design.md`` §4 (G3) for the error taxonomy design.
 """
 
 from __future__ import annotations

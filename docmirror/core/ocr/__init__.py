@@ -4,5 +4,15 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-# OCR subpackage — scanned-page fallback, formula recognition engines,
-# OCR post-processing, VLM inference, and vision utilities.
+"""
+OCR package — optical character recognition for scanned and degraded pages.
+
+Purpose: Namespace for OCR preprocessing, recognition engines, postprocess,
+and scanned-page reconstruction paths.
+
+Main components: ``ocr.pipeline``, ``ocr.fallback``, vision engines.
+
+Upstream: Quality router scanned-page decisions, table OCR crops.
+
+Downstream: ``pipeline.handlers.scanned_page``, ``table.ocr_scoring``.
+"""

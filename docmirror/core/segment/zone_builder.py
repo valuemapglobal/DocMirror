@@ -1,6 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Zone builder — constructs typed zones from layout extents.
+
+Purpose: Refines detected regions into ``Zone`` objects via line consensus,
+formula isolation, and legacy y-band fallbacks.
+
+Main components: ``_build_zones_from_extent``, ``_refine_by_lines``,
+``_classify_zone_legacy``.
+
+Upstream: ``segment.layout_analysis``, ``spatial_graph``, ``negative_space``.
+
+Downstream: ``segment.zone_segment``, ``pipeline.stages.page_segment``.
+"""
+
 from __future__ import annotations
 
 import logging

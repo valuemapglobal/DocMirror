@@ -5,7 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Entity Collection from Document Layouts
+Entity collector — gathers key-value entities from extracted blocks.
+
+Purpose: Scans preamble KV blocks and inline patterns to populate structured
+entity fields on the document result.
+
+Main components: ``collect_kv_entities``.
+
+Upstream: Extracted ``Block`` lists with ``key_value`` types.
+
+Downstream: ``bridge.parse_result_bridge`` metadata, plugins.
 """
 
 from __future__ import annotations

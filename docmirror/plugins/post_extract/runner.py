@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Execute post-extract hooks after PEC extract."""
+"""
+Post-extract hook executor — runs catalog-matched hooks after PEC extract.
+
+Iterates hooks resolved for the current document type and edition, invokes
+``apply``, and records audited Mirror mutations when ``mutates_mirror`` is set
+in the catalog spec.
+
+Pipeline role: called from ``runner._finalize_extract`` immediately before returning
+edition JSON to the caller.
+
+Key exports: ``run_post_extract_hooks``.
+
+Dependencies: ``post_extract.catalog``, ``ParseResult.record_mutation``.
+"""
 
 from __future__ import annotations
 

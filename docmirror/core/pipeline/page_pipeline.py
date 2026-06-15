@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Page-level pipeline orchestration (CPA design 12)."""
+"""
+Page-level pipeline — prepare → segment → assemble → finalize.
+
+Purpose: Runs the four canonical page stages with timing, producing a
+``PageLayout``, OCR text parts, layer label, and confidence score.
+
+Main components: ``PagePipeline``.
+
+Upstream: ``CoreExtractor`` page loop, ``PageExtractionContext``.
+
+Downstream: ``pipeline.stages.*``, ``physical.models.PageLayout``.
+"""
 
 from __future__ import annotations
 

@@ -4,7 +4,27 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""File registry — CCC-1 unique file identity and fingerprint."""
+"""
+File registry — CCC-1 unique file identity and fingerprint (L1).
+
+Provides immutable file registration records, fingerprint computation, PDF probing,
+and provenance merging for the Content Consistency Contract (CCC-1).
+
+Types::
+
+    FileRegistryEntry    UUID file_id, path, size, MIME, fast/strict SHA256, PDF meta
+    FileFingerprint      Lightweight fingerprint summary for debug/UDIF export
+
+Functions::
+
+    compute_sha256_fast()              Size + mtime + partial hash (cache-key style)
+    compute_sha256_strict()            Full-file SHA256
+    probe_pdf_meta()                   Lightweight text/image/encryption probe
+    register_file()                    Create ``FileRegistryEntry`` for a local path
+    apply_file_registry_to_provenance() Merge registry into ``ParseResult.provenance``
+
+Fast hash matches dispatcher cache key style; strict hash is optional at registration.
+"""
 
 from __future__ import annotations
 

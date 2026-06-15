@@ -1,0 +1,55 @@
+# TQG mirror_structure track — SPE / SSO oracles (design 13 Phase 5)
+version: 1
+track: mirror_structure
+layer: extract
+
+cases:
+  - id: boc_pipe_spe
+    tier: regression
+    pipeline: extract_only
+    fixture: fixtures/bank_statement/中国银行-南京创沃电气设备有限公司_1.pdf
+    skip_if_fixture_missing: true
+    oracle:
+      mirror_structure:
+        min_H_pipe_grid: 0.85
+        forbidden_skip_reasons:
+          - route_section_dominant_mismatch
+    tags: [mirror, spe, bank, pipe]
+
+  - id: credit_report_section_spe
+    tier: regression
+    pipeline: extract_only
+    fixture: fixtures/synthetic/credit_report_section_smoke.pdf
+    skip_if_fixture_missing: true
+    gates:
+      content_type: { equals: section_dominant }
+    oracle:
+      mirror_structure:
+        primary: section_led
+        forbidden_skip_reasons:
+          - route_section_dominant_mismatch
+    tags: [mirror, spe, credit_report]
+
+  - id: wechat_table_led_spe
+    tier: regression
+    pipeline: extract_only
+    fixture: fixtures/wechat_payment/DemoUser+微信流水.pdf
+    skip_if_fixture_missing: true
+    options:
+      max_pages: 5
+    oracle:
+      mirror_structure:
+        primary: table_led
+        forbidden_skip_reasons:
+          - route_section_dominant_mismatch
+    tags: [mirror, spe, wechat]
+
+  - id: id_card_prose_skip_reason
+    tier: regression
+    pipeline: extract_only
+    fixture: fixtures/id_card/ZhangSan_身份证_1976112.pdf
+    skip_if_fixture_missing: true
+    oracle:
+      mirror_structure:
+        require_skip_reason_when_tables_empty: true
+    tags: [mirror, spe, identity]

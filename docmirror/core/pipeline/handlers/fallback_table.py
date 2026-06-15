@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Fallback full-page table extraction."""
+"""
+Fallback table handler — last-resort table extraction for failed zones.
+
+Purpose: When primary table engines fail, attempts projection/signal-based
+recovery on the zone crop.
+
+Main components: ``fallback_table_extraction``.
+
+Upstream: ``page_assemble`` when table handler errors or low confidence.
+
+Downstream: ``table.projection``, ``extract.signal_processor``.
+"""
 
 from __future__ import annotations
 

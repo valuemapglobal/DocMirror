@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Char strategy: detect_columns_by_clustering."""
+"""
+Char clustering — x-position clustering for column boundaries.
+
+Purpose: Detects column boundaries by clustering char x-centroids when
+headers are ambiguous.
+
+Main components: ``detect_columns_by_clustering``.
+
+Upstream: Zone char dicts from ``extract.utils`` grouping.
+
+Downstream: ``extract.char_strategy``, ``extract.engine``.
+"""
 
 from __future__ import annotations
 

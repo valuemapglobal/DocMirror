@@ -1,4 +1,13 @@
-# TQG extract audit oracle helpers
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+TQG extraction audit oracle — validates CoreExtractor audit metadata.
+
+Checks that ``extraction_audit`` blocks in parse metadata conform to manifest
+specifications (adapter name, timing fields, quarantine flags). Complements
+column-fidelity oracles for extract-tier regression detection.
+"""
 
 from __future__ import annotations
 

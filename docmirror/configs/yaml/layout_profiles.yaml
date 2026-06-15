@@ -12,7 +12,7 @@ profiles:
   credit_report_section_dominant:
     inherits: generic
     document_type_hint: credit_report
-    strategy: section_driven
+    # Routing: PreAnalyzer SSO → content_type=section_dominant (not this YAML key)
     mirror_skip_cross_page_merge: true
     match:
       text_any:

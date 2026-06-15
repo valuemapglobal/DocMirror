@@ -5,31 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Result Pattern - Type-Safe Error Handling
-==========================================
+Result type for explicit, type-safe error handling in the parse pipeline.
 
-Implements the Result type from functional programming for explicit error handling.
+Purpose: Provides ``Success`` / ``Failure`` wrappers, ``DocMirrorError``
+hierarchy, and combinators (``map``, ``and_then``) so pipeline stages can
+return recoverable errors without bare exceptions.
 
-Benefits:
-    - Type-safe: Compiler checks error handling
-    - Explicit: Cannot ignore errors (must check is_success)
-    - Recoverable: Mark errors as recoverable or fatal
-    - Chainable: Support map, and_then operations
+Main components: ``Result``, ``Success``, ``Failure``, ``DocMirrorError``,
+``ErrorSeverity``, ``success``, ``failure``, ``try_catch``.
 
-Usage::
+Upstream: Any core module that performs I/O or validation.
 
-    from docmirror.core.result import Success, Failure, Result
-
-    def divide(a: int, b: int) -> Result[int, DivisionError]:
-        if b == 0:
-            return Failure(DivisionError("Division by zero"))
-        return Success(a // b)
-
-    result = divide(10, 2)
-    if result.is_success:
-        logger.debug(f"成功: {result.value}")  # 5
-    else:
-        logger.error(f"失败: {result.error}")
+Downstream: Entry layer, pipeline stages, and middleware that need structured errors.
 """
 
 from __future__ import annotations

@@ -1,6 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Zone models — dataclasses for layout regions and zone templates.
+
+Purpose: Defines ``Zone``, ``ContentRegion``, ``ALPageLayout``, and
+``ZoneTemplate`` used throughout segmentation and template replay.
+
+Main components: ``Zone``, ``ContentRegion``, ``ALPageLayout``, ``ZoneTemplate``.
+
+Upstream: Segmentation algorithms (internal).
+
+Downstream: ``segment.zone_segment``, ``extract.template_injector``,
+``pipeline.context``.
+"""
+
 from __future__ import annotations
 
 import logging

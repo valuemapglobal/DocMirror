@@ -5,19 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Text Utilities
-==============
+Text utilities — normalization, joining, and amount/header matching.
 
-General-purpose text processing helpers extracted from layout_analysis.py.
+Purpose: CJK-aware joining, whitespace normalization, table header matching,
+and amount parsing shared across table and OCR modules.
 
-Contents:
-    - CJK character detection and CJK-aware string joining.
-    - ``normalize_text`` / ``normalize_table`` — Unicode NFKC normalisation,
-      full-width → half-width, and newline/whitespace clean-up.
-    - ``headers_match`` — fuzzy header-row comparison.
-    - ``parse_amount`` — financial amount string normalisation
-      (thousands separators, currency symbols, parenthesised negatives,
-      CR/DR suffixes).
+Main components: ``normalize_text``, ``normalize_table``, ``headers_match``,
+``parse_amount``, ``_smart_join``.
+
+Upstream: Raw cell and block text.
+
+Downstream: ``table.pipeline``, ``utils.vocabulary``, ``ocr.ocr_postprocess``.
 """
 
 from __future__ import annotations

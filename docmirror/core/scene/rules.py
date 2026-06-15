@@ -5,11 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-分类规则管理模块
-================
+Classification rules — declarative scene and file-handling rules.
 
-负责加载、解析和管理金融机构文件分类规则。
-支持从YAML配置文件加载规则,并提供规则匹配功能。
+Purpose: Defines ``ClassificationRule``, ``RuleManager``, and conflict
+resolution config loaded from rulesets.
+
+Main components: ``RuleManager``, ``ClassificationRules``, ``ClassificationRule``.
+
+Upstream: Rules config files.
+
+Downstream: ``scene.evidence_engine``.
 """
 
 from __future__ import annotations

@@ -5,31 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Type Signature Library — 列类型推断引擎
-========================================
+Table signature — type and column signatures for classification.
 
-基于第一性原理的表头识别：不依赖词表枚举，而是通过检验"列数据的类型一致性"
-来自然推断表头位置。
+Purpose: Library of ``TypeSignature`` / ``ColumnSignatureProfile`` used to
+classify table types and match cross-page continuations.
 
-Design Principle (道德经):
-    "道法自然" — 不预设表头应该是什么，而是让数据的内在规律自然显现。
-    "知其白，守其黑" — 不仅看到有形的词汇，更理解无形的类型约束。
+Main components: ``TypeSignatureLibrary``, ``TypeSignature``, ``ColumnSignatureProfile``.
 
-Core Philosophy:
-    表头的本质不是特定词汇，而是为每一列定义语义类型的"命名契约"。
-    如果某行下方的数据都能被该列定义的类型完全解释，那么该行就是表头。
+Upstream: Header rows and column statistics.
 
-Usage::
-
-    from docmirror.core.table.signature import TypeSignatureLibrary
-
-    # 推断一列数据的类型
-    signature = TypeSignatureLibrary.infer_signature(["2024-01-15", "2024-01-16", "2024-01-17"])
-    # Returns: TypeSignature(type_name="date", confidence=1.0, ...)
-
-    # 推断完整表格的列签名画像
-    profile = TypeSignatureLibrary.infer_table_signature(table_rows)
-    # Returns: ColumnSignatureProfile(signatures=[...], overall_consistency=0.95)
+Downstream: ``table.cross_page_predictor``, ``resolution.document_type_candidates``.
 """
 
 from __future__ import annotations

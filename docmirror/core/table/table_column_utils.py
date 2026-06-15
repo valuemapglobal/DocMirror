@@ -4,7 +4,18 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Helpers for inferring effective table column counts (pipe-delimited cells)."""
+"""
+Table column utilities — effective column counting helpers.
+
+Purpose: Computes pipe-delimited and effective column counts for validating
+table width consistency across tiers.
+
+Main components: ``effective_table_column_count``, ``_pipe_column_count``.
+
+Upstream: Raw table row strings.
+
+Downstream: ``extract.best_candidate``, ``table.merge.merger``.
+"""
 
 from __future__ import annotations
 

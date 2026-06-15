@@ -4,7 +4,19 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Global column anchor detection for borderless multi-page ledgers."""
+"""
+Column anchor — global header and column alignment across pages.
+
+Purpose: Finds header rows, matches expected vocabulary headers, and builds
+``column_anchors`` shared across multi-page ledger tables.
+
+Main components: ``find_header_row_in_table``, ``build_global_column_anchors``,
+``header_cells_to_column_anchors``.
+
+Upstream: Raw table matrices, ``utils.vocabulary``.
+
+Downstream: ``extract.extraction_hint``, ``ocr.postprocess.column_aware``.
+"""
 
 from __future__ import annotations
 

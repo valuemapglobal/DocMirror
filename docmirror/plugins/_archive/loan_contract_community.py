@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Loan Contract Domain Plugin (Community Edition)
-================================================
+Archived loan contract community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` for loan agreement documents with baseline KV
+identity extraction. Archived under pre-6+1 community plugin layout.
+
+Pipeline role: none — not loaded by ``plugin_registry``.
+
+Key exports: ``LoanContractCommunityPlugin``, ``plugin``.
 """
 
 from __future__ import annotations

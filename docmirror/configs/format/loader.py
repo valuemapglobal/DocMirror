@@ -1,7 +1,24 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Load format_capabilities.yaml and enhancement_profiles.yaml."""
+"""
+YAML loaders for the Format Capability Registry and enhancement profiles.
+
+Parses ``format_capabilities.yaml`` into typed ``FormatCapability`` dataclasses
+and builds extension/MIME lookup maps. Parses ``enhancement_profiles.yaml`` into
+content-model × enhance-mode middleware configurations (v1 flat lists or v2
+staged dicts).
+
+Functions::
+
+    load_format_registry()       Returns (capabilities_by_id, ext_map, mime_map)
+    load_enhancement_profiles()  Returns (profiles, transport_fallback)
+    transport_to_content_model() Map transport string to content model
+    invalidate_format_cache()    Clear ``lru_cache`` for both loaders
+
+Both loaders use ``functools.lru_cache(maxsize=1)`` and log warnings when YAML
+files are missing, returning empty dicts for graceful degradation.
+"""
 
 from __future__ import annotations
 

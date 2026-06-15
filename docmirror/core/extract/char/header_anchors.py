@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Char strategy: detect_columns_by_header_anchors."""
+"""
+Header anchors — column boundaries from header cell positions.
+
+Purpose: Uses vocabulary-matched header cells as anchor points for column
+divider placement.
+
+Main components: ``detect_columns_by_header_anchors``.
+
+Upstream: Header row chars, ``utils.vocabulary``.
+
+Downstream: ``extract.char_strategy``, ``table.column_anchor``.
+"""
 
 from __future__ import annotations
 

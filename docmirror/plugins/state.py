@@ -1,7 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Per-domain enable/disable state for registered plugins (``.plugin_state.json``)."""
+"""
+Per-domain enable/disable state for registered plugins.
+
+Persists a simple JSON map (``.plugin_state.json`` in this package directory) keyed
+by domain name with an ``enabled`` boolean. Domains absent from the file default to
+enabled so new installs require no configuration.
+
+Pipeline role: ``community.find_premium_community_plugin`` and
+``get_generic_community_plugin`` consult ``is_domain_enabled`` before loading a
+plugin module; ``manager`` reads and writes via ``set_domain_enabled``.
+
+Key exports: ``is_domain_enabled``, ``set_domain_enabled``.
+"""
 
 from __future__ import annotations
 

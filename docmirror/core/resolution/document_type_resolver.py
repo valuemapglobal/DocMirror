@@ -4,7 +4,18 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Document type hypothesis resolver (multi-plugin voting)."""
+"""
+Document type resolver — fuses candidates into final document type.
+
+Purpose: Aggregates weighted candidate scores and selects the best document
+type label for profile and scene routing.
+
+Main components: ``DocumentTypeResolver``.
+
+Upstream: ``document_type_candidates`` collectors.
+
+Downstream: ``scene.scene_resolver``, ``profile.resolver``.
+"""
 
 from __future__ import annotations
 

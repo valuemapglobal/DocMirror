@@ -1,6 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Legacy OCR runner — multi-scale recognition and fragment merging.
+
+Purpose: Runs OCR at multiple scales, merges line fragments and overlapping
+words into a coherent char/word stream.
+
+Main components: ``_run_ocr``, ``_merge_line_fragments``, ``_merge_multi_scale_words``.
+
+Upstream: ``ocr.preprocess.legacy_fallback`` prepared images.
+
+Downstream: ``ocr.table_reconstruction``, ``ocr.scanned.universal``.
+"""
+
 from __future__ import annotations
 
 import logging

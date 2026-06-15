@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Layout analysis and zone segmentation facade (CPA design 12)."""
+"""
+Zone constants and helpers — shared zone type definitions.
+
+Purpose: Centralizes zone type strings, defaults, and small helpers referenced
+by segmentation and handlers.
+
+Main components: Zone type constants and utility functions.
+
+Upstream: Internal segment modules.
+
+Downstream: ``pipeline.handlers``, ``extract.zone_crop``.
+"""
 
 from docmirror.core.segment.layout_analysis import (
     analyze_document_layout,

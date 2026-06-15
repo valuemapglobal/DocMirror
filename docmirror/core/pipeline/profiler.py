@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Pipeline stage timing helpers (CPA design 12 P3 DoD)."""
+"""
+Pipeline profiler — per-stage timing utilities.
+
+Purpose: Context managers and merge helpers for recording prepare/segment/
+assemble/finalize durations on each page.
+
+Main components: ``stage_timer``, ``merge_page_stage_timings``.
+
+Upstream: ``PagePipeline`` stage wrappers.
+
+Downstream: Debug metrics, ``ParseResult`` timing metadata.
+"""
 
 from __future__ import annotations
 

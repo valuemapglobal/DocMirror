@@ -1,7 +1,23 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Mirror → generic community v2.0 output (non-premium classified types)."""
+"""
+Mirror → generic community v2.0 output adapter for non-premium classified types.
+
+Maps a complete Mirror ``ParseResult`` into a minimal structured community envelope
+when the document type is classified but not one of the six premium domains.
+Collects entity fields, KV pairs, and flat table rows without domain-specific logic.
+
+Pipeline role: ``runner._run_community_extract`` calls ``build_generic_community_output``
+via ``generic.community_plugin`` when generic fallback is enabled and the type is
+not enterprise-only; emits ``community_generic_fallback`` warning in status.
+
+Key exports: ``build_generic_community_output`` (and internal collectors used by
+``kv_community_extract``).
+
+Dependencies: ``build_classification_block``, ``edition_serializer``,
+``core.table.access.get_logical_tables``.
+"""
 
 from __future__ import annotations
 

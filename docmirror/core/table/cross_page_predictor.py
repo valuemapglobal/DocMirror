@@ -1,47 +1,15 @@
-"""跨页表格预测引擎 — Cross-page Table Prediction Engine.
+"""
+Cross-page table predictor — detects truncated tables spanning pages.
 
-道法自然 · 第十六重境界:
-  第N页提取完成后，记录截断信息 → 第N+1页提取前，预测表格结构
+Purpose: Predicts when a table continues on the next page and validates merge
+candidates using column profiles and truncation heuristics.
 
-核心设计:
-  1. 第N页提取完成后，记录:
-     - 未完成行数 (incomplete_rows): 行尾缺少右括号的行
-     - 最后列结构 (last_col_signature): 末尾N列的特征
-     - 跨页表头 (cross_page_header): 可能是表头的行
-     - 列类型序列 (col_types): 各列的数据类型
+Main components: ``CrossPageTablePredictor``, ``TruncationInfo``,
+``NextPagePrediction``.
 
-  2. 第N+1页提取前，查询预测:
-     - 预测列数 (predicted_col_count)
-     - 预测列类型 (predicted_col_types)
-     - 预测表头 (predicted_header)
-     - 预测合并模式 (predicted_merge_pattern)
+Upstream: Sequential page table blocks, ``table.signature``.
 
-  3. 提取器使用预测信息:
-     - 验证检测到的列数是否匹配
-     - 识别跨页表头（不应该作为表头）
-     - 推断缺失列的类型
-
-  4. 合并时使用预测验证:
-     - 实际列数 vs 预测列数
-     - 实际列类型 vs 预测列类型
-     - 实际表头 vs 预测表头
-
-使用示例:
-    predictor = CrossPageTablePredictor()
-
-    # 第N页提取完成后
-    page_state = predictor.record_truncation(page_layout, extraction_result)
-
-    # 第N+1页提取前
-    prediction = predictor.predict_next_page(page_state)
-    extraction_result = extract_tables_with_prediction(
-        page_layout,
-        expected_col_count=prediction.col_count,
-        expected_col_types=prediction.col_types
-    )
-
-    # 合并时验证
-    is_valid_merge = predictor.validate_merge(page_state, extraction_result)
+Downstream: ``table.merge.merger``, ``table.compose``.
 """
 
 from __future__ import annotations

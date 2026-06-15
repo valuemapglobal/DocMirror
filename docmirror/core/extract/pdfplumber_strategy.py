@@ -5,12 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-pdfplumber Header Recovery — Layer 1 header recovery strategy.
+PDFPlumber strategy — pdfplumber-based table extraction tier.
 
-Split from ``table_extraction.py``.
+Purpose: Extracts tables via pdfplumber with header recovery from zone context
+when native lines are weak.
 
-When pdfplumber's ``lines`` / ``text`` strategies discard the table
-header row, this module recovers it from the zone's character data.
+Main components: ``_recover_header_from_zone``.
+
+Upstream: ``extract.layers.backends``, ``extract.engine`` tier 1.
+
+Downstream: ``extract.best_candidate`` candidate list.
 """
 
 from __future__ import annotations

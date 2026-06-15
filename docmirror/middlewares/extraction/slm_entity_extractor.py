@@ -1,3 +1,18 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
+"""
+Small Language Model (SLM) entity extraction middleware.
+
+Optional CPU-only semantic key-value extraction using a locally cached SLM
+model. Activated when ``DOCMIRROR_ENABLE_SLM=1`` or the ``--slm`` CLI flag is
+set. Runs as a middleware stage after generic entity extraction and writes
+structured fields into ``ParseResult.entities.domain_specific``.
+"""
+
 import time
 import os
 import re

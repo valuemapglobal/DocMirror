@@ -1,7 +1,22 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dataclasses for Format Capability Registry."""
+"""
+Dataclasses for the Format Capability Registry (FCR).
+
+Immutable frozen dataclasses describing how DocMirror routes a file format to
+an extraction adapter, optional transcode step, and fallback chain.
+
+Types::
+
+    FormatCapability    Full capability record (id, transport, content_model, status, …)
+    ExtractionBinding   Adapter name, transcode spec, fallback, deserializer, kwargs
+    TranscodeSpec       External converter tool, target format, missing-tool error code
+    FallbackSpec        Secondary adapter invoked on primary_empty or primary_failed
+    UNKNOWN_CAPABILITY  Sentinel for unrecognized extensions/MIME types
+
+``CapabilityStatus`` is one of ``supported``, ``planned``, or ``unsupported``.
+"""
 
 from __future__ import annotations
 

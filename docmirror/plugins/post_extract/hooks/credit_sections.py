@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Post-extract hook: attach credit report sections for DocGraph."""
+"""
+Post-extract hook: attach credit report sections for DocGraph.
+
+When community/enterprise credit extract did not populate ``ParseResult.sections``,
+attempts lightweight section splitting from full document text using enterprise or
+legacy section splitter implementations.
+
+Pipeline role: DocGraph and graph export paths expect section boundaries on Mirror;
+runs only for ``document_type == "credit_report"``.
+
+Key exports: ``CreditReportSectionsHook``.
+
+Dependencies: optional ``docmirror_enterprise.plugins.credit_report.extractors.section_splitter``.
+"""
 
 from __future__ import annotations
 

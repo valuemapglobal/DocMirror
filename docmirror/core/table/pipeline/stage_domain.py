@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""TNP domain orchestration — staged header → preamble → structure."""
+"""
+Table pipeline domain stage — profile-specific hook dispatch.
+
+Purpose: Resolves and runs registered domain hooks (ledger, generic) after
+structure normalization.
+
+Main components: ``run_stages``, ``resolve_hook_names``.
+
+Upstream: ``table.pipeline`` stage chain.
+
+Downstream: ``table.pipeline.hooks.*``, ``table.ledger_postprocess``.
+"""
 
 from __future__ import annotations
 

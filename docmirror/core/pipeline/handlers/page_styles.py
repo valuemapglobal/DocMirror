@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Page style and span helpers."""
+"""
+Page styles handler — typographic style and heading inference.
+
+Purpose: Extracts font/size/color spans and infers heading levels for title
+and text block rendering.
+
+Main components: ``extract_page_styles``, ``build_spans``, ``infer_heading_level``.
+
+Upstream: Fitz page char dicts in prepare/assemble.
+
+Downstream: ``physical.models.TextSpan``, ``output.markdown_exporter``.
+"""
 
 from __future__ import annotations
 

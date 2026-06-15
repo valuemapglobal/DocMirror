@@ -53,3 +53,21 @@ class TestParseResultBridge:
                 result = await extractor.extract_parse_result(pdf)
                 bridge_mock.assert_called_once_with(mock_base)
                 assert result is mock_pr
+
+
+def test_to_api_dict_serializes_document_sections():
+    import json
+
+    from docmirror.models.entities.parse_result import DocumentSection, ParseResult
+
+    pr = ParseResult(
+        sections=[
+            DocumentSection(id="1", title="Account summary", page_start=1, level=1, line_count=12),
+        ],
+    )
+    pr.entities.document_type = "bank_statement"
+    api = pr.to_api_dict()
+    json.dumps(api, ensure_ascii=False)
+    sections = api["data"]["document"]["sections"]
+    assert sections[0]["title"] == "Account summary"
+    assert sections[0]["level"] == 1

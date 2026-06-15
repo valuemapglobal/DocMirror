@@ -5,18 +5,21 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-DocMirror CLI - Main Entry Point
-=================================
+DocMirror CLI main entry point and Click application root.
 
-Unified command-line interface for DocMirror.
+Registers top-level command groups (parse, classify, plugins, benchmark) and
+delegates to ``docmirror.__main__`` for single-file and batch parsing with
+Rich progress output. This module is the console-script target for the
+``docmirror`` command; library callers should use ``perceive_document()`` instead.
 
-Usage:
-    docmirror [file]                    # Parse document
-    docmirror classify <dir>            # Classify documents
-    docmirror plugins list              # List plugins
-    docmirror plugins community         # Community 6 premium + 1 generic
-    docmirror plugins enable <name>     # Enable plugin
-    docmirror plugins license show      # Show license
+Usage::
+
+    docmirror [file]                    # Parse one file or batch directory
+    docmirror classify <dir>            # Classify documents by type
+    docmirror plugins list              # List installed plugins
+    docmirror plugins community         # Show community 6+1 plugin set
+    docmirror plugins enable <name>     # Enable a plugin
+    docmirror plugins license show      # Display license status
 """
 
 from __future__ import annotations

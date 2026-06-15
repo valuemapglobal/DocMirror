@@ -1,7 +1,27 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""DEC → edition JSON v2.0 serializer (design 09 §4.4 / Wave 2 P1-1)."""
+"""
+DEC → edition JSON v2.0 serializer (design 09 §4.4 / Wave 2 P1-1).
+
+Converts a ``DomainExtractionResult`` (DEC) into the community or enterprise
+edition JSON envelope (schema version 2.0) consumed by REST API clients and
+downstream integrations.
+
+Components::
+
+    EditionContext          Presentation metadata not stored in DEC (edition, plugin info,
+                            document name, archetype, scene keywords, mirror_ref)
+    edition_serializer()  Main entry: DEC + context → edition JSON dict
+
+The serializer assembles ``document``, ``classification``, ``status``, ``plugin``,
+``data`` (fields/records/sections/tables), ``metadata``, and optional
+``derived_variables`` / ``mirror_ref`` blocks. Quality issues in DEC are mapped
+to success/warnings/errors in the status block.
+
+``EditionContext.from_finalize`` builds context from a ``ParseResult`` and
+resolved domain plugin at pipeline finalization time.
+"""
 
 from __future__ import annotations
 

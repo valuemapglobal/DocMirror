@@ -5,24 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Layout Detection Model
-======================
+Layout model — ML/heuristic region detection wrapper.
 
-Wrapper around RapidLayout (ONNX) for model-based page layout detection.
-Falls back gracefully when the model or its dependencies are unavailable.
+Purpose: Wraps layout detection to produce ``DetectedRegion`` lists with
+type labels and confidence for zone building.
 
-Source: https://github.com/RapidAI/RapidLayout
-Built-in models: DocLayout-YOLO, PP-Layout-CDLA, PP-DocLayoutV3, and 12 others.
+Main components: ``LayoutDetector``, ``DetectedRegion``.
 
-Usage::
+Upstream: Rendered page images or char geometry.
 
-    detector = LayoutDetector()           # Default: DOCLAYOUT_DOCSTRUCTBENCH
-    detector = LayoutDetector("cdla")     # Chinese document layout
-    regions = detector.detect(page_image)
-
-Requirements:
-    - rapid-layout  (pip install rapid-layout)
-    - onnxruntime   (already present as a RapidOCR dependency)
+Downstream: ``segment.zone_builder``, ``pipeline.handlers.model_segmentation``.
 """
 
 from __future__ import annotations

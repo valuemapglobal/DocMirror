@@ -5,26 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Header Inferrer Middleware — 基于列签名的表头推断
-==================================================
+Header inferrer middleware — column-signature-based table header detection.
 
-基于第一性原理的表头识别中间件：不依赖词表枚举，而是通过检验"列数据的类型一致性"
-来自然推断表头位置。
-
-Design Principle (道德经):
-    "反者道之动" — 不从表头推数据，而从数据反推表头。
-    "大象无形" — 表头的本质不是有形的词汇，而是无形的类型约束。
-
-Integration:
-    - 在管道中的位置：在表格提取之后，Validator之前
-    - 与现有词表策略并行，采用融合置信度策略
-    - 当两种方法一致时，给予额外置信度奖励
-
-Usage::
-
-    # 自动通过中间件注册使用
-    # 在 pipeline/registry.py 中添加：
-    # "standard": [..., "HeaderInferrer", "Validator"]
+Infers header row positions by testing column type consistency rather than
+matching fixed vocabulary lists. Runs after table extraction and before
+validation; fuses confidence with lexicon-based strategies when both agree.
+Designed to complement, not replace, institution-specific layout profiles.
 """
 
 from __future__ import annotations

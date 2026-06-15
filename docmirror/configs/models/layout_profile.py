@@ -4,7 +4,26 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Layout profile model — SSOT in ``docmirror.configs.models`` (design 09 OQ-4)."""
+"""
+Layout profile model — document template configuration for table extraction.
+
+``LayoutProfile`` is the SSOT Pydantic model (design 09 OQ-4) describing how
+DocMirror should extract tables and entities from a document layout. Profiles
+are stored in ``layout_profiles.yaml`` and selected at runtime by match rules.
+
+Key fields::
+
+    profile_id / inherits          Identity and inheritance chain
+    preferred_table_methods        Ordered extraction layer preference
+    disabled_table_methods         Layers to skip
+    global_column_anchors          X-coordinate column boundaries
+    sidebar_x_ratio                Right-edge crop to exclude sidebar noise
+    institution_variants           Per-bank template overrides (column_map, date_format)
+    match                          Auto-selection rules (text_any, text_all, min_pages)
+
+Helper methods produce dicts compatible with ``TableExtractionHint`` and the
+universal table resolver.
+"""
 
 from __future__ import annotations
 

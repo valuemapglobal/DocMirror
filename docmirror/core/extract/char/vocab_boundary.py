@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Vocabulary-guided column boundary adjustment."""
+"""
+Vocab boundary — adjusts column edges using dictionary word spans.
+
+Purpose: Nudges provisional column boundaries so header vocabulary tokens are
+not split across columns.
+
+Main components: ``_adjust_boundaries_by_vocab``.
+
+Upstream: Provisional boundaries from other char detectors.
+
+Downstream: ``extract.char_strategy`` final boundaries.
+"""
 
 from __future__ import annotations
 

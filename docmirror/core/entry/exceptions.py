@@ -5,34 +5,19 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-DocMirror Exception Hierarchy
-======================================
+Typed exception hierarchy for DocMirror document processing.
 
-Unified typed exception hierarchy, replacing bare Exceptions.
+Purpose: Replaces bare ``Exception`` with specific failure modes (input
+validation, extraction, OCR, layout, middleware) so callers and the
+pipeline can apply targeted recovery strategies.
 
-Hierarchy::
+Main components: ``MultiModalError``, ``InputValidationError``,
+``ExtractionError``, ``OCREngineError``, ``TableExtractionError``,
+``LayoutAnalysisError``.
 
-    MultiModalError (base)
-    ├── InputValidationError   — Constructor Theory guards (impossible transformations)
-    │   ├── FileTooSmallError
-    │   ├── FileTooLargeError
-    │   ├── ResolutionTooLowError
-    │   └── UnsupportedFormatError
-    ├── ExtractionError        — CoreExtractor / Physical extraction failed
-    │   ├── OCREngineError     — OCR engine failed or unavailable
-    │   └── TableExtractionError — Table detection/reconstruction failed
-    ├── LayoutAnalysisError    — Layout analysis / Zone partitioning failed
-    ├── MiddlewareError        — Middleware processing failed (carries middleware_name)
-    ├── ValidationError        — Data validation failed
-    └── SerializationError     — Result serialization failed
+Upstream: Validation guards and pipeline stages on failure.
 
-Design Principle (Deutsch):
-    Each exception type represents a *specific* failure mode that cannot
-    be substituted for another — making error handling 'hard to vary'.
-
-Usage Guide:
-    - Resumable Error: Caught in try/except and add_error(), does not terminate Pipeline
-    - Non-resumable Error: Thrown, processing method determined by the fail_strategy
+Downstream: ``entry.factory``, middleware, and API error responses.
 """
 
 from __future__ import annotations

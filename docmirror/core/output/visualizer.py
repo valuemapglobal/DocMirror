@@ -5,27 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Debug PDF Visualizer
-======================================
+Visualizer — debug PDF overlay of extracted blocks and zones.
 
-Overlay Zone/Block boundaries and annotations on the original PDF,
-outputting a color-coded debug PDF for quick layout analysis inspection.
+Purpose: Renders bounding boxes, zone labels, and block types onto a PDF for
+visual debugging of segmentation and extraction.
 
-Usage::
+Main components: ``render_debug_pdf``.
 
-    from docmirror.core.output.visualizer import render_debug_pdf
-    render_debug_pdf(fitz_doc, pages, Path("output_debug.pdf"))
+Upstream: ``ParseResult`` or ``BaseResult`` with geometry.
 
-Color coding:
-    - table:     blue (#3B82F6)
-    - title:     red (#EF4444)
-    - text:      green (#22C55E)
-    - key_value: orange (#F97316)
-    - footer:    gray (#9CA3AF)
-    - image:     purple (#A855F7)
-    - formula:   cyan (#06B6D4)
+Downstream: Developer debug artifacts, QA review.
 """
-
 
 from __future__ import annotations
 

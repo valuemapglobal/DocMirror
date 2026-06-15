@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Char strategy: _extract_by_rect_columns."""
+"""
+Rect columns — column extraction from vector rectangles.
+
+Purpose: Uses PDF rectangle paths as cell boundaries when tables are drawn
+with explicit rect annotations.
+
+Main components: ``_extract_by_rect_columns``.
+
+Upstream: Fitz vector rect list in zone.
+
+Downstream: ``extract.engine`` vector-table path.
+"""
 
 from __future__ import annotations
 

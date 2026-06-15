@@ -5,21 +5,24 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-ParseResult — Unified Document Parsing Output Contract
-========================================================
+ParseResult — unified document parsing output contract (Mirror Object Contract).
+=================================================================================
 
 The **single standard output model** for all document parsers in DocMirror.
-All parsers (PDF, Image, Excel, Word, etc.) produce this structure.
+All parsers (PDF, image, Excel, Word, etc.) produce this structure.
 
-Architecture:
-    Zone 1 (pages)       → Content: "What I saw"
-    Zone 2 (entities)    → Entities: "What I recognized"
-    Zone 3 (parser_info) → Meta: "How I did it"
-    Zone 4 (trust)       → Trust: "How much to trust it"
-    Zone 5 (provenance)  → Provenance: "Where it came from"
+Architecture zones::
 
-Design principles:
-    - **Strong typing**: No ``Dict[str, Any]`` — every field has a Pydantic type.
+    Zone 1 (pages)       Content: "What I saw" — pages, blocks, tables, cells
+    Zone 2 (entities)    Entities: "What I recognized" — document_type, KV fields
+    Zone 3 (parser_info) Meta: "How I did it" — parser name, timing, middleware trace
+    Zone 4 (trust)       Trust: "How much to trust it" — forgery detection, scores
+    Zone 5 (provenance)  Provenance: "Where it came from" — file path, hash, MIME
+    annex (optional)     EHL debug/eval data — hypotheses, evidence, quality reports
+
+Design principles::
+
+    - **Strong typing**: Every field has a Pydantic type (no bare ``Dict[str, Any]``).
     - **Confidence penetration**: Cell → Row → Table → Page → Document.
     - **Separation of concerns**: Content / Entities / Meta are independent zones.
     - **Parser-agnostic**: DocMirror, Docling, PaddleOCR all output this structure.
@@ -421,6 +424,9 @@ class ParserInfo(BaseModel):
 
     overall_confidence: float = 1.0
     warnings: list[str] = Field(default_factory=list)
+
+    # ADR-M13-02: Structure Provenance Envelope (SSO / SDU audit)
+    structure: dict[str, Any] | None = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -824,7 +830,9 @@ class ParseResult(BaseModel):
 
         # Section tree (populated by SectionDrivenStrategy for section_dominant docs)
         if self.sections:
-            document["sections"] = self.sections
+            document["sections"] = [
+                sec.model_dump() if hasattr(sec, "model_dump") else sec for sec in self.sections
+            ]
 
         if include_text:
             document["text"] = self._build_full_text()
@@ -859,14 +867,16 @@ class ParseResult(BaseModel):
             meta["table_engine"] = self.parser_info.table_engine
         if self.parser_info.ocr_engine:
             meta["ocr_engine"] = self.parser_info.ocr_engine
+        if self.parser_info.structure:
+            meta["structure"] = self.parser_info.structure
         if self.provenance:
             meta["provenance"] = self.provenance.model_dump(exclude_none=True)
 
         # ── Standard RESTful envelope ──
-        # Top-level: code + message + request_id + timestamp (first thing consumer sees)
-        # Then: data (business payload) + meta (parser diagnostics)
+        from docmirror.models.serialization import to_json_safe
+
         if self.success:
-            return {
+            payload = {
                 "code": 200,
                 "message": "success",
                 "api_version": "1.0",
@@ -880,7 +890,7 @@ class ParseResult(BaseModel):
             }
         else:
             error_msg = self.error.message if self.error else "parse failed"
-            return {
+            payload = {
                 "code": 422,
                 "message": "error",
                 "api_version": "1.0",
@@ -892,6 +902,7 @@ class ParseResult(BaseModel):
                 },
                 "meta": meta,
             }
+        return to_json_safe(payload)
 
     # ── Legacy bridge ──
 

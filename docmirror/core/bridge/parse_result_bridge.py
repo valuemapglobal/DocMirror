@@ -5,15 +5,19 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-ParseResult Bridge — Core-extraction boundary only (MOC, design 09 §4 / Appendix C)
-==================================================================================
+ParseResult bridge — maps frozen BaseResult to public ParseResult entities.
 
-**Allowed conversion** (Path B adapters only):
+Purpose: Assembles pages, blocks, tables, and metadata from the internal
+``BaseResult`` representation into the framework ``ParseResult`` model,
+including logical-table composition hooks.
 
-    BaseResult  →  ParseResult   via ``from_base_result()``
-    ParseResult   →  BaseResult   via ``to_base_result()`` (legacy Excel fallback only)
+Main components: ``ParseResultBridge``, ``_blocks_to_pages``,
+``_compose_logical_tables``.
 
-Primary entry: ``CoreExtractor.extract_parse_result()``.
+Upstream: ``extraction.extractor`` (``BaseResult``), ``table.compose``,
+``table.merge``.
+
+Downstream: ``entry.factory``, ``output`` exporters, plugins.
 """
 
 from __future__ import annotations
@@ -203,6 +207,7 @@ class ParseResultBridge:
                 parser=meta.get("parser", ""),
                 elapsed_ms=meta.get("elapsed_ms", 0),
                 page_count=len(base.pages),
+                structure=meta.get("structure"),
             ),
             sections=meta.get("sections", []),
         )

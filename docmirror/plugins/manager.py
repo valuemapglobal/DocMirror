@@ -5,11 +5,21 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Plugin Manager
-==============
+Plugin manager — registry-driven enable/disable lifecycle for domain plugins.
 
-Registry-driven plugin lifecycle: list / enable / disable registered domains.
-Enable state is stored in ``.plugin_state.json`` (no directory renames).
+Exposes CLI-friendly list/status/enable/disable operations over domains registered
+in ``registry``. Enable flags persist in ``.plugin_state.json`` beside this package
+(via ``state``); disabled domains are skipped by ``community`` discovery and
+``runner`` extract.
+
+Pipeline role: administrative layer only — does not run extract. ``list_community``
+covers the six premium plus generic fallback; ``list_all`` includes enterprise/finance
+plugins when those packages are installed.
+
+Key exports: ``PluginManager``, ``plugin_manager``.
+
+Dependencies: ``community.list_community_plugin_domains``, ``state`` (persistence),
+``registry`` (domain metadata and edition list).
 """
 
 from __future__ import annotations

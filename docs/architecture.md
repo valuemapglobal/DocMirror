@@ -256,6 +256,7 @@ DocMirror uses a two-level identifier system for CLI / server disk export.
 | Table layer (physical + logical) | [05_table_layer_first_principles_redesign.md](../design/05_table_layer_first_principles_redesign.md) |
 | Core extraction / EPO | [06_core_extraction_first_principles_redesign.md](../design/06_core_extraction_first_principles_redesign.md) |
 | Core module layout / CPA | [12_core_module_architecture_first_principles_redesign.md](../design/12_core_module_architecture_first_principles_redesign.md) |
+| Mirror layer / SSO · SPE · SDU | [13_mirror_layer_first_principles_redesign.md](../design/13_mirror_layer_first_principles_redesign.md) |
 | L0 adapter / FCR | [07_adapter_dispatcher_first_principles_redesign.md](../design/07_adapter_dispatcher_first_principles_redesign.md) |
 | Mirror middleware / MEP + PEC | [08_middleware_layer_first_principles_redesign.md](../design/08_middleware_layer_first_principles_redesign.md) |
 | Community vs Enterprise | [community-vs-enterprise-edition.md](../design/community-vs-enterprise-edition.md) |

@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Summary-zone KV extraction (page assemble, not TNP normalize)."""
+"""
+KV summary stage helpers — preamble key-value extraction from table surrounds.
+
+Purpose: Extracts summary entities and embedded KV segments above/below tables
+(total amounts, counts, date ranges).
+
+Main components: ``_extract_preamble_kv``, ``_find_embedded_kv_by_keywords``.
+
+Upstream: Table block with preamble rows.
+
+Downstream: ``key_value`` blocks inserted before tables.
+"""
 
 from __future__ import annotations
 

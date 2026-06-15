@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Passport Domain Plugin (Community Edition)
-===========================================
+Archived passport community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` for passport documents with identity field mapping
+and ``build_domain_data`` KV output. Not shipped in current community edition.
+
+Pipeline role: none — reference only.
+
+Key exports: ``PassportPlugin``, ``plugin``.
 """
 
 from __future__ import annotations

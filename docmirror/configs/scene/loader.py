@@ -4,7 +4,25 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Single loader for classification/scene_keywords.yaml (shared corpus)."""
+"""
+Scene keyword loader — single source for ``scene_keywords.yaml``.
+
+Loads and caches the classification keyword corpus shared by the EvidenceEngine,
+scene detector middleware, domain plugins, and DTI validators. The YAML structure
+is ``scene_keywords: {scene_name: {include: [...], exclude: [...]}}``.
+
+Caching::
+
+    Module-level mtime cache avoids re-parsing on every lookup. Call
+    ``invalidate_scene_cache()`` in tests or after YAML edits.
+
+Derived views::
+
+    ``get_scene_includes`` / ``get_scene_excludes`` filter by minimum keyword length.
+    ``get_plugin_scene_keywords`` produces immutable tuples for plugin registration.
+    ``compute_keyword_uniqueness`` returns inverse document-frequency weights used
+    as softmax priors in evidence scoring.
+"""
 
 from __future__ import annotations
 

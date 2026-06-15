@@ -4,7 +4,26 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Hypothesis layer models for Evidence-First Parsing Architecture (L3)."""
+"""
+Hypothesis layer models for Evidence-First Parsing Architecture (L3).
+
+Structural interpretation candidates that sit above physical evidence (L1)
+and below committed parse results. Hypotheses represent competing interpretations
+(table boundaries, KV pairs, document type, merge candidates) with confidence
+scores and evidence ID back-references.
+
+Types::
+
+    KeyValueCandidate       KV pair interpretation (does not replace mirror text)
+    ParseHypothesis         Generic candidate (kind, payload, confidence, selected flag)
+    TableHypothesis         Table extraction candidate with structure metadata
+    MergeHypothesis         Cross-page table merge candidate
+    LogicalNodeHypothesis   Section/cover/appendix logical node (L6)
+    RelationHypothesis      Logical relation edge between nodes (L6 debug export)
+
+Hypotheses are stored on ``ParseResult.annex`` for debug/eval and excluded from
+production mirror serialization unless explicitly promoted.
+"""
 
 from __future__ import annotations
 

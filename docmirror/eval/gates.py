@@ -4,7 +4,14 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Quality gate profiles and failure attribution (EFPA CCC-5)."""
+"""
+Quality gate profiles and failure attribution (EFPA CCC-5).
+
+Defines gate tiers (extract, mirror, semantic, licensing), oracle modes for
+expected row counts, and ``FailureClass`` taxonomy so benchmark and TQG runs
+can attribute misses to adapter, middleware, or plugin layers. Gate YAML
+profiles are loaded from ``configs/yaml/test/gates/``.
+"""
 
 from __future__ import annotations
 

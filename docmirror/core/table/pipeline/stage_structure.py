@@ -1,6 +1,18 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""TNP structure stage — column split, junk filter, cell cleaning."""
+"""
+Table pipeline structure stage — data row cleanup and column repairs.
+
+Purpose: Splits merged columns, repairs split numbers, filters junk rows, and
+applies structure fixes before domain hooks.
+
+Main components: ``run`` (structure stage), ``filter_junk_rows``,
+``apply_structure_fixes``.
+
+Upstream: Header-normalized table.
+
+Downstream: ``stage_domain``, ``table.table_structure_fix``.
+"""
 
 from __future__ import annotations
 

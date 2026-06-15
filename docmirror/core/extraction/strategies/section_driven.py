@@ -5,21 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Section-Driven Extraction Strategy
-===================================
+Section-driven extraction strategy — header/section tree parsing.
 
-Generic extraction strategy for **section-dominant documents** — any document
-organized by hierarchical numbered sections (e.g. credit reports, audit
-reports, evaluation reports, legal/regulatory documents).
+Purpose: Builds a section tree from detected headings and extracts content
+block-by-block for documents with strong hierarchical structure (reports,
+policies).
 
-Architecture:
-    1. Extract full text layer (zero OCR cost for digital PDFs)
-    2. Filter watermarks and repeated stamps
-    3. Scan section headers → build document structure tree
-    4. Per-section content → Block/PageLayout assembly
-    5. Output standard 6-tuple for downstream pipeline
+Main components: ``SectionDrivenStrategy``.
 
-Performance: ~100-200ms for typical 10-25 page documents (vs 20s+ generic pipeline).
+Upstream: ``strategy_registry`` selection, ``PreAnalysisResult``.
+
+Downstream: ``BaseResult`` blocks via ``CoreExtractor`` strategy path.
 """
 
 from __future__ import annotations
@@ -340,6 +336,69 @@ def _sections_to_pages(sections: list[dict], total_pages: int) -> tuple[list, st
     return pages, full_text
 
 
+def _fitz_raw_full_text(fitz_doc: Any) -> str:
+    """Concatenate all page text layers (for SDU enrich — Phase 3)."""
+    parts: list[str] = []
+    for idx in range(len(fitz_doc)):
+        parts.append(fitz_doc[idx].get_text())
+    return "\n\n".join(parts)
+
+
+def _enrich_pages_with_pipe_tables(pages: list, detect_text: str) -> tuple[list, bool]:
+    """Add pipe grid table blocks when embedded in section-led documents (Phase 3)."""
+    from docmirror.core.analyze.sso_config import pipe_grid_enrich_threshold
+    from docmirror.core.table.structure_detect import build_pipe_table_from_text, detect_pipe_grid_in_text
+    from docmirror.models.entities.domain import Block, PageLayout
+
+    threshold = pipe_grid_enrich_threshold()
+    signal = detect_pipe_grid_in_text(detect_text)
+    if signal.confidence < threshold:
+        return pages, False
+
+    built = build_pipe_table_from_text(detect_text)
+    if not built or not built[0]:
+        return pages, False
+
+    table = built[0]
+    target_page = 1
+    max_reading = -1
+    for page in pages:
+        if page.blocks:
+            ro = max(b.reading_order for b in page.blocks)
+            if ro > max_reading:
+                max_reading = ro
+                target_page = page.page_number
+
+    enriched_pages: list = []
+    did_enrich = False
+    for page in pages:
+        if page.page_number != target_page:
+            enriched_pages.append(page)
+            continue
+        reading_order = max((b.reading_order for b in page.blocks), default=-1) + 1
+        table_block = Block._fast(
+            block_id=str(uuid.uuid4())[:8],
+            block_type="table",
+            raw_content=table,
+            reading_order=reading_order,
+            page=page.page_number,
+        )
+        new_blocks = tuple(list(page.blocks) + [table_block])
+        enriched_pages.append(
+            PageLayout(
+                page_number=page.page_number,
+                width=getattr(page, "width", 0.0),
+                height=getattr(page, "height", 0.0),
+                blocks=new_blocks,
+                semantic_zones=getattr(page, "semantic_zones", {}),
+                is_scanned=getattr(page, "is_scanned", False),
+            )
+        )
+        did_enrich = True
+
+    return enriched_pages, did_enrich
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Strategy Implementation
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -390,6 +449,10 @@ class SectionDrivenStrategy(BaseExtractionStrategy):
         _t = time.perf_counter()
         total_pages = len(fitz_doc)
         pages, full_text = _sections_to_pages(sections, total_pages)
+        raw_full_text = _fitz_raw_full_text(fitz_doc)
+        pages, pipe_enriched = _enrich_pages_with_pipe_tables(pages, raw_full_text)
+        if pipe_enriched:
+            _perf["pipe_table_enrich"] = True
         _perf["block_assembly_ms"] = (time.perf_counter() - _t) * 1000
 
         # Step 4: Assemble result

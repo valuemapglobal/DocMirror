@@ -1,6 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+Zone segment — top-level page → zones entry point.
+
+Purpose: Primary API called by ``page_segment`` to partition a page into
+semantic zones, optionally applying cross-page templates.
+
+Main components: ``segment_page_into_zones``.
+
+Upstream: ``pipeline.stages.page_segment``, ``FitzEngine`` page.
+
+Downstream: ``pipeline.handlers``, ``segment.zone_template``.
+"""
+
 from __future__ import annotations
 
 import logging

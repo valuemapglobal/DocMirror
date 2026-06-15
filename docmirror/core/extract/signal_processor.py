@@ -5,18 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Dual-Axis Signal Processor for Table Extraction
-==================================================
+Signal processor — projection-based table extraction from char signals.
 
-Replaces 4 parallel char-level extraction methods with a single-pass
-1D signal processing approach:
+Purpose: Projects chars to axes, detects valleys, builds grids, and extracts
+tables when ruled lines are absent (borderless path).
 
-  1. **X-axis projection**: Character density histogram → column boundaries
-  2. **Y-axis projection**: Character density histogram → row boundaries
-  3. **Grid assembly**: bisect-based cell binning → 2D table
+Main components: ``extract_table_by_signal``, ``project_chars_to_axes``,
+``build_grid``.
 
-All algorithms are O(n) in character count, CPU-only, no external
-dependencies beyond the Python standard library.
+Upstream: Zone char dicts, ``segment.negative_space`` profiles.
+
+Downstream: ``extract.engine`` tier 3, ``pipeline.handlers.fallback_table``.
 """
 
 from __future__ import annotations

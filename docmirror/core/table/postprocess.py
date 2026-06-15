@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Table post-processing facade — TNP stage modules are SSOT (CPA design 12)."""
+"""
+Table postprocess — entry hook for full table normalization pipeline.
+
+Purpose: Wraps ``table.pipeline.normalize_table`` as the single post-extraction
+table cleanup entry used by handlers and postprocessor.
+
+Main components: ``post_process_table``.
+
+Upstream: Raw extracted table grids.
+
+Downstream: ``table.pipeline`` stages, ``table.compose``.
+"""
 
 from __future__ import annotations
 

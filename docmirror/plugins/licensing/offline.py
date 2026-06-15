@@ -5,33 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Offline License Manager
-=======================
+Offline license manager for air-gapped deployments.
 
-Supports offline license validation for air-gapped environments.
+Loads and validates signed ``.lic`` files with optional machine binding, long
+validity periods, and post-expiry grace windows. Maintains an in-memory list of
+license files and answers ``is_licensed(feature)`` queries.
 
-Features:
-- License file (.lic) loading and validation
-- Offline verification with cryptographic signature
-- Long validity period (1-3 years)
-- Grace period after expiration (30 days)
-- Machine binding (optional)
-- Batch license management
+Pipeline role: ``entitlements.is_entitled`` checks offline licenses first;
+``snapshot.resolve_license_snapshot`` merges offline state for CLI display.
 
-Usage:
-    from docmirror.plugins.licensing.offline import offline_license_manager
+Key exports: ``LicenseFile``, ``OfflineLicenseManager``, ``offline_license_manager``.
 
-    # Load license file
-    offline_license_manager.load_license("/path/to/license.lic")
-
-    # Check if plugin is licensed
-    if offline_license_manager.is_licensed("bank_statement_premium"):
-        print("✅ Licensed")
-
-    # Get license info
-    info = offline_license_manager.get_license_info()
-    print(f"Expires: {info['expires_at']}")
-    print(f"Grace period: {info['grace_period_days']} days")
+Dependencies: stdlib crypto helpers (hash/base64), local filesystem for ``.lic`` paths.
 """
 
 from __future__ import annotations

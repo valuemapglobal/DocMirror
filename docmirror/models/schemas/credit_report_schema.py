@@ -1,8 +1,14 @@
 """
-Credit Report Schema Definition
-===============================
-Provides absolute typing bounds, defaults, and dirty-data auto-cleansing
-for the extremely complex Credit Report L2 JSON payload.
+Credit report schema definition — typed bounds and dirty-data cleansing.
+
+Provides absolute typing bounds, defaults, and auto-cleansing for the complex
+Credit Report L2 JSON payload produced by credit-report domain plugins.
+
+Uses Pydantic sub-models (``SubjectInfo``, ``BasicInfo``, …) with ``extra="allow"``
+for flexible keys that change between report versions. Validators normalize
+common dirty-data patterns (whitespace, date formats, numeric strings).
+
+Registered in ``schemas/registry.yaml`` for DEC validation via ``validate_dec``.
 """
 
 import re

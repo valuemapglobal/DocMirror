@@ -5,25 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Pre-analyzer (PreAnalyzer)
-========================
+Pre-analyzer — fast document-level triage before full extraction.
 
-Corresponds to human cognition stage 2: "quickly flip through
-the document before detailed analysis."
+Purpose: Samples text layer, page count, and visual cues to produce
+``PreAnalysisResult`` (digital vs scanned, language hints, quality signals)
+used for profile binding and router decisions.
 
-Obtains a "first impression" of a document at minimal cost (~10ms)
-before layout analysis:
+Main components: ``PreAnalyzer``, ``PreAnalysisResult``.
 
-    1. Text layer check:       digital vs scanned
-    2. Page count:             scale estimation
-    3. First page content:     table-dominant vs text-dominant vs mixed
-    4. Quality assessment:     text clarity / layout regularity
-    5. Complexity assessment:  decide compute budget
-    6. Strategy recommendation: fast / standard / deep
+Upstream: ``FitzEngine`` / ``CoreExtractor`` on document open.
 
-Output ``PreAnalysisResult`` (frozen) is stored in
-``BaseResult.metadata`` for Orchestrator and Middleware to tune
-their parameters dynamically.
+Downstream: ``pipeline.document_profile``, ``scene.scene_resolver``,
+``resolution.document_type_resolver``.
 """
 
 from __future__ import annotations
@@ -115,6 +108,9 @@ class PreAnalysisResult:
     # Downstream extractor can skip redundant find_tables() for cached pages.
     table_detection_cache: tuple = ()
 
+    # SSO / SPE snapshot (ADR-M13-02)
+    structure_spe: dict = dataclasses.field(default_factory=dict)
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict for storage in BaseResult.metadata."""
         return dataclasses.asdict(self)
@@ -135,6 +131,9 @@ class PreAnalyzer:
         result = pre.analyze(fitz_doc)
         # result.recommended_strategy -> "fast" / "standard" / "deep"
     """
+
+    def __init__(self):
+        self._last_structural_verdict = None
 
     def analyze(self, fitz_doc) -> PreAnalysisResult:
         """
@@ -158,46 +157,24 @@ class PreAnalyzer:
         first_page_preview = fitz_doc[0].get_text()[:200].strip()
 
         # ══════════════════════════════════════════════════════════════
-        # Phase 1: Lightweight section header scan (~5ms)
+        # Phase 1: Lightweight section header scan + scene (no early exit)
         # ══════════════════════════════════════════════════════════════
         section_header_count = 0
+        sample_text_parts: list[str] = []
         if has_text:
             for idx in range(min(3, num_pages)):
                 page_text = fitz_doc[idx].get_text()
+                sample_text_parts.append(page_text)
                 section_header_count += self._count_section_headers(page_text)
+
+        sample_text = "\n".join(sample_text_parts)
 
         # Early scene detection
         scene_hint, template_confidence = self._detect_scene_hint(first_page_preview)
         detected_language = self._detect_language(first_page_preview)
 
-        # Phase 1 early exit: section_dominant detected → skip expensive analysis
-        if has_text and section_header_count >= 3:
-            content_type = "section_dominant"
-            complexity = "medium" if num_pages <= 50 else "complex"
-
-            logger.info(
-                f"[DocMirror] PreAnalyzer ▶ FAST PATH | "
-                f"pages={num_pages} | type={content_type} | "
-                f"section_headers={section_header_count} | "
-                f"lang={detected_language} | scene={scene_hint}"
-            )
-
-            return PreAnalysisResult(
-                has_text_layer=True,
-                num_pages=num_pages,
-                content_type=content_type,
-                quality_score=1.0,  # digital text = high quality
-                complexity_level=complexity,
-                recommended_strategy="fast",
-                first_page_preview=first_page_preview,
-                layout_homogeneous=False,
-                detected_language=detected_language,
-                scene_hint=scene_hint,
-                template_confidence=template_confidence,
-            )
-
         # ══════════════════════════════════════════════════════════════
-        # Phase 2: Full page analysis (non-section-dominant documents)
+        # Phase 2: Full page analysis
         # ══════════════════════════════════════════════════════════════
 
         # -- Step 2: First page analysis --
@@ -213,9 +190,9 @@ class PreAnalyzer:
         page_fingerprints: list[tuple] = []  # for layout homogeneity check
 
         # Scan at most first 10 pages + last 2 pages (typical for bank statements)
-        sample_pages = list(range(min(10, num_pages)))
-        if num_pages > 10:
-            sample_pages.extend([num_pages - 2, num_pages - 1])
+        from docmirror.core.analyze.structure_signals import sso_sample_page_indices
+
+        sample_pages = sso_sample_page_indices(num_pages)
 
         for idx in sample_pages:
             if idx >= num_pages:
@@ -235,8 +212,8 @@ class PreAnalyzer:
         # -- Step 3.5: Layout homogeneity check --
         layout_homogeneous = self._check_layout_homogeneity(page_fingerprints)
 
-        # -- Step 4: Content type determination --
-        content_type = self._determine_content_type(
+        # -- Step 4: Content type determination (legacy heuristics) --
+        legacy_content_type = self._determine_content_type(
             has_text,
             text_density,
             first_page_stats,
@@ -244,6 +221,33 @@ class PreAnalyzer:
             scanned_pages,
             len(sample_pages),
         )
+
+        # -- Step 4b: SSO overrides legacy content_type (ADR-M13-01) --
+        from docmirror.core.analyze.structural_classifier import (
+            classify_structure,
+            content_type_from_verdict,
+        )
+        from docmirror.core.analyze.structure_signals import build_sso_sample_text
+
+        if has_text:
+            sample_text = build_sso_sample_text(fitz_doc, num_pages)
+
+        structural_verdict = classify_structure(
+            sample_text=sample_text,
+            scene_hint=scene_hint,
+            table_pages=table_pages,
+            sample_size=len(sample_pages),
+            scanned_pages=scanned_pages,
+            has_text=has_text,
+        )
+        content_type = content_type_from_verdict(structural_verdict)
+        if content_type == "unknown":
+            content_type = legacy_content_type
+        elif structural_verdict.primary == "mixed" and legacy_content_type != "unknown":
+            content_type = legacy_content_type
+
+        # Attach verdict for extractor SPE (avoid duplicate SSO)
+        self._last_structural_verdict = structural_verdict
 
         # -- Step 5: Quality assessment --
         quality_score = self._assess_quality(
@@ -296,6 +300,7 @@ class PreAnalyzer:
             table_detection_cache=tuple(table_detection_pairs),
             scene_hint=scene_hint,
             template_confidence=template_confidence,
+            structure_spe=structural_verdict.spe.to_dict(),
         )
 
         logger.info(

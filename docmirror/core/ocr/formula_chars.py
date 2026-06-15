@@ -5,19 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Formula Character Stream Extraction
-=====================================
+Formula chars — char-level LaTeX reconstruction for math zones.
 
-K1: Extract LaTeX directly from PDF character streams, bypassing OCR.
+Purpose: Groups math-font chars into rows, estimates baselines, and emits
+LaTeX strings for formula blocks.
 
-Principle:
-    Academic-paper PDFs embed formula characters using math fonts
-    (CMMI, CMSY, Symbol, Cambria Math, etc.) as Unicode code points.
-    By detecting math font names and mapping Unicode → LaTeX commands,
-    we can reconstruct LaTeX from the character stream with 100 %
-    accuracy for digitally authored PDFs.
+Main components: ``extract_formula_from_chars``, ``is_math_font``,
+``_row_to_latex``.
 
-    Priority: character-stream extraction > OCR image recognition > empty string
+Upstream: Formula zone char dicts.
+
+Downstream: ``ocr.formula_engine``, ``pipeline.handlers.formula_zone``.
 """
 
 from __future__ import annotations

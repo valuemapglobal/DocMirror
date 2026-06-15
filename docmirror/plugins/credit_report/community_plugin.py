@@ -5,11 +5,19 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Credit Report Domain Plugin (Community Edition)
-================================================
+Credit report community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Premium community plugin for personal credit reports (key-value archetype). Extracts
+identity fields (name, ID number, report time), optional lightweight section hints,
+and table records via shared KV extract helpers.
+
+Pipeline role: ``runner`` community path; ``post_extract.hooks.credit_sections`` may
+attach full sections to Mirror when enterprise splitter is available.
+
+Key exports: ``CreditReportPlugin``, ``plugin``.
+
+Dependencies: ``DomainPlugin``, ``dec_builder``, ``kv_community_extract``,
+``kv_community_enrich.enrich_credit_report_output``.
 """
 
 from __future__ import annotations

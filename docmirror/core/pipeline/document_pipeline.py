@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Document-level pipeline orchestration (CPA design 12)."""
+"""
+Document-level pipeline — profile binding and logical table composition.
+
+Purpose: Orchestrates document-wide steps after sync extraction: early profile
+bind (Step 0) and non-destructive logical table composition (Step 4.5).
+
+Main components: ``DocumentPipeline``.
+
+Upstream: ``CoreExtractor``, ``pipeline.document_profile``.
+
+Downstream: ``bridge.parse_result_bridge``, ``table.compose``, ``table.merge``.
+"""
 
 from __future__ import annotations
 

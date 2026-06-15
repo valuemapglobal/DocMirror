@@ -5,7 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-HTML utility functions for extraction.
+HTML utilities — plain-text and table parsing from HTML fragments.
+
+Purpose: Strips HTML to text and parses simple HTML tables into key-value
+pairs when extraction backends return markup.
+
+Main components: ``strip_html_to_plain_text``, ``parse_html_tables_to_key_value``.
+
+Upstream: ``extract.layers.backends`` HTML table paths.
+
+Downstream: ``extract.engine`` cell normalization.
 """
 
 from __future__ import annotations

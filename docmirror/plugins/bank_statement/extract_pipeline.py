@@ -55,6 +55,8 @@ def enrich_identity_fields(
 
 def collect_extract_warnings(ctx: StyleContext, style_meta: StyleMeta) -> list[str]:
     """LTRO / coverage warnings shared across editions."""
+    from docmirror.core.analyze.spe_consumer import read_structure_spe, spe_ltro_warnings
+
     warnings: list[str] = []
     if ctx.reconstruction and ctx.reconstruction.pipe_parse_failed:
         warnings.append("pipe_parse_failed:no_silent_ocr_fallback")
@@ -62,6 +64,10 @@ def collect_extract_warnings(ctx: StyleContext, style_meta: StyleMeta) -> list[s
     extracted = style_meta.extracted_rows
     if expected > 0 and extracted / expected < 0.8:
         warnings.append("low_coverage:bank_ledger")
+    if ctx.parse_result is not None:
+        spe = read_structure_spe(ctx.parse_result)
+        source = style_meta.reconstruction_source or (ctx.reconstruction.source if ctx.reconstruction else "")
+        warnings.extend(spe_ltro_warnings(spe, source))
     return warnings
 
 

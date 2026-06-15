@@ -1,12 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build and write multi-edition JSON outputs (04 CLI four-file contract)."""
+"""
+Multi-edition JSON output writer for CLI and API consumers.
+
+Implements the four-file contract documented in design 04: given a
+``ParseResult``, builds mirror, community, enterprise, and finance edition
+payloads via ``output_builder`` and writes them to a timestamped task
+directory with stable ``task_id``, ``file_id``, and ``document_id`` fields.
+"""
 
 from __future__ import annotations
 
 import importlib
-import json
+from docmirror.models.serialization import dumps_json
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -67,7 +74,7 @@ def write_four_files(
     mirror["metadata"]["task_id"] = task_id
     mirror["metadata"]["file_id"] = file_id
     mirror_path = task_dir / f"{file_id}_mirror.json"
-    mirror_path.write_text(json.dumps(mirror, ensure_ascii=False, indent=2), encoding="utf-8")
+    mirror_path.write_text(dumps_json(mirror, ensure_ascii=False, indent=2), encoding="utf-8")
     written["mirror"] = mirror_path
 
     for edition, builder in (
@@ -88,7 +95,7 @@ def write_four_files(
         payload["metadata"]["task_id"] = task_id
         payload["metadata"]["file_id"] = file_id
         out_path = task_dir / f"{file_id}_{edition}.json"
-        out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        out_path.write_text(dumps_json(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         written[edition] = out_path
 
     return task_id, written

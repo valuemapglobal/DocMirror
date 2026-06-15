@@ -1,7 +1,13 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Structured data deserializers — JSON, CSV, XML, plain text."""
+"""
+Structured data deserializers for JSON, CSV, XML, and plain text.
+
+Pluggable readers that convert machine-readable interchange files into
+``TextBlock``, ``TableBlock``, and ``KeyValuePair`` structures consumed by
+``StructuredAdapter``. Keeps format-specific parsing out of the adapter class.
+"""
 
 from __future__ import annotations
 

@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Payroll Slip Domain Plugin (Community Edition)
-===============================================
+Archived payroll slip community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` for salary/payroll slip documents. Archived when
+community scope narrowed to six premium domains plus generic fallback.
+
+Pipeline role: none — not discovered by ``plugin_registry``.
+
+Key exports: ``PayrollSlipCommunityPlugin``, ``plugin``.
 """
 
 from __future__ import annotations

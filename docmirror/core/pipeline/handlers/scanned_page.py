@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Scanned page OCR extraction handler."""
+"""
+Scanned page handler — full-page OCR path for image-only pages.
+
+Purpose: Routes scanned or low-text pages through ``ocr.pipeline.run_scanned_page``
+and assembles OCR-derived blocks.
+
+Main components: ``extract_scanned_page``.
+
+Upstream: Quality router scanned/digital-low-text decision.
+
+Downstream: ``ocr.pipeline``, ``ocr.scanned.analyze_page``.
+"""
 
 from __future__ import annotations
 

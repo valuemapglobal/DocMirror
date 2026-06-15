@@ -1,7 +1,22 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""KV community plugin extract helper (premium L2 key-value documents)."""
+"""
+KV community plugin extract helper for premium L2 key-value documents.
+
+Builds v2.0 community edition output for plugins whose primary archetype is
+key-value (VAT invoice, business license, credit report): match identity labels
+against Mirror KV pairs and entities, collect table records as structured data,
+and serialize via ``edition_serializer``.
+
+Pipeline role: called from domain ``community_plugin.extract_from_mirror`` methods;
+``runner`` may also reach KV output through ``build_domain_data`` + ``dec_builder``.
+
+Key exports: ``extract_kv_community_output``.
+
+Dependencies: ``generic_mirror_adapter`` (field/record collectors),
+``models.edition_serializer``, ``models.entities.domain_result``.
+"""
 
 from __future__ import annotations
 

@@ -5,12 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Image Preprocessing for OCR
-============================
+OCR image preprocessing — deskew, upscale, and binarization for OCR.
 
-Two preprocessing strategies for scanned document images:
-  - **Strategy A (full)**: Heavy preprocessing with binarisation.
-  - **Strategy B (minimal)**: Light preprocessing preserving gradients.
+Purpose: Prepares BGR page/zone images (minimal and full pipelines) before
+recognition engines run.
+
+Main components: ``preprocess_image_for_ocr``, ``preprocess_minimal``,
+``deskew_image``.
+
+Upstream: Rendered fitz page images.
+
+Downstream: ``ocr.vision.rapidocr_engine``, ``ocr.preprocess.legacy_fallback``.
 """
 
 from __future__ import annotations

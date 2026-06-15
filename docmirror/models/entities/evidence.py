@@ -4,7 +4,21 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Physical evidence models for Evidence-First Parsing Architecture (L1)."""
+"""
+Physical evidence models for Evidence-First Parsing Architecture (L1).
+
+Typed Pydantic models representing atomic evidence units and trust signals
+attached to parse results for provenance tracing and debug export.
+
+Types::
+
+    EvidenceSpan       Atomic evidence unit with stable ID, bbox, confidence, source
+    TrustEvidence      Unified trust/forgery evidence (score, reasons, file hash)
+    EvidenceSummary    Lightweight index (counts by source/page) for ParseResult annex
+
+``EvidenceSpan.source`` is one of ``pdf_text``, ``ocr``, ``layout_model``, or
+``derived``. Spans are referenced by ID from hypothesis and mutation records.
+"""
 
 from __future__ import annotations
 

@@ -1,7 +1,25 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Load and validate middleware_catalog.yaml (MEP SSOT)."""
+"""
+Middleware catalog loader and validator — MEP single source of truth.
+
+Loads ``middleware_catalog.yaml`` into ``MiddlewareSpec`` records describing each
+middleware's Python module, class name, pipeline stage, dependencies, conditional
+``when`` guard expression, and enabled flag.
+
+Key functions::
+
+    load_catalog()              LRU-cached dict of name → ``MiddlewareSpec``
+    get_middleware_class()      Import and verify ``BaseMiddleware`` subclass
+    get_middleware_stage()      Return stage string for ordering
+    list_catalog_names()        Sorted catalog keys
+    validate_catalog()          Verify imports and enhancement profile references
+
+``validate_catalog`` cross-checks that every middleware referenced in
+``enhancement_profiles.yaml`` exists in the catalog and is importable, catching
+configuration drift at startup or in CI.
+"""
 
 from __future__ import annotations
 

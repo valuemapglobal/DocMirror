@@ -4,7 +4,14 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Multi-file package manifest (L20 file bundle intelligence)."""
+"""
+Multi-file package manifest builder (L20 file-bundle intelligence).
+
+Aggregates ``FileRegistryEntry`` records into a ``PackageManifest`` describing
+related uploads (e.g., statement plus attachments). Supports consistency
+checks across member files and feeds the cross-file hypothesis engine in
+``consistency.py``.
+"""
 
 from __future__ import annotations
 

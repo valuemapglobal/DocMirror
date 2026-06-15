@@ -4,7 +4,27 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""ExtractionProfile — document-scoped orchestration for Core Extract (EPO)."""
+"""
+ExtractionProfile — document-scoped orchestration for Core Extract (EPO).
+
+Extends ``LayoutProfile`` with extraction-engine policy fields that control
+page segmentation, best-candidate selection (BCS), normalization hooks, and
+quality gates. All new fields default to values preserving generic pre-EPO
+behaviour so existing profiles upgrade transparently.
+
+Key policy areas::
+
+    segmentation_mode          ZONE, FULL_PAGE_TABLE, or SECTION page splitting
+    min_confidence_to_accept   Layer acceptance threshold (borderless ledgers: 0.85)
+    enable_best_candidate_selection / bcs_oracle_layer   Multi-engine oracle path
+    normalize_intracellular_newlines / collapse_duplicate_spaces   Cell cleanup
+    merge_quarantine_on_col_mismatch   Cross-page merge safety
+    enable_global_grid_tensor  Expensive char-scan signal (auto-disabled for oracle paths)
+
+``from_layout_profile`` upgrades a base ``LayoutProfile`` to ``ExtractionProfile``
+idempotently. Predicate helpers (``is_full_page_table``, ``needs_global_grid_tensor``,
+``should_use_bcs``) encapsulate common routing decisions.
+"""
 
 from __future__ import annotations
 

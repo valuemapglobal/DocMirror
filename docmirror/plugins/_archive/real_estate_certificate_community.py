@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Real Estate Certificate Domain Plugin (Community Edition)
-==========================================================
+Archived real estate certificate community domain plugin.
 
-Community edition baseline: scene detection, identity fields,
-and basic domain data construction.
+Legacy community ``DomainPlugin`` for property ownership certificates (不动产权证).
+Not part of current community premium set.
+
+Pipeline role: none — reference implementation only.
+
+Key exports: ``RealEstateCertificateCommunityPlugin``, ``plugin``.
 """
 
 from __future__ import annotations

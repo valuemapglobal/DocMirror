@@ -4,7 +4,18 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Cell normalization pipeline for extract-layer table fidelity."""
+"""
+Cell normalizer — cleans and normalizes table cell text.
+
+Purpose: Strips noise, normalizes ID-like cells, and batch-normalizes table
+cell matrices after extraction.
+
+Main components: ``normalize_cell_text``, ``normalize_table_cells``.
+
+Upstream: Raw table grids from any extract backend.
+
+Downstream: ``table.pipeline.stage_structure``, ``table.table_structure_fix``.
+"""
 
 from __future__ import annotations
 

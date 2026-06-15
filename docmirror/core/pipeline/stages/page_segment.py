@@ -1,6 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""CPS page stage: spatial segmentation into zones."""
+"""
+Page segment stage — layout analysis and zone partitioning.
+
+Purpose: Invokes ``segment_page_into_zones`` (and optional zone templates) to
+produce typed zones (text, table, formula, image) for assembly.
+
+Main components: ``run_segment``.
+
+Upstream: ``page_prepare`` output, ``segment.zone_segment``.
+
+Downstream: ``page_assemble``, ``pipeline.handlers``.
+"""
 
 from __future__ import annotations
 
