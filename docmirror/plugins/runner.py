@@ -23,8 +23,8 @@ from typing import Any, Literal
 
 from docmirror.models.entities.parse_result import ParseResult
 from docmirror.plugins._base import build_classification_block
-from docmirror.plugins.capability import is_community_generic_enabled, should_mirror_only
-from docmirror.plugins.discovery import find_premium_community_plugin, get_generic_community_plugin
+from docmirror.plugins.community import is_community_generic_enabled, should_mirror_only
+from docmirror.plugins.community import find_premium_community_plugin, get_generic_community_plugin
 from docmirror.plugins.post_extract.runner import run_post_extract_hooks
 
 logger = logging.getLogger(__name__)

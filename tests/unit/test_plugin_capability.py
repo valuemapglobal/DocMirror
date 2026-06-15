@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.plugins.capability import is_enterprise_only, should_mirror_only
+from docmirror.plugins.community import is_enterprise_only, should_mirror_only
 
 
 def test_audit_report_is_enterprise_only():
@@ -25,7 +25,7 @@ def test_id_card_uses_generic_not_mirror_only():
 
 
 def test_community_premium_domains_are_six():
-    from docmirror.plugins.capability import get_community_premium_domains
+    from docmirror.plugins.community import get_community_premium_domains
 
     domains = get_community_premium_domains()
     assert len(domains) == 6

@@ -6,8 +6,8 @@ DocMirror uses a plugin architecture to separate generic document parsing from d
 
 | Tier | Count | Modules | Output |
 |------|-------|---------|--------|
-| **Premium** | 6 | `*_community.py` for bank/wechat/alipay/vat/business_license/credit_report | Full structured extract |
-| **Generic** | 1 | `generic_community.py` | Mirror → fields/records fallback |
+| **Premium** | 6 | `{domain}/community_plugin.py` (bank/wechat/alipay/vat/business_license/credit_report) | Full structured extract |
+| **Generic** | 1 | `generic/community_plugin.py` | Mirror → fields/records fallback |
 | **Enterprise** | 120 | `docmirror_enterprise.plugins.*` | Deep extract (license required) |
 
 Classification still covers **120+ document types**. Community structured output is **6 premium + 1 generic** only.
@@ -65,4 +65,16 @@ When a plugin matches a detected scene, the `resolve_identity()` function uses t
 }
 ```
 
-See also: [community-vs-enterprise-edition.md](../design/community-vs-enterprise-edition.md) and [14_community_focus_six_plus_generic_checklist.md](../design/14_community_focus_six_plus_generic_checklist.md).
+See also: [community-vs-enterprise-edition.md](../design/community-vs-enterprise-edition.md), [14_community_focus_six_plus_generic_checklist.md](../design/14_community_focus_six_plus_generic_checklist.md), and [plugin_development_guide.md](../design/plugin_development_guide.md).
+
+## Package Layout (`docmirror/plugins/`)
+
+| Path | Role |
+|------|------|
+| `community.py` | Community capability yaml + plugin discovery (SSOT) |
+| `plugin_registry.py` | `DomainPlugin` ABC + registry singleton |
+| `runner.py` | PEC extract runner |
+| `manager.py` / `state.py` | CLI enable/disable + `.plugin_state.json` |
+| `licensing/` | Online/offline license + entitlements |
+| `{domain}/community_plugin.py` | Per-domain community logic |
+| `_base/` | Shared parsers and adapters |

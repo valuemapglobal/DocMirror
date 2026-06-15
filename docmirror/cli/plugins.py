@@ -42,7 +42,7 @@ console = Console()
 
 # Import managers
 from docmirror.plugins import license_manager, plugin_manager
-from docmirror.plugins.offline_license import offline_license_manager
+from docmirror.plugins.licensing.offline import offline_license_manager
 
 
 @click.group()
@@ -54,10 +54,11 @@ def plugins():
 @plugins.command()
 @click.option("--enabled", is_flag=True, help="Show only enabled plugins")
 @click.option("--disabled", is_flag=True, help="Show only disabled plugins")
+@click.option("--all", "show_all", is_flag=True, help="Include all registered enterprise/finance domains")
 @click.option("--format", "fmt", type=click.Choice(["table", "json"]), default="table", help="Output format")
-def list(enabled: bool, disabled: bool, fmt: str):
-    """List all plugins."""
-    all_plugins = plugin_manager.list_all()
+def list(enabled: bool, disabled: bool, show_all: bool, fmt: str):
+    """List plugins (default: community 6+1; use --all for full registry)."""
+    all_plugins = plugin_manager.list_all() if show_all else plugin_manager.list_community()
 
     # Filter
     if enabled:
@@ -99,7 +100,7 @@ def list(enabled: bool, disabled: bool, fmt: str):
 def community():
     """List community edition plugins (6 premium + 1 generic)."""
     from docmirror.plugins import registry
-    from docmirror.plugins.capability import get_community_premium_domains
+    from docmirror.plugins.community import community_plugin_module, get_community_premium_domains
 
     registry._ensure_discovered()
     premium = get_community_premium_domains()
@@ -114,14 +115,14 @@ def community():
     for domain in premium:
         plugin = registry.get(domain, "community")
         if plugin is None:
-            table.add_row("premium", domain, f"{domain}_community", "(missing)")
+            table.add_row("premium", domain, community_plugin_module(domain), "(missing)")
         else:
-            table.add_row("premium", domain, f"{domain}_community", plugin.display_name)
+            table.add_row("premium", domain, community_plugin_module(domain), plugin.display_name)
 
     if generic is not None:
-        table.add_row("generic", "generic", "generic_community", generic.display_name)
+        table.add_row("generic", "generic", community_plugin_module("generic"), generic.display_name)
     else:
-        table.add_row("generic", "generic", "generic_community", "(missing)")
+        table.add_row("generic", "generic", community_plugin_module("generic"), "(missing)")
 
     console.print(table)
     console.print(
@@ -204,9 +205,10 @@ def info(name: str):
 
 @plugins.command()
 @click.argument("keyword")
-def search(keyword: str):
+@click.option("--all", "show_all", is_flag=True, help="Search all registered domains (not just community 6+1)")
+def search(keyword: str, show_all: bool):
     """Search plugins by keyword."""
-    all_plugins = plugin_manager.list_all()
+    all_plugins = plugin_manager.list_all() if show_all else plugin_manager.list_community()
 
     # Search in name and display_name
     results = [
@@ -294,8 +296,8 @@ def show():
 @license.command("check-expiring")
 def check_expiring():
     """List licenses expiring within the configured threshold (default 90 days)."""
-    from docmirror.plugins.license import license_manager
-    from docmirror.plugins.offline_license import offline_license_manager
+    from docmirror.plugins.licensing.online import license_manager
+    from docmirror.plugins.licensing.offline import offline_license_manager
     from docmirror.plugins.licensing.tiers_loader import load_tiers
 
     threshold = int((load_tiers().get("lifecycle") or {}).get("expiring_soon_days") or 90)
@@ -434,9 +436,10 @@ def deactivate():
 
 
 @plugins.command()
-def stats():
+@click.option("--all", "show_all", is_flag=True, help="Include all registered enterprise/finance domains")
+def stats(show_all: bool):
     """Show plugin statistics."""
-    all_plugins = plugin_manager.list_all()
+    all_plugins = plugin_manager.list_all() if show_all else plugin_manager.list_community()
 
     # Count by status
     enabled_count = sum(1 for p in all_plugins if p["enabled"])
@@ -508,7 +511,7 @@ def generate_demo():
         stale.unlink(missing_ok=True)
 
     from docmirror.plugins.licensing.entitlements import demo_features
-    from docmirror.plugins.offline_license import offline_license_manager
+    from docmirror.plugins.licensing.offline import offline_license_manager
 
     feature_list = demo_features()
 

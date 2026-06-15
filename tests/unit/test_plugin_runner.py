@@ -73,8 +73,8 @@ class _LicensedEnterprisePlugin:
 
 def test_is_edition_plugin_licensed_false_without_premium_feature():
     plugin = _LicensedEnterprisePlugin()
-    with patch("docmirror.plugins.offline_license.offline_license_manager._licenses", []):
-        with patch("docmirror.plugins.license.license_manager.is_licensed", return_value=False):
+    with patch("docmirror.plugins.licensing.offline.offline_license_manager._licenses", []):
+        with patch("docmirror.plugins.licensing.online.license_manager.is_licensed", return_value=False):
             assert _is_edition_plugin_licensed(plugin) is False
 
 
@@ -84,7 +84,7 @@ def test_is_edition_plugin_licensed_true_with_offline_feature():
     license_file.is_valid = True
     license_file.get_features.return_value = ["bank_statement_premium"]
     with patch(
-        "docmirror.plugins.offline_license.offline_license_manager._licenses",
+        "docmirror.plugins.licensing.offline.offline_license_manager._licenses",
         [license_file],
     ):
         assert _is_edition_plugin_licensed(plugin) is True

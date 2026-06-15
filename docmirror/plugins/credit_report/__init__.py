@@ -1,0 +1,8 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Credit report community domain logic."""
+
+from docmirror.plugins.credit_report.community_plugin import CreditReportPlugin, plugin
+
+__all__ = ["CreditReportPlugin", "plugin"]

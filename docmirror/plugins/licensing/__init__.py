@@ -14,6 +14,8 @@ from docmirror.plugins.licensing.lifecycle import (
     resolve_entitlement_lifecycle,
     resolve_entitlement_state,
 )
+from docmirror.plugins.licensing.offline import OfflineLicenseManager, offline_license_manager
+from docmirror.plugins.licensing.online import LicenseManager, license_manager
 from docmirror.plugins.licensing.snapshot import resolve_license_snapshot
 from docmirror.plugins.licensing.tiers_loader import (
     community_free_domains,
@@ -26,6 +28,8 @@ __all__ = [
     "FEATURE_SUFFIX",
     "EntitlementLifecycle",
     "LicenseLifecycleState",
+    "LicenseManager",
+    "OfflineLicenseManager",
     "community_free_domains",
     "demo_features",
     "entitlement_warnings",
@@ -33,8 +37,10 @@ __all__ = [
     "inject_edition_lifecycle_warnings",
     "is_community_free",
     "is_entitled",
+    "license_manager",
     "lifecycle_cli_message",
     "load_tiers",
+    "offline_license_manager",
     "premium_feature",
     "resolve_entitlement_lifecycle",
     "resolve_entitlement_state",

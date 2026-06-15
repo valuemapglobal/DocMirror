@@ -12,8 +12,8 @@ from docmirror.plugins.licensing.tiers_loader import load_tiers
 
 def resolve_license_snapshot() -> dict[str, Any]:
     """Merge offline `.lic` state with online license cache."""
-    from docmirror.plugins.license import license_manager
-    from docmirror.plugins.offline_license import offline_license_manager
+    from docmirror.plugins.licensing.online import license_manager
+    from docmirror.plugins.licensing.offline import offline_license_manager
     from docmirror.plugins.licensing.lifecycle import resolve_entitlement_lifecycle
 
     tiers = load_tiers()

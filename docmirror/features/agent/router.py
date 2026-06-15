@@ -80,7 +80,7 @@ def route_document(
     confidence: float = 0.0,
 ) -> DocumentRoute:
     """Map document type to enhance mode and plugin hints (6 premium + generic fallback)."""
-    from docmirror.plugins.capability import (
+    from docmirror.plugins.community import (
         get_community_premium_domains,
         is_community_premium,
         is_enterprise_only,
@@ -116,7 +116,7 @@ def route_document(
 
     notes = list(cfg.get("notes") or [])
     if community_tier == "generic":
-        notes.append("Community structured output via generic_community fallback")
+        notes.append("Community structured output via generic.community_plugin fallback")
     if page_count >= 50:
         notes.append("Large document: set DOCMIRROR_MAX_PAGE_CONCURRENCY conservatively")
     if confidence < 0.5:

@@ -71,8 +71,8 @@ async def execute_licensing(case: TQGCase) -> tuple[dict[str, Any], dict[str, An
     setup = str(opts.get("setup") or "no_license")
     licenses = _licenses_for_setup(setup, domain)
 
-    with patch("docmirror.plugins.offline_license.offline_license_manager._licenses", licenses):
-        with patch("docmirror.plugins.license.license_manager.is_licensed", return_value=False):
+    with patch("docmirror.plugins.licensing.offline.offline_license_manager._licenses", licenses):
+        with patch("docmirror.plugins.licensing.online.license_manager.is_licensed", return_value=False):
             meta: dict[str, Any] = {"domain": domain, "setup": setup}
 
             if check == "premium_feature":

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.plugins.generic_community import plugin
+from docmirror.plugins.generic.community_plugin import plugin
 
 
 def _mirror(document_type: str, domain_specific: dict | None = None) -> ParseResult:

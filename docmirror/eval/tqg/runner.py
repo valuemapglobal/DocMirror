@@ -29,13 +29,14 @@ from docmirror.core.extraction.extractor import CoreExtractor
 from docmirror.core.entry.factory import PerceiveOptions, perceive_document
 from docmirror.core.table.access import get_logical_tables
 from docmirror.models.construction.parse_result_bridge import ParseResultBridge
+from docmirror.plugins.community import community_plugin_import_path
 
 logger = logging.getLogger(__name__)
 
 _PLUGIN_MODULES: dict[str, str] = {
-    "wechat_payment": "docmirror.plugins.wechat_payment_community",
-    "alipay_payment": "docmirror.plugins.alipay_payment_community",
-    "bank_statement": "docmirror.plugins.bank_statement_community",
+    "wechat_payment": community_plugin_import_path("wechat_payment"),
+    "alipay_payment": community_plugin_import_path("alipay_payment"),
+    "bank_statement": community_plugin_import_path("bank_statement"),
 }
 
 

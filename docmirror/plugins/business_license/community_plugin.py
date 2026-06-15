@@ -69,5 +69,4 @@ class BusinessLicensePlugin(DomainPlugin):
         return enrich_business_license_output(out, parse_result=parse_result, full_text=text)
 
 
-
 plugin = BusinessLicensePlugin()

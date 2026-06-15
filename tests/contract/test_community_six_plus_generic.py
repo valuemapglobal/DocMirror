@@ -9,9 +9,13 @@ import importlib
 
 import pytest
 
-from docmirror.plugins.capability import get_community_premium_domains, is_community_premium
-from docmirror.plugins.discovery import find_premium_community_plugin, get_generic_community_plugin
-from docmirror.plugins.generic_community import plugin as generic_plugin
+from docmirror.plugins.community import get_community_premium_domains, is_community_premium
+from docmirror.plugins.community import (
+    community_plugin_module,
+    find_premium_community_plugin,
+    get_generic_community_plugin,
+)
+from docmirror.plugins.generic.community_plugin import plugin as generic_plugin
 
 
 PREMIUM_DOMAINS = (
@@ -29,7 +33,7 @@ def test_premium_domain_has_community_plugin(domain: str):
     assert is_community_premium(domain)
     plugin, modname = find_premium_community_plugin(domain)
     assert plugin is not None, f"missing premium plugin for {domain}"
-    assert modname == f"{domain}_community"
+    assert modname == community_plugin_module(domain)
     assert plugin.domain_name == domain
     assert plugin.edition == "community"
 
@@ -46,7 +50,7 @@ def test_demoted_domain_has_no_premium_plugin():
 def test_generic_plugin_singleton():
     plugin, modname = get_generic_community_plugin()
     assert plugin is generic_plugin
-    assert modname == "generic_community"
+    assert modname == community_plugin_module("generic")
     assert plugin.domain_name == "generic"
 
 

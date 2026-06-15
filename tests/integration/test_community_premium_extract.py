@@ -12,8 +12,8 @@ import pytest
 
 from docmirror.core.entry.factory import PerceiveOptions, perceive_document
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.plugins.capability import get_community_premium_domains
-from docmirror.plugins.discovery import find_premium_community_plugin
+from docmirror.plugins.community import get_community_premium_domains
+from docmirror.plugins.community import community_plugin_module, find_premium_community_plugin
 from docmirror.plugins.runner import run_plugin_extract_sync
 from tests.contract.test_edition_schema_conformance import check_community
 
@@ -43,7 +43,7 @@ def _mirror(document_type: str) -> ParseResult:
 def test_premium_plugin_registered(domain: str):
     plugin, modname = find_premium_community_plugin(domain)
     assert plugin is not None, domain
-    assert modname == f"{domain}_community"
+    assert modname == community_plugin_module(domain)
     assert plugin.domain_name == domain
 
 

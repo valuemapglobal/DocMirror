@@ -5,8 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-VAT Invoice Domain Plugin (Community Edition)
-==============================================
+Credit Report Domain Plugin (Community Edition)
+================================================
 
 Community edition baseline: scene detection, identity fields,
 and basic domain data construction.
@@ -20,16 +20,16 @@ from typing import Any
 from docmirror.plugins import DomainPlugin
 
 
-class VATInvoicePlugin(DomainPlugin):
-    """Community edition plugin for VAT invoice document processing."""
+class CreditReportPlugin(DomainPlugin):
+    """Community edition plugin for credit report document processing."""
 
     @property
     def domain_name(self) -> str:
-        return "vat_invoice"
+        return "credit_report"
 
     @property
     def display_name(self) -> str:
-        return "VAT Invoice (Community)"
+        return "Credit Report (Community)"
 
     @property
     def edition(self) -> str:
@@ -38,26 +38,22 @@ class VATInvoicePlugin(DomainPlugin):
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return (
-            ("invoice_number", ("发票号码", "Invoice No", "发票号")),
-            ("invoice_code", ("发票代码", "Invoice Code")),
-            ("seller_name", ("销售方名称", "卖方名称", "Seller")),
-            ("buyer_name", ("购买方名称", "买方名称", "Buyer")),
-            ("total_amount", ("价税合计", "Total", "金额")),
-            ("invoice_date", ("开票日期", "Date", "日期")),
+            ("name", ("姓名", "Name", "报告主体")),
+            ("id_number", ("身份证号", "证件号码", "ID Number")),
+            ("report_time", ("报告时间", "查询时间", "Report Time")),
+            ("report_number", ("报告编号", "Report No")),
         )
 
     def build_domain_data(self, metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
-        return build_dec_kv("vat_invoice", {
-            "invoice_number": entities.get("invoice_number", ""),
-            "invoice_code": entities.get("invoice_code", ""),
-            "seller_name": entities.get("seller_name", ""),
-            "buyer_name": entities.get("buyer_name", ""),
-            "total_amount": entities.get("total_amount", ""),
+        return build_dec_kv("credit_report", {
+            "name": entities.get("name", ""),
+            "id_number": entities.get("id_number", ""),
+            "report_time": entities.get("report_time", ""),
         })
 
     def extract_from_mirror(self, parse_result, text: str = ""):
-        from docmirror.plugins._base.kv_community_enrich import enrich_vat_invoice_output
+        from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
         from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
 
         out = extract_kv_community_output(
@@ -65,9 +61,9 @@ class VATInvoicePlugin(DomainPlugin):
             parse_result,
             identity_specs=self.identity_fields,
             full_text=text,
+            support_level="L2",
         )
-        return enrich_vat_invoice_output(out)
+        return enrich_credit_report_output(out, parse_result=parse_result, full_text=text)
 
 
-
-plugin = VATInvoicePlugin()
+plugin = CreditReportPlugin()

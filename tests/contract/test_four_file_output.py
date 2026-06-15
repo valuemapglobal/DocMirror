@@ -55,7 +55,7 @@ def test_enterprise_not_generated_when_package_missing():
 
 
 def test_generic_community_envelope_conforms():
-    from docmirror.plugins.generic_community import plugin
+    from docmirror.plugins.generic.community_plugin import plugin
 
     mirror = ParseResult(status=ResultStatus.SUCCESS)
     mirror.entities = DocumentEntities(document_type="id_card")

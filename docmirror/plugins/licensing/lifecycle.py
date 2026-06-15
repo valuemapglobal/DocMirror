@@ -35,7 +35,7 @@ def _lifecycle_config() -> dict[str, Any]:
 
 def _offline_lifecycle() -> EntitlementLifecycle | None:
     try:
-        from docmirror.plugins.offline_license import offline_license_manager
+        from docmirror.plugins.licensing.offline import offline_license_manager
     except Exception:
         return None
 
@@ -91,7 +91,7 @@ def _offline_lifecycle() -> EntitlementLifecycle | None:
 
 def _online_lifecycle() -> EntitlementLifecycle | None:
     try:
-        from docmirror.plugins.license import license_manager
+        from docmirror.plugins.licensing.online import license_manager
     except Exception:
         return None
 

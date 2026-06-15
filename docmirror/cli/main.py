@@ -37,7 +37,7 @@ from docmirror.cli.plugins import plugins
 def main():
     """DocMirror - Universal Document Parsing Engine.
 
-    Community structured output: 6 premium domains + generic_community fallback.
+    Community structured output: 6 premium domains + generic.community_plugin fallback.
     """
     pass
 

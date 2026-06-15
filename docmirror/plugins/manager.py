@@ -8,249 +8,99 @@
 Plugin Manager
 ==============
 
-High-level API for plugin lifecycle management:
-- Enable/disable plugins
-- Install/uninstall plugins
-- List plugin status
-- Detect conflicts
-
-Usage:
-    from docmirror.plugins import plugin_manager
-
-    # List all plugins
-    plugin_manager.list_all()
-
-    # Disable a plugin
-    plugin_manager.disable("id_card")
-
-    # Enable a plugin
-    plugin_manager.enable("id_card")
-
-    # Check plugin status
-    plugin_manager.status("bank_statement")
+Registry-driven plugin lifecycle: list / enable / disable registered domains.
+Enable state is stored in ``.plugin_state.json`` (no directory renames).
 """
 
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
+
+from docmirror.plugins.community import list_community_plugin_domains
+from docmirror.plugins.state import is_domain_enabled, set_domain_enabled
 
 logger = logging.getLogger(__name__)
 
 
 class PluginManager:
-    """Manager for plugin lifecycle operations."""
+    """Manage enable/disable flags for plugins registered in ``registry``."""
 
-    def __init__(self, plugins_dir: str | None = None):
-        """Initialize plugin manager.
-
-        Args:
-            plugins_dir: Path to plugins directory (auto-detect if None)
-        """
-        if plugins_dir is None:
-            # Auto-detect: docmirror/plugins/
-            plugins_dir = str(Path(__file__).parent)
-
-        self.plugins_dir = Path(plugins_dir)
-        self.state_file = self.plugins_dir / ".plugin_state.json"
-        self._state = self._load_state()
+    def list_community(self) -> list[dict[str, Any]]:
+        """List community 6 premium + 1 generic plugins."""
+        return self._build_rows(domain_names=list_community_plugin_domains())
 
     def list_all(self) -> list[dict[str, Any]]:
-        """List all plugins with status.
+        """List every domain registered in ``registry`` (includes enterprise/finance)."""
+        from docmirror.plugins import registry
 
-        Returns:
-            List of plugin info dicts:
-            [
-                {
-                    "name": "id_card",
-                    "display_name": "ID Card (身份证)",
-                    "enabled": True,
-                    "type": "builtin",
-                    "version": "1.0.0"
-                },
-                ...
-            ]
-        """
-        plugins = []
-
-        for item in self.plugins_dir.iterdir():
-            if not item.is_dir() or item.name.startswith("__"):
-                continue
-
-            # Check if disabled (starts with _)
-            is_enabled = not item.name.startswith("_")
-            name = item.name.lstrip("_")
-
-            # Read plugin metadata
-            info = self._get_plugin_info(item, name, is_enabled)
-            plugins.append(info)
-
-        return sorted(plugins, key=lambda x: x["name"])
+        registry._ensure_discovered()
+        return self._build_rows(domain_names=tuple(sorted(registry.list_domains())))
 
     def enable(self, plugin_name: str) -> bool:
-        """Enable a plugin.
-
-        Args:
-            plugin_name: Plugin name (e.g., "id_card")
-
-        Returns:
-            True if successful
-        """
-        return self._toggle_plugin(plugin_name, enable=True)
+        return self._set_enabled(plugin_name, True)
 
     def disable(self, plugin_name: str) -> bool:
-        """Disable a plugin.
-
-        Args:
-            plugin_name: Plugin name (e.g., "id_card")
-
-        Returns:
-            True if successful
-        """
-        return self._toggle_plugin(plugin_name, enable=False)
+        return self._set_enabled(plugin_name, False)
 
     def status(self, plugin_name: str) -> dict[str, Any]:
-        """Get plugin status.
-
-        Args:
-            plugin_name: Plugin name
-
-        Returns:
-            Plugin status dict
-        """
-        plugins = self.list_all()
-        for p in plugins:
-            if p["name"] == plugin_name:
-                return p
-
-        raise ValueError(f"Plugin '{plugin_name}' not found")
+        row = self._row_for(plugin_name)
+        if row is None:
+            raise ValueError(f"Plugin '{plugin_name}' not found")
+        return row
 
     def is_enabled(self, plugin_name: str) -> bool:
-        """Check if plugin is enabled.
-
-        Args:
-            plugin_name: Plugin name
-
-        Returns:
-            True if enabled
-        """
-        try:
-            return self.status(plugin_name)["enabled"]
-        except ValueError:
+        if self._row_for(plugin_name) is None:
             return False
+        return is_domain_enabled(plugin_name)
 
-    def _toggle_plugin(self, plugin_name: str, enable: bool) -> bool:
-        """Toggle plugin enable/disable state.
+    def _row_for(self, domain_name: str) -> dict[str, Any] | None:
+        from docmirror.plugins import registry
 
-        Args:
-            plugin_name: Plugin name
-            enable: True to enable, False to disable
+        registry._ensure_discovered()
+        editions = registry.list_domains().get(domain_name)
+        if not editions:
+            return None
 
-        Returns:
-            True if successful
-        """
-        # Determine current directory name
-        enabled_path = self.plugins_dir / plugin_name
-        disabled_path = self.plugins_dir / f"_{plugin_name}"
+        plugin = registry.get(domain_name, "community") or registry.get_first(domain_name)
+        if plugin is None:
+            return None
 
-        # Check current state
-        if enabled_path.exists():
-            current_enabled = True
-            old_path = enabled_path
-            new_path = disabled_path
-        elif disabled_path.exists():
-            current_enabled = False
-            old_path = disabled_path
-            new_path = enabled_path
-        else:
-            raise ValueError(f"Plugin '{plugin_name}' directory not found")
-
-        # Check if already in desired state
-        if current_enabled == enable:
-            state = "enabled" if enable else "disabled"
-            logger.info(f"[PluginManager] Plugin '{plugin_name}' is already {state}")
-            return True
-
-        # Rename directory
-        try:
-            old_path.rename(new_path)
-
-            # Update state
-            self._state[plugin_name] = {"enabled": enable}
-            self._save_state()
-
-            state = "enabled" if enable else "disabled"
-            logger.info(f"[PluginManager] ✓ Plugin '{plugin_name}' {state}")
-            return True
-
-        except Exception as e:
-            state = "enable" if enable else "disable"
-            logger.error(f"[PluginManager] Failed to {state} plugin '{plugin_name}': {e}")
-            return False
-
-    def _get_plugin_info(self, path: Path, name: str, is_enabled: bool) -> dict[str, Any]:
-        """Get plugin metadata.
-
-        Args:
-            path: Plugin directory path
-            name: Plugin name
-            is_enabled: Whether plugin is enabled
-
-        Returns:
-            Plugin info dict
-        """
-        info = {
-            "name": name,
-            "display_name": name.replace("_", " ").title(),
-            "enabled": is_enabled,
+        return {
+            "name": domain_name,
+            "display_name": plugin.display_name,
+            "enabled": is_domain_enabled(domain_name),
             "type": "builtin",
+            "editions": sorted(editions),
             "version": "unknown",
         }
 
-        # Try to read version from plugin.py
-        plugin_file = path / "plugin.py"
-        if plugin_file.exists():
-            try:
-                content = plugin_file.read_text()
-                # Extract display_name from code
-                if "display_name" in content:
-                    import re
+    def _build_rows(self, domain_names: tuple[str, ...] | list[str]) -> list[dict[str, Any]]:
+        from docmirror.plugins import registry
 
-                    match = re.search(r'display_name.*?return\s+"([^"]+)"', content)
-                    if match:
-                        info["display_name"] = match.group(1)
-            except Exception:
-                pass
+        registry._ensure_discovered()
+        rows: list[dict[str, Any]] = []
+        for domain_name in domain_names:
+            row = self._row_for(domain_name)
+            if row is not None:
+                rows.append(row)
+        return rows
 
-        return info
+    def _set_enabled(self, plugin_name: str, enabled: bool) -> bool:
+        if self._row_for(plugin_name) is None:
+            raise ValueError(f"Plugin '{plugin_name}' not found")
 
-    def _load_state(self) -> dict[str, Any]:
-        """Load plugin state from file.
+        if is_domain_enabled(plugin_name) == enabled:
+            state = "enabled" if enabled else "disabled"
+            logger.info("[PluginManager] Plugin '%s' is already %s", plugin_name, state)
+            return True
 
-        Returns:
-            State dict
-        """
-        if self.state_file.exists():
-            try:
-                with open(self.state_file) as f:
-                    return json.load(f)
-            except Exception as e:
-                logger.warning(f"[PluginManager] Failed to load state: {e}")
-
-        return {}
-
-    def _save_state(self) -> None:
-        """Save plugin state to file."""
-        try:
-            with open(self.state_file, "w") as f:
-                json.dump(self._state, f, indent=2)
-        except Exception as e:
-            logger.error(f"[PluginManager] Failed to save state: {e}")
+        set_domain_enabled(plugin_name, enabled)
+        state = "enabled" if enabled else "disabled"
+        logger.info("[PluginManager] Plugin '%s' %s", plugin_name, state)
+        return True
 
 
-# Global singleton
 plugin_manager = PluginManager()
 
 __all__ = ["PluginManager", "plugin_manager"]

@@ -19,7 +19,7 @@ Features:
 - Batch license management
 
 Usage:
-    from docmirror.plugins import offline_license_manager
+    from docmirror.plugins.licensing.offline import offline_license_manager
 
     # Load license file
     offline_license_manager.load_license("/path/to/license.lic")

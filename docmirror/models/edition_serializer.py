@@ -185,6 +185,8 @@ def edition_serializer(dec: DomainExtractionResult, *, context: EditionContext) 
         "task_id": meta.get("task_id", ""),
         "file_id": meta.get("file_id", ""),
     }
+    if dec.metadata:
+        metadata.update(dec.metadata)
 
     payload: dict[str, Any] = {
         "schema_version": "2.0",

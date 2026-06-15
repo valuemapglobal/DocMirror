@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def _offline_has_feature(feature: str) -> bool:
     try:
-        from docmirror.plugins.offline_license import offline_license_manager
+        from docmirror.plugins.licensing.offline import offline_license_manager
 
         for license_file in offline_license_manager._licenses:
             if not license_file.is_valid:
@@ -32,7 +32,7 @@ def _offline_has_feature(feature: str) -> bool:
 
 def _online_has_feature(feature: str) -> bool:
     try:
-        from docmirror.plugins.license import license_manager
+        from docmirror.plugins.licensing.online import license_manager
 
         return license_manager.is_licensed(feature)
     except Exception as exc:

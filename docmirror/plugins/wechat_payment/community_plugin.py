@@ -1,3 +1,9 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# Author: Adam Lin <adamlin@valuemapglobal.com>
+#
+# This source code is licensed under the Apache 2.0 license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 WeChat Payment Domain Plugin (Community Edition) v2.0
 =====================================================
@@ -23,10 +29,6 @@ from docmirror.plugins._base.column_registry import ColumnMapping
 from docmirror.plugins._base.standardizer import normalize_amount
 
 logger = logging.getLogger(__name__)
-
-# ──────────────────────────────────────────────
-# 列映射注册表 — 微信流水特有列配置
-# ──────────────────────────────────────────────
 
 WECHAT_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
     "收/支/其他": ColumnMapping(
@@ -62,7 +64,6 @@ WECHAT_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
     ),
 }
 
-# 标准化字段顺序
 WECHAT_STANDARD_FIELDS = [
     "direction",
     "counter_party",
@@ -73,7 +74,6 @@ WECHAT_STANDARD_FIELDS = [
     "timestamp",
 ]
 
-# 场景关键词
 WECHAT_SCENE_KEYWORDS = (
     "微信支付交易明细证明",
     "财付通",
@@ -82,7 +82,8 @@ WECHAT_SCENE_KEYWORDS = (
     "微信支付",
 )
 
-# KV 身份字段配置
+WECHAT_DEFAULT_COLUMNS = list(WECHAT_COLUMN_REGISTRY.keys())
+
 WECHAT_IDENTITY_FIELDS: Sequence[tuple[str, Sequence[str]]] = (
     ("account_holder", ("户名", "姓名", "Account holder")),
     ("account_number", ("账号", "卡号", "Account number")),
@@ -92,11 +93,7 @@ WECHAT_IDENTITY_FIELDS: Sequence[tuple[str, Sequence[str]]] = (
 
 
 class WeChatPaymentPlugin(BaseTableParser):
-    """社区版 v2.0：微信支付流水插件。
-
-    列注册表驱动解析，自适应列匹配，输出 raw + normalized 双格式。
-    通过继承 BaseTableParser 复用 80% 的解析逻辑。
-    """
+    """社区版 v2.0：微信支付流水插件。"""
 
     @property
     def domain_name(self) -> str:
@@ -117,8 +114,6 @@ class WeChatPaymentPlugin(BaseTableParser):
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return WECHAT_IDENTITY_FIELDS
-
-    # ── 向后兼容 ──
 
     def build_domain_data(self, metadata, entities):
         """Legacy KV fallback — prefer ``extract_from_mirror()`` for full v2.0 output."""
@@ -156,5 +151,4 @@ class WeChatPaymentPlugin(BaseTableParser):
         )
 
 
-# ── 模块级实例（供 registry 和 __main__.py 使用）──
 plugin = WeChatPaymentPlugin()

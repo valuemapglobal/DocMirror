@@ -1,27 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
-# Author: Adam Lin <adamlin@valuemapglobal.com>
-#
-# This source code is licensed under the Apache 2.0 license found in the
-# LICENSE file in the root directory of this source tree.
+# SPDX-License-Identifier: Apache-2.0
 
-"""
-Bank Statement Domain Plugin (Community Edition)
-=================================================
-
-Community edition: scene detection, identity fields, and table records
-via BaseTableParser + logical_tables consumption.
-"""
+"""Bank statement community plugin — StyleDetector → Registry → Canonical records."""
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Sequence
-from typing import Any
+from pathlib import Path
 
+from docmirror.models.edition_serializer import EditionContext, edition_serializer
 from docmirror.plugins._base.base_table_parser import BaseTableParser
 from docmirror.plugins._base.column_registry import ColumnMapping
-
-logger = logging.getLogger(__name__)
+from docmirror.plugins._base.table_dec import build_table_dec
+from docmirror.plugins.bank_statement.canonical import build_style_meta
+from docmirror.plugins.bank_statement.context import build_style_context
+from docmirror.plugins.bank_statement.style_detector import BankStyleDetector
+from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
 
 BANK_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
     "交易日期": ColumnMapping(field="date", format_hint="date", aliases=["日期", "记账日期", "Date"]),
@@ -48,7 +42,7 @@ BANK_STANDARD_FIELDS = [
 ]
 
 BANK_IDENTITY_FIELDS: Sequence[tuple[str, Sequence[str]]] = (
-    ("account_holder", ("Account holder", "Account name", "Card holder", "Customer name", "户名")),
+    ("account_holder", ("Account holder", "Account name", "Card holder", "Customer name", "户名", "账户名")),
     ("account_number", ("Account number", "Card number", "Customer account number", "账号", "卡号")),
     ("bank_name", ("Bank name", "Bank branch", "银行名称")),
     ("query_period", ("Query period", "From/to date", "Period", "查询时间段")),
@@ -93,10 +87,44 @@ class BankStatementCommunityPlugin(BaseTableParser):
             "currency": str(entities.get("currency", "CNY")),
         })
 
-
     def extract_from_mirror(self, parse_result, text: str = ""):
-        """Delegate to BaseTableParser for full v2.0 table community output."""
-        return super().extract_from_mirror(parse_result, text)
+        """StyleDetector → Registry → v2.0 community output with style metadata."""
+        ctx = build_style_context(parse_result, text)
+        detection = BankStyleDetector().detect(ctx)
+        records, identity_fields = BankStyleParserRegistry().run(detection, ctx, self)
+        style_meta = build_style_meta(detection)
+        summary = self._build_summary(records)
+        style_props = style_meta.to_properties()
+
+        file_path = getattr(parse_result, "file_path", "") or ""
+        doc_name = Path(file_path).name if file_path else self.display_name
+        page_count = len(getattr(parse_result, "pages", []) or [])
+
+        dec = build_table_dec(
+            document_type=self.domain_name,
+            identity_fields=identity_fields,
+            records=records,
+            summary=summary,
+            properties=style_props,
+            metadata=dict(style_props),
+        )
+        edition_ctx = EditionContext(
+            edition=self.edition,
+            detected_type=self.domain_name,
+            full_text=text,
+            document_name=doc_name,
+            page_count=page_count,
+            archetype="table_document",
+            domain="cashflow_payment",
+            match_method="style_family",
+            scene_keywords=getattr(self, "scene_keywords", ()) or (),
+            plugin_name=self.domain_name,
+            plugin_display_name=self.display_name,
+            plugin_version="community-2.0",
+            support_level="L2",
+            parser_label="docmirror-community",
+        )
+        return edition_serializer(dec, context=edition_ctx)
 
 
 plugin = BankStatementCommunityPlugin()

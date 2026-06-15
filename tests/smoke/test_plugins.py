@@ -14,9 +14,9 @@ import pytest
 pytestmark = [pytest.mark.tier_smoke]
 
 from docmirror.plugins import PluginRegistry
-from docmirror.plugins.bank_statement_community import BankStatementCommunityPlugin
-from docmirror.plugins.capability import get_community_premium_domains
-from docmirror.plugins.generic_community import GenericCommunityPlugin
+from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
+from docmirror.plugins.community import get_community_premium_domains
+from docmirror.plugins.generic.community_plugin import GenericCommunityPlugin
 from docmirror_enterprise.plugins.bank_statement import BankStatementPlugin, plugin as bank_statement_plugin
 from docmirror_enterprise.plugins.bank_statement.plugin import plugin as bank_statement_module_plugin
 
@@ -27,7 +27,7 @@ class TestBankStatementEnterprisePlugin:
     def test_instantiable(self):
         plugin = BankStatementPlugin()
         assert plugin.domain_name == "bank_statement"
-        assert plugin.display_name == "Bank Statement (银行流水)"
+        assert plugin.display_name == "Bank Statement (Enterprise)"
 
     def test_edition_metadata(self):
         plugin = BankStatementPlugin()
@@ -40,13 +40,19 @@ class TestBankStatementEnterprisePlugin:
         assert len(plugin.scene_keywords) > 0
         assert "银行流水" in plugin.scene_keywords
 
-    def test_default_identity_fields_empty(self):
+    def test_identity_fields(self):
         plugin = BankStatementPlugin()
-        assert plugin.identity_fields == ()
+        field_names = {name for name, _ in plugin.identity_fields}
+        assert "account_holder" in field_names
 
-    def test_build_domain_data_default_none(self):
+    def test_build_domain_data(self):
         plugin = BankStatementPlugin()
-        assert plugin.build_domain_data({}, {}) is None
+        result = plugin.build_domain_data(
+            {"Account holder": "Alice"},
+            {"account_holder": "Alice", "currency": "CNY"},
+        )
+        assert result is not None
+        assert result["document_type"] == "bank_statement"
 
     def test_module_exports_plugin_singleton(self):
         assert isinstance(bank_statement_plugin, BankStatementPlugin)
@@ -179,9 +185,11 @@ class TestPluginRegistry:
         community = BankStatementCommunityPlugin()
         enterprise = BankStatementPlugin()
         reg.register(community)
-        reg.register(enterprise, override=True)
-        # get_first resolves enterprise, which has no build_domain_data implementation
-        assert reg.build_domain_data("bank_statement", {}, {}) is None
+        reg.register(enterprise)
+        # get_first resolves enterprise, which inherits legacy KV from community base
+        result = reg.build_domain_data("bank_statement", {}, {})
+        assert result is not None
+        assert result["document_type"] == "bank_statement"
 
     def test_build_domain_data_community_only_registry(self):
         reg = self._isolated_registry()

@@ -1,0 +1,65 @@
+# Bank statement style families — SSOT for BankStyleDetector
+version: "1.0"
+
+styles:
+  compact_merged_ledger:
+    display_name: 紧凑合并列流水
+    priority: 90
+    signals:
+      header_contains_all: ["日期", "支出", "收入", "余额"]
+      cell_pattern: '^\d{4}-\d{2}-\d{2}\d+\.\d{2}'
+    parser_chain:
+      - compact_merged
+      - kv_identity
+
+  grid_standard:
+    display_name: 标准多列网格
+    priority: 50
+    signals:
+      min_matched_columns: 3
+      column_hints: ["日期", "摘要", "余额"]
+      header_excludes_all: ["日期支出收入余额"]
+    parser_chain:
+      - grid_standard
+
+  split_debit_credit:
+    display_name: 借贷分列
+    priority: 70
+    signals:
+      header_contains_any: ["借方发生额", "贷方发生额", "收入", "支出"]
+      min_matched_columns: 4
+      header_excludes_all: ["日期支出收入余额"]
+    parser_chain:
+      - grid_standard
+
+  signed_amount:
+    display_name: 符号金额单列
+    priority: 65
+    signals:
+      header_contains_any: ["交易金额", "金额", "发生额"]
+      header_excludes_any: ["收入", "支出", "借方发生额", "贷方发生额"]
+      signed_amount_cells: true
+      column_hints: ["日期", "摘要", "余额"]
+      min_matched_columns: 3
+      header_excludes_all: ["日期支出收入余额"]
+    parser_chain:
+      - signed_amount
+
+  borderless_ocr:
+    display_name: 无框线 OCR 流水
+    priority: 55
+    signals:
+      borderless_ocr: true
+      column_hints: ["日期", "摘要", "余额", "金额"]
+      min_matched_columns: 2
+      header_excludes_all: ["日期支出收入余额"]
+    parser_chain:
+      - borderless_ocr
+
+default_style: grid_standard
+
+institution_keywords:
+  银座银行: ["银座银行", "银座银行交易明细"]
+  中国建设银行: ["中国建设银行", "建设银行"]
+  中国工商银行: ["中国工商银行", "工商银行"]
+  招商银行: ["招商银行"]

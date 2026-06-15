@@ -98,7 +98,9 @@ profiles:
         - 企业客户交易明细
         - 账户明细信息
         - 中国建设银行账户明细
-      min_pages: 2
+        - 交易明细清单
+        - 活期交易明细
+      min_pages: 1
     header_aliases:
       交易时间:
         - 记账日

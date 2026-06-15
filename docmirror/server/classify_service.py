@@ -8,7 +8,7 @@
 
 Returns one of 120+ ``document_type`` values from scene keywords / evidence engine.
 Community **structured** output (``001_community.json``) follows the 6+1 strategy:
-6 premium domains + ``generic_community`` fallback; see ``plugin_capability.yaml``.
+6 premium domains + ``generic.community_plugin`` fallback; see ``plugin_capability.yaml``.
 """
 
 from __future__ import annotations

@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 def build_community_output(result, full_text: str = "") -> dict | None:
     """Build community v2.0 output via PEC plugin runner (does not mutate Mirror)."""
-    from docmirror.plugins.capability import is_community_premium
+    from docmirror.plugins.community import is_community_premium
     from docmirror.plugins.runner import run_plugin_extract_sync
 
     out = run_plugin_extract_sync(result, edition="community", full_text=full_text)
@@ -36,7 +36,7 @@ def build_community_output(result, full_text: str = "") -> dict | None:
     meta = out.setdefault("metadata", {})
     if plugin_name == "generic":
         meta["community_tier"] = "generic"
-        meta["community_route"] = "generic_community"
+        meta["community_route"] = "generic.community_plugin"
     elif is_community_premium(plugin_name):
         meta["community_tier"] = "premium"
         meta["community_route"] = plugin_name

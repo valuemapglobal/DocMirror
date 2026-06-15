@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import datetime
 from typing import Any
 
@@ -71,6 +72,14 @@ def normalize_timestamp(raw: str) -> str:
                 return datetime.strptime(f"{date_part} {time_part}", fmt).isoformat()
             except ValueError:
                 continue
+
+    # 紧凑日期：20220505
+    m = re.match(r"^(\d{4})(\d{2})(\d{2})$", cleaned)
+    if m:
+        try:
+            return datetime.strptime(cleaned, "%Y%m%d").date().isoformat()
+        except ValueError:
+            pass
 
     # 紧凑格式：20220928 103039
     m = re.match(r"(\d{4})(\d{2})(\d{2})\s*(\d{2})(\d{2})(\d{2})", cleaned)
