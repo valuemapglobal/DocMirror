@@ -91,6 +91,7 @@ profiles:
     preferred_table_methods:
       - pdfplumber_default
       - char_strategy
+      - pipe_delimited
       - lines
     match:
       text_any:
@@ -157,6 +158,14 @@ profiles:
         display_name: 中信银行
         keywords: ["中信银行"]
         date_format: YYYYMMDD
+        amount_sign_rule: split
+      - id: boc
+        display_name: 中国银行
+        keywords: ["中国银行", "Bank of China"]
+        column_map:
+          记账日: 交易日期
+          起息日: 起息日
+          备注: 对方户名
         amount_sign_rule: split
       - id: pab
         display_name: 平安银行

@@ -73,6 +73,27 @@ def test_cashflow_uses_direction(plugin):
     assert cashflow["expense"]["total"] == 40.0
 
 
+def test_finance_boc_pipe_text_quality_gate(plugin):
+    from docmirror.plugins.bank_statement.extract_pipeline import run_bank_statement_extract
+    from tests.unit.test_pipe_text_table_builder import _synthetic_boc_text
+
+    rows = []
+    for i in range(2, 76):
+        rows.append(
+            f"| {i:2d} |220401|220401|网上支付|    |ref{i}|        100.00|                  |"
+            f"           {1000 + i}.00|ref |商户{i} |"
+        )
+    text = _synthetic_boc_text(rows)
+    result = run_bank_statement_extract(None, text, plugin)
+    records = [r["normalized"] for r in result.records]
+    records_built = result.records
+    quality, _, _ = plugin._compute_quality_bundle(
+        records, records_built, parse_result=None, style_meta=result.style_meta,
+    )
+    assert quality["field_confidence"]["counter_party"] >= 0.95
+    assert quality["overall_score"] >= 0.85
+
+
 def test_income_classification_from_summary(plugin):
     records = [{"summary": "结息", "amount": 0.04, "direction": "income"}]
     cashflow = plugin._analyze_cashflow(records)

@@ -1,7 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Single-column signed amount bank ledger style (+ income / - expense)."""
+"""
+Single-column signed amount bank ledger style parser.
+
+Handles ledgers with one amount column where sign denotes direction (+ income /
+- expense) rather than separate debit/credit columns.
+
+Pipeline role: registered as ``signed_amount`` in ``style_registry`` when detector
+identifies signed-amount layout signatures.
+
+Key exports: ``PARSER_ID``, ``STYLE_ID``, ``parse_signed_amount``, ``extract_transactions``.
+
+Dependencies: ``grid_standard`` (shared row paths), ``standardizer.normalize_amount``.
+"""
 
 from __future__ import annotations
 

@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run parser chains for detected bank statement styles."""
+"""
+Bank statement style parser registry and fallback orchestration.
+
+Maps detected style IDs to parser modules under ``bank_statement.styles``,
+runs the primary parser chain, scores record completeness with CAPS coverage,
+and falls back to ``grid_standard`` / ``borderless_ocr`` when primary is sparse.
+
+Pipeline role: core dispatch layer between ``BankStyleDetector`` and canonical
+record builders inside ``community_plugin.extract_from_mirror``.
+
+Key exports: ``BankStyleParserRegistry``.
+
+Dependencies: ``bank_statement.styles.*``, ``bank_statement.canonical``.
+"""
 
 from __future__ import annotations
 
@@ -29,22 +42,23 @@ _PARSERS = {
     "borderless_ocr": borderless_ocr,
 }
 
-# When primary parser yields no usable rows, retry in structural order (never compact unless tagged).
 _FALLBACK_PARSER_IDS = ("grid_standard", "borderless_ocr")
+_CAPS_THRESHOLD = 0.55
+_COVERAGE_THRESHOLD = 0.80
 
 
-def _record_completeness(records: list[dict[str, Any]]) -> float:
+def _field_completeness(records: list[dict[str, Any]], sample: int = 8) -> float:
     if not records:
         return 0.0
     fields = ("date", "amount", "balance")
     scores = []
-    for rec in records:
+    for rec in records[:sample]:
         norm = rec.get("normalized") or {}
         scores.append(sum(1 for f in fields if norm.get(f) not in (None, "", 0)) / len(fields))
     return sum(scores) / len(scores)
 
 
-def _batch_completeness(
+def _batch_field_completeness(
     transactions: list[dict[str, str]],
     normalize_fn: Any,
     plugin: Any,
@@ -58,6 +72,27 @@ def _batch_completeness(
         norm = ensure_canonical_normalized(nf(txn), plugin.standard_fields)
         scores.append(sum(1 for f in fields if norm.get(f) not in (None, "", 0)) / len(fields))
     return sum(scores) / len(scores)
+
+
+def _parser_score(
+    transactions: list[dict[str, str]],
+    normalize_fn: Any,
+    plugin: Any,
+    expected_rows: int,
+) -> tuple[float, float]:
+    if not transactions:
+        return 0.0, 0.0
+    expected = max(expected_rows, 1)
+    coverage = min(len(transactions) / expected, 1.0)
+    completeness = _batch_field_completeness(transactions, normalize_fn, plugin)
+    score = 0.6 * coverage + 0.4 * completeness
+    return score, coverage
+
+
+def _expected_rows(ctx: StyleContext) -> int:
+    if ctx.reconstruction and ctx.reconstruction.expected_primary_rows > 0:
+        return ctx.reconstruction.expected_primary_rows
+    return 0
 
 
 def _run_parser(parser_id: str, ctx: StyleContext, plugin: Any) -> tuple[list[dict[str, str]], Any]:
@@ -112,28 +147,33 @@ class BankStyleParserRegistry:
             transactions = compact_merged.extract_transactions(ctx.tables)
             normalize_fn = compact_merged.normalize_record
 
+        expected = _expected_rows(ctx)
         primary_parser = (detection.parser_chain or ["grid_standard"])[-1]
-        primary_quality = _batch_completeness(transactions, normalize_fn, plugin)
-        if primary_quality < 0.34:
+        primary_score, coverage = _parser_score(transactions, normalize_fn, plugin, expected)
+        needs_fallback = (
+            primary_score < _CAPS_THRESHOLD
+            or (expected > 0 and coverage < _COVERAGE_THRESHOLD)
+        )
+        if needs_fallback:
             best_batch = transactions
             best_norm = normalize_fn
-            best_quality = primary_quality
+            best_score = primary_score
             for fallback_id in _FALLBACK_PARSER_IDS:
                 if fallback_id == primary_parser:
                     continue
                 batch, norm = _run_parser(fallback_id, ctx, plugin)
-                quality = _batch_completeness(batch, norm, plugin)
-                if quality > best_quality:
+                score, _ = _parser_score(batch, norm, plugin, expected)
+                if score > best_score:
                     logger.info(
-                        "[BankStyleRegistry] fallback parser=%s quality=%.2f (was %.2f, %d rows)",
+                        "[BankStyleRegistry] CAPS fallback parser=%s score=%.2f (was %.2f, %d rows)",
                         fallback_id,
-                        quality,
-                        best_quality,
+                        score,
+                        best_score,
                         len(best_batch),
                     )
                     best_batch = batch
                     best_norm = norm
-                    best_quality = quality
+                    best_score = score
             transactions = best_batch
             normalize_fn = best_norm
 
@@ -159,9 +199,10 @@ class BankStyleParserRegistry:
             compact_merged.refine_directions_from_balance_chain(records)
 
         logger.info(
-            "[BankStyleRegistry] style=%s chain=%s records=%d",
+            "[BankStyleRegistry] style=%s chain=%s records=%d expected=%d",
             detection.primary_style,
             detection.parser_chain,
             len(records),
+            expected,
         )
         return records, identity_fields

@@ -24,9 +24,9 @@ styles:
 
   split_debit_credit:
     display_name: 借贷分列
-    priority: 70
+    priority: 75
     signals:
-      header_contains_any: ["借方发生额", "贷方发生额", "收入", "支出"]
+      header_contains_any: ["借方发生额", "贷方发生额", "收入", "支出", "Debit Amount", "Credit Amount"]
       min_matched_columns: 4
       header_excludes_all: ["日期支出收入余额"]
     parser_chain:
@@ -60,6 +60,7 @@ default_style: grid_standard
 
 institution_keywords:
   银座银行: ["银座银行", "银座银行交易明细"]
+  中国银行: ["中国银行", "Bank of China"]
   中国建设银行: ["中国建设银行", "建设银行"]
   中国工商银行: ["中国工商银行", "工商银行"]
   招商银行: ["招商银行"]

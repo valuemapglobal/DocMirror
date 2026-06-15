@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Standard multi-column grid bank ledger style."""
+"""
+Standard multi-column grid bank ledger style parser.
+
+Default parser for clearly tabulated ledgers: strict header detection, split
+debit/credit column merging, and per-row normalization through plugin column registry.
+
+Pipeline role: primary and fallback parser in ``style_registry``; also used by
+``signed_amount`` for shared row harvest paths.
+
+Key exports: ``PARSER_ID``, ``STYLE_ID``, ``normalize_split_debit_credit``,
+``extract_transactions``.
+
+Dependencies: ``header_resolve``, ``row_extract``, ``institution``, ``standardizer``.
+"""
 
 from __future__ import annotations
 
@@ -43,6 +56,18 @@ def normalize_split_debit_credit(raw_txn: dict[str, str], plugin: Any) -> dict[s
     balance = normalize_amount(_cell_value(raw_txn, "余额", "账户余额", "本次余额", "账面余额"))
     if balance is not None:
         normalized["balance"] = float(balance)
+
+    if not str(normalized.get("counter_party", "") or "").strip():
+        cp = _cell_value(
+            raw_txn,
+            "备注",
+            "对方户名",
+            "对方账号与户名",
+            "交易对方",
+            "Remarks",
+        )
+        if cp:
+            normalized["counter_party"] = cp
 
     if income > 0:
         normalized["amount"] = income
@@ -140,6 +165,13 @@ def normalize_record(raw_txn: dict[str, str], plugin: Any) -> dict[str, Any]:
 
     split = normalize_split_debit_credit(raw_txn, plugin)
     if split is not None:
+        from docmirror.plugins._base.standardizer import normalize_timestamp
+
+        if not split.get("date"):
+            for key in ("交易日期", "记账日", "记账日期", "日期", "交易时间"):
+                if raw_txn.get(key):
+                    split["date"] = normalize_timestamp(str(raw_txn[key]))[:10]
+                    break
         return split
 
     from docmirror.plugins.bank_statement.styles.signed_amount import parse_signed_amount

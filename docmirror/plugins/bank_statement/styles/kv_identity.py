@@ -1,7 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Extract identity KV pairs embedded in table header rows."""
+"""
+KV identity enrichment parser for bank statement header rows.
+
+Scans table header and preamble rows for embedded ``key: value`` cells (account
+holder, account number, query period) and merges them into identity field maps.
+
+Pipeline role: auxiliary parser in ``style_registry`` chain; runs before or alongside
+grid parsers to populate identity metadata missing from Mirror entities.
+
+Key exports: ``PARSER_ID``, ``enrich_identity_fields``.
+
+Dependencies: ``bank_statement.context.StyleContext``.
+"""
 
 from __future__ import annotations
 

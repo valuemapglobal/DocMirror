@@ -1,13 +1,18 @@
 """
-标准器 — 社区版基础标准化工具
-================================
+Community edition field standardizers — amounts, timestamps, and enums.
 
-社区版只做三类标准化：
-1. 金额：str → float（去逗号/¥/空格）
-2. 时间：多种格式 → ISO8601
-3. 枚举：中文 → 英文
+Lightweight normalization used by table parsers before records enter DEC/edition
+output. Community scope is intentionally narrow: parse amounts to float, coerce
+dates to ISO8601, and map Chinese enum labels to English tokens. Does not perform
+quality scoring, business-rule validation, or redaction.
 
-不做：质量评分、规则校验、数据脱敏。
+Pipeline role: ``BaseTableParser`` and bank-statement style parsers call these
+functions while building ``normalized`` row dicts inside ``extract_from_mirror``.
+
+Key exports: ``normalize_amount``, ``normalize_timestamp``, ``normalize_enum``,
+``extract_period``.
+
+Dependencies: stdlib ``re``, ``datetime``, ``unicodedata`` only.
 """
 
 from __future__ import annotations
@@ -80,6 +85,15 @@ def normalize_timestamp(raw: str) -> str:
             return datetime.strptime(cleaned, "%Y%m%d").date().isoformat()
         except ValueError:
             pass
+
+    # YYMMDD pipe ledger dates: 220401 → 2022-04-01
+    m = re.match(r"^(\d{6})$", cleaned)
+    if m:
+        yy, mo, da = int(cleaned[0:2]), int(cleaned[2:4]), int(cleaned[4:6])
+        if 1 <= mo <= 12 and 1 <= da <= 31:
+            year = 2000 + yy if yy <= 69 else 1900 + yy
+            if 2010 <= year <= 2035:
+                return datetime(year, mo, da).date().isoformat()
 
     # 紧凑格式：20220928 103039
     m = re.match(r"(\d{4})(\d{2})(\d{2})\s*(\d{2})(\d{2})(\d{2})", cleaned)

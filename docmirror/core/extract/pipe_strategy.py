@@ -5,14 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Pipe-delimited table extraction — Layer 0.5: Grid Consistency algorithm.
+Pipe strategy — delimiter-separated table extraction.
 
-Split from ``table_extraction.py``.
+Purpose: Parses pipe- or tab-delimited text rows and merges continuation
+lines for lightly structured digital exports.
 
-Designed for mainframe-generated ASCII-art PDFs:
-  - Vertical separators: ``|``, ``│`` and other ``PIPE_CHARS``
-  - Horizontal separators: ``─``, ``━`` and other ``HLINE_CHARS``
-  - PDF contains no graphical primitives (lines / rects = 0)
+Main components: ``_extract_by_pipe_delimited``, ``_merge_pipe_continuation_rows``.
+
+Upstream: Digital text zones with delimiter patterns.
+
+Downstream: ``extract.engine`` as a fast tier.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import logging
 from collections import defaultdict
 from typing import Dict, List, Optional
 
+from ..table.pipe_row_merge import merge_pipe_continuation_rows
 from ..utils.vocabulary import _ALL_BORDER_CHARS, PIPE_CHARS
 
 logger = logging.getLogger(__name__)
@@ -185,42 +188,7 @@ def _extract_by_pipe_delimited(
         return None
 
     # ── Step 5: merge continuation rows (mainframe records may span multiple lines) ──
-    table = _merge_pipe_continuation_rows(table)
+    table = merge_pipe_continuation_rows(table)
 
     logger.info(f"pipe_delimited: extracted {len(table)} rows x {n_cols} cols")
     return table
-
-
-def _merge_pipe_continuation_rows(table: list[list[str]]) -> list[list[str]]:
-    """Merge continuation rows in a pipe-delimited table.
-
-    In mainframe output, a single record may be split across multiple lines:
-      Row N:   | 1  |251209|251209|...transfer...|   894.34|         |   9,143.21|...
-      Row N+1: |    |      |      |              |         |         |           |...
-
-    Rule: if the first column (sequence number) is empty, the row is treated
-    as a continuation of the previous row and its content is appended.
-    """
-    if not table or len(table) < 2:
-        return table
-
-    merged: list[list[str]] = [table[0]]
-    for row in table[1:]:
-        first_cell = row[0].strip() if row else ""
-        # Continuation row: first column (sequence number) is empty with other content
-        has_content = any(c.strip() for c in row[1:])
-        if not first_cell and has_content and merged:
-            # Append to the previous row
-            prev = merged[-1]
-            for i in range(len(row)):
-                if i < len(prev):
-                    cell_text = row[i].strip()
-                    if cell_text:
-                        if prev[i].strip():
-                            prev[i] = prev[i].strip() + cell_text
-                        else:
-                            prev[i] = cell_text
-        else:
-            merged.append(row)
-
-    return merged

@@ -1,7 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Bank statement style detection from mirror tables."""
+"""
+Bank statement layout style detector.
+
+Scores Mirror table structure against ``style_families.yaml`` signatures to choose
+a primary ledger style (grid, compact merged, signed amount, borderless OCR, etc.)
+and an ordered parser chain. Detection is structural, not bank-name-only.
+
+Pipeline role: invoked from ``bank_statement.community_plugin`` before
+``BankStyleParserRegistry.run`` selects concrete parsers.
+
+Key exports: ``StyleDetectionResult``, ``BankStyleDetector``.
+
+Dependencies: ``bank_statement.context.StyleContext``, YAML config under
+``configs/yaml/bank_statement/style_families.yaml``.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +28,7 @@ from typing import Any
 import yaml
 
 from docmirror.plugins.bank_statement.context import StyleContext
+from docmirror.plugins.bank_statement.institution_authority import resolve_institution_hint
 from docmirror.plugins.bank_statement.styles.compact_merged import table_has_compact_ledger
 
 _CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "yaml" / "bank_statement" / "style_families.yaml"
@@ -28,6 +43,7 @@ class StyleDetectionResult:
     confidence: float = 0.0
     parser_chain: list[str] = field(default_factory=list)
     institution_hint: str | None = None
+    institution_authority: str = ""
 
 
 @lru_cache(maxsize=1)
@@ -46,6 +62,25 @@ class BankStyleDetector:
     def detect(self, ctx: StyleContext) -> StyleDetectionResult:
         cfg = _load_config()
         styles_cfg: dict[str, Any] = cfg.get("styles") or {}
+        institution_hint, institution_authority = resolve_institution_hint(
+            ctx,
+            cfg.get("institution_keywords") or {},
+        )
+        if not institution_authority and ctx.institution_authority:
+            institution_authority = ctx.institution_authority
+
+        if ctx.reconstruction and ctx.reconstruction.source == "pipe_text":
+            spec = styles_cfg.get("split_debit_credit", {})
+            chain = list(spec.get("parser_chain") or ["grid_standard"])
+            return StyleDetectionResult(
+                primary_style="split_debit_credit",
+                secondary_styles=["pipe_ledger_text"],
+                confidence=0.95,
+                parser_chain=chain,
+                institution_hint=institution_hint or ctx.institution,
+                institution_authority=institution_authority,
+            )
+
         scores: list[tuple[str, float, list[str]]] = []
 
         for style_id, spec in styles_cfg.items():
@@ -63,20 +98,24 @@ class BankStyleDetector:
 
         spec = styles_cfg.get(primary, {})
         chain = list(spec.get("parser_chain") or ["grid_standard"])
-        institution_hint = self._detect_institution(ctx, cfg.get("institution_keywords") or {})
 
         return StyleDetectionResult(
             primary_style=primary,
             secondary_styles=secondary,
             confidence=min(confidence, 1.0),
             parser_chain=chain,
-            institution_hint=institution_hint,
+            institution_hint=institution_hint or ctx.institution,
+            institution_authority=institution_authority,
         )
 
     def _score_style(self, ctx: StyleContext, style_id: str, spec: dict[str, Any]) -> float:
         signals = spec.get("signals") or {}
         headers = self._collect_headers(ctx.tables)
         joined_headers = "".join(headers)
+
+        if ctx.reconstruction and ctx.reconstruction.pipe_header_detected:
+            if style_id == "signed_amount":
+                return 0.0
 
         score = 0.0
 
@@ -104,14 +143,24 @@ class BankStyleDetector:
             else:
                 score += 0.1
 
+        if style_id == "split_debit_credit":
+            if ctx.reconstruction and ctx.reconstruction.source == "pipe_text":
+                score += 0.5
+            elif any(t in joined_headers for t in ("借方发生额", "贷方发生额", "Debit Amount", "Credit Amount")):
+                score += 0.35
+
         if style_id == "signed_amount":
             from docmirror.plugins.bank_statement.styles.signed_amount import (
                 table_has_signed_amount_cells,
             )
-            if table_has_signed_amount_cells(ctx.tables):
-                score += 0.45
-            else:
+
+            if ctx.reconstruction and ctx.reconstruction.pipe_header_detected:
                 return 0.0
+            if not table_has_signed_amount_cells(ctx.tables):
+                return 0.0
+            if ctx.reconstruction and ctx.reconstruction.source not in ("spaced_ocr", "mirror_table", None):
+                return 0.0
+            score += 0.45
 
         if style_id == "borderless_ocr":
             from docmirror.plugins.bank_statement.styles.borderless_ocr import (
@@ -168,6 +217,8 @@ class BankStyleDetector:
     @staticmethod
     def _secondary_tags(ctx: StyleContext, primary: str) -> list[str]:
         tags: list[str] = []
+        if ctx.reconstruction and ctx.reconstruction.source == "pipe_text":
+            tags.append("pipe_ledger_text")
         if table_has_compact_ledger(ctx.tables):
             if primary != "compact_merged_ledger":
                 tags.append("compact_merged_ledger")
@@ -183,13 +234,3 @@ class BankStyleDetector:
                 if row and _TIME_ONLY.match(str(row[0] or "").strip()):
                     return True
         return False
-
-    @staticmethod
-    def _detect_institution(ctx: StyleContext, keyword_map: dict[str, list[str]]) -> str | None:
-        if ctx.institution:
-            return ctx.institution
-        text = ctx.full_text or ""
-        for name, keywords in keyword_map.items():
-            if any(kw in text for kw in keywords):
-                return name
-        return None

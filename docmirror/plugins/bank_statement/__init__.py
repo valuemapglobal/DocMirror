@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Bank statement style-family parsing (Community domain logic)."""
+"""
+Bank statement community domain package.
+
+Public exports for the style-family parsing stack: style detection, parser registry,
+canonical record builders, and the registered ``plugin`` singleton consumed by
+``plugin_registry``.
+
+Pipeline role: ``bank_statement.community_plugin`` is one of six premium community
+plugins; ``runner`` calls ``extract_from_mirror`` which runs StyleDetector → Registry → DEC.
+
+Key exports: ``BankStatementCommunityPlugin``, ``BankStyleDetector``,
+``BankStyleParserRegistry``, ``StyleContext``, ``StyleDetectionResult``,
+``StyleMeta``, ``plugin``.
+"""
 
 from docmirror.plugins.bank_statement.canonical import StyleMeta, build_style_meta
 from docmirror.plugins.bank_statement.context import StyleContext, build_style_context

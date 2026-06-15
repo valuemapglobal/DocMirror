@@ -1,7 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Institution variant resolution for bank statement plugin parsers."""
+"""
+Institution variant resolution for bank statement plugin parsers.
+
+Loads ``institution_overrides.yaml``, resolves the active ``LayoutProfile``, matches
+bank-specific variants from document text, and normalizes table headers per variant.
+
+Pipeline role: ``header_resolve`` and style parsers call ``match_institution`` and
+``normalize_table_headers`` to apply per-bank column alias overrides before extract.
+
+Key exports: ``get_bank_layout_profile``, ``match_institution``,
+``normalize_table_headers``.
+
+Dependencies: ``core.profile.registry``, ``configs.models.layout_profile``,
+``configs/yaml/bank_statement/institution_overrides.yaml``.
+"""
 
 from __future__ import annotations
 

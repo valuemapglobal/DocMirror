@@ -1,7 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Compact merged-column bank ledger style (银座银行等)."""
+"""
+Compact merged-column bank ledger style parser.
+
+Parses layouts where date, expense, income, and balance share one or few merged
+header/cells (common in certain regional bank exports). Uses ``row_pair_merge`` for
+multiline continuation rows.
+
+Pipeline role: registered as ``compact_merged`` in ``style_registry``; also re-exported
+via deprecated ``_base.bank_compact_parser`` shim.
+
+Key exports: ``PARSER_ID``, ``STYLE_ID``, ``is_compact_ledger_header``,
+``parse_compact_ledger_cell``, ``table_has_compact_ledger``, ``extract_transactions``.
+
+Dependencies: ``row_pair_merge.pair_ledger_rows``.
+"""
 
 from __future__ import annotations
 

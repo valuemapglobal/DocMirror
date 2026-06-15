@@ -1,7 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Bank statement community plugin — StyleDetector → Registry → Canonical records."""
+"""
+Bank statement community plugin — style-aware ledger extract.
+
+Premium community plugin for ``bank_statement`` documents. Extends ``BaseTableParser``
+with a style detection pipeline (``BankStyleDetector`` → ``BankStyleParserRegistry``)
+that selects among grid, compact merged, signed amount, borderless OCR, and KV
+identity parsers before building canonical transaction records and DEC output.
+
+Pipeline role: registered as ``plugin`` for ``registry`` discovery; ``runner`` invokes
+``extract_from_mirror`` on matched Mirror tables and OCR text fallback.
+
+Key exports: ``BankStatementCommunityPlugin``, ``plugin``, column/identity config constants.
+
+Dependencies: ``_base.base_table_parser``, ``bank_statement.extract_pipeline``, ``table_dec``.
+"""
 
 from __future__ import annotations
 
@@ -12,13 +26,10 @@ from docmirror.models.edition_serializer import EditionContext, edition_serializ
 from docmirror.plugins._base.base_table_parser import BaseTableParser
 from docmirror.plugins._base.column_registry import ColumnMapping
 from docmirror.plugins._base.table_dec import build_table_dec
-from docmirror.plugins.bank_statement.canonical import build_style_meta
-from docmirror.plugins.bank_statement.context import build_style_context
-from docmirror.plugins.bank_statement.style_detector import BankStyleDetector
-from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
+from docmirror.plugins.bank_statement.extract_pipeline import run_bank_statement_extract
 
 BANK_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
-    "交易日期": ColumnMapping(field="date", format_hint="date", aliases=["日期", "记账日期", "Date"]),
+    "交易日期": ColumnMapping(field="date", format_hint="date", aliases=["日期", "记账日期", "记账日", "Date"]),
     "交易时间": ColumnMapping(field="timestamp", format_hint="datetime", aliases=["时间", "Time"]),
     "摘要": ColumnMapping(field="summary", aliases=["交易摘要", "Description", "Memo"]),
     "交易金额": ColumnMapping(
@@ -27,7 +38,17 @@ BANK_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
         aliases=["金额", "发生额", "Amount", "借方发生额", "贷方发生额"],
     ),
     "余额": ColumnMapping(field="balance", unit="CNY", aliases=["账户余额", "Balance"]),
-    "对方户名": ColumnMapping(field="counter_party", aliases=["对方名称", "交易对方", "Counter party"]),
+    "对方户名": ColumnMapping(
+        field="counter_party",
+        aliases=[
+            "对方名称",
+            "交易对方",
+            "Counter party",
+            "备注",
+            "Remarks",
+            "对方账号与户名",
+        ],
+    ),
     "对方账号": ColumnMapping(field="counter_account", aliases=["对方账户", "Counter account"]),
 }
 
@@ -89,25 +110,25 @@ class BankStatementCommunityPlugin(BaseTableParser):
 
     def extract_from_mirror(self, parse_result, text: str = ""):
         """StyleDetector → Registry → v2.0 community output with style metadata."""
-        ctx = build_style_context(parse_result, text)
-        detection = BankStyleDetector().detect(ctx)
-        records, identity_fields = BankStyleParserRegistry().run(detection, ctx, self)
-        style_meta = build_style_meta(detection)
-        summary = self._build_summary(records)
-        style_props = style_meta.to_properties()
+        result = run_bank_statement_extract(parse_result, text, self)
+        summary = self._build_summary(result.records)
+        style_props = result.style_meta.to_properties()
+
+        dec = build_table_dec(
+            document_type=self.domain_name,
+            identity_fields=result.identity_fields,
+            records=result.records,
+            summary=summary,
+            properties=style_props,
+            metadata=dict(style_props),
+        )
+        if result.warnings:
+            dec.quality.issues.extend(f"warning:{w}" for w in result.warnings)
 
         file_path = getattr(parse_result, "file_path", "") or ""
         doc_name = Path(file_path).name if file_path else self.display_name
         page_count = len(getattr(parse_result, "pages", []) or [])
 
-        dec = build_table_dec(
-            document_type=self.domain_name,
-            identity_fields=identity_fields,
-            records=records,
-            summary=summary,
-            properties=style_props,
-            metadata=dict(style_props),
-        )
         edition_ctx = EditionContext(
             edition=self.edition,
             detected_type=self.domain_name,

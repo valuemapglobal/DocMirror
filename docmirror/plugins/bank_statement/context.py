@@ -1,12 +1,28 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build StyleContext from mirror ParseResult."""
+"""
+Build ``StyleContext`` from Mirror ``ParseResult`` for bank style detection.
+
+Aggregates table cell matrices, full text, institution hints, LTRO reconstruction
+meta, and page count into a single context object passed to ``BankStyleDetector``
+and style parsers.
+
+Pipeline role: first step inside ``bank_statement.community_plugin.extract_from_mirror``
+before style detection and parser dispatch.
+
+Key exports: ``StyleContext``, ``build_style_context``, ``collect_tables_from_parse_result``.
+
+Dependencies: ``ltro``, ``institution_authority``, ``BaseTableParser._collect_tables``.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+
+from docmirror.plugins.bank_statement.institution_authority import resolve_institution_from_context
+from docmirror.plugins.bank_statement.ltro import ReconstructionMeta, reconstruct_tables
 
 
 @dataclass
@@ -16,6 +32,8 @@ class StyleContext:
     institution: str | None
     page_count: int
     parse_result: Any = None
+    reconstruction: ReconstructionMeta | None = None
+    institution_authority: str = ""
 
 
 def collect_tables_from_parse_result(parse_result: Any) -> list[list[list[str]]]:
@@ -43,23 +61,15 @@ def collect_tables_from_parse_result(parse_result: Any) -> list[list[list[str]]]
 
 def build_style_context(parse_result: Any, full_text: str = "") -> StyleContext:
     text = full_text or getattr(parse_result, "full_text", "") or ""
-    institution = None
-    entities = getattr(parse_result, "entities", None)
-    if entities is not None:
-        props = getattr(entities, "metadata", None) or getattr(entities, "properties", None)
-        if isinstance(props, dict):
-            institution = props.get("institution") or props.get("organization")
-        if not institution:
-            doc_props = getattr(entities, "document_properties", None)
-            if isinstance(doc_props, dict):
-                institution = doc_props.get("institution")
+    institution, authority = resolve_institution_from_context(parse_result, text)
 
     pages = getattr(parse_result, "pages", []) or []
-    tables = collect_tables_from_parse_result(parse_result)
-    if not tables and text.strip():
-        from docmirror.plugins.bank_statement.text_table_builder import build_tables_from_ocr_text
-
-        tables = build_tables_from_ocr_text(text)
+    mirror_tables = collect_tables_from_parse_result(parse_result)
+    tables, reconstruction = reconstruct_tables(
+        mirror_tables,
+        text,
+        page_count=len(pages),
+    )
 
     return StyleContext(
         tables=tables,
@@ -67,4 +77,6 @@ def build_style_context(parse_result: Any, full_text: str = "") -> StyleContext:
         institution=institution,
         page_count=len(pages),
         parse_result=parse_result,
+        reconstruction=reconstruction,
+        institution_authority=authority,
     )

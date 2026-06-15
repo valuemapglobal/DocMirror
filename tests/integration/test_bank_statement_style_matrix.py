@@ -130,3 +130,43 @@ def test_style_matrix_synthetic_borderless_ocr():
     plugin = BankStatementCommunityPlugin()
     records, _ = BankStyleParserRegistry().run(detection, ctx, plugin)
     assert len(records) >= 3
+
+
+BOC = Path("tests/fixtures/bank_statement/中国银行-南京创沃电气设备有限公司_1.pdf")
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "min_rows,min_coverage",
+    [(71, 0.95)],
+)
+def test_style_matrix_boc_pipe_text(min_rows: int, min_coverage: float):
+    if not BOC.is_file():
+        pytest.skip("missing BOC fixture")
+
+    mirror = asyncio.run(
+        perceive_document(BOC, PerceiveOptions(enhance_mode="standard"))
+    ).mirror
+
+    out = run_plugin_extract_sync(
+        mirror,
+        edition="community",
+        full_text=mirror.full_text,
+        file_path=str(BOC),
+    )
+    assert out is not None
+    props = out["document"]["properties"]
+    assert props.get("style_id") == "split_debit_credit"
+    assert props.get("reconstruction_source") == "pipe_text"
+    assert "中国银行" in (props.get("institution_hint") or "")
+    assert props.get("coverage_ratio", 0) >= min_coverage
+
+    records = out["data"]["records"]
+    assert len(records) >= min_rows
+    norm = records[0]["normalized"]
+    assert norm.get("date") == "2022-04-01"
+    assert norm.get("direction") in ("income", "expense")
+    assert norm.get("counter_party")
+
+    fields = out["data"].get("fields", {})
+    assert fields.get("account_holder", {}).get("normalized_value") == "南京创沃电气设备有限公司"

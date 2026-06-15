@@ -1,7 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Borderless OCR bank ledger — relaxed header detection + char_strategy tables."""
+"""
+Borderless OCR bank ledger style parser.
+
+Handles char-strategy / weak-border tables with relaxed header detection,
+institution-specific header normalization, and grid-standard fallback normalization.
+
+Pipeline role: registered in ``style_registry._PARSERS`` as ``borderless_ocr``;
+selected when OCR-dominant Mirror output or style detector scores favor borderless layouts.
+
+Key exports: ``PARSER_ID``, ``STYLE_ID``, ``is_ocr_dominant``, ``extract_transactions``.
+
+Dependencies: ``header_resolve`` (relaxed mode), ``row_extract``, ``grid_standard``.
+"""
 
 from __future__ import annotations
 

@@ -1,7 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Canonical transaction builders and style metadata."""
+"""
+Canonical transaction record builders and style metadata for bank statements.
+
+Defines ``CANONICAL_FIELDS``, ``StyleMeta`` (style_id, confidence, parser chain),
+and helpers to normalize raw style-parser output into edition-ready record dicts with
+``raw`` and ``normalized`` sub-objects.
+
+Pipeline role: ``style_registry`` and individual style parsers call these builders
+before ``community_plugin`` serializes DEC output.
+
+Key exports: ``CANONICAL_FIELDS``, ``StyleMeta``, ``build_style_meta``,
+``ensure_canonical_normalized``, ``records_from_raw_transactions``.
+"""
 
 from __future__ import annotations
 
@@ -29,6 +41,12 @@ class StyleMeta:
     parser_chain: list[str] = field(default_factory=list)
     institution_hint: str | None = None
     secondary_styles: list[str] = field(default_factory=list)
+    reconstruction_source: str = ""
+    expected_primary_rows: int = 0
+    extracted_rows: int = 0
+    coverage_ratio: float = 0.0
+    institution_authority: str = ""
+    pipe_parse_failed: bool = False
 
     def to_properties(self) -> dict[str, Any]:
         return {
@@ -37,16 +55,47 @@ class StyleMeta:
             "parser_chain": list(self.parser_chain),
             "institution_hint": self.institution_hint or "",
             "secondary_styles": list(self.secondary_styles),
+            "reconstruction_source": self.reconstruction_source,
+            "expected_primary_rows": self.expected_primary_rows,
+            "extracted_rows": self.extracted_rows,
+            "coverage_ratio": round(self.coverage_ratio, 4),
+            "institution_authority": self.institution_authority,
+            "pipe_parse_failed": self.pipe_parse_failed,
         }
 
 
-def build_style_meta(detection: Any) -> StyleMeta:
+def build_style_meta(
+    detection: Any,
+    *,
+    reconstruction: Any = None,
+    record_count: int = 0,
+) -> StyleMeta:
+    expected = 0
+    source = ""
+    pipe_failed = False
+    if reconstruction is not None:
+        expected = getattr(reconstruction, "expected_primary_rows", 0) or 0
+        source = getattr(reconstruction, "source", "") or ""
+        pipe_failed = bool(getattr(reconstruction, "pipe_parse_failed", False))
+
+    coverage = 0.0
+    if expected > 0 and record_count > 0:
+        coverage = min(record_count / expected, 1.0)
+    elif record_count > 0 and not expected:
+        coverage = 1.0
+
     return StyleMeta(
         style_id=detection.primary_style,
         style_confidence=detection.confidence,
         parser_chain=list(detection.parser_chain),
         institution_hint=detection.institution_hint,
         secondary_styles=list(detection.secondary_styles),
+        reconstruction_source=source,
+        expected_primary_rows=expected,
+        extracted_rows=record_count,
+        coverage_ratio=coverage,
+        institution_authority=getattr(detection, "institution_authority", "") or "",
+        pipe_parse_failed=pipe_failed,
     )
 
 

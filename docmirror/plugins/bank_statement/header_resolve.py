@@ -1,7 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unified bank statement header resolution — SSOT for strict/relaxed matching."""
+"""
+Unified bank statement header resolution — SSOT for strict and relaxed matching.
+
+Merges OCR header aliases, layout profile aliases, and ``ColumnMatcher`` into
+``detect_headers`` with configurable strictness (minimum columns, lookahead rows).
+Single entry for all bank style parsers when locating header rows and column maps.
+
+Pipeline role: used by ``row_extract``, ``grid_standard``, and ``borderless_ocr``
+before row iteration; bridges ``core.profile.registry`` with plugin column registry.
+
+Key exports: ``HeaderMatch``, ``detect_headers``, ``canonical_key_for_field``,
+``has_split_debit_credit_headers``, strict/relaxed threshold constants.
+
+Dependencies: ``column_registry.ColumnMatcher``, ``bank_statement.institution``.
+"""
 
 from __future__ import annotations
 

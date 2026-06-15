@@ -1,7 +1,18 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Multiline continuation row pairing for compact ledgers."""
+"""
+Multiline continuation row pairing for compact bank ledgers.
+
+Detects time-only continuation rows and merges counterparty/summary fragments into
+the pending transaction dict produced by compact merged parsing.
+
+Pipeline role: helper for ``compact_merged`` style parser when ledger rows span
+multiple physical table rows.
+
+Key exports: ``PARSER_ID``, ``is_continuation_row``, ``merge_continuation_into_pending``,
+``pair_ledger_rows``.
+"""
 
 from __future__ import annotations
 

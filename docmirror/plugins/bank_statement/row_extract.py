@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared row extraction for grid / borderless bank ledger styles."""
+"""
+Shared row extraction utilities for grid and borderless bank ledger styles.
+
+Header-aware transaction row detection, debit/credit split handling, and multi-table
+harvest helpers shared by ``grid_standard`` and ``borderless_ocr`` style parsers.
+
+Pipeline role: called from style parser modules during ``extract_rows`` phases;
+uses ``header_resolve.detect_headers`` for column alignment.
+
+Key exports: ``row_has_transaction_data``, ``extract_rows_from_header``,
+``extract_all_tables``, ``count_transaction_data_rows``.
+
+Dependencies: ``bank_statement.header_resolve``.
+"""
 
 from __future__ import annotations
 

@@ -1,7 +1,20 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build synthetic ledger tables from OCR full_text when Mirror tables=0."""
+"""
+Synthetic ledger table builder from OCR full text.
+
+When Mirror reports zero tables but OCR text looks like a bank ledger, regex parsers
+extract transaction lines into pseudo-table rows for downstream style parsers.
+
+Pipeline role: fallback path inside ``bank_statement.community_plugin`` when
+``StyleContext.tables`` is empty; feeds reconstructed grids into style detection.
+
+Key exports: ``looks_like_bank_ocr_text``, ``build_tables_from_spaced_ocr_text``,
+``build_tables_from_ocr_text`` (alias).
+
+Dependencies: stdlib ``re`` only; consumed by ``context`` / ``community_plugin``.
+"""
 
 from __future__ import annotations
 
@@ -131,8 +144,8 @@ def _parse_txn_line(line: str) -> dict[str, str] | None:
     return _parse_txn_line_fallback(line)
 
 
-def build_tables_from_ocr_text(text: str) -> list[list[list[str]]]:
-    """Parse OCR plain text into a single synthetic grid table."""
+def build_tables_from_spaced_ocr_text(text: str) -> list[list[list[str]]]:
+    """Parse spaced OCR plain text into a single synthetic signed-amount grid table."""
     if not looks_like_bank_ocr_text(text):
         return []
 
@@ -161,3 +174,8 @@ def build_tables_from_ocr_text(text: str) -> list[list[list[str]]]:
     if len(rows) < 2:
         return []
     return [rows]
+
+
+def build_tables_from_ocr_text(text: str) -> list[list[list[str]]]:
+    """Backward-compatible alias for ``build_tables_from_spaced_ocr_text``."""
+    return build_tables_from_spaced_ocr_text(text)

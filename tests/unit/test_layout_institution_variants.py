@@ -21,6 +21,15 @@ def test_bank_profile_institution_variants():
     assert variant.column_map.get("交易日期") == "交易时间"
 
 
+def test_bank_profile_prefers_pipe_delimited():
+    load_profiles.cache_clear()
+    profile = get_profile("borderless_ledger_bank")
+    assert "pipe_delimited" in profile.preferred_table_methods
+    idx_pipe = profile.preferred_table_methods.index("pipe_delimited")
+    idx_lines = profile.preferred_table_methods.index("lines")
+    assert idx_pipe < idx_lines
+
+
 def test_header_aliases_resolve():
     load_profiles.cache_clear()
     profile = get_profile("borderless_ledger_bank")
