@@ -42,7 +42,7 @@ def _page_chars(page_plum) -> list[dict]:
     return list(getattr(page_plum, "chars", None) or [])
 
 
-def _stamp_geometry_audit(extractor: "PageExtractor", page_no: int, attrs: dict) -> None:
+def _stamp_geometry_audit(extractor: PageExtractor, page_no: int, attrs: dict) -> None:
     if "geometry_coverage_ratio" not in attrs or getattr(extractor._host, "_extraction_audit", None) is None:
         return
     for entry in reversed(extractor._host._extraction_audit):
@@ -53,7 +53,7 @@ def _stamp_geometry_audit(extractor: "PageExtractor", page_no: int, attrs: dict)
         {"page": page_no, "geometry_coverage_ratio": attrs["geometry_coverage_ratio"]}
     )
 
-def fallback_table_extraction(extractor: "PageExtractor",
+def fallback_table_extraction(extractor: PageExtractor,
     page_plum,
     fitz_page,
     fitz_doc,

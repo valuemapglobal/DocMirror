@@ -364,7 +364,7 @@ async def _execute_mirror_conservation_contract(case: TQGCase) -> tuple[Any, dic
     return mirror, {"scenario": scenario}
 
 
-async def _execute_mirror_geometry_contract(case: TQGCase) -> tuple[Any, dict[str, Any]]:
+async def _execute_mirror_geometry_contract(_case: TQGCase) -> tuple[Any, dict[str, Any]]:
     from docmirror.models.entities.parse_result import (
         CellValue,
         LogicalTable,
@@ -565,7 +565,7 @@ async def _execute_scanned_local_structure_contract(case: TQGCase) -> tuple[Any,
     return mirror, {"scenario": "synthetic_scanned_local_structure"}
 
 
-async def _execute_scanned_local_structure_realistic_fixture(case: TQGCase) -> tuple[Any, dict[str, Any]]:
+async def _execute_scanned_local_structure_realistic_fixture(_case: TQGCase) -> tuple[Any, dict[str, Any]]:
     import json
     from pathlib import Path
 
@@ -617,7 +617,7 @@ async def _execute_scanned_local_structure_realistic_fixture(case: TQGCase) -> t
     return mirror, {"scenario": "realistic_scanned_local_structure_fixture"}
 
 
-async def _execute_scanned_local_structure_full_page_fixture(case: TQGCase) -> tuple[Any, dict[str, Any]]:
+async def _execute_scanned_local_structure_full_page_fixture(_case: TQGCase) -> tuple[Any, dict[str, Any]]:
     import json
     from pathlib import Path
 

@@ -15,7 +15,7 @@ Downstream: ``CoreExtractor`` page aggregation, ``provenance_stamps``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from docmirror.models.entities.domain import Block, PageLayout
 from docmirror.core.geometry.table_attrs import build_table_geometry_attrs

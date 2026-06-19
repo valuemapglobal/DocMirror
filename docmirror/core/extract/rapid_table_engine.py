@@ -21,12 +21,11 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 try:
-    from rapid_table import RapidTable, RapidTableInput, RapidTableOutput
+    from rapid_table import RapidTable, RapidTableOutput
 
     HAS_RAPID_TABLE = True
 except ImportError:

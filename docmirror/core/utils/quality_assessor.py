@@ -20,7 +20,7 @@ Downstream: ``analyze.quality_router``, ``analyze.pre_analyzer``.
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict
+from typing import Any
 
 import cv2
 import numpy as np
@@ -228,7 +228,7 @@ class DocumentQualityAssessor:
         # 简化判断：基于颜色分布
         if len(image.shape) == 3:
             # 检查是否为灰度图像（扫描件特征）
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             color_std = np.std(image, axis=(0, 1)).mean()
 
             if color_std < 10:

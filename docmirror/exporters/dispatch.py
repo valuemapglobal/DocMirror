@@ -7,7 +7,7 @@ from __future__ import annotations
 import html
 
 from dataclasses import dataclass
-from typing import Callable
+from collections.abc import Callable
 
 from docmirror.models.entities.parse_result import ParseResult
 

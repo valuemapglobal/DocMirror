@@ -23,7 +23,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from docmirror.core.scene.rules import ClassificationRule, RuleManager
+from docmirror.core.scene.rules import RuleManager
 from docmirror.plugins import PluginRegistry
 
 logger = logging.getLogger(__name__)
@@ -337,7 +337,7 @@ class FileClassifier:
 
         return "\n".join(texts)
 
-    def _match_rules(self, text: str, file_path: Path) -> list[ClassificationMatch]:
+    def _match_rules(self, text: str, _file_path: Path) -> list[ClassificationMatch]:
         """
         使用规则匹配文件
         
@@ -353,7 +353,7 @@ class FileClassifier:
 
         matches = []
         for rule, match_count in self.rules.match_text(text):
-            # 计算置信度: 基于匹配关键词数和优先级
+            # Confidence from keyword hit ratio and rule priority
             confidence = min(1.0, match_count / len(rule.keywords) * 0.7 + rule.priority / 1000 * 0.3)
 
             matches.append(ClassificationMatch(
@@ -367,7 +367,7 @@ class FileClassifier:
 
         return matches
 
-    def _match_plugins(self, parse_result, text: str) -> list[ClassificationMatch]:
+    def _match_plugins(self, _parse_result, text: str) -> list[ClassificationMatch]:
         """
         使用插件匹配文件
         
@@ -393,7 +393,7 @@ class FileClassifier:
                     match_count = sum(1 for kw in keywords if kw in text)
                     confidence = min(1.0, match_count / len(keywords) * 0.8 + 0.2)
 
-                    # 获取分类目录(如果插件定义了)
+                    # Plugin-defined category directory when available
                     target_dir = ""
                     if hasattr(plugin, 'get_classification_category'):
                         target_dir = plugin.get_classification_category()

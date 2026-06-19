@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from typing import Any
 
 from docmirror.plugins._base.base_table_parser import BaseTableParser
 from docmirror.plugins._base.column_registry import ColumnMapping, ColumnMatcher
@@ -196,7 +195,7 @@ class AlipayPaymentPlugin(BaseTableParser):
 
         return transactions
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         """Legacy KV fallback — prefer ``extract_from_mirror()`` for full v2.0 output."""
         from docmirror.plugins._base.dec_builder import build_dec_kv
 

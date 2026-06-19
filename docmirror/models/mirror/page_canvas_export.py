@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import Any
 
 from docmirror.core.ocr.page_canvas.build import build_regions_from_domain_specific
-from docmirror.core.ocr.page_canvas.models import PageFlow
 from docmirror.models.mirror.legacy_project import enrich_api_page_with_canvas
 
 

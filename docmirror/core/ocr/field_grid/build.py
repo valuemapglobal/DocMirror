@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from docmirror.core.ocr.field_grid.assemble import (
     build_field_cell,
@@ -24,7 +25,6 @@ from docmirror.core.ocr.grid_materialize import exclusive_assign_tokens_to_grid
 from docmirror.core.ocr.field_grid.bands import (
     estimate_col_bands_from_label_rows,
     extract_label_tokens,
-    nearest_header_row_for_y,
     segment_field_sections,
     value_row_band,
 )
@@ -161,7 +161,7 @@ def _fill_missing_due_date(
     cell_by_label: dict[str, FieldCell],
     as_of_date: str | None,
     prefix: str,
-    page: int,
+    _page: int,
 ) -> list[FieldCell]:
     due_band = next(
         (band for band in col_bands if "到期日期" in str(band.get("header") or "")),
@@ -286,7 +286,7 @@ def build_field_grid_from_block(
         cell_by_label=cell_by_label,
         as_of_date=as_of_date,
         prefix=prefix,
-        page=page,
+        _page=page,
     )
 
     nodes: list[StructureNode] = [

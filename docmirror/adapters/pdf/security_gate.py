@@ -15,7 +15,6 @@ password unlock via fitz, and writes decrypted copies to disk for downstream
 import logging
 import re
 from pathlib import Path
-from typing import List
 
 logger = logging.getLogger(__name__)
 

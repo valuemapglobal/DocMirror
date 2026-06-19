@@ -13,7 +13,6 @@ Entry point: ``validate_dec(dec: DomainExtractionResult) -> list[str]``
 
 from __future__ import annotations
 
-from typing import Any
 
 from docmirror.models.entities.domain_result import DomainExtractionResult
 

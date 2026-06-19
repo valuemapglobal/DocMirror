@@ -23,7 +23,7 @@ Downstream: ``entry.factory``, ``output`` exporters, plugins.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +238,6 @@ def _blocks_to_pages(base: BaseResult):
         - Block(type=key_value, raw_content=dict) → KeyValuePair
     """
     from docmirror.models.entities.parse_result import (
-        CellValue,
         KeyValuePair,
         PageContent,
         RowType,
@@ -652,7 +651,7 @@ class ParseResultBridge:
         )
 
 
-def _deserialize_logical_table_payload(raw: dict) -> "LogicalTable":
+def _deserialize_logical_table_payload(raw: dict) -> LogicalTable:
     """Rebuild a LogicalTable from serialize_logical_tables_for_metadata payload."""
     from docmirror.models.entities.parse_result import (
         CellValue,

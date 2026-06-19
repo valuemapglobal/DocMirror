@@ -32,7 +32,8 @@ import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any
+from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,29 @@ class WorkerBudget:
     file_workers: int
     page_workers_per_file: int
     layout_workers: int
+
+
+@dataclass(frozen=True)
+class DocumentWorkloadSignals:
+    """Document-level signals for semantic/projection worker planning."""
+
+    page_count: int = 1
+    image_page_ratio: float = 0.0
+    table_page_ratio: float = 0.0
+    ocr_probability: float = 0.0
+    edition_count: int = 1
+
+    def normalized(self) -> DocumentWorkloadSignals:
+        def _ratio(value: float) -> float:
+            return max(0.0, min(1.0, float(value)))
+
+        return DocumentWorkloadSignals(
+            page_count=max(1, int(self.page_count or 1)),
+            image_page_ratio=_ratio(self.image_page_ratio),
+            table_page_ratio=_ratio(self.table_page_ratio),
+            ocr_probability=_ratio(self.ocr_probability),
+            edition_count=max(1, int(self.edition_count or 1)),
+        )
 
 
 def auto_page_concurrency(
@@ -247,6 +271,55 @@ def resolve_worker_budget(
     layout_workers = min(page_workers, pages, cpus)
     return WorkerBudget(
         total=total,
+        file_workers=max(1, file_workers),
+        page_workers_per_file=max(1, page_workers),
+        layout_workers=max(1, layout_workers),
+    )
+
+
+def resolve_semantic_worker_budget(
+    workers: int | str | None = None,
+    *,
+    signals: DocumentWorkloadSignals | None = None,
+    cpu_count: int | None = None,
+) -> WorkerBudget:
+    """Resolve worker budget for edition/projection/semantic work.
+
+    This is deliberately separate from ``resolve_worker_budget()`` so existing
+    parse and CLI concurrency behavior remains stable. Heavy documents receive
+    a bounded boost when the caller did not provide an explicit worker budget.
+    """
+    cpus = max(1, cpu_count if cpu_count is not None else (os.cpu_count() or 4))
+    sig = (signals or DocumentWorkloadSignals()).normalized()
+
+    explicit = not (workers is None or (isinstance(workers, str) and workers.strip().lower() in {"", "auto"}))
+    if explicit:
+        total = max(1, int(workers))
+    else:
+        base = auto_page_concurrency(cpu_count=cpus, page_executor=resolve_page_executor())
+        workload_score = 0
+        if sig.page_count >= 10:
+            workload_score += 1
+        if sig.page_count >= 30:
+            workload_score += 1
+        if sig.image_page_ratio >= 0.50:
+            workload_score += 1
+        if sig.table_page_ratio >= 0.50:
+            workload_score += 1
+        if sig.ocr_probability >= 0.50:
+            workload_score += 1
+        if sig.edition_count >= 3:
+            workload_score += 1
+        total = min(max(1, cpus), base + workload_score)
+
+    file_workers = min(max(1, sig.edition_count), total)
+    remaining = max(1, total // file_workers)
+    page_workers = min(max(1, sig.page_count), remaining)
+    if sig.ocr_probability >= 0.75 and not explicit:
+        page_workers = min(page_workers, max(1, cpus // 2))
+    layout_workers = min(max(1, cpus), max(page_workers, int(round(page_workers * (1 + sig.table_page_ratio)))))
+    return WorkerBudget(
+        total=max(1, total),
         file_workers=max(1, file_workers),
         page_workers_per_file=max(1, page_workers),
         layout_workers=max(1, layout_workers),

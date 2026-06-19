@@ -35,6 +35,7 @@ from docmirror.framework.extraction_runner import (
     instantiate_adapter,
     run_extraction_chain,
 )
+from docmirror.framework.execution_fingerprint import build_execution_fingerprint
 from docmirror.models.entities.parse_result import ParseResult
 from docmirror.core.pipeline.context import ParseContext
 from docmirror.core.entry.options import ParseControl, normalize_parse_control
@@ -160,7 +161,7 @@ class ParserDispatcher:
         fallback: bool = True,
         document_type=None,
         skip_cache: bool = False,
-        on_progress=None,
+        on_progress=None,  # noqa: ARG002 — progress hook reserved
         **kwargs,
     ) -> ParseResult:
         _t0 = time.time()
@@ -236,13 +237,17 @@ class ParserDispatcher:
         perceive_ctx["parse_control"] = parse_control
         perceive_ctx["parse_control_dict"] = parse_control.to_dict()
         perceive_ctx["parse_control_fingerprint"] = parse_control.fingerprint()
+        perceive_ctx["cache_policy"] = parse_control.cache_policy
+        perceive_ctx["ocr_mode"] = parse_control.execution.ocr
         perceive_ctx["doc_type_hint"] = parse_control.doc_type_hint.value if parse_control.doc_type_hint else None
         perceive_ctx["doc_type_hint_strength"] = parse_control.doc_type_hint.strength if parse_control.doc_type_hint else None
 
         # ── Cache Lookup ──
-        use_cache = not parse_control.skip_cache
-        fingerprint = parse_control.fingerprint()
-        if use_cache:
+        cache_policy = parse_control.cache_policy
+        read_cache = cache_policy in {"read-write", "read-only"}
+        write_cache = cache_policy in {"read-write", "refresh"}
+        fingerprint = build_execution_fingerprint(parse_control)
+        if read_cache:
             from docmirror.framework.cache import parse_cache
             try:
                 cached_json = await parse_cache.get(ctx.checksum, fingerprint)
@@ -277,7 +282,7 @@ class ParserDispatcher:
         result.parser_info.elapsed_ms = elapsed
 
         # ── Cache Write ──
-        if use_cache and result.success:
+        if write_cache and result.success:
             from docmirror.framework.cache import parse_cache
             try:
                 serialized = result.model_dump_json()

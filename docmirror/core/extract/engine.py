@@ -23,14 +23,14 @@ import concurrent.futures
 import logging
 import re
 import time
-from collections import Counter, defaultdict
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from collections import Counter
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from docmirror.models.entities.extraction_profile import ExtractionProfile
     from .template_injector import GlobalTableTemplate
 
-from ..utils.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE, _is_header_cell, _is_header_row, _score_header_by_vocabulary
+from ..utils.vocabulary import _is_header_row, _score_header_by_vocabulary
 
 logger = logging.getLogger(__name__)
 # T3-3: Module-level DEBUG flag — avoids f-string formatting cost
@@ -62,7 +62,7 @@ from .pipe_strategy import _extract_by_pipe_delimited
 
 from .profile_run_state import ProfileRunState as _ProfileRunState
 from .zone_crop import crop_simple_to_table_zone, crop_to_table_zone as _crop_to_table_zone
-from .merged_cells import detect_merged_cells
+from .merged_cells import detect_merged_cells  # noqa: F401 — re-exported for table_zone
 
 
 
@@ -75,10 +75,10 @@ def extract_tables_layered(
     fitz_page=None,
     watermark_filtered: bool = False,
     layer_hint: str | None = None,
-    zone_layer_hints: dict[str, str] | None = None,
+    _zone_layer_hints: dict[str, str] | None = None,
     global_grid_x: list[float] | None = None,
     table_template: GlobalTableTemplate | None = None,
-    pid_resample: bool = False,
+    pid_resample: bool = False,  # noqa: ARG001 — reserved API; profile uses skip_pid_resample
     extraction_profile: ExtractionProfile | None = None,
     extraction_audit: list | None = None,
     fast_continuation: bool = False,
@@ -676,5 +676,4 @@ def extract_tables_layered_with_geometry(
 from docmirror.core.extract.layers.backends import (
     extract_by_pymupdf as _extract_by_pymupdf,
     extract_by_rapid_table as _extract_by_rapid_table,
-    parse_html_table as _parse_html_table,
 )

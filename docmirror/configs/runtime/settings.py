@@ -75,6 +75,23 @@ def _env_str(name: str, default: str) -> str:
     return raw.strip()
 
 
+def _env_optional_str(name: str, default: Any = None) -> str | None:
+    raw = os.getenv(name)
+    if raw is not None:
+        raw = raw.strip()
+        return raw or None
+    if default is None:
+        return None
+    default_str = str(default).strip()
+    return default_str or None
+
+
+DEFAULT_VLM_PROMPT = """You are a professional document analysis assistant.
+Identify and transcribe all printed text, handwritten notes, tables, and stamps in the image.
+Format tables as standard Markdown tables and print structural text in order.
+Do not add any preamble, prefix, or conversational wrapper. Just output clean Markdown."""
+
+
 @dataclass
 class OCRHyperParams:
     """
@@ -110,6 +127,20 @@ class OCRHyperParams:
 
 
 @dataclass
+class VLMSettings:
+    """Settings for optional external Vision-Language-Model OCR providers."""
+
+    provider: str = "openai"
+    model: str = "gpt-4o"
+    api_key: str | None = None
+    api_base: str | None = None
+    timeout: int = 60
+    temperature: float = 0.0
+    max_tokens: int = 4096
+    prompt: str = DEFAULT_VLM_PROMPT
+
+
+@dataclass
 class DocMirrorSettings:
     """Global configuration for DocMirror."""
 
@@ -134,6 +165,7 @@ class DocMirrorSettings:
     table_rapid_min_confidence_threshold: float = 0.3
     external_ocr_quality_threshold: int = 80
     external_ocr_provider: str | None = None
+    vlm: VLMSettings = field(default_factory=VLMSettings)
 
     @classmethod
     def from_env(cls) -> DocMirrorSettings:
@@ -141,14 +173,18 @@ class DocMirrorSettings:
         business = _yaml_get("business", {}) or {}
         physics = _yaml_get("physics", {}) or {}
         ocr_cfg = _yaml_get("ocr", {}) or {}
+        external_ocr_cfg = ocr_cfg.get("external", {}) if isinstance(ocr_cfg, dict) else {}
+        if not isinstance(external_ocr_cfg, dict):
+            external_ocr_cfg = {}
+        vlm_cfg = external_ocr_cfg.get("vlm", {}) or {}
+        if not isinstance(vlm_cfg, dict):
+            vlm_cfg = {}
         layout_cfg = _yaml_get("layout", {}) or {}
         logging_cfg = _yaml_get("logging", {}) or {}
 
         from docmirror.configs.runtime.performance import resolve_max_page_concurrency
 
         max_conc = resolve_max_page_concurrency()
-
-        ext_ocr = ocr_cfg.get("external") if isinstance(ocr_cfg.get("external"), dict) else {}
 
         instance = cls(
             default_enhance_mode=_env_str(
@@ -175,7 +211,21 @@ class DocMirrorSettings:
                 int(ocr_cfg.get("quality_threshold", 80)),
             ),
             external_ocr_provider=(
-                (v := os.getenv("DOCMIRROR_EXTERNAL_OCR_PROVIDER", "").strip()) or None
+                os.getenv("DOCMIRROR_EXTERNAL_OCR_PROVIDER", "").strip()
+                or _env_optional_str("DOCMIRROR_OCR_EXTERNAL_PROVIDER", external_ocr_cfg.get("provider"))
+            ),
+            vlm=VLMSettings(
+                provider=_env_str("DOCMIRROR_VLM_PROVIDER", str(vlm_cfg.get("provider", "openai"))),
+                model=_env_str("DOCMIRROR_VLM_MODEL", str(vlm_cfg.get("model", "gpt-4o"))),
+                api_key=_env_optional_str("DOCMIRROR_VLM_API_KEY", vlm_cfg.get("api_key")),
+                api_base=_env_optional_str("DOCMIRROR_VLM_API_BASE", vlm_cfg.get("api_base")),
+                timeout=_env_int("DOCMIRROR_VLM_TIMEOUT", int(vlm_cfg.get("timeout", 60))),
+                temperature=_env_float(
+                    "DOCMIRROR_VLM_TEMPERATURE",
+                    float(vlm_cfg.get("temperature", 0.0)),
+                ),
+                max_tokens=_env_int("DOCMIRROR_VLM_MAX_TOKENS", int(vlm_cfg.get("max_tokens", 4096))),
+                prompt=_env_str("DOCMIRROR_VLM_PROMPT", str(vlm_cfg.get("prompt") or DEFAULT_VLM_PROMPT)),
             ),
         )
 
@@ -204,6 +254,14 @@ class DocMirrorSettings:
             "enhance_mode": self.default_enhance_mode,
             "SceneDetector": {},
             "Validator": {"pass_threshold": self.validator_pass_threshold},
+            "VLM": {
+                "provider": self.vlm.provider,
+                "model": self.vlm.model,
+                "api_base": self.vlm.api_base,
+                "timeout": self.vlm.timeout,
+                "temperature": self.vlm.temperature,
+                "max_tokens": self.vlm.max_tokens,
+            },
         }
 
 

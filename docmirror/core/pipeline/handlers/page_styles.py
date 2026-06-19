@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-def extract_page_styles(extractor: "PageExtractor", fitz_page) -> dict[str, Style]:
+def extract_page_styles(_extractor: PageExtractor, fitz_page) -> dict[str, Style]:
     """Extract visual features of text within the page."""
     style_map: dict[str, Style] = {}
     try:

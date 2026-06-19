@@ -21,7 +21,6 @@ Downstream: ``ocr.scanned.analyze_page``, ``table.postprocess``.
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -230,7 +229,7 @@ def reconstruct_table_grid_2d(
     return final_table
 
 
-def detect_table_lines_hough(img_bgr, page_h: int, page_w: int) -> list[tuple[float, float]] | None:
+def detect_table_lines_hough(img_bgr, page_h: int, _page_w: int) -> list[tuple[float, float]] | None:
     """Detect vertical table lines using Hough transform.
 
     Returns column boundary intervals or None if too few lines found.

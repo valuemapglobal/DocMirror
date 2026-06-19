@@ -23,7 +23,6 @@ Dependencies: ``DomainPlugin``, ``dec_builder``, ``kv_community_extract``,
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 from docmirror.plugins import DomainPlugin
 
@@ -56,7 +55,7 @@ class BusinessLicensePlugin(DomainPlugin):
             ("business_scope", ("经营范围", "Business Scope")),
         )
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
         return build_dec_kv("business_license", {
             "company_name": entities.get("company_name", ""),

@@ -20,7 +20,6 @@ Downstream: ``extract.engine`` cell normalization.
 from __future__ import annotations
 
 import re
-from typing import Dict, Optional
 
 
 def strip_html_to_plain_text(html_text: str, drop_tables: bool = False) -> str:

@@ -30,7 +30,7 @@ _clock = time.perf_counter
 from pathlib import Path
 from typing import Any
 
-from ...models.entities.domain import BaseResult, PageLayout
+from ...models.entities.domain import BaseResult
 from docmirror.core.entry.exceptions import ExtractionError
 from ..extract.classifier import get_last_layer_timings
 from ..utils.vocabulary import _is_header_row
@@ -141,7 +141,7 @@ class CoreExtractor:
                 full_text="",
             )
 
-    async def extract_parse_result(self, file_path: Path, *, options: dict | None = None) -> "ParseResult":
+    async def extract_parse_result(self, file_path: Path, *, options: dict | None = None) -> ParseResult:
         """
         Single bridge point: CoreExtractor → ParseResult (MOC Path B).
 
@@ -149,12 +149,11 @@ class CoreExtractor:
         in adapters (design 09 §5 Phase 1).
         """
         from docmirror.core.bridge.parse_result_bridge import ParseResultBridge
-        from docmirror.models.entities.parse_result import ParseResult
 
         base_result = await self.extract(file_path, options=options or {})
         return ParseResultBridge.from_base_result(base_result)
 
-    async def _open_document(self, file_path: Path) -> "fitz.Document":
+    async def _open_document(self, file_path: Path) -> fitz.Document:
         """Open a document (PDF or image). Returns the PyMuPDF document."""
         import asyncio
 
@@ -172,7 +171,7 @@ class CoreExtractor:
         return fitz_doc
 
     async def _run_extraction(
-        self, fitz_doc: "fitz.Document", file_path: Path, doc_id: str, options: dict | None = None
+        self, fitz_doc: fitz.Document, file_path: Path, doc_id: str, options: dict | None = None
     ) -> BaseResult:
         """Core extraction logic, extracted from try block.
         

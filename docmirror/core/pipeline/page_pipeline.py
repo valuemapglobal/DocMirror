@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from docmirror.core.pipeline.page_extractor import PageExtractor
-from docmirror.core.pipeline.profiler import merge_page_stage_timings, stage_timer
+from docmirror.core.pipeline.profiler import stage_timer
 from docmirror.core.pipeline.stages.page_assemble import run_assemble_zones
 from docmirror.core.pipeline.stages.page_finalize import run_finalize
 from docmirror.core.pipeline.stages.page_prepare import run_prepare

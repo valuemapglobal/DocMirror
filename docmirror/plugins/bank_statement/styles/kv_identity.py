@@ -18,7 +18,6 @@ Dependencies: ``bank_statement.context.StyleContext``.
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from docmirror.plugins.bank_statement.context import StyleContext
 

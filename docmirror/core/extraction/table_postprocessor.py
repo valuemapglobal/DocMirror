@@ -20,7 +20,7 @@ Downstream: ``pipeline.stages.page_assemble``, ``table.compose``.
 from __future__ import annotations
 
 import logging
-from typing import List, Any
+from typing import Any
 
 from docmirror.core.table.pipeline import TableNormalizeContext, normalize_table
 from docmirror.models.entities.domain import Block, PageLayout

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import dataclasses
 import uuid
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Literal
 
 
 @dataclasses.dataclass(frozen=True)

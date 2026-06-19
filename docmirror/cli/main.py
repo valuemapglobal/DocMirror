@@ -55,6 +55,7 @@ main.add_command(benchmark)
 @main.command()
 @click.argument("file", required=True)
 @click.option("--output-dir", "-o", default="output", show_default=True, help="Output directory")
+@click.option("--no-save", is_flag=True, help="Do not save result to disk")
 @click.option("--pages", default=None, help="Page ranges, 1-based: 1-3,8,10-")
 @click.option("--max-pages", type=int, default=None, help="Maximum pages after applying --pages")
 @click.option("--workers", "-j", default=None, help="Total worker budget for this command (int or auto)")
@@ -66,57 +67,111 @@ main.add_command(benchmark)
     show_default=True,
     help="Parse mode",
 )
+@click.option("--ocr", default="auto", type=click.Choice(["auto", "force", "off", "fallback"]), show_default=True, help="OCR policy")
 @click.option("--format", "-f", "formats", default="json", show_default=True, help="Output formats: json,csv,markdown,chunks,html,parquet,all")
-@click.option("--doc-type-hint", default=None, help="Manual document type hint, optionally type:force")
-@click.option("--skip-cache", is_flag=True, help="Skip cache")
-@click.option("--use-cache/--no-use-cache", default=True, help="Enable or disable cache usage")
+@click.option("--editions", default="mirror,community", show_default=True, help="Output editions: mirror,community,enterprise,finance,all")
+@click.option("--doc-type", default=None, help="Manual document type")
+@click.option("--doc-type-policy", default="prefer", type=click.Choice(["prefer", "force"]), show_default=True, help="How strongly to apply --doc-type")
+@click.option("--cache-policy", default="read-write", type=click.Choice(["read-write", "read-only", "refresh", "off"]), show_default=True, help="Cache policy")
 @click.option("--split-layers", is_flag=True, help="Export L1/L2/L3 as separate files")
-@click.option("--no-stage-output", is_flag=True, help="Disable 3-stage output")
-@click.option("--export-csv", is_flag=True, help="Export CSV")
-@click.option("--export-chunks", is_flag=True, help="Export RAG chunks")
 @click.option("--include-text", is_flag=True, help="Include full text in output")
 @click.option(
     "--mirror-level",
-    default="standard",
+    default=None,
     type=click.Choice(["standard", "forensic"]),
-    help="Mirror output level: standard (physical+logical), forensic (physical audit, no logical_tables)",
+    help="Mirror output level: standard/forensic",
 )
-@click.option("--include-geometry", is_flag=True, help="Include table/cell geometry by using forensic mirror output")
+@click.option("--geometry", default=None, type=click.Choice(["none", "page", "block", "token", "full"]), help="Geometry output level")
 @click.option("--debug-artifact", is_flag=True, help="Write debug artifact")
+@click.option("--recursive", is_flag=True, help="Recursively parse directory/glob inputs")
+@click.option("--exclude", multiple=True, metavar="SUBSTR", help="Skip files whose path contains SUBSTR")
+@click.option("--include-ext", default=None, help="Comma-separated extensions to include in batch mode")
+@click.option("--log-level", default="info", type=click.Choice(["debug", "info", "warning", "error"]), show_default=True, help="Logging level")
+@click.option("--overwrite", is_flag=True, help="Allow overwriting an explicit --run-id output directory")
+@click.option("--run-id", default=None, help="Explicit run/task id for output directory")
 @click.option("--slm", is_flag=True, help="Enable SLM extraction")
-def parse(file, output_dir, pages, max_pages, workers, mode, formats, doc_type_hint, skip_cache, use_cache, split_layers, no_stage_output, export_csv, export_chunks, include_text, mirror_level, include_geometry, debug_artifact, slm):
+def parse(file, output_dir, no_save, pages, max_pages, workers, mode, ocr, formats, editions, doc_type, doc_type_policy, cache_policy, split_layers, include_text, mirror_level, geometry, debug_artifact, recursive, exclude, include_ext, log_level, overwrite, run_id, slm):
     """Parse a document and save results."""
+    import logging
+
+    logging.basicConfig(level=getattr(logging, log_level.upper(), logging.INFO))
     if slm:
         os.environ["DOCMIRROR_ENABLE_SLM"] = "1"
-    if include_geometry and mirror_level != "forensic":
-        mirror_level = "forensic"
+    resolved_skip_cache = cache_policy in {"refresh", "off"}
 
-    resolved_skip_cache = skip_cache or not use_cache
+    from docmirror.__main__ import discover_inputs, parse_document
 
-    from docmirror.__main__ import parse_document
+    inputs = discover_inputs(file, recursive=recursive, include_ext=include_ext)
+    if exclude:
+        inputs = [p for p in inputs if not any(pat in str(p) for pat in exclude)]
+    if not inputs:
+        raise click.ClickException(f"Path/glob not found or no files matched: {file}")
+    if len(inputs) == 1:
+        asyncio.run(parse_document(
+            str(inputs[0].resolve()),
+            "json",
+            Path(output_dir),
+            no_save=no_save,
+            skip_cache=resolved_skip_cache,
+            include_text=include_text,
+            split_layers=split_layers,
+            debug_artifact=debug_artifact,
+            export_chunks=False,
+            export_csv=False,
+            export_parquet=False,
+            mirror_level=mirror_level,
+            pages=pages,
+            max_pages=max_pages,
+            workers=workers,
+            mode=mode,
+            formats=formats,
+            editions=editions,
+            cache_policy=cache_policy,
+            doc_type=doc_type,
+            doc_type_policy=doc_type_policy,
+            doc_type_hint=None,
+            ocr=ocr,
+            geometry=geometry,
+            include_geometry=None,
+            run_id=run_id,
+            overwrite=overwrite,
+            slm=slm,
+        ))
+        return
 
-    asyncio.run(parse_document(
-        str(Path(file).resolve()),
-        "json",
-        Path(output_dir),
-        no_save=False,
-        skip_cache=resolved_skip_cache,
-        include_text=include_text,
-        split_layers=split_layers,
-        stage_output=not no_stage_output,
-        debug_artifact=debug_artifact,
-        export_chunks=export_chunks,
-        export_csv=export_csv,
-        export_parquet=False,
-        mirror_level=mirror_level,
-        pages=pages,
-        max_pages=max_pages,
-        workers=workers,
-        mode=mode,
-        formats=formats,
-        doc_type_hint=doc_type_hint,
-        slm=slm,
-    ))
+    async def _parse_many() -> None:
+        for fp in inputs:
+            await parse_document(
+                str(fp.resolve()),
+                "json",
+                Path(output_dir),
+                no_save=no_save,
+                skip_cache=resolved_skip_cache,
+                include_text=include_text,
+                split_layers=split_layers,
+                debug_artifact=debug_artifact,
+                export_chunks=False,
+                export_csv=False,
+                export_parquet=False,
+                mirror_level=mirror_level,
+                pages=pages,
+                max_pages=max_pages,
+                workers=workers,
+                mode=mode,
+                formats=formats,
+                editions=editions,
+                cache_policy=cache_policy,
+                doc_type=doc_type,
+                doc_type_policy=doc_type_policy,
+                doc_type_hint=None,
+                ocr=ocr,
+                geometry=geometry,
+                include_geometry=None,
+                overwrite=overwrite,
+                slm=slm,
+            )
+
+    asyncio.run(_parse_many())
 
 
 if __name__ == "__main__":

@@ -10,7 +10,8 @@ most one (row_index, col_index) cell. Native tokens win over char/line splits.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 from docmirror.core.ocr.field_grid.assign import (
     assignment_confidence,

@@ -18,7 +18,6 @@ Key exports: ``TaxCertificateCommunityPlugin``, ``plugin``.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 from docmirror.plugins import DomainPlugin
 
@@ -49,7 +48,7 @@ class TaxCertificateCommunityPlugin(DomainPlugin):
             ("issue_date", ("开具日期", "填发日期", "Date")),
         )
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
         return build_dec_kv("tax_certificate", {
             "taxpayer_name": entities.get("taxpayer_name", ""),

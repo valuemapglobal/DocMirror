@@ -99,19 +99,9 @@ def _wrap_license_degraded(
     plugin: Any,
 ) -> dict[str, Any]:
     """Community baseline for an edition output file with license degradation markers."""
-    degraded = copy.deepcopy(community_payload)
-    degraded["edition"] = edition
-    degraded.setdefault("status", {}).setdefault("warnings", [])
-    warnings = degraded["status"]["warnings"]
-    if _LICENSE_WARNING not in warnings:
-        warnings.insert(0, _LICENSE_WARNING)
-    warnings.append(
-        f"license_required:edition={edition},domain={getattr(plugin, 'domain_name', '')}"
-    )
-    degraded.setdefault("plugin", {})["license_required"] = True
-    meta = degraded.setdefault("metadata", {})
-    meta["parser"] = f"docmirror-{edition}"
-    return degraded
+    from docmirror.plugins.composition import apply_license_degrade
+
+    return apply_license_degrade(community_payload, edition=edition, plugin=plugin)
 
 
 def _finalize_extract(

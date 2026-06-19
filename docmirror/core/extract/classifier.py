@@ -24,7 +24,6 @@ import contextvars
 import logging
 import math
 import re
-from typing import Dict, List
 
 from ..utils.vocabulary import PIPE_CHARS, _score_header_by_vocabulary
 

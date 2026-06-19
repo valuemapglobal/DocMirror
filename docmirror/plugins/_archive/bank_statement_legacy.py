@@ -19,7 +19,7 @@ Key exports: ``BankStatementPlugin``, ``plugin`` (if present).
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from docmirror.plugins import DomainPlugin
 

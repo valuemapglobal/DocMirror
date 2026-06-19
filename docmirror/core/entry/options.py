@@ -19,6 +19,11 @@ EnhanceMode = Literal["raw", "standard", "full"]
 ParseMode = Literal["auto", "fast", "balanced", "accurate", "forensic"]
 MirrorLevel = Literal["standard", "forensic"]
 OutputFormat = Literal["json", "markdown", "csv", "chunks", "html", "parquet"]
+CachePolicy = Literal["read-write", "read-only", "refresh", "off"]
+DocTypePolicy = Literal["prefer", "force"]
+Edition = Literal["mirror", "community", "enterprise", "finance"]
+GeometryLevel = Literal["none", "page", "block", "token", "full"]
+OcrMode = Literal["auto", "force", "off", "fallback"]
 
 _FORMAT_ALIASES = {
     "text": "markdown",
@@ -30,6 +35,12 @@ _STABLE_FORMATS: tuple[OutputFormat, ...] = ("json", "markdown", "csv", "chunks"
 _VALID_FORMATS = frozenset(_STABLE_FORMATS)
 _VALID_MODES = frozenset(("auto", "fast", "balanced", "accurate", "forensic"))
 _VALID_MIRROR_LEVELS = frozenset(("standard", "forensic"))
+_VALID_CACHE_POLICIES = frozenset(("read-write", "read-only", "refresh", "off"))
+_VALID_DOC_TYPE_POLICIES = frozenset(("prefer", "force"))
+_STABLE_EDITIONS: tuple[Edition, ...] = ("mirror", "community", "enterprise", "finance")
+_VALID_EDITIONS = frozenset(_STABLE_EDITIONS)
+_VALID_GEOMETRY_LEVELS = frozenset(("none", "page", "block", "token", "full"))
+_VALID_OCR_MODES = frozenset(("auto", "force", "off", "fallback"))
 
 
 @dataclass(frozen=True)
@@ -97,7 +108,9 @@ class OutputControl:
     """Requested output artifacts and mirror verbosity."""
 
     formats: tuple[OutputFormat, ...] = ("json",)
+    editions: tuple[Edition, ...] = ("mirror", "community")
     mirror_level: MirrorLevel = "standard"
+    geometry: GeometryLevel = "none"
     include_text: bool = False
 
 
@@ -111,17 +124,28 @@ class DocTypeHint:
 
 
 @dataclass(frozen=True)
+class ExecutionControl:
+    """Execution policies that affect external side effects and pipeline choices."""
+
+    cache_policy: CachePolicy = "read-write"
+    ocr: OcrMode = "auto"
+
+
+@dataclass(frozen=True)
 class ParseControl:
     """Single request-scoped parse control surface."""
 
     pages: PageSelection = field(default_factory=PageSelection)
     resource: ResourceControl = field(default_factory=ResourceControl)
     mode: ParseMode = "auto"
+    execution: ExecutionControl = field(default_factory=ExecutionControl)
     output: OutputControl = field(default_factory=OutputControl)
     doc_type_hint: DocTypeHint | None = None
     skip_cache: bool = False
     slm: bool = False
     mode_decision: dict[str, Any] = field(default_factory=dict)
+    implicit_promotions: tuple[dict[str, str], ...] = ()
+    deprecated_mappings: tuple[dict[str, str], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -138,13 +162,18 @@ class ParseControl:
         payload = {
             "pages": asdict(self.pages),
             "mode": self.mode,
+            "execution": {
+                "cache_policy": self.execution.cache_policy,
+                "ocr": self.execution.ocr,
+            },
             "output": {
                 "formats": list(self.output.formats),
+                "editions": list(self.output.editions),
                 "mirror_level": self.output.mirror_level,
+                "geometry": self.output.geometry,
                 "include_text": self.output.include_text,
             },
             "doc_type_hint": asdict(self.doc_type_hint) if self.doc_type_hint else None,
-            "skip_cache": self.skip_cache,
             "slm": self.slm,
         }
         raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
@@ -153,6 +182,10 @@ class ParseControl:
     @property
     def enhance_mode(self) -> EnhanceMode:
         return mode_to_enhance_mode(self.mode)
+
+    @property
+    def cache_policy(self) -> CachePolicy:
+        return self.execution.cache_policy
 
 
 def parse_page_selection(pages: str | None = None, max_pages: int | None = None) -> PageSelection:
@@ -206,6 +239,16 @@ def parse_doc_type_hint(raw: str | None) -> DocTypeHint | None:
     return DocTypeHint(value=value, strength=strength)  # type: ignore[arg-type]
 
 
+def parse_doc_type(value: str | None, policy: str | None = None) -> DocTypeHint | None:
+    doc_type = (value or "").strip()
+    if not doc_type:
+        return None
+    resolved_policy = (policy or "prefer").strip().lower()
+    if resolved_policy not in _VALID_DOC_TYPE_POLICIES:
+        raise ValueError("--doc-type-policy must be prefer or force")
+    return DocTypeHint(value=doc_type, strength=resolved_policy)  # type: ignore[arg-type]
+
+
 def parse_output_formats(raw: str | list[str] | tuple[str, ...] | None) -> tuple[OutputFormat, ...]:
     if raw is None:
         return ("json",)
@@ -231,6 +274,66 @@ def parse_output_formats(raw: str | list[str] | tuple[str, ...] | None) -> tuple
         if normalized not in out:
             out.append(normalized)  # type: ignore[arg-type]
     return tuple(out or ["json"])  # type: ignore[return-value]
+
+
+def parse_editions(raw: str | list[str] | tuple[str, ...] | None) -> tuple[Edition, ...]:
+    if raw is None:
+        return ("mirror", "community")
+    values: list[str] = []
+    if isinstance(raw, str):
+        values = [p.strip() for p in raw.split(",")]
+    else:
+        for item in raw:
+            values.extend(str(item).split(","))
+        values = [p.strip() for p in values]
+    out: list[Edition] = []
+    for item in values:
+        if not item:
+            continue
+        normalized = item.lower()
+        if normalized == "all":
+            for edition in _STABLE_EDITIONS:
+                if edition not in out:
+                    out.append(edition)
+            continue
+        if normalized not in _VALID_EDITIONS:
+            raise ValueError(f"unsupported edition: {item}")
+        if normalized not in out:
+            out.append(normalized)  # type: ignore[arg-type]
+    if not out:
+        return ("mirror", "community")
+    if "mirror" not in out:
+        out.insert(0, "mirror")
+    return tuple(out)  # type: ignore[return-value]
+
+
+def parse_cache_policy(raw: str | None = None, *, skip_cache: bool | None = None) -> CachePolicy:
+    if raw is not None:
+        normalized = raw.strip().lower()
+        if normalized not in _VALID_CACHE_POLICIES:
+            raise ValueError(f"unsupported cache policy: {normalized}")
+        return normalized  # type: ignore[return-value]
+    if skip_cache is True:
+        return "refresh"
+    if skip_cache is False:
+        return "read-write"
+    return "read-write"
+
+
+def parse_geometry(raw: str | None = None, *, include_geometry: bool | None = None) -> GeometryLevel:
+    if include_geometry:
+        return "full"
+    normalized = (raw or "none").strip().lower()
+    if normalized not in _VALID_GEOMETRY_LEVELS:
+        raise ValueError(f"unsupported geometry level: {normalized}")
+    return normalized  # type: ignore[return-value]
+
+
+def parse_ocr_mode(raw: str | None = None) -> OcrMode:
+    normalized = (raw or "auto").strip().lower()
+    if normalized not in _VALID_OCR_MODES:
+        raise ValueError(f"unsupported OCR mode: {normalized}")
+    return normalized  # type: ignore[return-value]
 
 
 def parse_workers(raw: str | int | None) -> int | Literal["auto"]:
@@ -284,10 +387,17 @@ def normalize_parse_control(
     workers: str | int | None = None,
     mode: str | None = None,
     formats: str | list[str] | tuple[str, ...] | None = None,
+    editions: str | list[str] | tuple[str, ...] | None = None,
     mirror_level: str | None = None,
+    geometry: str | None = None,
+    include_geometry: bool | None = None,
     include_text: bool | None = None,
+    doc_type: str | None = None,
+    doc_type_policy: str | None = None,
     doc_type_hint: str | None = None,
+    cache_policy: str | None = None,
     skip_cache: bool | None = None,
+    ocr: str | None = None,
     slm: bool | None = None,
     enhance_mode: str | None = None,
 ) -> ParseControl:
@@ -317,35 +427,102 @@ def normalize_parse_control(
     if workers is not None:
         resource = ResourceControl(workers=parse_workers(workers), page_executor=resource.page_executor)
 
+    deprecated_mappings = list(base.deprecated_mappings)
+    if skip_cache is True and cache_policy is None:
+        deprecated_mappings.append({"from": "--skip-cache", "to": "--cache-policy refresh"})
+    elif skip_cache is False and cache_policy is None:
+        deprecated_mappings.append({"from": "--use-cache", "to": "--cache-policy read-write"})
+    if include_geometry:
+        deprecated_mappings.append({"from": "--include-geometry", "to": "--geometry full"})
+    if doc_type_hint is not None:
+        deprecated_mappings.append({"from": "--doc-type-hint", "to": "--doc-type + --doc-type-policy"})
+
+    resolved_cache_policy = base.execution.cache_policy
+    if cache_policy is not None:
+        resolved_cache_policy = parse_cache_policy(cache_policy)
+    elif skip_cache is not None:
+        resolved_cache_policy = parse_cache_policy(skip_cache=bool(skip_cache))
+
+    execution = ExecutionControl(
+        cache_policy=resolved_cache_policy,
+        ocr=parse_ocr_mode(ocr) if ocr is not None else base.execution.ocr,
+    )
+
     output = base.output
-    if formats is not None or mirror_level is not None or include_text is not None:
+    if (
+        formats is not None
+        or editions is not None
+        or mirror_level is not None
+        or geometry is not None
+        or include_geometry is not None
+        or include_text is not None
+    ):
         resolved_formats = parse_output_formats(formats) if formats is not None else output.formats
+        resolved_editions = parse_editions(editions) if editions is not None else output.editions
         resolved_mirror = (mirror_level or output.mirror_level).strip().lower()
         if resolved_mirror not in _VALID_MIRROR_LEVELS:
             raise ValueError(f"unsupported mirror level: {resolved_mirror}")
+        resolved_geometry = (
+            parse_geometry(geometry, include_geometry=include_geometry)
+            if geometry is not None or include_geometry is not None
+            else output.geometry
+        )
         output = OutputControl(
             formats=resolved_formats,
+            editions=resolved_editions,
             mirror_level=resolved_mirror,  # type: ignore[arg-type]
+            geometry=resolved_geometry,
             include_text=output.include_text if include_text is None else bool(include_text),
         )
 
-    hint = parse_doc_type_hint(doc_type_hint) if doc_type_hint is not None else base.doc_type_hint
+    if doc_type is not None:
+        hint = parse_doc_type(doc_type, doc_type_policy)
+    elif doc_type_hint is not None:
+        hint = parse_doc_type_hint(doc_type_hint)
+    else:
+        hint = base.doc_type_hint
 
+    implicit_promotions = list(base.implicit_promotions)
     default_mirror = mode_default_mirror_level(resolved_mode)
-    if default_mirror and output.mirror_level != default_mirror:
+    if default_mirror and output.mirror_level != default_mirror and mirror_level is None:
         output = OutputControl(
             formats=output.formats,
+            editions=output.editions,
             mirror_level=default_mirror,
+            geometry=output.geometry,
             include_text=output.include_text,
+        )
+        implicit_promotions.append(
+            {
+                "from": f"mode={resolved_mode}",
+                "to": f"mirror_level={default_mirror}",
+                "reason": f"{resolved_mode} mode requires {default_mirror} output by default",
+            }
+        )
+    if output.geometry == "full" and output.mirror_level != "forensic":
+        output = OutputControl(
+            formats=output.formats,
+            editions=output.editions,
+            mirror_level="forensic",
+            geometry=output.geometry,
+            include_text=output.include_text,
+        )
+        implicit_promotions.append(
+            {
+                "from": "geometry=full",
+                "to": "mirror_level=forensic",
+                "reason": "full geometry requires forensic mirror output",
+            }
         )
 
     return ParseControl(
         pages=page_selection,
         resource=resource,
         mode=resolved_mode,  # type: ignore[arg-type]
+        execution=execution,
         output=output,
         doc_type_hint=hint,
-        skip_cache=base.skip_cache if skip_cache is None else bool(skip_cache),
+        skip_cache=execution.cache_policy in {"refresh", "off"},
         slm=base.slm if slm is None else bool(slm),
         mode_decision={
             "requested": resolved_mode,
@@ -355,19 +532,27 @@ def normalize_parse_control(
             if resolved_mode == "auto"
             else "explicit mode",
         },
+        implicit_promotions=tuple(implicit_promotions),
+        deprecated_mappings=tuple(deprecated_mappings),
     )
 
 
 __all__ = [
     "DocTypeHint",
+    "ExecutionControl",
     "OutputControl",
     "PageSelection",
     "ParseControl",
     "ResourceControl",
+    "parse_cache_policy",
+    "parse_doc_type",
     "mode_to_enhance_mode",
     "mode_default_mirror_level",
     "normalize_parse_control",
     "parse_doc_type_hint",
+    "parse_editions",
+    "parse_geometry",
+    "parse_ocr_mode",
     "parse_output_formats",
     "parse_page_selection",
     "parse_workers",

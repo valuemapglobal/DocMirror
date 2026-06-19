@@ -45,7 +45,7 @@ class BaseParser(ABC):
     """
 
     @abstractmethod
-    async def to_parse_result(self, file_path: Path, **kwargs) -> "ParseResult":
+    async def to_parse_result(self, file_path: Path, **kwargs) -> ParseResult:
         """
         Extract the file into a ParseResult.
 
@@ -54,7 +54,7 @@ class BaseParser(ABC):
         """
         ...
 
-    async def perceive(self, file_path: Path, **context) -> "ParseResult":
+    async def perceive(self, file_path: Path, **context) -> ParseResult:
         """
         Full pipeline: file → ParseResult → middleware → enhanced ParseResult.
 

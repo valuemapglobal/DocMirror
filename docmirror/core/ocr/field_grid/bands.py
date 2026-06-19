@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from docmirror.core.ocr.field_grid.models import LabelToken
 from docmirror.core.ocr.local_structure.utils import union_bbox

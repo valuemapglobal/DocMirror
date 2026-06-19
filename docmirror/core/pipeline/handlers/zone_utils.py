@@ -93,7 +93,7 @@ def crop_zone_image(fitz_page, bbox) -> bytes:
 
 
 
-def recognize_formula(extractor: "PageExtractor", image_bytes: bytes) -> str:
+def recognize_formula(extractor: PageExtractor, image_bytes: bytes) -> str:
     """Formula image -> LaTeX (delegated to FormulaEngine).
 
     FormulaEngine internally selects backend by strategy:

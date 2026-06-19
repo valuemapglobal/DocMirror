@@ -18,14 +18,12 @@ Downstream: ``segment.zone_segment``, ``extract.segmentation``.
 from __future__ import annotations
 
 import logging
-import re
-from dataclasses import dataclass
 
 from docmirror.core.segment.zone_models import ALPageLayout, ContentRegion
 
 logger = logging.getLogger(__name__)
 
-def _detect_borderless_table(text_dict: dict, page_height: float) -> bool:
+def _detect_borderless_table(text_dict: dict, _page_height: float) -> bool:
     """
     Heuristic detection of borderless tables.
     If >= 3 rows have >= 2 independent x segments -> determined as a borderless table.

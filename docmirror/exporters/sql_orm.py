@@ -6,7 +6,6 @@ L2 Pydantic schema (CreditReportResultSchema) into flattened RDBMS tables.
 """
 
 import uuid
-from typing import List
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker

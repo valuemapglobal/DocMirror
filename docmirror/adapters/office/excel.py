@@ -18,10 +18,9 @@ import logging
 import re
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import List, Optional
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.entities.domain import BaseResult, Block, PageLayout
+from docmirror.models.entities.domain import BaseResult
 
 logger = logging.getLogger(__name__)
 

@@ -18,11 +18,8 @@ Downstream: ``scene.scene_resolver``.
 """
 
 from __future__ import annotations
-from pathlib import Path
-import yaml
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
 
 from ...models.entities.parse_result import ParseResult
 from ...middlewares.base import BaseMiddleware
@@ -628,15 +625,14 @@ class EvidenceEngine(BaseMiddleware):
         # Softmax-like relative confidence
         epsilon = 0.001
         rel_confidence = best_score / (best_score + second_score + epsilon)
-        
+
         # Absolute confidence: keyword hit ratio for best category
         # Count positive evidence items for best_scene vs total
         best_count = sum(1 for ev in positive if ev.category == best_scene)
-        unique_categories = len({ev.category for ev in positive})
         # abs_confidence = how many evidence dimensions fired for best vs total
         abs_confidence = best_count / max(len(positive), 1)
-        
-        # Fuse: 70% relative + 30% absolute
+
+        # Blend relative (70%) and absolute (30%) scores
         confidence = 0.7 * rel_confidence + 0.3 * abs_confidence
 
         # Ambiguous detection

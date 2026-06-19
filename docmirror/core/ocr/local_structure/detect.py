@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 from docmirror.core.ocr.local_structure.models import LocalStructureCandidate
 from docmirror.core.ocr.local_structure.utils import line_items, union_bbox
@@ -35,7 +36,6 @@ def _field_grid_likelihood(block_lines: list[dict[str, Any]]) -> float:
 def _block_end_index(items: list[dict[str, Any]], start_idx: int, anchor_indices: list[int], seq: int) -> int:
     if seq + 1 < len(anchor_indices):
         return anchor_indices[seq + 1]
-    start_y = items[start_idx]["bbox"][1]
     end = start_idx + 1
     large_gap = 48.0
     while end < len(items):

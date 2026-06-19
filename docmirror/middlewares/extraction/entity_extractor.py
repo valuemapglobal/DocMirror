@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, List
 
 from ...models.entities.parse_result import ParseResult
 from ..base import BaseMiddleware

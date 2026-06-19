@@ -31,7 +31,7 @@ from docmirror.core.ocr.field_grid.tokens import (
     expand_tokens_to_char_tokens,
     split_token_to_char_tokens,
 )
-from docmirror.core.ocr.micro_grid.models import BBox, MicroGridCell, OCRToken
+from docmirror.core.ocr.micro_grid.models import MicroGridCell, OCRToken
 
 
 def build_cell(

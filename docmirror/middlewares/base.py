@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..core.entry.exceptions import MiddlewareError
 from ..models.entities.parse_result import ParseResult

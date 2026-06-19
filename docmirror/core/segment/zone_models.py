@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -77,10 +76,12 @@ class ZoneTemplate:
 
     Stores normalized (0-1) bbox ratios so the template can be applied
     to pages of any DPI/dimension.
+
+    ``zones`` entries are ``(zone_type, bbox_ratio, confidence)`` where
+    bbox_ratio is normalized page coordinates ``(x0/w, y0/h, x1/w, y1/h)``.
     """
 
-    zones: list  # List of (zone_type, bbox_ratio, confidence)
-    # bbox_ratio = (x0/page_w, y0/page_h, x1/page_w, y1/page_h)
+    zones: list
     source_page: int = 0
     zone_count: int = 0
 

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-def model_segmentation(extractor: "PageExtractor", fitz_page, page_plum, page_idx: int) -> list:
+def model_segmentation(extractor: PageExtractor, fitz_page, page_plum, page_idx: int) -> list:
     """Model-based layout analysis: render page image -> DocLayout-YOLO inference -> Zone list.
 
     Falls back to rule-based method on failure.

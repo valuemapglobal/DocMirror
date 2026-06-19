@@ -24,13 +24,9 @@ import bisect
 import logging
 from collections import defaultdict
 from operator import itemgetter
-from typing import Dict, List, Optional, Tuple
 
 from ..utils.text_utils import _is_cjk_char, _smart_join
 from ..utils.vocabulary import (
-    _RE_IS_AMOUNT,
-    _RE_IS_DATE,
-    _is_header_cell,
     _score_header_by_vocabulary,
 )
 from ..utils.watermark import is_watermark_char

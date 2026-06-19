@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List
 
 from docmirror.framework.base import BaseParser
 
@@ -37,7 +36,7 @@ logger = logging.getLogger(__name__)
 class WebAdapter(BaseParser):
     """HTML/Web content format adapter — structured extraction with readability + BeautifulSoup."""
 
-    async def to_parse_result(self, file_path: Path, **kwargs) -> ParseResult:
+    async def to_parse_result(self, file_path: Path, **_kwargs) -> ParseResult:
         """
         Read an HTML file and return its clean extracted content as a ParseResult.
 

@@ -21,7 +21,8 @@ Downstream: Plugins, benchmarks, and external consumers.
 from __future__ import annotations
 
 import logging
-from typing import Any, Iterator
+from typing import Any
+from collections.abc import Iterator
 
 from docmirror.models.entities.parse_result import (
     ParseResult,

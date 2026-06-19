@@ -21,7 +21,7 @@ import tempfile
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable
 
 from docmirror.configs.format.models import TranscodeSpec
 

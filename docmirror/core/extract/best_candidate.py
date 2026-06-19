@@ -106,7 +106,6 @@ def score_candidate(
     if not tbl:
         return 0.0
 
-    oracle = max(oracle_rows, 1)
     if oracle_rows > 0:
         if candidate.row_count > oracle_rows:
             row_ratio = oracle_rows / candidate.row_count

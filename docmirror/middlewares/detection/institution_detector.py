@@ -16,8 +16,7 @@ from __future__ import annotations
 
 import logging
 import unicodedata
-from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ...models.entities.parse_result import ParseResult
 from ..base import BaseMiddleware

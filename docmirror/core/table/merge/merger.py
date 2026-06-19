@@ -20,7 +20,7 @@ Downstream: ``table.compose.composer``, ``bridge.parse_result_bridge``.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from docmirror.models.entities.domain import Block, PageLayout
 from docmirror.core.utils.text_utils import headers_match

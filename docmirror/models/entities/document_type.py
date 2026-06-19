@@ -19,8 +19,6 @@ See design 09 §4.3 for Document Type Identity (DTI) integration.
 from __future__ import annotations
 
 from functools import lru_cache
-from pathlib import Path
-from typing import Any
 
 import yaml
 

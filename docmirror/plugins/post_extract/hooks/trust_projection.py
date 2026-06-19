@@ -27,12 +27,12 @@ class PluginTrustProjectionHook(PostExtractHook):
 
     def apply(
         self,
-        result: ParseResult,
+        _result: ParseResult,
         *,
         extracted: dict[str, Any],
         edition: str,
-        document_type: str,
-        plugin: Any | None = None,
+        _document_type: str,
+        _plugin: Any | None = None,
     ) -> None:
         quality = extracted.get("quality") or extracted.get("validation") or {}
         trust_score = quality.get("trust_score")

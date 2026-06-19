@@ -23,7 +23,7 @@ from __future__ import annotations
 import contextvars
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ def register_strategy(content_type: str):
     return decorator
 
 
-def get_strategy(content_type: str) -> Optional[BaseExtractionStrategy]:
+def get_strategy(content_type: str) -> BaseExtractionStrategy | None:
     """
     Look up a registered strategy for the given content_type.
 

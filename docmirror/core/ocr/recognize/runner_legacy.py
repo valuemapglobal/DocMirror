@@ -17,8 +17,6 @@ Downstream: ``ocr.table_reconstruction``, ``ocr.scanned.universal``.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +118,7 @@ def _merge_multi_scale_words(all_scale_words: list[tuple[int, list[tuple]]]) -> 
     kept_words = []
 
     def _compute_iou(b1, b2):
-        # b = (x0, y0, x1, y1)
+        # Axis-aligned box tuple layout: x0, y0, x1, y1
         ix0 = max(b1[0], b2[0])
         iy0 = max(b1[1], b2[1])
         ix1 = min(b1[2], b2[2])
@@ -334,7 +332,6 @@ def _run_ocr(fitz_page, min_confidence: float = 0.3, *, dpi_list: list[int] | No
     def _rescue_missing_regions(img_input, existing_words):
         """Force REC on regions that DET missed using OpenCV morphology."""
         import cv2
-        import numpy as np
 
         from docmirror.core.ocr.vision.rapidocr_engine import get_ocr_engine
 

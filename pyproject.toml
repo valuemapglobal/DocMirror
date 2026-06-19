@@ -77,6 +77,7 @@ dev = [
     "coverage>=7.4",
     "pre-commit>=3.5",
     "import-linter>=2.0",
+    "vulture>=2.11",
 ]
 docs = [
     "mkdocs-material>=9.5",
@@ -102,6 +103,25 @@ ignore = [
 
 [tool.ruff.lint.mccabe]
 max-complexity = 25
+
+[tool.ruff.lint.extend-per-file-ignores]
+"**/__init__.py" = ["F401", "F811"]
+
+[tool.vulture]
+exclude = [
+    "docmirror/plugins/_archive/",
+    "tests/",
+    ".venv/",
+]
+ignore_decorators = [
+    "@app.on_event",
+    "@router.get",
+    "@router.post",
+    "@pytest.fixture",
+]
+min_confidence = 80
+paths = ["docmirror", "scripts", "tools"]
+sort_by_size = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

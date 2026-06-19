@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
-import textwrap
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]

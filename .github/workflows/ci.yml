@@ -25,6 +25,32 @@ jobs:
       - name: Run ruff format check
         run: ruff format --check docmirror/
 
+  hygiene:
+    name: Code hygiene audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install audit tools
+        run: pip install ruff vulture pyyaml rich
+      - name: Run hygiene audit (strict)
+        run: |
+          python scripts/run_quality_gate.py \
+            --profile hygiene \
+            --strict \
+            --json reports/hygiene_ci.json \
+            --markdown reports/hygiene_ci.md \
+            --quiet
+      - name: Upload hygiene report
+        uses: actions/upload-artifact@v4
+        with:
+          name: hygiene-report
+          path: |
+            reports/hygiene_ci.json
+            reports/hygiene_ci.md
+
   test:
     name: Test (Python ${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}

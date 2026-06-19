@@ -17,7 +17,8 @@ Downstream: Composed table blocks, ``table.compose``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from . import stage_domain, stage_header, stage_preamble, stage_structure
 from docmirror.core.table.pipeline.hooks.generic import run_generic_hook

@@ -10,7 +10,8 @@ prose) from geometry, and emits region candidates without domain-specific regex.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 from docmirror.core.ocr.local_structure.utils import bbox_of, line_items, text_of, union_bbox
 from docmirror.core.ocr.micro_grid.models import OCRToken

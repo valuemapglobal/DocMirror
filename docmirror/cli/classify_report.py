@@ -20,7 +20,6 @@ import csv
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
 from docmirror.cli.classify_engine import ClassificationResults
 

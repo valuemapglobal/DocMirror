@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List
 
 from docmirror.framework.base import BaseParser
 
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 class PPTAdapter(BaseParser):
     """PowerPoint (.pptx) adapter — python-pptx native parsing only."""
 
-    async def to_parse_result(self, file_path: Path, **kwargs) -> ParseResult:
+    async def to_parse_result(self, file_path: Path, **_kwargs) -> ParseResult:
         """
         Parse a .pptx file into a ParseResult.
 

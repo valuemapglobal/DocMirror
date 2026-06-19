@@ -63,7 +63,7 @@ def _iter_content_xml_names(members: list[str]) -> list[str]:
 class OFDAdapter(BaseParser):
     """OFD (.ofd) format adapter — ZIP/XML text extraction for fixed-layout docs."""
 
-    async def to_parse_result(self, file_path: Path, **kwargs) -> ParseResult:
+    async def to_parse_result(self, file_path: Path, **_kwargs) -> ParseResult:
         from docmirror.models.entities.parse_result import (
             PageContent,
             ParseResult,

@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import bisect
 import logging
-from typing import Dict, List, Tuple
 
 from ..utils.text_utils import _is_cjk_char, _smart_join
 

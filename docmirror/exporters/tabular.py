@@ -12,7 +12,7 @@ import csv
 import io
 from typing import Any
 
-from docmirror.models.entities.parse_result import ParseResult, TableBlock, TableRow
+from docmirror.models.entities.parse_result import ParseResult, TableBlock
 
 
 def _table_rows(table: TableBlock) -> list[list[str]]:

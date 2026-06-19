@@ -246,6 +246,11 @@ class CrossPageTablePredictor:
         next_page_no: int = 0,
     ) -> MergeValidation:
         """Validate cross-page merge using raw table row matrices (PageLayout path)."""
+        logger.debug(
+            "validate_raw_table_merge pages %s -> %s",
+            prev_page_no,
+            next_page_no,
+        )
         info = TruncationInfo(
             page_idx=prev_page_no,
             col_count=len(prev_rows[0]) if prev_rows else 0,
@@ -362,7 +367,7 @@ class CrossPageTablePredictor:
 
         return {"detected": False}
 
-    def _extract_col_signature(self, table: Any, page_layout: PageLayout) -> dict[str, Any]:
+    def _extract_col_signature(self, table: Any, _page_layout: PageLayout) -> dict[str, Any]:
         """提取列签名。"""
         # 简化实现：返回列数和列名
         signature = {

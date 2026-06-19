@@ -98,7 +98,7 @@ class BankStatementCommunityPlugin(BaseTableParser):
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return BANK_IDENTITY_FIELDS
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
         return build_dec_kv("bank_statement", {
             "account_holder": str(entities.get("account_holder", metadata.get("Account holder", ""))),

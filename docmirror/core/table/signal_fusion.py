@@ -220,7 +220,7 @@ def _remove_outliers(voted_boundaries: list[tuple[float, float]], config: dict[s
     return clean
 
 
-def _calculate_confidence(boundaries: list[float], weights: dict[str, float]) -> float:
+def _calculate_confidence(boundaries: list[float], _weights: dict[str, float]) -> float:
     """计算融合置信度。
 
     基于:

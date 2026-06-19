@@ -32,9 +32,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _clock = time.perf_counter
 
-def handle_data_table_zone(extractor: "PageExtractor",
+def handle_data_table_zone(extractor: PageExtractor,
     zone,
-    block_id: str,
+    _block_id: str,
     page_idx: int,
     page_plum,
     fitz_page,

@@ -8,7 +8,6 @@ from __future__ import annotations
 import logging
 import os
 from collections import Counter
-from typing import Any
 
 _logger = logging.getLogger(__name__)
 _LEGACY_ACCESS_COUNTS: Counter[str] = Counter()

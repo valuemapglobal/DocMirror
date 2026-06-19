@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import time
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Re-export for callers that need to build PerceptionResult
 _ERROR_META: dict[str, dict[str, Any]] = {
@@ -90,7 +90,7 @@ def make_error_detail(code: str, message: str = "") -> ErrorDetail:
 def build_failure_result(
     code: str,
     message: str,
-    file_path: str = "",
+    file_path: str = "",  # noqa: ARG001 — kept for caller keyword compatibility
     file_type: str = "",
     is_forged: bool | None = None,
     forgery_reasons: list[str] | None = None,
@@ -98,7 +98,6 @@ def build_failure_result(
 ) -> ParseResult:
     """Build a failure ParseResult with unified error code. Used by Dispatcher and Adapters."""
     from docmirror.models.entities.parse_result import (
-        ErrorDetail,
         ParseResult,
         ParserInfo,
         ProvenanceInfo,

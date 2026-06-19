@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import glob
 import json
+import logging
 import multiprocessing
 import os
 import time
@@ -49,13 +51,38 @@ def _safe_str(s: str) -> str:
 SKIP_NAMES = {".DS_Store", ".gitkeep", "Thumbs.db"}
 
 
-def discover_files(root: Path) -> list[Path]:
-    """Recursively collect all files under *root* (excludes SKIP_NAMES)."""
+def discover_files(root: Path, *, recursive: bool = False, include_ext: str | None = None) -> list[Path]:
+    """Collect files under *root* (excludes SKIP_NAMES)."""
+    allowed_ext = _parse_include_ext(include_ext)
     files: list[Path] = []
-    for p in sorted(root.rglob("*")):
-        if p.is_file() and p.name not in SKIP_NAMES:
+    iterator = root.rglob("*") if recursive else root.iterdir()
+    for p in sorted(iterator):
+        if p.is_file() and p.name not in SKIP_NAMES and _matches_include_ext(p, allowed_ext):
             files.append(p)
     return files
+
+
+def _parse_include_ext(raw: str | None) -> set[str]:
+    if not raw:
+        return set()
+    return {part.strip().lower().lstrip(".") for part in raw.split(",") if part.strip()}
+
+
+def _matches_include_ext(path: Path, allowed_ext: set[str]) -> bool:
+    if not allowed_ext:
+        return True
+    return path.suffix.lower().lstrip(".") in allowed_ext
+
+
+def discover_inputs(raw: str, *, recursive: bool = False, include_ext: str | None = None) -> list[Path]:
+    path = Path(raw).expanduser()
+    allowed_ext = _parse_include_ext(include_ext)
+    if path.exists():
+        if path.is_dir():
+            return discover_files(path, recursive=recursive, include_ext=include_ext)
+        return [path] if _matches_include_ext(path, allowed_ext) else []
+    matches = [Path(p) for p in glob.glob(raw, recursive=recursive)]
+    return sorted(p for p in matches if p.is_file() and p.name not in SKIP_NAMES and _matches_include_ext(p, allowed_ext))
 
 
 BANNER = r"""[cyan]
@@ -94,21 +121,29 @@ async def parse_document(
     no_save: bool,
     skip_cache: bool = False,
     include_text: bool = False,
-    mirror_level: str = "standard",
+    mirror_level: str | None = None,
     *,
     pages: str | None = None,
     max_pages: int | None = None,
     workers: str | int | None = None,
     mode: str | None = None,
     formats: str | list[str] | tuple[str, ...] | None = None,
+    editions: str | list[str] | tuple[str, ...] | None = None,
+    cache_policy: str | None = None,
+    doc_type: str | None = None,
+    doc_type_policy: str | None = None,
     doc_type_hint: str | None = None,
+    ocr: str | None = None,
+    geometry: str | None = None,
+    include_geometry: bool | None = None,
+    run_id: str | None = None,
+    overwrite: bool = False,
     slm: bool = False,
     export_csv: bool = False,
     export_chunks: bool = False,
     export_parquet: bool = False,
-    split_layers: bool = False,
-    stage_output: bool = True,
-    debug_artifact: bool = False,
+    split_layers: bool = False,  # noqa: ARG001 — CLI reserved
+    debug_artifact: bool = False,  # noqa: ARG001 — CLI reserved
 ) -> None:
     from docmirror.core.entry.factory import PerceiveOptions, perceive_document
     from docmirror.core.entry.options import normalize_parse_control
@@ -141,10 +176,17 @@ async def parse_document(
         workers=workers,
         mode=mode,
         formats=requested_formats,
+        editions=editions,
         mirror_level=mirror_level,
+        geometry=geometry,
+        include_geometry=include_geometry,
         include_text=include_text,
+        doc_type=doc_type,
+        doc_type_policy=doc_type_policy,
         doc_type_hint=doc_type_hint,
+        cache_policy=cache_policy,
         skip_cache=skip_cache,
+        ocr=ocr,
         slm=slm,
     )
     mirror_level = control.output.mirror_level
@@ -264,6 +306,9 @@ async def parse_document(
                 file_id=file_id,
                 mirror_level=mirror_level,
                 include_text=include_text,
+                editions=control.output.editions,
+                task_id=run_id,
+                overwrite=overwrite,
             )
             saved_path = written["mirror"]
 
@@ -315,11 +360,14 @@ async def parse_document(
 
 def _save_multi_edition(
     result,
-    api_dict: dict,
+    _api_dict: dict,
     path: Path,
     output_dir: Path,
     include_text: bool = False,
     mirror_level: str = "standard",
+    editions: tuple[str, ...] | list[str] | None = None,
+    task_id: str | None = None,
+    overwrite: bool = False,
 ) -> str:
     """Save mirror + community + enterprise + finance outputs to a timestamped subdirectory.
     
@@ -333,8 +381,11 @@ def _save_multi_edition(
         file_path=str(path),
         full_text=getattr(result, "full_text", "") or "",
         file_id="001",
+        task_id=task_id,
         mirror_level=mirror_level,
         include_text=include_text,
+        editions=editions,
+        overwrite=overwrite,
     )
     return task_id
 
@@ -382,6 +433,8 @@ def _write_requested_exports(
         "artifacts": artifacts,
         "parse_control": parse_control,
         "parse_control_fingerprint": parse_control_fingerprint,
+        "implicit_promotions": parse_control.get("implicit_promotions") or [],
+        "deprecated_mappings": parse_control.get("deprecated_mappings") or [],
     }
     manifest_path = task_dir / "manifest.json"
     manifest_path.write_text(dumps_json(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -441,7 +494,7 @@ def _build_extended_output(result, edition: str, full_text: str = "", file_path:
 def main() -> None:
     parser = argparse.ArgumentParser(description="DocMirror - Universal Document Parsing Engine")
     parser.add_argument(
-        "file", nargs="?", help="Path to a document or a directory (recursively parse all files under it)"
+        "file", nargs="?", help="Path to a document, directory, or glob"
     )
     parser.add_argument("--format", "-f", default="json", help="Output formats: json,csv,markdown,chunks,html,parquet,all")
     parser.add_argument(
@@ -452,19 +505,11 @@ def main() -> None:
         help="Directory to save parse results (default: ./output)",
     )
     parser.add_argument("--no-save", action="store_true", help="Do not save result to disk")
-    parser.add_argument("--skip-cache", action="store_true", help="Skip cache and force a full re-parse")
     parser.add_argument(
-        "--use-cache",
-        dest="use_cache",
-        action="store_true",
-        default=True,
-        help="Enable cache usage",
-    )
-    parser.add_argument(
-        "--no-use-cache",
-        dest="use_cache",
-        action="store_false",
-        help="Disable cache usage",
+        "--cache-policy",
+        choices=["read-write", "read-only", "refresh", "off"],
+        default="read-write",
+        help="Cache policy: read-write/read-only/refresh/off",
     )
     parser.add_argument("--pages", default=None, help="Page ranges, 1-based: 1-3,8,10-")
     parser.add_argument("--max-pages", type=int, default=None, help="Maximum pages after applying --pages")
@@ -476,7 +521,16 @@ def main() -> None:
         choices=["auto", "fast", "balanced", "accurate", "forensic"],
         help="Parse mode",
     )
-    parser.add_argument("--doc-type-hint", default=None, help="Manual document type hint, optionally type:force")
+    parser.add_argument("--ocr", default="auto", choices=["auto", "force", "off", "fallback"], help="OCR policy")
+    parser.add_argument("--editions", default="mirror,community", help="Output editions: mirror,community,enterprise,finance,all")
+    parser.add_argument("--doc-type", default=None, help="Manual document type")
+    parser.add_argument(
+        "--doc-type-policy",
+        default="prefer",
+        choices=["prefer", "force"],
+        help="How strongly to apply --doc-type",
+    )
+    parser.add_argument("--recursive", action="store_true", help="Recursively parse directory/glob inputs")
     parser.add_argument(
         "--exclude",
         action="append",
@@ -484,26 +538,34 @@ def main() -> None:
         metavar="SUBSTR",
         help="Skip files whose path contains SUBSTR (e.g. --exclude 工商银行); can be repeated",
     )
+    parser.add_argument("--include-ext", default=None, help="Comma-separated extensions to include in batch mode")
     parser.add_argument("--authors", action="store_true", help="Show contributors and authors")
     parser.add_argument("--include-text", action="store_true", help="Include full markdown text in output")
     parser.add_argument(
         "--mirror-level",
-        default=DEFAULT_MIRROR_LEVEL,
+        default=None,
         choices=["standard", "forensic"],
-        help="Mirror output level: standard (physical+logical), forensic (physical audit, no logical_tables)",
+        help=f"Mirror output level: standard/forensic (default: {DEFAULT_MIRROR_LEVEL})",
     )
     parser.add_argument(
-        "--include-geometry",
-        action="store_true",
-        help="Include table/cell geometry by using forensic mirror output",
+        "--geometry",
+        default=None,
+        choices=["none", "page", "block", "token", "full"],
+        help="Geometry output level",
     )
+    parser.add_argument(
+        "--log-level",
+        default="info",
+        choices=["debug", "info", "warning", "error"],
+        help="Logging level",
+    )
+    parser.add_argument("--overwrite", action="store_true", help="Allow overwriting an explicit --run-id output directory")
+    parser.add_argument("--run-id", default=None, help="Explicit run/task id for output directory")
     parser.add_argument("--slm", action="store_true", help="[Experimental] Enable pure CPU Small Language Model (SLM) semantic KV extraction")
 
     args = parser.parse_args()
-    if args.include_geometry and args.mirror_level != "forensic":
-        args.mirror_level = "forensic"
-
-    resolved_skip_cache = args.skip_cache or not args.use_cache
+    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
+    resolved_skip_cache = args.cache_policy in {"refresh", "off"}
 
     if args.slm:
         os.environ["DOCMIRROR_ENABLE_SLM"] = "1"
@@ -519,13 +581,13 @@ def main() -> None:
         return
 
     print_banner()
-    path = Path(args.file).resolve()
-    if not path.exists():
-        console.print(f"[bold red]Error[/bold red]: Path not found: {path}")
+    files = discover_inputs(args.file, recursive=args.recursive, include_ext=args.include_ext)
+    path = Path(args.file).expanduser().resolve()
+    if not files:
+        console.print(f"[bold red]Error[/bold red]: Path/glob not found or no supported files matched: {args.file}")
         return
 
-    if path.is_dir():
-        files = discover_files(path)
+    if path.is_dir() or len(files) > 1:
         if args.exclude:
             excluded = [f for f in files if any(pat in str(f) for pat in args.exclude)]
             files = [f for f in files if not any(pat in str(f) for pat in args.exclude)]
@@ -545,10 +607,17 @@ def main() -> None:
             workers=args.workers,
             mode=args.mode,
             formats=args.format,
+            editions=args.editions,
             mirror_level=args.mirror_level,
+            geometry=args.geometry,
+            include_geometry=None,
             include_text=args.include_text,
-            doc_type_hint=args.doc_type_hint,
+            doc_type=args.doc_type,
+            doc_type_policy=args.doc_type_policy,
+            doc_type_hint=None,
+            cache_policy=args.cache_policy,
             skip_cache=resolved_skip_cache,
+            ocr=args.ocr,
             slm=args.slm,
         )
         _cpu_count = multiprocessing.cpu_count()
@@ -578,8 +647,8 @@ def main() -> None:
                     result = await perceive_document(path, PerceiveOptions(control=_per_file_control))
 
                     api_dict = result.to_api_dict(
-                        include_text=args.include_text,
-                        mirror_level=args.mirror_level,
+                        include_text=_per_file_control.output.include_text,
+                        mirror_level=_per_file_control.output.mirror_level,
                     )
                     if result.success:
                         doctype = getattr(result.entities, "document_type", "unknown")
@@ -595,8 +664,10 @@ def main() -> None:
                             api_dict,
                             path,
                             args.output_dir,
-                            args.include_text,
-                            args.mirror_level,
+                            _per_file_control.output.include_text,
+                            _per_file_control.output.mirror_level,
+                            editions=control.output.editions,
+                            overwrite=args.overwrite,
                         )
                 except Exception as e:
                     console.print(f"[bold red][{idx}/{total}][/bold red] ❌ {name}: {e}")
@@ -611,7 +682,7 @@ def main() -> None:
     else:
         asyncio.run(
             parse_document(
-                args.file,
+                str(files[0]),
                 args.format,
                 args.output_dir,
                 args.no_save,
@@ -623,7 +694,16 @@ def main() -> None:
                 workers=args.workers,
                 mode=args.mode,
                 formats=args.format,
-                doc_type_hint=args.doc_type_hint,
+                editions=args.editions,
+                cache_policy=args.cache_policy,
+                doc_type=args.doc_type,
+                doc_type_policy=args.doc_type_policy,
+                doc_type_hint=None,
+                ocr=args.ocr,
+                geometry=args.geometry,
+                include_geometry=None,
+                run_id=args.run_id,
+                overwrite=args.overwrite,
                 slm=args.slm,
             )
         )

@@ -18,7 +18,6 @@ Dependencies: ``header_resolve``, ``row_extract``, ``institution``, ``standardiz
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from docmirror.plugins._base.standardizer import normalize_amount

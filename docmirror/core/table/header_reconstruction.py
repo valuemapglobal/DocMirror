@@ -203,12 +203,9 @@ def _has_multiple_semantic_units(text: str) -> bool:
 
 
 def _split_credit_report_header(text: str) -> list[str] | None:
-    """征信报告专用Header分割"""
-    # 基于已知模式的分割规则
+    """征信报告专用 Header 分割（机构数 / 还款责任年份等固定短语）。"""
     patterns = [
-        # 模式1: "当前有未结清信贷交易的机构数"
         (r"当前.*信贷交易.*机构数", ["当前有未结清信贷交易的机构数"]),
-        # 模式2: "首次有相关还款责任的年份"
         (r"首次.*还款.*责任.*年份", ["首次有相关还款责任的年份"]),
     ]
 

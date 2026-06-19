@@ -27,11 +27,8 @@ from docmirror.core.utils.text_utils import (
     parse_amount,
 )
 from docmirror.core.utils.vocabulary import (
-    _is_data_row,
-    _is_header_row,
     _is_junk_row,
     _normalize_for_vocab,
-    _score_header_by_vocabulary,
 )
 
 from typing import Any
@@ -215,7 +212,7 @@ def _clean_cell(cell: str, col_name: str) -> str:
                     if hhmmss:
                         h, m, s = int(hhmmss.group(1)), int(hhmmss.group(2)), int(hhmmss.group(3))
                         if 0 <= h <= 23 and 0 <= m <= 59 and 0 <= s <= 59:
-                            time_match = type("M", (), {"group": lambda self: f"{h:02d}:{m:02d}:{s:02d}"})()
+                            time_match = type("M", (), {"group": lambda _self: f"{h:02d}:{m:02d}:{s:02d}"})()
 
         if date_match:
             # Also try finding standard time format (HH:MM:SS) from compact string
@@ -258,7 +255,7 @@ def _repair_split_numbers(data_rows: list[list[str]]) -> None:
 
 
 def filter_junk_rows(
-    header: list[str],
+    _header: list[str],
     data_rows: list[list[str]],
     preamble_kv: dict[str, str],
 ) -> list[list[str]]:

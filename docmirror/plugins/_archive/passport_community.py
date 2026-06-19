@@ -18,7 +18,6 @@ Key exports: ``PassportPlugin``, ``plugin``.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 from docmirror.plugins import DomainPlugin
 
@@ -52,7 +51,7 @@ class PassportPlugin(DomainPlugin):
             ("date_of_expiry", ("Date of expiry", "有效期至")),
         )
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
         return build_dec_kv("passport", {
             "surname": entities.get("surname", ""),

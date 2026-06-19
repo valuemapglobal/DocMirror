@@ -25,14 +25,15 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
+from typing import TYPE_CHECKING, Literal
+from collections.abc import Callable
 
 from docmirror.core.entry.options import ParseControl, normalize_parse_control
 from docmirror.core.entry.perceive_result import PerceiveResult
 from docmirror.framework.dispatcher import ParserDispatcher
 
 if TYPE_CHECKING:
-    from docmirror.models.entities.parse_result import ParseResult
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -181,35 +182,23 @@ async def perceive_document(
     if opts.editions:
         from copy import deepcopy
 
-        from docmirror.plugins.runner import run_plugin_extract
+        from docmirror.server.output_builder import build_all_projections
 
         core_mirror = deepcopy(result)
-        edition_outputs: dict[str, Any] = {}
-        full_text = getattr(result, "full_text", "") or ""
-        fp = str(file_path)
-        community_baseline: dict[str, Any] | None = None
-        edition_order = sorted(
-            opts.editions,
-            key=lambda e: {"community": 0, "enterprise": 1, "finance": 2}.get(e, 9),
+        requested = tuple(ed for ed in opts.editions if ed in {"community", "enterprise", "finance"})
+        projections = build_all_projections(
+            result,
+            full_text=getattr(result, "full_text", "") or "",
+            file_path=str(file_path),
+            mirror_level=control.output.mirror_level,
+            include_text=control.output.include_text,
+            editions=requested,
         )
-        for edition in edition_order:
-            if edition not in ("community", "enterprise", "finance"):
-                logger.warning("[PerceptionFactory] Unknown edition %r — skipped", edition)
-                continue
-            try:
-                payload = await run_plugin_extract(
-                    result,
-                    edition=edition,  # type: ignore[arg-type]
-                    full_text=full_text,
-                    file_path=fp,
-                    community_baseline=community_baseline,
-                )
-                if payload is not None:
-                    edition_outputs[edition] = payload
-                    if edition == "community":
-                        community_baseline = payload
-            except Exception as exc:
-                logger.warning("[PerceptionFactory] edition %s failed: %s", edition, exc)
+        edition_outputs = {
+            edition: payload
+            for edition, payload in projections.items()
+            if edition != "mirror" and payload is not None
+        }
         if edition_outputs:
             return PerceiveResult(mirror=core_mirror, editions=edition_outputs)
         return PerceiveResult(mirror=core_mirror)

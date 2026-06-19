@@ -18,8 +18,6 @@ Downstream: ``ocr.recognize.runner_legacy``, ``ocr.aistudio_provider``.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +189,6 @@ def _gamma_histogram_stretch(img_bgr):
 def _remove_red_seal(img_bgr):
     """Remove red seal/chop marks from document images."""
     import cv2
-    import numpy as np
     try:
         hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
         mask1 = cv2.inRange(hsv, (0, 70, 50), (10, 255, 255))
@@ -239,7 +236,7 @@ def _preprocess_minimal(img_bgr):
     return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
 
-def _ocr_upscale_and_normalize(img_bgr, cv2, np):
+def _ocr_upscale_and_normalize(img_bgr, cv2, _np):
     """Stage 1: Upscale low-res images, gamma correct, histogram stretch, edge pad."""
     h, w = img_bgr.shape[:2]
     img_bgr = _adaptive_upscale(img_bgr)

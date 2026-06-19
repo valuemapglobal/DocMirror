@@ -33,10 +33,10 @@ class PDFAdapter(BaseParser):
         enhance_mode: Enhancement level. One of "raw", "standard", or "full".
     """
 
-    def __init__(self, enhance_mode: str = "standard", **kwargs):
+    def __init__(self, enhance_mode: str = "standard", **_kwargs):
         self._enhance_mode = enhance_mode
 
-    async def to_parse_result(self, file_path: Path, **kwargs) -> "ParseResult":
+    async def to_parse_result(self, file_path: Path, **kwargs) -> ParseResult:
         """
         Extract a PDF into a ParseResult with provenance pre-filled.
 
@@ -98,7 +98,7 @@ class PDFAdapter(BaseParser):
 
         return pr
 
-    async def perceive(self, file_path: Path, **context) -> "ParseResult":
+    async def perceive(self, file_path: Path, **context) -> ParseResult:
         """
         Full pipeline: PDF → middleware → ParseResult.
 

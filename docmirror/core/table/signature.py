@@ -23,7 +23,6 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +121,7 @@ class TypeSignatureLibrary:
         (r"^(0?[1-9]|1[0-2])[-/](0?[1-9]|[12]\d|3[01])$", "%m-%d"),
         # YYYY.MM.DD
         (r"^\d{4}\.\d{2}\.\d{2}$", "%Y.%m.%d"),
-        # DD-MMM-YYYY (英文格式)
+        # Month-name abbreviation format
         (r"^\d{1,2}-[A-Z]{3}-\d{4}$", "%d-%b-%Y"),
     ]
 
@@ -167,7 +166,7 @@ class TypeSignatureLibrary:
                     # 标准化分隔符
                     cleaned = re.sub(r"[年月日号]", "-", value)
                     cleaned = re.sub(r"[/.]", "-", cleaned)  # 也替换点号
-                    # 只取前10个字符 (YYYY-MM-DD)
+                    # Truncate to date field width
                     cleaned = cleaned[:10]
                     # 尝试解析
                     return datetime.strptime(cleaned, "%Y-%m-%d")

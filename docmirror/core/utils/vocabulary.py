@@ -25,7 +25,6 @@ import re
 import unicodedata
 from collections import deque
 from collections.abc import Iterable
-from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -123,13 +122,7 @@ VOCAB_BY_CATEGORY: dict[str, frozenset] = {
             "交易备注",
         }
     ),
-    # Reserved: VAT Invoice (commented out — enable when VAT extraction is implemented)
-    # "VAT_INVOICE": frozenset({
-    #     "品名", "规格型号", "单位", "数量", "单价", "金额", "税率", "税额",
-    #     "价税合计", "购买方", "销售方", "发票代码", "发票号码",
-    # }),
-    # Reserved: General document
-    # "GENERAL": frozenset({...}),
+    # VAT_INVOICE reserved until VAT extraction is implemented
 }
 
 # Backward-compatible union of all category vocabularies

@@ -18,7 +18,6 @@ Dependencies: stdlib ``re``, ``datetime``, ``unicodedata`` only.
 from __future__ import annotations
 
 import re
-import unicodedata
 from datetime import datetime
 from typing import Any
 

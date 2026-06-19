@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +82,7 @@ def _validate_split_by_data(
 
 def detect_split_amount(
     headers: list[str],
-    mapping: dict[str, str | None],
+    _mapping: dict[str, str | None],
     income_keywords: set[str],
     expense_keywords: set[str],
     amount_like_keywords: set[str],

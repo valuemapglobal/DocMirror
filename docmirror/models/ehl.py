@@ -24,7 +24,8 @@ See design 09 §4.5 for the EHL annex contract.
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 from docmirror.models.entities.evidence import EvidenceSummary
 from docmirror.models.entities.hypothesis import MergeHypothesis, ParseHypothesis, TableHypothesis

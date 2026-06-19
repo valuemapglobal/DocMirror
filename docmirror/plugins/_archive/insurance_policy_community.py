@@ -18,7 +18,6 @@ Key exports: ``InsurancePolicyCommunityPlugin``, ``plugin``.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 from docmirror.plugins import DomainPlugin
 
@@ -50,7 +49,7 @@ class InsurancePolicyCommunityPlugin(DomainPlugin):
             ("insurance_period", ("保险期间", "保险期限", "Period")),
         )
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
         return build_dec_kv("insurance_policy", {
             "policy_number": entities.get("policy_number", ""),

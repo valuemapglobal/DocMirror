@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docmirror.models.entities.domain import Block, PageLayout, Style, TextSpan
+from docmirror.models.entities.domain import PageLayout, Style, TextSpan
 from docmirror.core.pipeline.context import PageExtractionContext
 from docmirror.core.pipeline.handlers import scanned_page as scanned_page_mod
 from docmirror.core.pipeline.handlers import fallback_table as fallback_table_mod
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 class PageExtractor:
     """Single-page zone → block extraction (delegates to ``pipeline/handlers/*``)."""
 
-    def __init__(self, host: "CoreExtractor") -> None:
+    def __init__(self, host: CoreExtractor) -> None:
         self._host = host
 
     def extract_scanned_page(self, **kwargs) -> PageLayout:

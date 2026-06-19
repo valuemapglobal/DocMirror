@@ -182,7 +182,6 @@ def build_count_reconciliation(
     logical_tables: list[Any],
     pages: list[dict[str, Any]] | None,
 ) -> dict[str, int]:
-    annex_pages = annex_pages_from_logical_tables(logical_tables)
     export_pages: set[int] = set()
     for lt in logical_tables:
         if logical_table_role(lt) != "primary":

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import stage_header, stage_preamble, stage_structure
+from . import stage_header, stage_structure
 
 
 def resolve_hook_names(profile: Any | None) -> list[str]:

@@ -21,7 +21,6 @@ Downstream: ``ocr.vision.rapidocr_engine``, ``ocr.preprocess.legacy_fallback``.
 from __future__ import annotations
 
 import logging
-from typing import Tuple
 
 logger = logging.getLogger(__name__)
 

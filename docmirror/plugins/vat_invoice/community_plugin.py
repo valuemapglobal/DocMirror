@@ -24,7 +24,6 @@ Dependencies: ``DomainPlugin``, ``dec_builder``, ``kv_community_extract``,
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 from docmirror.plugins import DomainPlugin
 
@@ -55,7 +54,7 @@ class VATInvoicePlugin(DomainPlugin):
             ("invoice_date", ("开票日期", "Date", "日期")),
         )
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
         return build_dec_kv("vat_invoice", {
             "invoice_number": entities.get("invoice_number", ""),

@@ -23,15 +23,15 @@ from __future__ import annotations
 import heapq
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Set
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 def build_delaunay_adjacency(
     zones: list[Any],
-    page_width: float,
-    page_height: float,
+    _page_width: float,
+    _page_height: float,
 ) -> dict[int, set[int]]:
     """Build a spatial adjacency graph using Delaunay triangulation.
 
@@ -175,7 +175,7 @@ def compute_reading_order(
     *,
     adj: dict[int, set[int]] | None = None,
     columns: list[int] | None = None,
-    syntactic_bridger: Any = None,
+    _syntactic_bridger: Any = None,
 ) -> list[int]:
     """Compute reading order via topological sort over a directed acyclic graph.
 

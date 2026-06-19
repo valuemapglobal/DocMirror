@@ -28,7 +28,6 @@ import email as email_lib
 import logging
 from email import policy
 from pathlib import Path
-from typing import Dict, List
 
 from docmirror.framework.base import BaseParser
 
@@ -38,7 +37,7 @@ logger = logging.getLogger(__name__)
 class EmailAdapter(BaseParser):
     """Email (.eml) format adapter — extracts headers, body text, and attachment metadata."""
 
-    async def to_parse_result(self, file_path: Path, **kwargs) -> ParseResult:
+    async def to_parse_result(self, file_path: Path, **_kwargs) -> ParseResult:
         """
         Parse an .eml file into a ParseResult.
 

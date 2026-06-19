@@ -20,7 +20,7 @@ Dependencies: ``models.entities.domain_result``, ``models.edition_serializer``.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from docmirror.models.edition_serializer import EditionContext, edition_serializer
 from docmirror.models.entities.domain_result import DomainExtractionResult, DomainQuality

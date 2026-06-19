@@ -43,7 +43,7 @@ class Orchestrator:
         settings: DocMirrorSettings | None = None,
         config: dict[str, Any] | None = None,
         fail_strategy: str | None = None,
-        seal_detector_fn: Callable | None = None,
+        seal_detector_fn: Callable | None = None,  # noqa: ARG002 — legacy hook reserved
     ):
         self.settings = settings or DocMirrorSettings.from_env()
         self.config = config or self.settings.to_dict()
@@ -57,7 +57,7 @@ class Orchestrator:
         enhance_mode: Literal["raw", "standard", "full"] = "standard",
         file_type: str = "unknown",
         content_model: str = "",
-        **kwargs,
+        **_kwargs,
     ) -> ParseResult:
         t0 = time.time()
 

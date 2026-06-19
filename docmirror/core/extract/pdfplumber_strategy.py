@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
 
 from ..utils.vocabulary import KNOWN_HEADER_WORDS, _score_header_by_vocabulary
 

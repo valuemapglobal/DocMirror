@@ -18,7 +18,6 @@ Key exports: ``HouseholdRegistrationPlugin``, ``plugin``.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 from docmirror.plugins import DomainPlugin
 
@@ -49,7 +48,7 @@ class HouseholdRegistrationPlugin(DomainPlugin):
             ("relationship", ("与户主关系", "Relation", "Relationship")),
         )
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
         return build_dec_kv("household_registration", {
             "householder": entities.get("householder", ""),

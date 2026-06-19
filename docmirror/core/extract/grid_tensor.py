@@ -20,7 +20,6 @@ Downstream: ``extract.template_injector``, ``table.column_anchor``.
 from __future__ import annotations
 
 import logging
-from typing import List
 
 logger = logging.getLogger(__name__)
 

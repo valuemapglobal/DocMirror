@@ -25,7 +25,7 @@ import dataclasses
 import logging
 import re
 from collections import Counter
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -337,7 +337,7 @@ class PreAnalyzer:
 
         return has_text, density
 
-    def _analyze_page(self, page, page_idx: int) -> dict[str, Any]:
+    def _analyze_page(self, page, _page_idx: int) -> dict[str, Any]:
         """
         Quick single-page analysis (~5ms).
 
@@ -404,8 +404,8 @@ class PreAnalyzer:
     def _determine_content_type(
         self,
         has_text: bool,
-        text_density: float,
-        first_page: dict,
+        _text_density: float,
+        _first_page: dict,
         table_pages: int,
         scanned_pages: int,
         sample_size: int,
@@ -526,7 +526,7 @@ class PreAnalyzer:
         self,
         num_pages: int,
         content_type: str,
-        first_page: dict,
+        _first_page: dict,
     ) -> str:
         """Assess complexity level."""
         # Page count dimension
@@ -554,7 +554,7 @@ class PreAnalyzer:
         self,
         complexity: str,
         quality: float,
-        content_type: str,
+        _content_type: str,
     ) -> str:
         """Recommend processing strategy."""
         if complexity == "simple" and quality >= 0.8:

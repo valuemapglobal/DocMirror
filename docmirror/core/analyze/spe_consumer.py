@@ -26,7 +26,7 @@ def pipe_grid_score(spe: dict[str, Any] | None) -> float:
 def should_force_ltro(
     *,
     mirror_tables: list,
-    full_text: str,
+    full_text: str,  # noqa: ARG001 — reserved for future SPE text cross-check
     structure_spe: dict[str, Any] | None,
 ) -> bool:
     """True when Mirror tables empty but SPE/text indicate pipe ledger reconstruction."""

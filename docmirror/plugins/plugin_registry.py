@@ -68,8 +68,8 @@ class DomainPlugin(ABC):
 
     def build_domain_data(
         self,
-        metadata: dict[str, Any],
-        entities: dict[str, Any],
+        _metadata: dict[str, Any],
+        _entities: dict[str, Any],
     ) -> dict[str, Any] | None:
         return None
 

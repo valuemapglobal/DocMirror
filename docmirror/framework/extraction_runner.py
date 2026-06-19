@@ -54,7 +54,7 @@ def instantiate_adapter(
     return cls()
 
 
-def _should_fallback(cap: FormatCapability, primary: ParseResult, when: str) -> bool:
+def _should_fallback(_cap: FormatCapability, primary: ParseResult, when: str) -> bool:
     if when == "primary_failed":
         return primary.status == ResultStatus.FAILURE
     if when == "primary_empty":
@@ -86,13 +86,15 @@ async def run_extraction_chain(
     perceive_ctx = dict(context)
     perceive_ctx.setdefault("file_type", cap.transport)
     perceive_ctx.setdefault("content_model", cap.content_model)
+    ocr_mode = str(perceive_ctx.get("ocr_mode") or "auto").lower()
     if binding.deserializer:
         perceive_ctx["deserializer"] = binding.deserializer
 
     # OCR-only shortcut for images (debug / low-resource)
     if (
         cap.transport == "image"
-        and os.environ.get("DOCMIRROR_IMAGE_OCR_ONLY") == "1"
+        and ocr_mode != "off"
+        and (ocr_mode == "force" or os.environ.get("DOCMIRROR_IMAGE_OCR_ONLY") == "1")
         and binding.fallback
     ):
         fb = instantiate_adapter(binding.fallback.adapter)
@@ -110,7 +112,8 @@ async def run_extraction_chain(
             perceive_ctx["parser_name"] = primary_cls.__name__
             result = await primary.perceive(work_path, **perceive_ctx)
 
-        if binding.fallback and _should_fallback(cap, result, binding.fallback.when):
+        allow_fallback_ocr = ocr_mode != "off"
+        if binding.fallback and allow_fallback_ocr and _should_fallback(cap, result, binding.fallback.when):
             fb = instantiate_adapter(binding.fallback.adapter)
             fb_name = fb.__class__.__name__
             logger.info(
@@ -136,7 +139,7 @@ async def run_extraction_chain(
 
 
 def build_perceive_context(
-    path: Path,
+    _path: Path,
     cap: FormatCapability,
     *,
     file_size: int = 0,

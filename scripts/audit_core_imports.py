@@ -9,6 +9,7 @@ import argparse
 import ast
 import json
 import re
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -174,18 +175,39 @@ def run_audit() -> dict:
     }
 
 
-def main() -> None:
+def audit_failures(data: dict) -> list[str]:
+    """Human-readable failure messages (mirrors CI assertions)."""
+    failures: list[str] = []
+    if data.get("plugin_forbidden_imports"):
+        failures.append(f"plugin_forbidden_imports: {data['plugin_forbidden_imports']}")
+    if data.get("lazy_hub_present"):
+        failures.append("lazy_hub_present: segment/zones.py still exposes deprecated re-exports")
+    return failures
+
+
+def main() -> int:
     parser = argparse.ArgumentParser(description="Audit docmirror/core imports (CPA §13)")
     parser.add_argument("--json", type=Path, help="Write JSON report to path")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit 1 when plugin import or lazy-hub violations are present",
+    )
     args = parser.parse_args()
     report = run_audit()
+    failures = audit_failures(report)
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
         args.json.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"Wrote {args.json}")
-    else:
+    elif not args.strict:
         print(json.dumps(report, indent=2, ensure_ascii=False))
+    if args.strict and failures:
+        for msg in failures:
+            print(msg, file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

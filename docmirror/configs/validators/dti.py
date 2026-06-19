@@ -22,8 +22,7 @@ to catch typos before they reach production classification.
 from __future__ import annotations
 
 from functools import lru_cache
-from pathlib import Path
-from typing import Iterable
+from collections.abc import Iterable
 
 import yaml
 

@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 from docmirror.core.ocr.local_structure.models import BBox
 from docmirror.core.ocr.micro_grid.models import OCRToken

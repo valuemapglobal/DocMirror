@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-def extract_page_images(extractor: "PageExtractor",
+def extract_page_images(_extractor: PageExtractor,
     fitz_page,
     fitz_doc,
     page_idx: int,

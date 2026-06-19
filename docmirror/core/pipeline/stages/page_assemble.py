@@ -15,7 +15,7 @@ Downstream: ``page_finalize``, ``physical.models.Block``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from docmirror.models.entities.domain import Block
 from docmirror.core.table.pipeline.kv_summary import _extract_summary_entities

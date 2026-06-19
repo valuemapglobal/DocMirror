@@ -305,7 +305,7 @@ def _detect_calculation_relations(table: list[list[str]], semantics: TableSemant
     amount_cols = [i for i, t in col_types.items() if t in ("amount", "income", "expense")]
 
     if balance_cols and amount_cols:
-        # 验证计算关系: balance[i] = balance[i-1] + income - expense
+        # Running balance should match prior row plus transaction amount
         if _verify_calculation_pattern(table, balance_cols[0], amount_cols):
             relation = ColumnRelation(
                 relation_type=ColumnRelationType.CALCULATION,
@@ -383,7 +383,7 @@ def _group_by_time(table: list[list[str]], semantics: TableSemantics) -> list[Ro
     return groups
 
 
-def _identify_summary_rows(table: list[list[str]], semantics: TableSemantics) -> list[RowGroup]:
+def _identify_summary_rows(table: list[list[str]], _semantics: TableSemantics) -> list[RowGroup]:
     """识别汇总行。"""
     groups = []
     summary_keywords = ["合计", "总计", "小计", "汇总", "累计"]
@@ -523,7 +523,7 @@ def _extract_month(date_str: str) -> str:
     return ""
 
 
-def _verify_calculation_pattern(table: list[list[str]], balance_col: int, amount_cols: list[int]) -> bool:
+def _verify_calculation_pattern(table: list[list[str]], balance_col: int, _amount_cols: list[int]) -> bool:
     """验证计算模式。"""
     if len(table) < 3:
         return False

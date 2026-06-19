@@ -9,7 +9,6 @@ from typing import Any
 
 from docmirror.core.ocr.field_grid.models import FieldCell
 from docmirror.core.ocr.local_structure.repair import recognize_structure_region_from_image
-from docmirror.core.ocr.micro_grid.models import BBox
 
 
 def maybe_repair_cell(

@@ -15,7 +15,7 @@ import re
 from typing import Any
 
 from docmirror.eval.tqg.report import GateReport
-from docmirror.core.table.access import get_logical_tables, primary_export_logical_table
+from docmirror.core.table.access import primary_export_logical_table
 
 
 def run_column_fidelity_oracle(

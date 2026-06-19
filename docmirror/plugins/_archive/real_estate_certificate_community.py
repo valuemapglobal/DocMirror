@@ -18,7 +18,6 @@ Key exports: ``RealEstateCertificateCommunityPlugin``, ``plugin``.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 from docmirror.plugins import DomainPlugin
 
@@ -49,7 +48,7 @@ class RealEstateCertificateCommunityPlugin(DomainPlugin):
             ("unit_number", ("不动产单元号", "Unit No")),
         )
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
         return build_dec_kv("real_estate_certificate", {
             "obligee": entities.get("obligee", ""),

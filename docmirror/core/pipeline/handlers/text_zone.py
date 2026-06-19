@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-def handle_text_zone(extractor: "PageExtractor",
+def handle_text_zone(_extractor: PageExtractor,
     zone,
     block_id: str,
     page_idx: int,

@@ -27,12 +27,12 @@ class MirrorTableRebuildHook(PostExtractHook):
 
     def apply(
         self,
-        result: ParseResult,
+        _result: ParseResult,
         *,
         extracted: dict[str, Any],
         edition: str,
         document_type: str,
-        plugin: Any | None = None,
+        _plugin: Any | None = None,
     ) -> None:
         if document_type != "bank_statement":
             return

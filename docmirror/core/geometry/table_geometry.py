@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 
 from docmirror.core.geometry.bbox import area, normalize, union
 from docmirror.core.geometry.models import BBox, TableGeometry
@@ -94,7 +94,7 @@ def _row_bands(table_bbox: BBox, chars: list[dict[str, Any]], n_rows: int) -> li
     return _even_bands(table_bbox, n_rows, axis="y")
 
 
-def _col_bands(table_bbox: BBox, chars: list[dict[str, Any]], n_cols: int) -> list[BBox]:
+def _col_bands(table_bbox: BBox, _chars: list[dict[str, Any]], n_cols: int) -> list[BBox]:
     # Keep this intentionally conservative: equal bands preserve empty columns
     # and avoid overfitting noisy chars. Native extractor bands can replace this.
     return _even_bands(table_bbox, n_cols, axis="x")

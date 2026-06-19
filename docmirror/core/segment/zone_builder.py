@@ -467,8 +467,8 @@ def _build_zones_from_extent(
     chars: list[dict],
     rects: list,
     table_extent: tuple,
-    page_w: float,
-    page_h: float,
+    _page_w: float,
+    _page_h: float,
     page_idx: int,
 ) -> list[Zone]:
     """Derive all zones from a precise table extent.
@@ -586,7 +586,7 @@ def _build_zones_from_extent(
 def _legacy_y_band_zones(
     chars: list[dict],
     rects: list,
-    page_w: float,
+    _page_w: float,
     page_h: float,
     page_idx: int,
     gap_threshold: float = 15.0,

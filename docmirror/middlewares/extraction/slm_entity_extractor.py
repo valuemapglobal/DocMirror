@@ -24,7 +24,7 @@ import concurrent.futures
 logger = logging.getLogger(__name__)
 
 from docmirror.middlewares.base import BaseMiddleware
-from docmirror.models.entities.parse_result import ParseResult, ResultStatus
+from docmirror.models.entities.parse_result import ParseResult
 
 
 class SLMEntityExtractor(BaseMiddleware):
@@ -177,10 +177,9 @@ class SLMEntityExtractor(BaseMiddleware):
     # ═══════════════════════════════════════════════════════════════
 
     def process(self, result: ParseResult) -> ParseResult:
-        try:
-            from llama_cpp import Llama
-            from huggingface_hub import hf_hub_download
-        except ImportError:
+        import importlib.util
+
+        if importlib.util.find_spec("llama_cpp") is None or importlib.util.find_spec("huggingface_hub") is None:
             logger.warning("[SLM] Please install: pip install llama-cpp-python huggingface-hub")
             return result
 

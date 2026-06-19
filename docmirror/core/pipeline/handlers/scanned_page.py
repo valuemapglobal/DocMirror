@@ -30,14 +30,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-def extract_scanned_page(extractor: "PageExtractor",
+def extract_scanned_page(extractor: PageExtractor,
     *,
     fitz_page,
     page_idx: int,
     page_quality: int | None = None,
     external_ocr_threshold: int | None = None,
     external_ocr_provider: Any | None = None,
-    global_grid_x: list[float] | None = None,
+    global_grid_x: list[float] | None = None,  # noqa: ARG001 — reserved for future grid-aware OCR
 ) -> PageLayout:
     """Single-page OCR extraction for scanned documents.
 

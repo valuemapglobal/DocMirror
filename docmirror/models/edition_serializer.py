@@ -27,7 +27,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 
 from docmirror.models.entities.domain_result import DomainExtractionResult
 

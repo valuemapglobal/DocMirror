@@ -31,7 +31,7 @@ class ImageAdapter(BaseParser):
     Produces a single TextBlock containing all recognized text lines joined by newlines.
     """
 
-    async def to_parse_result(self, file_path: Path, **kwargs) -> ParseResult:
+    async def to_parse_result(self, file_path: Path, **_kwargs) -> ParseResult:
         """
         Convert an image file to ParseResult using OCR.
         """
@@ -72,7 +72,7 @@ class ImageAdapter(BaseParser):
             return ""
         return self._extract_text_from_image(img, file_path)
 
-    def _extract_text_from_image(self, img, file_path: Path) -> str:
+    def _extract_text_from_image(self, img, _file_path: Path) -> str:
         """Use built-in or external OCR depending on image quality."""
         from docmirror.configs.runtime.settings import default_settings
         from docmirror.core.ocr.fallback import (

@@ -22,7 +22,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -49,13 +49,13 @@ def call_aistudio_layout_ocr(
     image_bgr,
     *,
     page_idx: int = 0,
-    dpi: int = 200,
-    min_confidence: float = 0.3,
+    dpi: int = 200,  # noqa: ARG001
+    min_confidence: float = 0.3,  # noqa: ARG001
     file_type: int = 1,
     use_doc_orientation_classify: bool = False,
     use_doc_unwarping: bool = False,
     use_chart_recognition: bool = False,
-    **kwargs: Any,
+    **_kwargs: Any,
 ) -> dict[str, Any] | None:
     """Call AI Studio layout-parsing API and return result in DocMirror OCR format.
 

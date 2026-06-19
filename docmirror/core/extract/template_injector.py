@@ -21,7 +21,6 @@ Downstream: ``extract.engine``, ``table.ledger_postprocess``.
 import logging
 import re
 from dataclasses import dataclass
-from typing import List, Optional
 
 from ..utils.watermark import is_watermark_char
 from ..utils.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE
@@ -68,7 +67,6 @@ def build_global_template(page_plum, extracted_table: list[list[str]]) -> Global
 
     # A simpler and highly robust method for a golden page:
     # Just cluster the characters by X coordinate.
-    from .utils import _cluster_x_positions
 
     [c["x0"] for c in text_chars]
 
@@ -121,7 +119,7 @@ def build_global_template(page_plum, extracted_table: list[list[str]]) -> Global
     return template
 
 
-def _looks_like_page_noise(row: list[str], num_cols: int) -> bool:
+def _looks_like_page_noise(row: list[str], _num_cols: int) -> bool:
     """Filter header/footer/pagination rows from injected template output."""
     cells = [(c or "").strip() for c in row]
     non_empty = [c for c in cells if c]

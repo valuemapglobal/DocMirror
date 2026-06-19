@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_prepare(
-    extractor: PageExtractor,
+    _extractor: PageExtractor,
     ctx: PageExtractionContext,
 ) -> tuple[Any, bool, Any]:
     """Prepare pdfplumber page: watermark filter and optional quality router."""

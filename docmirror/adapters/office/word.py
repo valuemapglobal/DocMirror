@@ -24,12 +24,8 @@ Processing logic:
 from __future__ import annotations
 
 import logging
-import re
-from pathlib import Path
-from typing import List
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 logger = logging.getLogger(__name__)
 

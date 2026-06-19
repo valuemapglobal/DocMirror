@@ -18,8 +18,6 @@ Downstream: ``ocr.scanned.analyze_page``, ``ocr.table_reconstruction``.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -263,7 +261,7 @@ def _reconstruct_table_grid_2d(
     return final_table
 
 
-def _detect_table_lines_hough(img_bgr, page_h: int, page_w: int) -> list[tuple[float, float]] | None:
+def _detect_table_lines_hough(img_bgr, page_h: int, _page_w: int) -> list[tuple[float, float]] | None:
     """Detect vertical table lines in a scanned image using Hough transform.
 
     Returns column boundary intervals derived from clustered vertical

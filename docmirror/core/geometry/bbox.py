@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+from collections.abc import Iterable, Sequence
 
 BBox = tuple[float, float, float, float]
 

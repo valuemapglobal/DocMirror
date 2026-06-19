@@ -20,7 +20,6 @@ Downstream: Separate ``Block`` tables per ``page_assemble``.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

@@ -93,8 +93,8 @@ def validate_uscc(code: str) -> bool:
 def enrich_business_license_output(
     output: dict[str, Any],
     *,
-    parse_result: Any,
-    full_text: str = "",
+    _parse_result: Any,
+    _full_text: str = "",
 ) -> dict[str, Any]:
     """USCC checksum + business_scope section block."""
     data = output.setdefault("data", {})

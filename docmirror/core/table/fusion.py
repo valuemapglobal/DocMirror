@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter, defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -311,10 +311,10 @@ class ResultFusionEngine:
                 # 多数一致
                 agreement_bonus = 0.03
 
-        # 融合置信度 = 最佳置信度 * 0.6 + 平均置信度 * 0.4 + 一致性奖励
+        # Weighted blend: best layer 60%, mean 40%, plus agreement bonus
         fused_conf = best_conf * 0.6 + avg_conf * 0.4 + agreement_bonus
 
-        # 限制在 [0, 1]
+        # Clamp to unit interval
         return min(1.0, max(0.0, fused_conf))
 
     @classmethod

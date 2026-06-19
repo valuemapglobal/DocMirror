@@ -20,7 +20,7 @@ Downstream: ``ocr.image_preprocessing``, ``ocr.preprocess.legacy_fallback``.
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict
+from typing import Any
 
 import cv2
 import numpy as np

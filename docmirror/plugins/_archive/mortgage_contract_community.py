@@ -18,7 +18,6 @@ Key exports: ``MortgageContractCommunityPlugin``, ``plugin``.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 from docmirror.plugins import DomainPlugin
 
@@ -48,7 +47,7 @@ class MortgageContractCommunityPlugin(DomainPlugin):
             ("contract_number", ("合同编号", "Contract No", "协议编号")),
         )
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
         return build_dec_kv("mortgage_contract", {
             "contract_number": str(entities.get("contract_number", "")),

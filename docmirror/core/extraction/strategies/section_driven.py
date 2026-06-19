@@ -35,19 +35,14 @@ logger = logging.getLogger(__name__)
 # Section Header Patterns (multi-language)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Level 1: Top-level chapter headers
-#   Chinese: "一 个人基本信息", "二 信息概要"
-#   English: "1. Introduction", "Chapter 1"
-#   Numbered: "Section 1"
+# L1 chapter headers (Chinese numerals, 第N章, Section/Chapter/Part N)
 L1_PATTERNS = [
     re.compile(r"^(一|二|三|四|五|六|七|八|九|十)\s{1,4}[\u4e00-\u9fff]"),
     re.compile(r"^第[一二三四五六七八九十百]+[章部分篇]"),
     re.compile(r"^(Section|Chapter|Part)\s+\d+", re.IGNORECASE),
 ]
 
-# Level 2: Sub-section headers
-#   Chinese: "（一）身份信息", "(二)配偶信息"
-#   English: "1.1 Overview"
+# L2 sub-section headers (parenthetical numerals, 第N节, dotted outlines)
 L2_PATTERNS = [
     re.compile(r"^[（(](一|二|三|四|五|六|七|八|九|十)[）)]"),
     re.compile(r"^第[一二三四五六七八九十百]+[节条款]"),
@@ -438,7 +433,7 @@ class SectionDrivenStrategy(BaseExtractionStrategy):
     If >= 3 headers found → content_type = "section_dominant" → this strategy.
     """
 
-    def extract(self, fitz_doc: Any, pre_analysis: Any) -> tuple:
+    def extract(self, fitz_doc: Any, _pre_analysis: Any) -> tuple:
         """
         Section-header-driven extraction.
 

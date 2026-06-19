@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib
 import sys
 
-from docmirror.configs.format.enhancement import resolve_enhancement_profile, transport_to_content_model
+from docmirror.configs.format.enhancement import resolve_enhancement_profile
 from docmirror.configs.format.loader import load_enhancement_profiles, load_format_registry
 from docmirror.configs.middleware.catalog import load_catalog
 from docmirror.configs.middleware.resolver import flatten_profile_middleware_names

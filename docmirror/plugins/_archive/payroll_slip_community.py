@@ -18,7 +18,6 @@ Key exports: ``PayrollSlipCommunityPlugin``, ``plugin``.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 from docmirror.plugins import DomainPlugin
 
@@ -49,7 +48,7 @@ class PayrollSlipCommunityPlugin(DomainPlugin):
             ("net_pay", ("实发工资", "Net Pay", "实发")),
         )
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
         return build_dec_kv("payroll_slip", {
             "employee_name": entities.get("employee_name", ""),

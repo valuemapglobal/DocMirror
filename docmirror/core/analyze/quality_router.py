@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ class AdaptiveQualityRouter:
         page_has_text: bool = True,
         page_quality: int = 100,
         is_scanned_page: bool = False,
-        zone_index: int = 0,
+        _zone_index: int = 0,
     ) -> ZoneStrategy:
         """Recommend extraction strategy for a zone.
 

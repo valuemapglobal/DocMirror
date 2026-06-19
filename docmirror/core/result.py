@@ -24,7 +24,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Callable, Generic, TypeVar, Union
+from typing import Any, Generic, TypeVar
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +210,7 @@ class Success(Generic[T]):
         """Chain operations that return Result."""
         return fn(self.value)
 
-    def or_else(self, fn) -> Result[T, E]:
+    def or_else(self, _fn) -> Result[T, E]:
         """Return self (success case)."""
         return self
 
@@ -217,7 +218,7 @@ class Success(Generic[T]):
         """Get value or raise error."""
         return self.value
 
-    def get_or_default(self, default: U) -> T | U:
+    def get_or_default(self, _default: U) -> T | U:
         """Get value or return default."""
         return self.value
 
@@ -236,11 +237,11 @@ class Failure(Generic[E]):
     def is_failure(self) -> bool:
         return True
 
-    def map(self, fn) -> Result[U, E]:
+    def map(self, _fn) -> Result[U, E]:
         """Return self (failure case)."""
         return self
 
-    def and_then(self, fn) -> Result[U, E]:
+    def and_then(self, _fn) -> Result[U, E]:
         """Return self (failure case)."""
         return self
 
@@ -258,7 +259,7 @@ class Failure(Generic[E]):
 
 
 # Type alias
-Result = Union[Success[T], Failure[E]]
+Result = Success[T] | Failure[E]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

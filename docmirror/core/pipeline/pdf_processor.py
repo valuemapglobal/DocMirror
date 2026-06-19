@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _clock = time.perf_counter
 
-_active_pdf_processor: contextvars.ContextVar["PdfSyncProcessor | None"] = contextvars.ContextVar(
+_active_pdf_processor: contextvars.ContextVar[PdfSyncProcessor | None] = contextvars.ContextVar(
     "active_pdf_processor",
     default=None,
 )
@@ -78,7 +78,7 @@ def reenter_generic_pipeline(fitz_doc, pre_analysis):
 class PdfSyncProcessor:
     """CPU-bound PDF processing (formerly CoreExtractor._process_pdf_sync)."""
 
-    def __init__(self, host: "CoreExtractor", doc_pipeline: DocumentPipeline | None = None) -> None:
+    def __init__(self, host: CoreExtractor, doc_pipeline: DocumentPipeline | None = None) -> None:
         self._host = host
         self._doc_pipeline = doc_pipeline or DocumentPipeline(host)
 
@@ -754,7 +754,7 @@ class PdfSyncProcessor:
         text blocks from earlier pages for a vocabulary-matching header
         line and prepends it.
         """
-        from ..utils.vocabulary import _is_data_row, _is_header_row, _score_header_by_vocabulary
+        from ..utils.vocabulary import _is_header_row, _score_header_by_vocabulary
 
         for pg in pages:
             for block in pg.blocks:

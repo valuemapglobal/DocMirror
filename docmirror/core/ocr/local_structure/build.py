@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any, Callable, Iterable
+from typing import Any
+from collections.abc import Callable, Iterable
 
 from docmirror.core.ocr.local_structure.detect import detect_local_structure_candidates
 from docmirror.core.ocr.local_structure.models import (

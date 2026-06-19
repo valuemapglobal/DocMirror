@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _clock = time.perf_counter
 
-def handle_formula_zone(extractor: "PageExtractor",
+def handle_formula_zone(extractor: PageExtractor,
     zone,
     block_id: str,
     page_idx: int,

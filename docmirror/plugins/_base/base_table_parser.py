@@ -463,9 +463,9 @@ class BaseTableParser(DomainPlugin):
         parse_result,
         identity_fields: dict[str, dict],
         records: list[dict],
-        raw_headers: list[str],
+        _raw_headers: list[str],
         summary: dict[str, Any],
-        period: str | dict,
+        _period: str | dict,
         *,
         text: str = "",
     ) -> dict[str, Any]:

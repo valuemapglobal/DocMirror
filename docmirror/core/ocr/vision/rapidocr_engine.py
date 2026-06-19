@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import List, Optional, Tuple
 
 import numpy as np
 

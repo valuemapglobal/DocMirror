@@ -21,7 +21,6 @@ Dependencies: ``licensing.contract``, ``licensing.offline``, ``licensing.online`
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from docmirror.plugins.licensing.contract import premium_feature
 

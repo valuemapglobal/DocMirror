@@ -303,7 +303,6 @@ def assert_no_flow_structure_dual_assign(
         y_threshold=y_threshold,
         x_threshold=x_threshold,
     )
-    flow = flow_texts_complement(texts, ownership)
     owned = owned_line_indices(ownership)
     flow_indices = {idx for idx, _ in enumerate(texts) if idx not in owned}
     overlap = owned & flow_indices
