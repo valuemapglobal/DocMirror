@@ -15,7 +15,7 @@ import re
 from typing import Any
 
 from docmirror.eval.tqg.report import GateReport
-from docmirror.core.table.access import get_logical_tables
+from docmirror.core.table.access import get_logical_tables, primary_export_logical_table
 
 
 def run_column_fidelity_oracle(
@@ -28,13 +28,11 @@ def run_column_fidelity_oracle(
 ) -> GateReport:
     """P2-4 column integrity on primary logical table."""
     report = GateReport(case_id=case_id, track=track, tier=tier)
-    logical = get_logical_tables(result)
-    if not logical:
+    primary = primary_export_logical_table(result)
+    if primary is None:
         report.passed = False
         report.failures.append("column_fidelity: no logical tables")
         return report
-
-    primary = max(logical, key=lambda lt: lt.row_count)
     headers = [str(h) for h in (primary.headers or [])]
     min_cols = int(spec.get("min_columns") or 8)
     report.checks["header_column_count"] = len(headers) >= min_cols

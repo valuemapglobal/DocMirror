@@ -15,6 +15,7 @@ Import from here for a single entry point to runtime configuration.
 """
 
 from docmirror.configs.runtime.performance import (
+    WorkerBudget,
     auto_page_concurrency,
     effective_page_workers,
     page_level_parallel_active,
@@ -22,6 +23,7 @@ from docmirror.configs.runtime.performance import (
     resolve_max_page_concurrency,
     resolve_max_process_workers,
     resolve_page_executor,
+    resolve_worker_budget,
 )
 from docmirror.configs.runtime.settings import DocMirrorSettings, default_settings
 from docmirror.configs.runtime.yaml_loader import YamlConfigLoader, config_loader, get_config
@@ -29,6 +31,7 @@ from docmirror.configs.runtime.yaml_loader import YamlConfigLoader, config_loade
 __all__ = [
     "DocMirrorSettings",
     "YamlConfigLoader",
+    "WorkerBudget",
     "auto_page_concurrency",
     "config_loader",
     "default_settings",
@@ -39,4 +42,5 @@ __all__ = [
     "resolve_max_page_concurrency",
     "resolve_max_process_workers",
     "resolve_page_executor",
+    "resolve_worker_budget",
 ]

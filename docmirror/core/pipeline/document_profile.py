@@ -19,11 +19,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from docmirror.core.profile.registry import match_layout_profile
 from docmirror.core.profile.resolver import resolve_layout_profile
 from docmirror.core.scene.scene_resolver import SceneResolution, resolve_document_scene
-from docmirror.core.table.compose.composer import TableComposer, serialize_logical_tables_for_metadata
-from docmirror.core.table.merge.merger import collect_quarantined_tables
+from docmirror.core.table.compose.export_pipeline import compose_logical_export_from_layouts
 
 logger = logging.getLogger(__name__)
 
@@ -79,31 +77,23 @@ def compose_logical_tables(
     pre_analysis: Any,
 ) -> tuple[list | None, bool, list]:
     """Step 4.5: non-destructive logical table composition (dual-view)."""
-    profile = getattr(host, "_extraction_profile", None) or match_layout_profile(
-        text_sample=full_text,
-        num_pages=len(pages),
+    profile = getattr(host, "_extraction_profile", None)
+    export_result = compose_logical_export_from_layouts(
+        pages,
+        profile=profile,
+        full_text=full_text,
         scene_hint=getattr(pre_analysis, "scene_hint", None),
         content_type=getattr(pre_analysis, "content_type", None),
     )
-    if profile and profile.mirror_skip_cross_page_merge:
-        logical = TableComposer.clone_physical_from_layouts(pages)
-    else:
-        logical = TableComposer.from_page_layouts(pages, profile=profile)
-    payload = serialize_logical_tables_for_metadata(logical) if logical else None
-    dual_view = bool(logical)
-    if dual_view:
-        logger.info(
-            "[DocMirror] Logical table composition: %d logical tables from %d pages (dual-view)",
-            len(logical),
-            len(pages),
-        )
-    quarantined = collect_quarantined_tables(pages, profile=profile)
-    if quarantined:
-        logger.info(
-            "[DocMirror] Quarantined %d standalone table(s) (col mismatch)",
-            len(quarantined),
-        )
-    return payload, dual_view, quarantined
+
+    if export_result.skipped_payload:
+        host._quarantined_logical_tables = export_result.skipped_payload
+
+    dual_view = bool(export_result.export_payload)
+    if export_result.ltqg_summary is not None and export_result.ltqg_summary.enabled:
+        host._ltqg_summary = export_result.ltqg_summary.to_dict()
+
+    return export_result.export_payload, dual_view, export_result.quarantined_physical
 
 
 __all__ = ["bind_extraction_profile", "compose_logical_tables"]

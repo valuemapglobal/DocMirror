@@ -223,3 +223,22 @@ def extract_by_injected_template(page_plum, template: GlobalTableTemplate) -> li
     if len(table_data) >= 2:
         return table_data
     return None
+
+
+def extract_by_injected_template_with_geometry(page_plum, template: GlobalTableTemplate) -> dict | None:
+    """Extract table with a geometry companion from an injected column template."""
+    table = extract_by_injected_template(page_plum, template)
+    if not table:
+        return None
+    from docmirror.core.geometry.table_geometry import build_table_geometry
+
+    chars = list(getattr(page_plum, "chars", None) or [])
+    bbox = (0.0, 0.0, float(getattr(page_plum, "width", 0.0) or 0.0), float(getattr(page_plum, "height", 0.0) or 0.0))
+    geometry = build_table_geometry(
+        table,
+        chars=chars,
+        table_bbox=bbox,
+        geometry_source="injected_template",
+        geometry_confidence=0.85,
+    ).to_attrs()
+    return {"table": table, "geometry": geometry}

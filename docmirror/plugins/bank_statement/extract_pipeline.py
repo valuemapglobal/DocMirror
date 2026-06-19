@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from docmirror.plugins.bank_statement.blo import BankLedgerOrchestrator
 from docmirror.plugins.bank_statement.canonical import StyleMeta, build_style_meta
 from docmirror.plugins.bank_statement.context import StyleContext, build_style_context
 from docmirror.plugins.bank_statement.institution_authority import extract_identity_from_header
@@ -39,8 +40,9 @@ class BankExtractResult:
 def enrich_identity_fields(
     identity_fields: dict[str, dict],
     full_text: str,
+    parse_result: Any = None,
 ) -> dict[str, dict]:
-    """Merge header KV identity into registry identity fields."""
+    """Merge header KV identity into registry identity fields (EIP)."""
     fields = dict(identity_fields)
     for field_name, value in extract_identity_from_header(full_text).items():
         if value and field_name not in fields:
@@ -50,6 +52,36 @@ def enrich_identity_fields(
                 "normalized_value": value,
                 "data_type": "string",
             }
+
+    if parse_result is not None:
+        entities = getattr(parse_result, "entities", None)
+        metadata = getattr(entities, "metadata", None) if entities is not None else None
+        if isinstance(metadata, dict):
+            for field_name in (
+                "account_holder",
+                "account_number",
+                "bank_name",
+                "query_period",
+                "currency",
+            ):
+                value = metadata.get(field_name)
+                if value and field_name not in fields:
+                    fields[field_name] = {
+                        "raw_name": field_name,
+                        "raw_value": str(value),
+                        "normalized_value": str(value),
+                        "data_type": "string",
+                    }
+        if entities is not None:
+            for field_name in ("account_holder", "account_number", "bank_name"):
+                value = getattr(entities, field_name, None)
+                if value and field_name not in fields:
+                    fields[field_name] = {
+                        "raw_name": field_name,
+                        "raw_value": str(value),
+                        "normalized_value": str(value),
+                        "data_type": "string",
+                    }
     return fields
 
 
@@ -64,6 +96,10 @@ def collect_extract_warnings(ctx: StyleContext, style_meta: StyleMeta) -> list[s
     extracted = style_meta.extracted_rows
     if expected > 0 and extracted / expected < 0.8:
         warnings.append("low_coverage:bank_ledger")
+    if style_meta.extract_status == "degraded":
+        warnings.append("cqf_degraded:canonical_quality")
+    elif style_meta.extract_status == "low_coverage":
+        warnings.append("cqf_low_coverage:canonical_quality")
     if ctx.parse_result is not None:
         spe = read_structure_spe(ctx.parse_result)
         source = style_meta.reconstruction_source or (ctx.reconstruction.source if ctx.reconstruction else "")
@@ -79,12 +115,20 @@ def run_bank_statement_extract(
     """Run the canonical bank-statement extract pipeline."""
     ctx = build_style_context(parse_result, full_text)
     detection = BankStyleDetector().detect(ctx)
-    records, identity_fields = BankStyleParserRegistry().run(detection, ctx, plugin)
-    identity_fields = enrich_identity_fields(identity_fields, ctx.full_text)
+    registry = BankStyleParserRegistry()
+    records, identity_fields, blo_meta = BankLedgerOrchestrator(registry).run(
+        detection,
+        ctx,
+        plugin,
+    )
+    identity_fields = enrich_identity_fields(identity_fields, ctx.full_text, parse_result)
     style_meta = build_style_meta(
         detection,
         reconstruction=ctx.reconstruction,
         record_count=len(records),
+        parse_result=parse_result,
+        records=records,
+        blo_meta=blo_meta,
     )
     warnings = collect_extract_warnings(ctx, style_meta)
     return BankExtractResult(

@@ -2,19 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Post-extract hook: rebuild bank ledger table from plugin transactions.
+Post-extract hook: annotate bank ledger rebuild on edition JSON.
 
-When enterprise bank-statement extract produces structured transactions, attempts
-to rebuild Mirror table geometry via ``docmirror_enterprise.plugins.bank_statement.table_rebuild``.
-Only runs for ``document_type == "bank_statement"`` and when ``mutates_mirror`` is
-enabled in catalog.
-
-Pipeline role: optional Mirror enrichment after enterprise/finance bank extract;
-records mutation audit via ``runner.run_post_extract_hooks``.
+When enterprise bank-statement extract produces structured transactions, records
+rebuild metadata on the edition ``enrichment`` block. Core ``ParseResult`` /
+``001_mirror.json`` physical tables are preserved (Architecture A).
 
 Key exports: ``MirrorTableRebuildHook``.
-
-Dependencies: optional ``docmirror_enterprise`` table rebuild module.
 """
 
 from __future__ import annotations
@@ -50,27 +44,26 @@ class MirrorTableRebuildHook(PostExtractHook):
         if not transactions:
             return
 
-        rebuild_fn = None
+        rebuild_available = False
         for mod_path in (
             "docmirror_enterprise.plugins.bank_statement.table_rebuild",
         ):
             try:
-                mod = __import__(mod_path, fromlist=["rebuild_bank_table_from_transactions"])
-                rebuild_fn = mod.rebuild_bank_table_from_transactions
+                __import__(mod_path, fromlist=["rebuild_bank_table_from_transactions"])
+                rebuild_available = True
                 break
             except ImportError:
                 continue
-        if rebuild_fn is None:
-            return
 
-        if rebuild_fn(result, transactions):
-            logger.info(
-                "[PostExtract] Rebuilt bank ledger table from %d transactions",
-                len(transactions),
-            )
-            try:
-                from docmirror.core.extraction.provenance_stamps import stamp_mirror_block_provenance
-
-                stamp_mirror_block_provenance(result)
-            except Exception:
-                pass
+        enrichment = extracted.setdefault("enrichment", {})
+        enrichment["bank_table_rebuild"] = {
+            "edition": edition,
+            "transaction_count": len(transactions),
+            "rebuild_available": rebuild_available,
+            "status": "edition_only",
+            "note": "Core Mirror pages[].tables preserved; rebuild not written back to ParseResult",
+        }
+        logger.info(
+            "[PostExtract] Recorded bank table rebuild metadata for %d transactions (edition-only)",
+            len(transactions),
+        )

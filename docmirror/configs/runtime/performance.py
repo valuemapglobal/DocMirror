@@ -31,6 +31,7 @@ import os
 import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Any, Iterator
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,16 @@ _VALID_PAGE_EXECUTORS = frozenset({"thread", "process"})
 
 # Set in page-level parallel workers so nested char ThreadPools are skipped (GIL).
 _page_level_parallel: ContextVar[bool] = ContextVar("page_level_parallel", default=False)
+
+
+@dataclass(frozen=True)
+class WorkerBudget:
+    """CPU worker allocation for one command/request."""
+
+    total: int
+    file_workers: int
+    page_workers_per_file: int
+    layout_workers: int
 
 
 def auto_page_concurrency(
@@ -201,6 +212,45 @@ def effective_page_workers(
         return 1
     cpus = cpu_count if cpu_count is not None else (os.cpu_count() or 4)
     return min(max_page_concurrency, num_pages, cpus)
+
+
+def resolve_worker_budget(
+    workers: int | str | None = None,
+    *,
+    file_count: int = 1,
+    page_count: int | None = None,
+    cpu_count: int | None = None,
+) -> WorkerBudget:
+    """Resolve a total worker budget into file/page/layout allocations.
+
+    ``workers`` is intentionally a total budget for the command. Batch parsing
+    splits it across files; single-file parsing spends it on page workers.
+    """
+    cpus = cpu_count if cpu_count is not None else (os.cpu_count() or 4)
+    if workers is None or (isinstance(workers, str) and workers.strip().lower() in {"", "auto"}):
+        total = auto_page_concurrency(cpu_count=cpus, page_executor=resolve_page_executor())
+    else:
+        total = max(1, int(workers))
+
+    files = max(1, int(file_count or 1))
+    pages = max(1, int(page_count or total))
+    if files <= 1:
+        file_workers = 1
+        page_workers = min(total, pages)
+    elif pages <= 1:
+        file_workers = min(total, files)
+        page_workers = 1
+    else:
+        file_workers = min(files, max(1, total // 2))
+        page_workers = max(1, total // file_workers)
+
+    layout_workers = min(page_workers, pages, cpus)
+    return WorkerBudget(
+        total=total,
+        file_workers=max(1, file_workers),
+        page_workers_per_file=max(1, page_workers),
+        layout_workers=max(1, layout_workers),
+    )
 
 
 _process_worker_sem: threading.Semaphore | None = None

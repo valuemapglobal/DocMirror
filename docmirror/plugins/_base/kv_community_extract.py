@@ -27,6 +27,7 @@ from typing import Any
 from docmirror.models.edition_serializer import EditionContext, edition_serializer
 from docmirror.models.entities.domain_result import DomainExtractionResult, DomainQuality
 from docmirror.plugins._base.generic_mirror_adapter import _collect_entity_fields, _collect_table_records
+from docmirror.models.mirror.block_fields import collect_kv_fields_from_blocks
 
 
 def _match_identity_fields(
@@ -66,6 +67,9 @@ def extract_kv_community_output(
     """Build v2.0 community output for key-value premium plugins."""
     detected_type = getattr(plugin, "domain_name", "unknown")
     entity_pool = _collect_entity_fields(parse_result)
+    block_kv = collect_kv_fields_from_blocks(parse_result)
+    for key, value in block_kv.items():
+        entity_pool.setdefault(key, value)
     fields = _match_identity_fields(parse_result, identity_specs, entity_pool)
     if not fields:
         fields = {k: v for k, v in entity_pool.items() if v not in (None, "")}

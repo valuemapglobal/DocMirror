@@ -90,6 +90,12 @@ def _parser_score(
 
 
 def _expected_rows(ctx: StyleContext) -> int:
+    if ctx.parse_result is not None:
+        from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows, read_structure_spe
+
+        expected = mirror_expected_primary_rows(ctx.parse_result, read_structure_spe(ctx.parse_result))
+        if expected > 0:
+            return expected
     if ctx.reconstruction and ctx.reconstruction.expected_primary_rows > 0:
         return ctx.reconstruction.expected_primary_rows
     return 0
@@ -116,6 +122,14 @@ class BankStyleParserRegistry:
     """Execute parser_chain and produce v2.0 records."""
 
     def run(
+        self,
+        detection: StyleDetectionResult,
+        ctx: StyleContext,
+        plugin: Any,
+    ) -> tuple[list[dict[str, Any]], dict[str, dict]]:
+        return self.run_parser_chain(detection, ctx, plugin)
+
+    def run_parser_chain(
         self,
         detection: StyleDetectionResult,
         ctx: StyleContext,

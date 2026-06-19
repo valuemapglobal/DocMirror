@@ -1,5 +1,6 @@
-# Post-Extract Hooks (PEC) — run after plugin extract; may mutate Mirror with audit trail.
-# See docs/design/08_middleware_layer_first_principles_redesign.md §10.1
+# Post-Extract Hooks (PEC) — run after plugin extract; enrich edition JSON only.
+# Core Mirror (ParseResult → 001_mirror.json) is serialized before plugins and
+# must not be mutated by these hooks. See Architecture A in output_builder.
 #
 # credit_report_sections: runs for community + enterprise when splitter available;
 # community credit_report_community also emits lightweight section skeleton in-plugin.
@@ -11,19 +12,19 @@ hooks:
     module: docmirror.plugins.post_extract.hooks.mirror_table_rebuild
     class: MirrorTableRebuildHook
     when: "document_type == 'bank_statement'"
-    mutates_mirror: true
-    provides: [logical_tables]
+    mutates_mirror: false
+    provides: [enrichment.bank_table_rebuild]
 
   credit_report_sections:
     module: docmirror.plugins.post_extract.hooks.credit_sections
     class: CreditReportSectionsHook
     when: "document_type == 'credit_report'"
-    mutates_mirror: true
-    provides: [sections]
+    mutates_mirror: false
+    provides: [data.sections]
 
   plugin_trust_projection:
     module: docmirror.plugins.post_extract.hooks.trust_projection
     class: PluginTrustProjectionHook
     when: "extracted.get('quality', {}).get('trust_score') or extracted.get('validation', {}).get('trust_score')"
-    mutates_mirror: true
-    provides: [trust]
+    mutates_mirror: false
+    provides: [quality.trust_score]

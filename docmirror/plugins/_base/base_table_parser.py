@@ -395,6 +395,11 @@ class BaseTableParser(DomainPlugin):
                 else:
                     normalized[field] = ""
 
+        if not normalized.get("date") and normalized.get("timestamp"):
+            ts = str(normalized["timestamp"])
+            if len(ts) >= 10:
+                normalized["date"] = ts[:10]
+
         return normalized
 
     # ── Step 6: 汇总统计 ──

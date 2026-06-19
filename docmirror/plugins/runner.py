@@ -7,12 +7,11 @@ Plugin Execution Contract (PEC) — unified plugin runner after Mirror extractio
 Orchestrates community, enterprise, and finance edition extract in one code path:
 match plugin by ``document_type``, run ``extract_from_mirror`` / ``extract`` /
 ``build_domain_data``, normalize through DEC validation, serialize edition JSON,
-then invoke post-extract hooks. Does **not** mutate ``ParseResult`` during extract;
-hooks that touch Mirror must audit via ``record_mutation`` (see ``post_extract.yaml``).
+then invoke post-extract hooks (edition enrichment only; Core Mirror is not mutated).
+Does **not** mutate ``ParseResult`` during extract.
 
-Pipeline role: called by CLI and ``output_builder`` after Mirror is complete; sits
-between ``ParseResult`` and per-edition output files. Community path tries six
-premium plugins, then generic fallback, then mirror-only for enterprise-only types.
+Pipeline role: called after Core ``ParseResult`` is ready; ``build_all_projections``
+snapshots Mirror JSON before invoking this runner.
 
 Key exports: ``run_plugin_extract``, ``run_plugin_extract_sync``.
 
@@ -60,7 +59,17 @@ def _plugin_document_type(result: ParseResult, detected_type: str) -> str:
         hinted = ds.get("plugin_document_type")
         if hinted:
             return str(hinted)
-    return normalize_premium_document_type(detected_type)
+    mapped = normalize_premium_document_type(detected_type)
+    if mapped not in _GENERIC_TYPES:
+        return mapped
+    if isinstance(ds, dict):
+        scene = ds.get("extractor_scene_hint") or ds.get("pre_analyzer_scene_hint")
+        confidence = float(ds.get("extractor_scene_confidence") or 0.0)
+        if scene and confidence >= 0.70:
+            from_scene = normalize_premium_document_type(str(scene))
+            if from_scene not in _GENERIC_TYPES:
+                return from_scene
+    return mapped
 
 
 def _premium_feature_name(domain_name: str) -> str:
@@ -236,12 +245,25 @@ def _edition_package_available(edition: str) -> bool:
     return False
 
 
+def _community_for_fallback(
+    community_baseline: dict[str, Any] | None,
+    result: ParseResult,
+    detected_type: str,
+    full_text: str,
+) -> dict[str, Any] | None:
+    """Reuse finalized community output when extended edition falls back."""
+    if community_baseline is not None:
+        return copy.deepcopy(community_baseline)
+    return _run_community_extract(result, detected_type, full_text)
+
+
 async def run_plugin_extract(
     result: ParseResult,
     *,
     edition: Edition = "community",
     full_text: str = "",
     file_path: str = "",
+    community_baseline: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """
     Match plugin by ``document_type``, run extract, return edition dict.
@@ -250,7 +272,7 @@ async def run_plugin_extract(
     """
     detected_type = getattr(result.entities, "document_type", "") or ""
     plugin_document_type = _plugin_document_type(result, detected_type)
-    if detected_type in _GENERIC_TYPES:
+    if plugin_document_type in _GENERIC_TYPES:
         logger.debug("[PluginRunner] Skip edition=%s: unclassified document", edition)
         return None
 
@@ -269,7 +291,12 @@ async def run_plugin_extract(
         return None
 
     out = await _run_extended_extract_async(
-        result, edition, plugin_document_type, full_text, file_path
+        result,
+        edition,
+        plugin_document_type,
+        full_text,
+        file_path,
+        community_baseline=community_baseline,
     )
     if out is not None:
         from docmirror.plugins import registry
@@ -296,6 +323,7 @@ def run_plugin_extract_sync(
     edition: Edition = "community",
     full_text: str = "",
     file_path: str = "",
+    community_baseline: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Synchronous entry for CLI / output_builder."""
     try:
@@ -307,6 +335,7 @@ def run_plugin_extract_sync(
                 edition=edition,
                 full_text=full_text,
                 file_path=file_path,
+                community_baseline=community_baseline,
             )
         )
 
@@ -322,6 +351,7 @@ def run_plugin_extract_sync(
                         edition=edition,
                         full_text=full_text,
                         file_path=file_path,
+                        community_baseline=community_baseline,
                     )
                 )
             )
@@ -330,7 +360,7 @@ def run_plugin_extract_sync(
 
     thread = threading.Thread(target=_runner, daemon=True)
     thread.start()
-    thread.join(timeout=120)
+    thread.join(timeout=600)
     if errors:
         raise errors[0]
     return container[0] if container else None
@@ -418,6 +448,8 @@ async def _run_extended_extract_async(
     detected_type: str,
     full_text: str,
     file_path: str,
+    *,
+    community_baseline: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     from docmirror.plugins import registry
 
@@ -431,7 +463,9 @@ async def _run_extended_extract_async(
             edition,
             detected_type,
         )
-        community = _run_community_extract(result, detected_type, full_text)
+        community = _community_for_fallback(
+            community_baseline, result, detected_type, full_text
+        )
         if community is None:
             community = _mirror_only_payload(result, detected_type, "community")
         return _wrap_license_degraded(community, edition=edition, plugin=plugin)
@@ -468,7 +502,9 @@ async def _run_extended_extract_async(
         except Exception as e:
             logger.warning("[%s] extract_from_mirror failed: %s", edition, e)
 
-    community = _run_community_extract(result, detected_type, full_text)
+    community = _community_for_fallback(
+        community_baseline, result, detected_type, full_text
+    )
     if community is not None:
         cloned = copy.deepcopy(community)
         cloned["edition"] = edition

@@ -1,0 +1,122 @@
+# TQG bank_statement track — plugin CQF / BLO edition gates
+version: 1
+track: bank_statement
+layer: pec
+
+cases:
+  - id: ccb_grid_cqf
+    tier: regression
+    fixture: fixtures/bank_statement/建行-镇江超乾物流有限公司_1.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    oracle:
+      bank_statement:
+        min_canonical_ratio: 0.50
+        min_edition_records: 20
+        forbidden_extract_status: degraded
+    tags: [bank, ccb, grid, cqf]
+
+  - id: boc_mirror_plugin_document_type
+    tier: regression
+    fixture: fixtures/bank_statement/中国银行-南京创沃电气设备有限公司_1.pdf
+    skip_if_fixture_missing: true
+    pipeline: perceive
+    gates:
+      plugin_document_type: { equals: bank_statement }
+    tags: [bank, mirror, dti]
+
+  - id: boc_pipe_mirror_structure
+    tier: regression
+    fixture: fixtures/bank_statement/中国银行-南京创沃电气设备有限公司_1.pdf
+    skip_if_fixture_missing: true
+    pipeline: extract_only
+    oracle:
+      mirror_structure:
+        min_H_pipe_grid: 0.85
+    tags: [bank, mirror, spe]
+
+  - id: abc_multi_lt_cqf
+    tier: regression
+    tier_tags: [slow]
+    fixture: fixtures/bank_statement/农行-上海宏立机械设备租赁有限公司_1.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    oracle:
+      bank_statement:
+        min_canonical_ratio: 0.05
+        min_edition_records: 15
+    tags: [bank, abc, blo, cqf]
+
+  - id: liming_guizhou_records
+    tier: regression
+    tier_tags: [slow]
+    fixture: fixtures/bank_statement/黎明_银行流水_贵州银行_20250530.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    oracle:
+      bank_statement:
+        min_edition_records: 1
+        forbidden_extract_status: success
+    tags: [bank, liming, blo]
+
+  - id: taizhou_records
+    tier: regression
+    tier_tags: [slow]
+    fixture: fixtures/bank_statement/浙江天宏国际物流有限公司_银行流水_台州银行_20240329.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    oracle:
+      bank_statement:
+        min_edition_records: 1
+    tags: [bank, taizhou, blo]
+
+  - id: guangda_cqf_honest
+    tier: regression
+    tier_tags: [slow]
+    fixture: fixtures/bank_statement/安徽康安设备吊装工程有限公司_银行流水_光大银行_20240902.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    oracle:
+      bank_statement:
+        min_edition_records: 20
+        forbidden_extract_status: success
+    tags: [bank, guangda, cqf]
+
+  - id: yinzuo_min_canonical
+    tier: regression
+    tier_tags: [slow]
+    fixture: fixtures/bank_statement/重庆恒腾科技有限公司_银行流水_银座银行_20251229.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    oracle:
+      bank_statement:
+        min_canonical_ratio: 0.20
+        min_edition_records: 3
+    tags: [bank, yinzuo, cqf]
+
+  - id: ccb_ltqg_mirror
+    tier: regression
+    fixture: fixtures/bank_statement/建行-镇江超乾物流有限公司_1.pdf
+    skip_if_fixture_missing: true
+    pipeline: extract_only
+    oracle:
+      mirror_structure:
+        ltqg:
+          require_enabled: true
+          min_expected_data_rows: 40
+    tags: [bank, ccb, ltqg, mirror]
+
+  - id: abc_plugin_document_type
+    tier: regression
+    fixture: fixtures/bank_statement/农行-上海宏立机械设备租赁有限公司_1.pdf
+    skip_if_fixture_missing: true
+    pipeline: perceive
+    gates:
+      plugin_document_type: { equals: bank_statement }
+    tags: [bank, abc, dti]

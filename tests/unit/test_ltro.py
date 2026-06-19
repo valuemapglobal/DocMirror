@@ -21,6 +21,64 @@ def test_mirror_table_short_circuit():
     tables, meta = reconstruct_tables(mirror, "ignored")
     assert meta.source == "mirror_table"
     assert tables == mirror
+    assert meta.expected_primary_rows == 1
+
+
+def test_mirror_table_expected_uses_mirror_ssot_not_legacy_max():
+    from docmirror.models.entities.parse_result import (
+        CellValue,
+        LogicalTable,
+        ParserInfo,
+        ParseResult,
+        RowType,
+        TableRow,
+    )
+
+    headers = ["交易日期", "摘要", "借方发生额", "贷方发生额", "余额"]
+    rows = [
+        TableRow(
+            cells=[CellValue(text="2024-01-01"), CellValue(text="x"), CellValue(text="1.00")],
+            row_type=RowType.DATA,
+        )
+        for _ in range(47)
+    ]
+    pr = ParseResult(
+        logical_tables=[
+            LogicalTable(
+                headers=headers,
+                rows=rows,
+                row_count=47,
+                quality_passed=True,
+                data_row_estimate=47,
+            )
+        ],
+        parser_info=ParserInfo(
+            structure={
+                "ltqg_enabled": True,
+                "ltqg_expected_data_rows": 47,
+            }
+        ),
+    )
+    mirror = [[headers] + [[c.text for c in row.cells] for row in rows]]
+    inflated = [["?", "", ""]] + [["bad"] for _ in range(127)]
+    tables, meta = reconstruct_tables(
+        mirror,
+        "",
+        parse_result=pr,
+        structure_spe=pr.parser_info.structure,
+    )
+    assert tables == mirror
+    assert meta.expected_primary_rows == 47
+    assert meta.expected_primary_rows < 127
+
+
+def test_mirror_table_legacy_max_without_parse_result():
+    mirror = [
+        [["日期", "金额"], ["2024-01-01", "1.00"]],
+        [["x", "y"]] + [["bad"] for _ in range(10)],
+    ]
+    _, meta = reconstruct_tables(mirror, "")
+    assert meta.expected_primary_rows == 10
 
 
 def test_pipe_before_spaced_ocr():

@@ -28,6 +28,7 @@ from typing import Any
 import yaml
 
 from docmirror.plugins.bank_statement.context import StyleContext
+from docmirror.plugins.bank_statement.header_resolve import has_split_debit_credit_headers
 from docmirror.plugins.bank_statement.institution_authority import resolve_institution_hint
 from docmirror.plugins.bank_statement.styles.compact_merged import table_has_compact_ledger
 
@@ -146,7 +147,7 @@ class BankStyleDetector:
         if style_id == "split_debit_credit":
             if ctx.reconstruction and ctx.reconstruction.source == "pipe_text":
                 score += 0.5
-            elif any(t in joined_headers for t in ("借方发生额", "贷方发生额", "Debit Amount", "Credit Amount")):
+            elif has_split_debit_credit_headers(ctx.tables):
                 score += 0.35
 
         if style_id == "signed_amount":

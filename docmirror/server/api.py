@@ -17,6 +17,7 @@ generated through shared ``output_builder`` helpers when requested.
 from __future__ import annotations
 
 import glob
+import asyncio
 import logging
 import os
 import shutil
@@ -27,7 +28,9 @@ from tempfile import NamedTemporaryFile, gettempdir
 from fastapi import Body, BackgroundTasks, FastAPI, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
-from docmirror import __version__, perceive_document
+from docmirror import __version__
+from docmirror.core.entry.factory import PerceiveOptions, perceive_document
+from docmirror.core.entry.options import normalize_parse_control
 from docmirror.server.schemas import ParseResponse
 
 logger = logging.getLogger(__name__)
@@ -114,6 +117,13 @@ async def parse_document(
     file: UploadFile = File(..., description="The document file to parse (PDF, PNG, JPEG, DOCX, etc.)"),
     edition: str = Query(default="all", pattern="^(community|enterprise|finance|all)$", description="Output edition: community, enterprise, finance, or all"),
     include_text: bool = Query(default=False, description="Include full markdown text in response"),
+    include_geometry: bool = Query(default=False, description="Include table/cell geometry using forensic mirror output"),
+    pages: str | None = Query(default=None, description="Page ranges, 1-based: 1-3,8,10-"),
+    max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
+    workers: str | None = Query(default=None, description="Total worker budget for this request"),
+    mode: str = Query(default="auto", pattern="^(auto|fast|balanced|accurate|forensic)$", description="Parse mode"),
+    format: str = Query(default="json", description="Requested output formats for parse control fingerprint"),
+    doc_type_hint: str | None = Query(default=None, description="Manual document type hint, optionally type:force"),
     authorization: str | None = Header(default=None),
 ):
     """
@@ -143,8 +153,24 @@ async def parse_document(
     try:
         from docmirror.server.output_builder import build_api_response
 
-        result = await perceive_document(temp_path)
-        api_payload = build_api_response(result, edition=edition, include_text=include_text)
+        mirror_level = "forensic" if include_geometry else "standard"
+        control = normalize_parse_control(
+            pages=pages,
+            max_pages=max_pages,
+            workers=workers,
+            mode=mode,
+            formats=format,
+            mirror_level=mirror_level,
+            include_text=include_text,
+            doc_type_hint=doc_type_hint,
+        )
+        result = await perceive_document(temp_path, PerceiveOptions(control=control))
+        api_payload = build_api_response(
+            result,
+            edition=edition,
+            include_text=include_text,
+            mirror_level=control.output.mirror_level,
+        )
 
         status_code = api_payload.get("code", 200)
 
@@ -160,6 +186,12 @@ async def batch_parse(
     background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(..., description="Multiple document files to parse"),
     edition: str = Query(default="all", pattern="^(community|enterprise|finance|all)$", description="Output edition"),
+    include_geometry: bool = Query(default=False, description="Include table/cell geometry using forensic mirror output"),
+    pages: str | None = Query(default=None, description="Page ranges, 1-based: 1-3,8,10-"),
+    max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
+    workers: str | None = Query(default=None, description="Total worker budget for this request"),
+    mode: str = Query(default="auto", pattern="^(auto|fast|balanced|accurate|forensic)$", description="Parse mode"),
+    doc_type_hint: str | None = Query(default=None, description="Manual document type hint, optionally type:force"),
     authorization: str | None = Header(default=None),
 ):
     """Batch parse multiple documents concurrently, each with multi-edition output."""
@@ -168,9 +200,28 @@ async def batch_parse(
     import multiprocessing as _mp
     from docmirror.server.output_builder import build_api_response
 
+    from dataclasses import replace
+    from docmirror.configs.runtime.performance import resolve_worker_budget
+    from docmirror.core.entry.options import ResourceControl
+
     _cpu_count = _mp.cpu_count()
-    _max_concurrency = max(4, _cpu_count * 2)
-    _semaphore = asyncio.Semaphore(_max_concurrency)
+    _control = normalize_parse_control(
+        pages=pages,
+        max_pages=max_pages,
+        workers=workers,
+        mode=mode,
+        mirror_level="forensic" if include_geometry else "standard",
+        doc_type_hint=doc_type_hint,
+    )
+    _budget = resolve_worker_budget(_control.resource.workers, file_count=len(files), cpu_count=_cpu_count)
+    _semaphore = asyncio.Semaphore(_budget.file_workers)
+    _per_file_control = replace(
+        _control,
+        resource=ResourceControl(
+            workers=_budget.page_workers_per_file,
+            page_executor=_control.resource.page_executor,
+        ),
+    )
 
     async def _process_one(f):
         if not f.filename:
@@ -184,8 +235,12 @@ async def batch_parse(
 
         async with _semaphore:
             try:
-                result = await perceive_document(temp_path)
-                payload = build_api_response(result, edition=edition)
+                result = await perceive_document(temp_path, PerceiveOptions(control=_per_file_control))
+                payload = build_api_response(
+                    result,
+                    edition=edition,
+                    mirror_level=_per_file_control.output.mirror_level,
+                )
                 payload["file_name"] = f.filename
                 return payload
             except Exception as e:
@@ -205,6 +260,13 @@ async def parse_file_on_server(
     file_path: str = Body(..., description="Absolute path to a file on the server"),
     edition: str = Query(default="all", pattern="^(community|enterprise|finance|all)$", description="Output edition"),
     include_text: bool = Query(default=False, description="Include full markdown text in response"),
+    include_geometry: bool = Query(default=False, description="Include table/cell geometry using forensic mirror output"),
+    pages: str | None = Query(default=None, description="Page ranges, 1-based: 1-3,8,10-"),
+    max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
+    workers: str | None = Query(default=None, description="Total worker budget for this request"),
+    mode: str = Query(default="auto", pattern="^(auto|fast|balanced|accurate|forensic)$", description="Parse mode"),
+    format: str = Query(default="json", description="Requested output formats for parse control fingerprint"),
+    doc_type_hint: str | None = Query(default=None, description="Manual document type hint, optionally type:force"),
     authorization: str | None = Header(default=None),
 ):
     """Parse a file already present on the server filesystem."""
@@ -219,12 +281,25 @@ async def parse_file_on_server(
         raise HTTPException(status_code=400, detail=f"Path is not a file: {file_path}")
 
     try:
-        result = await perceive_document(path)
-        api_payload = build_api_response(result, edition=edition, include_text=include_text)
+        control = normalize_parse_control(
+            pages=pages,
+            max_pages=max_pages,
+            workers=workers,
+            mode=mode,
+            formats=format,
+            mirror_level="forensic" if include_geometry else "standard",
+            include_text=include_text,
+            doc_type_hint=doc_type_hint,
+        )
+        result = await perceive_document(path, PerceiveOptions(control=control))
+        api_payload = build_api_response(
+            result,
+            edition=edition,
+            include_text=include_text,
+            mirror_level=control.output.mirror_level,
+        )
         status_code = api_payload.get("code", 200)
         return JSONResponse(status_code=status_code, content=api_payload)
     except Exception as e:
         logger.exception("[Server] Parse file failed")
         raise HTTPException(status_code=500, detail=str(e))
-
-

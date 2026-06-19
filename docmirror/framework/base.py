@@ -66,7 +66,7 @@ class BaseParser(ABC):
         Step 2 is a *safety net* — it avoids re-reading the full file by
         using a lightweight stat-only path if the adapter didn't fill provenance.
         """
-        pr = await self.to_parse_result(file_path)
+        pr = await self.to_parse_result(file_path, **context)
 
         # ── Safety net: fill provenance if adapter didn't ──
         # We deliberately avoid a full SHA256 here (that was already done
@@ -79,11 +79,22 @@ class BaseParser(ABC):
                 stat = file_path.stat()
                 suffix = file_path.suffix.lstrip(".").lower()
                 pr.provenance = ProvenanceInfo(
-                    file_type=suffix,
-                    file_size=stat.st_size,
+                    file_type=context.get("file_type") or suffix,
+                    file_size=int(context.get("file_size") or stat.st_size),
+                    checksum=context.get("checksum", ""),
+                    mime_type=context.get("mime_type", ""),
+                    capability_id=context.get("capability_id", ""),
+                    content_model=context.get("content_model", ""),
                 )
             except OSError:
                 pass
+        else:
+            pr.provenance.checksum = pr.provenance.checksum or context.get("checksum", "")
+            pr.provenance.mime_type = pr.provenance.mime_type or context.get("mime_type", "")
+            pr.provenance.capability_id = pr.provenance.capability_id or context.get("capability_id", "")
+            pr.provenance.content_model = pr.provenance.content_model or context.get("content_model", "")
+            if not pr.provenance.file_size and context.get("file_size"):
+                pr.provenance.file_size = int(context.get("file_size") or 0)
 
         # ── Fill parser version if empty ──
         if not pr.parser_info.parser_version:

@@ -83,6 +83,19 @@ def get_logical_tables(result: ParseResult) -> list[LogicalTable]:
     return logical
 
 
+def primary_export_logical_table(result: ParseResult) -> LogicalTable | None:
+    """Primary export logical table — passed LTs only; legacy max row_count fallback."""
+    logical = get_logical_tables(result)
+    if not logical:
+        return None
+    passed = [lt for lt in logical if getattr(lt, "quality_passed", True)]
+    candidates = passed if passed else logical
+    return max(
+        candidates,
+        key=lambda lt: int(getattr(lt, "data_row_estimate", 0) or getattr(lt, "row_count", 0) or 0),
+    )
+
+
 def table_flatten(
     result: ParseResult,
     include_source: bool = False,
@@ -134,8 +147,33 @@ def get_physical_tables(result: ParseResult) -> Iterator[tuple[int, int, list[st
             yield page.page_number, ti, table.headers, table.rows
 
 
+def get_physical_cell_bbox(result: ParseResult, ref: dict[str, Any]) -> list[float] | None:
+    """Resolve a logical source cell ref to a physical cell bbox."""
+    page_no = int(ref.get("page") or 0)
+    table_id = str(ref.get("table_id") or "")
+    row_idx = int(ref.get("row") if ref.get("row") is not None else -1)
+    col_idx = int(ref.get("col") if ref.get("col") is not None else -1)
+    if page_no <= 0 or row_idx < 0 or col_idx < 0:
+        return None
+    for page in result.pages:
+        if page.page_number != page_no:
+            continue
+        for table in page.tables:
+            if table_id and table.table_id != table_id:
+                continue
+            if row_idx >= len(table.rows):
+                continue
+            row = table.rows[row_idx]
+            if col_idx >= len(row.cells):
+                continue
+            return row.cells[col_idx].bbox
+    return None
+
+
 __all__ = [
     "get_logical_tables",
+    "primary_export_logical_table",
     "table_flatten",
     "get_physical_tables",
+    "get_physical_cell_bbox",
 ]

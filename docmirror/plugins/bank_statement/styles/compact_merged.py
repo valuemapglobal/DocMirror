@@ -193,20 +193,29 @@ def normalize_record(raw_txn: dict[str, str]) -> dict[str, Any]:
     })
 
 
+def _safe_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def refine_directions_from_balance_chain(records: list[dict[str, Any]]) -> None:
     """Re-infer income/expense when merged cells only expose amount + balance."""
     prev_balance: float | None = None
     for rec in records:
         norm = rec.get("normalized") or {}
-        bal = norm.get("balance")
-        amt = norm.get("amount")
+        bal = _safe_float(norm.get("balance"))
+        amt = _safe_float(norm.get("amount"))
         if bal is None or amt is None or amt <= 0:
             if bal is not None:
-                prev_balance = float(bal)
+                prev_balance = bal
             continue
         if prev_balance is not None:
-            if abs(prev_balance + float(amt) - float(bal)) <= 0.01:
+            if abs(prev_balance + amt - bal) <= 0.01:
                 norm["direction"] = "income"
-            elif abs(prev_balance - float(amt) - float(bal)) <= 0.01:
+            elif abs(prev_balance - amt - bal) <= 0.01:
                 norm["direction"] = "expense"
-        prev_balance = float(bal)
+        prev_balance = bal

@@ -55,7 +55,21 @@ main.add_command(benchmark)
 @main.command()
 @click.argument("file", required=True)
 @click.option("--output-dir", "-o", default="output", show_default=True, help="Output directory")
+@click.option("--pages", default=None, help="Page ranges, 1-based: 1-3,8,10-")
+@click.option("--max-pages", type=int, default=None, help="Maximum pages after applying --pages")
+@click.option("--workers", "-j", default=None, help="Total worker budget for this command (int or auto)")
+@click.option(
+    "--mode",
+    "-m",
+    default="auto",
+    type=click.Choice(["auto", "fast", "balanced", "accurate", "forensic"]),
+    show_default=True,
+    help="Parse mode",
+)
+@click.option("--format", "-f", "formats", default="json", show_default=True, help="Output formats: json,csv,markdown,chunks,html,parquet,all")
+@click.option("--doc-type-hint", default=None, help="Manual document type hint, optionally type:force")
 @click.option("--skip-cache", is_flag=True, help="Skip cache")
+@click.option("--use-cache/--no-use-cache", default=True, help="Enable or disable cache usage")
 @click.option("--split-layers", is_flag=True, help="Export L1/L2/L3 as separate files")
 @click.option("--no-stage-output", is_flag=True, help="Disable 3-stage output")
 @click.option("--export-csv", is_flag=True, help="Export CSV")
@@ -64,15 +78,20 @@ main.add_command(benchmark)
 @click.option(
     "--mirror-level",
     default="standard",
-    type=click.Choice(["standard", "slim", "forensic"]),
-    help="Mirror output: standard (physical+logical), slim (logical only), forensic (physical only)",
+    type=click.Choice(["standard", "forensic"]),
+    help="Mirror output level: standard (physical+logical), forensic (physical audit, no logical_tables)",
 )
+@click.option("--include-geometry", is_flag=True, help="Include table/cell geometry by using forensic mirror output")
 @click.option("--debug-artifact", is_flag=True, help="Write debug artifact")
 @click.option("--slm", is_flag=True, help="Enable SLM extraction")
-def parse(file, output_dir, skip_cache, split_layers, no_stage_output, export_csv, export_chunks, include_text, mirror_level, debug_artifact, slm):
+def parse(file, output_dir, pages, max_pages, workers, mode, formats, doc_type_hint, skip_cache, use_cache, split_layers, no_stage_output, export_csv, export_chunks, include_text, mirror_level, include_geometry, debug_artifact, slm):
     """Parse a document and save results."""
     if slm:
         os.environ["DOCMIRROR_ENABLE_SLM"] = "1"
+    if include_geometry and mirror_level != "forensic":
+        mirror_level = "forensic"
+
+    resolved_skip_cache = skip_cache or not use_cache
 
     from docmirror.__main__ import parse_document
 
@@ -81,7 +100,7 @@ def parse(file, output_dir, skip_cache, split_layers, no_stage_output, export_cs
         "json",
         Path(output_dir),
         no_save=False,
-        skip_cache=skip_cache,
+        skip_cache=resolved_skip_cache,
         include_text=include_text,
         split_layers=split_layers,
         stage_output=not no_stage_output,
@@ -90,6 +109,13 @@ def parse(file, output_dir, skip_cache, split_layers, no_stage_output, export_cs
         export_csv=export_csv,
         export_parquet=False,
         mirror_level=mirror_level,
+        pages=pages,
+        max_pages=max_pages,
+        workers=workers,
+        mode=mode,
+        formats=formats,
+        doc_type_hint=doc_type_hint,
+        slm=slm,
     ))
 
 

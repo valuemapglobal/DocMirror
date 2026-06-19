@@ -15,3 +15,17 @@ def test_perceive_result_delegates_to_mirror():
     env = PerceiveResult(mirror=mirror)
     assert env.mirror.entities.document_type == "id_card"
     assert env.mirror is mirror
+
+
+def test_perceive_result_sections_for_rag_prefers_edition():
+    mirror = ParseResult(status=ResultStatus.SUCCESS)
+    mirror.entities = DocumentEntities(document_type="credit_report")
+    env = PerceiveResult(
+        mirror=mirror,
+        editions={
+            "community": {
+                "data": {"sections": [{"id": "c1", "title": "Community", "page_start": 1}]}
+            }
+        },
+    )
+    assert env.sections_for_rag()[0]["id"] == "c1"

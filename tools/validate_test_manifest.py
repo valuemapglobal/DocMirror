@@ -26,6 +26,12 @@ PIPELINES_WITHOUT_FIXTURE = frozenset(
         "e2e_contract",
         "metadata_only",
         "licensing",
+        "mirror_conservation_contract",
+        "mirror_geometry_contract",
+        "scanned_micro_grid_contract",
+        "scanned_local_structure_contract",
+        "scanned_local_structure_realistic_fixture",
+        "scanned_local_structure_full_page_fixture",
     }
 )
 
@@ -86,6 +92,13 @@ def validate_manifest_file(path: Path) -> list[str]:
                 or oracle.get("quarantine_metadata")
                 or oracle.get("text_snapshot")
                 or oracle.get("mirror_structure")
+                or oracle.get("mirror_conservation")
+                or oracle.get("mirror_geometry")
+                or oracle.get("scanned_micro_grid")
+                or oracle.get("scanned_local_structure")
+                or oracle.get("page_canvas")
+                or oracle.get("pcm_finance")
+                or oracle.get("bank_statement")
                 or oracle.get("mode")
             )
         )

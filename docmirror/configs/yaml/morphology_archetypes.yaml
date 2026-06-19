@@ -1,0 +1,60 @@
+# Morphology archetype lookup — Design 20 §5
+# Maps document_type patterns to primary morphology archetype (A1–A7).
+
+archetypes:
+  A1_table_led:
+    description: Full-page ledger / pipe table dominant
+    primary_morphology: S2
+    document_types:
+      - bank_statement
+      - bank_reconciliation
+      - wechat_payment
+      - alipay_payment
+    schema_hints:
+      S2: core.physical_table.ledger
+
+  A2_kv_led:
+    description: Key-value header dominant
+    primary_morphology: S5
+    document_types:
+      - vat_invoice
+      - business_license
+    schema_hints:
+      S5: core.key_value.header
+
+  A3_section_led:
+    description: Prose / section narrative dominant
+    primary_morphology: S1
+    document_types:
+      - generic
+    schema_hints:
+      S1: core.text_flow.prose
+
+  A4_scan_mixed:
+    description: Scan page with S3/S4 mixed blocks
+    primary_morphology: S4
+    document_types:
+      - credit_report
+    schema_hints:
+      S3: credit.micro_grid.repayment
+      S4: credit.field_grid.account
+
+  A5_scan_table:
+    description: Scanned OCR table without regions
+    primary_morphology: S2
+    document_types: []
+
+  A6_mixed_digital:
+    description: Digital mixed table + KV + prose
+    primary_morphology: S2
+    document_types: []
+
+  A7_container:
+    description: Archive / container — child documents own PCM
+    primary_morphology: null
+    document_types:
+      - archive
+
+default_archetype: A6_mixed_digital
+
+document_type_overrides: {}

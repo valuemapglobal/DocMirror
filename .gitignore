@@ -76,3 +76,5 @@ docs/*
 !docs/*.md
 !docs/*.rst
 !docs/*.txt
+!docs/design/
+!docs/design/22_cli_parse_control_first_principles_optimization_plan.md

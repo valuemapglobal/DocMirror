@@ -29,6 +29,20 @@ from docmirror.core.table.pipeline.stage_preamble import _strip_preamble
 
 logger = logging.getLogger(__name__)
 
+_QUARANTINE_MERGE_ACTIONS = frozenset({"quarantine_col_mismatch", "quarantine_fragment"})
+_QUARANTINE_ACTIONS = {
+    "quarantine_col_mismatch": "col_count_mismatch",
+    "quarantine_fragment": "fragment_table",
+}
+
+
+def is_quarantined_merge_group(group: dict) -> bool:
+    """True when merge planning marked this group as physical quarantine."""
+    for entry in group.get("merge_log") or []:
+        if entry.get("action") in _QUARANTINE_MERGE_ACTIONS:
+            return True
+    return False
+
 
 def _median_col_count(rows: list) -> int:
     """P3-6: Compute the median column count of a table's rows."""
@@ -48,6 +62,59 @@ def _profile_quarantines_standalone(profile: Any | None) -> bool:
         getattr(profile, "merge_quarantine_on_col_mismatch", False)
         and getattr(profile, "is_borderless_ledger", lambda: False)()
     )
+
+
+def _profile_quarantines_fragments(profile: Any | None) -> bool:
+    """Bank-statement profiles: quarantine fragment tables at merge planning (LTQG input)."""
+    if profile is None:
+        return False
+    hint = getattr(profile, "document_type_hint", None) or ""
+    if hint == "bank_statement":
+        return True
+    pid = getattr(profile, "profile_id", "") or ""
+    return pid == "borderless_ledger_bank"
+
+
+def _looks_like_fragment_table(rows: list) -> bool:
+    """Heuristic: many rows but no ledger header / almost no date-amount data."""
+    if not rows or len(rows) < 8:
+        return False
+    from docmirror.core.utils.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE, _score_header_by_vocabulary
+
+    header_cells = [str(c or "") for c in (rows[0] if rows else [])]
+    header_score = _score_header_by_vocabulary(header_cells, categories=["BANK_STATEMENT"])
+    if header_score >= 2:
+        return False
+    body = rows[1:] if len(rows) > 1 else list(rows)
+    if not body:
+        return True
+
+    def _strong_data_cell(cell: str) -> bool:
+        text = (cell or "").strip()
+        if not text:
+            return False
+        if _RE_IS_DATE.search(text):
+            return True
+        clean = text.replace(",", "").replace("¥", "").replace(" ", "")
+        return bool(clean and _RE_IS_AMOUNT.match(clean) and ("." in clean or len(clean) >= 4))
+
+    data_hits = sum(
+        1 for row in body if any(_strong_data_cell(str(c or "")) for c in row)
+    )
+    data_ratio = data_hits / len(body)
+    if data_ratio >= 0.25:
+        return False
+    if len(body) >= 20 and header_score == 0:
+        return True
+    return len(body) >= 8 and data_ratio < 0.10
+
+
+def _quarantine_fragment_log(page_no: int, row_count: int) -> dict:
+    return {
+        "action": "quarantine_fragment",
+        "page": page_no,
+        "rows": row_count,
+    }
 
 
 def _quarantine_col_mismatch_log(
@@ -93,13 +160,21 @@ def collect_cross_page_merge_groups(
         page_no = entry["page_number"]
 
         if not merged_table_data:
+            start_log: dict = {"action": "start", "page": page_no, "rows": len(curr_rows)}
+            if _profile_quarantines_fragments(profile) and _looks_like_fragment_table(curr_rows):
+                start_log = _quarantine_fragment_log(page_no, len(curr_rows))
+                logger.warning(
+                    "[TableMerger] quarantine fragment page %s (%d rows, weak header/data signal)",
+                    page_no,
+                    len(curr_rows),
+                )
             merged_table_data.append(
                 {
                     "rows": list(curr_rows),
                     "row_pages": [page_no] * len(curr_rows),
                     "pages": [page_no],
                     "block": block,
-                    "merge_log": [{"action": "start", "page": page_no, "rows": len(curr_rows)}],
+                    "merge_log": [start_log],
                 }
             )
             continue
@@ -143,13 +218,22 @@ def collect_cross_page_merge_groups(
                     }
                 )
                 continue
+            start_log = {"action": "start", "page": page_no, "rows": len(curr_rows)}
+            if _profile_quarantines_fragments(profile) and _looks_like_fragment_table(curr_rows):
+                start_log = _quarantine_fragment_log(page_no, len(curr_rows))
+                logger.warning(
+                    "[TableMerger] quarantine fragment page %s (%d rows, col ratio %.2f)",
+                    page_no,
+                    len(curr_rows),
+                    ratio,
+                )
             merged_table_data.append(
                 {
                     "rows": list(curr_rows),
                     "row_pages": [page_no] * len(curr_rows),
                     "pages": [page_no],
                     "block": block,
-                    "merge_log": [{"action": "start", "page": page_no, "rows": len(curr_rows)}],
+                    "merge_log": [start_log],
                 }
             )
         elif is_header and prev_rows:
@@ -198,13 +282,21 @@ def collect_cross_page_merge_groups(
                     {"action": "merge_continuation", "page": page_no, "rows_added": len(stripped)}
                 )
         else:
+            start_log = {"action": "start", "page": page_no, "rows": len(curr_rows)}
+            if _profile_quarantines_fragments(profile) and _looks_like_fragment_table(curr_rows):
+                start_log = _quarantine_fragment_log(page_no, len(curr_rows))
+                logger.warning(
+                    "[TableMerger] quarantine fragment page %s (%d rows)",
+                    page_no,
+                    len(curr_rows),
+                )
             merged_table_data.append(
                 {
                     "rows": list(curr_rows),
                     "row_pages": [page_no] * len(curr_rows),
                     "pages": [page_no],
                     "block": block,
-                    "merge_log": [{"action": "start", "page": page_no, "rows": len(curr_rows)}],
+                    "merge_log": [start_log],
                 }
             )
 
@@ -310,16 +402,18 @@ def collect_quarantined_tables(
     quarantined: list[dict] = []
     for group in groups:
         for entry in group.get("merge_log") or []:
-            if entry.get("action") != "quarantine_col_mismatch":
+            action = entry.get("action")
+            reason = _QUARANTINE_ACTIONS.get(action or "")
+            if not reason:
                 continue
-            quarantined.append(
-                {
-                    "page": entry.get("page"),
-                    "row_count": entry.get("rows"),
-                    "reason": "col_count_mismatch",
-                    "prev_cols": entry.get("prev_cols"),
-                    "curr_cols": entry.get("curr_cols"),
-                    "action": "standalone_physical_table",
-                }
-            )
+            item = {
+                "page": entry.get("page"),
+                "row_count": entry.get("rows"),
+                "reason": reason,
+                "action": "standalone_physical_table",
+            }
+            if action == "quarantine_col_mismatch":
+                item["prev_cols"] = entry.get("prev_cols")
+                item["curr_cols"] = entry.get("curr_cols")
+            quarantined.append(item)
     return quarantined

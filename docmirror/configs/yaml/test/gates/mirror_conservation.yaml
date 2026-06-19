@@ -1,0 +1,95 @@
+# TQG mirror_conservation track — EFMP information-conservation gates
+version: 1
+track: mirror_conservation
+layer: mirror
+
+cases:
+  - id: synthetic_conservation_pass
+    tier: regression
+    pipeline: mirror_conservation_contract
+    options:
+      scenario: passing_table
+    oracle:
+      mirror_conservation:
+        passed: true
+        max_errors: 0
+        min_evidence_spans: 2
+    tags: [mirror, conservation, efmp]
+
+  - id: synthetic_empty_tables_requires_reason
+    tier: regression
+    pipeline: mirror_conservation_contract
+    options:
+      scenario: empty_without_reason
+    oracle:
+      mirror_conservation:
+        passed: false
+        required_issue_code: empty_tables_without_reason
+    tags: [mirror, conservation, efmp]
+
+  - id: real_pdf_credit_report_smoke
+    tier: regression
+    fixture: tests/fixtures/synthetic/credit_report_section_smoke.pdf
+    pipeline: perceive
+    options:
+      max_pages: 1
+      enhance_mode: raw
+    oracle:
+      mirror_conservation:
+        mirror_level: forensic
+        include_text: true
+        min_pages: 1
+        min_text_chars: 20
+        min_evidence_spans: 1
+        require_ehl: true
+        require_raw_text: true
+        require_text_evidence: true
+        forbidden_issue_codes:
+          - logical_row_provenance_missing
+          - quarantine_reason_missing
+    tags: [mirror, conservation, efmp, real_pdf, prose]
+
+  - id: real_pdf_bank_ledger_table_smoke
+    tier: regression
+    fixture: tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    pipeline: perceive
+    options:
+      max_pages: 1
+      enhance_mode: raw
+    oracle:
+      mirror_conservation:
+        mirror_level: forensic
+        include_text: true
+        min_pages: 1
+        min_text_chars: 20
+        min_evidence_spans: 1
+        require_ehl: true
+        require_raw_text: true
+        require_text_evidence: true
+        forbidden_issue_codes:
+          - logical_row_provenance_missing
+          - quarantine_reason_missing
+    tags: [mirror, conservation, efmp, real_pdf, table]
+
+  - id: real_pdf_bank_statement_first_page_smoke
+    tier: regression
+    fixture: tests/fixtures/bank_statement/ZHAO YA_银行流水_20251104.pdf
+    pipeline: perceive
+    options:
+      max_pages: 1
+      enhance_mode: raw
+    oracle:
+      mirror_conservation:
+        mirror_level: forensic
+        include_text: true
+        min_pages: 1
+        min_text_chars: 20
+        min_evidence_spans: 1
+        require_ehl: true
+        require_raw_text: true
+        require_table_evidence: true
+        require_table_layer: true
+        forbidden_issue_codes:
+          - logical_row_provenance_missing
+          - quarantine_reason_missing
+    tags: [mirror, conservation, efmp, real_pdf, bank_statement]

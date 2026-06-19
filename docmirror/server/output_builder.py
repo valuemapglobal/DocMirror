@@ -16,11 +16,22 @@ Output follows the v2.0 schema for community/enterprise and v3.0 for finance.
 
 from __future__ import annotations
 
+import importlib
 import logging
 from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _edition_package_available(edition: str) -> bool:
+    if edition == "community":
+        return True
+    try:
+        importlib.import_module(f"docmirror_{edition}")
+        return True
+    except ImportError:
+        return False
 
 
 def build_community_output(result, full_text: str = "") -> dict | None:
@@ -117,7 +128,14 @@ def _patch_edition_compliance(output: dict, edition: str, detected_type: str) ->
             }
         ]
 
-def build_extended_output(result, edition: str, full_text: str = "", file_path: str = "") -> dict | None:
+def build_extended_output(
+    result,
+    edition: str,
+    full_text: str = "",
+    file_path: str = "",
+    *,
+    community_baseline: dict | None = None,
+) -> dict | None:
     """Build enterprise/finance edition output via PEC plugin runner."""
     from docmirror.plugins.runner import run_plugin_extract_sync
 
@@ -127,12 +145,97 @@ def build_extended_output(result, edition: str, full_text: str = "", file_path: 
         edition=edition,  # type: ignore[arg-type]
         full_text=full_text,
         file_path=file_path,
+        community_baseline=community_baseline,
     )
     if extracted and isinstance(extracted, dict):
         _patch_edition_compliance(extracted, edition, detected_type)
     return extracted
 
+
+def build_all_projections(
+    result,
+    *,
+    full_text: str = "",
+    file_path: str = "",
+    mirror_level: str = "standard",
+    include_text: bool = False,
+    request_id: str = "",
+    editions: tuple[str, ...] | None = None,
+) -> dict[str, dict[str, Any] | None]:
+    """Build mirror + edition payloads from one ``ParseResult`` SSOT.
+
+    Architecture A (pure Core Mirror):
+
+    Phase 1 — ``to_api_dict()`` once from Core ``ParseResult`` **before** any plugin
+    runs, so ``001_mirror.json`` is never mutated by post-extract hooks.
+
+    Phase 2 — edition extracts (community first; extended editions reuse community
+    baseline on fallback paths). Hooks may enrich edition JSON only.
+    """
+    full_text = full_text or getattr(result, "full_text", "") or ""
+    file_path = file_path or getattr(result, "file_path", "") or ""
+    want = editions or ("community", "enterprise", "finance")
+
+    mirror = result.to_api_dict(
+        include_text=include_text,
+        mirror_level=mirror_level,
+        request_id=request_id,
+    )
+
+    community: dict[str, Any] | None = None
+    if "community" in want or "enterprise" in want or "finance" in want:
+        community = build_community_output(result, full_text)
+
+    enterprise: dict[str, Any] | None = None
+    if "enterprise" in want and _edition_package_available("enterprise"):
+        enterprise = build_extended_output(
+            result,
+            "enterprise",
+            full_text,
+            file_path,
+            community_baseline=community,
+        )
+
+    finance: dict[str, Any] | None = None
+    if "finance" in want and _edition_package_available("finance"):
+        finance = build_extended_output(
+            result,
+            "finance",
+            full_text,
+            file_path,
+            community_baseline=community,
+        )
+
+    outputs: dict[str, dict[str, Any] | None] = {
+        "mirror": mirror,
+        "community": community if "community" in want else None,
+        "enterprise": enterprise,
+        "finance": finance,
+    }
+    return outputs
+
+
+def build_all_edition_outputs(
+    result,
+    *,
+    full_text: str = "",
+    file_path: str = "",
+    mirror_level: str = "standard",
+    include_text: bool = False,
+    request_id: str = "",
+) -> dict[str, dict[str, Any] | None]:
+    """Backward-compatible alias for :func:`build_all_projections`."""
+    return build_all_projections(
+        result,
+        full_text=full_text,
+        file_path=file_path,
+        mirror_level=mirror_level,
+        include_text=include_text,
+        request_id=request_id,
+    )
+
 def build_api_response(result, edition: str = "all", include_text: bool = False,
+                        mirror_level: str = "standard",
                         task_id: str = "", file_id: str = "001",
                         file_path: str = "") -> dict:
     """Build REST API response with multi-edition support.
@@ -157,52 +260,56 @@ def build_api_response(result, edition: str = "all", include_text: bool = False,
 
     document_id = f"doc_{task_id}_{file_id}"
 
-    api_dict = result.to_api_dict(include_text=include_text)
-    api_dict.setdefault("data", {})
-    if "document" not in api_dict.get("data", {}):
-        api_dict.setdefault("data", {})["document"] = {}
-    if "quality" not in api_dict.get("data", {}):
-        api_dict.setdefault("data", {})["quality"] = {}
-
-    # Inject IDs
-    api_dict["document_id"] = document_id
-    api_dict.setdefault("metadata", {})
-    api_dict["metadata"]["task_id"] = task_id
-    api_dict["metadata"]["file_id"] = file_id
-
     full_text = getattr(result, "full_text", "") or ""
 
-    # Build requested editions
-    editions_map = {}
-    editions_to_build = []
-
     if edition == "all":
-        editions_to_build = ["community", "enterprise", "finance"]
+        editions_wanted: tuple[str, ...] = ("community", "enterprise", "finance")
     elif edition in ("community", "enterprise", "finance"):
-        editions_to_build = [edition]
+        editions_wanted = (edition,)
+    else:
+        editions_wanted = ()
 
-    for ed in editions_to_build:
-        if ed == "community":
-            ed_data = build_community_output(result, full_text)
-        else:
-            ed_data = build_extended_output(result, ed, full_text, file_path)
+    projections = build_all_projections(
+        result,
+        full_text=full_text,
+        file_path=file_path,
+        mirror_level=mirror_level,
+        include_text=include_text,
+        request_id=str(_uuid.uuid4()),
+        editions=editions_wanted,
+    )
+    mirror = projections["mirror"]
+    mirror.setdefault("data", {})
+    if "document" not in mirror.get("data", {}):
+        mirror.setdefault("data", {})["document"] = {}
+    if "quality" not in mirror.get("data", {}):
+        mirror.setdefault("data", {})["quality"] = {}
+
+    mirror["document_id"] = document_id
+    mirror.setdefault("metadata", {})
+    mirror["metadata"]["task_id"] = task_id
+    mirror["metadata"]["file_id"] = file_id
+
+    editions_map = {}
+    for ed in editions_wanted:
+        ed_data = projections.get(ed)
         if ed_data is not None:
-            # Inject IDs into edition output too
             ed_data.setdefault("document", {})["document_id"] = document_id
+            ed_data.setdefault("metadata", {})
             ed_data["metadata"]["task_id"] = task_id
             ed_data["metadata"]["file_id"] = file_id
             editions_map[ed] = ed_data
 
     if editions_map:
-        api_dict["data"]["editions"] = editions_map
+        mirror["data"]["editions"] = editions_map
 
     from docmirror.plugins.licensing.lifecycle import lifecycle_cli_message, resolve_entitlement_lifecycle
     from docmirror.plugins.licensing.snapshot import resolve_license_snapshot
 
     lc = resolve_entitlement_lifecycle()
     snapshot = resolve_license_snapshot()
-    api_dict.setdefault("meta", {})
-    api_dict["meta"]["license"] = {
+    mirror.setdefault("meta", {})
+    mirror["meta"]["license"] = {
         "lifecycle_state": lc.state.value,
         "days_remaining": lc.days_remaining,
         "active_channel": snapshot.get("active_channel"),
@@ -210,12 +317,10 @@ def build_api_response(result, edition: str = "all", include_text: bool = False,
         "message": lifecycle_cli_message(lc),
     }
 
-    # Ensure standard fields
-    api_dict.setdefault("code", 200)
-    api_dict.setdefault("message", "success")
-    api_dict.setdefault("request_id", str(_uuid.uuid4()))
-    api_dict.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
-    api_dict.setdefault("api_version", "1.0")
-    api_dict.setdefault("meta", {})
+    mirror.setdefault("code", 200)
+    mirror.setdefault("message", "success")
+    mirror.setdefault("request_id", str(_uuid.uuid4()))
+    mirror.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+    mirror.setdefault("api_version", "1.0")
 
-    return api_dict
+    return mirror

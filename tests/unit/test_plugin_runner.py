@@ -102,7 +102,7 @@ def test_wrap_license_degraded_adds_warning():
     assert wrapped["plugin"]["license_required"] is True
 
 
-def test_enterprise_degrades_to_community_without_license():
+def test_enterprise_reuses_community_baseline_without_reextract():
     mirror = _mirror("business_license")
     community_payload = {
         "schema_version": "2.0",

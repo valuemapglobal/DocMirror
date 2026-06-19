@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from docmirror.models.entities.domain import Block, PageLayout
+from docmirror.core.geometry.table_attrs import build_table_geometry_attrs
 from docmirror.core.ocr.fallback import analyze_scanned_page
 
 if TYPE_CHECKING:
@@ -78,13 +79,31 @@ def run_finalize(
         ocr_result = analyze_scanned_page(fitz_doc[page_idx], page_idx)
         if ocr_result:
             ocr_id = f"blk_{page_idx}_{reading_order}"
+            table = ocr_result["table"]
+            table_bbox = tuple(ocr_result.get("table_bbox") or (0.0, 0.0, width, height))
+            attrs = build_table_geometry_attrs(
+                table,
+                chars=list(getattr(page_plum, "chars", None) or []),
+                table_bbox=table_bbox,
+                page_number=page_idx + 1,
+                table_index=0,
+                geometry_source="ocr_table_fallback",
+                geometry_confidence=ocr_result.get("confidence"),
+                base_attrs={
+                    "extraction_layer": "ocr_table_fallback",
+                    "extraction_confidence": ocr_result.get("confidence"),
+                    "zone_type": "ocr_table_fallback",
+                },
+            )
             blocks.append(
                 Block(
                     block_id=ocr_id,
                     block_type="table",
+                    bbox=table_bbox,
                     reading_order=reading_order,
                     page=page_idx + 1,
-                    raw_content=ocr_result["table"],
+                    raw_content=table,
+                    attrs=attrs,
                 )
             )
             semantic_zones["table_area"].append(ocr_id)

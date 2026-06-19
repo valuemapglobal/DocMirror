@@ -44,7 +44,7 @@ def test_credit_report_section_splitter_importable():
     assert hasattr(mod, "SectionSplitter")
 
 
-def test_credit_report_sections_hook_attaches_sections():
+def test_credit_report_sections_hook_attaches_sections_to_edition():
     sample_text = (
         "个人信用报告\n"
         "报告编号：202601010001\n"
@@ -56,18 +56,20 @@ def test_credit_report_sections_hook_attaches_sections():
     page = PageContent(page_number=1, texts=[TextBlock(content=sample_text)])
     pr = ParseResult(status=ResultStatus.SUCCESS, pages=[page])
     pr.entities = DocumentEntities(document_type="credit_report")
+    extracted: dict = {"edition": "enterprise", "data": {}}
 
     with patch.object(type(pr), "full_text", new_callable=PropertyMock, return_value=sample_text):
         hook = CreditReportSectionsHook()
         hook.apply(
             pr,
-            extracted={"edition": "enterprise"},
+            extracted=extracted,
             edition="enterprise",
             document_type="credit_report",
             plugin=None,
         )
 
-    assert len(pr.sections) >= 1
+    assert len(extracted.get("data", {}).get("sections") or []) >= 1
+    assert not pr.sections
 
 
 def test_bank_table_rebuild_hook_with_transactions():
@@ -107,4 +109,7 @@ def test_bank_table_rebuild_hook_with_transactions():
         document_type="bank_statement",
         plugin=None,
     )
-    assert pr.total_tables >= 2 or any(t.table_id == "bank_transactions_rebuilt" for t in pr.all_tables())
+    enrichment = extracted.get("enrichment", {}).get("bank_table_rebuild") or {}
+    assert enrichment.get("transaction_count") == 1
+    assert enrichment.get("status") == "edition_only"
+    assert pr.total_tables == 1

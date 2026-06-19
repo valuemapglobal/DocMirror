@@ -72,3 +72,16 @@ class TestTableComposer:
         assert logical[0].rows[0].source_physical_id == "pt_1_0"
         assert logical[0].rows[1].source_physical_id == "pt_2_0"
         assert logical[0].merge_method == "cross_page_continuation"
+
+    def test_preserves_quarantined_merge_group_as_standalone_logical(self):
+        header = ["A", "B", "C", "D", "E", "F", "G", "H"]
+        pages = [
+            _page(1, [header, ["1", "2", "3", "4", "5", "6", "7", "8"]]),
+            _page(2, [["only-one-col"]]),
+        ]
+        logical = TableComposer.from_page_layouts(pages)
+        assert len(logical) == 2
+        assert logical[0].merge_method == "none"
+        assert logical[1].merge_method == "quarantine_standalone"
+        assert logical[1].quality_passed is False
+        assert logical[1].source_pages == [2]

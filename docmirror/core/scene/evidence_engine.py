@@ -115,15 +115,25 @@ class EvidenceEngine(BaseMiddleware):
             classification_text = f"{cover_text}\n{classification_text}"
         all_evidence.extend(self._keyword_evidence(classification_text))
         all_evidence.extend(self._header_evidence(result.all_tables()))
+        all_evidence.extend(self._user_hint_evidence(result))
         all_evidence.extend(self._extractor_scene_evidence(result))
+        all_evidence.extend(self._filename_evidence(result))
         all_evidence.extend(self._entity_evidence(result.kv_entities))
         all_evidence.extend(self._visual_evidence(result.pages))
 
-        # Phase 2: Fuse evidence
-        verdict, confidence, fused_evidence = self._fuse_evidence(all_evidence)
+        # Phase 2: Fuse evidence (extractor scene hint shields its category from keyword veto)
+        protected = self._protected_extractor_categories(result)
+        verdict, confidence, fused_evidence = self._fuse_evidence(
+            all_evidence,
+            protected=protected,
+        )
 
         # Phase 3: Apply verdict
         doc_type = verdict if confidence >= 0.3 else "generic"
+        forced_hint = self._forced_user_hint(result)
+        if forced_hint:
+            doc_type = forced_hint
+            confidence = max(confidence, 0.99)
         result.entities.document_type = doc_type
 
         # Phase 3b: Refine layout profile hint for ledger archetypes (does not re-extract)
@@ -141,8 +151,40 @@ class EvidenceEngine(BaseMiddleware):
             ds["document_scene_refined"] = doc_type
             ds["layout_profile_id_refined"] = refined_profile
             ds["layout_profile_refine_confidence"] = confidence
+        if forced_hint:
+            ds["classification_source"] = "user_hint_force"
+        hint_value, hint_strength = self._user_hint(result)
+        conflicts = [
+            ev.to_dict()
+            for ev in all_evidence
+            if ev.direction == 1 and ev.category != doc_type and ev.weight >= 0.2
+        ][:10]
+        ds["classification_provenance"] = {
+            "document_type": doc_type,
+            "confidence": round(confidence, 3),
+            "source": "user_hint_force" if forced_hint else ("user_hint+evidence" if hint_value else "evidence"),
+            "hint": (
+                {"value": hint_value, "strength": hint_strength, "source": "user"}
+                if hint_value
+                else None
+            ),
+            "conflicts": conflicts,
+            "fusion": fused_evidence[-1] if fused_evidence else None,
+        }
         if ds:
             result.entities.domain_specific = ds
+
+        if doc_type == "bank_statement":
+            from docmirror.core.scene.institution_hint import resolve_document_institution
+
+            inst, inst_auth = resolve_document_institution(result, classification_text)
+            if inst and inst_auth in ("header.kv", "entities.organization"):
+                if not result.entities.organization:
+                    result.entities.organization = inst
+                ds = dict(result.entities.domain_specific or {})
+                ds["mirror_institution_hint"] = inst
+                ds["mirror_institution_authority"] = inst_auth
+                result.entities.domain_specific = ds
 
         # Evidence log for debugging (mirror/API only when DOCMIRROR_DEBUG=1)
         if (
@@ -188,22 +230,88 @@ class EvidenceEngine(BaseMiddleware):
                 parts.extend(str(h) for h in table.headers if h)
         return "\n".join(parts)
 
-    def _extractor_scene_evidence(self, result: ParseResult) -> list[Evidence]:
-        """Use PreAnalyzer / EPO scene hint when extraction already resolved the archetype."""
+    def _extractor_scene_hint(self, result: ParseResult) -> tuple[str | None, float]:
+        """PreAnalyzer / EPO scene hint attached during Mirror extraction."""
         ds = getattr(result.entities, "domain_specific", None) or {}
         if not isinstance(ds, dict):
-            return []
+            return None, 0.0
         scene = ds.get("extractor_scene_hint") or ds.get("pre_analyzer_scene_hint")
         if not scene or scene in ("unknown", "generic"):
-            return []
+            return None, 0.0
         confidence = float(ds.get("extractor_scene_confidence") or 0.85)
-        if confidence < 0.70:
+        return str(scene), confidence
+
+    def _user_hint(self, result: ParseResult) -> tuple[str | None, str]:
+        ds = getattr(result.entities, "domain_specific", None) or {}
+        if not isinstance(ds, dict):
+            return None, "prefer"
+        hint = ds.get("user_doc_type_hint")
+        if not hint:
+            return None, "prefer"
+        strength = str(ds.get("user_doc_type_hint_strength") or "prefer")
+        return str(hint), strength
+
+    def _forced_user_hint(self, result: ParseResult) -> str | None:
+        hint, strength = self._user_hint(result)
+        if hint and strength == "force":
+            return hint
+        return None
+
+    def _user_hint_evidence(self, result: ParseResult) -> list[Evidence]:
+        hint, strength = self._user_hint(result)
+        if not hint or strength == "force":
+            return []
+        return [
+            Evidence(
+                source="user_hint",
+                category=hint,
+                weight=0.45,
+                direction=1,
+                detail=f"user doc_type_hint={hint}",
+            )
+        ]
+
+    def _protected_extractor_categories(self, result: ParseResult) -> set[str]:
+        """Categories backed by high-confidence extractor hints skip keyword_exclude veto."""
+        protected: set[str] = set()
+        scene, confidence = self._extractor_scene_hint(result)
+        if scene and confidence >= 0.70:
+            protected.add(scene)
+        ds = getattr(result.entities, "domain_specific", None) or {}
+        file_name = str(ds.get("source_file_name") or "")
+        if "银行流水" in file_name:
+            protected.add("bank_statement")
+        return protected
+
+    def _filename_evidence(self, result: ParseResult) -> list[Evidence]:
+        """Filename tokens (issuer uploads often encode doc type in the name)."""
+        ds = getattr(result.entities, "domain_specific", None) or {}
+        file_name = str(ds.get("source_file_name") or "")
+        if not file_name:
+            return []
+        evidence: list[Evidence] = []
+        if "银行流水" in file_name:
+            evidence.append(
+                Evidence(
+                    source="filename",
+                    category="bank_statement",
+                    weight=0.40,
+                    direction=1,
+                    detail=f"filename token 银行流水 in {file_name}",
+                )
+            )
+        return evidence
+
+    def _extractor_scene_evidence(self, result: ParseResult) -> list[Evidence]:
+        """Use PreAnalyzer / EPO scene hint when extraction already resolved the archetype."""
+        scene, confidence = self._extractor_scene_hint(result)
+        if not scene or confidence < 0.70:
             return []
         weight = min(0.55, 0.30 + confidence * 0.25)
         return [
             Evidence(
                 source="extractor_scene",
-                category=str(scene),
+                category=scene,
                 weight=weight,
                 direction=1,
                 detail=f"extractor scene_hint={scene} conf={confidence:.2f}",
@@ -471,7 +579,12 @@ class EvidenceEngine(BaseMiddleware):
 
     # ─── Evidence Fusion ───
 
-    def _fuse_evidence(self, evidence_list: list[Evidence]) -> tuple[str, float, list[dict]]:
+    def _fuse_evidence(
+        self,
+        evidence_list: list[Evidence],
+        *,
+        protected: set[str] | None = None,
+    ) -> tuple[str, float, list[dict]]:
         """
         Fuse all evidence signals into a final verdict.
 
@@ -485,12 +598,15 @@ class EvidenceEngine(BaseMiddleware):
         if not evidence_list:
             return "generic", 0.0, []
 
+        protected = protected or set()
+
         # Hard veto: identify eliminated categories
         vetoed: set[str] = set()
         positive: list[Evidence] = []
         for ev in evidence_list:
             if ev.direction == -1:
-                vetoed.add(ev.category)
+                if ev.category not in protected:
+                    vetoed.add(ev.category)
             else:
                 positive.append(ev)
 
@@ -598,5 +714,3 @@ class EvidenceEngine(BaseMiddleware):
             return "wechat_payment", wechat_score, alipay_score
 
         return best_scene, best_score, second_score
-
-

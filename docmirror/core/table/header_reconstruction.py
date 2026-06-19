@@ -108,10 +108,45 @@ def _reconstruct_by_vertical_projection(headers: list[str], page_chars: list) ->
         return headers
 
     # 根据间隙重新分组字符
-    # TODO: 实现完整的字符分组逻辑
-    logger.debug(f"[VerticalProjection] Detected {len(gaps)} column gaps")
+    if len(gaps) >= 1 and page_chars:
+        grouped = _group_chars_by_column_gaps(page_chars, gaps)
+        if grouped and len(grouped) >= len(headers):
+            logger.debug(
+                "[VerticalProjection] regrouped %d header columns from %d gaps",
+                len(grouped),
+                len(gaps),
+            )
+            return grouped[: max(len(headers), len(grouped))]
 
     return headers
+
+
+def _group_chars_by_column_gaps(
+    page_chars: list[dict],
+    gap_centers: list[float],
+) -> list[str]:
+    """Assign page chars to columns separated by vertical gaps; return cell texts."""
+    if not page_chars or not gap_centers:
+        return []
+
+    bounds = [float("-inf"), *sorted(gap_centers), float("inf")]
+    buckets: list[list[dict]] = [[] for _ in range(len(bounds) - 1)]
+    for char_info in page_chars:
+        x = float(char_info.get("x0", 0))
+        for idx in range(len(bounds) - 1):
+            if bounds[idx] <= x < bounds[idx + 1]:
+                buckets[idx].append(char_info)
+                break
+
+    columns: list[str] = []
+    for bucket in buckets:
+        if not bucket:
+            continue
+        text = "".join(c["text"] for c in sorted(bucket, key=lambda c: c.get("x0", 0)))
+        cleaned = text.strip()
+        if cleaned:
+            columns.append(cleaned)
+    return columns
 
 
 def _detect_vertical_gaps(x_positions: list[float], threshold: float = 15.0) -> list[float]:

@@ -141,9 +141,9 @@ class PreAnalyzer:
 
         Two-phase analysis for optimal performance:
             Phase 1 (~5ms): Lightweight text scan → section header count.
-                            If section_dominant detected → early return.
-            Phase 2 (full): Expensive per-page analysis (find_tables, etc.)
-                            Only runs for non-section-dominant documents.
+                            No early return; it records weak structural priors.
+            Phase 2 (sampled): Per-page statistics (text density, images,
+                               tables, grids) plus SSO override.
 
         Args:
             fitz_doc: An opened PyMuPDF document object.
@@ -747,4 +747,3 @@ class PreAnalyzer:
             if any(kw in text_sample for kw in keywords):
                 return scene, conf
         return "unknown", 0.0
-

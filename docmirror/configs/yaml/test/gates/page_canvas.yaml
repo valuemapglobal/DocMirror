@@ -1,0 +1,47 @@
+track: page_canvas
+layer: mirror
+cases:
+  - id: credit_p4_page_canvas_regions
+    tier: regression
+    pipeline: scanned_local_structure_full_page_fixture
+    oracle:
+      page_canvas:
+        page: 4
+        min_regions: 3
+        min_blocks: 3
+        blocks_region_parity: true
+        required_kinds: [field_grid]
+        min_field_grid_cells: 6
+        require_flow_texts: true
+      scanned_local_structure:
+        min_local_structures: 3
+        min_credit_accounts: 3
+        prefer_structure_kind: field_grid
+    tags: [credit_report, page_canvas, pcm, field_grid]
+
+  - id: bank_statement_no_regions_regression
+    tier: regression
+    fixture: fixtures/bank_statement/银行流水_中国建设银行_20231226.pdf
+    pipeline: perceive
+    options:
+      enhance_mode: standard
+    oracle:
+      page_canvas:
+        max_regions: 0
+        min_tables: 1
+        min_blocks: 1
+        require_morphology: [S2]
+    tags: [bank_statement, page_canvas, pcm, regression]
+
+  - id: pcm_g4_finance_stability_l3
+    tier: regression
+    pipeline: scanned_local_structure_full_page_fixture
+    oracle:
+      page_canvas:
+        page: 4
+        min_regions: 3
+        required_kinds: [field_grid]
+      pcm_finance:
+        golden_fixture: tests/fixtures/golden/pcm_l3_credit_finance.json
+        require_pcm_mirror_shape: true
+    tags: [credit_report, page_canvas, pcm, finance, g4]

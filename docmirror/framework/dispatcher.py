@@ -36,6 +36,8 @@ from docmirror.framework.extraction_runner import (
     run_extraction_chain,
 )
 from docmirror.models.entities.parse_result import ParseResult
+from docmirror.core.pipeline.context import ParseContext
+from docmirror.core.entry.options import ParseControl, normalize_parse_control
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +176,27 @@ class ParserDispatcher:
         if cap.status != "supported":
             return _capability_failure(cap, path, _t0)
 
-        enhance_mode = os.environ.get("DOCMIRROR_ENHANCE_MODE", "standard")
+        raw_control = kwargs.get("parse_control")
+        parse_control = normalize_parse_control(
+            raw_control if isinstance(raw_control, ParseControl) else None,
+            max_pages=kwargs.get("max_pages"),
+            skip_cache=skip_cache,
+            enhance_mode=kwargs.get("enhance_mode") or os.environ.get("DOCMIRROR_ENHANCE_MODE", "standard"),
+        )
+        enhance_mode = parse_control.enhance_mode
+        max_pages = parse_control.pages.max_pages
+        if parse_control.doc_type_hint and document_type is None:
+            document_type = parse_control.doc_type_hint.value
+        if parse_control.pages.ranges and cap.transport not in {"pdf", "image"}:
+            return build_failure(
+                "INVALID_OPTIONS",
+                f"--pages is only supported for paged PDF/image inputs, not transport={cap.transport}",
+                _t0,
+                str(path),
+                file_type=cap.transport,
+                is_forged=ctx.is_forged,
+                forgery_reasons=ctx.forgery_reasons,
+            )
         perceive_ctx = build_perceive_context(
             path,
             cap,
@@ -185,7 +207,51 @@ class ParserDispatcher:
             forgery_reasons=ctx.forgery_reasons,
             t0=_t0,
         )
+        parse_context = ParseContext(
+            file_path=path,
+            file_type=cap.transport,
+            content_model=cap.content_model,
+            capability_id=cap.id,
+            file_size=ctx.file_size,
+            mime_type=ctx.mime_type,
+            checksum=ctx.checksum,
+            is_forged=ctx.is_forged,
+            forgery_reasons=tuple(ctx.forgery_reasons),
+            enhance_mode=enhance_mode,
+            max_pages=max_pages,
+            started_at=perceive_ctx.get("started_at"),
+            options={
+                "skip_cache": skip_cache,
+                "fallback": fallback,
+                "document_type": document_type,
+                "parse_control": parse_control.to_dict(),
+                "parse_control_fingerprint": parse_control.fingerprint(),
+                "selected_pages": parse_control.pages.to_display(),
+                "doc_type_hint": parse_control.doc_type_hint.value if parse_control.doc_type_hint else None,
+                "doc_type_hint_strength": parse_control.doc_type_hint.strength if parse_control.doc_type_hint else None,
+            },
+        )
+        perceive_ctx.update(parse_context.to_perceive_context())
         perceive_ctx["enhance_mode"] = enhance_mode
+        perceive_ctx["parse_control"] = parse_control
+        perceive_ctx["parse_control_dict"] = parse_control.to_dict()
+        perceive_ctx["parse_control_fingerprint"] = parse_control.fingerprint()
+        perceive_ctx["doc_type_hint"] = parse_control.doc_type_hint.value if parse_control.doc_type_hint else None
+        perceive_ctx["doc_type_hint_strength"] = parse_control.doc_type_hint.strength if parse_control.doc_type_hint else None
+
+        # ── Cache Lookup ──
+        use_cache = not parse_control.skip_cache
+        fingerprint = parse_control.fingerprint()
+        if use_cache:
+            from docmirror.framework.cache import parse_cache
+            try:
+                cached_json = await parse_cache.get(ctx.checksum, fingerprint)
+                if cached_json:
+                    result = ParseResult.model_validate_json(cached_json)
+                    logger.info("[Dispatcher] Cache HIT for checksum=%s, fingerprint=%s", ctx.checksum, fingerprint)
+                    return result
+            except Exception as e:
+                logger.warning("[Dispatcher] Failed to load cached result: %s", e)
 
         try:
             result = await run_extraction_chain(
@@ -209,6 +275,16 @@ class ParserDispatcher:
 
         elapsed = int((time.time() - _t0) * 1000)
         result.parser_info.elapsed_ms = elapsed
+
+        # ── Cache Write ──
+        if use_cache and result.success:
+            from docmirror.framework.cache import parse_cache
+            try:
+                serialized = result.model_dump_json()
+                await parse_cache.set(ctx.checksum, fingerprint, serialized)
+            except Exception as e:
+                logger.warning("[Dispatcher] Failed to cache result: %s", e)
+
         logger.info(
             "[Dispatcher] ◀ process | parser=%s | transport=%s | content_model=%s | "
             "status=%s | text_len=%d | tables=%d | elapsed=%dms",

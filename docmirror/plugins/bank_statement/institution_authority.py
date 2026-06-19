@@ -16,6 +16,7 @@ Key exports: ``resolve_institution_hint``, ``extract_identity_from_header``.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from docmirror.plugins.bank_statement.institution import match_institution
@@ -53,21 +54,40 @@ def _header_bank_name(full_text: str) -> str | None:
     return None
 
 
+def _filename_bank_token(file_path: str | None) -> str | None:
+    if not file_path:
+        return None
+    stem = Path(file_path).stem
+    match = re.search(r"([\u4e00-\u9fa5]{2,20}银行[\u4e00-\u9fa5A-Za-z（）()·\s]*)", stem)
+    if match:
+        name = match.group(1).strip()
+        if name and "银行" in name:
+            return name
+    return None
+
+
 def resolve_institution_from_context(parse_result: Any, full_text: str) -> tuple[str | None, str]:
-    """Resolve institution for StyleContext (before StyleDetector)."""
+    """Resolve institution for StyleContext (IAS v2 stack)."""
     entities = getattr(parse_result, "entities", None)
     if entities is not None:
         org = getattr(entities, "organization", None)
         if org:
             return str(org), "entities.organization"
-        domain = getattr(entities, "domain_specific", None) or {}
-        inst = domain.get("institution")
-        if inst:
-            return str(inst), "domain_specific.institution"
 
     header_bank = _header_bank_name(full_text)
     if header_bank:
         return header_bank, "header.kv"
+
+    file_path = getattr(parse_result, "file_path", None) if parse_result is not None else None
+    filename_bank = _filename_bank_token(str(file_path) if file_path else None)
+    if filename_bank:
+        return filename_bank, "filename.token"
+
+    if entities is not None:
+        domain = getattr(entities, "domain_specific", None) or {}
+        inst = domain.get("institution")
+        if inst:
+            return str(inst), "domain_specific.institution"
 
     variant = match_institution(full_text, None)
     if variant and _header_text(full_text):
@@ -90,6 +110,11 @@ def resolve_institution_hint(
     header_bank = _header_bank_name(ctx.full_text)
     if header_bank:
         return header_bank, "header.kv"
+
+    file_path = getattr(ctx.parse_result, "file_path", None) if ctx.parse_result is not None else None
+    filename_bank = _filename_bank_token(str(file_path) if file_path else None)
+    if filename_bank:
+        return filename_bank, "filename.token"
 
     variant = match_institution(header, None)
     if variant:

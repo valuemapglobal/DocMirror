@@ -182,10 +182,11 @@ def analyze_page_layout(page, page_idx: int) -> ALPageLayout:
     return layout
 
 
-def analyze_document_layout(fitz_doc) -> list[ALPageLayout]:
+def analyze_document_layout(fitz_doc, page_indices: list[int] | None = None) -> list[ALPageLayout]:
     """Analyze the layout structure of the entire document."""
     layouts = []
-    for page_idx in range(len(fitz_doc)):
+    indices = page_indices if page_indices is not None else list(range(len(fitz_doc)))
+    for page_idx in indices:
         layouts.append(analyze_page_layout(fitz_doc[page_idx], page_idx))
 
     if layouts and layouts[0].is_continuation:
@@ -223,6 +224,7 @@ def analyze_document_layout_parallel(
     path: str,
     num_pages: int,
     max_workers: int = 4,
+    page_indices: list[int] | None = None,
 ) -> list[ALPageLayout]:
     """
     Analyze document layout in parallel across pages using a process pool.
@@ -233,20 +235,25 @@ def analyze_document_layout_parallel(
     from concurrent.futures import ProcessPoolExecutor
 
     path = str(path)
-    workers = min(max_workers, num_pages, os.cpu_count() or 4)
-    if workers <= 1 or num_pages <= 1:
+    indices = page_indices if page_indices is not None else list(range(num_pages))
+    workers = min(max_workers, len(indices), os.cpu_count() or 4)
+    if workers <= 1 or len(indices) <= 1:
         # Fallback to sequential in caller by not using this path, or we could open and run here
         import fitz
 
         doc = fitz.open(path)
         try:
-            layouts = [analyze_page_layout(doc[i], i) for i in range(num_pages)]
+            layouts = [analyze_page_layout(doc[i], i) for i in indices]
         finally:
             doc.close()
     else:
-        args_list = [(path, i) for i in range(num_pages)]
-        with ProcessPoolExecutor(max_workers=workers) as executor:
-            results = list(executor.map(_analyze_page_layout_worker, args_list))
+        args_list = [(path, i) for i in indices]
+        from docmirror.configs.runtime.performance import process_worker_allocation
+
+        with process_worker_allocation(workers) as granted:
+            workers = min(workers, granted)
+            with ProcessPoolExecutor(max_workers=workers) as executor:
+                results = list(executor.map(_analyze_page_layout_worker, args_list))
         layouts = [r[1] for r in sorted(results, key=lambda x: x[0])]
 
     if layouts and layouts[0].is_continuation:

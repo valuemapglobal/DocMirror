@@ -141,6 +141,7 @@ def apply_logical_tables_spe(
     logical_table_count: int | None = None,
     physical_table_count: int | None = None,
     dual_view: bool | None = None,
+    ltqg_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """M11: attach dual-view / logical compose stats after extraction."""
     out = dict(spe)
@@ -150,4 +151,67 @@ def apply_logical_tables_spe(
         out["physical_table_count"] = physical_table_count
     if dual_view is not None:
         out["dual_view"] = dual_view
+    if ltqg_summary:
+        out["ltqg_enabled"] = bool(ltqg_summary.get("enabled"))
+        if ltqg_summary.get("enabled"):
+            out["ltqg_expected_data_rows"] = int(ltqg_summary.get("expected_data_rows") or 0)
+            out["ltqg_passed_tables"] = int(ltqg_summary.get("passed_tables") or 0)
+            out["ltqg_skipped_tables"] = int(ltqg_summary.get("skipped_tables") or 0)
+            legacy = int(ltqg_summary.get("legacy_max_rows") or 0)
+            if legacy:
+                out["ltqg_legacy_max_rows"] = legacy
+            skipped_ids = ltqg_summary.get("skipped_logical_ids")
+            if skipped_ids:
+                out["ltqg_skipped_logical_ids"] = list(skipped_ids)
+            export_n = ltqg_summary.get("export_logical_tables")
+            if export_n is not None:
+                out["ltqg_export_logical_tables"] = int(export_n)
+    return out
+
+
+def apply_page_morphology_spe(
+    spe: dict[str, Any],
+    *,
+    pages: list[dict[str, Any]] | None = None,
+    domain_specific: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Attach page-level morphology stats to SPE (Design 20 Phase 4)."""
+    from docmirror.core.analyze.structural_classifier import (
+        enrich_competitors_with_page_morphology,
+        score_page_morphology_from_bundles,
+    )
+    from docmirror.core.ocr.page_canvas.block_index import document_morphology_stats
+
+    out = dict(spe)
+    page_list = pages or []
+    stats = document_morphology_stats(page_list)
+    if stats:
+        out["page_morphology_stats"] = stats
+        out["H_field_grid"] = float(stats.get("S4", 0))
+        out["H_micro_grid"] = float(stats.get("S3", 0))
+    bundles = (domain_specific or {}).get("_page_evidence_bundles") or []
+    competitors = dict(out.get("competitors") or {})
+    if bundles:
+        out["competitors"] = enrich_competitors_with_page_morphology(competitors, bundles=bundles)
+        morph = score_page_morphology_from_bundles(bundles)
+        if morph.get("H_field_grid", 0) > 0:
+            out["H_field_grid"] = max(float(out.get("H_field_grid") or 0), morph["H_field_grid"])
+        if morph.get("H_micro_grid", 0) > 0:
+            out["H_micro_grid"] = max(float(out.get("H_micro_grid") or 0), morph["H_micro_grid"])
+    per_page: list[dict[str, Any]] = []
+    for page in page_list:
+        if not isinstance(page, dict):
+            continue
+        summary = page.get("morphology_summary")
+        if summary:
+            per_page.append(
+                {
+                    "page": int(page.get("page_number") or 0),
+                    "morphology_summary": dict(summary),
+                    "block_count": len(page.get("blocks") or []),
+                    "region_count": len(page.get("regions") or []),
+                }
+            )
+    if per_page:
+        out["page_morphology_detail"] = per_page
     return out

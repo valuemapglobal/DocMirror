@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 
+from docmirror.core.table.row_kind import RowKind, classify_pipe_line, filter_pipe_table_rows
 from docmirror.core.table.pipe_row_merge import merge_pipe_continuation_rows
 from docmirror.core.table.structure_detect.pipe_grid import (
     count_primary_pipe_rows,
@@ -17,36 +18,22 @@ from docmirror.core.table.structure_detect.pipe_grid import (
 _SPLIT_AMOUNT_MARKERS = ("借方发生额", "贷方发生额", "Debit Amount", "Credit Amount")
 _HLINE_RE = re.compile(r"^[\s─━\-|]+$")
 _FOOTER_MARKERS = ("借方合计", "Debit Total", "本对账期末余额")
-_HEADER_REPEAT_RE = re.compile(r"\|?\s*序号\s*\|.*记账日")
 _PRIMARY_ROW_RE = re.compile(r"^\|\s*\d+\s*\|")
 
 
-def _line_has_split_amount_headers(line: str) -> bool:
-    return any(m in line for m in _SPLIT_AMOUNT_MARKERS)
-
-
 def _is_header_row(line: str) -> bool:
-    return bool(_HEADER_REPEAT_RE.search(line)) and _line_has_split_amount_headers(line)
+    return classify_pipe_line(line) == RowKind.HEADER
 
 
 def _is_data_row(line: str) -> bool:
-    stripped = line.strip()
-    if not stripped or not stripped.startswith("|"):
-        return False
-    if _HLINE_RE.match(stripped):
-        return False
-    if any(m in stripped for m in _FOOTER_MARKERS):
-        return False
-    return bool(_PRIMARY_ROW_RE.match(stripped))
+    return classify_pipe_line(line) == RowKind.DATA
 
 
 def _is_continuation_row(line: str) -> bool:
     stripped = line.strip()
     if not stripped.startswith("|"):
         return False
-    if _HLINE_RE.match(stripped):
-        return False
-    if _is_header_row(stripped):
+    if classify_pipe_line(stripped) in (RowKind.SEPARATOR, RowKind.HEADER, RowKind.FOOTER):
         return False
     cells = split_pipe_row(stripped)
     if not cells:
@@ -104,6 +91,7 @@ def build_pipe_table_from_text(text: str) -> list[list[list[str]]]:
 
     table = [header_row] + data_rows
     table = merge_pipe_continuation_rows(table)
+    table = filter_pipe_table_rows(table)
 
     if len(table) < 2:
         return []

@@ -19,7 +19,7 @@ packages = [
 
 [project]
 name = "docmirror"
-version = "0.5.0"
+version = "2.0.0"
 description = "Universal document parsing engine with OCR, layout analysis, and table extraction"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
@@ -113,12 +113,20 @@ markers = [
     "tier_smoke: Tier SMOKE — PR must run, target < 60s",
     "tier_contract: Tier CONTRACT — PR must run, mock-heavy boundary tests",
     "tier_regression: Tier REGRESSION — golden manifest gates",
+    "tier_e2e: Tier E2E — CLI/API/full perceive smoke flows",
     "tier_slow: Tier REGRESSION full document — nightly only",
     "tier_benchmark: opt-in benchmark tier",
     "track_extract: table/core extract gates",
     "track_classify: DTI / document_type gates",
     "track_mirror: MEP mirror quality gates",
     "track_mirror_structure: SSO/SPE/SDU mirror structure gates",
+    "track_mirror_conservation: EFMP conservation gates",
+    "track_mirror_geometry: Mirror geometry conservation gates",
+    "track_scanned_micro_grid: Scanned micro-grid reconstruction gates",
+    "track_scanned_local_structure: Scanned local structure restoration gates",
+    "track_page_canvas: Page-centric mirror (PCM) region gates",
+    "track_dual_view: dual-view consistency gates",
+    "track_bank_statement: bank statement plugin CQF/BLO gates",
     "track_edition: PEC / DEC edition gates",
     "track_e2e: CLI/API/full perceive gates",
     "track_transport: FCR format capability and routing gates",
@@ -162,5 +170,3 @@ forbidden_modules = [
     "docmirror.core.extract.engine",
     "docmirror.core.ocr.fallback",
 ]
-
-

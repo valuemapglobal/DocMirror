@@ -45,8 +45,25 @@ class PDFAdapter(BaseParser):
         from docmirror.core.extraction.extractor import CoreExtractor
 
         logger.info(f"[PDFAdapter] Starting extraction for: {file_path}")
-        extractor = CoreExtractor()
-        pr = await extractor.extract_parse_result(file_path)
+        parse_control = kwargs.get("parse_control")
+        workers = None
+        if parse_control is not None:
+            workers = getattr(getattr(parse_control, "resource", None), "workers", None)
+            if workers == "auto":
+                workers = None
+        extractor = CoreExtractor(max_page_concurrency=workers)
+        pr = await extractor.extract_parse_result(
+            file_path,
+            options={
+                "max_pages": kwargs.get("max_pages"),
+                "enhance_mode": kwargs.get("enhance_mode"),
+                "parse_control": parse_control,
+                "parse_control_dict": kwargs.get("parse_control_dict"),
+                "parse_control_fingerprint": kwargs.get("parse_control_fingerprint"),
+                "doc_type_hint": kwargs.get("doc_type_hint"),
+                "doc_type_hint_strength": kwargs.get("doc_type_hint_strength"),
+            },
+        )
         logger.info(f"[PDFAdapter] Completed extraction for: {file_path}")
 
         # PDF-specific parser_info
@@ -61,11 +78,23 @@ class PDFAdapter(BaseParser):
             try:
                 stat = file_path.stat()
                 pr.provenance = ProvenanceInfo(
-                    file_type="pdf",
-                    file_size=stat.st_size,
+                    file_type=kwargs.get("file_type") or "pdf",
+                    file_size=int(kwargs.get("file_size") or stat.st_size),
+                    checksum=kwargs.get("checksum", ""),
+                    mime_type=kwargs.get("mime_type", ""),
+                    capability_id=kwargs.get("capability_id", ""),
+                    content_model=kwargs.get("content_model", ""),
                 )
             except OSError:
                 pass
+        else:
+            pr.provenance.file_type = pr.provenance.file_type or kwargs.get("file_type") or "pdf"
+            if not pr.provenance.file_size and kwargs.get("file_size"):
+                pr.provenance.file_size = int(kwargs.get("file_size") or 0)
+            pr.provenance.checksum = pr.provenance.checksum or kwargs.get("checksum", "")
+            pr.provenance.mime_type = pr.provenance.mime_type or kwargs.get("mime_type", "")
+            pr.provenance.capability_id = pr.provenance.capability_id or kwargs.get("capability_id", "")
+            pr.provenance.content_model = pr.provenance.content_model or kwargs.get("content_model", "")
 
         return pr
 

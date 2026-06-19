@@ -221,4 +221,100 @@ def enrich_credit_report_output(
     if sections:
         output.setdefault("data", {})["sections"] = sections
         output.setdefault("document", {})["archetype"] = "report_document"
+    domain_specific = _domain_specific(parse_result)
+    records = domain_specific.get("credit_repayment_records")
+    if not records:
+        records = _ensure_credit_repayment_records(parse_result)
+    if records:
+        output.setdefault("data", {})["repayment_records"] = records
+    accounts = domain_specific.get("credit_accounts")
+    if not accounts:
+        accounts = _extract_credit_accounts_from_local_structure_evidence(parse_result)
+    if accounts:
+        output.setdefault("data", {})["credit_accounts"] = accounts
     return output
+
+
+def _domain_specific(parse_result: Any) -> dict[str, Any]:
+    return getattr(getattr(parse_result, "entities", None), "domain_specific", {}) or {}
+
+
+def _merge_unique_dicts(existing: list[dict[str, Any]], incoming: list[dict[str, Any]], *, id_key: str) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[Any] = set()
+    for item in [*existing, *incoming]:
+        if not isinstance(item, dict):
+            continue
+        item_id = item.get(id_key)
+        if item_id is not None:
+            if item_id in seen:
+                continue
+            seen.add(item_id)
+        out.append(item)
+    return out
+
+
+def _extract_credit_accounts_from_local_structure_evidence(parse_result: Any) -> list[dict[str, Any]]:
+    domain_specific = _domain_specific(parse_result)
+    from docmirror.models.mirror.domain_access import local_structure_evidence_pages_from_domain_specific
+
+    evidence_pages = local_structure_evidence_pages_from_domain_specific(domain_specific)
+    if not evidence_pages:
+        return []
+    try:
+        from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
+    except Exception:
+        return []
+
+    out = extract_credit_accounts_from_local_structure_evidence(evidence_pages)
+    accounts = out.get("credit_accounts") or []
+    if accounts:
+        domain_specific["credit_accounts"] = accounts
+        if out.get("local_structures"):
+            domain_specific["_local_structures"] = _merge_unique_dicts(
+                list(domain_specific.get("_local_structures") or []),
+                list(out.get("local_structures") or []),
+                id_key="structure_id",
+            )
+    return accounts
+
+
+def _ensure_credit_repayment_records(parse_result: Any) -> list[dict[str, Any]]:
+    """Project repayment records from page canvas regions or bundle micro_grids."""
+    domain_specific = _domain_specific(parse_result)
+    existing = domain_specific.get("credit_repayment_records")
+    if existing:
+        return list(existing)
+
+    from docmirror.plugins.credit_report.repayment_grid import (
+        dedupe_repayment_records,
+        records_from_micro_grid_dict,
+    )
+
+    records: list[dict[str, Any]] = []
+
+    if hasattr(parse_result, "sync_page_canvases"):
+        parse_result.sync_page_canvases()
+    for page in getattr(parse_result, "pages", []) or []:
+        canvas = getattr(page, "page_canvas", None)
+        if canvas is None:
+            continue
+        for region in canvas.regions:
+            if region.kind != "micro_grid":
+                continue
+            projected = records_from_micro_grid_dict(region.structure)
+            if projected:
+                records.extend(projected)
+
+    if not records:
+        from docmirror.core.ocr.page_canvas.evidence_bundles import micro_grid_structures_from_bundles
+
+        for grid in micro_grid_structures_from_bundles(domain_specific):
+            projected = records_from_micro_grid_dict(grid)
+            if projected:
+                records.extend(projected)
+
+    if records:
+        records = dedupe_repayment_records(records)
+        domain_specific["credit_repayment_records"] = records
+    return records

@@ -101,6 +101,45 @@ def _collect_table_records(parse_result: Any) -> list[dict[str, Any]]:
     return records
 
 
+def _collect_structure_projected_records(parse_result: Any) -> list[dict[str, Any]]:
+    """Project L1 regions via structure_project registry (Design 20 PMCC)."""
+    from docmirror.core.ocr.structure_project import project_structure
+    from docmirror.core.ocr.structure_projectors import core as _core  # noqa: F401
+
+    if hasattr(parse_result, "sync_page_canvases"):
+        parse_result.sync_page_canvases()
+
+    projected: list[dict[str, Any]] = []
+    for page in getattr(parse_result, "pages", []) or []:
+        canvas = getattr(page, "page_canvas", None)
+        if canvas is None or not canvas.blocks:
+            continue
+        page_num = int(getattr(page, "page_number", 0) or 0)
+        region_by_id = {r.region_id: r for r in canvas.regions}
+        for block in canvas.blocks:
+            ref = str(block.ref or "")
+            if not ref.startswith("region:"):
+                continue
+            region_id = ref.split(":", 1)[1]
+            region = region_by_id.get(region_id)
+            if region is None:
+                continue
+            hint = block.schema_hint or "core.field_grid.kv_block"
+            result = project_structure(region.structure, page=page_num, schema_hint=hint)
+            if result.rejected or result.record is None:
+                continue
+            projected.append(
+                {
+                    **result.record,
+                    "block_id": block.block_id,
+                    "schema_hint": hint,
+                    "projection_completeness": result.completeness,
+                    "missing_fields": list(result.missing_fields),
+                }
+            )
+    return projected
+
+
 def build_generic_community_output(
     parse_result: Any,
     detected_type: str,
@@ -109,6 +148,9 @@ def build_generic_community_output(
     """Build v2.0 community JSON using generic plugin presentation."""
     fields = _collect_entity_fields(parse_result)
     records = _collect_table_records(parse_result)
+    structure_records = _collect_structure_projected_records(parse_result)
+    if structure_records:
+        records = records + structure_records
     file_path = getattr(parse_result, "file_path", "") or ""
     doc_name = Path(file_path).name if file_path else detected_type
     page_count = len(getattr(parse_result, "pages", []) or [])
@@ -124,6 +166,7 @@ def build_generic_community_output(
         entities=fields,
         structured_data={
             "records": records,
+            "structure_projected_records": structure_records,
             "summary": summary,
             "sections": [],
             "tables": [],

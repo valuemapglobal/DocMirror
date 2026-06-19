@@ -20,7 +20,24 @@ FORBIDDEN_FOR_PLUGINS = {
     "docmirror.core.extraction.extractor",
     "docmirror.core.segment.zones",
     "docmirror.core.extract.engine",
+    "docmirror.core.pipeline",
     "docmirror.core.ocr.fallback",
+}
+
+FORBIDDEN_CORE_IMPORT_PREFIXES = {
+    "docmirror.plugins": "core_must_not_depend_on_plugins",
+    "docmirror.server": "core_must_not_depend_on_server",
+}
+
+FORBIDDEN_MODELS_IMPORT_PREFIXES = {
+    "docmirror.core": "models_must_not_depend_on_core",
+    "docmirror.framework": "models_must_not_depend_on_framework",
+    "docmirror.adapters": "models_must_not_depend_on_adapters",
+}
+
+FORBIDDEN_BRIDGE_IMPORT_PREFIXES = {
+    "docmirror.adapters": "bridge_must_not_call_adapters",
+    "docmirror.framework.dispatcher": "bridge_must_not_call_dispatcher",
 }
 
 LAZY_HUB_FILE = CORE / "segment" / "zones.py"
@@ -79,6 +96,33 @@ def plugin_forbidden_imports() -> list[dict[str, str]]:
     return violations
 
 
+def efmp_boundary_violations() -> list[dict[str, str]]:
+    """Report EFMP evidence/hypothesis and projection boundary violations."""
+    violations: list[dict[str, str]] = []
+    models = ROOT / "docmirror" / "models"
+    bridge = CORE / "bridge"
+
+    for path in _py_files(CORE):
+        for imp in _imports_in_file(path):
+            for prefix, rule in FORBIDDEN_CORE_IMPORT_PREFIXES.items():
+                if imp == prefix or imp.startswith(prefix + "."):
+                    violations.append({"file": str(path.relative_to(ROOT)), "import": imp, "rule": rule})
+
+    for path in _py_files(models):
+        for imp in _imports_in_file(path):
+            for prefix, rule in FORBIDDEN_MODELS_IMPORT_PREFIXES.items():
+                if imp == prefix or imp.startswith(prefix + "."):
+                    violations.append({"file": str(path.relative_to(ROOT)), "import": imp, "rule": rule})
+
+    for path in _py_files(bridge):
+        for imp in _imports_in_file(path):
+            for prefix, rule in FORBIDDEN_BRIDGE_IMPORT_PREFIXES.items():
+                if imp == prefix or imp.startswith(prefix + "."):
+                    violations.append({"file": str(path.relative_to(ROOT)), "import": imp, "rule": rule})
+
+    return violations
+
+
 def inbound_reference_counts() -> dict[str, int]:
     counts: dict[str, int] = defaultdict(int)
     core_modules = {_module_name(p): p for p in _py_files(CORE)}
@@ -123,6 +167,7 @@ def run_audit() -> dict:
     return {
         "layout_analysis_consumers": layout_analysis_consumers(),
         "plugin_forbidden_imports": plugin_forbidden_imports(),
+        "efmp_boundary_violations": efmp_boundary_violations(),
         "zero_inbound_core_modules": sorted(dead),
         "god_files_over_800_loc": god_files(),
         "lazy_hub_present": lazy_hub_present(),

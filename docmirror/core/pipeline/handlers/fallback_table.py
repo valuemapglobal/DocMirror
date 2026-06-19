@@ -20,12 +20,38 @@ from typing import TYPE_CHECKING
 
 from docmirror.models.entities.domain import Block
 from docmirror.core.extract.engine import extract_tables_layered
+from docmirror.core.geometry.table_attrs import build_table_geometry_attrs
 from docmirror.core.ocr.fallback import analyze_scanned_page
 
 if TYPE_CHECKING:
     from docmirror.core.pipeline.page_extractor import PageExtractor
 
 logger = logging.getLogger(__name__)
+
+
+def _fallback_table_bbox(layout_al, page_plum, table_idx: int) -> tuple[float, float, float, float]:
+    table_regions = [r for r in getattr(layout_al, "regions", []) if getattr(r, "type", "") == "table"]
+    if table_idx < len(table_regions) and getattr(table_regions[table_idx], "bbox", None):
+        return tuple(float(v) for v in table_regions[table_idx].bbox)
+    width = float(getattr(page_plum, "width", 0.0) or 0.0)
+    height = float(getattr(page_plum, "height", 0.0) or 0.0)
+    return (0.0, 0.0, width, height)
+
+
+def _page_chars(page_plum) -> list[dict]:
+    return list(getattr(page_plum, "chars", None) or [])
+
+
+def _stamp_geometry_audit(extractor: "PageExtractor", page_no: int, attrs: dict) -> None:
+    if "geometry_coverage_ratio" not in attrs or getattr(extractor._host, "_extraction_audit", None) is None:
+        return
+    for entry in reversed(extractor._host._extraction_audit):
+        if entry.get("page") == page_no:
+            entry["geometry_coverage_ratio"] = attrs["geometry_coverage_ratio"]
+            return
+    extractor._host._extraction_audit.append(
+        {"page": page_no, "geometry_coverage_ratio": attrs["geometry_coverage_ratio"]}
+    )
 
 def fallback_table_extraction(extractor: "PageExtractor",
     page_plum,
@@ -122,19 +148,36 @@ def fallback_table_extraction(extractor: "PageExtractor",
             )
 
     ro = reading_order
-    for tbl in page_tables:
+    for tbl_idx, tbl in enumerate(page_tables):
         if tbl and len(tbl) >= 1:
             tbl_id = f"blk_{page_idx}_{ro}"
+            table_bbox = _fallback_table_bbox(layout_al, page_plum, tbl_idx)
+            attrs = build_table_geometry_attrs(
+                tbl,
+                chars=_page_chars(page_plum),
+                table_bbox=table_bbox,
+                page_number=page_idx + 1,
+                table_index=tbl_idx,
+                geometry_source=extraction_layer or "fallback_table",
+                geometry_confidence=extraction_confidence,
+                base_attrs={
+                    "extraction_layer": extraction_layer,
+                    "extraction_confidence": extraction_confidence,
+                    "zone_type": "fallback_table",
+                },
+            )
+            _stamp_geometry_audit(extractor, page_idx + 1, attrs)
             result_blocks.append(
                 Block(
                     block_id=tbl_id,
                     block_type="table",
+                    bbox=table_bbox,
                     reading_order=ro,
                     page=page_idx + 1,
                     raw_content=tbl,
+                    attrs=attrs,
                 )
             )
             ro += 1
 
     return result_blocks, extraction_layer, extraction_confidence
-

@@ -59,7 +59,7 @@ def reenter_generic_pipeline(fitz_doc, pre_analysis):
     proc = _active_pdf_processor.get()
     if proc is None:
         raise RuntimeError("reenter_generic_pipeline called without active PdfSyncProcessor")
-    has_text, is_image_input, cleaned_path, file_path = proc._process_ctx
+    has_text, is_image_input, cleaned_path, file_path, options = proc._process_ctx
     token = _bypass_content_type.set(pre_analysis.content_type)
     try:
         return proc.process(
@@ -69,6 +69,7 @@ def reenter_generic_pipeline(fitz_doc, pre_analysis):
             is_image_input,
             cleaned_path,
             file_path,
+            options=options,
         )
     finally:
         _bypass_content_type.reset(token)
@@ -89,6 +90,8 @@ class PdfSyncProcessor:
         is_image_input: bool,
         cleaned_path,
         file_path,
+        *,
+        options: dict | None = None,
     ):
         """CPU-bound core: layout analysis → per-page extraction → post-processing.
 
@@ -110,16 +113,24 @@ class PdfSyncProcessor:
         import docmirror.core.extraction.strategies.mixed  # noqa: F401
         import docmirror.core.extraction.strategies.text_dominant  # noqa: F401
 
-        self._process_ctx = (has_text, is_image_input, cleaned_path, file_path)
+        self._process_ctx = (has_text, is_image_input, cleaned_path, file_path, dict(options or {}))
         proc_token = _active_pdf_processor.set(self)
         try:
+            parse_control = (options or {}).get("parse_control")
+            force_generic = bool(
+                parse_control is not None
+                and hasattr(parse_control, "pages")
+                and not parse_control.pages.is_all_pages
+            )
             strategy = get_strategy(pre_analysis.content_type)
-            if strategy is not None:
+            if strategy is not None and not force_generic:
                 logger.info(
                     f"[DocMirror] Strategy Registry → {strategy.__class__.__name__} "
                     f"(content_type={pre_analysis.content_type})"
                 )
                 return strategy.extract(fitz_doc, pre_analysis)
+            if strategy is not None and force_generic:
+                logger.info("[DocMirror] Page selection active → generic pipeline for exact page slicing")
 
             # === Generic pipeline (unchanged) ===
             return self._run_generic_pipeline(
@@ -129,6 +140,7 @@ class PdfSyncProcessor:
                 is_image_input,
                 cleaned_path,
                 file_path,
+                options=options,
             )
         finally:
             _active_pdf_processor.reset(proc_token)
@@ -141,6 +153,8 @@ class PdfSyncProcessor:
         is_image_input: bool,
         cleaned_path,
         file_path,
+        *,
+        options: dict | None = None,
     ):
         """Generic CPS path (table/scanned/mixed documents)."""
         # ── Per-step timing instrumentation ──
@@ -151,32 +165,61 @@ class PdfSyncProcessor:
         # Derived: plumber_path for pdfplumber
         plumber_path = cleaned_path if cleaned_path else file_path
 
+        options = dict(options or {})
+        parse_control = options.get("parse_control")
+        source_page_count = len(fitz_doc)
+        if parse_control is not None and hasattr(parse_control, "pages"):
+            selected_page_indices = list(parse_control.pages.resolve(source_page_count))
+        else:
+            max_pages_opt = options.get("max_pages")
+            max_pages = int(max_pages_opt or 0) if max_pages_opt is not None else int(os.environ.get("DOCMIRROR_MAX_PAGES", "0"))
+            selected_page_indices = list(range(source_page_count if max_pages <= 0 else min(source_page_count, max_pages)))
+        selected_page_set = set(selected_page_indices)
+        if not selected_page_indices and source_page_count:
+            logger.warning("[DocMirror] Page selection resolved to zero pages")
+
         # === Step 2: Layout analysis (parallel when max_page_concurrency > 1 and path available) ===
         _t = _clock()
-        num_pages = len(fitz_doc)
+        num_pages = len(selected_page_indices)
         use_parallel_layout = (
             self._host._max_page_concurrency > 1 and not is_image_input and cleaned_path is not None and num_pages >= 4
         )
         if use_parallel_layout:
             layout_path = str(Path(cleaned_path).resolve())
             env_layout = int(os.environ.get("DOCMIRROR_LAYOUT_MAX_WORKERS", "0"))
+            explicit_layout_workers = None
+            if parse_control is not None:
+                workers_raw = getattr(getattr(parse_control, "resource", None), "workers", None)
+                if isinstance(workers_raw, int):
+                    explicit_layout_workers = max(1, workers_raw)
             layout_workers = (
+                min(num_pages, explicit_layout_workers)
+                if explicit_layout_workers is not None
+                else
                 min(num_pages, env_layout)
                 if env_layout > 0
                 else min(self._host._max_page_concurrency, num_pages, os.cpu_count() or 4)
             )
             if layout_workers <= 1:
-                page_layouts_al = analyze_document_layout(fitz_doc)
+                page_layouts_al = analyze_document_layout(fitz_doc, page_indices=selected_page_indices)
             else:
-                page_layouts_al = analyze_document_layout_parallel(layout_path, num_pages, max_workers=layout_workers)
+                page_layouts_al = analyze_document_layout_parallel(
+                    layout_path,
+                    source_page_count,
+                    max_workers=layout_workers,
+                    page_indices=selected_page_indices,
+                )
         else:
-            page_layouts_al = analyze_document_layout(fitz_doc)
+            page_layouts_al = analyze_document_layout(fitz_doc, page_indices=selected_page_indices)
         _perf["layout_analysis_ms"] = (_clock() - _t) * 1000
+        _perf["source_page_count"] = source_page_count
+        _perf["selected_pages"] = [i + 1 for i in selected_page_indices]
 
         # Extract full text (with per-page caching to avoid redundant calls)
         _page_text_cache: dict[int, str] = {}
         full_text_parts = []
-        for p_idx, page in enumerate(fitz_doc):
+        for p_idx in selected_page_indices:
+            page = fitz_doc[p_idx]
             txt = page.get_text()
             _page_text_cache[p_idx] = txt
             full_text_parts.append(txt)
@@ -190,11 +233,12 @@ class PdfSyncProcessor:
             file_path=Path(file_path),
             pre_analysis=pre_analysis,
             fitz_doc=fitz_doc,
+            options=options,
         )
         self._host._pipeline_ctx = pipeline_ctx
         _extraction_profile = self._doc_pipeline.bind_profile(
             full_text_raw=full_text_raw,
-            num_pages=num_pages,
+            num_pages=source_page_count,
             pre_analysis=pre_analysis,
             title_text=_title_text,
         )
@@ -213,8 +257,6 @@ class PdfSyncProcessor:
         extraction_layer: str = "unknown"  # last strategy layer used by extract_tables_layered
         extraction_confidence: float = 0.0  # last extraction confidence
 
-        max_pages = int(os.environ.get("DOCMIRROR_MAX_PAGES", "0"))
-
         # Per-page text presence detection (>50 chars = has text layer)
         # Use cached text from above
         _TEXT_THRESHOLD = 50
@@ -223,9 +265,10 @@ class PdfSyncProcessor:
             txt = _page_text_cache.get(p_idx, "")
             page_has_text.append(len(txt.strip()) > _TEXT_THRESHOLD)
 
-        hybrid_doc = has_text and not all(page_has_text)
+        selected_has_text = [page_has_text[i] for i in selected_page_indices]
+        hybrid_doc = has_text and bool(selected_has_text) and not all(selected_has_text)
         if hybrid_doc:
-            scanned_indices = [i for i, v in enumerate(page_has_text) if not v]
+            scanned_indices = [i for i in selected_page_indices if not page_has_text[i]]
             logger.info(
                 f"[DocMirror] Hybrid document detected: "
                 f"{len(scanned_indices)} scanned pages out of {len(page_has_text)}"
@@ -251,10 +294,10 @@ class PdfSyncProcessor:
             try:
                 _gt0 = _clock()
                 # Extract chars from all digital pages (limit to first 50)
-                max_tensor_pages = min(len(plumber_doc.pages), 50)
+                max_tensor_pages = min(len(selected_page_indices), 50)
                 all_chars = []
                 max_w = 0
-                for pid in range(max_tensor_pages):
+                for pid in selected_page_indices[:max_tensor_pages]:
                     if page_has_text[pid]:
                         p = plumber_doc.pages[pid]
                         all_chars.append(p.chars)
@@ -274,7 +317,7 @@ class PdfSyncProcessor:
             and _extraction_profile.enable_grid_template
         ):
             try:
-                sample_idx = 1 if len(fitz_doc) > 1 else 0
+                sample_idx = selected_page_indices[min(1, len(selected_page_indices) - 1)] if selected_page_indices else 0
                 if page_has_text[sample_idx]:
                     sp_t0 = _clock()
                     sample_plum = plumber_doc.pages[sample_idx]
@@ -325,7 +368,7 @@ class PdfSyncProcessor:
             # Legacy template sampling — generic docs only (EPO profiles use enable_grid_template branch)
             try:
                 # Sample the very middle page
-                sample_idx = len(fitz_doc) // 2
+                sample_idx = selected_page_indices[len(selected_page_indices) // 2] if selected_page_indices else len(fitz_doc) // 2
                 if page_has_text[sample_idx]:
                     sp_t0 = _clock()
                     sample_plum = plumber_doc.pages[sample_idx]
@@ -361,7 +404,7 @@ class PdfSyncProcessor:
             except Exception as e:
                 logger.warning(f"[DocMirror] Golden Page Template Sampling failed: {e}")
 
-        num_digital = sum(1 for i in range(len(page_has_text)) if page_has_text[i])
+        num_digital = sum(1 for i in selected_page_indices if page_has_text[i])
         use_page_concurrency = self._host._max_page_concurrency > 1 and plumber_doc is not None and num_digital >= 2
         if use_page_concurrency and _extraction_profile.is_borderless_ledger():
             logger.info(
@@ -369,16 +412,17 @@ class PdfSyncProcessor:
                 _extraction_profile.profile_id,
             )
             use_page_concurrency = False
-        max_workers = min(self._host._max_page_concurrency, 4, len(fitz_doc)) if use_page_concurrency else 1
+        max_workers = min(self._host._max_page_concurrency, 4, len(selected_page_indices)) if use_page_concurrency else 1
 
         try:
             if use_page_concurrency:
                 # Phase 2: parallel digital page extraction (thread pool)
                 results_by_idx = {}  # page_idx -> future or (page_layout, ocr_parts)
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                    for page_idx, layout_al in enumerate(page_layouts_al):
-                        if max_pages > 0 and page_idx >= max_pages:
-                            break
+                    for layout_al in page_layouts_al:
+                        page_idx = layout_al.page_index
+                        if page_idx not in selected_page_set:
+                            continue
                         _pt = _clock()
                         try:
                             if page_has_text[page_idx] and plumber_doc:
@@ -451,10 +495,10 @@ class PdfSyncProcessor:
 
                 _page_state = PageState()
                 self._host._page_state = _page_state
-                for page_idx, layout_al in enumerate(page_layouts_al):
-                    if max_pages > 0 and page_idx >= max_pages:
-                        logger.info(f"[DocMirror] Early exit at page {page_idx} (DOCMIRROR_MAX_PAGES={max_pages})")
-                        break
+                for layout_al in page_layouts_al:
+                    page_idx = layout_al.page_index
+                    if page_idx not in selected_page_set:
+                        continue
                     fitz_page = fitz_doc[page_idx]
                     _pt = _clock()
                     try:
@@ -538,8 +582,12 @@ class PdfSyncProcessor:
                 )
                 if _quarantined:
                     _perf["quarantined_tables"] = _quarantined
+                _ltqg = getattr(self._host, "_ltqg_summary", None)
+                if _ltqg:
+                    _perf["ltqg"] = _ltqg
             except Exception as _ce:
-                logger.debug("[DocMirror] Logical table composition skipped: %s", _ce)
+                logger.warning("[DocMirror] Logical table composition failed: %s", _ce)
+                _perf["compose_failed"] = True
                 _quarantined = []
             _perf["composition_ms"] = (_clock() - _t) * 1000
             if _logical_tables_payload is not None:
@@ -569,8 +617,22 @@ class PdfSyncProcessor:
                     "(preserve per-page physical rows for borderless ledgers)"
                 )
             else:
-                pages = self.fix_table_structures(pages)
-                pages = self.infer_missing_headers(pages)
+                profile = getattr(self._host, "_extraction_profile", None)
+                from docmirror.core.profile.registry import is_borderless_ledger_profile
+
+                skip_fix = bool(
+                    profile
+                    and is_borderless_ledger_profile(profile)
+                    and getattr(profile, "document_type_hint", None) == "bank_statement"
+                )
+                if skip_fix:
+                    logger.info(
+                        "[DocMirror] Borderless bank: skipping fix_table_structures / "
+                        "infer_missing_headers (compose unavailable — preserve physical fidelity)"
+                    )
+                else:
+                    pages = self.fix_table_structures(pages)
+                    pages = self.infer_missing_headers(pages)
 
             # ── Log performance breakdown ──
             _logical_payload = _perf.pop("_logical_tables", None)
@@ -595,9 +657,13 @@ class PdfSyncProcessor:
                 _quarantine = _perf.get("quarantined_tables") or []
                 _primary_logical = 0
                 if _logical_tables_payload:
-                    _primary_logical = max(
-                        int(lt.get("row_count") or 0) for lt in _logical_tables_payload
-                    )
+                    _ltqg = _perf.get("ltqg") or {}
+                    if _ltqg.get("enabled"):
+                        _primary_logical = int(_ltqg.get("expected_data_rows") or 0)
+                    else:
+                        _primary_logical = max(
+                            int(lt.get("row_count") or 0) for lt in _logical_tables_payload
+                        )
                 _perf["extraction_audit"] = {
                     "profile_id": _profile_id,
                     "pages": list(_audit),
@@ -606,7 +672,7 @@ class PdfSyncProcessor:
                             "page": q.get("page"),
                             "row_count": q.get("row_count"),
                             "reason": q.get("reason", "col_count_mismatch"),
-                            "loss_reason": "col_count_mismatch",
+                            "loss_reason": q.get("reason", "col_count_mismatch"),
                             "action": q.get("action", "standalone_physical_table"),
                         }
                         for q in _quarantine
@@ -619,6 +685,8 @@ class PdfSyncProcessor:
                     ),
                     "primary_logical_rows": _primary_logical,
                 }
+                if _ltqg := _perf.get("ltqg"):
+                    _perf["extraction_audit"]["ltqg"] = dict(_ltqg)
 
             if _page_perf:
                 for pp in _page_perf:
@@ -661,6 +729,8 @@ class PdfSyncProcessor:
                             reading_order=block.reading_order,
                             page=block.page,
                             raw_content=fixed,
+                            attrs=block.attrs,
+                            evidence_ids=block.evidence_ids,
                         )
                     )
                 else:
@@ -684,7 +754,7 @@ class PdfSyncProcessor:
         text blocks from earlier pages for a vocabulary-matching header
         line and prepends it.
         """
-        from ..utils.vocabulary import _is_data_row, _score_header_by_vocabulary
+        from ..utils.vocabulary import _is_data_row, _is_header_row, _score_header_by_vocabulary
 
         for pg in pages:
             for block in pg.blocks:
@@ -735,6 +805,8 @@ class PdfSyncProcessor:
                                     reading_order=b.reading_order,
                                     page=b.page,
                                     raw_content=rc_new,
+                                    attrs=b.attrs,
+                                    evidence_ids=b.evidence_ids,
                                 )
                             )
                         else:

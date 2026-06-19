@@ -2,17 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Post-extract hook: project plugin quality trust scores onto Mirror.
+Post-extract hook: normalize plugin trust scores on edition JSON.
 
-Copies ``trust_score``, validation coverage, and confidence from the extracted
-edition ``quality`` block onto ``ParseResult.trust`` when present.
-
-Pipeline role: bridges plugin-side quality metrics back to Mirror for downstream
-consumers; runs for any document type whose extract payload includes trust fields.
+Ensures ``quality`` / ``validation`` blocks on the extracted edition payload carry
+trust metrics from the plugin. Does **not** write back to ``ParseResult.trust``
+(Architecture A — Core Mirror stays plugin-free).
 
 Key exports: ``PluginTrustProjectionHook``.
-
-Dependencies: ``models.entities.parse_result.TrustResult``.
 """
 
 from __future__ import annotations
@@ -20,7 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from docmirror.models.entities.parse_result import ParseResult, TrustResult
+from docmirror.models.entities.parse_result import ParseResult
 from docmirror.plugins.post_extract.base import PostExtractHook
 
 logger = logging.getLogger(__name__)
@@ -43,14 +39,22 @@ class PluginTrustProjectionHook(PostExtractHook):
         if not trust_score:
             return
         try:
-            result.trust = TrustResult(
-                trust_score=float(trust_score),
-                validation_score=float(quality.get("field_coverage") or quality.get("validation_score") or 0),
-                validation_passed=bool(quality.get("validation_passed", False)),
-                details={"source": f"post_extract:plugin:{edition}"},
-            )
-            conf = quality.get("confidence")
-            if conf and float(conf) > result.confidence:
-                result.confidence = float(conf)
+            out_quality = extracted.setdefault("quality", {})
+            out_quality.setdefault("trust_score", float(trust_score))
+            if quality.get("field_coverage") is not None:
+                out_quality.setdefault("field_coverage", quality.get("field_coverage"))
+            if quality.get("validation_score") is not None:
+                out_quality.setdefault("validation_score", quality.get("validation_score"))
+            if "validation_passed" in quality:
+                out_quality.setdefault("validation_passed", quality.get("validation_passed"))
+            if quality.get("confidence") is not None:
+                out_quality.setdefault("confidence", quality.get("confidence"))
+            out_quality.setdefault("source", f"post_extract:plugin:{edition}")
+
+            enrichment = extracted.setdefault("enrichment", {})
+            enrichment["trust_projection"] = {
+                "edition": edition,
+                "trust_score": float(trust_score),
+            }
         except Exception as exc:
             logger.debug("[PostExtract] trust projection skip: %s", exc)

@@ -22,9 +22,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from collections.abc import Callable
-from typing import Any
-
 from docmirror.core.ocr.preprocess.legacy_fallback import _render_page_to_bgr
 from docmirror.core.ocr.reconstruct.grid_legacy import _detect_table_lines_hough
 from docmirror.core.ocr.recognize.runner_legacy import _run_ocr
@@ -96,6 +93,45 @@ def _group_words_into_lines(words: list[tuple], y_tolerance: float = 12.0) -> li
     return lines
 
 
+def _word_confidence(word: tuple) -> float:
+    for idx in (-1, 5):
+        try:
+            value = float(word[idx])
+        except (IndexError, TypeError, ValueError):
+            continue
+        if 0.0 <= value <= 1.0:
+            return value
+    return 1.0
+
+
+def _words_to_ocr_tokens(words: list[tuple], *, page_idx: int) -> list[dict[str, Any]]:
+    tokens: list[dict[str, Any]] = []
+    for idx, word in enumerate(words or []):
+        if len(word) < 5:
+            continue
+        text = str(word[4] or "").strip()
+        if not text:
+            continue
+        try:
+            bbox = [float(word[0]), float(word[1]), float(word[2]), float(word[3])]
+        except (TypeError, ValueError):
+            continue
+        tokens.append(
+            {
+                "token_id": f"ocr_p{page_idx + 1}_t{idx}",
+                "text": text,
+                "bbox": bbox,
+                "confidence": _word_confidence(word),
+                "page": page_idx + 1,
+                "source": "rapidocr",
+                "coordinate_system": "image_pixels",
+                "raw_bbox": bbox,
+                "raw_coordinate_system": "image_pixels",
+            }
+        )
+    return tokens
+
+
 def ocr_extract_universal(
     fitz_page,
     page_idx: int,
@@ -158,6 +194,8 @@ def ocr_extract_universal(
                     return {
                         "content_type": "general",
                         "lines": lines,
+                        "tokens": _words_to_ocr_tokens(all_words, page_idx=page_idx),
+                        "_page_image": img,
                         "page_h": page_h,
                         "page_w": page_w,
                     }
@@ -186,6 +224,8 @@ def ocr_extract_universal(
         return {
             "content_type": "general",
             "lines": lines,
+            "tokens": _words_to_ocr_tokens(all_words, page_idx=page_idx),
+            "_page_image": img,
             "page_h": page_h,
             "page_w": page_w,
         }

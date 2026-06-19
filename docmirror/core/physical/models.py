@@ -66,6 +66,8 @@ class Block:
     page: int = 0
     # Original raw content natively inherently smartly perfectly
     raw_content: str | list[list[str]] | dict[str, str] | bytes | None = None
+    attrs: dict[str, Any] = dataclasses.field(default_factory=dict)
+    evidence_ids: tuple[str, ...] = ()
     # Heading hierarchy natively cleanly instinctively
     heading_level: int | None = None
     # Associated image captions beautifully dynamically.

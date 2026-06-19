@@ -14,6 +14,7 @@ import logging
 from collections import defaultdict
 
 from docmirror.core.table.pipe_row_merge import merge_pipe_continuation_rows
+from docmirror.core.table.row_kind import filter_pipe_table_rows
 from docmirror.core.table.structure_detect.pipe_grid import page_has_no_drawing_primitives
 from docmirror.core.utils.vocabulary import _ALL_BORDER_CHARS, PIPE_CHARS
 
@@ -145,6 +146,10 @@ def extract_pipe_delimited_table(page_plum) -> list[list[str]] | None:
         return None
 
     table = merge_pipe_continuation_rows(table)
+    table = filter_pipe_table_rows(table)
+
+    if len(table) < 3:
+        return None
 
     logger.info("pipe_delimited: extracted %s rows x %s cols", len(table), n_cols)
     return table

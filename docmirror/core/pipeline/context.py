@@ -16,8 +16,52 @@ Downstream: All ``pipeline.stages`` and ``pipeline.handlers``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+
+@dataclass(frozen=True)
+class ParseContext:
+    """Request-scoped parse context propagated from dispatcher to adapters.
+
+    This carries user intent and file metadata without relying on process-wide
+    environment mutations.
+    """
+
+    file_path: Path
+    file_type: str = "unknown"
+    content_model: str = ""
+    capability_id: str = ""
+    file_size: int = 0
+    mime_type: str = ""
+    checksum: str = ""
+    is_forged: bool | None = None
+    forgery_reasons: tuple[str, ...] = ()
+    enhance_mode: str = "standard"
+    max_pages: int | None = None
+    request_id: str = ""
+    started_at: datetime | None = None
+    options: dict[str, Any] = field(default_factory=dict)
+
+    def to_perceive_context(self) -> dict[str, Any]:
+        """Return a kwargs-compatible context for existing adapter APIs."""
+        return {
+            "parse_context": self,
+            "file_type": self.file_type,
+            "content_model": self.content_model,
+            "capability_id": self.capability_id,
+            "file_size": self.file_size,
+            "mime_type": self.mime_type,
+            "checksum": self.checksum,
+            "is_forged": self.is_forged,
+            "forgery_reasons": list(self.forgery_reasons),
+            "enhance_mode": self.enhance_mode,
+            "max_pages": self.max_pages,
+            "request_id": self.request_id,
+            "started_at": self.started_at,
+            "options": self.options,
+        }
 
 
 @dataclass
@@ -51,4 +95,4 @@ class DocumentPipelineContext:
     options: dict[str, Any] = field(default_factory=dict)
 
 
-__all__ = ["DocumentPipelineContext", "PageExtractionContext"]
+__all__ = ["DocumentPipelineContext", "PageExtractionContext", "ParseContext"]

@@ -38,6 +38,12 @@ def _ehl_annex(result: ParseResult) -> MirrorAnnex | None:
     return None
 
 
+def _annex_payload(value: Any) -> Any:
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    return value
+
+
 def build_debug_artifact(
     result: ParseResult,
     *,
@@ -58,11 +64,11 @@ def build_debug_artifact(
     annex = _ehl_annex(result)
     if annex:
         if annex.hypotheses:
-            artifact["hypotheses"] = annex.hypotheses
+            artifact["hypotheses"] = [_annex_payload(h) for h in annex.hypotheses]
         if annex.evidence_summary:
-            artifact["evidence_summary"] = annex.evidence_summary
+            artifact["evidence_summary"] = _annex_payload(annex.evidence_summary)
         if annex.quality_report:
-            artifact["quality_report"] = annex.quality_report
+            artifact["quality_report"] = _annex_payload(annex.quality_report)
         if annex.pipeline_debug:
             artifact["pipeline_debug"] = annex.pipeline_debug
 

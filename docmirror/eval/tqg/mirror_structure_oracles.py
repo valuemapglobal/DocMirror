@@ -28,6 +28,13 @@ def run_mirror_structure_oracle(
 
     structure = (base.metadata or {}).get("structure")
     if not isinstance(structure, dict):
+        mirror = meta.get("mirror") or meta.get("result")
+        if mirror is not None:
+            info = getattr(mirror, "parser_info", None)
+            structure = getattr(info, "structure", None) if info else None
+    if not isinstance(structure, dict):
+        structure = meta.get("structure") if isinstance(meta.get("structure"), dict) else None
+    if not isinstance(structure, dict):
         report.passed = False
         report.failures.append("mirror_structure: metadata.structure missing")
         return report
@@ -84,5 +91,90 @@ def run_mirror_structure_oracle(
                 f"table_extraction expected {expected_extraction!r}, "
                 f"got {structure.get('table_extraction')!r}"
             )
+
+    min_physical = spec.get("min_physical_table_count")
+    if min_physical is not None:
+        actual = int(structure.get("physical_table_count") or meta.get("table_count") or 0)
+        ok = actual >= int(min_physical)
+        report.checks["min_physical_table_count"] = ok
+        report.metrics["physical_table_count"] = actual
+        if not ok:
+            report.passed = False
+            report.failures.append(f"physical_table_count {actual} < {min_physical}")
+
+    ltqg_spec = spec.get("ltqg")
+    if isinstance(ltqg_spec, dict):
+        require_enabled = ltqg_spec.get("require_enabled")
+        if require_enabled:
+            ok = bool(structure.get("ltqg_enabled"))
+            report.checks["ltqg_enabled"] = ok
+            if not ok:
+                report.passed = False
+                report.failures.append("ltqg_enabled expected True")
+
+        min_expected = ltqg_spec.get("min_expected_data_rows")
+        if min_expected is not None:
+            expected_rows = int(structure.get("ltqg_expected_data_rows") or 0)
+            ok = expected_rows >= int(min_expected)
+            report.checks["min_ltqg_expected_data_rows"] = ok
+            report.metrics["ltqg_expected_data_rows"] = expected_rows
+            if not ok:
+                report.passed = False
+                report.failures.append(f"ltqg_expected_data_rows {expected_rows} < {min_expected}")
+
+        min_skipped = ltqg_spec.get("min_skipped_tables")
+        if min_skipped is not None:
+            skipped = int(structure.get("ltqg_skipped_tables") or 0)
+            ok = skipped >= int(min_skipped)
+            report.checks["min_ltqg_skipped_tables"] = ok
+            report.metrics["ltqg_skipped_tables"] = skipped
+            if not ok:
+                report.passed = False
+                report.failures.append(f"ltqg_skipped_tables {skipped} < {min_skipped}")
+
+        require_expected_below_legacy = ltqg_spec.get("require_expected_below_legacy")
+        if require_expected_below_legacy:
+            expected_rows = int(structure.get("ltqg_expected_data_rows") or 0)
+            legacy_max = int(structure.get("ltqg_legacy_max_rows") or 0)
+            ok = legacy_max > 0 and expected_rows < legacy_max
+            report.checks["ltqg_expected_below_legacy"] = ok
+            report.metrics["ltqg_legacy_max_rows"] = legacy_max
+            if not ok:
+                report.passed = False
+                report.failures.append(
+                    f"ltqg expected {expected_rows} not below legacy_max {legacy_max}"
+                )
+
+        min_export = ltqg_spec.get("min_export_logical_tables")
+        if min_export is not None:
+            export_count = int(
+                structure.get("ltqg_export_logical_tables")
+                or structure.get("logical_table_count")
+                or 0
+            )
+            ok = export_count >= int(min_export)
+            report.checks["min_ltqg_export_logical_tables"] = ok
+            report.metrics["ltqg_export_logical_tables"] = export_count
+            if not ok:
+                report.passed = False
+                report.failures.append(
+                    f"ltqg_export_logical_tables {export_count} < {min_export}"
+                )
+
+        max_export = ltqg_spec.get("max_export_logical_tables")
+        if max_export is not None:
+            export_count = int(
+                structure.get("ltqg_export_logical_tables")
+                or structure.get("logical_table_count")
+                or 0
+            )
+            ok = export_count <= int(max_export)
+            report.checks["max_ltqg_export_logical_tables"] = ok
+            report.metrics["ltqg_export_logical_tables"] = export_count
+            if not ok:
+                report.passed = False
+                report.failures.append(
+                    f"ltqg_export_logical_tables {export_count} > {max_export}"
+                )
 
     return report

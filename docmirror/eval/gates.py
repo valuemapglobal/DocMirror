@@ -23,6 +23,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from docmirror.configs.paths import YAML_DIR
+from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows
 from docmirror.models.entities.parse_result import ParseResult
 
 logger = logging.getLogger(__name__)
@@ -213,10 +214,8 @@ def cross_page_check(
 
 
 def _primary_logical_row_count(result: ParseResult) -> int:
-    """Row count for cross-page merged ledgers — primary table only, excludes quarantine."""
-    if not result.logical_tables:
-        return 0
-    return max(lt.row_count for lt in result.logical_tables)
+    """Row count for cross-page merged ledgers — Mirror LTQG SSOT when enabled."""
+    return mirror_expected_primary_rows(result)
 
 
 def _physical_row_count(result: ParseResult) -> int:

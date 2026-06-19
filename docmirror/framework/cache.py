@@ -85,18 +85,18 @@ class ParseCache:
             return None
 
     @staticmethod
-    def _key(checksum: str, doc_type: str = "") -> str:
+    def _key(checksum: str, fingerprint: str = "") -> str:
         """Generate the Redis cache key."""
-        suffix = f":{doc_type}" if doc_type else ""
+        suffix = f":{fingerprint}" if fingerprint else ""
         return f"parse:{checksum}{suffix}"
 
-    async def get(self, checksum: str, doc_type: str = "") -> str | None:
+    async def get(self, checksum: str, fingerprint: str = "") -> str | None:
         """Lookup cache. Returns the cached JSON string or None on miss."""
         r = await self._get_redis()
         if not r:
             return None
         try:
-            key = self._key(checksum, doc_type)
+            key = self._key(checksum, fingerprint)
             cached = await r.get(key)
             if cached:
                 logger.info(f"[ParseCache] ✅ HIT {key[:30]}...")
@@ -105,13 +105,13 @@ class ParseCache:
             logger.debug(f"[ParseCache] GET error: {e}")
             return None
 
-    async def set(self, checksum: str, doc_type: str, json_str: str, ttl: int = _DEFAULT_TTL) -> bool:
+    async def set(self, checksum: str, fingerprint: str, json_str: str, ttl: int = _DEFAULT_TTL) -> bool:
         """Write a JSON string to the cache with an expiration."""
         r = await self._get_redis()
         if not r:
             return False
         try:
-            key = self._key(checksum, doc_type)
+            key = self._key(checksum, fingerprint)
             await r.setex(key, ttl, json_str)
             logger.info(f"[ParseCache] 📝 SET {key[:30]}... (TTL={ttl}s)")
             return True

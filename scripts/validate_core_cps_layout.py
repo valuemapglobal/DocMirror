@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import sys
+import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,6 +44,7 @@ REQUIRED_FILES = [
     "pipeline/pdf_processor.py",
     "pipeline/page_worker.py",
     "analyze/pre_analyzer.py",
+    "analyze/conservation.py",
     "profile/registry.py",
     "segment/zones.py",
     "extract/engine.py",
@@ -65,6 +67,26 @@ REQUIRED_FILES = [
 
 FORBIDDEN_IN_ZONES = ["def __getattr__", "_DEPRECATED_REEXPORTS"]
 
+FORBIDDEN_STAGE_IMPORTS = {
+    "pipeline": ("docmirror.core.bridge", "docmirror.adapters", "docmirror.framework.dispatcher"),
+    "bridge": ("docmirror.adapters", "docmirror.framework.dispatcher"),
+    "extract": ("docmirror.core.bridge",),
+}
+
+
+def _imports_in_file(path: Path) -> list[str]:
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except SyntaxError:
+        return []
+    out: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            out.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            out.append(node.module)
+    return out
+
 
 def main() -> int:
     errors: list[str] = []
@@ -81,6 +103,19 @@ def main() -> int:
         for token in FORBIDDEN_IN_ZONES:
             if token in text:
                 errors.append(f"forbidden token {token!r} in {zones.relative_to(ROOT)}")
+    for area, prefixes in FORBIDDEN_STAGE_IMPORTS.items():
+        area_dir = CORE / area
+        if not area_dir.is_dir():
+            continue
+        for path in area_dir.rglob("*.py"):
+            if "__pycache__" in path.parts:
+                continue
+            for imp in _imports_in_file(path):
+                for prefix in prefixes:
+                    if imp == prefix or imp.startswith(prefix + "."):
+                        errors.append(
+                            f"forbidden dependency {imp!r} in {path.relative_to(ROOT)}"
+                        )
     if errors:
         for e in errors:
             print(f"ERROR: {e}", file=sys.stderr)

@@ -49,10 +49,11 @@ def test_pec_invariants_on_fake_enterprise_plugin():
     assert out["data"]["summary"]["total_rows"] >= 1
 
 
-def test_pec_trust_projection_mutates_mirror():
+def test_pec_trust_projection_enriches_edition_only():
     mirror = _mirror()
     with patch("docmirror.plugins.runner._edition_package_available", return_value=True):
         with patch("docmirror.plugins.registry.get", return_value=FakeEnterprisePlugin()):
-            run_plugin_extract_sync(mirror, edition="enterprise")
-    assert mirror.trust is not None
-    assert mirror.trust.trust_score == pytest.approx(0.9)
+            out = run_plugin_extract_sync(mirror, edition="enterprise")
+    assert out is not None
+    assert out.get("quality", {}).get("trust_score") == pytest.approx(0.9)
+    assert mirror.trust is None

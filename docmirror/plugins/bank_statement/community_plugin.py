@@ -35,7 +35,7 @@ BANK_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
     "交易金额": ColumnMapping(
         field="amount",
         unit="CNY",
-        aliases=["金额", "发生额", "Amount", "借方发生额", "贷方发生额"],
+        aliases=["金额", "发生额", "Amount", "借方发生额", "贷方发生额", "收入金额", "支出金额"],
     ),
     "余额": ColumnMapping(field="balance", unit="CNY", aliases=["账户余额", "Balance"]),
     "对方户名": ColumnMapping(
@@ -124,6 +124,9 @@ class BankStatementCommunityPlugin(BaseTableParser):
         )
         if result.warnings:
             dec.quality.issues.extend(f"warning:{w}" for w in result.warnings)
+        if result.style_meta.extract_status == "degraded":
+            dec.quality.validation_passed = False
+            dec.quality.issues.append("error:cqf_degraded")
 
         file_path = getattr(parse_result, "file_path", "") or ""
         doc_name = Path(file_path).name if file_path else self.display_name

@@ -23,11 +23,11 @@ Downstream: ``framework.dispatcher``, ``bridge.parse_result_bridge``,
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
 
+from docmirror.core.entry.options import ParseControl, normalize_parse_control
 from docmirror.core.entry.perceive_result import PerceiveResult
 from docmirror.framework.dispatcher import ParserDispatcher
 
@@ -85,6 +85,19 @@ class PerceiveOptions:
     Results are stored on ``PerceiveResult.editions`` (never on ``ParseResult``).
     """
 
+    # ── Unified parse control (new contract) ──
+    control: ParseControl | None = None
+    """Unified request-scoped parse control. Legacy fields above are shims."""
+
+    def normalized_control(self) -> ParseControl:
+        """Return the effective ParseControl for this request."""
+        return normalize_parse_control(
+            self.control,
+            max_pages=self.max_pages,
+            skip_cache=self.skip_cache,
+            enhance_mode=self.enhance_mode,
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PerceptionFactory — assembles and caches the processing pipeline
@@ -117,47 +130,6 @@ class PerceptionFactory:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Internal: apply explicit options as env-var overrides
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-def _apply_options(opts: PerceiveOptions) -> dict[str, str]:
-    """Apply option values as environment-variable overrides.
-
-    The downstream code (extractor, adapter) reads DOCMIRROR_MAX_PAGES,
-    DOCMIRROR_ENHANCE_MODE etc. from ``os.environ``.  Rather than threading
-    these values through every internal API, we set them as env-var overrides
-    at the entry boundary — this is the **only** place where "user intent"
-    meets "environment config".
-
-    Returns a dict of env vars that were *overwritten* so the caller can
-    restore them afterwards.
-    """
-    overrides: dict[str, str] = {}
-
-    if opts.max_pages is not None:
-        prev = os.environ.get("DOCMIRROR_MAX_PAGES", "")
-        os.environ["DOCMIRROR_MAX_PAGES"] = str(opts.max_pages)
-        overrides["DOCMIRROR_MAX_PAGES"] = prev
-
-    if opts.enhance_mode != "standard":
-        prev = os.environ.get("DOCMIRROR_ENHANCE_MODE", "")
-        os.environ["DOCMIRROR_ENHANCE_MODE"] = opts.enhance_mode
-        overrides["DOCMIRROR_ENHANCE_MODE"] = prev
-
-    return overrides
-
-
-def _restore_env(overrides: dict[str, str]) -> None:
-    """Restore env vars to their previous values."""
-    for key, prev in overrides.items():
-        if prev:
-            os.environ[key] = prev
-        else:
-            os.environ.pop(key, None)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # Convenience entry point
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -180,35 +152,47 @@ async def perceive_document(
         ``PerceiveResult`` with ``mirror`` and optional ``editions`` dicts.
     """
     opts = options or PerceiveOptions()
+    control = opts.normalized_control()
+    if control.slm:
+        import os
+
+        os.environ["DOCMIRROR_ENABLE_SLM"] = "1"
 
     logger.info(
         f"[PerceptionFactory] ▶ perceive_document | "
-        f"file={file_path} | mode={opts.enhance_mode} | "
-        f"max_pages={opts.max_pages or 'unlimited'} | "
-        f"skip_cache={opts.skip_cache}"
+        f"file={file_path} | mode={control.mode}/{control.enhance_mode} | "
+        f"pages={control.pages.to_display()} | "
+        f"workers={control.resource.workers} | "
+        f"formats={','.join(control.output.formats)} | "
+        f"skip_cache={control.skip_cache}"
     )
 
-    # ── Apply explicit options as env-var overrides ──
-    restored = _apply_options(opts)
-
-    try:
-        dispatcher = PerceptionFactory.get_dispatcher()
-        result = await dispatcher.process(
-            str(file_path),
-            skip_cache=opts.skip_cache,
-            on_progress=opts.on_progress,
-        )
-    finally:
-        # Restore env vars even if an exception was raised
-        _restore_env(restored)
+    dispatcher = PerceptionFactory.get_dispatcher()
+    result = await dispatcher.process(
+        str(file_path),
+        skip_cache=control.skip_cache,
+        on_progress=opts.on_progress,
+        enhance_mode=control.enhance_mode,
+        max_pages=control.pages.max_pages,
+        parse_control=control,
+        document_type=control.doc_type_hint.value if control.doc_type_hint else None,
+    )
 
     if opts.editions:
+        from copy import deepcopy
+
         from docmirror.plugins.runner import run_plugin_extract
 
+        core_mirror = deepcopy(result)
         edition_outputs: dict[str, Any] = {}
         full_text = getattr(result, "full_text", "") or ""
         fp = str(file_path)
-        for edition in opts.editions:
+        community_baseline: dict[str, Any] | None = None
+        edition_order = sorted(
+            opts.editions,
+            key=lambda e: {"community": 0, "enterprise": 1, "finance": 2}.get(e, 9),
+        )
+        for edition in edition_order:
             if edition not in ("community", "enterprise", "finance"):
                 logger.warning("[PerceptionFactory] Unknown edition %r — skipped", edition)
                 continue
@@ -218,12 +202,16 @@ async def perceive_document(
                     edition=edition,  # type: ignore[arg-type]
                     full_text=full_text,
                     file_path=fp,
+                    community_baseline=community_baseline,
                 )
                 if payload is not None:
                     edition_outputs[edition] = payload
+                    if edition == "community":
+                        community_baseline = payload
             except Exception as exc:
                 logger.warning("[PerceptionFactory] edition %s failed: %s", edition, exc)
         if edition_outputs:
-            return PerceiveResult(mirror=result, editions=edition_outputs)
+            return PerceiveResult(mirror=core_mirror, editions=edition_outputs)
+        return PerceiveResult(mirror=core_mirror)
 
     return PerceiveResult(mirror=result)

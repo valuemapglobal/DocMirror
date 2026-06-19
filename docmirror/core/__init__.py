@@ -19,8 +19,22 @@ Upstream: Application code and ``docmirror.core.entry`` factory.
 Downstream: ``extraction``, ``analyze``, and the full parse pipeline.
 """
 
-from .extraction.extractor import CoreExtractor
-from .extraction.foundation import FitzEngine
-from .analyze.pre_analyzer import PreAnalysisResult, PreAnalyzer
+_EXPORTS = {
+    "CoreExtractor": ("docmirror.core.extraction.extractor", "CoreExtractor"),
+    "FitzEngine": ("docmirror.core.extraction.foundation", "FitzEngine"),
+    "PreAnalysisResult": ("docmirror.core.analyze.pre_analyzer", "PreAnalysisResult"),
+    "PreAnalyzer": ("docmirror.core.analyze.pre_analyzer", "PreAnalyzer"),
+}
+
+
+def __getattr__(name: str):
+    if name not in _EXPORTS:
+        raise AttributeError(name)
+    module_name, attr_name = _EXPORTS[name]
+    from importlib import import_module
+
+    value = getattr(import_module(module_name), attr_name)
+    globals()[name] = value
+    return value
 
 __all__ = ["CoreExtractor", "FitzEngine", "PreAnalyzer", "PreAnalysisResult"]

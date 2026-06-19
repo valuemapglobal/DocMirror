@@ -66,11 +66,11 @@ class DocumentPipeline:
             pre_analysis=pre_analysis,
         )
 
-    async def run(self, file_path: Path, *, doc_id: str) -> BaseResult:
+    async def run(self, file_path: Path, *, doc_id: str, options: dict | None = None) -> BaseResult:
         fitz_doc = None
         try:
             fitz_doc = await self._extractor._open_document(file_path)
-            return await self._extractor._run_extraction(fitz_doc, file_path, doc_id)
+            return await self._extractor._run_extraction(fitz_doc, file_path, doc_id, options=options or {})
         finally:
             try:
                 if fitz_doc:

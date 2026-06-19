@@ -1,0 +1,20 @@
+# TQG dual_view track — physical/logical consistency oracles
+version: 1
+track: dual_view
+layer: extract
+
+cases:
+  - id: ccb_dual_view_consistency
+    tier: regression
+    pipeline: extract_only
+    fixture: fixtures/bank_statement/建行-镇江超乾物流有限公司_1.pdf
+    skip_if_fixture_missing: true
+    oracle:
+      dual_view: true
+      mirror_structure:
+        min_physical_table_count: 2
+        ltqg:
+          require_enabled: true
+          min_export_logical_tables: 1
+          max_export_logical_tables: 1
+    tags: [mirror, dual_view, bank]

@@ -77,6 +77,7 @@ def build_style_context(parse_result: Any, full_text: str = "") -> StyleContext:
         text,
         page_count=len(pages),
         structure_spe=structure_spe,
+        parse_result=parse_result,
     )
 
     return StyleContext(

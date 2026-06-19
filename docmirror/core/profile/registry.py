@@ -165,7 +165,7 @@ def match_layout_profile(
     if scene_hint == "alipay_payment" and "borderless_ledger_alipay" in profiles:
         return profiles["borderless_ledger_alipay"]
 
-    if scene_hint == "bank_statement" and "borderless_ledger_bank" in profiles:
+    if scene_hint in ("bank_statement", "bank_reconciliation") and "borderless_ledger_bank" in profiles:
         return profiles["borderless_ledger_bank"]
 
     return profiles["generic"]

@@ -20,7 +20,7 @@ Directory structure:
 Single public entry point: perceive_document()
 """
 
-__version__ = "0.5.0"
+__version__ = "2.0.0"
 __author__ = "Adam Lin <adamlin@valuemapglobal.com>"
 __copyright__ = "Copyright 2026, ValueMap Global"
 __license__ = "Apache 2.0"
@@ -36,14 +36,29 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 
-from docmirror.core.entry.factory import PerceptionFactory, PerceiveResult, perceive_document
-from docmirror.framework.dispatcher import ParserDispatcher
-from docmirror.framework.orchestrator import Orchestrator
-from docmirror.models.construction.parse_result_bridge import ParseResultBridge
-from docmirror.models.entities.domain_result import DomainExtractionResult
-from docmirror.models.entities.parse_result import ParseResult
-
 logger = logging.getLogger(__name__)
+
+_EXPORTS = {
+    "perceive_document": ("docmirror.core.entry.factory", "perceive_document"),
+    "PerceiveResult": ("docmirror.core.entry.perceive_result", "PerceiveResult"),
+    "PerceptionFactory": ("docmirror.core.entry.factory", "PerceptionFactory"),
+    "ParseResult": ("docmirror.models.entities.parse_result", "ParseResult"),
+    "ParseResultBridge": ("docmirror.models.construction.parse_result_bridge", "ParseResultBridge"),
+    "DomainExtractionResult": ("docmirror.models.entities.domain_result", "DomainExtractionResult"),
+    "ParserDispatcher": ("docmirror.framework.dispatcher", "ParserDispatcher"),
+    "Orchestrator": ("docmirror.framework.orchestrator", "Orchestrator"),
+}
+
+
+def __getattr__(name: str):
+    if name not in _EXPORTS:
+        raise AttributeError(name)
+    module_name, attr_name = _EXPORTS[name]
+    from importlib import import_module
+
+    value = getattr(import_module(module_name), attr_name)
+    globals()[name] = value
+    return value
 
 
 __all__ = [

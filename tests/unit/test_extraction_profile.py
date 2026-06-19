@@ -49,6 +49,28 @@ def test_match_wechat_by_text():
     assert p.profile_id == "borderless_ledger_wechat"
 
 
+def test_match_bank_reconciliation_scene_to_borderless_profile():
+    """bank_reconciliation ledgers must not fall back to generic x_clustering."""
+    from docmirror.core.scene.scene_resolver import scene_to_layout_profile_id
+
+    assert scene_to_layout_profile_id("bank_reconciliation") == "borderless_ledger_bank"
+
+    p = match_layout_profile(
+        text_sample="账户明细信息",
+        num_pages=11,
+        resolved_scene="bank_reconciliation",
+        scene_confidence=0.84,
+    )
+    assert p.profile_id == "borderless_ledger_bank"
+
+    p_hint = match_layout_profile(
+        text_sample="",
+        num_pages=11,
+        scene_hint="bank_reconciliation",
+    )
+    assert p_hint.profile_id == "borderless_ledger_bank"
+
+
 def test_cell_normalizer_strips_id_newlines():
     p = get_profile("borderless_ledger_wechat")
     raw = "4200001\n234567890"

@@ -33,7 +33,11 @@ from docmirror.models.entities.parse_result import (
     RowType,
     TableRow,
 )
-from docmirror.core.table.merge.merger import collect_cross_page_merge_groups
+from docmirror.core.table.compose.ledger_quality import exported_data_row_estimate
+from docmirror.core.table.merge.merger import (
+    collect_cross_page_merge_groups,
+    is_quarantined_merge_group,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +67,21 @@ def serialize_logical_tables_for_metadata(logical_tables: list[LogicalTable]) ->
                             {
                                 "text": c.text,
                                 "data_type": c.data_type.value if hasattr(c.data_type, "value") else c.data_type,
+                                "bbox": c.bbox,
+                                "row_index": c.row_index,
+                                "col_index": c.col_index,
+                                "geometry_status": c.geometry_status,
+                                "geometry_source": c.geometry_source,
+                                "geometry_confidence": c.geometry_confidence,
+                                "evidence_ids": c.evidence_ids,
+                                "source_cell_refs": c.source_cell_refs,
                             }
                             for c in r.cells
                         ],
                         "source_page": r.source_page,
                         "source_physical_id": r.source_physical_id,
                         "source_row_index": r.source_row_index,
+                        "source_cell_refs": r.source_cell_refs,
                     }
                     for r in lt.rows
                 ],
@@ -81,6 +94,11 @@ def serialize_logical_tables_for_metadata(logical_tables: list[LogicalTable]) ->
                 "merge_confidence": lt.merge_confidence,
                 "merge_log": lt.merge_log,
                 "merge_audit": lt.merge_audit,
+                "quality_score": lt.quality_score,
+                "quality_passed": lt.quality_passed,
+                "quality_skip_reason": lt.quality_skip_reason,
+                "data_row_estimate": exported_data_row_estimate(lt),
+                "quality_signals": lt.quality_signals,
             }
         )
     return payload
@@ -157,12 +175,27 @@ class TableComposer:
 
         groups = collect_cross_page_merge_groups(pages, profile=profile)
         logical: list[LogicalTable] = []
+        quarantine_standalone = 0
+        export_index = 0
 
-        for gi, group in enumerate(groups):
-            lt = composer._logical_from_merge_group(group, gi)
+        for group in groups:
+            if is_quarantined_merge_group(group):
+                lt = composer._logical_from_quarantine_group(group, export_index)
+                if lt.rows or lt.headers:
+                    logical.append(lt)
+                    export_index += 1
+                    quarantine_standalone += 1
+                continue
+            lt = composer._logical_from_merge_group(group, export_index)
             if lt.rows:
                 logical.append(lt)
+                export_index += 1
 
+        if quarantine_standalone:
+            logger.info(
+                "[TableComposer] Preserved %d quarantined merge group(s) as standalone logical tables",
+                quarantine_standalone,
+            )
         if logical:
             logger.info(
                 "[TableComposer] from_page_layouts: %d logical tables, %d total rows",
@@ -190,7 +223,19 @@ class TableComposer:
                 rows_out: list[TableRow] = []
                 prov_out: list[RowProvenance] = []
                 for ri, row in enumerate(data_rows):
-                    cells = [CellValue(text=str(c)) for c in row]
+                    refs = [
+                        {"page": page.page_number, "table_id": pt_id, "row": ri, "raw_row": ri + 1, "col": ci}
+                        for ci, _c in enumerate(row)
+                    ]
+                    cells = [
+                        CellValue(
+                            text=str(c),
+                            row_index=ri,
+                            col_index=ci,
+                            source_cell_refs=[refs[ci]],
+                        )
+                        for ci, c in enumerate(row)
+                    ]
                     rows_out.append(
                         TableRow(
                             cells=cells,
@@ -198,6 +243,7 @@ class TableComposer:
                             source_page=page.page_number,
                             source_physical_id=pt_id,
                             source_row_index=ri,
+                            source_cell_refs=refs,
                         )
                     )
                     prov_out.append(
@@ -240,6 +286,10 @@ class TableComposer:
                 rows_out = []
                 prov_out = []
                 for ri, row in enumerate(table.rows):
+                    refs = row.source_cell_refs or [
+                        {"page": page.page_number, "table_id": pt_id, "row": ri, "raw_row": ri + 1, "col": ci}
+                        for ci, _c in enumerate(row.cells)
+                    ]
                     rows_out.append(
                         TableRow(
                             cells=list(row.cells),
@@ -248,6 +298,7 @@ class TableComposer:
                             source_page=page.page_number,
                             source_physical_id=pt_id,
                             source_row_index=ri,
+                            source_cell_refs=refs,
                         )
                     )
                     prov_out.append(
@@ -278,6 +329,32 @@ class TableComposer:
                 li += 1
         return logical
 
+    @staticmethod
+    def _quarantine_skip_reason(group: dict) -> str:
+        for entry in group.get("merge_log") or []:
+            action = entry.get("action")
+            if action == "quarantine_col_mismatch":
+                return "col_count_mismatch"
+            if action == "quarantine_fragment":
+                return "fragment_table"
+        return "quarantine_standalone"
+
+    def _logical_from_quarantine_group(self, group: dict, group_index: int) -> LogicalTable:
+        """Standalone logical table for merge-quarantined physical pages (Mirror fidelity)."""
+        lt = self._logical_from_merge_group(group, group_index)
+        if not lt.rows and not lt.headers:
+            return lt
+        reason = self._quarantine_skip_reason(group)
+        return lt.model_copy(
+            update={
+                "merge_method": "quarantine_standalone",
+                "quality_passed": False,
+                "quality_skip_reason": reason,
+                "data_row_estimate": 0,
+                "confidence": min(float(lt.confidence or 1.0), 0.5),
+            }
+        )
+
     def _logical_from_merge_group(self, group: dict, group_index: int) -> LogicalTable:
         raw_rows = group.get("rows") or []
         if not raw_rows:
@@ -298,7 +375,14 @@ class TableComposer:
             src_idx = page_row_counters.get(src_page, 0)
             page_row_counters[src_page] = src_idx + 1
             pt_id = physical_table_id(src_page, 0)
-            cells = [CellValue(text=str(c)) for c in row]
+            refs = [
+                {"page": src_page, "table_id": pt_id, "row": src_idx, "raw_row": src_idx + 1, "col": ci}
+                for ci, _c in enumerate(row)
+            ]
+            cells = [
+                CellValue(text=str(c), row_index=src_idx, col_index=ci, source_cell_refs=[refs[ci]])
+                for ci, c in enumerate(row)
+            ]
             rows_out.append(
                 TableRow(
                     cells=cells,
@@ -306,6 +390,7 @@ class TableComposer:
                     source_page=src_page,
                     source_physical_id=pt_id,
                     source_row_index=src_idx,
+                    source_cell_refs=refs,
                 )
             )
             prov_out.append(
@@ -408,6 +493,10 @@ class TableComposer:
                     continue
                 src_idx = page_row_counters.get(pn, 0)
                 page_row_counters[pn] = src_idx + 1
+                refs = row.source_cell_refs or [
+                    {"page": pn, "table_id": pt_id, "row": src_idx, "raw_row": src_idx + 1, "col": ci}
+                    for ci, _c in enumerate(row.cells)
+                ]
                 all_rows.append(
                     TableRow(
                         cells=list(row.cells),
@@ -416,6 +505,7 @@ class TableComposer:
                         source_page=pn,
                         source_physical_id=pt_id,
                         source_row_index=src_idx,
+                        source_cell_refs=refs,
                     )
                 )
                 provenance.append(
@@ -476,6 +566,10 @@ def build_table_operations(logical_tables: list[LogicalTable]) -> list:
                 row_count=lt.row_count,
                 merge_log=lt.merge_log,
                 merge_audit=lt.merge_audit,
+                quality_score=lt.quality_score,
+                quality_passed=lt.quality_passed,
+                quality_skip_reason=lt.quality_skip_reason,
+                data_row_estimate=exported_data_row_estimate(lt),
             )
         )
     return ops

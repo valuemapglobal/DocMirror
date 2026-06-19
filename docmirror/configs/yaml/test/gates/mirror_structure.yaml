@@ -16,6 +16,22 @@ cases:
           - route_section_dominant_mismatch
     tags: [mirror, spe, bank, pipe]
 
+  - id: ccb_grid_ltqg
+    tier: regression
+    pipeline: extract_only
+    fixture: fixtures/bank_statement/建行-镇江超乾物流有限公司_1.pdf
+    skip_if_fixture_missing: true
+    oracle:
+      mirror_structure:
+        min_physical_table_count: 2
+        ltqg:
+          require_enabled: true
+          min_expected_data_rows: 40
+          require_expected_below_legacy: true
+          min_export_logical_tables: 1
+          max_export_logical_tables: 1
+    tags: [mirror, ltqg, bank, grid]
+
   - id: credit_report_section_spe
     tier: regression
     pipeline: extract_only

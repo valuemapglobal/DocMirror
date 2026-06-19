@@ -347,6 +347,7 @@ def _fitz_raw_full_text(fitz_doc: Any) -> str:
 def _enrich_pages_with_pipe_tables(pages: list, detect_text: str) -> tuple[list, bool]:
     """Add pipe grid table blocks when embedded in section-led documents (Phase 3)."""
     from docmirror.core.analyze.sso_config import pipe_grid_enrich_threshold
+    from docmirror.core.geometry.table_attrs import build_table_geometry_attrs
     from docmirror.core.table.structure_detect import build_pipe_table_from_text, detect_pipe_grid_in_text
     from docmirror.models.entities.domain import Block, PageLayout
 
@@ -376,12 +377,32 @@ def _enrich_pages_with_pipe_tables(pages: list, detect_text: str) -> tuple[list,
             enriched_pages.append(page)
             continue
         reading_order = max((b.reading_order for b in page.blocks), default=-1) + 1
+        page_width = float(getattr(page, "width", 0.0) or 0.0)
+        page_height = float(getattr(page, "height", 0.0) or 0.0)
+        table_width = page_width if page_width > 0 else max((len(r) for r in table), default=1) * 100.0
+        table_height = page_height if page_height > 0 else max(len(table), 1) * 24.0
+        table_bbox = (0.0, 0.0, table_width, table_height)
+        attrs = build_table_geometry_attrs(
+            table,
+            table_bbox=table_bbox,
+            page_number=page.page_number,
+            table_index=0,
+            geometry_source="section_pipe_table_estimated",
+            geometry_confidence=signal.confidence,
+            base_attrs={
+                "extraction_layer": "section_pipe_table",
+                "extraction_confidence": signal.confidence,
+                "zone_type": "section_pipe_table",
+            },
+        )
         table_block = Block._fast(
             block_id=str(uuid.uuid4())[:8],
             block_type="table",
             raw_content=table,
+            bbox=table_bbox,
             reading_order=reading_order,
             page=page.page_number,
+            attrs=attrs,
         )
         new_blocks = tuple(list(page.blocks) + [table_block])
         enriched_pages.append(
@@ -472,4 +493,3 @@ class SectionDrivenStrategy(BaseExtractionStrategy):
         )
 
         return pages, full_text, extraction_layer, extraction_confidence, _perf, _page_perf
-

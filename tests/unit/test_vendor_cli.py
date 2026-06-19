@@ -13,6 +13,12 @@ from pathlib import Path
 import pytest
 
 _VENDOR_DIR = Path(__file__).resolve().parents[2] / "vendor"
+_VENDOR_PACKAGE = _VENDOR_DIR / "docmirror_vendor" / "cli.py"
+if not _VENDOR_PACKAGE.is_file():
+    pytest.skip(
+        "vendor/docmirror_vendor not present (optional VOT package)",
+        allow_module_level=True,
+    )
 if str(_VENDOR_DIR) not in sys.path:
     sys.path.insert(0, str(_VENDOR_DIR))
 

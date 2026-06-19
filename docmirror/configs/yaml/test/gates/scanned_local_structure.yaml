@@ -1,0 +1,77 @@
+track: scanned_local_structure
+layer: mirror
+cases:
+  - id: credit_account_local_structure_contract
+    tier: regression
+    pipeline: scanned_local_structure_contract
+    oracle:
+      scanned_local_structure:
+        min_local_structures: 1
+        min_credit_accounts: 1
+        require_field_bbox_refs: true
+        required_account_fields:
+          - management_institution
+          - account_identifier
+          - open_date
+          - currency
+          - due_date
+          - loan_amount
+          - business_type
+          - guarantee_type
+          - account_status
+          - close_date
+        expected_first_account:
+          management_institution: 重庆市蚂蚁商诚信息技术有限公司
+          account_identifier: 蚂蚁借呗合并20180831J1010111000648287831
+          open_date: "2018.08.31"
+          currency: 人民币
+          due_date: "2019.06.21"
+          loan_amount: "72000"
+          business_type: 其他个人消费贷款
+          guarantee_type: 信用/免担保
+          account_status: 结清
+          close_date: "2019.06.21"
+    tags: [credit_report, scanned, local_structure, account]
+  - id: credit_account_local_structure_negative_no_anchor
+    tier: regression
+    pipeline: scanned_local_structure_contract
+    oracle:
+      scanned_local_structure:
+        forbid_credit_accounts: true
+    tags: [credit_report, scanned, local_structure, account, negative]
+  - id: credit_account_field_grid_realistic_layout
+    tier: regression
+    pipeline: scanned_local_structure_realistic_fixture
+    oracle:
+      scanned_local_structure:
+        min_local_structures: 1
+        min_credit_accounts: 1
+        prefer_structure_kind: field_grid
+        require_field_bbox_refs: true
+        expected_first_account:
+          management_institution: 重庆市蚂蚁商诚信息技术有限公司
+          open_date: "2018.08.31"
+          due_date: "2019.06.21"
+          currency: 人民币
+          loan_amount: "72000"
+          account_status: 结清
+          close_date: "2019.06.21"
+    tags: [credit_report, scanned, local_structure, field_grid, realistic]
+  - id: credit_account_field_grid_full_page_layout
+    tier: regression
+    pipeline: scanned_local_structure_full_page_fixture
+    oracle:
+      scanned_local_structure:
+        min_local_structures: 3
+        min_credit_accounts: 3
+        prefer_structure_kind: field_grid
+        require_field_bbox_refs: true
+        expected_first_account:
+          management_institution: 重庆市蚂蚁商诚信息技术有限公司
+          open_date: "2018.08.31"
+          due_date: "2019.06.21"
+          currency: 人民币
+          loan_amount: "72000"
+          account_status: 结清
+          close_date: "2019.06.21"
+    tags: [credit_report, scanned, local_structure, field_grid, l3_snapshot]

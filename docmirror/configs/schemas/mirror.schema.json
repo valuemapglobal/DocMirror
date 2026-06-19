@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docmirror.dev/schemas/mirror.schema.json",
+  "title": "DocMirror Mirror JSON",
+  "description": "Design 21 serialization contract for ParseResult.to_api_dict output.",
+  "type": "object",
+  "required": ["code", "api_version", "mirror_profile", "meta"],
+  "properties": {
+    "code": { "type": "integer" },
+    "message": { "type": "string" },
+    "api_version": { "type": "string" },
+    "request_id": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "mirror_profile": {
+      "type": "object",
+      "required": ["contract_version", "level", "includes"],
+      "properties": {
+        "contract_version": { "type": "string" },
+        "level": { "enum": ["standard", "forensic"] },
+        "includes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "document": { "$ref": "#/$defs/document" },
+        "quality": { "type": "object" }
+      }
+    },
+    "meta": { "$ref": "#/$defs/meta" }
+  },
+  "$defs": {
+    "counts": {
+      "type": "object",
+      "required": [
+        "physical_tables",
+        "physical_data_rows",
+        "logical_tables_total",
+        "logical_tables_export",
+        "logical_tables_annex",
+        "logical_data_rows_export"
+      ],
+      "properties": {
+        "physical_tables": { "type": "integer", "minimum": 0 },
+        "physical_data_rows": { "type": "integer", "minimum": 0 },
+        "logical_tables_total": { "type": "integer", "minimum": 0 },
+        "logical_tables_export": { "type": "integer", "minimum": 0 },
+        "logical_tables_annex": { "type": "integer", "minimum": 0 },
+        "logical_data_rows_export": { "type": "integer", "minimum": 0 },
+        "reconciliation": {
+          "type": "object",
+          "properties": {
+            "annex_data_rows": { "type": "integer" },
+            "physical_rows_in_export_pages": { "type": "integer" },
+            "cross_page_merge_adjustment": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "document_identity": {
+      "type": "object",
+      "properties": {
+        "document_type": { "type": "string" },
+        "structure_class": { "type": "string" },
+        "scene_hint": { "type": "string" },
+        "layout_profile_id": { "type": ["string", "null"] },
+        "plugin_domain_hint": { "type": "string" },
+        "extraction_layer": { "type": ["string", "null"] }
+      }
+    },
+    "physical_table": {
+      "type": "object",
+      "required": ["table_id", "ssot", "raw_rows", "header_row_index", "header_source"],
+      "properties": {
+        "table_id": { "type": "string" },
+        "ssot": { "const": "raw_rows" },
+        "raw_rows": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
+        "header_row_index": { "type": "integer", "minimum": 0 },
+        "header_source": {
+          "enum": ["none", "vocabulary_match", "inherited", "data_row", "prose_block"]
+        },
+        "content_role": { "enum": ["ledger", "annex", "prose"] },
+        "navigation_ref": { "type": "string", "pattern": "^table:" },
+        "block_ref": { "type": "string" }
+      }
+    },
+    "logical_table": {
+      "type": "object",
+      "required": ["logical_id", "role", "composition"],
+      "properties": {
+        "logical_id": { "type": "string" },
+        "role": { "enum": ["primary", "annex"] },
+        "composition": {
+          "type": "object",
+          "properties": {
+            "topology": { "enum": ["single_page", "cross_page", "annex"] },
+            "merge_policy": { "enum": ["none", "continuation", "standalone"] },
+            "quarantine_reason": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "document": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "identity": { "$ref": "#/$defs/document_identity" },
+        "information_architecture": { "type": "object" },
+        "properties": { "type": "object" },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "page_number": { "type": "integer" },
+              "tables": { "type": "array", "items": { "$ref": "#/$defs/physical_table" } },
+              "morphology_slots": { "type": "object" },
+              "reading_order_canonical": { "type": "string" },
+              "reading_order_v1_deprecated": { "type": "boolean" }
+            }
+          }
+        },
+        "logical_tables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/logical_table" }
+        },
+        "morphology_stats": { "type": "object" }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "counts": { "$ref": "#/$defs/counts" },
+        "structure": {
+          "type": "object",
+          "properties": {
+            "counts": { "$ref": "#/$defs/counts" },
+            "quarantine": { "type": "object" },
+            "morphology_aggregate_ref": { "type": "string" }
+          }
+        },
+        "table_count": { "type": "integer", "description": "deprecated alias" },
+        "physical_table_count": { "type": "integer", "description": "deprecated alias" },
+        "logical_table_count": { "type": "integer", "description": "deprecated alias" },
+        "row_count": { "type": "integer", "description": "deprecated alias" }
+      }
+    }
+  }
+}

@@ -70,13 +70,15 @@ def chunk_parse_result(
     *,
     max_text_chars: int = 2000,
     overlap: int = 200,
+    sections: list[dict[str, Any]] | None = None,
 ) -> list[RagChunk]:
     """Build structure-aware chunks from mirror pages, sections, and tables."""
     chunks: list[RagChunk] = []
-    full_text = result.extractor_full_text or result.full_text or ""
+    full_text = getattr(result, "extractor_full_text", "") or result.full_text or ""
+    sec_list = sections if sections is not None else (result.sections or [])
 
-    if result.sections and full_text:
-        for sec in result.sections:
+    if sec_list and full_text:
+        for sec in sec_list:
             title = str(sec.get("title") or sec.get("name") or "").strip()
             if not title:
                 continue
@@ -84,7 +86,7 @@ def chunk_parse_result(
             if start < 0:
                 continue
             end = len(full_text)
-            for other in result.sections:
+            for other in sec_list:
                 other_title = str(other.get("title") or other.get("name") or "").strip()
                 if other_title and other_title != title:
                     pos = full_text.find(other_title, start + len(title))

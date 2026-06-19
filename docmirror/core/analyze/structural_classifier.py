@@ -148,3 +148,45 @@ def classify_structure(
 def content_type_from_verdict(verdict: StructuralVerdict) -> str:
     """Map SSO primary structure to legacy content_type."""
     return PRIMARY_TO_CONTENT_TYPE.get(verdict.primary, "unknown")
+
+
+def score_page_morphology_from_bundles(
+    bundles: list[dict[str, Any]] | None,
+) -> dict[str, float]:
+    """Derive H_field_grid / H_micro_grid from page evidence bundle detect candidates."""
+    field_score = 0.0
+    grid_score = 0.0
+    for bundle in bundles or []:
+        if not isinstance(bundle, dict):
+            continue
+        detect = bundle.get("region_detect") or {}
+        for cand in detect.get("region_detect_candidates") or []:
+            if not isinstance(cand, dict):
+                continue
+            score = float(cand.get("score") or 0.0)
+            kind = str(cand.get("kind") or "")
+            if kind == "field_grid":
+                field_score = max(field_score, score)
+            elif kind == "micro_grid":
+                grid_score = max(grid_score, score)
+        summary = bundle.get("morphology_summary") or {}
+        if isinstance(summary, dict):
+            if int(summary.get("S4") or 0) > 0:
+                field_score = max(field_score, 0.6)
+            if int(summary.get("S3") or 0) > 0:
+                grid_score = max(grid_score, 0.6)
+    return {"H_field_grid": field_score, "H_micro_grid": grid_score}
+
+
+def enrich_competitors_with_page_morphology(
+    competitors: dict[str, float],
+    *,
+    bundles: list[dict[str, Any]] | None = None,
+) -> dict[str, float]:
+    """Merge page-level morphology scores into SSO competitors (Design 20 Phase 4)."""
+    out = dict(competitors)
+    morph = score_page_morphology_from_bundles(bundles)
+    for key, value in morph.items():
+        if value > 0:
+            out[key] = max(float(out.get(key) or 0.0), value)
+    return out

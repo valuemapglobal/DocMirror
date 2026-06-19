@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 from docmirror.models.entities.domain import Block
 from docmirror.core.extract.cell_normalizer import normalize_table_cells
 from docmirror.core.extract.engine import detect_merged_cells, extract_tables_layered
+from docmirror.core.geometry.table_attrs import build_table_geometry_attrs
 from docmirror.core.ocr.fallback import analyze_scanned_page
 from docmirror.core.segment.zones import _reconstruct_rows_from_chars
 
@@ -125,6 +126,24 @@ def handle_data_table_zone(extractor: "PageExtractor",
                 metadata["merged_cells"] = merged_cells
             metadata["extraction_layer"] = extraction_layer
             metadata["extraction_confidence"] = extraction_confidence
+            if extraction_profile is not None:
+                metadata["table_profile_id"] = getattr(extraction_profile, "profile_id", "")
+            metadata["zone_type"] = getattr(zone, "type", "data_table")
+            metadata = build_table_geometry_attrs(
+                tbl,
+                chars=list(getattr(zone, "chars", None) or []),
+                table_bbox=zone.bbox,
+                page_number=page_idx + 1,
+                table_index=len(result_blocks),
+                geometry_source=extraction_layer or "table_zone",
+                geometry_confidence=extraction_confidence,
+                base_attrs=metadata,
+            )
+            if "geometry_coverage_ratio" in metadata and getattr(extractor._host, "_extraction_audit", None) is not None:
+                for entry in reversed(extractor._host._extraction_audit):
+                    if entry.get("page") == page_idx + 1:
+                        entry["geometry_coverage_ratio"] = metadata["geometry_coverage_ratio"]
+                        break
             block = Block(
                 block_id=tbl_id,
                 block_type="table",
@@ -132,6 +151,7 @@ def handle_data_table_zone(extractor: "PageExtractor",
                 reading_order=ro,
                 page=page_idx + 1,
                 raw_content=tbl,
+                attrs=metadata,
             )
             result_blocks.append(block)
             ro += 1
@@ -151,6 +171,20 @@ def handle_data_table_zone(extractor: "PageExtractor",
         fallback_rows = _reconstruct_rows_from_chars(zone.chars)
         if fallback_rows:
             fb_id = f"blk_{page_idx}_{ro}"
+            metadata = build_table_geometry_attrs(
+                fallback_rows,
+                chars=list(getattr(zone, "chars", None) or []),
+                table_bbox=zone.bbox,
+                page_number=page_idx + 1,
+                table_index=len(result_blocks),
+                geometry_source="char_reconstruct_fallback",
+                geometry_confidence=0.0,
+                base_attrs={
+                    "extraction_layer": "char_reconstruct_fallback",
+                    "extraction_confidence": 0.0,
+                    "zone_type": getattr(zone, "type", "data_table"),
+                },
+            )
             block = Block(
                 block_id=fb_id,
                 block_type="table",
@@ -158,6 +192,7 @@ def handle_data_table_zone(extractor: "PageExtractor",
                 reading_order=ro,
                 page=page_idx + 1,
                 raw_content=fallback_rows,
+                attrs=metadata,
             )
             result_blocks.append(block)
             ro += 1
@@ -258,4 +293,3 @@ def handle_data_table_zone(extractor: "PageExtractor",
             )
 
     return result_blocks, extraction_layer, extraction_confidence, _table_ms, zone_tables_extracted
-

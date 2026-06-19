@@ -639,6 +639,39 @@ def extract_tables_layered(
     return result if result is not None else (tables, layer, conf)
 
 
+def extract_tables_layered_with_geometry(
+    page_plum,
+    table_zone_bbox: tuple[float, float, float, float] | None = None,
+    **kwargs,
+) -> tuple[list[list[list[str]]], str, float, list[dict]]:
+    """Run layered extraction and attach conservative geometry companions."""
+    tables, layer, confidence = extract_tables_layered(
+        page_plum,
+        table_zone_bbox=table_zone_bbox,
+        **kwargs,
+    )
+    from docmirror.core.geometry.table_geometry import build_table_geometry
+
+    default_bbox = (
+        0.0,
+        0.0,
+        float(getattr(page_plum, "width", 0.0) or 0.0),
+        float(getattr(page_plum, "height", 0.0) or 0.0),
+    )
+    geometry_payloads = [
+        build_table_geometry(
+            table,
+            chars=list(getattr(page_plum, "chars", None) or []),
+            table_bbox=table_zone_bbox or default_bbox,
+            table_index=idx,
+            geometry_source=layer,
+            geometry_confidence=confidence,
+        ).to_attrs()
+        for idx, table in enumerate(tables or [])
+    ]
+    return tables, layer, confidence, geometry_payloads
+
+
 
 from docmirror.core.extract.layers.backends import (
     extract_by_pymupdf as _extract_by_pymupdf,

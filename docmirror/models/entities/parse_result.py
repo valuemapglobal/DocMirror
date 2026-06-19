@@ -41,10 +41,11 @@ Usage::
 
 from __future__ import annotations
 
-import time
+import os
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
+from docmirror.core.ocr.page_canvas.models import PageCanvas
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from docmirror.models.tracking.mutation import Mutation
@@ -64,10 +65,107 @@ MIRROR_METADATA_KEYS = frozenset({
     "transaction_count",
     "layout_profile_id",
     "layout_profile_id_refined",
+    "mirror_expected_data_rows",
+    "mirror_ltqg_enabled",
     "language",
     "region",
     "query_period",
 })
+
+
+def _is_debug_mode() -> bool:
+    """Return whether debug-only Mirror fields should be emitted."""
+    return os.environ.get("DOCMIRROR_DEBUG", "").strip().lower() in {"1", "true", "yes"}
+
+
+def _build_scanned_ocr_page_pool(*evidence_groups: Any) -> tuple[list[dict[str, Any]], dict[tuple[Any, Any], str]]:
+    """Build shared OCR page evidence from scanned forensic evidence groups."""
+    pages: list[dict[str, Any]] = []
+    refs: dict[tuple[Any, Any], str] = {}
+    seen: set[tuple[Any, Any]] = set()
+    for group in evidence_groups:
+        if not isinstance(group, list):
+            continue
+        for evidence in group:
+            if not isinstance(evidence, dict):
+                continue
+            if "lines" not in evidence and "tokens" not in evidence:
+                continue
+            page = evidence.get("page")
+            source = evidence.get("source") or "scanned_page_ocr"
+            key = (page, source)
+            if key in seen:
+                continue
+            seen.add(key)
+            ref = f"ocr_p{page}_{len(pages)}"
+            refs[key] = ref
+            pages.append(
+                {
+                    "ocr_page_id": ref,
+                    "page": page,
+                    **({"page_width": evidence.get("page_width")} if evidence.get("page_width") is not None else {}),
+                    **({"page_height": evidence.get("page_height")} if evidence.get("page_height") is not None else {}),
+                    "source": source,
+                    "lines": evidence.get("lines") or [],
+                    "tokens": evidence.get("tokens") or [],
+                }
+            )
+    return pages, refs
+
+
+def _strip_scanned_ocr_payload_from_evidence(evidence_group: Any, refs: dict[tuple[Any, Any], str]) -> list[dict[str, Any]]:
+    """Replace duplicated scanned OCR payloads with shared OCR page refs."""
+    if not isinstance(evidence_group, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for evidence in evidence_group:
+        if not isinstance(evidence, dict):
+            continue
+        item = {k: v for k, v in evidence.items() if k not in {"lines", "tokens"}}
+        source = item.get("source") or "scanned_page_ocr"
+        ref = refs.get((item.get("page"), source))
+        if ref:
+            item["ocr_page_ref"] = ref
+        out.append(item)
+    return out
+
+
+def _pages_with_region_kinds(api_pages: list[dict[str, Any]], kinds: set[str]) -> set[int]:
+    pages: set[int] = set()
+    for page in api_pages:
+        if not isinstance(page, dict):
+            continue
+        page_num = int(page.get("page_number") or 0)
+        for region in page.get("regions") or []:
+            if isinstance(region, dict) and region.get("kind") in kinds:
+                pages.add(page_num)
+                break
+    return pages
+
+
+def _strip_structure_payload_from_local_structure_evidence(
+    evidence_group: Any,
+    api_pages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Drop duplicated structures from forensic evidence when PCM regions already carry them."""
+    if not isinstance(evidence_group, list):
+        return []
+    pages_with_structures = _pages_with_region_kinds(
+        api_pages,
+        {"field_grid", "label_value_graph"},
+    )
+    out: list[dict[str, Any]] = []
+    for evidence in evidence_group:
+        if not isinstance(evidence, dict):
+            continue
+        page_num = int(evidence.get("page") or 0)
+        if page_num in pages_with_structures and evidence.get("structures"):
+            item = {k: v for k, v in evidence.items() if k != "structures"}
+            item["structures_in_regions"] = True
+            out.append(item)
+        else:
+            out.append(dict(evidence))
+    return out
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -145,6 +243,18 @@ class CellValue(BaseModel):
     numeric: float | None = None
     confidence: float = 1.0
     bbox: list[float] | None = None
+    bbox_norm: list[float] | None = None
+    row_index: int | None = None
+    col_index: int | None = None
+    row_span: int = 1
+    col_span: int = 1
+    geometry_status: Literal["exact", "estimated", "missing", "logical_only", "derived"] = "missing"
+    geometry_source: str = ""
+    geometry_confidence: float | None = None
+    geometry_loss_reason: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+    token_ids: list[str] = Field(default_factory=list)
+    source_cell_refs: list[dict[str, Any]] = Field(default_factory=list)
     data_type: DataType = DataType.TEXT
     slm_entities: dict[str, Any] | None = None
 
@@ -181,6 +291,7 @@ class TableRow(BaseModel):
     source_page: int = 0
     source_physical_id: str = ""
     source_row_index: int = -1
+    source_cell_refs: list[dict[str, Any]] = Field(default_factory=list)
 
     @property
     def cell_texts(self) -> list[str]:
@@ -204,6 +315,10 @@ class TableBlock(BaseModel):
     bbox: list[float] | None = None
     confidence: float = 1.0
     caption: str | None = None
+    extraction_layer: str = ""
+    extraction_confidence: float | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     @property
     def data_rows(self) -> list[TableRow]:
@@ -294,6 +409,12 @@ class LogicalTable(BaseModel):
     provenance: list[RowProvenance] = Field(default_factory=list)
     merge_log: list[dict] = Field(default_factory=list)
     merge_audit: list[dict] = Field(default_factory=list)
+    # LTQG (Mirror compose) — defaults preserve pre-LTQG behavior
+    quality_score: float = 1.0
+    quality_passed: bool = True
+    quality_skip_reason: str | None = None
+    data_row_estimate: int = 0
+    quality_signals: dict[str, Any] = Field(default_factory=dict)
 
 
 class TextBlock(BaseModel):
@@ -304,6 +425,7 @@ class TextBlock(BaseModel):
     confidence: float = 1.0
     bbox: list[float] | None = None
     slm_entities: dict[str, Any] | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
 
 
 class KeyValuePair(BaseModel):
@@ -317,6 +439,7 @@ class KeyValuePair(BaseModel):
     value: str = ""
     confidence: float = 1.0
     bbox: list[float] | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
 
 
 class PageContent(BaseModel):
@@ -333,6 +456,12 @@ class PageContent(BaseModel):
     page_confidence: float = 1.0
     width: int | None = None
     height: int | None = None
+    page_canvas: PageCanvas | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="In-memory PCM canvas (regions + flow); populated by sync_page_canvases()",
+    )
     source_member: str = Field(
         default="",
         description="Relative path inside a parent archive/container, if applicable.",
@@ -427,6 +556,7 @@ class ParserInfo(BaseModel):
 
     # ADR-M13-02: Structure Provenance Envelope (SSO / SDU audit)
     structure: dict[str, Any] | None = None
+    options: dict[str, Any] = Field(default_factory=dict)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -467,6 +597,10 @@ class TableOperation(BaseModel):
     row_count: int = 0
     merge_log: list[dict[str, Any]] = Field(default_factory=list)
     merge_audit: list[dict[str, Any]] = Field(default_factory=list)
+    quality_score: float = 1.0
+    quality_passed: bool = True
+    quality_skip_reason: str | None = None
+    data_row_estimate: int = 0
 
 
 class DocumentSection(BaseModel):
@@ -478,6 +612,7 @@ class DocumentSection(BaseModel):
     title: str = ""
     name: str = ""
     page_start: int = 1
+    page_end: int | None = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -493,6 +628,8 @@ class ProvenanceInfo(BaseModel):
     file_size: int = 0
     checksum: str = ""
     mime_type: str = ""
+    capability_id: str = ""
+    content_model: str = ""
     source_member: str = Field(
         default="",
         description="Relative path when this file was extracted from an archive.",
@@ -532,6 +669,10 @@ class MirrorAnnex(BaseModel):
     pipeline_debug: dict[str, Any] = Field(
         default_factory=dict,
         description="Middleware/orchestrator debug payloads (mutation_analysis, etc.)",
+    )
+    quarantine: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Unified quarantine summary/details for forensic/debug export.",
     )
 
 
@@ -599,6 +740,7 @@ class ParseResult(BaseModel):
     mutations: list[Mutation] = Field(default_factory=list, exclude=True)
     processing_time: float = Field(default=0.0, exclude=True)
     errors: list[str] = Field(default_factory=list, exclude=True)
+    raw_text: str = Field(default="", exclude=True)
 
     # ── EHL annex (debug/eval only) ──
     annex: MirrorAnnex | None = Field(default=None, exclude=True)
@@ -753,11 +895,9 @@ class ParseResult(BaseModel):
         Args:
             include_text: If True, include ``data.document.text``.
             request_id: Optional request ID for traceability.
-            mirror_level: ``standard`` (physical + logical), ``slim`` (logical only),
-                or ``forensic`` (physical only).
+            mirror_level: ``standard`` (physical + logical) or ``forensic`` (physical audit).
         """
         from datetime import datetime, timezone
-        from docmirror.core.debug.artifact import is_debug_mode
 
         # ── data.document ──
         # properties: flat dict from entities (exclude document_type + domain_specific)
@@ -780,63 +920,139 @@ class ParseResult(BaseModel):
         for k, v in self.entities.domain_specific.items():
             if k in _internal_keys:
                 continue
-            if k in _debug_only_keys and not is_debug_mode():
+            if k in _debug_only_keys and not _is_debug_mode():
                 continue
             if k not in MIRROR_METADATA_KEYS:
                 continue
             properties[k] = v
+        from docmirror.models.mirror.serialization_contract import filter_identity_properties
+
+        properties = filter_identity_properties(properties)
 
         # Physical pages (filter empty pages with no content)
-        api_pages = self._build_api_pages()
-        non_empty_pages = [p for p in api_pages if p.get("tables") or p.get("texts") or p.get("key_values")]
+        api_pages = self._build_api_pages(forensic=mirror_level == "forensic")
+        from docmirror.models.mirror.domain_access import (
+            local_structure_evidence_pages_from_domain_specific,
+            micro_grid_evidence_pages_from_domain_specific,
+            raw_local_structure_evidence_from_domain_specific,
+            raw_micro_grid_evidence_from_domain_specific,
+        )
+
+        domain_specific = self.entities.domain_specific
+        scanned_micro_grid_evidence = micro_grid_evidence_pages_from_domain_specific(domain_specific) or None
+        scanned_local_structure_evidence = local_structure_evidence_pages_from_domain_specific(domain_specific) or None
+        scanned_ocr_pages: list[dict[str, Any]] | None = None
+        scanned_ocr_refs: dict[tuple[Any, Any], str] = {}
+        if mirror_level == "forensic":
+            scanned_ocr_pages, scanned_ocr_refs = _build_scanned_ocr_page_pool(
+                raw_micro_grid_evidence_from_domain_specific(domain_specific),
+                raw_local_structure_evidence_from_domain_specific(domain_specific),
+            )
+
+        self.sync_page_canvases(scanned_ocr_pages=scanned_ocr_pages)
+
+        from docmirror.models.mirror.page_canvas_export import enrich_api_pages_with_page_canvas
+
+        api_pages = enrich_api_pages_with_page_canvas(
+            api_pages,
+            domain_specific=self.entities.domain_specific,
+            mirror_level=mirror_level,
+            scanned_ocr_pages=scanned_ocr_pages,
+            source_pages=self.pages,
+        )
+
+        non_empty_pages = [
+            p
+            for p in api_pages
+            if p.get("tables")
+            or p.get("texts")
+            or p.get("key_values")
+            or p.get("regions")
+            or p.get("blocks")
+            or ((p.get("flow") or {}).get("texts"))
+            or ((p.get("flow") or {}).get("key_values"))
+        ]
 
         document: dict[str, Any] = {
             "type": self.entities.document_type,
             "properties": properties,
         }
-        if mirror_level != "slim":
-            document["pages"] = non_empty_pages if non_empty_pages else api_pages
+        from docmirror.models.mirror.serialization_contract import (
+            annex_pages_from_logical_tables,
+            enrich_document_pages,
+        )
+
+        annex_pages = annex_pages_from_logical_tables(self.logical_tables or [])
+        page_source = non_empty_pages if non_empty_pages else api_pages
+        document["pages"] = enrich_document_pages(page_source, annex_pages=annex_pages)
+        from docmirror.core.ocr.page_canvas.block_index import document_morphology_stats
+
+        morph_stats = document_morphology_stats(document.get("pages") or [])
+        if morph_stats:
+            document["morphology_stats"] = morph_stats
 
         # Logical tables (composed cross-page tables)
         if mirror_level != "forensic" and self.logical_tables:
+            from docmirror.models.mirror.serialization_contract import serialize_logical_table_dict
+
             document["logical_tables"] = [
-                {
-                    "logical_id": lt.logical_id or lt.table_id,
-                    "table_id": lt.table_id,
-                    "source_physical_ids": lt.source_physical_ids,
-                    "headers": lt.headers,
-                    "rows": [
-                        {
-                            "cells": [self._serialize_cell(c) for c in row.cells],
-                            "row_type": row.row_type.value if hasattr(row.row_type, "value") else row.row_type,
-                            "confidence": row.confidence,
-                            "source_page": row.source_page,
-                            "source_physical_id": row.source_physical_id,
-                            "source_row_index": row.source_row_index,
-                        }
-                        for row in lt.rows
-                    ],
-                    "source_pages": lt.source_pages,
-                    "page_span": list(lt.page_span),
-                    "row_count": lt.row_count,
-                    "confidence": lt.confidence,
-                    "merge_method": lt.merge_method,
-                    "merge_confidence": lt.merge_confidence,
-                    "merge_log": lt.merge_log if is_debug_mode() else [],
-                    "merge_audit": lt.merge_audit if is_debug_mode() else [],
-                }
+                serialize_logical_table_dict(
+                    lt,
+                    row_serializer=lambda c: self._serialize_cell(
+                        c, forensic=mirror_level == "forensic"
+                    ),
+                    include_debug=_is_debug_mode() or mirror_level == "forensic",
+                )
                 for lt in self.logical_tables
             ]
 
         # Section tree (populated by SectionDrivenStrategy for section_dominant docs)
         if self.sections:
-            document["sections"] = [
-                sec.model_dump() if hasattr(sec, "model_dump") else sec for sec in self.sections
-            ]
+            from docmirror.models.mirror.page_canvas_export import attach_region_refs_to_sections
+
+            document["sections"] = attach_region_refs_to_sections(
+                self.sections,
+                document.get("pages") or [],
+            )
+
+        if mirror_level == "forensic":
+            if scanned_ocr_pages:
+                document["scanned_ocr_pages"] = scanned_ocr_pages
+            from docmirror.core.ocr.page_canvas.hypothesis_annex import build_document_hypothesis_annex
+
+            hypothesis_annex = build_document_hypothesis_annex(
+                domain_specific,
+                page_regions=[
+                    region
+                    for page in (document.get("pages") or [])
+                    if isinstance(page, dict)
+                    for region in (page.get("regions") or [])
+                    if isinstance(region, dict)
+                ],
+            )
+            if hypothesis_annex:
+                document["hypothesis_annex"] = hypothesis_annex
+            if scanned_micro_grid_evidence:
+                document["scanned_micro_grid_evidence"] = _strip_scanned_ocr_payload_from_evidence(
+                    scanned_micro_grid_evidence,
+                    scanned_ocr_refs,
+                )
+            if scanned_local_structure_evidence:
+                stripped = _strip_scanned_ocr_payload_from_evidence(
+                    scanned_local_structure_evidence,
+                    scanned_ocr_refs,
+                )
+                document["scanned_local_structure_evidence"] = _strip_structure_payload_from_local_structure_evidence(
+                    stripped,
+                    document.get("pages") or [],
+                )
 
         if include_text:
             document["text"] = self._build_full_text()
             document["text_format"] = "markdown"
+            if mirror_level == "forensic" and self.raw_text:
+                document["raw_text"] = self.raw_text
+                document["raw_text_format"] = "plain"
 
         # ── data.quality ──
         quality: dict[str, Any] = {
@@ -860,17 +1076,87 @@ class ParseResult(BaseModel):
             "page_count": self.parser_info.page_count or self.page_count,
             "table_count": self.total_tables,
             "row_count": self.total_rows,
-            "physical_table_count": sum(len(p.tables) for p in self.pages),
+            "physical_table_count": self.total_tables,
             "logical_table_count": len(self.logical_tables),
         }
+        if self.parser_info.options:
+            meta["options"] = self.parser_info.options
+        ds_meta = getattr(self.entities, "domain_specific", None) or {}
+        if isinstance(ds_meta, dict) and ds_meta.get("classification_provenance"):
+            meta["classification_provenance"] = ds_meta.get("classification_provenance")
+        from docmirror.core.analyze.spe_consumer import mirror_api_meta_fields, mirror_quarantine_annex_fields
+        from docmirror.core.analyze.conservation import mirror_conservation_summary
+
+        meta.update(mirror_api_meta_fields(self))
+        meta.update(mirror_quarantine_annex_fields(self, mirror_level=mirror_level))
+        from docmirror.models.mirror.legacy_access import log_legacy_access_summary
+
+        log_legacy_access_summary()
+        meta["conservation"] = mirror_conservation_summary(self)
+        if mirror_level == "forensic" or _is_debug_mode():
+            from docmirror.models.ehl import ensure_mirror_annex
+
+            ensure_mirror_annex(self)
+            if self.annex:
+                ehl: dict[str, Any] = {}
+                if self.annex.evidence_summary:
+                    ehl["evidence_summary"] = self.annex.evidence_summary.model_dump()
+                if self.annex.hypotheses:
+                    ehl["hypotheses"] = [
+                        h.model_dump(exclude_none=True) if hasattr(h, "model_dump") else h
+                        for h in self.annex.hypotheses[:100]
+                    ]
+                if self.annex.quarantine:
+                    ehl["quarantine"] = self.annex.quarantine
+                if ehl:
+                    meta["ehl"] = ehl
         if self.parser_info.table_engine:
             meta["table_engine"] = self.parser_info.table_engine
         if self.parser_info.ocr_engine:
             meta["ocr_engine"] = self.parser_info.ocr_engine
+
+        from docmirror.models.mirror.serialization_contract import (
+            apply_meta_count_aliases,
+            build_document_identity,
+            build_information_architecture,
+            build_mirror_counts,
+            build_mirror_profile,
+            build_quarantine_index,
+            finalize_structure_spe,
+        )
+
+        spe_raw = dict(self.parser_info.structure) if self.parser_info.structure else {}
+        counts = build_mirror_counts(
+            physical_table_count=int(meta.get("physical_table_count") or self.total_tables),
+            physical_data_rows=int(meta.get("row_count") or self.total_rows),
+            logical_tables=self.logical_tables or [],
+            pages=document.get("pages") or [],
+        )
+        quarantine_index = build_quarantine_index(self.logical_tables or [], spe_raw)
+        document["identity"] = build_document_identity(
+            document_type=self.entities.document_type,
+            spe=spe_raw,
+            properties=properties,
+        )
+        document["information_architecture"] = build_information_architecture(
+            document=document,
+            spe=spe_raw,
+        )
+        meta["counts"] = counts
+        apply_meta_count_aliases(meta, counts)
         if self.parser_info.structure:
-            meta["structure"] = self.parser_info.structure
+            meta["structure"] = finalize_structure_spe(
+                spe_raw,
+                pages=document.get("pages") or [],
+                document=document,
+                counts=counts,
+                quarantine_index=quarantine_index,
+                domain_specific=self.entities.domain_specific,
+            )
         if self.provenance:
             meta["provenance"] = self.provenance.model_dump(exclude_none=True)
+
+        mirror_profile = build_mirror_profile(mirror_level=mirror_level)
 
         # ── Standard RESTful envelope ──
         from docmirror.models.serialization import to_json_safe
@@ -882,6 +1168,7 @@ class ParseResult(BaseModel):
                 "api_version": "1.0",
                 "request_id": request_id,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
+                "mirror_profile": mirror_profile,
                 "data": {
                     "document": document,
                     "quality": quality,
@@ -896,6 +1183,7 @@ class ParseResult(BaseModel):
                 "api_version": "1.0",
                 "request_id": request_id,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
+                "mirror_profile": mirror_profile,
                 "error": {
                     "type": self.status.value,
                     "detail": error_msg,
@@ -1014,39 +1302,67 @@ class ParseResult(BaseModel):
             lines.append("| " + " | ".join(cells[: len(table.headers)]) + " |")
         return "\n".join(lines)
 
-    def _build_api_pages(self) -> list[dict[str, Any]]:
+    def sync_page_canvases(
+        self,
+        *,
+        scanned_ocr_pages: list[dict[str, Any]] | None = None,
+    ) -> None:
+        """Materialize PageCanvas on each page from domain_specific evidence."""
+        from docmirror.core.ocr.page_canvas.sync import sync_parse_result_page_canvases
+
+        sync_parse_result_page_canvases(self, scanned_ocr_pages=scanned_ocr_pages)
+
+    def _build_api_pages(self, *, forensic: bool = False) -> list[dict[str, Any]]:
         """Build API pages structure with full CellValue serialization."""
         api_pages: list[dict[str, Any]] = []
         for page in self.pages:
             api_page: dict[str, Any] = {
                 "page_number": page.page_number,
             }
+            if page.width is not None:
+                api_page["width"] = page.width
+            if page.height is not None:
+                api_page["height"] = page.height
 
             # Tables with typed CellValue objects
             if page.tables:
                 api_page["tables"] = []
                 for table in page.tables:
-                    api_page["tables"].append(
-                        {
-                            "table_id": table.table_id,
-                            "headers": table.headers,
-                            "rows": [
-                                {
-                                    "cells": [self._serialize_cell(c) for c in row.cells],
-                                    "row_type": row.row_type.value,
-                                    "confidence": row.confidence,
-                                    "source_page": row.source_page,
-                                    "source_physical_id": row.source_physical_id,
-                                    "source_row_index": row.source_row_index,
-                                }
-                                for row in table.rows
-                            ],
-                            "page": table.page,
-                            "page_span": table.page_span,
-                            "row_count": table.row_count,
-                            "confidence": table.confidence,
-                        }
-                    )
+                    table_out: dict[str, Any] = {
+                        "table_id": table.table_id,
+                        "headers": table.headers,
+                        "rows": [
+                            {
+                                "cells": [self._serialize_cell(c, forensic=forensic) for c in row.cells],
+                                "row_type": row.row_type.value,
+                                "confidence": row.confidence,
+                                "source_page": row.source_page,
+                                "source_physical_id": row.source_physical_id,
+                                "source_row_index": row.source_row_index,
+                                **({"source_cell_refs": row.source_cell_refs} if forensic and row.source_cell_refs else {}),
+                            }
+                            for row in table.rows
+                        ],
+                        "page": table.page,
+                        "page_span": table.page_span,
+                        "row_count": table.row_count,
+                        "confidence": table.confidence,
+                    }
+                    if table.bbox:
+                        table_out["bbox"] = table.bbox
+                    if table.extraction_layer:
+                        table_out["extraction_layer"] = table.extraction_layer
+                    if table.extraction_confidence is not None:
+                        table_out["extraction_confidence"] = table.extraction_confidence
+                    raw_rows = (table.metadata or {}).get("raw_rows")
+                    if raw_rows:
+                        table_out["raw_rows"] = raw_rows
+                    if forensic:
+                        if table.evidence_ids:
+                            table_out["evidence_ids"] = table.evidence_ids
+                        if table.metadata:
+                            table_out["metadata"] = table.metadata
+                    api_page["tables"].append(table_out)
 
             # Text blocks with level
             if page.texts:
@@ -1057,6 +1373,10 @@ class ParseResult(BaseModel):
                         "level": text.level.value,
                         "confidence": text.confidence,
                     }
+                    if forensic and text.bbox:
+                        d["bbox"] = text.bbox
+                    if forensic and text.evidence_ids:
+                        d["evidence_ids"] = text.evidence_ids
                     if getattr(text, "slm_entities", None):
                         d["slm_entities"] = text.slm_entities
                     texts_out.append(d)
@@ -1069,6 +1389,8 @@ class ParseResult(BaseModel):
                         "key": kv.key,
                         "value": kv.value,
                         "confidence": kv.confidence,
+                        **({"bbox": kv.bbox} if forensic and kv.bbox else {}),
+                        **({"evidence_ids": kv.evidence_ids} if forensic and kv.evidence_ids else {}),
                     }
                     for kv in page.key_values
                 ]
@@ -1077,11 +1399,48 @@ class ParseResult(BaseModel):
         return api_pages
 
     @staticmethod
-    def _serialize_cell(cell: CellValue) -> dict[str, Any]:
+    def _serialize_cell(cell: CellValue, *, forensic: bool = False) -> dict[str, Any]:
         """Serialize CellValue to API dict — minimal output."""
         d: dict[str, Any] = {"text": cell.text}
-        if cell.data_type.value != "text":
-            d["data_type"] = cell.data_type.value
+        dt = cell.data_type.value if hasattr(cell.data_type, "value") else cell.data_type
+        d["data_type"] = dt or "text"
+        if not forensic and cell.geometry_status:
+            d["geometry_status"] = cell.geometry_status
+        if not forensic and cell.source_cell_refs:
+            d["source_cell_refs"] = cell.source_cell_refs
+        if forensic:
+            if cell.cleaned is not None:
+                d["cleaned"] = cell.cleaned
+            if cell.numeric is not None:
+                d["numeric"] = cell.numeric
+            if cell.confidence != 1.0:
+                d["confidence"] = cell.confidence
+            if cell.bbox:
+                d["bbox"] = cell.bbox
+            if cell.bbox_norm:
+                d["bbox_norm"] = cell.bbox_norm
+            if cell.row_index is not None:
+                d["row_index"] = cell.row_index
+            if cell.col_index is not None:
+                d["col_index"] = cell.col_index
+            if cell.row_span != 1:
+                d["row_span"] = cell.row_span
+            if cell.col_span != 1:
+                d["col_span"] = cell.col_span
+            if cell.geometry_status != "missing":
+                d["geometry_status"] = cell.geometry_status
+            if cell.geometry_source:
+                d["geometry_source"] = cell.geometry_source
+            if cell.geometry_confidence is not None:
+                d["geometry_confidence"] = cell.geometry_confidence
+            if cell.geometry_loss_reason:
+                d["geometry_loss_reason"] = cell.geometry_loss_reason
+            if cell.evidence_ids:
+                d["evidence_ids"] = cell.evidence_ids
+            if cell.token_ids:
+                d["token_ids"] = cell.token_ids
+            if cell.source_cell_refs:
+                d["source_cell_refs"] = cell.source_cell_refs
         if getattr(cell, "slm_entities", None):
             d["slm_entities"] = cell.slm_entities
         return d

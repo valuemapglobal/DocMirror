@@ -50,8 +50,12 @@ def _get_plugin_manager():
     return _plugin_manager
 
 
-license_manager = _get_license_manager()
-plugin_manager = _get_plugin_manager()
+def __getattr__(name):
+    if name == "license_manager":
+        return _get_license_manager()
+    if name == "plugin_manager":
+        return _get_plugin_manager()
+    raise AttributeError(name)
 
 __all__ = [
     "DomainPlugin",

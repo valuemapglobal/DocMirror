@@ -58,7 +58,10 @@ class LayoutProfile(BaseModel):
 
     profile_id: str = "generic"
     inherits: str | None = None
-    strategy: str | None = None  # e.g. section_driven (informational)
+    strategy: str | None = Field(
+        default=None,
+        description="Deprecated informational hint only; SSO/profile binding is the routing authority.",
+    )
 
     sidebar_x_ratio: float | None = None
     global_column_anchors: list[float] | None = None

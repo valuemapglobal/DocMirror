@@ -22,21 +22,22 @@ import re
 from typing import Any
 
 from docmirror.plugins._base.standardizer import normalize_amount
-from docmirror.plugins.bank_statement.header_resolve import detect_headers
+from docmirror.plugins.bank_statement.header_resolve import detect_headers, has_split_debit_credit_headers, normalize_header_cell
 from docmirror.plugins.bank_statement.institution import match_institution, normalize_table_headers
 from docmirror.plugins.bank_statement.row_extract import extract_all_tables, extract_rows_from_header
 
 PARSER_ID = "grid_standard"
 STYLE_ID = "grid_standard"
 
-_SPLIT_DEBIT_KEYS = ("支出", "借方发生额", "借方")
-_SPLIT_CREDIT_KEYS = ("收入", "贷方发生额", "贷方")
+_SPLIT_DEBIT_KEYS = ("支出", "支出金额", "借方发生额", "借方")
+_SPLIT_CREDIT_KEYS = ("收入", "收入金额", "贷方发生额", "贷方")
 
 
 def _cell_value(raw_txn: dict[str, str], *needles: str) -> str:
     for key, value in raw_txn.items():
+        norm_key = normalize_header_cell(key)
         for needle in needles:
-            if key == needle or needle in key:
+            if key == needle or needle in key or norm_key == normalize_header_cell(needle):
                 return str(value or "").strip()
     return ""
 
@@ -80,13 +81,6 @@ def normalize_split_debit_credit(raw_txn: dict[str, str], plugin: Any) -> dict[s
     return normalized
 
 
-def _has_split_amount_headers(headers: list[str]) -> bool:
-    joined = "".join(str(h or "") for h in headers)
-    return ("收入" in joined and "支出" in joined) or (
-        "借方发生额" in joined and "贷方发生额" in joined
-    )
-
-
 def _extract_split_grid_records(
     tables: list[list[list[str]]],
     header_row_idx: int,
@@ -121,7 +115,7 @@ def extract_transactions(ctx: StyleContext, plugin: Any) -> list[dict[str, str]]
             continue
         for row_idx, row in enumerate(tbl[:15]):
             raw_headers = [str(c or "").strip() for c in row]
-            if _has_split_amount_headers(raw_headers):
+            if has_split_debit_credit_headers([[raw_headers]]):
                 split_txns.extend(_extract_split_grid_records([tbl], row_idx, raw_headers))
                 break
     if split_txns:
@@ -142,7 +136,7 @@ def extract_transactions(ctx: StyleContext, plugin: Any) -> list[dict[str, str]]
         return plugin._extract_records(tables, header_row_idx, raw_headers, col_map)
 
     raw_headers = header.raw_headers
-    if _has_split_amount_headers(raw_headers):
+    if has_split_debit_credit_headers([[raw_headers]]):
         return _extract_split_grid_records(tables, header.row_index, raw_headers)
 
     rows = extract_rows_from_header(
@@ -168,9 +162,16 @@ def normalize_record(raw_txn: dict[str, str], plugin: Any) -> dict[str, Any]:
         from docmirror.plugins._base.standardizer import normalize_timestamp
 
         if not split.get("date"):
-            for key in ("交易日期", "记账日", "记账日期", "日期", "交易时间"):
-                if raw_txn.get(key):
-                    split["date"] = normalize_timestamp(str(raw_txn[key]))[:10]
+            date_keys = ("交易日期", "记账日", "记账日期", "日期", "交易时间")
+            for key in date_keys:
+                norm_key = normalize_header_cell(key)
+                for raw_key, raw_val in raw_txn.items():
+                    if not str(raw_val or "").strip():
+                        continue
+                    if normalize_header_cell(raw_key) == norm_key or key in raw_key:
+                        split["date"] = normalize_timestamp(str(raw_val))[:10]
+                        break
+                if split.get("date"):
                     break
         return split
 

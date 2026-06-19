@@ -34,6 +34,7 @@ from docmirror.eval.tqg.manifest import TQGCase
 from docmirror.eval.tqg.report import GateReport
 from docmirror.core.extraction.extractor import CoreExtractor
 from docmirror.core.entry.factory import PerceiveOptions, perceive_document
+from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows
 from docmirror.core.table.access import get_logical_tables
 from docmirror.models.construction.parse_result_bridge import ParseResultBridge
 from docmirror.plugins.community import community_plugin_import_path
@@ -56,6 +57,35 @@ def _failure_class_from_str(name: str | None) -> FailureClass | None:
         return FailureClass.UNKNOWN
 
 
+def _local_structure_bundle_domain(
+    *,
+    page: int,
+    page_width: int | float,
+    page_height: int | float,
+    lines: list[dict[str, Any]],
+    evidence: dict[str, Any],
+    **extra: Any,
+) -> dict[str, Any]:
+    from docmirror.core.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+
+    return domain_specific_with_page_bundles(
+        page_evidence_bundle(
+            page,
+            page_width=page_width,
+            page_height=page_height,
+            local_structure_evidence={
+                "page": page,
+                "page_width": page_width,
+                "page_height": page_height,
+                "lines": lines,
+                "candidates": evidence.get("candidates") or [],
+                "structures": evidence.get("structures") or [],
+            },
+        ),
+        **extra,
+    )
+
+
 async def _execute_extract_only(case: TQGCase) -> tuple[Any, dict[str, Any]]:
     opts = case.options
     if opts.get("max_pages"):
@@ -75,6 +105,8 @@ async def _execute_extract_only(case: TQGCase) -> tuple[Any, dict[str, Any]]:
             "page_count": base.metadata.get("page_count", 0),
             "table_count": base.metadata.get("table_count", 0),
             "document_scene": base.metadata.get("document_scene"),
+            "structure": base.metadata.get("structure"),
+            "ltqg": base.metadata.get("ltqg"),
         }
         return result, meta
     finally:
@@ -156,14 +188,23 @@ async def _execute_edition(case: TQGCase) -> tuple[dict[str, Any], dict[str, Any
         edition_payload = perceive_result.editions.get(edition_name)
     if edition_payload is None:
         if edition_name == "community":
-            from docmirror.plugins.runner import run_plugin_extract_sync
+            from docmirror.plugins.runner import _plugin_document_type, _run_community_extract
 
-            edition_payload = run_plugin_extract_sync(
+            doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
+            edition_payload = _run_community_extract(
                 mirror,
-                edition="community",
-                full_text=getattr(mirror, "full_text", "") or "",
-                file_path=str(getattr(mirror, "file_path", "") or case.fixture),
+                _plugin_document_type(mirror, doc_type),
+                getattr(mirror, "full_text", "") or "",
             )
+            if edition_payload is None:
+                from docmirror.plugins.runner import run_plugin_extract_sync
+
+                edition_payload = run_plugin_extract_sync(
+                    mirror,
+                    edition="community",
+                    full_text=getattr(mirror, "full_text", "") or "",
+                    file_path=str(getattr(mirror, "file_path", "") or case.fixture),
+                )
         else:
             doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
             edition_payload = _edition_from_plugin(mirror, doc_type)
@@ -287,11 +328,349 @@ async def _execute_e2e_contract(case: TQGCase) -> tuple[dict[str, Any], dict[str
     return {"contract_passed": passed}, {"contract_passed": passed}
 
 
+async def _execute_mirror_conservation_contract(case: TQGCase) -> tuple[Any, dict[str, Any]]:
+    from docmirror.models.entities.parse_result import (
+        CellValue,
+        DocumentEntities,
+        PageContent,
+        ParseResult,
+        ResultStatus,
+        TableBlock,
+        TableRow,
+        TextBlock,
+    )
+
+    scenario = str(case.options.get("scenario", "passing_table"))
+    mirror = ParseResult(status=ResultStatus.SUCCESS)
+    mirror.entities = DocumentEntities(document_type="synthetic")
+    if scenario == "empty_without_reason":
+        return mirror, {"scenario": scenario}
+
+    mirror.pages = [
+        PageContent(
+            page_number=1,
+            texts=[TextBlock(content="Synthetic conservation text", evidence_ids=["txt_1"])],
+            tables=[
+                TableBlock(
+                    table_id="pt_1_0",
+                    headers=["A"],
+                    rows=[TableRow(cells=[CellValue(text="1")], source_page=1, source_physical_id="pt_1_0", source_row_index=0)],
+                    extraction_layer="synthetic",
+                    evidence_ids=["tbl_1"],
+                )
+            ],
+        )
+    ]
+    return mirror, {"scenario": scenario}
+
+
+async def _execute_mirror_geometry_contract(case: TQGCase) -> tuple[Any, dict[str, Any]]:
+    from docmirror.models.entities.parse_result import (
+        CellValue,
+        LogicalTable,
+        PageContent,
+        ParseResult,
+        ResultStatus,
+        TableBlock,
+        TableRow,
+    )
+
+    cells = [
+        [
+            CellValue(text="A1", bbox=[10, 20, 50, 40], row_index=0, col_index=0, geometry_status="exact", geometry_source="synthetic", token_ids=["tok_r0_c0"]),
+            CellValue(text="", bbox=[50, 20, 90, 40], row_index=0, col_index=1, geometry_status="estimated", geometry_source="synthetic", geometry_loss_reason="empty_cell_estimated_from_bands"),
+            CellValue(text="C1", bbox=[90, 20, 130, 40], row_index=0, col_index=2, geometry_status="exact", geometry_source="synthetic", token_ids=["tok_r0_c2"]),
+        ],
+        [
+            CellValue(text="A2", bbox=[10, 40, 50, 60], row_index=1, col_index=0, geometry_status="exact", geometry_source="synthetic", token_ids=["tok_r1_c0"]),
+            CellValue(text="B2", bbox=[50, 40, 90, 60], row_index=1, col_index=1, geometry_status="exact", geometry_source="synthetic", token_ids=["tok_r1_c1"]),
+            CellValue(text="C2", bbox=[90, 40, 130, 60], row_index=1, col_index=2, geometry_status="exact", geometry_source="synthetic", token_ids=["tok_r1_c2"]),
+        ],
+    ]
+    rows = []
+    for ri, row_cells in enumerate(cells):
+        refs = []
+        for ci, cell in enumerate(row_cells):
+            ref = {"page": 1, "table_id": "pt_1_0", "row": ri, "raw_row": ri + 1, "col": ci}
+            refs.append(ref)
+            cell.source_cell_refs = [ref]
+        rows.append(
+            TableRow(
+                cells=row_cells,
+                source_page=1,
+                source_physical_id="pt_1_0",
+                source_row_index=ri,
+                source_cell_refs=refs,
+            )
+        )
+    geometry = {
+        "coordinate_system": "pdf_points_top_left",
+        "table_bbox": [10, 10, 130, 60],
+        "row_bands": [
+            {"index": 0, "bbox": [10, 20, 130, 40], "role": "data"},
+            {"index": 1, "bbox": [10, 40, 130, 60], "role": "data"},
+        ],
+        "col_bands": [
+            {"index": 0, "bbox": [10, 10, 50, 60]},
+            {"index": 1, "bbox": [50, 10, 90, 60]},
+            {"index": 2, "bbox": [90, 10, 130, 60]},
+        ],
+        "merged_cells": [{"row": 0, "col": 1, "rowspan": 1, "colspan": 2, "bbox": [50, 20, 130, 40]}],
+    }
+    physical = TableBlock(
+        table_id="pt_1_0",
+        headers=["A", "B", "C"],
+        rows=rows,
+        page=1,
+        bbox=[10, 10, 130, 60],
+        extraction_layer="synthetic_geometry",
+        metadata={"geometry": geometry},
+    )
+    logical_rows = [
+        TableRow(
+            cells=list(row.cells),
+            source_page=row.source_page,
+            source_physical_id=row.source_physical_id,
+            source_row_index=row.source_row_index,
+            source_cell_refs=list(row.source_cell_refs),
+        )
+        for row in rows
+    ]
+    mirror = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[PageContent(page_number=1, width=200, height=100, tables=[physical])],
+        logical_tables=[
+            LogicalTable(
+                table_id="lt_0",
+                logical_id="lt_0",
+                headers=["A", "B", "C"],
+                rows=logical_rows,
+                row_count=len(logical_rows),
+                source_physical_ids=["pt_1_0"],
+                source_pages=[1],
+            )
+        ],
+    )
+    return mirror, {"scenario": "synthetic_geometry"}
+
+
+async def _execute_scanned_micro_grid_contract(case: TQGCase) -> tuple[Any, dict[str, Any]]:
+    from docmirror.core.ocr.page_canvas.evidence_bundles import (
+        domain_specific_with_page_bundles,
+        materialize_micro_grids_from_bundles,
+        page_evidence_bundle,
+    )
+    from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus, TextBlock
+    from docmirror.plugins.credit_report.repayment_grid import records_from_micro_grid_dict
+
+    if "negative" in case.id:
+        lines = [
+            {"content": "个人消费贷款", "bbox": [80.0, 120.0, 200.0, 140.0], "confidence": 1.0},
+            {"content": "NN N N", "bbox": [300.0, 180.0, 520.0, 200.0], "confidence": 1.0},
+            {"content": "000 0", "bbox": [300.0, 210.0, 520.0, 230.0], "confidence": 1.0},
+        ]
+    else:
+        lines = [
+            {"content": "2020年09月-2021年02月的还款记录", "bbox": [280.46, 194.67, 510.65, 217.78], "confidence": 1.0},
+            {"content": "1 122689 113.45710", "bbox": [130.84, 222.65, 733.57, 241.51], "confidence": 1.0},
+            {"content": "CN.", "bbox": [136.90, 249.42, 206.56, 267.06], "confidence": 1.0},
+            {"content": "2021", "bbox": [75.71, 262.80, 112.67, 280.44], "confidence": 1.0},
+            {"content": "NN N N", "bbox": [559.11, 302.34, 731.75, 319.38], "confidence": 1.0},
+            {"content": "2020", "bbox": [75.11, 315.12, 109.64, 332.76], "confidence": 1.0},
+            {"content": "000 0", "bbox": [561.53, 327.89, 729.93, 345.54], "confidence": 1.0},
+        ]
+    ds = domain_specific_with_page_bundles(
+        page_evidence_bundle(
+            4,
+            micro_grid_evidence={"page": 4, "lines": lines, "tokens": []},
+        ),
+    )
+    materialize_micro_grids_from_bundles(ds)
+    grids = ds["_page_evidence_bundles"][0].get("micro_grid_structures") or []
+    records: list[dict[str, Any]] = []
+    for grid in grids:
+        records.extend(records_from_micro_grid_dict(grid))
+    ds["credit_repayment_records"] = records
+    mirror = ParseResult(
+        status=ResultStatus.SUCCESS,
+        entities=DocumentEntities(
+            document_type="credit_report",
+            domain_specific=ds,
+        ),
+        pages=[
+            PageContent(
+                page_number=4,
+                texts=[
+                    TextBlock(content=line["content"], bbox=line["bbox"])
+                    for line in lines
+                ],
+                width=834,
+                height=1207,
+            )
+        ],
+    )
+    return mirror, {"scenario": "synthetic_scanned_micro_grid"}
+
+
+async def _execute_scanned_local_structure_contract(case: TQGCase) -> tuple[Any, dict[str, Any]]:
+    from docmirror.core.ocr.local_structure import extract_local_structure_evidence
+    from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus, TextBlock
+    from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
+
+    if "negative" in case.id:
+        lines = [
+            {"content": "文档说明", "bbox": [20.0, 20.0, 100.0, 38.0], "confidence": 1.0},
+            {"content": "这是一段普通说明文本", "bbox": [20.0, 55.0, 240.0, 72.0], "confidence": 1.0},
+        ]
+    else:
+        lines = [
+            {"content": "账户2", "bbox": [20.0, 10.0, 70.0, 24.0], "confidence": 1.0},
+            {"content": "管理机构 账户标识 开立日期", "bbox": [20.0, 40.0, 320.0, 54.0], "confidence": 1.0},
+            {
+                "content": "重庆市蚂蚁商诚信 蚂蚁借呗合并20180831J1010111000648287831 2018.08.31",
+                "bbox": [20.0, 60.0, 520.0, 74.0],
+                "confidence": 1.0,
+            },
+            {"content": "账户币种 到期日期 借款金额", "bbox": [20.0, 90.0, 320.0, 104.0], "confidence": 1.0},
+            {"content": "人民币 2019.06.21 72,000", "bbox": [20.0, 110.0, 320.0, 124.0], "confidence": 1.0},
+            {"content": "业务种类 担保方式 账户状态 关闭日期", "bbox": [20.0, 140.0, 420.0, 154.0], "confidence": 1.0},
+            {"content": "其他个人消费贷款 信用/免担保 结清 2019.06.21", "bbox": [20.0, 160.0, 420.0, 174.0], "confidence": 1.0},
+        ]
+    evidence = extract_local_structure_evidence(lines, page=4, page_width=834, page_height=1207)
+    account_out = extract_credit_accounts_from_local_structure_evidence(
+        [{"page": 4, "structures": evidence.get("structures") or []}]
+    )
+    mirror = ParseResult(
+        status=ResultStatus.SUCCESS,
+        entities=DocumentEntities(
+            document_type="credit_report",
+            domain_specific=_local_structure_bundle_domain(
+                page=4,
+                page_width=834,
+                page_height=1207,
+                lines=lines,
+                evidence=evidence,
+                credit_accounts=account_out.get("credit_accounts") or [],
+            ),
+        ),
+        pages=[
+            PageContent(
+                page_number=4,
+                texts=[TextBlock(content=line["content"], bbox=line["bbox"]) for line in lines],
+                width=834,
+                height=1207,
+            )
+        ],
+    )
+    return mirror, {"scenario": "synthetic_scanned_local_structure"}
+
+
+async def _execute_scanned_local_structure_realistic_fixture(case: TQGCase) -> tuple[Any, dict[str, Any]]:
+    import json
+    from pathlib import Path
+
+    from docmirror.core.ocr.local_structure import extract_local_structure_evidence
+    from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus, TextBlock
+    from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
+
+    fixture_path = Path("tests/fixtures/scanned/account_card_page4_layout.json")
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    lines = [
+        {"content": line["content"], "bbox": line["bbox"], "confidence": line.get("confidence", 1.0)}
+        for line in fixture.get("lines") or []
+    ]
+    page = int(fixture.get("page") or 4)
+    page_width = int(float(fixture.get("page_width") or 834))
+    page_height = int(float(fixture.get("page_height") or 1207))
+    evidence = extract_local_structure_evidence(
+        lines,
+        tokens=fixture.get("tokens") or [],
+        page=page,
+        page_width=page_width,
+        page_height=page_height,
+    )
+    account_out = extract_credit_accounts_from_local_structure_evidence(
+        [{"page": page, "structures": evidence.get("structures") or []}]
+    )
+    mirror = ParseResult(
+        status=ResultStatus.SUCCESS,
+        entities=DocumentEntities(
+            document_type="credit_report",
+            domain_specific=_local_structure_bundle_domain(
+                page=page,
+                page_width=page_width,
+                page_height=page_height,
+                lines=lines,
+                evidence=evidence,
+                credit_accounts=account_out.get("credit_accounts") or [],
+            ),
+        ),
+        pages=[
+            PageContent(
+                page_number=page,
+                texts=[TextBlock(content=line["content"], bbox=line["bbox"]) for line in lines],
+                width=page_width,
+                height=page_height,
+            )
+        ],
+    )
+    return mirror, {"scenario": "realistic_scanned_local_structure_fixture"}
+
+
+async def _execute_scanned_local_structure_full_page_fixture(case: TQGCase) -> tuple[Any, dict[str, Any]]:
+    import json
+    from pathlib import Path
+
+    from docmirror.core.ocr.local_structure import extract_local_structure_evidence
+    from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus, TextBlock
+    from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
+
+    fixture_path = Path("tests/fixtures/scanned/account_card_page4_full_layout.json")
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    lines = [
+        {"content": line["content"], "bbox": line["bbox"], "confidence": line.get("confidence", 1.0)}
+        for line in fixture.get("lines") or []
+    ]
+    page = int(fixture.get("page") or 4)
+    page_width = int(float(fixture.get("page_width") or 834))
+    page_height = int(float(fixture.get("page_height") or 1207))
+    evidence = extract_local_structure_evidence(
+        lines,
+        tokens=fixture.get("tokens") or [],
+        page=page,
+        page_width=float(fixture.get("page_width") or page_width),
+        page_height=float(fixture.get("page_height") or page_height),
+    )
+    account_out = extract_credit_accounts_from_local_structure_evidence(
+        [{"page": page, "structures": evidence.get("structures") or []}]
+    )
+    mirror = ParseResult(
+        status=ResultStatus.SUCCESS,
+        entities=DocumentEntities(
+            document_type="credit_report",
+            domain_specific=_local_structure_bundle_domain(
+                page=page,
+                page_width=page_width,
+                page_height=page_height,
+                lines=lines,
+                evidence=evidence,
+                credit_accounts=account_out.get("credit_accounts") or [],
+            ),
+        ),
+        pages=[
+            PageContent(
+                page_number=page,
+                texts=[TextBlock(content=line["content"], bbox=line["bbox"]) for line in lines],
+                width=page_width,
+                height=page_height,
+            )
+        ],
+    )
+    return mirror, {"scenario": "full_page_scanned_local_structure_fixture"}
+
+
 def _primary_logical_rows(result: Any) -> int:
-    logical = get_logical_tables(result)
-    if not logical:
-        return 0
-    return max(lt.row_count for lt in logical)
+    return mirror_expected_primary_rows(result)
 
 
 def _logical_row_count(result: Any) -> int:
@@ -396,6 +775,24 @@ def _resolve_gate_actual(gate_name: str, result: Any, meta: dict[str, Any]) -> A
         if edition is None and isinstance(result, dict):
             edition = result.get("edition")
         return _dec_validation_issues(edition)
+    if gate_name in ("canonical_ratio", "coverage_ratio", "extract_status", "canonical_extracted"):
+        edition = meta.get("edition_payload")
+        if edition is None and isinstance(result, dict):
+            edition = result.get("edition")
+        props = ((edition or {}).get("document") or {}).get("properties") or {}
+        return props.get(gate_name)
+    if gate_name == "plugin_document_type":
+        mirror = result.get("mirror") if isinstance(result, dict) else result
+        if mirror is not None:
+            api = mirror.to_api_dict() if hasattr(mirror, "to_api_dict") else {}
+            meta_block = api.get("meta") or {}
+            if meta_block.get("plugin_document_type"):
+                return meta_block.get("plugin_document_type")
+            entities = getattr(mirror, "entities", None)
+            domain = getattr(entities, "domain_specific", None) if entities else None
+            if isinstance(domain, dict):
+                return domain.get("plugin_document_type")
+        return None
     if gate_name == "warning_contains":
         return meta.get("edition_warnings") or []
     if gate_name in ("is_entitled", "lifecycle_state", "has_license_warning", "premium_feature", "lifecycle_days"):
@@ -469,6 +866,18 @@ async def run_tqg_case_async(case: TQGCase) -> GateReport:
         result, meta = await _execute_e2e_four_file(case)
     elif pipeline == "e2e_contract":
         result, meta = await _execute_e2e_contract(case)
+    elif pipeline == "mirror_conservation_contract":
+        result, meta = await _execute_mirror_conservation_contract(case)
+    elif pipeline == "mirror_geometry_contract":
+        result, meta = await _execute_mirror_geometry_contract(case)
+    elif pipeline == "scanned_micro_grid_contract":
+        result, meta = await _execute_scanned_micro_grid_contract(case)
+    elif pipeline == "scanned_local_structure_contract":
+        result, meta = await _execute_scanned_local_structure_contract(case)
+    elif pipeline == "scanned_local_structure_realistic_fixture":
+        result, meta = await _execute_scanned_local_structure_realistic_fixture(case)
+    elif pipeline == "scanned_local_structure_full_page_fixture":
+        result, meta = await _execute_scanned_local_structure_full_page_fixture(case)
     elif pipeline == "licensing":
         from docmirror.eval.tqg.licensing_exec import execute_licensing
 
@@ -502,9 +911,15 @@ async def run_tqg_case_async(case: TQGCase) -> GateReport:
     oracle_spec = case.oracle or {}
     if oracle_spec.get("dual_view"):
         mirror_for_dual = result.get("mirror") if isinstance(result, dict) else result
+        quarantined = meta.get("quarantined") or []
+        dv_spec = oracle_spec.get("dual_view")
+        max_secondary = 10
+        if isinstance(dv_spec, dict):
+            max_secondary = int(dv_spec.get("max_secondary_logical_rows", 10))
         dual = dual_view_consistency_check(
             mirror_for_dual,
-            quarantined_tables=meta.get("quarantined"),
+            quarantined_tables=quarantined,
+            max_secondary_logical_rows=max_secondary,
         )
         _merge_gate_result(report, dual)
 
@@ -561,6 +976,17 @@ async def run_tqg_case_async(case: TQGCase) -> GateReport:
         )
         report.merge(ts_report)
 
+    bank_spec = oracle_spec.get("bank_statement")
+    if bank_spec:
+        from docmirror.eval.tqg.bank_statement_oracles import run_bank_statement_edition_oracle
+
+        edition = meta.get("edition_payload")
+        if edition is None and isinstance(result, dict):
+            edition = result.get("edition")
+        bs_report = GateReport(case_id=case.id, track=case.track, tier=case.tier)
+        run_bank_statement_edition_oracle(edition, bank_spec, bs_report)
+        report.merge(bs_report)
+
     mirror_structure_spec = oracle_spec.get("mirror_structure")
     if mirror_structure_spec:
         from docmirror.eval.tqg.mirror_structure_oracles import run_mirror_structure_oracle
@@ -573,6 +999,84 @@ async def run_tqg_case_async(case: TQGCase) -> GateReport:
             tier=case.tier,
         )
         report.merge(ms_report)
+
+    conservation_spec = oracle_spec.get("mirror_conservation")
+    if conservation_spec:
+        from docmirror.eval.tqg.conservation_oracles import run_mirror_conservation_oracle
+
+        mc_report = run_mirror_conservation_oracle(
+            result.get("mirror") if isinstance(result, dict) else result,
+            conservation_spec,
+            case_id=case.id,
+            track=case.track,
+            tier=case.tier,
+        )
+        report.merge(mc_report)
+
+    geometry_spec = oracle_spec.get("mirror_geometry")
+    if geometry_spec:
+        from docmirror.eval.tqg.geometry_oracles import run_mirror_geometry_oracle
+
+        mg_report = run_mirror_geometry_oracle(
+            result.get("mirror") if isinstance(result, dict) else result,
+            geometry_spec,
+            case_id=case.id,
+            track=case.track,
+            tier=case.tier,
+        )
+        report.merge(mg_report)
+
+    scanned_micro_grid_spec = oracle_spec.get("scanned_micro_grid")
+    if scanned_micro_grid_spec:
+        from docmirror.eval.tqg.scanned_micro_grid_oracles import run_scanned_micro_grid_oracle
+
+        smg_report = run_scanned_micro_grid_oracle(
+            result.get("mirror") if isinstance(result, dict) else result,
+            scanned_micro_grid_spec,
+            case_id=case.id,
+            track=case.track,
+            tier=case.tier,
+        )
+        report.merge(smg_report)
+
+    scanned_local_structure_spec = oracle_spec.get("scanned_local_structure")
+    if scanned_local_structure_spec:
+        from docmirror.eval.tqg.scanned_local_structure_oracles import run_scanned_local_structure_oracle
+
+        sls_report = run_scanned_local_structure_oracle(
+            result.get("mirror") if isinstance(result, dict) else result,
+            scanned_local_structure_spec,
+            case_id=case.id,
+            track=case.track,
+            tier=case.tier,
+        )
+        report.merge(sls_report)
+
+    page_canvas_spec = oracle_spec.get("page_canvas")
+    if page_canvas_spec:
+        from docmirror.eval.tqg.page_canvas_oracles import run_page_canvas_oracle
+
+        pc_report = run_page_canvas_oracle(
+            result.get("mirror") if isinstance(result, dict) else result,
+            page_canvas_spec,
+            case_id=case.id,
+            track=case.track,
+            tier=case.tier,
+        )
+        report.merge(pc_report)
+
+    pcm_finance_spec = oracle_spec.get("pcm_finance")
+    if pcm_finance_spec:
+        from docmirror.eval.tqg.finance_stability_oracles import run_pcm_finance_stability_oracle
+
+        fin_report = run_pcm_finance_stability_oracle(
+            result.get("mirror") if isinstance(result, dict) else result,
+            pcm_finance_spec,
+            case_id=case.id,
+            track=case.track,
+            tier=case.tier,
+        )
+        report.merge(fin_report)
 
     for gate_name, spec in case.gates.items():
         actual = _resolve_gate_actual(gate_name, result, meta)

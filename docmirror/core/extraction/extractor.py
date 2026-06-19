@@ -113,7 +113,7 @@ class CoreExtractor:
         """Convert image to a virtual single-page PDF, pre-scaling large images to max 4096px."""
         return image_to_virtual_pdf(image_path)
 
-    async def extract(self, file_path: Path) -> BaseResult:
+    async def extract(self, file_path: Path, *, options: dict | None = None) -> BaseResult:
         """
         Main entry point: extract BaseResult from PDF or image.
 
@@ -125,7 +125,7 @@ class CoreExtractor:
         doc_id = str(uuid.uuid4())
         logger.info(f"[DocMirror] ▶ extract | file={file_path.name}")
         try:
-            return await DocumentPipeline(self).run(file_path, doc_id=doc_id)
+            return await DocumentPipeline(self).run(file_path, doc_id=doc_id, options=options or {})
         except ExtractionError as e:
             logger.error(f"[DocMirror] extraction error: {e}", exc_info=True)
             return BaseResult(
@@ -141,7 +141,7 @@ class CoreExtractor:
                 full_text="",
             )
 
-    async def extract_parse_result(self, file_path: Path) -> "ParseResult":
+    async def extract_parse_result(self, file_path: Path, *, options: dict | None = None) -> "ParseResult":
         """
         Single bridge point: CoreExtractor → ParseResult (MOC Path B).
 
@@ -151,7 +151,7 @@ class CoreExtractor:
         from docmirror.core.bridge.parse_result_bridge import ParseResultBridge
         from docmirror.models.entities.parse_result import ParseResult
 
-        base_result = await self.extract(file_path)
+        base_result = await self.extract(file_path, options=options or {})
         return ParseResultBridge.from_base_result(base_result)
 
     async def _open_document(self, file_path: Path) -> "fitz.Document":
@@ -172,7 +172,7 @@ class CoreExtractor:
         return fitz_doc
 
     async def _run_extraction(
-        self, fitz_doc: "fitz.Document", file_path: Path, doc_id: str
+        self, fitz_doc: "fitz.Document", file_path: Path, doc_id: str, options: dict | None = None
     ) -> BaseResult:
         """Core extraction logic, extracted from try block.
         
@@ -185,6 +185,7 @@ class CoreExtractor:
         t0 = _clock()
         file_path = Path(file_path)
         is_image_input = file_path.suffix.lower() in self._IMAGE_SUFFIXES
+        self._page_evidence_bundles = []
 
         # Step 1.5: Pre-analysis
         from docmirror.core.analyze.pre_analyzer import PreAnalyzer
@@ -200,6 +201,7 @@ class CoreExtractor:
             is_image_input=is_image_input,
             cleaned_path=None,  # _process_pdf_sync handles this internally
             file_path=file_path,
+            options=options or {},
         )
 
         # Step 6: Assemble BaseResult
@@ -223,6 +225,8 @@ class CoreExtractor:
             "file_name": file_path.name,
             "file_size": file_path.stat().st_size,  # L2 guarantees file exists
             "page_count": len(pages),
+            "source_page_count": _perf.get("source_page_count"),
+            "processed_page_numbers": _perf.get("selected_pages") or [p.page_number for p in pages],
             "document_scene": getattr(self, "_document_scene", None)
             or _perf.get("document_scene", "unknown"),
             "scene_confidence": getattr(self, "_scene_confidence", 0.0)
@@ -240,6 +244,22 @@ class CoreExtractor:
             "perf_breakdown": _perf,
             "perf_per_page": _page_perf,
         }
+        opts = dict(options or {})
+        parse_control = opts.get("parse_control")
+        parse_control_dict = opts.get("parse_control_dict")
+        if parse_control_dict is None and parse_control is not None and hasattr(parse_control, "to_dict"):
+            parse_control_dict = parse_control.to_dict()
+        if parse_control_dict:
+            metadata["parse_control"] = parse_control_dict
+            metadata["parse_control_fingerprint"] = opts.get("parse_control_fingerprint") or (
+                parse_control.fingerprint() if parse_control is not None and hasattr(parse_control, "fingerprint") else ""
+            )
+            pages_control = parse_control_dict.get("pages") if isinstance(parse_control_dict, dict) else {}
+            if isinstance(pages_control, dict):
+                metadata["selected_pages"] = pages_control
+        if opts.get("doc_type_hint"):
+            metadata["doc_type_hint"] = opts.get("doc_type_hint")
+            metadata["doc_type_hint_strength"] = opts.get("doc_type_hint_strength") or "prefer"
         stage_timings = getattr(self, "_page_stage_timings", None)
         if stage_timings:
             metadata["perf_stage_timings"] = stage_timings
@@ -248,11 +268,22 @@ class CoreExtractor:
         if _logical_tables_data:
             metadata["_logical_tables"] = _logical_tables_data
 
+        ltqg_summary = getattr(self, "_ltqg_summary", None)
+        if ltqg_summary:
+            metadata["ltqg"] = ltqg_summary
+
+        quarantined_logical = getattr(self, "_quarantined_logical_tables", None)
+        if quarantined_logical:
+            metadata["quarantined_logical_tables"] = quarantined_logical
+
         section_tree = _perf.pop("_section_tree", None)
         if section_tree:
             metadata["sections"] = section_tree
         if seal_info:
             metadata["seal_info"] = seal_info
+        page_evidence_bundles = getattr(self, "_page_evidence_bundles", None)
+        if page_evidence_bundles:
+            metadata["page_evidence_bundles"] = list(page_evidence_bundles)
 
         if table_count > 0:
             metadata["extraction_quality"] = self._assess_extraction_quality(
@@ -267,8 +298,9 @@ class CoreExtractor:
             layout_profile_id=_perf.get("layout_profile_id"),
             pipe_table_enrich=bool(_perf.get("pipe_table_enrich")),
             logical_table_count=len(_logical_tables_data) if _logical_tables_data else None,
-            physical_table_count=sum(len(getattr(p, "tables", []) or []) for p in pages),
+            physical_table_count=table_count,
             dual_view=_perf.get("dual_view") if isinstance(_perf, dict) else None,
+            ltqg_summary=_perf.get("ltqg") if isinstance(_perf, dict) else None,
         )
 
         result = BaseResult(
@@ -296,6 +328,7 @@ class CoreExtractor:
         logical_table_count: int | None = None,
         physical_table_count: int | None = None,
         dual_view: bool | None = None,
+        ltqg_summary: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Build SPE dict for parser_info.structure (ADR-M13-02)."""
         from docmirror.core.analyze.structure_provenance import (
@@ -313,6 +346,7 @@ class CoreExtractor:
                 logical_table_count=logical_table_count,
                 physical_table_count=physical_table_count,
                 dual_view=dual_view,
+                ltqg_summary=ltqg_summary,
             )
 
         structural = getattr(pre_analysis, "structure_spe", None)
@@ -381,13 +415,13 @@ class CoreExtractor:
             "layer_timings_ms": get_last_layer_timings(),
         }
 
-    def _process_pdf_sync(self, fitz_doc, pre_analysis, has_text, is_image_input, cleaned_path, file_path):
+    def _process_pdf_sync(self, fitz_doc, pre_analysis, has_text, is_image_input, cleaned_path, file_path, options=None):
         """Delegate to ``PdfSyncProcessor`` (CPA design 12)."""
         from docmirror.core.pipeline.document_pipeline import DocumentPipeline
         from docmirror.core.pipeline.pdf_processor import PdfSyncProcessor
 
         return PdfSyncProcessor(self, DocumentPipeline(self)).process(
-            fitz_doc, pre_analysis, has_text, is_image_input, cleaned_path, file_path
+            fitz_doc, pre_analysis, has_text, is_image_input, cleaned_path, file_path, options=options or {}
         )
 
     def _extract_page(self, ctx: PageExtractionContext):
@@ -406,4 +440,3 @@ class CoreExtractor:
 
     def _post_process_tables(self, pages, extraction_profile=None):
         return process_page_tables(pages, extraction_profile=extraction_profile)
-

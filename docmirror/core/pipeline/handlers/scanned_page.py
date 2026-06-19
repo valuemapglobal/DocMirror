@@ -134,6 +134,8 @@ def extract_scanned_page(extractor: "PageExtractor",
             else:
                 # ── General document: text blocks per line ──
                 lines = ocr_result.get("lines", [])
+                raw_tokens = ocr_result.get("tokens", [])
+                page_image = ocr_result.get("_page_image")
                 ocr_page_h = ocr_result.get("page_h", 1)
                 ocr_page_w = ocr_result.get("page_w", 1)
 
@@ -142,6 +144,51 @@ def extract_scanned_page(extractor: "PageExtractor",
                 sy = height / max(ocr_page_h, 1)
 
                 full_text_parts: list[str] = []
+                scaled_lines: list[dict[str, Any]] = []
+                scaled_tokens: list[Any] = []
+                if raw_tokens:
+                    try:
+                        from docmirror.core.ocr.micro_grid.models import OCRToken
+
+                        for token in raw_tokens:
+                            tb = token.get("bbox") if isinstance(token, dict) else getattr(token, "bbox", None)
+                            if not tb or len(tb) != 4:
+                                continue
+                            tx0, ty0, tx1, ty1 = (float(tb[0]), float(tb[1]), float(tb[2]), float(tb[3]))
+                            text = str(token.get("text") if isinstance(token, dict) else getattr(token, "text", "") or "").strip()
+                            if not text:
+                                continue
+                            raw_bbox = token.get("raw_bbox") if isinstance(token, dict) else getattr(token, "raw_bbox", None)
+                            scaled_tokens.append(
+                                OCRToken(
+                                    token_id=str(
+                                        token.get("token_id")
+                                        if isinstance(token, dict)
+                                        else getattr(token, "token_id", f"ocr_p{page_idx + 1}_t{len(scaled_tokens)}")
+                                    ),
+                                    text=text,
+                                    bbox=(tx0 * sx, ty0 * sy, tx1 * sx, ty1 * sy),
+                                    confidence=float(
+                                        token.get("confidence", 1.0)
+                                        if isinstance(token, dict)
+                                        else getattr(token, "confidence", 1.0)
+                                    ),
+                                    page=page_idx + 1,
+                                    source=str(
+                                        token.get("source", "rapidocr") if isinstance(token, dict) else getattr(token, "source", "rapidocr")
+                                    ),
+                                    coordinate_system="pdf_points_top_left",
+                                    raw_bbox=tuple(raw_bbox) if raw_bbox and len(raw_bbox) == 4 else (tx0, ty0, tx1, ty1),
+                                    raw_coordinate_system=str(
+                                        token.get("raw_coordinate_system", "image_pixels")
+                                        if isinstance(token, dict)
+                                        else getattr(token, "raw_coordinate_system", "image_pixels")
+                                    ),
+                                )
+                            )
+                    except Exception as exc:
+                        logger.debug("[DocMirror] OCR token geometry projection skipped: %s", exc)
+
                 for line in lines:
                     text = line.get("text", "").strip()
                     if not text:
@@ -149,6 +196,11 @@ def extract_scanned_page(extractor: "PageExtractor",
                     full_text_parts.append(text)
                     ox0, oy0, ox1, oy1 = line.get("bbox", (0, 0, 0, 0))
                     bbox = (ox0 * sx, oy0 * sy, ox1 * sx, oy1 * sy)
+                    scaled_lines.append({
+                        "content": text,
+                        "bbox": list(bbox),
+                        "confidence": float(line.get("confidence", 1.0) or 1.0),
+                    })
                     # If content is HTML (e.g. external OCR), store plain text in block.
                     # Drop table segments so tables appear only in key_value block, not duplicated as text.
                     if "<table" in text.lower() or "<td" in text.lower():
@@ -164,6 +216,104 @@ def extract_scanned_page(extractor: "PageExtractor",
                         )
                     )
                     reading_order += 1
+
+                if scaled_lines:
+                    from docmirror.core.ocr.page_canvas.detect import detect_page_region_candidates
+                    from docmirror.core.ocr.page_canvas.evidence_bundles import upsert_page_evidence_bundle
+
+                    region_detect = {
+                        "region_detect_candidates": [
+                            {
+                                "candidate_id": cand.candidate_id,
+                                "kind": cand.kind,
+                                "bbox": list(cand.bbox),
+                                "score": cand.score,
+                                "reason_codes": list(cand.reason_codes),
+                            }
+                            for cand in detect_page_region_candidates(
+                                scaled_lines,
+                                tokens=scaled_tokens,
+                                page=page_idx + 1,
+                                page_width=width,
+                                page_height=height,
+                            )
+                        ],
+                    }
+                    micro_grid_evidence = {
+                        "page": page_idx + 1,
+                        "page_width": width,
+                        "page_height": height,
+                        "lines": scaled_lines,
+                        "tokens": [token.to_dict() for token in scaled_tokens],
+                        "source": "scanned_page_ocr",
+                    }
+                    local_structure_evidence = None
+                    try:
+                        from docmirror.core.ocr.local_structure import extract_local_structure_evidence
+
+                        local_structure = extract_local_structure_evidence(
+                            scaled_lines,
+                            tokens=scaled_tokens,
+                            page=page_idx + 1,
+                            page_width=width,
+                            page_height=height,
+                            page_image=page_image,
+                            enable_region_ocr=page_image is not None,
+                        )
+                        if local_structure.get("candidates") or local_structure.get("structures"):
+                            local_structure_evidence = {
+                                "page": page_idx + 1,
+                                "page_width": width,
+                                "page_height": height,
+                                "lines": scaled_lines,
+                                "tokens": [token.to_dict() for token in scaled_tokens],
+                                "source": "scanned_page_ocr",
+                                "candidates": local_structure.get("candidates") or [],
+                                "structures": local_structure.get("structures") or [],
+                                "audit": local_structure.get("audit") or {},
+                            }
+                    except Exception as exc:
+                        logger.debug("[DocMirror] scanned local structure evidence skipped: %s", exc)
+
+                    upsert_page_evidence_bundle(
+                        extractor._host,
+                        page=page_idx + 1,
+                        page_width=width,
+                        page_height=height,
+                        micro_grid_evidence=micro_grid_evidence,
+                        local_structure_evidence=local_structure_evidence,
+                        region_detect=region_detect,
+                    )
+                    try:
+                        from docmirror.core.ocr.micro_grid.materialize import extract_micro_grid_structures
+                        from docmirror.core.ocr.page_canvas.evidence_bundles import merge_micro_grid_structures_into_host
+
+                        micro_grids = extract_micro_grid_structures(
+                            scaled_lines,
+                            tokens=scaled_tokens,
+                            page=page_idx + 1,
+                            page_width=width,
+                            page_height=height,
+                            page_image=page_image,
+                            enable_cell_ocr=False,
+                        )
+                        if micro_grids:
+                            merge_micro_grid_structures_into_host(extractor._host, micro_grids)
+                    except Exception as exc:
+                        logger.debug("[DocMirror] scanned micro-grid materialize skipped: %s", exc)
+
+                    try:
+                        from docmirror.core.ocr.page_canvas.morphology_orchestrator import write_detect_audit_to_bundle
+
+                        bundles = getattr(extractor._host, "_page_evidence_bundles", [])
+                        page_bundle = next(
+                            (b for b in bundles if isinstance(b, dict) and int(b.get("page") or 0) == page_idx + 1),
+                            None,
+                        )
+                        if page_bundle is not None:
+                            write_detect_audit_to_bundle(page_bundle)
+                    except Exception as exc:
+                        logger.debug("[DocMirror] scanned MO detect audit skipped: %s", exc)
 
                 # When external OCR returns HTML <table>, parse to key_value block
                 full_text = "\n\n".join(full_text_parts)
@@ -194,4 +344,3 @@ def extract_scanned_page(extractor: "PageExtractor",
         blocks=tuple(blocks),
         is_scanned=True,
     )
-

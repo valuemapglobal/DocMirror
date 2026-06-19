@@ -232,6 +232,36 @@ def build_grid(
     return [[cell.strip() for cell in row] for row in grid]
 
 
+def build_grid_with_geometry(
+    row_boundaries: list[float],
+    col_boundaries: list[float],
+    chars: list[dict],
+) -> dict:
+    """Assemble a text grid and geometry companion from row/column boundaries."""
+    table = build_grid(row_boundaries, col_boundaries, chars)
+    if not table:
+        return {"table": table, "geometry": {}}
+    from docmirror.core.geometry.bbox import union
+    from docmirror.core.geometry.table_geometry import build_table_geometry
+
+    def _char_bbox(ch):
+        if "bbox" in ch and isinstance(ch.get("bbox"), (list, tuple)):
+            return ch["bbox"]
+        if all(k in ch for k in ("x0", "x1")) and ("top" in ch or "y0" in ch) and ("bottom" in ch or "y1" in ch):
+            return (ch["x0"], ch.get("top", ch.get("y0")), ch["x1"], ch.get("bottom", ch.get("y1")))
+        return None
+
+    bbox = union(_char_bbox(ch) for ch in chars)
+    geometry = build_table_geometry(
+        table,
+        chars=chars,
+        table_bbox=bbox,
+        geometry_source="signal_grid",
+        geometry_confidence=0.8,
+    ).to_attrs()
+    return {"table": table, "geometry": geometry}
+
+
 def _merge_chars_to_words(sorted_chars: list[dict]) -> list[dict]:
     """Merge adjacent characters into words based on gap distance."""
     if not sorted_chars:

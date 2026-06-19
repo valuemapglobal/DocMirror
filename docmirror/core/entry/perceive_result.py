@@ -46,3 +46,8 @@ class PerceiveResult:
 
     def to_api_dict(self, **kwargs: Any) -> dict[str, Any]:
         return self.mirror.to_api_dict(**kwargs)
+
+    def sections_for_rag(self) -> list[dict[str, Any]]:
+        from docmirror.server.edition_access import resolve_sections
+
+        return resolve_sections(self.mirror, self.editions)

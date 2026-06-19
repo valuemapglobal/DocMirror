@@ -1,0 +1,41 @@
+# TQG mirror_geometry track — Mirror layout/geometry conservation gates
+version: 1
+track: mirror_geometry
+layer: mirror
+
+cases:
+  - id: synthetic_geometry_contract
+    tier: regression
+    pipeline: mirror_geometry_contract
+    oracle:
+      mirror_geometry:
+        mirror_level: forensic
+        min_physical_tables: 1
+        min_cell_bbox_coverage: 0.9
+        max_missing_geometry_cells: 0
+        require_monotonic_rows: true
+        require_monotonic_cols: true
+        require_table_bbox_contains_cells: true
+        require_row_col_bands: true
+        require_logical_source_cell_refs: true
+        require_geometry_loss_reason_for_estimated: true
+        require_cell_token_ids: true
+    tags: [mirror, geometry, layout]
+
+  - id: real_pdf_bank_statement_geometry_smoke
+    tier: regression
+    fixture: tests/fixtures/bank_statement/ZHAO YA_银行流水_20251104.pdf
+    pipeline: perceive
+    options:
+      max_pages: 1
+      enhance_mode: raw
+    oracle:
+      mirror_geometry:
+        mirror_level: forensic
+        min_physical_tables: 1
+        min_cell_bbox_coverage: 0.9
+        require_monotonic_rows: true
+        require_monotonic_cols: true
+        require_table_bbox_contains_cells: true
+        require_row_col_bands: true
+    tags: [mirror, geometry, layout, real_pdf, bank_statement]

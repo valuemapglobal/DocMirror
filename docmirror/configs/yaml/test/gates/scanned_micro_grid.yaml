@@ -1,0 +1,29 @@
+track: scanned_micro_grid
+layer: mirror
+cases:
+  - id: credit_repayment_micro_grid_contract
+    tier: regression
+    pipeline: scanned_micro_grid_contract
+    oracle:
+      scanned_micro_grid:
+        min_micro_grids: 1
+        require_row_col_bands: true
+        expected_col_count: 12
+        min_cell_bbox_coverage: 1.0
+        require_source_cell_refs: true
+        expected_records:
+          - {year: 2021, month: 1, status: N, overdue_amount: "0"}
+          - {year: 2021, month: 2, status: C, overdue_amount: "0"}
+          - {year: 2020, month: 9, status: N, overdue_amount: "0"}
+          - {year: 2020, month: 10, status: N, overdue_amount: "0"}
+          - {year: 2020, month: 11, status: N, overdue_amount: "0"}
+          - {year: 2020, month: 12, status: N, overdue_amount: "0"}
+    tags: [credit_report, scanned, micro_grid, repayment]
+  - id: credit_repayment_micro_grid_negative_no_anchor
+    tier: regression
+    pipeline: scanned_micro_grid_contract
+    oracle:
+      scanned_micro_grid:
+        max_micro_grids: 0
+        forbid_repayment_records: true
+    tags: [credit_report, scanned, micro_grid, repayment, negative]

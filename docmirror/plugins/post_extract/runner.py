@@ -4,9 +4,8 @@
 """
 Post-extract hook executor — runs catalog-matched hooks after PEC extract.
 
-Iterates hooks resolved for the current document type and edition, invokes
-``apply``, and records audited Mirror mutations when ``mutates_mirror`` is set
-in the catalog spec.
+Hooks enrich the edition ``extracted`` payload only. Core ``ParseResult`` used for
+``001_mirror.json`` is snapshotted before plugins (Architecture A).
 
 Pipeline role: called from ``runner._finalize_extract`` immediately before returning
 edition JSON to the caller.
@@ -35,7 +34,7 @@ def run_post_extract_hooks(
     document_type: str,
     plugin: Any | None = None,
 ) -> None:
-    """Run matching hooks; mutations are recorded on ``result.mutations``."""
+    """Run matching hooks; edition payload enrichment only."""
     for spec in resolve_post_extract_hooks(
         document_type=document_type,
         edition=edition,
@@ -53,13 +52,10 @@ def run_post_extract_hooks(
                 plugin=plugin,
             )
             if spec.mutates_mirror:
-                result.record_mutation(
-                    middleware_name=f"post_extract:{spec.hook_id}",
-                    target_block_id=document_type,
-                    field_changed=",".join(spec.provides) or spec.hook_id,
-                    old_value=None,
-                    new_value=True,
-                    reason=f"post_extract hook {spec.hook_id}",
+                logger.warning(
+                    "[PostExtract] Hook %s declares mutates_mirror=true but Core Mirror "
+                    "writeback is disabled (Architecture A)",
+                    spec.hook_id,
                 )
             logger.debug("[PostExtract] Applied hook %s", spec.hook_id)
         except Exception as exc:

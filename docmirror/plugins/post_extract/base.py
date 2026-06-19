@@ -23,7 +23,7 @@ from docmirror.models.entities.parse_result import ParseResult
 
 
 class PostExtractHook(ABC):
-    """Run after PEC extract; may mutate Mirror when ``mutates_mirror`` is set in catalog."""
+    """Run after PEC extract; enrich edition JSON only (must not mutate Core Mirror)."""
 
     hook_id: str = ""
 

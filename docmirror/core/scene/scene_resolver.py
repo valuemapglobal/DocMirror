@@ -95,5 +95,7 @@ def scene_to_layout_profile_id(scene: str) -> str | None:
         "wechat_payment": "borderless_ledger_wechat",
         "alipay_payment": "borderless_ledger_alipay",
         "bank_statement": "borderless_ledger_bank",
+        # EvidenceEngine / PreAnalyzer often classify ledgers as bank_reconciliation
+        "bank_reconciliation": "borderless_ledger_bank",
     }
     return mapping.get(scene)
