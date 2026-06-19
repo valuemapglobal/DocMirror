@@ -54,3 +54,39 @@ class TestDocMirrorSettings:
         assert settings.layout_model_path is None
         assert settings.reading_order_model_path is None
         assert settings.formula_model_path is None
+
+    def test_vlm_settings_available(self, monkeypatch):
+        """VLM settings should be part of the runtime contract."""
+        for key in (
+            "DOCMIRROR_VLM_PROVIDER",
+            "DOCMIRROR_VLM_MODEL",
+            "DOCMIRROR_VLM_API_KEY",
+            "DOCMIRROR_VLM_API_BASE",
+            "DOCMIRROR_VLM_TIMEOUT",
+            "DOCMIRROR_VLM_TEMPERATURE",
+            "DOCMIRROR_VLM_MAX_TOKENS",
+            "DOCMIRROR_VLM_PROMPT",
+        ):
+            monkeypatch.delenv(key, raising=False)
+
+        settings = DocMirrorSettings.from_env()
+        assert settings.vlm.provider == "openai"
+        assert settings.vlm.model
+        assert settings.vlm.api_key is None
+        assert settings.vlm.timeout > 0
+        assert "document analysis assistant" in settings.vlm.prompt
+
+    def test_vlm_settings_env_override(self, monkeypatch):
+        """VLM env vars should override YAML defaults."""
+        monkeypatch.setenv("DOCMIRROR_VLM_PROVIDER", "dashscope")
+        monkeypatch.setenv("DOCMIRROR_VLM_MODEL", "qwen-vl-max")
+        monkeypatch.setenv("DOCMIRROR_VLM_API_KEY", "test-vlm-key")
+        monkeypatch.setenv("DOCMIRROR_VLM_API_BASE", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+        monkeypatch.setenv("DOCMIRROR_VLM_TIMEOUT", "12")
+
+        settings = DocMirrorSettings.from_env()
+        assert settings.vlm.provider == "dashscope"
+        assert settings.vlm.model == "qwen-vl-max"
+        assert settings.vlm.api_key == "test-vlm-key"
+        assert settings.vlm.api_base == "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        assert settings.vlm.timeout == 12

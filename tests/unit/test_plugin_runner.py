@@ -15,6 +15,7 @@ from docmirror.plugins.runner import (
     _wrap_license_degraded,
     run_plugin_extract_sync,
 )
+from docmirror.plugins.composition import CompositionReason
 
 
 def _mirror(document_type: str = "unknown") -> ParseResult:
@@ -100,6 +101,8 @@ def test_wrap_license_degraded_adds_warning():
     assert wrapped["edition"] == "enterprise"
     assert wrapped["status"]["warnings"][0] == "_license_warning"
     assert wrapped["plugin"]["license_required"] is True
+    assert wrapped["composition"]["reason"] == CompositionReason.LICENSE_DEGRADE.value
+    assert wrapped["composition"]["source_edition"] == "community"
 
 
 def test_enterprise_reuses_community_baseline_without_reextract():

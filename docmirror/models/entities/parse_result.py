@@ -663,9 +663,9 @@ class MirrorAnnex(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    evidence_summary: "EvidenceSummary | None" = None
-    hypotheses: list["ParseHypothesis"] = Field(default_factory=list)
-    quality_report: "ParseQualityReport | None" = None
+    evidence_summary: EvidenceSummary | None = None
+    hypotheses: list[ParseHypothesis] = Field(default_factory=list)
+    quality_report: ParseQualityReport | None = None
     pipeline_debug: dict[str, Any] = Field(
         default_factory=dict,
         description="Middleware/orchestrator debug payloads (mutation_analysis, etc.)",
@@ -1057,15 +1057,29 @@ class ParseResult(BaseModel):
         # ── data.quality ──
         quality: dict[str, Any] = {
             "confidence": self.confidence,
+            "classification": {
+                "confidence": self.confidence,
+                "document_type": self.entities.document_type,
+            },
         }
         if self.trust:
             quality["trust_score"] = self.trust.trust_score
             quality["validation_passed"] = self.trust.validation_passed
             quality["issues"] = self.trust.forgery_reasons or []
+            quality["mirror_fidelity"] = {
+                "score": self.trust.trust_score,
+                "validation_passed": self.trust.validation_passed,
+                "issues": self.trust.forgery_reasons or [],
+            }
         else:
             quality["trust_score"] = 1.0
             quality["validation_passed"] = True
             quality["issues"] = []
+            quality["mirror_fidelity"] = {
+                "score": 1.0,
+                "validation_passed": True,
+                "issues": [],
+            }
 
         # ── meta ──
         meta: dict[str, Any] = {
@@ -1144,15 +1158,15 @@ class ParseResult(BaseModel):
         )
         meta["counts"] = counts
         apply_meta_count_aliases(meta, counts)
-        if self.parser_info.structure:
-            meta["structure"] = finalize_structure_spe(
-                spe_raw,
-                pages=document.get("pages") or [],
-                document=document,
-                counts=counts,
-                quarantine_index=quarantine_index,
-                domain_specific=self.entities.domain_specific,
-            )
+        meta["structure"] = finalize_structure_spe(
+            spe_raw,
+            pages=document.get("pages") or [],
+            document=document,
+            counts=counts,
+            quarantine_index=quarantine_index,
+            domain_specific=self.entities.domain_specific,
+        )
+        meta.pop("quarantine", None)
         if self.provenance:
             meta["provenance"] = self.provenance.model_dump(exclude_none=True)
 

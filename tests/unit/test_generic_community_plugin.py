@@ -38,8 +38,8 @@ def test_id_card_classified_produces_generic_output():
 
 def test_generic_output_collects_key_values():
     pr = _mirror("payroll_slip")
-    kv = type("KV", (), {"key": "姓名", "value": "李四"})()
-    page = type("Page", (), {"key_values": [kv], "tables": [], "page_number": 1})()
+    kv = type("KV", (), {"key": "姓名", "value": "李四", "confidence": 1.0, "bbox": None, "evidence_ids": None})()
+    page = type("Page", (), {"key_values": [kv], "tables": [], "texts": [], "page_number": 1, "width": 800, "height": 1000})()
     pr.pages = [page]
 
     out = plugin.extract_from_mirror(pr)

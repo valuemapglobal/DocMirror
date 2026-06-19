@@ -17,7 +17,7 @@ Response envelope follows ``docs/parser_interface.md`` v1.0::
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 

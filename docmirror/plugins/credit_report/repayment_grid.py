@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 from docmirror.core.ocr.micro_grid.detect import detect_micro_grid_candidates
 from docmirror.core.ocr.micro_grid.cell_recognition import (
@@ -280,9 +281,9 @@ def reconstruct_repayment_micro_grid_from_lines(
     if not years:
         return RepaymentExtraction(None, [], {"reason": "year_rows_not_found", "anchor": anchor})
 
-    cols = _month_col_bands(header_line)
-    month_x0 = min(col["bbox"][0] for col in cols)
-    grid_x1 = max(col["bbox"][2] for col in cols)
+    month_cols = _month_col_bands(header_line)
+    month_x0 = min(col["bbox"][0] for col in month_cols)
+    grid_x1 = max(col["bbox"][2] for col in month_cols)
     year_x0 = min(float(year_line["bbox"][0]) for year_line in years)
     year_x1 = max(float(year_line["bbox"][2]) for year_line in years)
     year_y1 = max(float(year_line["bbox"][3]) for year_line in years)
@@ -293,8 +294,7 @@ def reconstruct_repayment_micro_grid_from_lines(
         "bbox": [year_x0, header_line["bbox"][1], max(month_x0, year_x1), year_y1],
         "geometry_status": "estimated",
     }
-    cols = [year_col_band, *cols]
-    grid_x0 = min(col["bbox"][0] for col in cols)
+    grid_x0 = min(float(year_col_band["bbox"][0]), month_x0)
 
     synthetic_tokens: list[OCRToken] = []
     if evidence_tokens:
@@ -357,7 +357,6 @@ def reconstruct_repayment_micro_grid_from_lines(
 
     records: list[dict[str, Any]] = []
     record_months = set(_months_between(start_year, start_month, end_year, end_month))
-    month_cols = [col for col in cols if str(col.get("header") or "").strip().isdigit()]
     crop_ocr_attempts = 0
     crop_ocr_hits = 0
 
@@ -542,7 +541,7 @@ def reconstruct_repayment_micro_grid_from_lines(
         bbox=grid_bbox,
         anchor_text=anchor["text"],
         row_bands=row_bands,
-        col_bands=cols,
+        col_bands=month_cols,
         cells=cell_rows,
         grid_type_hint="credit_repayment_record",
         geometry_source=f"{token_source}+estimated_month_bands",

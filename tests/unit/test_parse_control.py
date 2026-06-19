@@ -1,5 +1,10 @@
 from docmirror.configs.runtime.performance import resolve_worker_budget
-from docmirror.core.entry.options import normalize_parse_control, parse_output_formats, parse_page_selection
+from docmirror.core.entry.options import (
+    normalize_parse_control,
+    parse_editions,
+    parse_output_formats,
+    parse_page_selection,
+)
 from docmirror.exporters.dispatch import EXPORTER_REGISTRY
 import pytest
 
@@ -47,15 +52,64 @@ def test_output_formats_accept_legacy_aliases_and_all():
     assert parse_output_formats("all") == ("json", "markdown", "csv", "chunks", "html", "parquet")
 
 
+def test_editions_accept_all_and_dedupe():
+    assert parse_editions("mirror,community,mirror") == ("mirror", "community")
+    assert parse_editions("finance") == ("mirror", "finance")
+    assert parse_editions("all") == ("mirror", "community", "enterprise", "finance")
+
+
+def test_cache_policy_replaces_skip_cache_boolean():
+    refresh = normalize_parse_control(cache_policy="refresh")
+    off = normalize_parse_control(cache_policy="off")
+    read_only = normalize_parse_control(cache_policy="read-only")
+
+    assert refresh.cache_policy == "refresh"
+    assert refresh.skip_cache is True
+    assert off.cache_policy == "off"
+    assert off.skip_cache is True
+    assert read_only.cache_policy == "read-only"
+    assert read_only.skip_cache is False
+
+
+def test_doc_type_and_policy_replace_hint():
+    control = normalize_parse_control(doc_type="bank_statement", doc_type_policy="force")
+
+    assert control.doc_type_hint is not None
+    assert control.doc_type_hint.value == "bank_statement"
+    assert control.doc_type_hint.strength == "force"
+
+
+def test_ocr_geometry_and_editions_are_normalized():
+    control = normalize_parse_control(
+        editions="mirror,finance",
+        ocr="force",
+        geometry="full",
+        mirror_level="standard",
+    )
+
+    assert control.execution.ocr == "force"
+    assert control.output.editions == ("mirror", "finance")
+    assert control.output.geometry == "full"
+    assert control.output.mirror_level == "forensic"
+    assert any(item["from"] == "geometry=full" for item in control.implicit_promotions)
+
+
 def test_exporter_registry_contains_non_json_formats():
     assert {"chunks", "html", "csv", "parquet"}.issubset(set(EXPORTER_REGISTRY.formats()))
 
 
 def test_forensic_mode_promotes_mirror_level():
-    control = normalize_parse_control(mode="forensic", mirror_level="standard")
+    control = normalize_parse_control(mode="forensic")
 
     assert control.enhance_mode == "full"
     assert control.output.mirror_level == "forensic"
+
+
+def test_explicit_standard_mirror_level_is_respected_in_forensic_mode():
+    control = normalize_parse_control(mode="forensic", mirror_level="standard")
+
+    assert control.enhance_mode == "full"
+    assert control.output.mirror_level == "standard"
 
 
 def test_worker_budget_splits_batch_budget():

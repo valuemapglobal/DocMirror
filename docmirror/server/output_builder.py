@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import importlib
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
 
@@ -36,6 +38,7 @@ def _edition_package_available(edition: str) -> bool:
 
 def build_community_output(result, full_text: str = "") -> dict | None:
     """Build community v2.0 output via PEC plugin runner (does not mutate Mirror)."""
+    from docmirror.plugins.composition import CompositionReason, annotate_composition
     from docmirror.plugins.community import is_community_premium
     from docmirror.plugins.runner import run_plugin_extract_sync
 
@@ -56,6 +59,9 @@ def build_community_output(result, full_text: str = "") -> dict | None:
     ):
         meta["community_tier"] = "enterprise_only"
         meta["community_route"] = "mirror_only"
+        annotate_composition(out, edition="community", reason=CompositionReason.MIRROR_ONLY)
+    if "composition" not in out:
+        annotate_composition(out, edition="community", reason=CompositionReason.INDEPENDENT_EXTRACT)
     return out
 
 
@@ -148,7 +154,15 @@ def build_extended_output(
         community_baseline=community_baseline,
     )
     if extracted and isinstance(extracted, dict):
+        from docmirror.plugins.composition import CompositionReason, annotate_composition
+
         _patch_edition_compliance(extracted, edition, detected_type)
+        if "composition" not in extracted:
+            annotate_composition(
+                extracted,
+                edition=edition,
+                reason=CompositionReason.INDEPENDENT_EXTRACT,
+            )
     return extracted
 
 
@@ -175,36 +189,67 @@ def build_all_projections(
     full_text = full_text or getattr(result, "full_text", "") or ""
     file_path = file_path or getattr(result, "file_path", "") or ""
     want = editions or ("community", "enterprise", "finance")
+    timings: dict[str, float] = {}
+    total_t0 = time.perf_counter()
 
+    mirror_t0 = time.perf_counter()
     mirror = result.to_api_dict(
         include_text=include_text,
         mirror_level=mirror_level,
         request_id=request_id,
     )
+    timings["mirror_ms"] = (time.perf_counter() - mirror_t0) * 1000
 
     community: dict[str, Any] | None = None
     if "community" in want or "enterprise" in want or "finance" in want:
+        community_t0 = time.perf_counter()
         community = build_community_output(result, full_text)
+        timings["community_ms"] = (time.perf_counter() - community_t0) * 1000
 
     enterprise: dict[str, Any] | None = None
-    if "enterprise" in want and _edition_package_available("enterprise"):
-        enterprise = build_extended_output(
-            result,
-            "enterprise",
-            full_text,
-            file_path,
-            community_baseline=community,
-        )
-
     finance: dict[str, Any] | None = None
-    if "finance" in want and _edition_package_available("finance"):
-        finance = build_extended_output(
-            result,
-            "finance",
-            full_text,
-            file_path,
-            community_baseline=community,
-        )
+    extended_want = [ed for ed in ("enterprise", "finance") if ed in want and _edition_package_available(ed)]
+
+    def _build_extended_with_timing(edition_name: str) -> tuple[str, dict[str, Any] | None, float]:
+        started = time.perf_counter()
+        try:
+            payload = build_extended_output(
+                result,
+                edition_name,
+                full_text,
+                file_path,
+                community_baseline=community,
+            )
+        except Exception as exc:
+            logger.warning("[Projections] %s projection failed: %s", edition_name, exc)
+            payload = {
+                "edition": edition_name,
+                "status": {
+                    "success": False,
+                    "warnings": [],
+                    "errors": [f"projection_failed:{exc}"],
+                },
+            }
+        if payload is not None and "composition" not in payload:
+            from docmirror.plugins.composition import CompositionReason, annotate_composition
+
+            annotate_composition(
+                payload,
+                edition=edition_name,
+                reason=CompositionReason.INDEPENDENT_EXTRACT,
+            )
+        return edition_name, payload, (time.perf_counter() - started) * 1000
+
+    if extended_want:
+        with ThreadPoolExecutor(max_workers=min(2, len(extended_want))) as pool:
+            futures = [pool.submit(_build_extended_with_timing, ed) for ed in extended_want]
+            for future in as_completed(futures):
+                edition_name, payload, elapsed_ms = future.result()
+                timings[f"{edition_name}_ms"] = elapsed_ms
+                if edition_name == "enterprise":
+                    enterprise = payload
+                elif edition_name == "finance":
+                    finance = payload
 
     outputs: dict[str, dict[str, Any] | None] = {
         "mirror": mirror,
@@ -212,6 +257,15 @@ def build_all_projections(
         "enterprise": enterprise,
         "finance": finance,
     }
+    timings["total_ms"] = (time.perf_counter() - total_t0) * 1000
+    logger.info(
+        "[Projections] build",
+        extra={
+            "event": "projection_build",
+            "timings": {key: round(value, 2) for key, value in timings.items()},
+            "editions": ["mirror", *list(want)],
+        },
+    )
     return outputs
 
 

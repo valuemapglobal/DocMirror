@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docmirror.dev/schemas/edition_community.schema.json",
+  "title": "DocMirror Community Edition JSON",
+  "type": "object",
+  "required": ["schema_version", "edition", "document", "data"],
+  "properties": {
+    "schema_version": { "const": "2.0" },
+    "edition": { "const": "community" },
+    "document": { "type": "object" },
+    "data": { "type": "object" },
+    "composition": { "type": "object" }
+  }
+}

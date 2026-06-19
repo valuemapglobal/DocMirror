@@ -38,6 +38,57 @@ async def test_parse_cache_set_and_get():
 
 
 @pytest.mark.asyncio
+async def test_dispatcher_uses_execution_fingerprint_for_cache():
+    from docmirror.framework.dispatcher import ParserDispatcher, FileContext
+    from docmirror.framework.execution_fingerprint import build_execution_fingerprint
+
+    dispatcher = ParserDispatcher()
+    control = normalize_parse_control(skip_cache=False)
+    import os
+    from docmirror.core.entry.options import normalize_parse_control as _norm
+
+    expected_control = _norm(
+        control,
+        skip_cache=False,
+        enhance_mode=os.environ.get("DOCMIRROR_ENHANCE_MODE", "standard"),
+    )
+    expected_fp = build_execution_fingerprint(expected_control)
+
+    dummy_ctx = FileContext(
+        path=Path("dummy.pdf"),
+        file_type="pdf",
+        content_model="fixed_layout",
+        capability_id="pdf_native",
+        capability_status="supported",
+        file_size=100,
+        mime_type="application/pdf",
+        checksum="dummy_checksum",
+        is_forged=False,
+        forgery_reasons=[],
+    )
+    dummy_cap = MagicMock()
+    dummy_cap.status = "supported"
+    dummy_cap.transport = "pdf"
+    dummy_cap.content_model = "fixed_layout"
+    dummy_cap.id = "pdf_native"
+
+    with patch.object(dispatcher, "_validate", return_value=dummy_ctx):
+        with patch("docmirror.framework.dispatcher.resolve_capability", return_value=dummy_cap):
+            with patch("docmirror.framework.cache.parse_cache.get", AsyncMock(return_value=None)) as mock_get:
+                dummy_result = MagicMock()
+                dummy_result.success = True
+                dummy_result.model_dump_json.return_value = "{}"
+                with patch("docmirror.framework.dispatcher.run_extraction_chain", AsyncMock(return_value=dummy_result)):
+                    with patch("docmirror.framework.cache.parse_cache.set", AsyncMock(return_value=True)):
+                        await dispatcher.process(
+                            file_path="dummy.pdf",
+                            skip_cache=False,
+                            parse_control=control,
+                        )
+                mock_get.assert_called_once_with("dummy_checksum", expected_fp)
+
+
+@pytest.mark.asyncio
 async def test_dispatcher_cache_bypass_when_skip_cache():
     from docmirror.framework.dispatcher import ParserDispatcher, FileContext
 
@@ -102,7 +153,7 @@ def test_argparse_cache_options():
     import sys
     from docmirror.__main__ import main
 
-    test_args = ["docmirror", "dummy.pdf", "--no-use-cache"]
+    test_args = ["docmirror", "dummy.pdf", "--cache-policy", "off"]
     with patch.object(sys, "argv", test_args):
         with patch("docmirror.__main__.parse_document", AsyncMock()) as mock_parse:
             with patch("pathlib.Path.exists", return_value=True):
@@ -115,3 +166,11 @@ def test_argparse_cache_options():
                     # skip_cache is the 5th positional argument (index 4)
                     assert args[4] is True
 
+
+def test_argparse_rejects_removed_cache_option():
+    import sys
+    from docmirror.__main__ import main
+
+    with patch.object(sys, "argv", ["docmirror", "dummy.pdf", "--no-use-cache"]):
+        with pytest.raises(SystemExit):
+            main()

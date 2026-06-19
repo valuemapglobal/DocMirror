@@ -40,6 +40,42 @@ def test_write_four_files_from_synthetic_mirror(tmp_path: Path):
     assert "editions" not in mirror_data.get("data", {})
 
 
+def test_write_four_files_respects_requested_editions(tmp_path: Path):
+    mirror = ParseResult(status=ResultStatus.SUCCESS)
+    mirror.entities = DocumentEntities(document_type="business_license")
+
+    _task_id, written = write_four_files(
+        mirror,
+        tmp_path,
+        file_id="001",
+        task_id="test_task_editions",
+        editions=("mirror",),
+    )
+
+    assert set(written) == {"mirror"}
+    assert written["mirror"].is_file()
+    assert not (tmp_path / "test_task_editions" / "001_community.json").exists()
+
+
+def test_write_four_files_requires_overwrite_for_existing_run_id(tmp_path: Path):
+    mirror = ParseResult(status=ResultStatus.SUCCESS)
+    mirror.entities = DocumentEntities(document_type="business_license")
+
+    write_four_files(mirror, tmp_path, file_id="001", task_id="test_task_overwrite")
+
+    with pytest.raises(FileExistsError):
+        write_four_files(mirror, tmp_path, file_id="001", task_id="test_task_overwrite")
+
+    _task_id, written = write_four_files(
+        mirror,
+        tmp_path,
+        file_id="001",
+        task_id="test_task_overwrite",
+        overwrite=True,
+    )
+    assert written["mirror"].is_file()
+
+
 @pytest.mark.integration
 def test_write_four_files_after_perceive(tmp_path: Path):
     if not LICENSE_FIXTURE.is_file():

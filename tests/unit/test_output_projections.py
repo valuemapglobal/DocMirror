@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import patch
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
@@ -39,7 +40,9 @@ def test_build_all_projections_serializes_mirror_before_editions():
                 with patch.object(ParseResult, "to_api_dict", side_effect=_mirror_dict):
                     outputs = build_all_projections(result)
 
-    assert call_order == ["mirror", "community", "enterprise", "finance"]
+    assert call_order[0] == "mirror"
+    assert call_order[1] == "community"
+    assert set(call_order[2:]) == {"enterprise", "finance"}
     assert outputs["mirror"]["data"]["document"] == {}
     assert outputs["community"]["edition"] == "community"
 
@@ -60,3 +63,14 @@ def test_build_all_projections_single_to_api_dict_call():
         mirror_level="standard",
         request_id="req-1",
     )
+
+
+def test_build_all_projections_logs_structured_profile(caplog):
+    result = _mirror()
+    caplog.set_level(logging.INFO, logger="docmirror.server.output_builder")
+
+    with patch("docmirror.server.output_builder.build_community_output", return_value={"edition": "community"}):
+        with patch("docmirror.server.output_builder._edition_package_available", return_value=False):
+            build_all_projections(result, editions=("community",))
+
+    assert any(record.__dict__.get("event") == "projection_build" for record in caplog.records)

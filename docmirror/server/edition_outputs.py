@@ -40,6 +40,8 @@ def write_four_files(
     task_id: str | None = None,
     mirror_level: str = "standard",
     include_text: bool = False,
+    editions: tuple[str, ...] | list[str] | None = None,
+    overwrite: bool = False,
     request_id: str = "",
 ) -> tuple[str, dict[str, Path]]:
     """
@@ -51,11 +53,17 @@ def write_four_files(
 
     task_id = task_id or f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:4]}"
     task_dir = output_dir / task_id
+    if task_dir.exists() and not overwrite:
+        raise FileExistsError(f"output task directory already exists: {task_dir}")
     task_dir.mkdir(parents=True, exist_ok=True)
 
     document_id = f"doc_{task_id}_{file_id}"
     full_text = full_text or getattr(result, "full_text", "") or ""
     file_path = file_path or getattr(result, "file_path", "") or ""
+
+    requested_editions = tuple(editions or ("mirror", "community", "enterprise", "finance"))
+    if "all" in requested_editions:
+        requested_editions = ("mirror", "community", "enterprise", "finance")
 
     projections = build_all_projections(
         result,
@@ -68,7 +76,7 @@ def write_four_files(
 
     written: dict[str, Path] = {}
 
-    mirror = projections.get("mirror")
+    mirror = projections.get("mirror") if "mirror" in requested_editions else None
     if mirror:
         _inject_output_ids(mirror, document_id=document_id, task_id=task_id, file_id=file_id)
         mirror_path = task_dir / f"{file_id}_mirror.json"
@@ -76,6 +84,8 @@ def write_four_files(
         written["mirror"] = mirror_path
 
     for edition in ("community", "enterprise", "finance"):
+        if edition not in requested_editions:
+            continue
         if edition != "community":
             try:
                 importlib.import_module(f"docmirror_{edition}")

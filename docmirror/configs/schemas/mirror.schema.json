@@ -129,10 +129,12 @@
     },
     "meta": {
       "type": "object",
+      "required": ["counts", "structure"],
       "properties": {
         "counts": { "$ref": "#/$defs/counts" },
         "structure": {
           "type": "object",
+          "required": ["counts", "quarantine"],
           "properties": {
             "counts": { "$ref": "#/$defs/counts" },
             "quarantine": { "type": "object" },

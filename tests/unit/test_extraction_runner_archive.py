@@ -105,3 +105,55 @@ async def test_image_fallback_when_primary_empty(tmp_path):
         )
     assert result.parser_info.parser_name == "ImageAdapter"
     assert "ocr line" in result.full_text
+
+
+@pytest.mark.asyncio
+async def test_image_ocr_force_uses_fallback_without_env(tmp_path, monkeypatch):
+    monkeypatch.delenv("DOCMIRROR_IMAGE_OCR_ONLY", raising=False)
+    cap = resolve_capability(Path("x.png"))
+    fb = ParseResult(
+        pages=[PageContent(page_number=0, texts=[TextBlock(content="forced ocr", level=TextLevel.BODY)])],
+        parser_info=ParserInfo(parser_name="ImageAdapter"),
+        status=ResultStatus.SUCCESS,
+    )
+
+    with patch.object(ImageAdapter, "perceive", AsyncMock(return_value=fb)) as mock_fb:
+        result = await run_extraction_chain(
+            cap,
+            tmp_path / "x.png",
+            {"file_type": "image", "content_model": cap.content_model, "ocr_mode": "force"},
+            enhance_mode="standard",
+        )
+
+    mock_fb.assert_awaited_once()
+    assert "forced ocr" in result.full_text
+
+
+@pytest.mark.asyncio
+async def test_image_ocr_off_disables_fallback(tmp_path):
+    cap = resolve_capability(Path("x.png"))
+    empty = ParseResult(
+        pages=[PageContent(page_number=0, texts=[])],
+        parser_info=ParserInfo(parser_name="PDFAdapter"),
+        status=ResultStatus.SUCCESS,
+    )
+    fb = ParseResult(
+        pages=[PageContent(page_number=0, texts=[TextBlock(content="ocr line", level=TextLevel.BODY)])],
+        parser_info=ParserInfo(parser_name="ImageAdapter"),
+        status=ResultStatus.SUCCESS,
+    )
+
+    with (
+        patch.object(PDFAdapter, "perceive", AsyncMock(return_value=empty)),
+        patch.object(ImageAdapter, "perceive", AsyncMock(return_value=fb)) as mock_fb,
+    ):
+        result = await run_extraction_chain(
+            cap,
+            tmp_path / "x.png",
+            {"file_type": "image", "content_model": cap.content_model, "ocr_mode": "off"},
+            enhance_mode="standard",
+        )
+
+    mock_fb.assert_not_awaited()
+    assert result.parser_info.parser_name == "PDFAdapter"
+    assert result.full_text == ""

@@ -1,0 +1,76 @@
+{
+  "version": "1.0",
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "findings": 1,
+    "checks_run": 6,
+    "checks_skipped": 0
+  },
+  "results": [
+    {
+      "name": "ruff_strict",
+      "skipped": false,
+      "skip_reason": "",
+      "duration_ms": 150,
+      "error_count": 0,
+      "warning_count": 0,
+      "findings": []
+    },
+    {
+      "name": "vulture",
+      "skipped": false,
+      "skip_reason": "",
+      "duration_ms": 3844,
+      "error_count": 0,
+      "warning_count": 0,
+      "findings": []
+    },
+    {
+      "name": "orphan_modules",
+      "skipped": false,
+      "skip_reason": "",
+      "duration_ms": 4279,
+      "error_count": 0,
+      "warning_count": 0,
+      "findings": []
+    },
+    {
+      "name": "orphan_configs",
+      "skipped": false,
+      "skip_reason": "",
+      "duration_ms": 52770,
+      "error_count": 0,
+      "warning_count": 0,
+      "findings": []
+    },
+    {
+      "name": "orphan_scripts",
+      "skipped": false,
+      "skip_reason": "",
+      "duration_ms": 14640,
+      "error_count": 0,
+      "warning_count": 0,
+      "findings": [
+        {
+          "category": "orphan_script",
+          "severity": "info",
+          "message": "Script not referenced in docs, CI, or other code: bench_bank_fixtures.py",
+          "location": "scripts/bench_bank_fixtures.py",
+          "symbol": "",
+          "checker": "orphan_scripts",
+          "hint": "Document in README, wire to CI, or remove"
+        }
+      ]
+    },
+    {
+      "name": "commented_blocks",
+      "skipped": false,
+      "skip_reason": "",
+      "duration_ms": 247,
+      "error_count": 0,
+      "warning_count": 0,
+      "findings": []
+    }
+  ]
+}

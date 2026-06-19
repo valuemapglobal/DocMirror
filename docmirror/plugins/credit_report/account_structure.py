@@ -36,8 +36,7 @@ def extract_credit_accounts_from_local_structure_evidence(
 
     from docmirror.core.ocr.structure_project import infer_schema_hint, project_structure
 
-    accounts: list[dict[str, Any]] = []
-    structures: list[dict[str, Any]] = []
+    projected: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for evidence in evidence_pages or []:
         if not isinstance(evidence, dict):
             continue
@@ -51,8 +50,10 @@ def extract_credit_accounts_from_local_structure_evidence(
             else:
                 account = _account_from_structure(structure, page=page)
             if account:
-                accounts.append(account)
-                structures.append(structure)
+                projected.append((account, structure))
+    projected.sort(key=lambda item: _account_sort_key(item[0]))
+    accounts = [account for account, _structure in projected]
+    structures = [structure for _account, structure in projected]
     return {
         "credit_accounts": accounts,
         "local_structures": structures,
@@ -61,6 +62,31 @@ def extract_credit_accounts_from_local_structure_evidence(
             "account_count": len(accounts),
         },
     }
+
+
+def _account_sort_key(account: dict[str, Any]) -> tuple[int, int, float, float, str]:
+    expected = [field_key for field_key, _aliases in _FIELD_ALIASES]
+    mapped = set((account.get("audit") or {}).get("mapped_fields") or [])
+    if not mapped:
+        mapped = {field for field in expected if isinstance(account.get(field), dict)}
+    key_fields = {
+        "management_institution",
+        "open_date",
+        "due_date",
+        "currency",
+        "loan_amount",
+        "account_status",
+        "close_date",
+    }
+    bbox = account.get("bbox") or [0.0, 0.0, 0.0, 0.0]
+    y0 = float(bbox[1]) if isinstance(bbox, list | tuple) and len(bbox) == 4 else 0.0
+    return (
+        -len(mapped),
+        -len(mapped & key_fields),
+        -float(account.get("confidence") or 0.0),
+        y0,
+        str(account.get("source_structure_id") or ""),
+    )
 
 
 def _account_from_structure(structure: dict[str, Any], *, page: int) -> dict[str, Any] | None:

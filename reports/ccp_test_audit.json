@@ -9,7 +9,158 @@
     ]
   },
   "plugin_forbidden_imports": [],
+  "efmp_boundary_violations": [
+    {
+      "file": "docmirror/core/entry/perceive_result.py",
+      "import": "docmirror.server.edition_access",
+      "rule": "core_must_not_depend_on_server"
+    },
+    {
+      "file": "docmirror/core/entry/factory.py",
+      "import": "docmirror.plugins.runner",
+      "rule": "core_must_not_depend_on_plugins"
+    },
+    {
+      "file": "docmirror/core/resolution/document_type_candidates.py",
+      "import": "docmirror.plugins",
+      "rule": "core_must_not_depend_on_plugins"
+    },
+    {
+      "file": "docmirror/core/resolution/document_type_candidates.py",
+      "import": "docmirror.plugins",
+      "rule": "core_must_not_depend_on_plugins"
+    },
+    {
+      "file": "docmirror/core/resolution/document_type_candidates.py",
+      "import": "docmirror.plugins",
+      "rule": "core_must_not_depend_on_plugins"
+    },
+    {
+      "file": "docmirror/core/profile/resolver.py",
+      "import": "docmirror.plugins",
+      "rule": "core_must_not_depend_on_plugins"
+    },
+    {
+      "file": "docmirror/core/scene/evidence_engine.py",
+      "import": "docmirror.plugins.community",
+      "rule": "core_must_not_depend_on_plugins"
+    },
+    {
+      "file": "docmirror/core/ocr/micro_grid/materialize.py",
+      "import": "docmirror.plugins.credit_report.micro_grid_materialize",
+      "rule": "core_must_not_depend_on_plugins"
+    },
+    {
+      "file": "docmirror/core/ocr/local_structure/candidate_supplement.py",
+      "import": "docmirror.plugins.credit_report.local_structure_supplement",
+      "rule": "core_must_not_depend_on_plugins"
+    },
+    {
+      "file": "docmirror/models/construction/parse_result_bridge.py",
+      "import": "docmirror.core.bridge.parse_result_bridge",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/entities/parse_result.py",
+      "import": "docmirror.core.ocr.page_canvas.models",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/entities/parse_result.py",
+      "import": "docmirror.core.ocr.page_canvas.block_index",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/entities/parse_result.py",
+      "import": "docmirror.core.analyze.spe_consumer",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/entities/parse_result.py",
+      "import": "docmirror.core.analyze.conservation",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/entities/parse_result.py",
+      "import": "docmirror.core.ocr.page_canvas.sync",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/entities/parse_result.py",
+      "import": "docmirror.core.ocr.page_canvas.hypothesis_annex",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/entities/domain.py",
+      "import": "docmirror.core.physical.models",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/mirror/domain_access.py",
+      "import": "docmirror.core.ocr.page_canvas.evidence_bundles",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/mirror/serialization_contract.py",
+      "import": "docmirror.core.utils.vocabulary",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/mirror/serialization_contract.py",
+      "import": "docmirror.core.table.compose.ledger_quality",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/mirror/serialization_contract.py",
+      "import": "docmirror.core.analyze.structure_provenance",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/mirror/legacy_project.py",
+      "import": "docmirror.core.ocr.page_canvas.block_index",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/mirror/legacy_project.py",
+      "import": "docmirror.core.ocr.page_canvas.build",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/mirror/legacy_project.py",
+      "import": "docmirror.core.ocr.page_canvas.flow_filter",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/mirror/legacy_project.py",
+      "import": "docmirror.core.ocr.page_canvas.models",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/mirror/legacy_project.py",
+      "import": "docmirror.core.ocr.page_canvas.block_index",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/mirror/page_canvas_export.py",
+      "import": "docmirror.core.ocr.page_canvas.build",
+      "rule": "models_must_not_depend_on_core"
+    },
+    {
+      "file": "docmirror/models/mirror/page_canvas_export.py",
+      "import": "docmirror.core.ocr.page_canvas.models",
+      "rule": "models_must_not_depend_on_core"
+    }
+  ],
   "zero_inbound_core_modules": [],
-  "god_files_over_800_loc": [],
+  "god_files_over_800_loc": [
+    {
+      "module": "docmirror.core.pipeline.pdf_processor",
+      "lines": 845
+    },
+    {
+      "module": "docmirror.core.bridge.parse_result_bridge",
+      "lines": 845
+    }
+  ],
   "lazy_hub_present": false
 }

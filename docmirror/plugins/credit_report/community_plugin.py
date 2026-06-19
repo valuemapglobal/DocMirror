@@ -23,7 +23,6 @@ Dependencies: ``DomainPlugin``, ``dec_builder``, ``kv_community_extract``,
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 from docmirror.plugins import DomainPlugin
 
@@ -52,7 +51,7 @@ class CreditReportPlugin(DomainPlugin):
             ("report_number", ("报告编号", "Report No")),
         )
 
-    def build_domain_data(self, metadata, entities):
+    def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
         return build_dec_kv("credit_report", {
             "name": entities.get("name", ""),

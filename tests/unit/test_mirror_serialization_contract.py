@@ -19,6 +19,7 @@ from docmirror.models.entities.parse_result import (
     TableBlock,
     TableRow,
 )
+from docmirror.models.schemas.registry import validate_projection_payload
 from docmirror.models.mirror.serialization_contract import (
     MIRROR_CONTRACT_VERSION,
     build_count_reconciliation,
@@ -187,6 +188,37 @@ def test_to_api_dict_design21_contract_fields():
     pages = api["data"]["document"]["pages"]
     assert pages[0]["tables"][0]["ssot"] == "raw_rows"
     assert pages[0]["tables"][0]["navigation_ref"] == "table:p1_t0"
+
+
+def test_to_api_dict_always_exports_structure_ssot():
+    pr = ParseResult()
+    api = pr.to_api_dict(mirror_level="standard")
+
+    assert "counts" in api["meta"]
+    assert "structure" in api["meta"]
+    assert api["meta"]["structure"]["counts"] == api["meta"]["counts"]
+    assert api["meta"]["structure"]["quarantine"] == {
+        "physical_count": 0,
+        "logical_annex_count": 0,
+        "annex_logical_tables": [],
+    }
+    assert validate_projection_payload("mirror", api).valid is True
+
+
+def test_to_api_dict_quarantine_ssot_is_meta_structure():
+    pr = ParseResult(
+        entities=DocumentEntities(document_type="bank_statement"),
+        parser_info=ParserInfo(
+            structure={
+                "primary": "table_led",
+                "quarantined_physical_count": 2,
+            }
+        ),
+    )
+    api = pr.to_api_dict(mirror_level="standard")
+
+    assert "quarantine" not in api["meta"]
+    assert api["meta"]["structure"]["quarantine"]["physical_count"] == 2
 
 
 def test_cell_standard_audit_fields():
