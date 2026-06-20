@@ -53,4 +53,4 @@ Install dev dependencies for gate profiles: `pip install -e ".[dev]"`.
 4. **Architecture** — god-file, PCM gates, core imports, import-linter
 5. **Tests** — unit; + tier matrix + coverage (`full`)
 
-Allowlist: `configs/hygiene/allowlist.yaml`
+Allowlist: `scripts/code_hygiene/allowlist.yaml`

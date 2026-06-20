@@ -122,7 +122,7 @@ def importlib_literals_in_file(path: Path) -> list[str]:
 def yaml_config_module_refs() -> list[str]:
     """Collect docmirror module paths declared in YAML configs (FCR, MEP, plugins)."""
     refs: list[str] = []
-    yaml_roots = (CONFIGS_YAML, ROOT / "configs")
+    yaml_roots = (CONFIGS_YAML,)
     module_key = re.compile(r"^\s*module:\s*(docmirror\.[\w.]+)\s*$")
     adapter_key = re.compile(r"^\s*adapter:\s*(docmirror\.[\w.]+)\s*$")
 

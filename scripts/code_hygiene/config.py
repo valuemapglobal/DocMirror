@@ -12,7 +12,7 @@ SCRIPTS = ROOT / "scripts"
 TOOLS = ROOT / "tools"
 TESTS = ROOT / "tests"
 CONFIGS_YAML = ROOT / "docmirror" / "configs" / "yaml"
-ALLOWLIST_PATH = ROOT / "configs" / "hygiene" / "allowlist.yaml"
+ALLOWLIST_PATH = Path(__file__).resolve().parent / "allowlist.yaml"
 
 # Package roots scanned for orphan modules and import graph.
 SCAN_PACKAGE_DIRS = (DOCMIRROR,)

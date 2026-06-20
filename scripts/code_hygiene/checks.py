@@ -95,7 +95,7 @@ def check_ruff_strict(allowlist: dict | None = None) -> CheckResult:
                 location=f"{filename}:{line}",
                 symbol=code,
                 checker="ruff_strict",
-                hint="Remove unused symbol or add to configs/hygiene/allowlist.yaml",
+                hint="Remove unused symbol or add to scripts/code_hygiene/allowlist.yaml",
             )
         )
     return result
