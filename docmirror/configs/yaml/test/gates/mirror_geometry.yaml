@@ -20,6 +20,7 @@ cases:
         require_logical_source_cell_refs: true
         require_geometry_loss_reason_for_estimated: true
         require_cell_token_ids: true
+        require_merged_cell_bbox_consistency: true
     tags: [mirror, geometry, layout]
 
   - id: real_pdf_bank_statement_geometry_smoke

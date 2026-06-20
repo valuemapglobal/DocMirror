@@ -9,14 +9,14 @@ import importlib
 
 import pytest
 
-from docmirror.plugins.community import get_community_premium_domains, is_community_premium
 from docmirror.plugins.community import (
     community_plugin_module,
     find_premium_community_plugin,
+    get_community_premium_domains,
     get_generic_community_plugin,
+    is_community_premium,
 )
 from docmirror.plugins.generic.community_plugin import plugin as generic_plugin
-
 
 PREMIUM_DOMAINS = (
     "bank_statement",

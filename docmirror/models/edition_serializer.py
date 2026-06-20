@@ -25,6 +25,7 @@ resolved domain plugin at pipeline finalization time.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -161,14 +162,12 @@ def _structured_data_block(dec: DomainExtractionResult) -> dict[str, Any]:
 
 def edition_serializer(dec: DomainExtractionResult, *, context: EditionContext) -> dict[str, Any]:
     """Serialize ``DomainExtractionResult`` to community/enterprise edition JSON v2.0."""
-    from docmirror.plugins._base import build_classification_block
-
     document_type = dec.document_type or context.detected_type or "unknown"
     meta = dict(dec.metadata or {})
 
     classification = meta.get("classification")
     if not isinstance(classification, dict):
-        classification = build_classification_block(
+        classification = _classification_block(
             document_type=document_type,
             domain=context.domain or document_type,
             archetype=context.archetype,
@@ -233,3 +232,25 @@ def edition_serializer(dec: DomainExtractionResult, *, context: EditionContext) 
     if meta.get("validation"):
         payload["validation"] = meta["validation"]
     return payload
+
+
+def _classification_block(
+    *,
+    document_type: str,
+    domain: str,
+    archetype: str,
+    match_method: str,
+    text: str = "",
+    scene_keywords: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    block: dict[str, Any] = {
+        "matched": True,
+        "matched_document_type": document_type,
+        "matched_domain": domain,
+        "matched_archetype": archetype,
+        "match_method": match_method,
+        "candidate_types": [],
+    }
+    if os.environ.get("DOCMIRROR_DEBUG") == "1":
+        block["matched_keywords"] = [kw for kw in scene_keywords if kw and kw in text]
+    return block

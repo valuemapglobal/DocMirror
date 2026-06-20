@@ -5,9 +5,14 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from docmirror.core.bridge.parse_result_bridge import ParseResultBridge
 from docmirror.eval.tqg.geometry_oracles import run_mirror_geometry_oracle
 from docmirror.models.entities.domain import BaseResult, Block, PageLayout
+
+_CORE_MIRROR_GOLDEN = Path(__file__).resolve().parent / "data" / "synthetic_geometry_golden.json"
 
 
 def test_bridge_projects_table_geometry_attrs_to_forensic_cells():
@@ -88,6 +93,42 @@ def test_mirror_geometry_oracle_accepts_synthetic_geometry():
     assert report.passed, report.failures
 
 
+def test_core_mirror_geometry_golden_matches_synthetic_contract():
+    from docmirror.eval.tqg.manifest import TQGCase
+    from docmirror.eval.tqg.runner import run_tqg_case
+
+    golden = json.loads(_CORE_MIRROR_GOLDEN.read_text(encoding="utf-8"))
+    report = run_tqg_case(
+        TQGCase(
+            id=golden["case_id"],
+            track="mirror_geometry",
+            pipeline="mirror_geometry_contract",
+            oracle={
+                "mirror_geometry": {
+                    "mirror_level": "forensic",
+                    "min_physical_tables": 1,
+                    "min_cell_bbox_coverage": 0.9,
+                    "max_missing_geometry_cells": 0,
+                    "require_monotonic_rows": True,
+                    "require_monotonic_cols": True,
+                    "require_table_bbox_contains_cells": True,
+                    "require_row_col_bands": True,
+                    "require_logical_source_cell_refs": True,
+                    "require_geometry_loss_reason_for_estimated": True,
+                    "require_cell_token_ids": True,
+                    "require_merged_cell_bbox_consistency": True,
+                }
+            },
+        )
+    )
+
+    assert report.passed, report.failures
+    for check, expected in golden["expected_checks"].items():
+        assert report.checks.get(check) is expected
+    for metric, expected in golden["expected_metrics"].items():
+        assert report.metrics.get(metric) == expected
+
+
 def test_mirror_geometry_oracle_rejects_missing_cell_bboxes():
     api = {
         "data": {
@@ -116,3 +157,24 @@ def test_mirror_geometry_oracle_rejects_missing_cell_bboxes():
 
     assert not report.passed
     assert any("cell bbox coverage" in failure for failure in report.failures)
+
+
+def test_table_geometry_aggregates_char_refs_and_confidence():
+    from docmirror.core.geometry.table_geometry import build_table_geometry
+
+    geometry = build_table_geometry(
+        [["AB"]],
+        chars=[
+            {"text": "A", "bbox": [0, 0, 10, 10], "token_id": "tok_a", "confidence": 0.8},
+            {"text": "B", "bbox": [10, 0, 20, 10], "token_id": "tok_b", "confidence": 0.6},
+        ],
+        table_bbox=[0, 0, 20, 10],
+        page_number=1,
+        table_index=0,
+        geometry_source="unit_chars",
+    )
+
+    attrs = geometry.to_attrs()
+    assert attrs["cell_token_ids"][0][0] == ["tok_a", "tok_b"]
+    assert attrs["cell_evidence_ids"][0][0] == ["tok_a", "tok_b"]
+    assert abs(attrs["cell_confidences"][0][0] - 0.7) < 1e-9

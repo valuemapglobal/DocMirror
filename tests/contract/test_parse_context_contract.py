@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.framework.base import BaseParser
 from docmirror.core.entry.factory import PerceiveOptions, PerceptionFactory, perceive_document
+from docmirror.framework.base import BaseParser
 from docmirror.models.entities.parse_result import PageContent, ParseResult, ResultStatus
 
 pytestmark = [pytest.mark.tier_contract]

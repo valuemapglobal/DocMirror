@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Callable, Iterable
 from typing import Any
 
@@ -35,11 +34,6 @@ def _ensure_supplements_loaded() -> None:
     from docmirror.core.ocr.page_canvas.page_segment import detect_pre_grid_field_supplements
 
     register_local_structure_supplement(detect_pre_grid_field_supplements)
-    if os.environ.get("DOCMIRROR_PCM_LEGACY_SUPPLEMENT") == "1":
-        try:
-            import docmirror.plugins.credit_report.local_structure_supplement  # noqa: F401
-        except ImportError:
-            pass
 
 
 def supplement_local_structure_candidates(

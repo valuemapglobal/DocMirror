@@ -18,8 +18,8 @@
 
 import json
 import os
-import sys
 import re
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -736,7 +736,7 @@ def check_edition(schema: dict, path_hint: str = "") -> tuple[str, list[str]]:
 def check_file(file_path: str) -> dict:
     """检查单个 JSON 文件。返回 {'file': str, 'edition': str, 'errors': list, 'passed': bool}。"""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             schema = json.load(f)
     except Exception as e:
         return {"file": file_path, "edition": "error", "errors": [f"读取失败: {e}"], "passed": False}
@@ -745,7 +745,7 @@ def check_file(file_path: str) -> dict:
     fname = Path(file_path).name
     if "_mirror." in fname or fname.endswith("_mirror.json") or "mirror" in fname.lower():
         return {"file": file_path, "edition": "mirror", "errors": [], "passed": True}
-    
+
     edition, errors = check_edition(schema, file_path)
     return {
         "file": file_path,
@@ -822,7 +822,7 @@ def main():
             by_edition[r["edition"]]["passed"] += 1
 
     print(f"\n{'='*60}")
-    print(f"🏁 三版合规检查摘要")
+    print("🏁 三版合规检查摘要")
     print(f"{'='*60}")
     for ed in ["community", "enterprise", "finance"]:
         stats = by_edition.get(ed, {"total": 0, "passed": 0})
@@ -879,7 +879,7 @@ def test_community_schema(latest_output_dir):
         r = check_file(str(f))
         if not r["passed"]:
             all_errors.extend(r["errors"])
-    assert not all_errors, f"社区版检查失败:\n" + "\n".join(f"  {e}" for e in all_errors)
+    assert not all_errors, "社区版检查失败:\n" + "\n".join(f"  {e}" for e in all_errors)
 
 
 def test_enterprise_schema(latest_output_dir):
@@ -893,7 +893,7 @@ def test_enterprise_schema(latest_output_dir):
         r = check_file(str(f))
         if not r["passed"]:
             all_errors.extend(r["errors"])
-    assert not all_errors, f"企业版检查失败:\n" + "\n".join(f"  {e}" for e in all_errors)
+    assert not all_errors, "企业版检查失败:\n" + "\n".join(f"  {e}" for e in all_errors)
 
 
 def test_finance_schema(latest_output_dir):
@@ -907,7 +907,7 @@ def test_finance_schema(latest_output_dir):
         r = check_file(str(f))
         if not r["passed"]:
             all_errors.extend(r["errors"])
-    assert not all_errors, f"金融版检查失败:\n" + "\n".join(f"  {e}" for e in all_errors)
+    assert not all_errors, "金融版检查失败:\n" + "\n".join(f"  {e}" for e in all_errors)
 
 
 def test_cross_edition_file_naming(latest_output_dir):

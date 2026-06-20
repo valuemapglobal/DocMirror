@@ -25,15 +25,10 @@ DEPRECATED_META_COUNT_ALIASES = (
 
 def plugin_domain_hint(document_type: str) -> str:
     """Map Mirror ``document.type`` / scene to community plugin domain."""
-    try:
-        from docmirror.plugins.community import normalize_premium_document_type
-
-        return normalize_premium_document_type(document_type or "unknown")
-    except Exception:
-        mapping = {
-            "bank_reconciliation": "bank_statement",
-        }
-        return mapping.get(document_type or "", document_type or "unknown")
+    mapping = {
+        "bank_reconciliation": "bank_statement",
+    }
+    return mapping.get(document_type or "", document_type or "unknown")
 
 
 _PROSE_DISCLAIMER_MARKERS = (

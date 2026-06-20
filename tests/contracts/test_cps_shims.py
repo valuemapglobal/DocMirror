@@ -26,7 +26,8 @@ def test_segment_exports_layout_helpers():
 
 
 def test_physical_models_reexport_via_domain_shim():
-    from docmirror.core.physical.models import Block as CanonBlock, PageLayout as CanonPage
+    from docmirror.core.physical.models import Block as CanonBlock
+    from docmirror.core.physical.models import PageLayout as CanonPage
     from docmirror.models.entities.domain import Block, PageLayout
 
     assert Block is CanonBlock
@@ -36,8 +37,8 @@ def test_physical_models_reexport_via_domain_shim():
 def test_ocr_uop_subpackages_reexport_pipeline_symbols():
     from docmirror.core.ocr.postprocess.generic import postprocess_ocr_text
     from docmirror.core.ocr.preprocess import preprocess_image_for_ocr
-    from docmirror.core.ocr.reconstruct import reconstruct_table_grid_2d
     from docmirror.core.ocr.recognize import get_ocr_engine
+    from docmirror.core.ocr.reconstruct import reconstruct_table_grid_2d
 
     assert callable(preprocess_image_for_ocr)
     assert callable(get_ocr_engine)

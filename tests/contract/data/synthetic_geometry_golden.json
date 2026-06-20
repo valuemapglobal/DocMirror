@@ -1,0 +1,22 @@
+{
+  "case_id": "synthetic_geometry_contract",
+  "expected_checks": {
+    "geometry_min_physical_tables": true,
+    "geometry_min_cell_bbox_coverage": true,
+    "geometry_max_missing_cells": true,
+    "geometry_monotonic_rows": true,
+    "geometry_monotonic_cols": true,
+    "geometry_table_contains_cells": true,
+    "geometry_row_col_bands": true,
+    "geometry_logical_source_cell_refs": true,
+    "geometry_loss_reason_for_estimated": true,
+    "geometry_cell_token_ids": true,
+    "geometry_merged_cell_bbox_consistency": true
+  },
+  "expected_metrics": {
+    "physical_table_count": 1,
+    "cell_bbox_coverage": 1.0,
+    "missing_geometry_cells": 0,
+    "merged_cell_count": 1
+  }
+}

@@ -14,7 +14,6 @@ MicroGridMaterializer = Callable[
 ]
 
 _MATERIALIZERS: list[MicroGridMaterializer] = []
-_LOADED = False
 
 
 def register_micro_grid_materializer(materializer: MicroGridMaterializer) -> MicroGridMaterializer:
@@ -22,17 +21,6 @@ def register_micro_grid_materializer(materializer: MicroGridMaterializer) -> Mic
     if materializer not in _MATERIALIZERS:
         _MATERIALIZERS.append(materializer)
     return materializer
-
-
-def _ensure_materializers_loaded() -> None:
-    global _LOADED
-    if _LOADED:
-        return
-    _LOADED = True
-    try:
-        import docmirror.plugins.credit_report.micro_grid_materialize  # noqa: F401
-    except ImportError:
-        pass
 
 
 def extract_micro_grid_structures(
@@ -46,7 +34,6 @@ def extract_micro_grid_structures(
     enable_cell_ocr: bool = False,
 ) -> list[dict[str, Any]]:
     """Run registered SMG materializers for one OCR page."""
-    _ensure_materializers_loaded()
     structures: list[dict[str, Any]] = []
     for materializer in _MATERIALIZERS:
         try:

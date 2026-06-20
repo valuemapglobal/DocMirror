@@ -26,8 +26,8 @@ Dependencies: ``plugin_registry`` (registry singleton), ``manager`` (enable/disa
 
 from __future__ import annotations
 
-from docmirror.plugins.plugin_registry import DomainPlugin, PluginRegistry, registry
 from docmirror.plugins.core_extensions import register_core_extensions
+from docmirror.plugins.plugin_registry import DomainPlugin, PluginRegistry, registry
 
 register_core_extensions()
 

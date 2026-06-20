@@ -10,10 +10,9 @@ import pytest
 
 from docmirror.core.ocr.local_structure import extract_local_structure_evidence
 from docmirror.core.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, TextBlock, TextLevel
 from docmirror.models.mirror.legacy_project import fold_legacy_mirror_document
 from docmirror.models.mirror.page_access import iter_page_regions
-from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
-from docmirror.models.entities.parse_result import PageContent, TextBlock, TextLevel
 
 _FIXTURE = Path("tests/fixtures/scanned/account_card_page4_full_layout.json")
 _MIRROR_SAMPLE = Path("output/20260618_133532_41c1/001_mirror.json")

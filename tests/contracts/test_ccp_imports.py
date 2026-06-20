@@ -36,6 +36,16 @@ def test_plugins_forbidden_core_internals() -> None:
     assert violations == [], f"CCP violations: {violations}"
 
 
+def test_core_does_not_import_plugin_or_server_layers() -> None:
+    report = _audit_report()
+    violations = [
+        item
+        for item in report.get("efmp_boundary_violations", [])
+        if item.get("rule") in {"core_must_not_depend_on_plugins", "core_must_not_depend_on_server"}
+    ]
+    assert violations == [], f"Core EFMP boundary violations: {violations}"
+
+
 def test_segment_zones_has_no_lazy_hub() -> None:
     report = _audit_report()
     assert report.get("lazy_hub_present") is False, "segment/zones.py must not use __getattr__ lazy re-exports"
@@ -48,12 +58,16 @@ def test_cps_layout_validator_passes() -> None:
 
 
 def test_import_linter_contract() -> None:
+    import shutil
+
     if os.environ.get("CI"):
         import importlinter  # noqa: F401
     else:
         pytest.importorskip("importlinter")
 
-    result = subprocess.run([sys.executable, "-m", "lint_imports"], capture_output=True, text=True, cwd=ROOT)
+    lint_imports = shutil.which("lint-imports")
+    assert lint_imports, "lint-imports CLI not found (pip install import-linter)"
+    result = subprocess.run([lint_imports], capture_output=True, text=True, cwd=ROOT)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
