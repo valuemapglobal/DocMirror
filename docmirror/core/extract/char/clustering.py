@@ -26,6 +26,7 @@ from docmirror.core.utils.watermark import is_watermark_char
 
 logger = logging.getLogger(__name__)
 
+
 def detect_columns_by_clustering(page_plum) -> list[list[str]] | None:
     """x-coordinate clustering method."""
     chars = page_plum.chars
@@ -49,5 +50,3 @@ def detect_columns_by_clustering(page_plum) -> list[list[str]] | None:
         result.append(row)
 
     return result if len(result) >= 2 else None
-
-

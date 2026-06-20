@@ -207,13 +207,7 @@ def lifecycle_cli_message(lifecycle: EntitlementLifecycle | None = None) -> str 
 
     lc = lifecycle or resolve_entitlement_lifecycle()
     if lc.state == LicenseLifecycleState.EXPIRING_SOON:
-        return (
-            f"License expiring in {lc.days_remaining} days — "
-            f"renew at {lc.renewal_url}"
-        )
+        return f"License expiring in {lc.days_remaining} days — renew at {lc.renewal_url}"
     if lc.state == LicenseLifecycleState.GRACE_PERIOD:
-        return (
-            f"License in grace period ({lc.days_remaining} days left) — "
-            f"renew at {lc.renewal_url}"
-        )
+        return f"License in grace period ({lc.days_remaining} days left) — renew at {lc.renewal_url}"
     return None

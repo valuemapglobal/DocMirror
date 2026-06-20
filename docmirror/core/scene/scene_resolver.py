@@ -68,8 +68,10 @@ def resolve_document_scene(
             if kw not in text and kw not in text_compact:
                 continue
             conf = min(0.99, 0.78 + len(kw) * 0.015)
-            if best is None or conf > best.confidence or (
-                conf == best.confidence and len(kw) > len(best.matched_keyword)
+            if (
+                best is None
+                or conf > best.confidence
+                or (conf == best.confidence and len(kw) > len(best.matched_keyword))
             ):
                 best = SceneResolution(
                     scene=scene,

@@ -88,9 +88,7 @@ def audit_cqf(
     canonical_expected: int,
 ) -> CQFResult:
     """Audit extracted records against canonical expected denominator."""
-    canonical_extracted = sum(
-        1 for rec in records if is_canonical_row(rec.get("normalized") or {})
-    )
+    canonical_extracted = sum(1 for rec in records if is_canonical_row(rec.get("normalized") or {}))
     expected = max(int(canonical_expected or 0), 0)
     if expected <= 0:
         coverage_ratio = 1.0 if canonical_extracted > 0 else 0.0

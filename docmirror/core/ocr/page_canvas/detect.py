@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
-from collections.abc import Iterable
 
 from docmirror.core.ocr.local_structure.detect import detect_local_structure_candidates
 from docmirror.core.ocr.micro_grid.detect import detect_micro_grid_candidates

@@ -37,24 +37,31 @@ def run_hygiene_audit(
     json_out: Path | None = None,
     markdown_out: Path | None = None,
     console: bool = True,
+    on_check_start: Callable[[int, str], None] | None = None,
+    on_check_done: Callable[[int, CheckResult], None] | None = None,
 ) -> HygieneReport:
     """Run hygiene audit and return aggregated report."""
     allowlist = load_allowlist(allowlist_path)
     names = checks or tuple(ALL_CHECKS.keys())
     report = HygieneReport()
 
-    for name in names:
+    for index, name in enumerate(names):
+        if on_check_start:
+            on_check_start(index, name)
         fn = ALL_CHECKS.get(name)
         if fn is None:
-            report.results.append(
-                CheckResult(name=name, skipped=True, skip_reason=f"unknown check: {name}")
-            )
+            result = CheckResult(name=name, skipped=True, skip_reason=f"unknown check: {name}")
+            report.results.append(result)
+            if on_check_done:
+                on_check_done(index, result)
             continue
         if name == "vulture":
             result = fn(allowlist, min_confidence=min_vulture_confidence)
         else:
             result = fn(allowlist)
         report.results.append(result)
+        if on_check_done:
+            on_check_done(index, result)
 
     if json_out:
         write_json_report(report, json_out)

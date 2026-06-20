@@ -23,6 +23,7 @@ from docmirror.core.utils.vocabulary import _score_header_by_vocabulary
 
 logger = logging.getLogger(__name__)
 
+
 def detect_columns_by_whitespace_projection(
     page_plum,
 ) -> list[list[str]] | None:
@@ -194,5 +195,3 @@ def detect_columns_by_whitespace_projection(
         result = result[best_header_idx:]
 
     return result if len(result) >= 2 else None
-
-

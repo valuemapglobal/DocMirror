@@ -14,6 +14,7 @@ Downstream: ``pipeline.handlers``, ``extract.zone_crop``.
 """
 
 from docmirror.core.segment.layout_analysis import (
+    _reconstruct_rows_from_chars,
     analyze_document_layout,
     analyze_document_layout_parallel,
     analyze_page_layout,
@@ -21,7 +22,6 @@ from docmirror.core.segment.layout_analysis import (
 from docmirror.core.segment.zone_models import ALPageLayout, ContentRegion, Zone, ZoneTemplate
 from docmirror.core.segment.zone_segment import segment_page_into_zones
 from docmirror.core.segment.zone_template import apply_zone_template, build_zone_template
-from docmirror.core.segment.layout_analysis import _reconstruct_rows_from_chars
 
 __all__ = [
     "ALPageLayout",

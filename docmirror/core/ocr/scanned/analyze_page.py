@@ -34,6 +34,7 @@ from docmirror.core.ocr.reconstruct.grid_legacy import (
     _split_tables_by_y_gap,
 )
 
+
 def analyze_scanned_page(
     fitz_page,
     page_idx: int,

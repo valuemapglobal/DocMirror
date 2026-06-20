@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 
+
 def _extract_summary_entities(chars: list, out: dict):
     """Extract key-value pairs from characters in a summary zone.
 

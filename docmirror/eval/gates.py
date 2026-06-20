@@ -183,8 +183,7 @@ def cross_page_check(
         metrics[f"{lt.logical_id or lt.table_id}_merge_confidence"] = mc
         if len(lt.source_pages) > 1 and mc < confidence_threshold:
             failures.append(
-                f"CROSS_PAGE_CHECK: {lt.logical_id or lt.table_id} "
-                f"merge_confidence {mc:.3f} < {confidence_threshold}"
+                f"CROSS_PAGE_CHECK: {lt.logical_id or lt.table_id} merge_confidence {mc:.3f} < {confidence_threshold}"
             )
             checks[f"{lt.table_id}_confidence_ok"] = False
         else:
@@ -200,9 +199,7 @@ def cross_page_check(
             gap_ok = len(gaps) == 0
             checks[f"{lt.table_id}_pages_continuous"] = gap_ok
             if not gap_ok:
-                failures.append(
-                    f"CROSS_PAGE_CHECK: {lt.logical_id or lt.table_id} source_pages have gaps"
-                )
+                failures.append(f"CROSS_PAGE_CHECK: {lt.logical_id or lt.table_id} source_pages have gaps")
 
     return QualityGateResult(
         passed=len(failures) == 0,
@@ -261,9 +258,7 @@ def dual_view_consistency_check(
 
     checks["primary_le_total_logical"] = primary <= total_logical
     if not checks["primary_le_total_logical"]:
-        failures.append(
-            f"DUAL_VIEW: primary_logical {primary} > total_logical {total_logical}"
-        )
+        failures.append(f"DUAL_VIEW: primary_logical {primary} > total_logical {total_logical}")
 
     checks["primary_present"] = primary > 0
     if primary <= 0:
@@ -297,11 +292,7 @@ def extract_row_preservation_check(
     checks: dict[str, bool] = {}
     metrics: dict[str, float] = {}
 
-    physical_rows = sum(
-        len(tb.rows)
-        for pg in result.pages
-        for tb in pg.tables
-    )
+    physical_rows = sum(len(tb.rows) for pg in result.pages for tb in pg.tables)
     if result.logical_tables:
         if profile and profile.expected_merged_table:
             logical_rows = _primary_logical_row_count(result)
@@ -314,17 +305,13 @@ def extract_row_preservation_check(
     metrics["logical_row_count"] = float(logical_rows)
 
     if profile and profile.min_logical_rows and logical_rows < profile.min_logical_rows:
-        failures.append(
-            f"EXTRACT_GATE: logical_rows {logical_rows} < {profile.min_logical_rows}"
-        )
+        failures.append(f"EXTRACT_GATE: logical_rows {logical_rows} < {profile.min_logical_rows}")
         checks["min_logical_rows"] = False
     else:
         checks["min_logical_rows"] = True
 
     if profile and profile.max_logical_rows and logical_rows > profile.max_logical_rows:
-        failures.append(
-            f"EXTRACT_GATE: logical_rows {logical_rows} > {profile.max_logical_rows}"
-        )
+        failures.append(f"EXTRACT_GATE: logical_rows {logical_rows} > {profile.max_logical_rows}")
         checks["max_logical_rows"] = False
     else:
         checks["max_logical_rows"] = True
@@ -390,9 +377,7 @@ def evaluate_quality_gate(
         logical_rows = sum(lt.row_count for lt in result.logical_tables)
         metrics["logical_row_count"] = float(logical_rows)
         if profile.min_transaction_rows and logical_rows < profile.min_transaction_rows:
-            failures.append(
-                f"logical_rows {logical_rows} < {profile.min_transaction_rows}"
-            )
+            failures.append(f"logical_rows {logical_rows} < {profile.min_transaction_rows}")
             failure_class = failure_class or FailureClass.PLUGIN_SCHEMA
 
         cp_result = cross_page_check(result, confidence_threshold=profile.min_merge_confidence)

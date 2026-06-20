@@ -28,6 +28,7 @@ from docmirror.core.ocr.preprocess.legacy_fallback import (
 )
 from docmirror.core.ocr.reconstruct.grid_legacy import _probe_best_orientation
 
+
 def _merge_line_fragments(words):
     """Merge OCR word fragments that belong to the same text line.
 
@@ -481,4 +482,3 @@ def _run_ocr(fitz_page, min_confidence: float = 0.3, *, dpi_list: list[int] | No
     best_words = _merge_line_fragments(best_words)
 
     return best_words, final_img, final_page_h
-

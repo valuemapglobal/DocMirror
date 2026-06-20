@@ -23,11 +23,11 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from docmirror.configs.scene.loader import get_plugin_scene_keywords
+from docmirror.core.extension_points import get_plugin_candidate_provider
 from docmirror.core.scene.evidence_engine import _SCENE_KEYWORDS as EVIDENCE_KEYWORDS
 from docmirror.models.entities.hypothesis import ParseHypothesis
 from docmirror.models.entities.parse_result import ParseResult
-
-
 
 _HEADER_SIGS: dict[str, list[set[str]]] = {
     "bank_statement": [
@@ -75,7 +75,6 @@ _HEADER_SIGS: dict[str, list[set[str]]] = {
 }
 
 
-
 def _hyp(
     scene: str,
     confidence: float,
@@ -109,9 +108,7 @@ def collect_keyword_candidates(text: str) -> list[ParseHypothesis]:
             candidates.append(_hyp("credit_report", 0.93, "tier1_keyword"))
             break
 
-    from docmirror.plugins import registry
-
-    plugin_keywords = registry.get_all_scene_keywords()
+    plugin_keywords = get_plugin_scene_keywords()
     all_scenes = set(EVIDENCE_KEYWORDS.keys()) | set(plugin_keywords.keys())
 
     for scene in all_scenes:
@@ -178,23 +175,13 @@ def collect_entity_candidates(entities: dict[str, str]) -> list[ParseHypothesis]
 
 
 def collect_plugin_candidates(text: str, parse_result: ParseResult | None = None) -> list[ParseHypothesis]:
-    candidates: list[ParseHypothesis] = []
+    provider = get_plugin_candidate_provider()
+    if provider is None:
+        return []
     try:
-        from docmirror.plugins import registry
-
-        ctx = {"text": text, "parse_result": parse_result}
-        for domain_name in registry.list_plugins():
-            plugin = registry.get(domain_name)
-            if plugin is None:
-                continue
-            try:
-                if hasattr(plugin, "match") and plugin.match(ctx):
-                    candidates.append(_hyp(plugin.domain_name, 0.82, "plugin_match"))
-            except Exception:
-                continue
+        return provider(text, parse_result)
     except Exception:
-        pass
-    return candidates
+        return []
 
 
 def collect_visual_candidates(result: ParseResult) -> list[ParseHypothesis]:
@@ -207,13 +194,8 @@ def collect_visual_candidates(result: ParseResult) -> list[ParseHypothesis]:
         "contract": ["Contract", "Protocol"],
         "wechat_payment": ["微信支付", "财付通"],
     }
-    try:
-        from docmirror.plugins import registry
-
-        for scene, kws in registry.get_all_scene_keywords().items():
-            visual_keywords.setdefault(scene, []).extend(kws)
-    except Exception:
-        pass
+    for scene, kws in get_plugin_scene_keywords().items():
+        visual_keywords.setdefault(scene, []).extend(kws)
 
     for page in result.pages:
         for text_block in page.texts:

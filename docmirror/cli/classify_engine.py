@@ -117,15 +117,10 @@ class ClassificationResults:
 class FileClassifier:
     """智能文件分类器"""
 
-    def __init__(
-        self,
-        rules_path: Path | None = None,
-        output_dir: Path | None = None,
-        dry_run: bool = False
-    ):
+    def __init__(self, rules_path: Path | None = None, output_dir: Path | None = None, dry_run: bool = False):
         """
         初始化分类器
-        
+
         Args:
             rules_path: 规则配置文件路径
             output_dir: 输出目录
@@ -141,10 +136,10 @@ class FileClassifier:
     async def classify_directory(self, source_dir: Path) -> ClassificationResults:
         """
         遍历目录并分类所有文件
-        
+
         Args:
             source_dir: 源目录路径
-            
+
         Returns:
             分类结果集合
         """
@@ -170,33 +165,35 @@ class FileClassifier:
                 self.results.add(result)
 
         self.results.end_time = datetime.now()
-        logger.info(f"[FileClassifier] Classification completed: {self.results.success_count}/{self.results.total_files} successful")
+        logger.info(
+            f"[FileClassifier] Classification completed: {self.results.success_count}/{self.results.total_files} successful"
+        )
 
         return self.results
 
     def _scan_files(self, source_dir: Path) -> list[Path]:
         """
         扫描目录中的文件
-        
+
         Args:
             source_dir: 源目录
-            
+
         Returns:
             文件路径列表
         """
         files = []
         config = self.rules.file_handling
 
-        for file_path in source_dir.rglob('*'):
+        for file_path in source_dir.rglob("*"):
             if not file_path.is_file():
                 continue
 
             # 跳过隐藏文件
-            if config.skip_hidden_files and file_path.name.startswith('.'):
+            if config.skip_hidden_files and file_path.name.startswith("."):
                 continue
 
             # 跳过系统文件
-            if config.skip_system_files and file_path.name.startswith(('~', 'Thumbs.db', '.DS_Store')):
+            if config.skip_system_files and file_path.name.startswith(("~", "Thumbs.db", ".DS_Store")):
                 continue
 
             # 检查扩展名
@@ -220,19 +217,16 @@ class FileClassifier:
     async def _classify_file(self, file_path: Path) -> ClassificationResult:
         """
         分类单个文件
-        
+
         Args:
             file_path: 文件路径
-            
+
         Returns:
             分类结果
         """
         logger.info(f"[FileClassifier] Classifying: {file_path.name}")
 
-        result = ClassificationResult(
-            source_path=file_path,
-            matches=[]
-        )
+        result = ClassificationResult(source_path=file_path, matches=[])
 
         try:
             # 1. 使用DocMirror解析文件
@@ -280,10 +274,10 @@ class FileClassifier:
     async def _parse_file(self, file_path: Path):
         """
         使用DocMirror解析文件
-        
+
         Args:
             file_path: 文件路径
-            
+
         Returns:
             ParseResult对象
         """
@@ -300,10 +294,10 @@ class FileClassifier:
     def _extract_text(self, parse_result) -> str:
         """
         从解析结果中提取文本内容
-        
+
         Args:
             parse_result: ParseResult对象
-            
+
         Returns:
             提取的文本内容
         """
@@ -313,25 +307,25 @@ class FileClassifier:
         texts = []
 
         # 提取页面文本
-        if hasattr(parse_result, 'pages'):
+        if hasattr(parse_result, "pages"):
             for page in parse_result.pages:
-                if hasattr(page, 'texts'):
+                if hasattr(page, "texts"):
                     for text_block in page.texts:
-                        if hasattr(text_block, 'content') and text_block.content:
+                        if hasattr(text_block, "content") and text_block.content:
                             texts.append(text_block.content)
 
         # 提取键值对
-        if hasattr(parse_result, 'pages'):
+        if hasattr(parse_result, "pages"):
             for page in parse_result.pages:
-                if hasattr(page, 'key_values'):
+                if hasattr(page, "key_values"):
                     for kv in page.key_values:
-                        if hasattr(kv, 'key') and kv.key:
+                        if hasattr(kv, "key") and kv.key:
                             texts.append(f"{kv.key}: {kv.value}")
 
         # 提取实体
-        if hasattr(parse_result, 'entities'):
+        if hasattr(parse_result, "entities"):
             entities = parse_result.entities
-            if hasattr(entities, 'domain_specific') and entities.domain_specific:
+            if hasattr(entities, "domain_specific") and entities.domain_specific:
                 for key, value in entities.domain_specific.items():
                     texts.append(f"{key}: {value}")
 
@@ -340,11 +334,11 @@ class FileClassifier:
     def _match_rules(self, text: str, _file_path: Path) -> list[ClassificationMatch]:
         """
         使用规则匹配文件
-        
+
         Args:
             text: 文件文本内容
             file_path: 文件路径
-            
+
         Returns:
             匹配的规则列表
         """
@@ -356,25 +350,27 @@ class FileClassifier:
             # Confidence from keyword hit ratio and rule priority
             confidence = min(1.0, match_count / len(rule.keywords) * 0.7 + rule.priority / 1000 * 0.3)
 
-            matches.append(ClassificationMatch(
-                source="rule",
-                category_id=rule.rule_id,
-                category_name=rule.name,
-                target_dir=rule.target_dir,
-                confidence=confidence,
-                details={"matched_keywords": match_count}
-            ))
+            matches.append(
+                ClassificationMatch(
+                    source="rule",
+                    category_id=rule.rule_id,
+                    category_name=rule.name,
+                    target_dir=rule.target_dir,
+                    confidence=confidence,
+                    details={"matched_keywords": match_count},
+                )
+            )
 
         return matches
 
     def _match_plugins(self, _parse_result, text: str) -> list[ClassificationMatch]:
         """
         使用插件匹配文件
-        
+
         Args:
             parse_result: ParseResult对象
             text: 文件文本内容
-            
+
         Returns:
             匹配的插件列表
         """
@@ -387,43 +383,42 @@ class FileClassifier:
         # 遍历所有插件
         for (domain_name, ed), plugin in self.plugin_registry._plugins.items():
             try:
-                if hasattr(plugin, 'match') and plugin.match(document_context):
+                if hasattr(plugin, "match") and plugin.match(document_context):
                     # 插件匹配成功
-                    keywords = getattr(plugin, 'scene_keywords', [])
+                    keywords = getattr(plugin, "scene_keywords", [])
                     match_count = sum(1 for kw in keywords if kw in text)
                     confidence = min(1.0, match_count / len(keywords) * 0.8 + 0.2)
 
                     # Plugin-defined category directory when available
                     target_dir = ""
-                    if hasattr(plugin, 'get_classification_category'):
+                    if hasattr(plugin, "get_classification_category"):
                         target_dir = plugin.get_classification_category()
                     else:
                         # 默认使用插件域名作为目录
                         target_dir = f"plugins/{domain_name}"
 
-                    matches.append(ClassificationMatch(
-                        source="plugin",
-                        category_id=f"plugin_{domain_name}",
-                        category_name=plugin.display_name,
-                        target_dir=target_dir,
-                        confidence=confidence,
-                        details={"plugin": domain_name, "matched_keywords": match_count}
-                    ))
+                    matches.append(
+                        ClassificationMatch(
+                            source="plugin",
+                            category_id=f"plugin_{domain_name}",
+                            category_name=plugin.display_name,
+                            target_dir=target_dir,
+                            confidence=confidence,
+                            details={"plugin": domain_name, "matched_keywords": match_count},
+                        )
+                    )
             except Exception as e:
                 logger.debug(f"[FileClassifier] Plugin {domain_name} matching failed: {e}")
 
         return matches
 
-    def _resolve_conflicts(
-        self,
-        matches: list[ClassificationMatch]
-    ) -> tuple[ClassificationMatch, bool]:
+    def _resolve_conflicts(self, matches: list[ClassificationMatch]) -> tuple[ClassificationMatch, bool]:
         """
         解决分类冲突
-        
+
         Args:
             matches: 匹配结果列表
-            
+
         Returns:
             (最终匹配, 是否需要人工审核)
         """
@@ -457,11 +452,11 @@ class FileClassifier:
     def _move_file(self, source_path: Path, target_dir: str) -> Path:
         """
         移动文件到目标目录
-        
+
         Args:
             source_path: 源文件路径
             target_dir: 目标目录(相对于output_dir)
-            
+
         Returns:
             目标文件路径
         """

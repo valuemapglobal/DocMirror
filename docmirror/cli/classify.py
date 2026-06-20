@@ -33,52 +33,41 @@ console = Console()
 
 
 @click.command()
-@click.argument('source_dir', type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.argument("source_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.option(
-    '--output-dir', '-o',
-    type=click.Path(path_type=Path),
-    default=None,
-    help='分类输出目录 (默认: ./classified_output)'
+    "--output-dir", "-o", type=click.Path(path_type=Path), default=None, help="分类输出目录 (默认: ./classified_output)"
 )
 @click.option(
-    '--rules', '-r',
-    type=click.Path(exists=True, path_type=Path),
-    default=None,
-    help='分类规则文件路径 (YAML格式)'
+    "--rules", "-r", type=click.Path(exists=True, path_type=Path), default=None, help="分类规则文件路径 (YAML格式)"
 )
+@click.option("--dry-run", is_flag=True, default=False, help="仅预览分类结果,不移动文件")
 @click.option(
-    '--dry-run',
-    is_flag=True,
-    default=False,
-    help='仅预览分类结果,不移动文件'
-)
-@click.option(
-    '--report-format',
-    type=click.Choice(['markdown', 'json', 'csv']),
-    default='markdown',
-    help='报告格式 (默认: markdown)'
+    "--report-format",
+    type=click.Choice(["markdown", "json", "csv"]),
+    default="markdown",
+    help="报告格式 (默认: markdown)",
 )
 def classify(source_dir, output_dir, rules, dry_run, report_format):
     """
     智能分类目录中的金融文件
-    
+
     遍历SOURCE_DIR中的所有文件,自动解析内容并分类到对应目录。
     基于DocMirror插件系统和规则引擎实现精准分类。
-    
+
     \b
     示例:
       # 基本使用
       docmirror classify /path/to/documents
-      
+
       # 指定输出目录
       docmirror classify /path/to/documents -o /path/to/output
-      
+
       # 预览模式(不移动文件)
       docmirror classify /path/to/documents --dry-run
-      
+
       # 使用自定义规则
       docmirror classify /path/to/documents -r custom_rules.yaml
-      
+
       # 生成JSON报告
       docmirror classify /path/to/documents --report-format json
     """
@@ -108,11 +97,7 @@ def classify(source_dir, output_dir, rules, dry_run, report_format):
             print_summary,
         )
 
-        classifier = FileClassifier(
-            rules_path=rules,
-            output_dir=output_dir,
-            dry_run=dry_run
-        )
+        classifier = FileClassifier(rules_path=rules, output_dir=output_dir, dry_run=dry_run)
 
         # 执行分类
         results = asyncio.run(classifier.classify_directory(source_dir))

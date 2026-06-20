@@ -33,7 +33,6 @@ def extract_credit_accounts_from_local_structure_evidence(
     evidence_pages: list[dict[str, Any]],
 ) -> dict[str, Any]:
     import docmirror.plugins.credit_report.structure_projectors  # noqa: F401
-
     from docmirror.core.ocr.structure_project import infer_schema_hint, project_structure
 
     projected: list[tuple[dict[str, Any], dict[str, Any]]] = []
@@ -235,11 +234,7 @@ def _find_cell_for_field(
     field_key: str,
 ) -> dict[str, Any] | None:
     flat = _flatten_structure_cells(structure.get("cells") or [])
-    matches = [
-        cell
-        for cell in flat
-        if any(alias in _compact_text(cell.get("label_text") or "") for alias in aliases)
-    ]
+    matches = [cell for cell in flat if any(alias in _compact_text(cell.get("label_text") or "") for alias in aliases)]
     if field_key == "management_institution" and len(matches) > 1:
         return _merge_projection_cells(matches, field_key=field_key)
     if matches:
@@ -310,7 +305,9 @@ def _account_from_label_value_graph(structure: dict[str, Any], *, page: int) -> 
             account["audit"]["unmapped_labels"].append(_compact_text(label.get("text", "")))
             continue
         value_chain = [value] + _collect_continuations(value, continuations)
-        account[field_key] = _field_value(_chain_text(value_chain), value, field_key=field_key, label=label, value_chain=value_chain)
+        account[field_key] = _field_value(
+            _chain_text(value_chain), value, field_key=field_key, label=label, value_chain=value_chain
+        )
         field_count += 1
         mapped_fields.append(field_key)
 
@@ -324,7 +321,9 @@ def _account_from_label_value_graph(structure: dict[str, Any], *, page: int) -> 
     )
 
 
-def _label_value_pairs(structure: dict[str, Any], nodes: dict[str, dict[str, Any]]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+def _label_value_pairs(
+    structure: dict[str, Any], nodes: dict[str, dict[str, Any]]
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     pairs: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for edge in structure.get("edges") or []:
         if not isinstance(edge, dict) or edge.get("relation") != "label_of":

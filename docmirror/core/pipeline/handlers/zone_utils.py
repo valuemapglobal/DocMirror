@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def group_words_into_lines(words: list[dict], tolerance_ratio: float = 0.5) -> list[list[dict]]:
     """Group OCR words into lines by Y coordinate.
 
@@ -78,7 +79,6 @@ def group_words_into_lines(words: list[dict], tolerance_ratio: float = 0.5) -> l
     return lines
 
 
-
 def crop_zone_image(fitz_page, bbox) -> bytes:
     """Crop an image region from a page at the given bbox."""
     try:
@@ -92,7 +92,6 @@ def crop_zone_image(fitz_page, bbox) -> bytes:
         return b""
 
 
-
 def recognize_formula(extractor: PageExtractor, image_bytes: bytes) -> str:
     """Formula image -> LaTeX (delegated to FormulaEngine).
 
@@ -100,4 +99,3 @@ def recognize_formula(extractor: PageExtractor, image_bytes: bytes) -> str:
         UniMERNet ONNX > rapid_latex_ocr > empty string
     """
     return extractor._host._formula_engine.recognize(image_bytes)
-

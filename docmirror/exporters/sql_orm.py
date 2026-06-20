@@ -17,8 +17,9 @@ Base = declarative_base()
 
 # --- Relational Table Definitions ---
 
+
 class SQLReportMaster(Base):
-    __tablename__ = 'cr_report_master'
+    __tablename__ = "cr_report_master"
 
     id = Column(String(64), primary_key=True)
     report_id = Column(String(128))
@@ -33,24 +34,24 @@ class SQLReportMaster(Base):
 
 
 class SQLSubject(Base):
-    __tablename__ = 'cr_subject_info'
+    __tablename__ = "cr_subject_info"
 
     id = Column(String(64), primary_key=True)
-    report_uuid = Column(String(64), ForeignKey('cr_report_master.id'))
+    report_uuid = Column(String(64), ForeignKey("cr_report_master.id"))
 
     name = Column(String(128))
     id_type = Column(String(64))
     id_number = Column(String(64))
-    phone_number = Column(String(64)) # Storing primary
+    phone_number = Column(String(64))  # Storing primary
 
     report = relationship("SQLReportMaster", back_populates="subject")
 
 
 class SQLCreditSummary(Base):
-    __tablename__ = 'cr_summary_metrics'
+    __tablename__ = "cr_summary_metrics"
 
     id = Column(String(64), primary_key=True)
-    report_uuid = Column(String(64), ForeignKey('cr_report_master.id'))
+    report_uuid = Column(String(64), ForeignKey("cr_report_master.id"))
 
     credit_balance = Column(String(64))
     guarantee_balance = Column(String(64))
@@ -63,13 +64,13 @@ class SQLCreditSummary(Base):
 
 
 class SQLCreditAccount(Base):
-    __tablename__ = 'cr_credit_account'
+    __tablename__ = "cr_credit_account"
 
     id = Column(String(64), primary_key=True)
-    report_uuid = Column(String(64), ForeignKey('cr_report_master.id'))
+    report_uuid = Column(String(64), ForeignKey("cr_report_master.id"))
 
     account_type = Column(String(64))  # e.g., 非循环贷账户, 贷记卡
-    business_type = Column(String(128)) # e.g., 个人住房商业贷款
+    business_type = Column(String(128))  # e.g., 个人住房商业贷款
     currency = Column(String(32))
     limit_amount = Column(Float)
     balance = Column(Float)
@@ -83,10 +84,10 @@ class SQLCreditAccount(Base):
 
 
 class SQLPublicRecord(Base):
-    __tablename__ = 'cr_public_records'
+    __tablename__ = "cr_public_records"
 
     id = Column(String(64), primary_key=True)
-    report_uuid = Column(String(64), ForeignKey('cr_report_master.id'))
+    report_uuid = Column(String(64), ForeignKey("cr_report_master.id"))
 
     tax_arrears_count = Column(Integer)
     civil_judgments_count = Column(Integer)
@@ -98,10 +99,12 @@ class SQLPublicRecord(Base):
 
 # --- The Shredder Service ---
 
+
 class SQLShredder:
     """
     Shreds L2 JSON/Pydantic into SQL Tuples and flushes them to the DB.
     """
+
     def __init__(self, db_uri: str):
         self.engine = create_engine(db_uri)
         Base.metadata.create_all(self.engine)
@@ -121,7 +124,7 @@ class SQLShredder:
                 id=report_uuid,
                 report_id=schema.report_id,
                 report_type=schema.report_subtype,
-                report_time=schema.report_date
+                report_time=schema.report_date,
             )
             session.add(master)
 
@@ -133,7 +136,7 @@ class SQLShredder:
                 name=schema.subject.name,
                 id_type=schema.subject.id_type,
                 id_number=schema.subject.id_number,
-                phone_number=str(primary_phone)
+                phone_number=str(primary_phone),
             )
             session.add(subj)
 
@@ -146,7 +149,7 @@ class SQLShredder:
                 total_accounts=int(schema.credit_summary.total_accounts),
                 overdue_accounts=int(schema.credit_summary.overdue_accounts),
                 unsettled_accounts=int(schema.credit_summary.unsettled_accounts),
-                overdue_count=int(schema.credit_summary.overdue_count)
+                overdue_count=int(schema.credit_summary.overdue_count),
             )
             session.add(summ)
 
@@ -164,7 +167,7 @@ class SQLShredder:
                     status=acc.status,
                     five_tier_class=acc.five_tier_class,
                     overdue_amount=float(acc.overdue_amount) if acc.overdue_amount else 0.0,
-                    overdue_periods=int(acc.overdue_periods) if str(acc.overdue_periods).isdigit() else 0
+                    overdue_periods=int(acc.overdue_periods) if str(acc.overdue_periods).isdigit() else 0,
                 )
                 session.add(db_acc)
 
@@ -175,7 +178,7 @@ class SQLShredder:
                 tax_arrears_count=int(schema.public_records.tax_arrears),
                 civil_judgments_count=int(schema.public_records.civil_judgments),
                 enforcements_count=int(schema.public_records.enforcements),
-                admin_penalties_count=int(schema.public_records.admin_penalties)
+                admin_penalties_count=int(schema.public_records.admin_penalties),
             )
             session.add(pub)
 

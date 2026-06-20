@@ -81,7 +81,9 @@ def check_ruff_strict(allowlist: dict | None = None) -> CheckResult:
         filename = str(item.get("filename", ""))
         line = loc.get("row", 0)
         message = str(item.get("message", ""))
-        category = _RUFF_CODE_CATEGORY.get(code, Category.DEPRECATED_SYNTAX if code.startswith("UP") else Category.UNUSED_VARIABLE)
+        category = _RUFF_CODE_CATEGORY.get(
+            code, Category.DEPRECATED_SYNTAX if code.startswith("UP") else Category.UNUSED_VARIABLE
+        )
         key = f"{filename}:{line}:{code}"
         if is_allowed("ruff", key, allowlist) or is_allowed(category.value, filename, allowlist):
             continue
@@ -276,9 +278,7 @@ def check_commented_blocks(allowlist: dict | None = None, *, min_lines: int = 4)
     allowlist = allowlist or load_allowlist()
     t0 = time.perf_counter()
     result = CheckResult(name="commented_blocks")
-    code_like = re.compile(
-        r"^\s*#\s*(def |class |import |from |if |for |return |self\.|[a-zA-Z_][\w]*\s*=)"
-    )
+    code_like = re.compile(r"^\s*#\s*(def |class |import |from |if |for |return |self\.|[a-zA-Z_][\w]*\s*=)")
     section_label = re.compile(r"^[A-Za-z][\w\s\-]*:\s")
 
     def _is_commented_code_line(line: str) -> bool:

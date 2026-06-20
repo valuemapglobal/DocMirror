@@ -18,13 +18,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from docmirror.models.entities.domain import Style, TextSpan
 from docmirror.core.extraction.foundation import FitzEngine
+from docmirror.models.entities.domain import Style, TextSpan
 
 if TYPE_CHECKING:
     from docmirror.core.pipeline.page_extractor import PageExtractor
 
 logger = logging.getLogger(__name__)
+
 
 def extract_page_styles(_extractor: PageExtractor, fitz_page) -> dict[str, Style]:
     """Extract visual features of text within the page."""
@@ -51,7 +52,6 @@ def extract_page_styles(_extractor: PageExtractor, fitz_page) -> dict[str, Style
     return style_map
 
 
-
 def build_spans(
     text: str,
     bbox: tuple[float, float, float, float],
@@ -64,7 +64,6 @@ def build_spans(
     key = text[:20]
     style = style_map.get(key, Style())
     return (TextSpan(text=text, bbox=bbox, style=style),)
-
 
 
 def infer_heading_level(
@@ -121,7 +120,6 @@ def infer_heading_level(
         return 2  # large font but not bold -> h2
     else:
         return None
-
 
 
 __all__ = ["PageExtractor"]

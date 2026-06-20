@@ -21,7 +21,11 @@ from __future__ import annotations
 from typing import Any
 
 from docmirror.plugins._base.standardizer import normalize_amount
-from docmirror.plugins.bank_statement.header_resolve import detect_headers, has_split_debit_credit_headers, normalize_header_cell
+from docmirror.plugins.bank_statement.header_resolve import (
+    detect_headers,
+    has_split_debit_credit_headers,
+    normalize_header_cell,
+)
 from docmirror.plugins.bank_statement.institution import match_institution, normalize_table_headers
 from docmirror.plugins.bank_statement.row_extract import extract_all_tables, extract_rows_from_header
 
@@ -89,7 +93,7 @@ def _extract_split_grid_records(
     for tbl in tables:
         if not tbl or header_row_idx >= len(tbl):
             continue
-        for row in tbl[header_row_idx + 1:]:
+        for row in tbl[header_row_idx + 1 :]:
             if not row or not any(str(c).strip() for c in row):
                 continue
             first_cell = str(row[0] or "").strip()
@@ -154,6 +158,7 @@ def extract_transactions(ctx: StyleContext, plugin: Any) -> list[dict[str, str]]
 def normalize_record(raw_txn: dict[str, str], plugin: Any) -> dict[str, Any]:
     if raw_txn.get("_compact") == "1":
         from docmirror.plugins.bank_statement.styles.compact_merged import normalize_record as compact_norm
+
         return compact_norm(raw_txn)
 
     split = normalize_split_debit_credit(raw_txn, plugin)

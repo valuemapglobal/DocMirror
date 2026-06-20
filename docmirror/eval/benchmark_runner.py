@@ -69,8 +69,8 @@ async def run_single_case(case: GoldenCase, parse_fn) -> ParseQualityReport:
         failures=failures,
         warnings=[],
     )
-    from docmirror.models.entities.parse_result import ParseResult
     from docmirror.models.ehl import attach_quality_report_annex
+    from docmirror.models.entities.parse_result import ParseResult
 
     if isinstance(result, ParseResult):
         attach_quality_report_annex(result, report)

@@ -21,8 +21,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from docmirror.plugins.bank_statement.header_resolve import HeaderMatch, detect_headers
-from docmirror.plugins.bank_statement.header_resolve import canonical_key_for_field
+from docmirror.plugins.bank_statement.header_resolve import HeaderMatch, canonical_key_for_field, detect_headers
 
 _ISO_DATE_RE = re.compile(r"^\d{4}[-/]\d{2}[-/]\d{2}")
 _ISO_DATETIME_RE = re.compile(r"^\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}")
@@ -54,9 +53,7 @@ def row_has_transaction_data(row: list[str], *, strict_first_col: bool = False) 
     if strict_first_col and texts:
         has_date = _looks_like_date(texts[0]) or has_date
     has_amount = any(
-        _AMOUNT_RE.match(t.replace(",", "").replace("¥", "").replace("￥", ""))
-        for t in texts
-        if re.search(r"\d", t)
+        _AMOUNT_RE.match(t.replace(",", "").replace("¥", "").replace("￥", "")) for t in texts if re.search(r"\d", t)
     )
     return has_date and has_amount
 

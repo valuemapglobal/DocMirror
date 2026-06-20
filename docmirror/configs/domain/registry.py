@@ -45,7 +45,6 @@ logger = logging.getLogger(__name__)
 
 from docmirror.configs.paths import KEY_SYNONYMS_YAML as _KEY_SYNONYMS_PATH
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # Multilingual Key Synonyms — loaded from key_synonyms.yaml
 # ══════════════════════════════════════════════════════════════════════════════

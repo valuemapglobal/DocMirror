@@ -47,10 +47,7 @@ def logical_table_to_matrices(lt: LogicalTable) -> list[list[list[str]]]:
     if headers:
         matrix.append([str(h or "") for h in headers])
     for row in lt.rows or []:
-        cells = [
-            str(getattr(cell, "cleaned", None) or getattr(cell, "text", "") or "")
-            for cell in (row.cells or [])
-        ]
+        cells = [str(getattr(cell, "cleaned", None) or getattr(cell, "text", "") or "") for cell in (row.cells or [])]
         if any(c.strip() for c in cells):
             matrix.append(cells)
     return [matrix] if matrix else []

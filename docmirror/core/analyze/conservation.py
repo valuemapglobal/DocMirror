@@ -99,36 +99,46 @@ def mirror_conservation_summary(parse_result: Any) -> dict[str, Any]:
 
     issues: list[dict[str, Any]] = []
     if not _has_table_skip_reason(parse_result, spe):
-        issues.append({
-            "code": "empty_tables_without_reason",
-            "severity": "error",
-            "message": "No physical/logical tables and no table skip reason in SPE.",
-        })
+        issues.append(
+            {
+                "code": "empty_tables_without_reason",
+                "severity": "error",
+                "message": "No physical/logical tables and no table skip reason in SPE.",
+            }
+        )
 
     missing_provenance = _logical_rows_with_missing_provenance(parse_result)
     if missing_provenance:
-        issues.append({
-            "code": "logical_row_provenance_missing",
-            "severity": "error",
-            "count": missing_provenance,
-        })
+        issues.append(
+            {
+                "code": "logical_row_provenance_missing",
+                "severity": "error",
+                "count": missing_provenance,
+            }
+        )
 
-    if (physical_count or logical_count or spe.get("table_extraction") == "full") and not _has_candidate_audit(parse_result, spe):
-        issues.append({
-            "code": "candidate_audit_missing",
-            "severity": "warning",
-            "message": "No SPE competitors, annex hypotheses, or table extraction metadata found.",
-        })
+    if (physical_count or logical_count or spe.get("table_extraction") == "full") and not _has_candidate_audit(
+        parse_result, spe
+    ):
+        issues.append(
+            {
+                "code": "candidate_audit_missing",
+                "severity": "warning",
+                "message": "No SPE competitors, annex hypotheses, or table extraction metadata found.",
+            }
+        )
 
     q_phys = spe.get("quarantined_physical_tables")
     q_log = spe.get("quarantined_logical_tables_annex")
     missing_q = _quarantine_items_without_reason(q_phys) + _quarantine_items_without_reason(q_log)
     if missing_q:
-        issues.append({
-            "code": "quarantine_reason_missing",
-            "severity": "error",
-            "count": missing_q,
-        })
+        issues.append(
+            {
+                "code": "quarantine_reason_missing",
+                "severity": "error",
+                "count": missing_q,
+            }
+        )
 
     error_count = sum(1 for issue in issues if issue.get("severity") == "error")
     warning_count = len(issues) - error_count

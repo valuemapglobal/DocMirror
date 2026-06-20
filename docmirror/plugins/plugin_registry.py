@@ -42,13 +42,11 @@ class DomainPlugin(ABC):
 
     @property
     @abstractmethod
-    def domain_name(self) -> str:
-        ...
+    def domain_name(self) -> str: ...
 
     @property
     @abstractmethod
-    def display_name(self) -> str:
-        ...
+    def display_name(self) -> str: ...
 
     @property
     def edition(self) -> str:

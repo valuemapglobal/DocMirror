@@ -29,6 +29,7 @@ from docmirror.core.utils.vocabulary import (
 
 logger = logging.getLogger(__name__)
 
+
 def _extract_preamble_kv(rows: list[list[str]]) -> dict[str, str]:
     """Extract key-value metadata pairs from pre-header rows.
 

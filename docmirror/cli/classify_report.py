@@ -26,27 +26,27 @@ from docmirror.cli.classify_engine import ClassificationResults
 logger = logging.getLogger(__name__)
 
 
-def generate_report(results: ClassificationResults, output_dir: Path, format: str = 'markdown') -> Path:
+def generate_report(results: ClassificationResults, output_dir: Path, format: str = "markdown") -> Path:
     """
     生成分类报告
-    
+
     Args:
         results: 分类结果
         output_dir: 输出目录
         format: 报告格式(markdown, json, csv)
-        
+
     Returns:
         报告文件路径
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if format == 'markdown':
+    if format == "markdown":
         report_path = output_dir / "classification_report.md"
         _generate_markdown_report(results, report_path)
-    elif format == 'json':
+    elif format == "json":
         report_path = output_dir / "classification_report.json"
         _generate_json_report(results, report_path)
-    elif format == 'csv':
+    elif format == "csv":
         report_path = output_dir / "classification_report.csv"
         _generate_csv_report(results, report_path)
     else:
@@ -59,11 +59,11 @@ def generate_report(results: ClassificationResults, output_dir: Path, format: st
 def generate_pending_report(results: ClassificationResults, output_dir: Path) -> Path:
     """
     生成待处理文件报告
-    
+
     Args:
         results: 分类结果
         output_dir: 输出目录
-        
+
     Returns:
         待处理报告文件路径
     """
@@ -86,16 +86,16 @@ def generate_pending_report(results: ClassificationResults, output_dir: Path) ->
                         "category_id": m.category_id,
                         "category_name": m.category_name,
                         "confidence": m.confidence,
-                        "details": m.details
+                        "details": m.details,
                     }
                     for m in r.matches
-                ]
+                ],
             }
             for r in pending_results
-        ]
+        ],
     }
 
-    with open(report_path, 'w', encoding='utf-8') as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report_data, f, ensure_ascii=False, indent=2)
 
     logger.info(f"[Report] Generated pending review report: {report_path}")
@@ -181,7 +181,7 @@ def _generate_markdown_report(results: ClassificationResults, report_path: Path)
             report += f"| {i} | {result.source_path.name} | {result.source_path} |\n"
 
     # 写入文件
-    with open(report_path, 'w', encoding='utf-8') as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         f.write(report)
 
 
@@ -202,7 +202,7 @@ def _generate_json_report(results: ClassificationResults, report_path: Path) -> 
         "category_stats": {},
         "files": [],
         "errors": [],
-        "unmatched": []
+        "unmatched": [],
     }
 
     # 类别统计
@@ -210,88 +210,69 @@ def _generate_json_report(results: ClassificationResults, report_path: Path) -> 
     for category, cat_results in category_stats.items():
         report_data["category_stats"][category] = {
             "count": len(cat_results),
-            "files": [str(r.source_path.name) for r in cat_results]
+            "files": [str(r.source_path.name) for r in cat_results],
         }
 
     # 文件详情
     for result in results.results:
         if result.success:
-            report_data["files"].append({
-                "source_path": str(result.source_path),
-                "target_path": str(result.target_path) if result.target_path else None,
-                "category": result.category,
-                "confidence": result.confidence,
-                "matches": [
-                    {
-                        "source": m.source,
-                        "category_id": m.category_id,
-                        "category_name": m.category_name,
-                        "confidence": m.confidence
-                    }
-                    for m in result.matches
-                ]
-            })
+            report_data["files"].append(
+                {
+                    "source_path": str(result.source_path),
+                    "target_path": str(result.target_path) if result.target_path else None,
+                    "category": result.category,
+                    "confidence": result.confidence,
+                    "matches": [
+                        {
+                            "source": m.source,
+                            "category_id": m.category_id,
+                            "category_name": m.category_name,
+                            "confidence": m.confidence,
+                        }
+                        for m in result.matches
+                    ],
+                }
+            )
         elif not result.error:
             report_data["unmatched"].append(str(result.source_path))
 
     # 错误信息
     for file_path, error in results.errors:
-        report_data["errors"].append({
-            "file_path": str(file_path),
-            "error": error
-        })
+        report_data["errors"].append({"file_path": str(file_path), "error": error})
 
-    with open(report_path, 'w', encoding='utf-8') as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report_data, f, ensure_ascii=False, indent=2)
 
 
 def _generate_csv_report(results: ClassificationResults, report_path: Path) -> None:
     """生成CSV格式报告"""
 
-    with open(report_path, 'w', encoding='utf-8', newline='') as f:
+    with open(report_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
 
         # 写入表头
-        writer.writerow([
-            "序号",
-            "文件名",
-            "源路径",
-            "目标路径",
-            "分类",
-            "置信度",
-            "状态",
-            "错误信息",
-            "匹配数"
-        ])
+        writer.writerow(["序号", "文件名", "源路径", "目标路径", "分类", "置信度", "状态", "错误信息", "匹配数"])
 
         # 写入数据
         for i, result in enumerate(results.results, 1):
             status = "成功" if result.success else ("失败" if result.error else "未匹配")
-            writer.writerow([
-                i,
-                result.source_path.name,
-                str(result.source_path),
-                str(result.target_path) if result.target_path else "",
-                result.category or "",
-                f"{result.confidence:.2%}",
-                status,
-                result.error or "",
-                len(result.matches)
-            ])
+            writer.writerow(
+                [
+                    i,
+                    result.source_path.name,
+                    str(result.source_path),
+                    str(result.target_path) if result.target_path else "",
+                    result.category or "",
+                    f"{result.confidence:.2%}",
+                    status,
+                    result.error or "",
+                    len(result.matches),
+                ]
+            )
 
         # 写入错误记录
         for i, (file_path, error) in enumerate(results.errors, len(results.results) + 1):
-            writer.writerow([
-                i,
-                file_path.name,
-                str(file_path),
-                "",
-                "",
-                "",
-                "错误",
-                error,
-                0
-            ])
+            writer.writerow([i, file_path.name, str(file_path), "", "", "", "错误", error, 0])
 
 
 def _format_duration(start_time, end_time) -> str:
@@ -317,7 +298,7 @@ def _format_duration(start_time, end_time) -> str:
 def print_summary(results: ClassificationResults) -> None:
     """
     打印分类摘要到控制台
-    
+
     Args:
         results: 分类结果
     """

@@ -31,7 +31,6 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING
 
-
 from docmirror.configs.models.layout_profile import LayoutProfile
 
 if TYPE_CHECKING:

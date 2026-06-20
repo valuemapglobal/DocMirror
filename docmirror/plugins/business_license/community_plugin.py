@@ -57,11 +57,15 @@ class BusinessLicensePlugin(DomainPlugin):
 
     def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
-        return build_dec_kv("business_license", {
-            "company_name": entities.get("company_name", ""),
-            "unified_social_credit_code": entities.get("unified_social_credit_code", ""),
-            "legal_representative": entities.get("legal_representative", ""),
-        })
+
+        return build_dec_kv(
+            "business_license",
+            {
+                "company_name": entities.get("company_name", ""),
+                "unified_social_credit_code": entities.get("unified_social_credit_code", ""),
+                "legal_representative": entities.get("legal_representative", ""),
+            },
+        )
 
     def extract_from_mirror(self, parse_result, text: str = ""):
         from docmirror.plugins._base.kv_community_enrich import enrich_business_license_output

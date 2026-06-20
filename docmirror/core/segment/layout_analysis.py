@@ -23,6 +23,7 @@ from docmirror.core.segment.zone_models import ALPageLayout, ContentRegion
 
 logger = logging.getLogger(__name__)
 
+
 def _detect_borderless_table(text_dict: dict, _page_height: float) -> bool:
     """
     Heuristic detection of borderless tables.

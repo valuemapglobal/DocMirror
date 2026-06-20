@@ -81,8 +81,6 @@ def _fix_header_by_vocabulary(
     return result
 
 
-
-
 def detect_header_index(rows: list[list[str]], *, categories: list[str] | None = None) -> int:
     """Return header row index or -1 if not found."""
     cats = categories or ["BANK_STATEMENT"]

@@ -18,9 +18,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from docmirror.models.entities.domain import PageLayout
 from docmirror.core.pipeline.context import PageExtractionContext
 from docmirror.core.pipeline.page_pipeline import PagePipeline
+from docmirror.models.entities.domain import PageLayout
 
 
 def extract_single_page_digital_worker(

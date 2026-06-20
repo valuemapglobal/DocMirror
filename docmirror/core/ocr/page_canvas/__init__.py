@@ -3,12 +3,12 @@
 
 """Page-Centric Mirror (PCM) — page canvas and region models."""
 
+from docmirror.core.ocr.page_canvas.block_index import build_page_blocks, pcm_blocks_enabled
 from docmirror.core.ocr.page_canvas.build import (
     build_page_regions_for_page,
     build_regions_from_domain_specific,
 )
 from docmirror.core.ocr.page_canvas.detect import RegionCandidate, detect_page_region_candidates
-from docmirror.core.ocr.page_canvas.block_index import build_page_blocks, pcm_blocks_enabled
 from docmirror.core.ocr.page_canvas.models import PageBlock, PageCanvas, PageFlow, PageRegion
 
 __all__ = [

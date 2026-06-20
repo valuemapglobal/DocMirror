@@ -40,9 +40,7 @@ def run_bank_statement_edition_oracle(
         report.metrics["canonical_ratio"] = ratio
         if not ok:
             report.passed = False
-            report.failures.append(
-                f"canonical_ratio {ratio:.4f} < {float(min_canonical):.4f}"
-            )
+            report.failures.append(f"canonical_ratio {ratio:.4f} < {float(min_canonical):.4f}")
 
     min_coverage = spec.get("min_coverage_ratio")
     if min_coverage is not None:

@@ -34,11 +34,7 @@ from docmirror.core.profile.registry import (
 )
 
 _CONFIG_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "configs"
-    / "yaml"
-    / "bank_statement"
-    / "institution_overrides.yaml"
+    Path(__file__).resolve().parents[2] / "configs" / "yaml" / "bank_statement" / "institution_overrides.yaml"
 )
 
 

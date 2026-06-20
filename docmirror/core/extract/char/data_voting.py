@@ -24,6 +24,7 @@ from docmirror.core.utils.watermark import is_watermark_char
 
 logger = logging.getLogger(__name__)
 
+
 def detect_columns_by_data_voting(
     page_plum,
 ) -> list[list[str]] | None:

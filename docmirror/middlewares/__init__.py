@@ -12,6 +12,7 @@ detection, extraction, and validation middleware classes wired into standard
 parse profiles. Middleware runs after format adapters via the ``Orchestrator``
 and enriches ``ParseResult`` in place.
 """
+
 from .base import BaseMiddleware, MiddlewarePipeline
 from .detection.institution_detector import InstitutionDetector
 from .detection.language_detector import LanguageDetector

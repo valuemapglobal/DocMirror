@@ -147,7 +147,9 @@ class BankStyleParserRegistry:
 
             if parser_id == "kv_identity":
                 identity_fields = kv_identity.enrich_identity_fields(
-                    ctx, identity_fields, plugin.identity_fields,
+                    ctx,
+                    identity_fields,
+                    plugin.identity_fields,
                 )
                 continue
 
@@ -164,10 +166,7 @@ class BankStyleParserRegistry:
         expected = _expected_rows(ctx)
         primary_parser = (detection.parser_chain or ["grid_standard"])[-1]
         primary_score, coverage = _parser_score(transactions, normalize_fn, plugin, expected)
-        needs_fallback = (
-            primary_score < _CAPS_THRESHOLD
-            or (expected > 0 and coverage < _COVERAGE_THRESHOLD)
-        )
+        needs_fallback = primary_score < _CAPS_THRESHOLD or (expected > 0 and coverage < _COVERAGE_THRESHOLD)
         if needs_fallback:
             best_batch = transactions
             best_norm = normalize_fn
@@ -194,10 +193,21 @@ class BankStyleParserRegistry:
         if not transactions:
             batch, norm = _run_parser("grid_standard", ctx, plugin)
             transactions = batch
-            normalize_fn = norm or (lambda raw: grid_standard.normalize_record(raw, plugin))
+            if norm is None:
+
+                def _grid_normalize(raw):
+                    return grid_standard.normalize_record(raw, plugin)
+
+                normalize_fn = _grid_normalize
+            else:
+                normalize_fn = norm
 
         if normalize_fn is None:
-            normalize_fn = lambda raw: plugin._normalize(raw)
+
+            def _plugin_normalize(raw):
+                return plugin._normalize(raw)
+
+            normalize_fn = _plugin_normalize
 
         def _normalize(raw: dict[str, str]) -> dict[str, Any]:
             normalized = normalize_fn(raw)

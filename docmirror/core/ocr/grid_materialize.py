@@ -9,9 +9,9 @@ most one (row_index, col_index) cell. Native tokens win over char/line splits.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
-from collections.abc import Iterable
 
 from docmirror.core.ocr.field_grid.assign import (
     assignment_confidence,
@@ -91,9 +91,7 @@ def exclusive_assign_tokens_to_grid(
     """Assign each token to at most one grid cell across all row/col bands."""
     token_list = dedupe_visual_tokens(tokens)
     assignments: dict[GridKey, list[OCRToken]] = {
-        (int(row["index"]), int(col["index"])): []
-        for row in row_bands
-        for col in col_bands
+        (int(row["index"]), int(col["index"])): [] for row in row_bands for col in col_bands
     }
     for token in token_list:
         best_key: GridKey | None = None
@@ -113,19 +111,13 @@ def exclusive_assign_tokens_to_grid(
                     continue
                 score, center_distance = matched
                 key = (row_index, col_index)
-                if score > best_score + 1e-9 or (
-                    abs(score - best_score) <= 1e-9 and center_distance < best_distance
-                ):
+                if score > best_score + 1e-9 or (abs(score - best_score) <= 1e-9 and center_distance < best_distance):
                     best_key = key
                     best_score = score
                     best_distance = center_distance
         if best_key is not None and best_score > 0.0:
             assignments[best_key].append(token)
-    return {
-        key: coalesce_tokens_prefer_native(bucket)
-        for key, bucket in assignments.items()
-        if bucket
-    }
+    return {key: coalesce_tokens_prefer_native(bucket) for key, bucket in assignments.items() if bucket}
 
 
 def assign_tokens_to_col_bands_exclusive(
@@ -157,9 +149,7 @@ def coalesce_tokens_prefer_native(tokens: Iterable[OCRToken]) -> list[OCRToken]:
     if not token_list:
         return []
     native_ids = {
-        token.token_id
-        for token in token_list
-        if token.source_token_id is None and _source_priority(token) >= 60
+        token.token_id for token in token_list if token.source_token_id is None and _source_priority(token) >= 60
     }
     filtered: list[OCRToken] = []
     for token in token_list:
@@ -176,9 +166,7 @@ def coalesce_tokens_prefer_native(tokens: Iterable[OCRToken]) -> list[OCRToken]:
 
 
 def assemble_cell_text(tokens: Iterable[OCRToken]) -> str:
-    return "".join(
-        token.text for token in sorted(tokens, key=lambda t: (t.bbox[1], t.bbox[0]))
-    ).strip()
+    return "".join(token.text for token in sorted(tokens, key=lambda t: (t.bbox[1], t.bbox[0]))).strip()
 
 
 def materialize_grid_cell(
@@ -198,11 +186,7 @@ def materialize_grid_cell(
         return None
     method = assignment_method_override or assignment_method(token_list)
     assign_conf = assignment_confidence(token_list, row_band, col_band)
-    geometry_status = (
-        "exact"
-        if text and method == "overlap:native_token"
-        else ("estimated" if text else "empty")
-    )
+    geometry_status = "exact" if text and method == "overlap:native_token" else ("estimated" if text else "empty")
     return GridCell(
         row_index=int(row_band["index"]),
         col_index=int(col_band["index"]),

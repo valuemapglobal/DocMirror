@@ -198,6 +198,7 @@ def _scan_sections(fitz_doc: Any) -> list[dict]:
 # Section Tree Builder
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _build_section_tree(sections: list[dict]) -> list[dict]:
     """
     Build a flat section index (preserving hierarchy via level + parent_id).
@@ -233,13 +234,15 @@ def _build_section_tree(sections: list[dict]) -> list[dict]:
             counters[3] += 1
             sec_id = f"{counters[1]}.{counters[2]}.{counters[3]}"
 
-        tree.append({
-            "id": sec_id,
-            "level": level,
-            "title": sec["title"],
-            "page_start": sec["page_start"],
-            "line_count": len(lines),
-        })
+        tree.append(
+            {
+                "id": sec_id,
+                "level": level,
+                "title": sec["title"],
+                "page_start": sec["page_start"],
+                "line_count": len(lines),
+            }
+        )
 
     return tree
 
@@ -451,9 +454,9 @@ class SectionDrivenStrategy(BaseExtractionStrategy):
         logger.info(
             f"[SectionDrivenStrategy] Scanned {len(sections)} sections "
             f"in {_perf['section_scan_ms']:.0f}ms "
-            f"(L1={sum(1 for s in sections if s['level']==1)}, "
-            f"L2={sum(1 for s in sections if s['level']==2)}, "
-            f"L3={sum(1 for s in sections if s['level']==3)})"
+            f"(L1={sum(1 for s in sections if s['level'] == 1)}, "
+            f"L2={sum(1 for s in sections if s['level'] == 2)}, "
+            f"L3={sum(1 for s in sections if s['level'] == 3)})"
         )
 
         # Step 2: Build section tree (for metadata)

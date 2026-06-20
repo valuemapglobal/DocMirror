@@ -181,9 +181,7 @@ def apply_file_registry_to_provenance(
     provenance.file_path = registry_entry.get("path") or file_path or provenance.file_path
     provenance.file_id = registry_entry.get("file_id") or provenance.file_id
     provenance.file_hash = (
-        registry_entry.get("sha256_strict")
-        or registry_entry.get("sha256_fast")
-        or provenance.file_hash
+        registry_entry.get("sha256_strict") or registry_entry.get("sha256_fast") or provenance.file_hash
     )
     if registry_entry.get("mime_type"):
         provenance.mime_type = registry_entry["mime_type"]

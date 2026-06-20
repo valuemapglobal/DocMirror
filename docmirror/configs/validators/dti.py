@@ -21,8 +21,8 @@ to catch typos before they reach production classification.
 
 from __future__ import annotations
 
-from functools import lru_cache
 from collections.abc import Iterable
+from functools import lru_cache
 
 import yaml
 
@@ -65,6 +65,4 @@ def validate_business_scenes(scenes: Iterable[str]) -> list[str]:
 def assert_business_scene(scene: str) -> None:
     """Raise ValueError if scene is not in SSOT."""
     if not validate_business_scene(scene):
-        raise ValueError(
-            f"Unknown business_scene {scene!r}; add to {SCENE_KEYWORDS_YAML.name}"
-        )
+        raise ValueError(f"Unknown business_scene {scene!r}; add to {SCENE_KEYWORDS_YAML.name}")

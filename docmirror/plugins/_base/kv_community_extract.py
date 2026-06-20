@@ -26,8 +26,8 @@ from typing import Any
 
 from docmirror.models.edition_serializer import EditionContext, edition_serializer
 from docmirror.models.entities.domain_result import DomainExtractionResult, DomainQuality
-from docmirror.plugins._base.generic_mirror_adapter import _collect_entity_fields, _collect_table_records
 from docmirror.models.mirror.block_fields import collect_kv_fields_from_blocks
+from docmirror.plugins._base.generic_mirror_adapter import _collect_entity_fields, _collect_table_records
 
 
 def _match_identity_fields(

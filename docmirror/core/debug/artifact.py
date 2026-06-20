@@ -121,11 +121,7 @@ def write_debug_artifact(
 
         attach_spans_annex(result, spans)
     if pdf_path and is_debug_mode() and spans:
-        bbox_spans = [
-            s
-            for s in spans
-            if (getattr(s, "bbox", None) or (isinstance(s, dict) and s.get("bbox")))
-        ]
+        bbox_spans = [s for s in spans if (getattr(s, "bbox", None) or (isinstance(s, dict) and s.get("bbox")))]
         if bbox_spans:
             try:
                 from docmirror.core.debug.crop_generator import generate_field_crops

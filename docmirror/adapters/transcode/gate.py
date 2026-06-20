@@ -18,10 +18,10 @@ import logging
 import shutil
 import subprocess
 import tempfile
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import AsyncIterator, Callable
 
 from docmirror.configs.format.models import TranscodeSpec
 
@@ -72,9 +72,7 @@ def _libreoffice_convert(source: Path, target_ext: str) -> Path:
             )
         candidates = list(Path(out_dir).glob(f"*.{target_ext}"))
         if not candidates:
-            raise FormatRequiresConverterError(
-                f"LibreOffice produced no .{target_ext} output for {source.name}"
-            )
+            raise FormatRequiresConverterError(f"LibreOffice produced no .{target_ext} output for {source.name}")
         dest = Path(tempfile.mkstemp(suffix=f".{target_ext}", prefix="docmirror_")[1])
         shutil.copy2(candidates[0], dest)
 
@@ -120,8 +118,7 @@ def _msg_to_eml(source: Path) -> Path:
         import extract_msg  # type: ignore[import-untyped]
     except ImportError as exc:
         raise FormatRequiresConverterError(
-            "Outlook .msg files require optional dependency 'extract-msg'. "
-            "Install with: pip install extract-msg",
+            "Outlook .msg files require optional dependency 'extract-msg'. Install with: pip install extract-msg",
         ) from exc
 
     msg = extract_msg.Message(str(source))

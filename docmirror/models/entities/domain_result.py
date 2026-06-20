@@ -68,9 +68,7 @@ class ExtractionHint(BaseModel):
 def _is_finance_envelope(raw: dict[str, Any]) -> bool:
     """True when *raw* is finance edition JSON v3.0 (decision-layer blocks)."""
     return (
-        raw.get("schema_version") == "3.0"
-        and raw.get("edition") == "finance"
-        and isinstance(raw.get("scenario"), dict)
+        raw.get("schema_version") == "3.0" and raw.get("edition") == "finance" and isinstance(raw.get("scenario"), dict)
     )
 
 
@@ -90,11 +88,7 @@ def _is_edition_v2_payload(raw: dict[str, Any]) -> bool:
 
 def _is_edition_envelope_passthrough(raw: dict[str, Any]) -> bool:
     """True when plugin output must bypass ``edition_serializer`` (full edition envelope)."""
-    return (
-        _is_edition_v2_payload(raw)
-        or _is_enterprise_envelope(raw)
-        or _is_finance_envelope(raw)
-    )
+    return _is_edition_v2_payload(raw) or _is_enterprise_envelope(raw) or _is_finance_envelope(raw)
 
 
 def _normalize_finance_envelope(raw: dict[str, Any]) -> DomainExtractionResult:
@@ -204,9 +198,7 @@ def _normalize_edition_v2(raw: dict[str, Any]) -> DomainExtractionResult:
     entities = dict(data.get("fields") or {})
 
     structured_data = {
-        k: data.get(k)
-        for k in ("records", "summary", "sections", "tables", "line_items")
-        if data.get(k) is not None
+        k: data.get(k) for k in ("records", "summary", "sections", "tables", "line_items") if data.get(k) is not None
     }
 
     warnings = list(status.get("warnings") or [])
@@ -304,7 +296,16 @@ def normalize_domain_result(raw: Any) -> DomainExtractionResult:
     entities = {
         k: v
         for k, v in raw.items()
-        if k not in ("quality", "structured_data", "derived_variables", "metadata", "evidence_ids", "document_type", "properties")
+        if k
+        not in (
+            "quality",
+            "structured_data",
+            "derived_variables",
+            "metadata",
+            "evidence_ids",
+            "document_type",
+            "properties",
+        )
     }
     if isinstance(quality_raw, dict):
         quality = DomainQuality(

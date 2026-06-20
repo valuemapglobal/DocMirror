@@ -19,12 +19,12 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from docmirror.models.entities.domain import Block
 from docmirror.core.extract.cell_normalizer import normalize_table_cells
 from docmirror.core.extract.engine import detect_merged_cells, extract_tables_layered
 from docmirror.core.geometry.table_attrs import build_table_geometry_attrs
 from docmirror.core.ocr.fallback import analyze_scanned_page
 from docmirror.core.segment.zones import _reconstruct_rows_from_chars
+from docmirror.models.entities.domain import Block
 
 if TYPE_CHECKING:
     from docmirror.core.pipeline.page_extractor import PageExtractor
@@ -32,7 +32,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _clock = time.perf_counter
 
-def handle_data_table_zone(extractor: PageExtractor,
+
+def handle_data_table_zone(
+    extractor: PageExtractor,
     zone,
     _block_id: str,
     page_idx: int,
@@ -139,7 +141,10 @@ def handle_data_table_zone(extractor: PageExtractor,
                 geometry_confidence=extraction_confidence,
                 base_attrs=metadata,
             )
-            if "geometry_coverage_ratio" in metadata and getattr(extractor._host, "_extraction_audit", None) is not None:
+            if (
+                "geometry_coverage_ratio" in metadata
+                and getattr(extractor._host, "_extraction_audit", None) is not None
+            ):
                 for entry in reversed(extractor._host._extraction_audit):
                     if entry.get("page") == page_idx + 1:
                         entry["geometry_coverage_ratio"] = metadata["geometry_coverage_ratio"]

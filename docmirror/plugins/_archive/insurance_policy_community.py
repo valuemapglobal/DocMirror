@@ -51,14 +51,17 @@ class InsurancePolicyCommunityPlugin(DomainPlugin):
 
     def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
-        return build_dec_kv("insurance_policy", {
-            "policy_number": entities.get("policy_number", ""),
-            "insured": entities.get("insured", ""),
-            "policy_holder": entities.get("policy_holder", ""),
-            "insurance_amount": entities.get("insurance_amount", ""),
-            "premium": entities.get("premium", ""),
-        })
 
+        return build_dec_kv(
+            "insurance_policy",
+            {
+                "policy_number": entities.get("policy_number", ""),
+                "insured": entities.get("insured", ""),
+                "policy_holder": entities.get("policy_holder", ""),
+                "insurance_amount": entities.get("insurance_amount", ""),
+                "premium": entities.get("premium", ""),
+            },
+        )
 
 
 plugin = InsurancePolicyCommunityPlugin()

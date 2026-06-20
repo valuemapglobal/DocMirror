@@ -15,10 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from docmirror.core.entry.factory import PerceiveOptions, perceive_document
+from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 from docmirror.plugins.bank_statement.context import build_style_context
 from docmirror.plugins.bank_statement.style_detector import BankStyleDetector
 from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
-from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 from docmirror.plugins.runner import run_plugin_extract_sync
 
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "bank_statement"
@@ -70,24 +70,26 @@ async def bench_one(pdf: Path) -> dict:
         plugin = BankStatementCommunityPlugin()
         direct_records, _ = BankStyleParserRegistry().run(detection, ctx, plugin)
 
-        row.update({
-            "ok": True,
-            "pages": ctx.page_count,
-            "tables": len(ctx.tables),
-            "style_id": style_id,
-            "detected_style": detection.primary_style,
-            "confidence": round(detection.confidence, 3),
-            "records_cli": len(records),
-            "records_direct": len(direct_records),
-            "completeness": round(completeness(direct_records), 3),
-            "extraction_method": getattr(
-                getattr(ctx.parse_result, "parser_info", None),
-                "extraction_method",
-                None,
-            ),
-            "perceive_s": round(elapsed_perceive, 1),
-            "total_s": round(time.time() - t0, 1),
-        })
+        row.update(
+            {
+                "ok": True,
+                "pages": ctx.page_count,
+                "tables": len(ctx.tables),
+                "style_id": style_id,
+                "detected_style": detection.primary_style,
+                "confidence": round(detection.confidence, 3),
+                "records_cli": len(records),
+                "records_direct": len(direct_records),
+                "completeness": round(completeness(direct_records), 3),
+                "extraction_method": getattr(
+                    getattr(ctx.parse_result, "parser_info", None),
+                    "extraction_method",
+                    None,
+                ),
+                "perceive_s": round(elapsed_perceive, 1),
+                "total_s": round(time.time() - t0, 1),
+            }
+        )
         if len(direct_records) == 0:
             row["issue"] = "zero_records"
         elif row["completeness"] < 0.5:

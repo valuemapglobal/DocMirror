@@ -41,10 +41,10 @@ class ClassificationRule:
     def match(self, text: str) -> bool:
         """
         检查文本是否匹配此规则
-        
+
         Args:
             text: 要检查的文本内容
-            
+
         Returns:
             如果文本包含任一关键词则返回True
         """
@@ -54,10 +54,10 @@ class ClassificationRule:
     def match_count(self, text: str) -> int:
         """
         计算文本匹配的关键词数量
-        
+
         Args:
             text: 要检查的文本内容
-            
+
         Returns:
             匹配的关键词数量
         """
@@ -89,9 +89,7 @@ class ClassificationRules:
     """分类规则集合"""
 
     rules: dict[str, ClassificationRule] = field(default_factory=dict)
-    conflict_resolution: ConflictResolutionConfig = field(
-        default_factory=ConflictResolutionConfig
-    )
+    conflict_resolution: ConflictResolutionConfig = field(default_factory=ConflictResolutionConfig)
     file_handling: FileHandlingConfig = field(default_factory=FileHandlingConfig)
 
     def get_rule(self, rule_id: str) -> ClassificationRule | None:
@@ -105,10 +103,10 @@ class ClassificationRules:
     def match_text(self, text: str) -> list[tuple[ClassificationRule, int]]:
         """
         匹配文本到规则
-        
+
         Args:
             text: 要匹配的文本内容
-            
+
         Returns:
             匹配的规则列表,每个元素为(规则, 匹配关键词数)的元组,
             按优先级和匹配数降序排序
@@ -134,7 +132,7 @@ class RuleManager:
     def __init__(self, rules_path: Path | None = None):
         """
         初始化规则管理器
-        
+
         Args:
             rules_path: 规则配置文件路径,如果为None则使用默认路径
         """
@@ -155,48 +153,46 @@ class RuleManager:
     def _load_rules(self, path: Path) -> None:
         """
         从YAML文件加载规则
-        
+
         Args:
             path: YAML文件路径
         """
         try:
-            with open(path, encoding='utf-8') as f:
+            with open(path, encoding="utf-8") as f:
                 config = yaml.safe_load(f)
 
             # 加载分类规则
-            if 'categories' in config:
-                for rule_id, rule_data in config['categories'].items():
+            if "categories" in config:
+                for rule_id, rule_data in config["categories"].items():
                     rule = ClassificationRule(
                         rule_id=rule_id,
-                        name=rule_data.get('name', rule_id),
-                        keywords=rule_data.get('keywords', []),
-                        target_dir=rule_data.get('target_dir', ''),
-                        priority=rule_data.get('priority', 100)
+                        name=rule_data.get("name", rule_id),
+                        keywords=rule_data.get("keywords", []),
+                        target_dir=rule_data.get("target_dir", ""),
+                        priority=rule_data.get("priority", 100),
                     )
                     self.rules.rules[rule_id] = rule
 
             # 加载冲突解决配置
-            if 'conflict_resolution' in config:
-                cr_config = config['conflict_resolution']
+            if "conflict_resolution" in config:
+                cr_config = config["conflict_resolution"]
                 self.rules.conflict_resolution = ConflictResolutionConfig(
-                    strategy=cr_config.get('strategy', 'priority_first'),
-                    generate_pending_report=cr_config.get('generate_pending_report', True),
-                    multi_match_threshold=cr_config.get('multi_match_threshold', 2)
+                    strategy=cr_config.get("strategy", "priority_first"),
+                    generate_pending_report=cr_config.get("generate_pending_report", True),
+                    multi_match_threshold=cr_config.get("multi_match_threshold", 2),
                 )
 
             # 加载文件处理配置
-            if 'file_handling' in config:
-                fh_config = config['file_handling']
+            if "file_handling" in config:
+                fh_config = config["file_handling"]
                 self.rules.file_handling = FileHandlingConfig(
-                    skip_hidden_files=fh_config.get('skip_hidden_files', True),
-                    skip_system_files=fh_config.get('skip_system_files', True),
-                    max_file_size_mb=fh_config.get('max_file_size_mb', 500),
-                    supported_extensions=fh_config.get('supported_extensions', [])
+                    skip_hidden_files=fh_config.get("skip_hidden_files", True),
+                    skip_system_files=fh_config.get("skip_system_files", True),
+                    max_file_size_mb=fh_config.get("max_file_size_mb", 500),
+                    supported_extensions=fh_config.get("supported_extensions", []),
                 )
 
-            logger.info(
-                f"[RuleManager] Loaded {len(self.rules.rules)} rules from {path}"
-            )
+            logger.info(f"[RuleManager] Loaded {len(self.rules.rules)} rules from {path}")
 
         except Exception as e:
             logger.error(f"[RuleManager] Failed to load rules from {path}: {e}")
@@ -209,7 +205,7 @@ class RuleManager:
     def add_rule(self, rule: ClassificationRule) -> None:
         """
         添加自定义规则
-        
+
         Args:
             rule: 分类规则对象
         """
@@ -219,10 +215,10 @@ class RuleManager:
     def remove_rule(self, rule_id: str) -> bool:
         """
         移除规则
-        
+
         Args:
             rule_id: 规则ID
-            
+
         Returns:
             如果成功移除返回True,否则返回False
         """

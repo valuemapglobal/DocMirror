@@ -17,4 +17,3 @@ Upstream: ``extraction.strategies.strategy_registry``, document profile.
 
 Downstream: ``CoreExtractor`` when profile selects a non-default strategy.
 """
-

@@ -65,7 +65,9 @@ class GeminiVlmClient(BaseVlmClient):
     def call_api(self, image_base64: str, config: Any) -> str | None:
         import requests
 
-        url = config.api_base or f"https://generativelanguage.googleapis.com/v1beta/models/{config.model}:generateContent"
+        url = (
+            config.api_base or f"https://generativelanguage.googleapis.com/v1beta/models/{config.model}:generateContent"
+        )
         headers = {"Content-Type": "application/json"}
         params = {}
         if not config.api_base:

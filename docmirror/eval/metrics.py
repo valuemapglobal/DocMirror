@@ -187,9 +187,7 @@ def compute_metrics(
     if expected_kv is not None:
         metrics["kv_field_f1"] = kv_field_f1(expected_kv, result.all_key_values())
     if expected_domain_fields is not None:
-        metrics["domain_field_f1"] = domain_field_f1(
-            expected_domain_fields, extract_domain_fields(result)
-        )
+        metrics["domain_field_f1"] = domain_field_f1(expected_domain_fields, extract_domain_fields(result))
     if expected_table_cols > 0 and result.total_tables > 0:
         avg_cols = sum(len(t.headers) for t in result.all_tables()) / result.total_tables
         metrics["table_structure_score"] = table_structure_score(expected_table_cols, int(avg_cols))

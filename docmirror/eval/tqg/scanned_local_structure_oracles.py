@@ -19,7 +19,7 @@ def _doc_and_domain(mirror_or_api: Any) -> tuple[dict[str, Any], dict[str, Any]]
         domain_specific = getattr(entities, "domain_specific", None) if entities is not None else None
         return doc, domain_specific if isinstance(domain_specific, dict) else {}
     if isinstance(mirror_or_api, dict):
-        doc = (((mirror_or_api.get("data") or {}).get("document") or {}) if isinstance(mirror_or_api, dict) else {})
+        doc = ((mirror_or_api.get("data") or {}).get("document") or {}) if isinstance(mirror_or_api, dict) else {}
         domain = ((mirror_or_api.get("data") or {}).get("properties") or {}) if isinstance(mirror_or_api, dict) else {}
         return doc, domain if isinstance(domain, dict) else {}
     return {}, {}

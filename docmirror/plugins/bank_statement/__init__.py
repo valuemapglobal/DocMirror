@@ -17,11 +17,11 @@ Key exports: ``BankStatementCommunityPlugin``, ``BankStyleDetector``,
 """
 
 from docmirror.plugins.bank_statement.canonical import StyleMeta, build_style_meta
-from docmirror.plugins.bank_statement.context import StyleContext, build_style_context
 from docmirror.plugins.bank_statement.community_plugin import (
     BankStatementCommunityPlugin,
     plugin,
 )
+from docmirror.plugins.bank_statement.context import StyleContext, build_style_context
 from docmirror.plugins.bank_statement.style_detector import BankStyleDetector, StyleDetectionResult
 from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
 

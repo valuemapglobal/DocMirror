@@ -16,4 +16,3 @@ Upstream: Raw text, images, and chars from any pipeline stage.
 
 Downstream: Nearly all ``core`` subpackages.
 """
-

@@ -26,9 +26,9 @@ from docmirror.configs.format.enhancement import (
 )
 from docmirror.configs.format.loader import invalidate_format_cache
 from docmirror.configs.format.models import (
+    UNKNOWN_CAPABILITY,
     ExtractionBinding,
     FormatCapability,
-    UNKNOWN_CAPABILITY,
 )
 from docmirror.configs.format.resolver import detect_transport, resolve_capability
 

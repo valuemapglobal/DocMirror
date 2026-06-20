@@ -86,7 +86,9 @@ def run_scanned_micro_grid_oracle(
         report.metrics["micro_grid_nonempty_cell_count"] = total
         if not ok:
             report.passed = False
-            report.failures.append(f"micro-grid cell bbox coverage expected >= {min_cell_bbox_coverage}, got {ratio:.3f}")
+            report.failures.append(
+                f"micro-grid cell bbox coverage expected >= {min_cell_bbox_coverage}, got {ratio:.3f}"
+            )
 
     expected_cols = spec.get("expected_col_count")
     if expected_cols is not None:

@@ -24,8 +24,8 @@ See design 09 §4.5 for the EHL annex contract.
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any
 from collections.abc import Iterable
+from typing import Any
 
 from docmirror.models.entities.evidence import EvidenceSummary
 from docmirror.models.entities.hypothesis import MergeHypothesis, ParseHypothesis, TableHypothesis
@@ -145,9 +145,7 @@ def attach_classification_annex(
     items = list(evidence)
     if result.annex is None:
         result.annex = MirrorAnnex()
-    result.annex.hypotheses = evidence_items_to_hypotheses(
-        items, selected_category=selected_category
-    )
+    result.annex.hypotheses = evidence_items_to_hypotheses(items, selected_category=selected_category)
     result.annex.evidence_summary = build_evidence_summary(items)
 
 
@@ -300,7 +298,9 @@ def build_mirror_hypotheses(result: ParseResult, *, max_items: int = 100) -> lis
                         "page": table.page or page.page_number,
                         "bbox": table.bbox,
                     },
-                    confidence=float(table.extraction_confidence if table.extraction_confidence is not None else table.confidence),
+                    confidence=float(
+                        table.extraction_confidence if table.extraction_confidence is not None else table.confidence
+                    ),
                     evidence_ids=list(table.evidence_ids or []),
                     method=table.extraction_layer or "mirror_physical_table",
                     selected=True,

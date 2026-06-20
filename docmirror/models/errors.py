@@ -46,8 +46,7 @@ _ERROR_META: dict[str, dict[str, Any]] = {
     "ENCRYPTED_PDF": {"recoverable": True, "user_message": "PDF is password-protected."},
     "ARCHIVE_PASSWORD_PROTECTED": {
         "recoverable": False,
-        "user_message": "Password-protected archives are not supported yet. "
-        "Please provide an unencrypted archive.",
+        "user_message": "Password-protected archives are not supported yet. Please provide an unencrypted archive.",
     },
     "TIMEOUT": {"recoverable": True, "user_message": "Processing timed out."},
     "unknown": {"recoverable": False, "user_message": "An unexpected error occurred."},

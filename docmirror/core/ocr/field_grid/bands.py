@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 from collections.abc import Callable
+from typing import Any
 
 from docmirror.core.ocr.field_grid.models import LabelToken
 from docmirror.core.ocr.local_structure.utils import union_bbox
@@ -131,7 +131,8 @@ def _interpolate_label_segments(line: dict[str, Any]) -> list[tuple[str, BBox]]:
 def _tokens_in_bbox(tokens: list[OCRToken], bbox: BBox, *, y_margin: float = 4.0) -> list[OCRToken]:
     x0, y0, x1, y1 = bbox
     return [
-        token for token in tokens
+        token
+        for token in tokens
         if x0 - 2.0 <= token.center[0] <= x1 + 2.0 and y0 - y_margin <= token.center[1] <= y1 + y_margin
     ]
 
@@ -204,7 +205,9 @@ def extract_label_tokens(
     return merged
 
 
-def _cluster_label_lines_by_row(label_lines: list[dict[str, Any]], *, y_threshold: float = 14.0) -> list[list[dict[str, Any]]]:
+def _cluster_label_lines_by_row(
+    label_lines: list[dict[str, Any]], *, y_threshold: float = 14.0
+) -> list[list[dict[str, Any]]]:
     if not label_lines:
         return []
     sorted_lines = sorted(label_lines, key=lambda line: line["bbox"][1])
@@ -274,7 +277,9 @@ def estimate_col_bands_from_labels(
 
     for idx, label in enumerate(sorted_labels):
         left = roi_bbox[0] if idx == 0 else (sorted_labels[idx - 1].x_center + label.x_center) / 2.0
-        right = roi_bbox[2] if idx == len(sorted_labels) - 1 else (label.x_center + sorted_labels[idx + 1].x_center) / 2.0
+        right = (
+            roi_bbox[2] if idx == len(sorted_labels) - 1 else (label.x_center + sorted_labels[idx + 1].x_center) / 2.0
+        )
         bands.append(
             {
                 "index": idx,
@@ -325,7 +330,11 @@ def align_col_bands_across_structures(
             if header in median_x:
                 cx = median_x[header]
                 left = structure["bbox"][0] if idx == 0 else (sorted_bands[idx - 1]["bbox"][0] + cx) / 2.0
-                right = structure["bbox"][2] if idx == len(sorted_bands) - 1 else (cx + sorted_bands[idx + 1]["bbox"][0]) / 2.0
+                right = (
+                    structure["bbox"][2]
+                    if idx == len(sorted_bands) - 1
+                    else (cx + sorted_bands[idx + 1]["bbox"][0]) / 2.0
+                )
                 y0, y1 = band["bbox"][1], band["bbox"][3]
                 band["bbox"] = [left, y0, right, y1]
                 band["geometry_status"] = "schema_aligned"

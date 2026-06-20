@@ -275,9 +275,7 @@ async def run_plugin_extract(
         if out is None and should_mirror_only(detected_type, "community"):
             out = _mirror_only_payload(result, detected_type, "community")
         if out is not None:
-            return _finalize_extract(
-                result, out, edition="community", detected_type=detected_type
-            )
+            return _finalize_extract(result, out, edition="community", detected_type=detected_type)
         return None
 
     out = await _run_extended_extract_async(
@@ -301,9 +299,7 @@ async def run_plugin_extract(
             from docmirror.plugins.licensing.lifecycle import inject_edition_lifecycle_warnings
 
             out = inject_edition_lifecycle_warnings(out)
-        return _finalize_extract(
-            result, out, edition=edition, detected_type=detected_type, plugin=plugin
-        )
+        return _finalize_extract(result, out, edition=edition, detected_type=detected_type, plugin=plugin)
     return None
 
 
@@ -453,9 +449,7 @@ async def _run_extended_extract_async(
             edition,
             detected_type,
         )
-        community = _community_for_fallback(
-            community_baseline, result, detected_type, full_text
-        )
+        community = _community_for_fallback(community_baseline, result, detected_type, full_text)
         if community is None:
             community = _mirror_only_payload(result, detected_type, "community")
         return _wrap_license_degraded(community, edition=edition, plugin=plugin)
@@ -492,9 +486,7 @@ async def _run_extended_extract_async(
         except Exception as e:
             logger.warning("[%s] extract_from_mirror failed: %s", edition, e)
 
-    community = _community_for_fallback(
-        community_baseline, result, detected_type, full_text
-    )
+    community = _community_for_fallback(community_baseline, result, detected_type, full_text)
     if community is not None:
         cloned = copy.deepcopy(community)
         cloned["edition"] = edition

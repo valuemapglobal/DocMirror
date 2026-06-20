@@ -104,11 +104,7 @@ class AnomalyDetectorMiddleware(BaseMiddleware):
                 misaligned_rows += 1
                 continue
 
-            non_empty = sum(
-                1
-                for cell in cells
-                if (cell.cleaned or cell.text or "").strip()
-            )
+            non_empty = sum(1 for cell in cells if (cell.cleaned or cell.text or "").strip())
             denom = header_count or len(cells) or 1
             if non_empty / denom < (1.0 - self.TABLE_ROW_EMPTY_RATIO):
                 sparse_rows += 1
@@ -152,7 +148,9 @@ class AnomalyDetectorMiddleware(BaseMiddleware):
         }
 
     def _route_to_dlq(self, parse_result: ParseResult, reason: str) -> None:
-        self.dlq_registry.append({
-            "page_count": len(parse_result.pages),
-            "reason": reason,
-        })
+        self.dlq_registry.append(
+            {
+                "page_count": len(parse_result.pages),
+                "reason": reason,
+            }
+        )

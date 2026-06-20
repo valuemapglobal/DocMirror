@@ -47,6 +47,7 @@ _ENV_REF = re.compile(r"\$\{([^}:]+)(?::-([^}]*))?\}")
 def _expand_env(value: Any) -> Any:
     """Expand ``${VAR}`` / ``${VAR:-default}`` in strings recursively."""
     if isinstance(value, str):
+
         def _repl(match: re.Match) -> str:
             name = match.group(1)
             default = match.group(2)

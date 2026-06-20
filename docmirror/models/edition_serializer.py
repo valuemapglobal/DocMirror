@@ -25,10 +25,10 @@ resolved domain plugin at pipeline finalization time.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
-from collections.abc import Sequence
 
 from docmirror.models.entities.domain_result import DomainExtractionResult
 
@@ -138,8 +138,7 @@ def _structured_data_block(dec: DomainExtractionResult) -> dict[str, Any]:
             "sections": sd.get("sections") or [],
             "tables": sd.get("tables") or [],
             "line_items": sd.get("line_items") or [],
-            "summary": sd.get("summary")
-            or {"total_rows": len(records) if isinstance(records, list) else 0},
+            "summary": sd.get("summary") or {"total_rows": len(records) if isinstance(records, list) else 0},
         }
     if isinstance(sd, list):
         return {

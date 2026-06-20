@@ -13,11 +13,11 @@ directory with stable ``task_id``, ``file_id``, and ``document_id`` fields.
 from __future__ import annotations
 
 import importlib
-from docmirror.models.serialization import dumps_json
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from docmirror.models.serialization import dumps_json
 from docmirror.server.output_builder import build_all_edition_outputs, build_all_projections
 
 __all__ = ["build_all_edition_outputs", "build_all_projections", "write_four_files"]

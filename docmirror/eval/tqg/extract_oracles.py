@@ -14,8 +14,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from docmirror.eval.tqg.report import GateReport
 from docmirror.core.table.access import primary_export_logical_table
+from docmirror.eval.tqg.report import GateReport
 
 
 def run_column_fidelity_oracle(
@@ -181,10 +181,7 @@ def run_text_snapshot_oracle(
         return report
 
     text_lines = sorted(
-        str(b.raw_content).strip()
-        for pg in base.pages
-        for b in pg.blocks
-        if b.block_type == "text" and b.raw_content
+        str(b.raw_content).strip() for pg in base.pages for b in pg.blocks if b.block_type == "text" and b.raw_content
     )
     min_lines = int(spec.get("min_text_lines") or 1)
     report.checks["min_text_lines"] = len(text_lines) >= min_lines

@@ -22,10 +22,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from docmirror.models.entities.domain import Block, PageLayout
+from docmirror.core.table.pipeline.stage_preamble import _strip_preamble
 from docmirror.core.utils.text_utils import headers_match
 from docmirror.core.utils.vocabulary import _is_header_row
-from docmirror.core.table.pipeline.stage_preamble import _strip_preamble
+from docmirror.models.entities.domain import Block, PageLayout
 
 logger = logging.getLogger(__name__)
 
@@ -98,9 +98,7 @@ def _looks_like_fragment_table(rows: list) -> bool:
         clean = text.replace(",", "").replace("¥", "").replace(" ", "")
         return bool(clean and _RE_IS_AMOUNT.match(clean) and ("." in clean or len(clean) >= 4))
 
-    data_hits = sum(
-        1 for row in body if any(_strong_data_cell(str(c or "")) for c in row)
-    )
+    data_hits = sum(1 for row in body if any(_strong_data_cell(str(c or "")) for c in row))
     data_ratio = data_hits / len(body)
     if data_ratio >= 0.25:
         return False
@@ -250,9 +248,7 @@ def collect_cross_page_merge_groups(
             else:
                 log_entry: dict = {"action": "start", "page": page_no, "rows": len(curr_rows)}
                 if _profile_quarantines_standalone(profile):
-                    log_entry = _quarantine_col_mismatch_log(
-                        page_no, len(curr_rows), prev_col_count, curr_col_count
-                    )
+                    log_entry = _quarantine_col_mismatch_log(page_no, len(curr_rows), prev_col_count, curr_col_count)
                     logger.warning(
                         "[TableMerger] quarantine header-mismatch page "
                         "%s (%s cols vs expected %s) — standalone table preserved",
@@ -278,9 +274,7 @@ def collect_cross_page_merge_groups(
                 prev["rows"].extend(stripped)
                 prev["row_pages"].extend([page_no] * len(stripped))
                 prev["pages"].append(page_no)
-                prev["merge_log"].append(
-                    {"action": "merge_continuation", "page": page_no, "rows_added": len(stripped)}
-                )
+                prev["merge_log"].append({"action": "merge_continuation", "page": page_no, "rows_added": len(stripped)})
         else:
             start_log = {"action": "start", "page": page_no, "rows": len(curr_rows)}
             if _profile_quarantines_fragments(profile) and _looks_like_fragment_table(curr_rows):
@@ -349,8 +343,7 @@ def merge_cross_page_tables(pages: list[PageLayout]) -> list[PageLayout]:
     non_table_blocks: list[dict] = [
         entry
         for entry in all_blocks
-        if entry["block"].block_type != "table"
-        or not isinstance(entry["block"].raw_content, list)
+        if entry["block"].block_type != "table" or not isinstance(entry["block"].raw_content, list)
     ]
 
     new_pages = []

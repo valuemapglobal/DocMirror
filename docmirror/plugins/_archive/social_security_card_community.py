@@ -49,12 +49,15 @@ class SocialSecurityCardPlugin(DomainPlugin):
 
     def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
-        return build_dec_kv("social_security_card", {
-            "name": entities.get("name", ""),
-            "id_number": entities.get("id_number", ""),
-            "card_number": entities.get("card_number", ""),
-        })
 
+        return build_dec_kv(
+            "social_security_card",
+            {
+                "name": entities.get("name", ""),
+                "id_number": entities.get("id_number", ""),
+                "card_number": entities.get("card_number", ""),
+            },
+        )
 
 
 plugin = SocialSecurityCardPlugin()

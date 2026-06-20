@@ -13,13 +13,13 @@ set. Runs as a middleware stage after generic entity extraction and writes
 structured fields into ``ParseResult.entities.domain_specific``.
 """
 
-import time
-import os
-import re
+import concurrent.futures
 import json
 import logging
+import os
+import re
 import threading
-import concurrent.futures
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -53,23 +53,17 @@ class SLMEntityExtractor(BaseMiddleware):
         with cls._llm_lock:
             if cls._llm_instance is not None:
                 return cls._llm_instance  # Double-check after lock
-            from llama_cpp import Llama
             from huggingface_hub import hf_hub_download
+            from llama_cpp import Llama
 
             logger.info("[SLM] Loading Qwen2.5-0.5B-GGUF for local inference (CPU)")
             _t = time.perf_counter()
             os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
             model_path = hf_hub_download(
-                repo_id="Qwen/Qwen2.5-0.5B-Instruct-GGUF",
-                filename="qwen2.5-0.5b-instruct-q8_0.gguf"
+                repo_id="Qwen/Qwen2.5-0.5B-Instruct-GGUF", filename="qwen2.5-0.5b-instruct-q8_0.gguf"
             )
-            cls._llm_instance = Llama(
-                model_path=model_path,
-                n_ctx=2048,
-                n_threads=os.cpu_count(),
-                verbose=False
-            )
-            logger.info(f"[SLM] Model loaded in {(time.perf_counter()-_t)*1000:.0f}ms")
+            cls._llm_instance = Llama(model_path=model_path, n_ctx=2048, n_threads=os.cpu_count(), verbose=False)
+            logger.info(f"[SLM] Model loaded in {(time.perf_counter() - _t) * 1000:.0f}ms")
             return cls._llm_instance
 
     # ═══════════════════════════════════════════════════════════════
@@ -79,9 +73,11 @@ class SLMEntityExtractor(BaseMiddleware):
     def _repair_json(text: str) -> dict:
         """Deterministic JSON repair: bracket-counting + force-close."""
         text = text.strip()
-        if text.endswith('```'): text = text[:-3].strip()
-        first_brace = text.find('{')
-        if first_brace == -1: return {}
+        if text.endswith("```"):
+            text = text[:-3].strip()
+        first_brace = text.find("{")
+        if first_brace == -1:
+            return {}
         text = text[first_brace:]
         try:
             return json.loads(text)
@@ -97,7 +93,7 @@ class SLMEntityExtractor(BaseMiddleware):
             if escape_next:
                 escape_next = False
                 continue
-            if ch == '\\':
+            if ch == "\\":
                 escape_next = True
                 continue
             if ch == '"':
@@ -105,19 +101,23 @@ class SLMEntityExtractor(BaseMiddleware):
                 continue
             if in_string:
                 continue
-            if ch == '{': open_braces += 1
-            elif ch == '}': open_braces -= 1
-            elif ch == '[': open_brackets += 1
-            elif ch == ']': open_brackets -= 1
+            if ch == "{":
+                open_braces += 1
+            elif ch == "}":
+                open_braces -= 1
+            elif ch == "[":
+                open_brackets += 1
+            elif ch == "]":
+                open_brackets -= 1
             if open_braces >= 0 and open_brackets >= 0:
                 last_valid = i
-        repaired = text[:last_valid + 1]
+        repaired = text[: last_valid + 1]
         if repaired.count('"') % 2 != 0:
             repaired += '"'
-        ob = repaired.count('{') - repaired.count('}')
-        osq = repaired.count('[') - repaired.count(']')
-        repaired += ']' * max(0, osq)
-        repaired += '}' * max(0, ob)
+        ob = repaired.count("{") - repaired.count("}")
+        osq = repaired.count("[") - repaired.count("]")
+        repaired += "]" * max(0, osq)
+        repaired += "}" * max(0, ob)
         try:
             return json.loads(repaired)
         except json.JSONDecodeError:
@@ -134,17 +134,17 @@ class SLMEntityExtractor(BaseMiddleware):
         Filters out section titles (lines starting with （/( or numbered prefixes).
         """
         candidates = []
-        
+
         # Pattern 1: Chinese label followed by colon/equals
-        for m in re.finditer(r'([\u4e00-\u9fff]{2,8})[：:＝=]', chunk_text):
+        for m in re.finditer(r"([\u4e00-\u9fff]{2,8})[：:＝=]", chunk_text):
             candidates.append(m.group(1))
-        
+
         # Pattern 2: Lines that are pure Chinese labels (2-8 chars)
-        for line in chunk_text.split('\n'):
+        for line in chunk_text.split("\n"):
             line = line.strip()
-            if 2 <= len(line) <= 8 and re.match(r'^[\u4e00-\u9fff]+$', line):
+            if 2 <= len(line) <= 8 and re.match(r"^[\u4e00-\u9fff]+$", line):
                 candidates.append(line)
-        
+
         # Deduplicate while preserving order
         seen = set()
         unique = []
@@ -165,7 +165,7 @@ class SLMEntityExtractor(BaseMiddleware):
         while idx < len(text) and len(chunks) < max_chunks:
             end = min(idx + chunk_size, len(text))
             if end < len(text):
-                newline_pos = text.rfind('\n', idx, end)
+                newline_pos = text.rfind("\n", idx, end)
                 if newline_pos > idx:
                     end = newline_pos + 1
             chunks.append(text[idx:end])
@@ -198,16 +198,16 @@ class SLMEntityExtractor(BaseMiddleware):
         llm = self._get_llm()
 
         # Build Markdown-aware document text
-        doc_text = result._build_full_text() if hasattr(result, "_build_full_text") else (getattr(result, "full_text", "") or "")
+        doc_text = (
+            result._build_full_text()
+            if hasattr(result, "_build_full_text")
+            else (getattr(result, "full_text", "") or "")
+        )
         all_extracted = {}
 
         # Scene Adaptive
         doc_type = getattr(result.entities, "document_type", "unknown")
-        scene_map = {
-            "credit_report": "征信报告",
-            "bank_statement": "银行流水",
-            "invoice": "结算单据"
-        }
+        scene_map = {"credit_report": "征信报告", "bank_statement": "银行流水", "invoice": "结算单据"}
         doc_scene = scene_map.get(doc_type, "专业结构化") if doc_type != "unknown" else "专业结构化"
 
         # P3: System prompt is IDENTICAL across all chunks → KV-Cache reused
@@ -220,10 +220,12 @@ class SLMEntityExtractor(BaseMiddleware):
 
         def _process_section(sec_idx: int, sec: dict) -> tuple[str, dict]:
             title = sec.get("title", "")
-            if not title: return title, {}
+            if not title:
+                return title, {}
 
             start_idx = doc_text.find(title)
-            if start_idx == -1: return title, {}
+            if start_idx == -1:
+                return title, {}
 
             # Bound by next section
             end_idx = len(doc_text)
@@ -231,8 +233,10 @@ class SLMEntityExtractor(BaseMiddleware):
                 next_title = target_sections[sec_idx + 1].get("title", "")
                 if next_title:
                     nxt = doc_text.find(next_title, start_idx + len(title))
-                    if nxt != -1: end_idx = nxt
-            if end_idx - start_idx > 5000: end_idx = start_idx + 5000
+                    if nxt != -1:
+                        end_idx = nxt
+            if end_idx - start_idx > 5000:
+                end_idx = start_idx + 5000
 
             section_text = doc_text[start_idx:end_idx]
 
@@ -248,7 +252,7 @@ class SLMEntityExtractor(BaseMiddleware):
                     # Template-guided: LLM only needs to FILL values (cognitive downgrade)
                     template = {k: "?" for k in key_candidates[:15]}
                     user_prompt = (
-                        f"区块【{title}】(碎片 {chunk_id+1}/{len(chunks)})\n"
+                        f"区块【{title}】(碎片 {chunk_id + 1}/{len(chunks)})\n"
                         f"请根据下方文本填写以下字段的值：\n"
                         f"{json.dumps(template, ensure_ascii=False)}\n"
                         f"###\n{chunk_text}\n###\n"
@@ -256,7 +260,7 @@ class SLMEntityExtractor(BaseMiddleware):
                 else:
                     # Fallback: open-ended extraction
                     user_prompt = (
-                        f"区块【{title}】(碎片 {chunk_id+1}/{len(chunks)})\n"
+                        f"区块【{title}】(碎片 {chunk_id + 1}/{len(chunks)})\n"
                         f"请从下方文本中提取 JSON：\n"
                         f"###\n{chunk_text}\n###\n"
                     )
@@ -267,21 +271,25 @@ class SLMEntityExtractor(BaseMiddleware):
                     response = llm.create_chat_completion(
                         messages=[
                             {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt}
+                            {"role": "user", "content": user_prompt},
                         ],
                         max_tokens=adaptive_max_tokens,
                         temperature=0.1,
-                        response_format={"type": "json_object"}
+                        response_format={"type": "json_object"},
                     )
-                    out_text = response['choices'][0]['message']['content'].strip()
+                    out_text = response["choices"][0]["message"]["content"].strip()
                     parsed = self._repair_json(out_text)
-                    parsed = {k: v for k, v in parsed.items() if v != "?" and v != ""} if isinstance(parsed, dict) else {}
+                    parsed = (
+                        {k: v for k, v in parsed.items() if v != "?" and v != ""} if isinstance(parsed, dict) else {}
+                    )
                     if parsed:
                         merged_kv.update(parsed)
                     n_keys = len(key_candidates) if key_candidates else 0
-                    logger.info(f"[SLM] '{title}' chunk {chunk_id+1} ({adaptive_max_tokens}tok, {n_keys} template keys) → {len(parsed)} KVs in {(time.perf_counter()-_t_inf)*1000:.0f}ms")
+                    logger.info(
+                        f"[SLM] '{title}' chunk {chunk_id + 1} ({adaptive_max_tokens}tok, {n_keys} template keys) → {len(parsed)} KVs in {(time.perf_counter() - _t_inf) * 1000:.0f}ms"
+                    )
                 except Exception as e:
-                    logger.error(f"[SLM] Failed chunk {chunk_id+1} on {title}: {e}")
+                    logger.error(f"[SLM] Failed chunk {chunk_id + 1} on {title}: {e}")
                     merged_kv["_partial"] = True
 
             return title, merged_kv
@@ -296,12 +304,15 @@ class SLMEntityExtractor(BaseMiddleware):
 
         # Robust Anchoring (Reverse Mapping)
         def _enrich_ast_node(node, content_str: str) -> None:
-            if not content_str: return
+            if not content_str:
+                return
             for section_title, kv_dict in all_extracted.items():
-                if not isinstance(kv_dict, dict): continue
+                if not isinstance(kv_dict, dict):
+                    continue
                 for k, v in kv_dict.items():
                     v_str = str(v).strip() if v else ""
-                    if not v_str: continue
+                    if not v_str:
+                        continue
                     is_match = False
                     if len(v_str) > 3:
                         is_match = v_str in content_str
@@ -328,7 +339,7 @@ class SLMEntityExtractor(BaseMiddleware):
             field_changed="domain_specific.slm_extracted",
             old_value={},
             new_value=all_extracted,
-            reason="Universal SLM extraction across sections"
+            reason="Universal SLM extraction across sections",
         )
 
         return result

@@ -103,6 +103,62 @@ def _logical_refs_present(api: dict[str, Any]) -> bool:
     return True
 
 
+def _band_by_index(bands: list[Any]) -> dict[int, dict[str, Any]]:
+    out: dict[int, dict[str, Any]] = {}
+    for band in bands or []:
+        if not isinstance(band, dict):
+            continue
+        try:
+            out[int(band.get("index") or 0)] = band
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _span_bbox(row_boxes: list[Any], col_boxes: list[Any]) -> list[float] | None:
+    rows = [box for box in row_boxes if isinstance(box, list | tuple) and len(box) == 4]
+    cols = [box for box in col_boxes if isinstance(box, list | tuple) and len(box) == 4]
+    if not rows or not cols:
+        return None
+    return [
+        min(float(box[0]) for box in cols),
+        min(float(box[1]) for box in rows),
+        max(float(box[2]) for box in cols),
+        max(float(box[3]) for box in rows),
+    ]
+
+
+def _merged_cell_bands_consistent(table: dict[str, Any]) -> tuple[bool, int]:
+    geometry = ((table.get("metadata") or {}).get("geometry") or {}) if isinstance(table, dict) else {}
+    merged_cells = geometry.get("merged_cells") or (table.get("metadata") or {}).get("merged_cells") or []
+    if not merged_cells:
+        return True, 0
+    row_bands = _band_by_index(list(geometry.get("row_bands") or []))
+    col_bands = _band_by_index(list(geometry.get("col_bands") or []))
+    if not row_bands or not col_bands:
+        return False, len(merged_cells)
+
+    for merged in merged_cells:
+        if not isinstance(merged, dict):
+            return False, len(merged_cells)
+        bbox = merged.get("bbox")
+        if not (isinstance(bbox, list | tuple) and len(bbox) == 4 and area(bbox) > 0):
+            return False, len(merged_cells)
+        row = int(merged.get("row") or 0)
+        col = int(merged.get("col") or 0)
+        rowspan = max(1, int(merged.get("rowspan") or 1))
+        colspan = max(1, int(merged.get("colspan") or 1))
+        expected = _span_bbox(
+            [row_bands[idx].get("bbox") for idx in range(row, row + rowspan) if idx in row_bands],
+            [col_bands[idx].get("bbox") for idx in range(col, col + colspan) if idx in col_bands],
+        )
+        if expected is None:
+            return False, len(merged_cells)
+        if not contains(expected, bbox, tolerance=3.0) or not contains(bbox, expected, tolerance=3.0):
+            return False, len(merged_cells)
+    return True, len(merged_cells)
+
+
 def _iter_cells(tables: list[dict[str, Any]]):
     for table in tables:
         for row in table.get("rows") or []:
@@ -177,7 +233,11 @@ def run_mirror_geometry_oracle(
             report.failures.append("at least one cell bbox falls outside its table bbox")
 
     if spec.get("require_row_col_bands"):
-        ok = all(((table.get("metadata") or {}).get("geometry") or {}).get("row_bands") and ((table.get("metadata") or {}).get("geometry") or {}).get("col_bands") for table in tables)
+        ok = all(
+            ((table.get("metadata") or {}).get("geometry") or {}).get("row_bands")
+            and ((table.get("metadata") or {}).get("geometry") or {}).get("col_bands")
+            for table in tables
+        )
         report.checks["geometry_row_col_bands"] = ok
         if not ok:
             report.passed = False
@@ -191,10 +251,7 @@ def run_mirror_geometry_oracle(
             report.failures.append("expected logical rows to carry source_cell_refs")
 
     if spec.get("require_geometry_loss_reason_for_estimated"):
-        estimated = [
-            cell for cell in _iter_cells(tables)
-            if cell.get("geometry_status") in {"estimated", "missing"}
-        ]
+        estimated = [cell for cell in _iter_cells(tables) if cell.get("geometry_status") in {"estimated", "missing"}]
         ok = all(cell.get("geometry_loss_reason") for cell in estimated)
         report.checks["geometry_loss_reason_for_estimated"] = ok
         report.metrics["estimated_or_missing_geometry_cells"] = len(estimated)
@@ -210,5 +267,14 @@ def run_mirror_geometry_oracle(
         if not ok:
             report.passed = False
             report.failures.append("expected non-empty geometry cells to carry token_ids")
+
+    if spec.get("require_merged_cell_bbox_consistency"):
+        results = [_merged_cell_bands_consistent(table) for table in tables]
+        ok = all(result[0] for result in results)
+        report.checks["geometry_merged_cell_bbox_consistency"] = ok
+        report.metrics["merged_cell_count"] = sum(result[1] for result in results)
+        if not ok:
+            report.passed = False
+            report.failures.append("expected merged cell bbox to match row/col band span")
 
     return report

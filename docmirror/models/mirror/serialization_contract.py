@@ -10,9 +10,8 @@ identity so ``ParseResult.to_api_dict`` stays unambiguous.
 
 from __future__ import annotations
 
-from typing import Any
-
 import re
+from typing import Any
 
 MIRROR_CONTRACT_VERSION = "1.1"
 
@@ -192,9 +191,7 @@ def build_count_reconciliation(
             except (TypeError, ValueError):
                 continue
     annex_rows = sum(
-        int(getattr(lt, "row_count", 0) or 0)
-        for lt in logical_tables
-        if logical_table_role(lt) == "annex"
+        int(getattr(lt, "row_count", 0) or 0) for lt in logical_tables if logical_table_role(lt) == "annex"
     )
     page_list = pages or []
     physical_in_export = _physical_rows_on_pages(page_list, export_pages) if export_pages else 0

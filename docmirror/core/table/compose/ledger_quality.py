@@ -268,12 +268,7 @@ def assess_logical_table(
     score -= fragment * 0.45
     score = max(0.0, min(1.0, score))
 
-    passed = (
-        score >= LTQG_PASS_THRESHOLD
-        and header_match >= 2
-        and data_ratio >= 0.20
-        and fragment < 0.55
-    )
+    passed = score >= LTQG_PASS_THRESHOLD and header_match >= 2 and data_ratio >= 0.20 and fragment < 0.55
 
     skip_reason: str | None = None
     if not passed:

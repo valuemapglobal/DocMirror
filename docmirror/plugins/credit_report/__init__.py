@@ -33,7 +33,9 @@ def __getattr__(name: str) -> Any:
 
         return extract_credit_repayment_records
     if name == "extract_credit_accounts_from_local_structure_evidence":
-        from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
+        from docmirror.plugins.credit_report.account_structure import (
+            extract_credit_accounts_from_local_structure_evidence,
+        )
 
         return extract_credit_accounts_from_local_structure_evidence
     raise AttributeError(name)

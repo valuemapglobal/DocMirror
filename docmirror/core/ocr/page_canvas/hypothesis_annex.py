@@ -79,7 +79,9 @@ def build_document_hypothesis_annex(
         page = int(bundle.get("page") or 0)
         annex.extend(build_hypothesis_annex_for_page(bundle, page=page))
     if page_regions:
-        seen = {(a.get("structure_id"), a.get("cell_id")) for a in annex if a.get("hypothesis_kind") == "quarantined_cell"}
+        seen = {
+            (a.get("structure_id"), a.get("cell_id")) for a in annex if a.get("hypothesis_kind") == "quarantined_cell"
+        }
         for region in page_regions:
             if not isinstance(region, dict):
                 continue

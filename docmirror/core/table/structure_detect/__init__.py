@@ -4,7 +4,6 @@
 """Structure Detect Utilities (SDU) — document-agnostic grid/pipe detection SSOT."""
 
 from docmirror.core.table.structure_detect.header_zone import extract_header_zone
-from docmirror.core.table.structure_detect.pipe_page_extract import extract_pipe_delimited_table
 from docmirror.core.table.structure_detect.pipe_grid import (
     PipeGridSignal,
     count_primary_pipe_rows,
@@ -14,6 +13,7 @@ from docmirror.core.table.structure_detect.pipe_grid import (
     page_has_no_drawing_primitives,
     split_pipe_row,
 )
+from docmirror.core.table.structure_detect.pipe_page_extract import extract_pipe_delimited_table
 from docmirror.core.table.structure_detect.pipe_table_builder import (
     build_pipe_table_from_text,
     count_expected_primary_rows,

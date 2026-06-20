@@ -22,9 +22,10 @@ import re
 from collections import defaultdict
 
 from docmirror.core.segment.zone_models import Zone
-from docmirror.core.utils.vocabulary import HLINE_CHARS, KNOWN_HEADER_WORDS, PIPE_CHARS, _ALL_BORDER_CHARS
+from docmirror.core.utils.vocabulary import _ALL_BORDER_CHARS, HLINE_CHARS, KNOWN_HEADER_WORDS, PIPE_CHARS
 
 logger = logging.getLogger(__name__)
+
 
 def _isolate_formula_components(chars: list[dict], page_w: float, page_h: float) -> tuple[list[dict], list[Zone]]:
     """
@@ -767,4 +768,3 @@ def _classify_zone_legacy(
     if len(row_ys) >= 3:
         return "data_table"
     return "unknown"
-

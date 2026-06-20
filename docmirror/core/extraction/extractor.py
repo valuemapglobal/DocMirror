@@ -30,14 +30,15 @@ _clock = time.perf_counter
 from pathlib import Path
 from typing import Any
 
-from ...models.entities.domain import BaseResult
 from docmirror.core.entry.exceptions import ExtractionError
+
+from ...models.entities.domain import BaseResult
 from ..extract.classifier import get_last_layer_timings
+from ..pipeline.context import PageExtractionContext
 from ..utils.vocabulary import _is_header_row
 from ..utils.watermark import preprocess_document
 from .entity_collector import collect_kv_entities
 from .foundation import FitzEngine
-from ..pipeline.context import PageExtractionContext
 from .image_converter import image_to_virtual_pdf
 from .table_postprocessor import process_page_tables
 
@@ -174,13 +175,14 @@ class CoreExtractor:
         self, fitz_doc: fitz.Document, file_path: Path, doc_id: str, options: dict | None = None
     ) -> BaseResult:
         """Core extraction logic, extracted from try block.
-        
+
         Steps:
           1. Pre-analysis
           2. CPU-bound parsing (in thread)
           3. Assemble BaseResult
         """
         import asyncio
+
         t0 = _clock()
         file_path = Path(file_path)
         is_image_input = file_path.suffix.lower() in self._IMAGE_SUFFIXES
@@ -226,10 +228,8 @@ class CoreExtractor:
             "page_count": len(pages),
             "source_page_count": _perf.get("source_page_count"),
             "processed_page_numbers": _perf.get("selected_pages") or [p.page_number for p in pages],
-            "document_scene": getattr(self, "_document_scene", None)
-            or _perf.get("document_scene", "unknown"),
-            "scene_confidence": getattr(self, "_scene_confidence", 0.0)
-            or _perf.get("scene_confidence", 0.0),
+            "document_scene": getattr(self, "_document_scene", None) or _perf.get("document_scene", "unknown"),
+            "scene_confidence": getattr(self, "_scene_confidence", 0.0) or _perf.get("scene_confidence", 0.0),
             "layout_profile_id": _perf.get("layout_profile_id"),
             "quarantined_tables": _perf.get("quarantined_tables") or [],
             "parser": "DocMirror_CoreExtractor",
@@ -251,7 +251,9 @@ class CoreExtractor:
         if parse_control_dict:
             metadata["parse_control"] = parse_control_dict
             metadata["parse_control_fingerprint"] = opts.get("parse_control_fingerprint") or (
-                parse_control.fingerprint() if parse_control is not None and hasattr(parse_control, "fingerprint") else ""
+                parse_control.fingerprint()
+                if parse_control is not None and hasattr(parse_control, "fingerprint")
+                else ""
             )
             pages_control = parse_control_dict.get("pages") if isinstance(parse_control_dict, dict) else {}
             if isinstance(pages_control, dict):
@@ -359,7 +361,9 @@ class CoreExtractor:
                 out["table_extraction"] = "full"
                 out["table_extraction_skipped_reason"] = None
             elif out.get("table_extraction") == "full" and table_count == 0:
-                out["table_extraction_skipped_reason"] = out.get("table_extraction_skipped_reason") or "extraction_failed"
+                out["table_extraction_skipped_reason"] = (
+                    out.get("table_extraction_skipped_reason") or "extraction_failed"
+                )
             return _with_logical_tables(out)
 
         spe = build_structure_provenance(
@@ -374,9 +378,7 @@ class CoreExtractor:
             return _with_logical_tables(apply_pipe_enrich_spe(spe.to_dict()))
         return _with_logical_tables(spe.to_dict())
 
-    def _assess_extraction_quality(
-        self, pages, extraction_layer: str, extraction_confidence: float
-    ) -> dict[str, Any]:
+    def _assess_extraction_quality(self, pages, extraction_layer: str, extraction_confidence: float) -> dict[str, Any]:
         """Assess extraction quality for the main table."""
         table_count = sum(1 for p in pages for b in p.blocks if b.block_type == "table")
         if table_count == 0:
@@ -414,7 +416,9 @@ class CoreExtractor:
             "layer_timings_ms": get_last_layer_timings(),
         }
 
-    def _process_pdf_sync(self, fitz_doc, pre_analysis, has_text, is_image_input, cleaned_path, file_path, options=None):
+    def _process_pdf_sync(
+        self, fitz_doc, pre_analysis, has_text, is_image_input, cleaned_path, file_path, options=None
+    ):
         """Delegate to ``PdfSyncProcessor`` (CPA design 12)."""
         from docmirror.core.pipeline.document_pipeline import DocumentPipeline
         from docmirror.core.pipeline.pdf_processor import PdfSyncProcessor

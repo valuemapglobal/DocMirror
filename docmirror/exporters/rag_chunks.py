@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import json
-
 from typing import Any
 
 from docmirror.features.rag.chunker import chunk_parse_result

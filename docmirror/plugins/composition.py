@@ -55,9 +55,7 @@ def apply_license_degrade(
     warnings = degraded["status"]["warnings"]
     if license_warning not in warnings:
         warnings.insert(0, license_warning)
-    warnings.append(
-        f"license_required:edition={edition},domain={getattr(plugin, 'domain_name', '')}"
-    )
+    warnings.append(f"license_required:edition={edition},domain={getattr(plugin, 'domain_name', '')}")
     degraded.setdefault("plugin", {})["license_required"] = True
     meta = degraded.setdefault("metadata", {})
     meta["parser"] = f"docmirror-{edition}"

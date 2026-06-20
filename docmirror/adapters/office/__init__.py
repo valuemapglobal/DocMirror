@@ -10,4 +10,3 @@ Office document adapter subpackage — Word, Excel, and PowerPoint parsers.
 Re-exports format-specific ``BaseParser`` implementations and OMML math
 extraction helpers for ``.docx``, ``.xlsx``/``.csv``, and ``.pptx`` inputs.
 """
-

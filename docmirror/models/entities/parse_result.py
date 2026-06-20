@@ -45,9 +45,9 @@ import os
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
 
-from docmirror.core.ocr.page_canvas.models import PageCanvas
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from docmirror.core.ocr.page_canvas.models import PageCanvas
 from docmirror.models.tracking.mutation import Mutation
 
 if TYPE_CHECKING:
@@ -56,21 +56,23 @@ if TYPE_CHECKING:
     from docmirror.models.entities.quality_report import ParseQualityReport
 
 # Keys from domain_specific / mirror_metadata allowed in REST properties (ADR-M08)
-MIRROR_METADATA_KEYS = frozenset({
-    "currency",
-    "institution",
-    "account_number",
-    "opening_balance",
-    "closing_balance",
-    "transaction_count",
-    "layout_profile_id",
-    "layout_profile_id_refined",
-    "mirror_expected_data_rows",
-    "mirror_ltqg_enabled",
-    "language",
-    "region",
-    "query_period",
-})
+MIRROR_METADATA_KEYS = frozenset(
+    {
+        "currency",
+        "institution",
+        "account_number",
+        "opening_balance",
+        "closing_balance",
+        "transaction_count",
+        "layout_profile_id",
+        "layout_profile_id_refined",
+        "mirror_expected_data_rows",
+        "mirror_ltqg_enabled",
+        "language",
+        "region",
+        "query_period",
+    }
+)
 
 
 def _is_debug_mode() -> bool:
@@ -113,7 +115,9 @@ def _build_scanned_ocr_page_pool(*evidence_groups: Any) -> tuple[list[dict[str, 
     return pages, refs
 
 
-def _strip_scanned_ocr_payload_from_evidence(evidence_group: Any, refs: dict[tuple[Any, Any], str]) -> list[dict[str, Any]]:
+def _strip_scanned_ocr_payload_from_evidence(
+    evidence_group: Any, refs: dict[tuple[Any, Any], str]
+) -> list[dict[str, Any]]:
     """Replace duplicated scanned OCR payloads with shared OCR page refs."""
     if not isinstance(evidence_group, list):
         return []
@@ -371,10 +375,9 @@ class TableBlock(BaseModel):
     )
 
 
-
-
 class RowProvenance(BaseModel):
     """Provenance metadata for a logical table row — tracks physical origin."""
+
     source_page: int = 1
     source_table_id: str = ""
     source_row_index: int = 0
@@ -395,6 +398,7 @@ class LogicalTable(BaseModel):
       - ``merge_confidence`` reflects cross-page merge quality.
       - ``merge_log`` / ``merge_audit`` record composition decisions.
     """
+
     table_id: str = ""
     logical_id: str = ""
     headers: list[str] = Field(default_factory=list)
@@ -718,11 +722,14 @@ class ParseResult(BaseModel):
 
     # ── Zone 1: Content ──
     pages: list[PageContent] = Field(default_factory=list)
-    logical_tables: list[LogicalTable] = Field(default_factory=list,
+    logical_tables: list[LogicalTable] = Field(
+        default_factory=list,
         description="Cross-page logical tables (composed from physical pages). "
-                    "Plugin reads here; physical pages[].tables are raw per-page.")
-    table_operations: list[TableOperation] = Field(default_factory=list,
-        description="Cross-page merge/split audit trail (debug / enterprise QA).")
+        "Plugin reads here; physical pages[].tables are raw per-page.",
+    )
+    table_operations: list[TableOperation] = Field(
+        default_factory=list, description="Cross-page merge/split audit trail (debug / enterprise QA)."
+    )
 
     # ── Zone 2: Entities ──
     entities: DocumentEntities = Field(default_factory=DocumentEntities)
@@ -998,9 +1005,7 @@ class ParseResult(BaseModel):
             document["logical_tables"] = [
                 serialize_logical_table_dict(
                     lt,
-                    row_serializer=lambda c: self._serialize_cell(
-                        c, forensic=mirror_level == "forensic"
-                    ),
+                    row_serializer=lambda c: self._serialize_cell(c, forensic=mirror_level == "forensic"),
                     include_debug=_is_debug_mode() or mirror_level == "forensic",
                 )
                 for lt in self.logical_tables
@@ -1098,8 +1103,8 @@ class ParseResult(BaseModel):
         ds_meta = getattr(self.entities, "domain_specific", None) or {}
         if isinstance(ds_meta, dict) and ds_meta.get("classification_provenance"):
             meta["classification_provenance"] = ds_meta.get("classification_provenance")
-        from docmirror.core.analyze.spe_consumer import mirror_api_meta_fields, mirror_quarantine_annex_fields
         from docmirror.core.analyze.conservation import mirror_conservation_summary
+        from docmirror.core.analyze.spe_consumer import mirror_api_meta_fields, mirror_quarantine_annex_fields
 
         meta.update(mirror_api_meta_fields(self))
         meta.update(mirror_quarantine_annex_fields(self, mirror_level=mirror_level))
@@ -1353,7 +1358,11 @@ class ParseResult(BaseModel):
                                 "source_page": row.source_page,
                                 "source_physical_id": row.source_physical_id,
                                 "source_row_index": row.source_row_index,
-                                **({"source_cell_refs": row.source_cell_refs} if forensic and row.source_cell_refs else {}),
+                                **(
+                                    {"source_cell_refs": row.source_cell_refs}
+                                    if forensic and row.source_cell_refs
+                                    else {}
+                                ),
                             }
                             for row in table.rows
                         ],

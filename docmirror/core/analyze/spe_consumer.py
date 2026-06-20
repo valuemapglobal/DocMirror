@@ -62,9 +62,14 @@ def should_block_pipe_ltro(structure_spe: dict[str, Any] | None) -> bool:
     threshold = pipe_grid_veto_threshold()
     if primary == "section_led" and mode == "skipped" and reason == "route_section_dominant":
         return h_pipe < threshold
-    if primary == "prose_led" and mode == "skipped" and reason in (
-        "route_section_dominant",
-        "no_tabular_signal",
+    if (
+        primary == "prose_led"
+        and mode == "skipped"
+        and reason
+        in (
+            "route_section_dominant",
+            "no_tabular_signal",
+        )
     ):
         return h_pipe < 0.3
     return False
@@ -125,11 +130,7 @@ def read_ltqg_summary(
 
         primary = primary_export_logical_table(parse_result) if parse_result else None
         primary_rows = (
-            int(
-                getattr(primary, "data_row_estimate", 0)
-                or getattr(primary, "row_count", 0)
-                or 0
-            )
+            int(getattr(primary, "data_row_estimate", 0) or getattr(primary, "row_count", 0) or 0)
             if primary is not None
             else max((int(getattr(lt, "row_count", 0) or 0) for lt in logical_tables), default=0)
         )
@@ -171,11 +172,7 @@ def mirror_expected_primary_rows(
 
         primary = primary_export_logical_table(parse_result)
         if primary is not None:
-            return int(
-                getattr(primary, "data_row_estimate", 0)
-                or getattr(primary, "row_count", 0)
-                or 0
-            )
+            return int(getattr(primary, "data_row_estimate", 0) or getattr(primary, "row_count", 0) or 0)
         return 0
 
     if spe and spe.get("logical_table_count"):

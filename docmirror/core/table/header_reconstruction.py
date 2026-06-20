@@ -38,17 +38,17 @@ CREDIT_REPORT_HEADER_FIXES = {
 
 def reconstruct_headers_by_columns(headers: list[str], page_chars: list | None = None) -> list[str]:
     """列感知Header重组算法（v11优化）
-    
+
     基于字符物理位置的列边界检测与文本重组。
     模拟人类阅读表格时的列边界识别机制。
-    
+
     Args:
         headers: 原始headers列表（可能包含粘连文本）
         page_chars: 页面字符级坐标信息（可选，用于高级重组）
-    
+
     Returns:
         重组后的headers列表
-    
+
     算法流程:
     1. 领域词典快速校正（优先）
     2. 垂直投影分析（如有字符坐标）
@@ -79,13 +79,13 @@ def reconstruct_headers_by_columns(headers: list[str], page_chars: list | None =
 
 def _reconstruct_by_vertical_projection(headers: list[str], page_chars: list) -> list[str]:
     """基于垂直投影直方图的Header重组
-    
+
     使用字符x坐标的垂直投影密度检测列边界。
-    
+
     Args:
         headers: 当前headers
         page_chars: 字符级坐标列表 [{x0, y0, x1, y1, text}, ...]
-    
+
     Returns:
         重组后的headers
     """
@@ -95,7 +95,7 @@ def _reconstruct_by_vertical_projection(headers: list[str], page_chars: list) ->
     # 提取所有字符的x坐标
     x_positions = []
     for char_info in page_chars:
-        x_positions.append(char_info.get('x0', 0))
+        x_positions.append(char_info.get("x0", 0))
 
     if not x_positions:
         return headers
@@ -151,30 +151,30 @@ def _group_chars_by_column_gaps(
 
 def _detect_vertical_gaps(x_positions: list[float], threshold: float = 15.0) -> list[float]:
     """检测垂直投影中的空白间隙
-    
+
     Args:
         x_positions: 排序后的x坐标列表
         threshold: 间隙阈值（pt）
-    
+
     Returns:
         间隙位置列表
     """
     gaps = []
     for i in range(1, len(x_positions)):
-        gap = x_positions[i] - x_positions[i-1]
+        gap = x_positions[i] - x_positions[i - 1]
         if gap > threshold:
-            gaps.append((x_positions[i-1] + x_positions[i]) / 2)
+            gaps.append((x_positions[i - 1] + x_positions[i]) / 2)
     return gaps
 
 
 def _fix_sticky_headers_heuristic(headers: list[str]) -> list[str]:
     """启发式粘连Header修复
-    
+
     检测并分割异常长度的header文本。
-    
+
     Args:
         headers: 当前headers
-    
+
     Returns:
         修复后的headers
     """

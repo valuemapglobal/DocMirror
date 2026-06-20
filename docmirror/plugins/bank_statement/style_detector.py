@@ -168,6 +168,7 @@ class BankStyleDetector:
                 is_ocr_dominant,
                 table_is_borderless_ocr,
             )
+
             if not table_is_borderless_ocr(ctx):
                 return 0.0
             score += 0.4

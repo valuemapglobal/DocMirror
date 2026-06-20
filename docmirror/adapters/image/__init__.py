@@ -10,4 +10,3 @@ Image adapter subpackage — OCR-based image-to-ParseResult conversion.
 Re-exports ``ImageAdapter`` for raster formats handled by RapidOCR when PDF
 routing is not applicable.
 """
-

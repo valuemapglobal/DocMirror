@@ -24,6 +24,7 @@ from typing import Any
 
 _DATE_PREFIX_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})")
 from docmirror.plugins.bank_statement.styles.row_pair_merge import pair_ledger_rows
+
 _AMOUNT_RE = re.compile(r"\d+\.\d{2}")
 _INCOME_KEYWORDS = ("结息", "利息", "入息", "转入", "收入")
 
@@ -49,7 +50,7 @@ def parse_compact_ledger_cell(text: str) -> dict[str, Any]:
         return {}
 
     date = match.group(1)
-    rest = text[len(date):]
+    rest = text[len(date) :]
     amounts = [float(a) for a in _AMOUNT_RE.findall(rest)]
     parsed: dict[str, Any] = {
         "date": date,
@@ -174,23 +175,27 @@ def extract_transactions(tables: list[list[list[str]]]) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for tbl in tables:
         for raw in extract_compact_ledger_transactions(tbl):
-            out.append({
-                "日期支出收入余额": raw.get("ledger_cell", ""),
-                "对方账户对方户名": raw.get("counterparty_cell", ""),
-                "摘要/附言": raw.get("summary", ""),
-                "_compact": "1",
-                "_time_cell": raw.get("time_cell", ""),
-            })
+            out.append(
+                {
+                    "日期支出收入余额": raw.get("ledger_cell", ""),
+                    "对方账户对方户名": raw.get("counterparty_cell", ""),
+                    "摘要/附言": raw.get("summary", ""),
+                    "_compact": "1",
+                    "_time_cell": raw.get("time_cell", ""),
+                }
+            )
     return out
 
 
 def normalize_record(raw_txn: dict[str, str]) -> dict[str, Any]:
-    return normalize_compact_transaction({
-        "ledger_cell": raw_txn.get("日期支出收入余额", ""),
-        "counterparty_cell": raw_txn.get("对方账户对方户名", ""),
-        "summary": raw_txn.get("摘要/附言", ""),
-        "time_cell": raw_txn.get("_time_cell", ""),
-    })
+    return normalize_compact_transaction(
+        {
+            "ledger_cell": raw_txn.get("日期支出收入余额", ""),
+            "counterparty_cell": raw_txn.get("对方账户对方户名", ""),
+            "summary": raw_txn.get("摘要/附言", ""),
+            "time_cell": raw_txn.get("_time_cell", ""),
+        }
+    )
 
 
 def _safe_float(value: Any) -> float | None:

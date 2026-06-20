@@ -30,18 +30,15 @@ logger = logging.getLogger(__name__)
 # 1. X 轴投影直方图计算
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def compute_x_projection(
-    chars: list[dict],
-    page_w: float,
-    bin_size: float = 2.0
-) -> list[int]:
+
+def compute_x_projection(chars: list[dict], page_w: float, bin_size: float = 2.0) -> list[int]:
     """T-11: 计算 X 轴投影直方图。
-    
+
     Args:
         chars: 字符列表
         page_w: 页面宽度
         bin_size: 直方图 bin 大小 (px),默认 2px
-    
+
     Returns:
         投影直方图数组,每个元素表示该 x 位置的字符数
     """
@@ -73,25 +70,25 @@ def compute_x_projection(
 # 2. 列边界检测
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def detect_column_boundaries(
-    projection: list[int],
-    min_valley_depth: float = 0.3,
-    min_column_width: float = 20.0,
-    bin_size: float = 2.0
+    projection: list[int], min_valley_depth: float = 0.3, min_column_width: float = 20.0, bin_size: float = 2.0
 ) -> list[int]:
     """T-11: 从投影直方图检测列边界。
-    
+
     Args:
         projection: X 轴投影直方图
         min_valley_depth: 最小谷值深度 (相对峰值的比率)
         min_column_width: 最小列宽度 (px)
         bin_size: 直方图 bin 大小 (px)
-    
+
     Returns:
         列边界位置列表 (px 坐标)
     """
     if not projection or len(projection) < 10:
-        logger.debug(f"[projection] detect_column_boundaries: projection too short ({len(projection) if projection else 0} bins)")
+        logger.debug(
+            f"[projection] detect_column_boundaries: projection too short ({len(projection) if projection else 0} bins)"
+        )
         return []
 
     # Step 1: 平滑直方图 (移动平均,窗口大小=5)
@@ -124,8 +121,7 @@ def detect_column_boundaries(
     boundaries = [v * bin_size for v in filtered_valleys]
 
     logger.debug(
-        f"[Projection] Detected {len(boundaries)} column boundaries "
-        f"(valley depth threshold={min_valley_depth})"
+        f"[Projection] Detected {len(boundaries)} column boundaries (valley depth threshold={min_valley_depth})"
     )
 
     return boundaries
@@ -156,18 +152,15 @@ def _smooth_projection(projection: list[int], window_size: int = 5) -> list[floa
 # 3. 字符分配到列
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def assign_chars_to_columns(
-    chars: list[dict],
-    column_boundaries: list[float],
-    page_w: float
-) -> dict[int, list[dict]]:
+
+def assign_chars_to_columns(chars: list[dict], column_boundaries: list[float], page_w: float) -> dict[int, list[dict]]:
     """T-11: 将字符分配到对应的列。
-    
+
     Args:
         chars: 字符列表
         column_boundaries: 列边界位置列表 (px)
         page_w: 页面宽度
-    
+
     Returns:
         {col_index: [chars]}
     """
@@ -197,29 +190,26 @@ def assign_chars_to_columns(
 # 4. 统一入口: 表格检测
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def detect_table_by_projection(
-    chars: list[dict],
-    page_w: float,
-    page_h: float,
-    min_rows: int = 3,
-    min_cols: int = 2
+    chars: list[dict], page_w: float, page_h: float, min_rows: int = 3, min_cols: int = 2
 ) -> tuple | None:
     """T-11: 使用投影直方图检测表格结构。
-    
+
     Algorithm:
       1. 按 y 分组字符 (行检测)
       2. 对每组计算 X 投影
       3. 检测列边界
       4. 验证: 行数 >= min_rows, 列数 >= min_cols
       5. 返回表格边界和列位置
-    
+
     Args:
         chars: 字符列表
         page_w: 页面宽度
         page_h: 页面高度
         min_rows: 最小行数
         min_cols: 最小列数
-    
+
     Returns:
         (y_top, y_bottom, [col_x_positions]) 或 None
     """
@@ -246,10 +236,7 @@ def detect_table_by_projection(
 
     # Step 3: 检测列边界
     column_boundaries = detect_column_boundaries(
-        all_x_projection,
-        min_valley_depth=0.3,
-        min_column_width=20.0,
-        bin_size=2.0
+        all_x_projection, min_valley_depth=0.3, min_column_width=20.0, bin_size=2.0
     )
 
     if len(column_boundaries) < min_cols - 1:  # n 列需要 n-1 个边界
@@ -288,9 +275,7 @@ def detect_table_by_projection(
 
     # 验证列数一致性 (允许 ±1 的误差)
     if max(row_cell_counts) - min(row_cell_counts) > 1:
-        logger.debug(
-            f"[Projection] Column count inconsistent: {row_cell_counts}"
-        )
+        logger.debug(f"[Projection] Column count inconsistent: {row_cell_counts}")
         return None
 
     # Step 6: 计算表格边界
@@ -309,17 +294,14 @@ def detect_table_by_projection(
 # 辅助函数: 与 Column Consensus 集成
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def projection_fallback(
-    chars: list[dict],
-    page_w: float,
-    page_h: float,
-    min_rows: int = 3,
-    min_cols: int = 2
+    chars: list[dict], page_w: float, page_h: float, min_rows: int = 3, min_cols: int = 2
 ) -> tuple | None:
     """T-11: 投影直方图备选方案入口。
-    
+
     当 gap-based clustering 失败时调用此函数。
-    
+
     Returns:
         (y_top, y_bottom, [col_x_positions]) 或 None
     """

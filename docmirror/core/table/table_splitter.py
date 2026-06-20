@@ -47,19 +47,19 @@ def detect_and_split_parallel_tables(
 ) -> list[dict]:
     """
     检测并分离并排表格
-    
+
     Args:
         table_data: 表格数据 [[row1_col1, row1_col2, ...], ...]
         page_width: 页面宽度（用于计算相对位置）
         table_id: 原始表格ID
         page_number: 页码
-    
+
     Returns:
         分割后的表格列表，每个元素包含:
         - table_data: 表格数据
         - table_id: 新表格ID
         - split_reason: 分割原因
-    
+
     算法流程:
     1. 计算所有列的X轴分布
     2. 检测垂直空白间隙（>30pt）
@@ -105,21 +105,25 @@ def detect_and_split_parallel_tables(
         left_data = _extract_columns(table_data, 0, gap_idx)
         left_id = f"{table_id}_left" if table_id else "table_left"
 
-        split_tables.append({
-            "table_data": left_data,
-            "table_id": left_id,
-            "split_reason": f"semantic_boundary_at_col_{gap_idx}",
-        })
+        split_tables.append(
+            {
+                "table_data": left_data,
+                "table_id": left_id,
+                "split_reason": f"semantic_boundary_at_col_{gap_idx}",
+            }
+        )
 
         # 右侧表格（gap_idx 到末尾）
         right_data = _extract_columns(table_data, gap_idx, col_count)
         right_id = f"{table_id}_right" if table_id else "table_right"
 
-        split_tables.append({
-            "table_data": right_data,
-            "table_id": right_id,
-            "split_reason": f"semantic_boundary_at_col_{gap_idx}",
-        })
+        split_tables.append(
+            {
+                "table_data": right_data,
+                "table_id": right_id,
+                "split_reason": f"semantic_boundary_at_col_{gap_idx}",
+            }
+        )
 
         logger.info(
             f"[TableSplit] Page {page_number}: Split {table_id} into "
@@ -132,7 +136,7 @@ def detect_and_split_parallel_tables(
 def _estimate_column_positions(table_data: list[list[str]], page_width: float) -> list[float]:
     """
     估算列的X坐标位置
-    
+
     基于列索引和页面宽度均匀分布
     """
     col_count = max(len(row) for row in table_data)
@@ -154,10 +158,10 @@ def _estimate_column_positions(table_data: list[list[str]], page_width: float) -
 def _find_column_gaps(col_x_positions: list[float], table_data: list[list[str]]) -> list[int]:
     """
     查找列之间的间隙
-    
+
     使用更简单直接的方法：检测列索引2（第3列）前面是否有间隙
     征信报告的并排表格通常在第2列和第3列之间分割
-    
+
     Returns:
         间隙位置（列索引）列表
     """
@@ -185,7 +189,7 @@ def _find_column_gaps(col_x_positions: list[float], table_data: list[list[str]])
 def _is_semantic_boundary(table_data: list[list[str]], gap_col_idx: int) -> bool:
     """
     验证间隙是否为语义分割点
-    
+
     征信报告特征:
     - 左侧是业务字段（经济类型、组织机构类型等）
     - 右侧固定是"信息来源机构"
@@ -214,7 +218,7 @@ def _is_semantic_boundary(table_data: list[list[str]], gap_col_idx: int) -> bool
 def _has_kv_structure(table_data: list[list[str]], start_col: int, end_col: int | None) -> bool:
     """
     检查指定列范围是否具有KV结构
-    
+
     KV结构特征:
     - 偶数索引列是标签（包含中文）
     - 奇数索引列是值
@@ -246,7 +250,7 @@ def _has_kv_structure(table_data: list[list[str]], start_col: int, end_col: int 
 def _has_chinese(text: str) -> bool:
     """检查文本是否包含中文"""
     for char in text:
-        if '\u4e00' <= char <= '\u9fff':
+        if "\u4e00" <= char <= "\u9fff":
             return True
     return False
 
@@ -254,12 +258,12 @@ def _has_chinese(text: str) -> bool:
 def _extract_columns(table_data: list[list[str]], start_col: int, end_col: int) -> list[list[str]]:
     """
     提取指定列范围的数据
-    
+
     Args:
         table_data: 原始表格数据
         start_col: 起始列索引（包含）
         end_col: 结束列索引（不包含）
-    
+
     Returns:
         提取后的表格数据
     """

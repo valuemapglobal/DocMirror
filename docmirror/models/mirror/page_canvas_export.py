@@ -85,9 +85,7 @@ def attach_region_refs_to_sections(
             continue
         page_num = int(page.get("page_number") or 0)
         ids = [
-            str(r.get("region_id"))
-            for r in (page.get("regions") or [])
-            if isinstance(r, dict) and r.get("region_id")
+            str(r.get("region_id")) for r in (page.get("regions") or []) if isinstance(r, dict) and r.get("region_id")
         ]
         if ids:
             regions_by_page[page_num] = ids

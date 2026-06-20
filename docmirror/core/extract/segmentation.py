@@ -32,7 +32,14 @@ logger = logging.getLogger(__name__)
 
 def _chars_in_bbox(chars: list, bbox: tuple[float, float, float, float]) -> list:
     x0, y0, x1, y1 = bbox
-    return [c for c in chars if c.get("x0", 0) >= x0 - 1 and c.get("x1", 0) <= x1 + 1 and c.get("top", 0) >= y0 - 1 and c.get("bottom", 0) <= y1 + 1]
+    return [
+        c
+        for c in chars
+        if c.get("x0", 0) >= x0 - 1
+        and c.get("x1", 0) <= x1 + 1
+        and c.get("top", 0) >= y0 - 1
+        and c.get("bottom", 0) <= y1 + 1
+    ]
 
 
 def _find_header_anchor_y(chars: list, expected_headers: list[str]) -> float | None:
@@ -87,7 +94,9 @@ def _segment_full_page_table(page_plum, page_idx: int, profile: ExtractionProfil
 
     if header_y > 40:
         title_chars = [c for c in chars if c.get("top", 0) < header_y]
-        title_text = " ".join(c.get("text", "") for c in sorted(title_chars, key=lambda c: (c.get("top", 0), c.get("x0", 0))))
+        title_text = " ".join(
+            c.get("text", "") for c in sorted(title_chars, key=lambda c: (c.get("top", 0), c.get("x0", 0)))
+        )
         zones.append(
             Zone(
                 type="title",

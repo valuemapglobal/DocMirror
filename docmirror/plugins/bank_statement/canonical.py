@@ -197,9 +197,11 @@ def records_from_raw_transactions(
         raw = dict(raw_txn)
         raw.setdefault("_style_id", style_id)
         normalized = normalize_fn(raw_txn)
-        records.append({
-            "row_index": idx,
-            "raw": raw,
-            "normalized": normalized,
-        })
+        records.append(
+            {
+                "row_index": idx,
+                "raw": raw,
+                "normalized": normalized,
+            }
+        )
     return records

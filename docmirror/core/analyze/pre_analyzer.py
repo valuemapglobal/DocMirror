@@ -425,7 +425,7 @@ class PreAnalyzer:
 
         if table_ratio >= 0.6:
             return "table_dominant"
-        elif table_ratio <= 0.2 and first_page["x_column_count"] <= 3:
+        elif table_ratio <= 0.2 and _first_page["x_column_count"] <= 3:
             return "text_dominant"
         else:
             return "mixed"

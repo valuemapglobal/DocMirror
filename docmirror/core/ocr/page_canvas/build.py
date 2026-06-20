@@ -9,19 +9,21 @@ from typing import Any
 
 from docmirror.core.ocr.page_canvas.models import PageRegion
 
-_STANDARD_FIELD_CELL_KEYS = frozenset({
-    "cell_id",
-    "row_index",
-    "col_index",
-    "label_text",
-    "text",
-    "bbox",
-    "confidence",
-    "geometry_status",
-    "assignment_method",
-    "assignment_confidence",
-    "inferred_types",
-})
+_STANDARD_FIELD_CELL_KEYS = frozenset(
+    {
+        "cell_id",
+        "row_index",
+        "col_index",
+        "label_text",
+        "text",
+        "bbox",
+        "confidence",
+        "geometry_status",
+        "assignment_method",
+        "assignment_confidence",
+        "inferred_types",
+    }
+)
 
 
 def _grid_id_to_region_id(grid_id: str) -> str:
@@ -107,17 +109,22 @@ def compact_region_structure(region: dict[str, Any], *, forensic: bool = False) 
     if kind == "micro_grid":
         return _compact_micro_grid_structure(structure)
     if kind in {"field_grid", "label_value_graph"}:
-        compact = {k: v for k, v in structure.items() if k in {
-            "structure_id",
-            "structure_kind",
-            "page",
-            "bbox",
-            "anchors",
-            "confidence",
-            "col_bands",
-            "row_bands",
-            "audit",
-        }}
+        compact = {
+            k: v
+            for k, v in structure.items()
+            if k
+            in {
+                "structure_id",
+                "structure_kind",
+                "page",
+                "bbox",
+                "anchors",
+                "confidence",
+                "col_bands",
+                "row_bands",
+                "audit",
+            }
+        }
         cells = structure.get("cells") or []
         compact_cells = []
         for cell in cells:
@@ -130,15 +137,36 @@ def compact_region_structure(region: dict[str, Any], *, forensic: bool = False) 
     return structure
 
 
-_STANDARD_MICRO_GRID_KEYS = frozenset({
-    "grid_id", "page", "bbox", "grid_type_hint", "anchor_text", "coordinate_system",
-    "geometry_source", "confidence", "row_bands", "col_bands", "cells",
-})
-_STANDARD_MICRO_GRID_CELL_KEYS = frozenset({
-    "row_index", "col_index", "bbox", "text", "confidence", "geometry_status",
-    "geometry_loss_reason", "assignment_confidence", "assignment_method",
-    "recognition_source", "role",
-})
+_STANDARD_MICRO_GRID_KEYS = frozenset(
+    {
+        "grid_id",
+        "page",
+        "bbox",
+        "grid_type_hint",
+        "anchor_text",
+        "coordinate_system",
+        "geometry_source",
+        "confidence",
+        "row_bands",
+        "col_bands",
+        "cells",
+    }
+)
+_STANDARD_MICRO_GRID_CELL_KEYS = frozenset(
+    {
+        "row_index",
+        "col_index",
+        "bbox",
+        "text",
+        "confidence",
+        "geometry_status",
+        "geometry_loss_reason",
+        "assignment_confidence",
+        "assignment_method",
+        "recognition_source",
+        "role",
+    }
+)
 
 
 def _compact_micro_grid_structure(grid: dict[str, Any]) -> dict[str, Any]:
@@ -178,10 +206,9 @@ def _lines_and_dims_for_page(
             page_width = float(bundle["page_width"])
         if bundle.get("page_height") is not None:
             page_height = float(bundle["page_height"])
-    for evidence in (
-        raw_micro_grid_evidence_from_domain_specific(domain_specific)
-        + raw_local_structure_evidence_from_domain_specific(domain_specific)
-    ):
+    for evidence in raw_micro_grid_evidence_from_domain_specific(
+        domain_specific
+    ) + raw_local_structure_evidence_from_domain_specific(domain_specific):
         if int(evidence.get("page") or 0) != page:
             continue
         lines.extend(evidence.get("lines") or [])
@@ -208,11 +235,11 @@ def _apply_detect_audit_for_page(
         return
     lines, tokens, page_width, page_height = _lines_and_dims_for_page(domain_specific, page)
     if lines:
+        from docmirror.core.ocr.micro_grid.models import OCRToken
         from docmirror.core.ocr.page_canvas.detect import (
             annotate_regions_with_detect_candidates,
             detect_page_region_candidates,
         )
-        from docmirror.core.ocr.micro_grid.models import OCRToken
 
         token_objs: list[OCRToken] = []
         for token in tokens:

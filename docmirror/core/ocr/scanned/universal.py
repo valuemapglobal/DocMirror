@@ -23,9 +23,10 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from docmirror.core.ocr.preprocess.legacy_fallback import _render_page_to_bgr
-from docmirror.core.ocr.reconstruct.grid_legacy import _detect_table_lines_hough
 from docmirror.core.ocr.recognize.runner_legacy import _run_ocr
+from docmirror.core.ocr.reconstruct.grid_legacy import _detect_table_lines_hough
 from docmirror.core.ocr.scanned.analyze_page import analyze_scanned_page
+
 
 def _detect_has_table(img, page_h: int) -> bool:
     """Check whether the page image has genuine table line structure.

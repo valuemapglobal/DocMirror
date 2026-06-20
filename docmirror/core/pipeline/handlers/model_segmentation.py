@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def model_segmentation(extractor: PageExtractor, fitz_page, page_plum, page_idx: int) -> list:
     """Model-based layout analysis: render page image -> DocLayout-YOLO inference -> Zone list.
 
@@ -85,4 +86,3 @@ def model_segmentation(extractor: PageExtractor, fitz_page, page_plum, page_idx:
     except Exception as e:
         logger.warning(f"[DocMirror] model segmentation failed: {e}, falling back to rules")
         return segment_page_into_zones(page_plum, page_idx)
-

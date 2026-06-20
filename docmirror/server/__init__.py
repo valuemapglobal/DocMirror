@@ -13,4 +13,3 @@ by both the API and CLI. Import ``build_community_output`` or
 ``build_extended_output`` from ``output_builder`` when assembling structured
 JSON outside the server process.
 """
-

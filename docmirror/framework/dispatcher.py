@@ -27,18 +27,18 @@ from pathlib import Path
 
 import filetype
 
-from docmirror.configs.format.models import FormatCapability, UNKNOWN_CAPABILITY
+from docmirror.configs.format.models import UNKNOWN_CAPABILITY, FormatCapability
 from docmirror.configs.format.resolver import detect_transport, get_capability_by_transport, resolve_capability
+from docmirror.core.entry.options import ParseControl, normalize_parse_control
+from docmirror.core.pipeline.context import ParseContext
 from docmirror.framework.base import BaseParser
+from docmirror.framework.execution_fingerprint import build_execution_fingerprint
 from docmirror.framework.extraction_runner import (
     build_perceive_context,
     instantiate_adapter,
     run_extraction_chain,
 )
-from docmirror.framework.execution_fingerprint import build_execution_fingerprint
 from docmirror.models.entities.parse_result import ParseResult
-from docmirror.core.pipeline.context import ParseContext
-from docmirror.core.entry.options import ParseControl, normalize_parse_control
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +240,9 @@ class ParserDispatcher:
         perceive_ctx["cache_policy"] = parse_control.cache_policy
         perceive_ctx["ocr_mode"] = parse_control.execution.ocr
         perceive_ctx["doc_type_hint"] = parse_control.doc_type_hint.value if parse_control.doc_type_hint else None
-        perceive_ctx["doc_type_hint_strength"] = parse_control.doc_type_hint.strength if parse_control.doc_type_hint else None
+        perceive_ctx["doc_type_hint_strength"] = (
+            parse_control.doc_type_hint.strength if parse_control.doc_type_hint else None
+        )
 
         # ── Cache Lookup ──
         cache_policy = parse_control.cache_policy
@@ -249,6 +251,7 @@ class ParserDispatcher:
         fingerprint = build_execution_fingerprint(parse_control)
         if read_cache:
             from docmirror.framework.cache import parse_cache
+
             try:
                 cached_json = await parse_cache.get(ctx.checksum, fingerprint)
                 if cached_json:
@@ -284,6 +287,7 @@ class ParserDispatcher:
         # ── Cache Write ──
         if write_cache and result.success:
             from docmirror.framework.cache import parse_cache
+
             try:
                 serialized = result.model_dump_json()
                 await parse_cache.set(ctx.checksum, fingerprint, serialized)

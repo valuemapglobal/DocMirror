@@ -13,7 +13,7 @@ Upstream: ``pipeline.handlers.table_zone``, ``segment`` zone crops.
 Downstream: ``extraction.table_postprocessor``, ``table.pipeline``.
 """
 
-from docmirror.core.extract.engine import extract_tables_layered
 from docmirror.core.extract.classifier import get_last_layer_timings
+from docmirror.core.extract.engine import extract_tables_layered
 
 __all__ = ["extract_tables_layered", "get_last_layer_timings"]

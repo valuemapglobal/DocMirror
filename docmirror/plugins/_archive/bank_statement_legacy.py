@@ -71,16 +71,10 @@ class BankStatementPlugin(DomainPlugin):
         return build_dec_kv(
             "bank_statement",
             {
-                "account_holder": str(
-                    metadata.get("Account holder", entities.get("account_holder", ""))
-                ),
-                "account_number": str(
-                    metadata.get("Account number", entities.get("account_number", ""))
-                ),
+                "account_holder": str(metadata.get("Account holder", entities.get("account_holder", ""))),
+                "account_number": str(metadata.get("Account number", entities.get("account_number", ""))),
                 "bank_name": str(entities.get("bank_name", "")),
-                "query_period": str(
-                    metadata.get("Query period", entities.get("query_period", ""))
-                ),
+                "query_period": str(metadata.get("Query period", entities.get("query_period", ""))),
                 "currency": str(metadata.get("Currency", entities.get("currency", "CNY")) or "CNY"),
             },
         )

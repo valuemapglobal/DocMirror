@@ -18,15 +18,17 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from docmirror.models.entities.domain import Block, Style
 from docmirror.core.pipeline.handlers.page_styles import build_spans
+from docmirror.models.entities.domain import Block, Style
 
 if TYPE_CHECKING:
     from docmirror.core.pipeline.page_extractor import PageExtractor
 
 logger = logging.getLogger(__name__)
 
-def handle_text_zone(_extractor: PageExtractor,
+
+def handle_text_zone(
+    _extractor: PageExtractor,
     zone,
     block_id: str,
     page_idx: int,
@@ -90,4 +92,3 @@ def handle_text_zone(_extractor: PageExtractor,
             spans=build_spans(text_content, zone.bbox, style_map),
         )
     return None
-

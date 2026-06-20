@@ -10,4 +10,3 @@ Structured data adapter subpackage.
 Hosts ``StructuredAdapter`` and pluggable deserializers for JSON, CSV, XML, and
 plain-text interchange formats routed through the Format Capability Registry.
 """
-

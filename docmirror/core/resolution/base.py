@@ -19,7 +19,6 @@ Downstream: ``resolution.document_type_resolver``.
 
 from __future__ import annotations
 
-
 from pydantic import BaseModel, Field
 
 from docmirror.models.entities.hypothesis import ParseHypothesis

@@ -31,14 +31,20 @@ def clean_cell_newlines(rows: list[list[str]]) -> list[list[str]]:
             if "\n" not in cell:
                 continue
             parts = cell.split("\n")
-            if ci == 1 and _RE_DATE.match(parts[0].strip()) and (_RE_TIME.match(parts[-1].strip()) if len(parts) > 1 else False):
+            if (
+                ci == 1
+                and _RE_DATE.match(parts[0].strip())
+                and (_RE_TIME.match(parts[-1].strip()) if len(parts) > 1 else False)
+            ):
                 row[ci] = parts[0].strip() + " " + parts[-1].strip()  # date + time
             else:
                 row[ci] = "".join(p.strip() for p in parts)  # just concatenate
     return rows
 
 
-def complete_direction_column(rows: list[list[str]], amount_col: int = 5, direction_col: int = 3, type_col: int = 2) -> list[list[str]]:
+def complete_direction_column(
+    rows: list[list[str]], amount_col: int = 5, direction_col: int = 3, type_col: int = 2
+) -> list[list[str]]:
     """Infer empty direction from type name."""
     for row in rows:
         while len(row) <= max(amount_col, direction_col, type_col):
@@ -70,16 +76,13 @@ def normalize_punctuation(rows, type_col=None):
     1. Remove space before Chinese punct: " 、" -> "、", " ）" -> "）"
     2. For type column: ASCII brackets with Chinese content -> fullwidth
     """
-    _CLEAN_PRE_SPACE = re.compile(r' ([、。，）；】\u3001\uff0c\uff09])')
+    _CLEAN_PRE_SPACE = re.compile(r" ([、。，）；】\u3001\uff0c\uff09])")
     for row in rows:
         for ci in range(len(row)):
-            row[ci] = _CLEAN_PRE_SPACE.sub(r'\1', row[ci])
+            row[ci] = _CLEAN_PRE_SPACE.sub(r"\1", row[ci])
             # 2. For type column: ASCII (中文) -> （中文）
             if type_col is not None and ci == type_col:
-                row[ci] = re.sub(
-                    r'\( ?([^)]*[\u4e00-\u9fff][^)]*?) ?\)',
-                    r'（\1）', row[ci]
-                )
+                row[ci] = re.sub(r"\( ?([^)]*[\u4e00-\u9fff][^)]*?) ?\)", r"（\1）", row[ci])
     return rows
 
 
@@ -113,7 +116,7 @@ def complete_truncated_times(
     for row in rows:
         time_val = row[time_col].strip()
         # 只有日期(YYYY-MM-DD)，没有时分秒 → 需要补齐
-        if re.match(r'^\d{4}-\d{2}-\d{2}$', time_val):
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", time_val):
             trade_id = row[trade_id_col].strip()
             # 从 trade_id 中提取时间：格式 YYYYMMDDHHMMSS
             # 位置: 前缀(10位) + 日期(8位) + 时分秒(6位)
@@ -127,14 +130,15 @@ def complete_truncated_times(
     return rows
 
 
-
 class ColumnWrapRecovery:
     """Unified post-extraction cell content cleanup."""
 
     def __init__(self, config: dict | None = None):
         self.config = config or {}
 
-    def process(self, tables: list[list[list[str]]], layer: str, conf: float) -> tuple[list[list[list[str]]], str, float]:
+    def process(
+        self, tables: list[list[list[str]]], layer: str, conf: float
+    ) -> tuple[list[list[list[str]]], str, float]:
         if not tables:
             return tables, layer, conf
         out = []
@@ -143,11 +147,19 @@ class ColumnWrapRecovery:
                 out.append(t)
                 continue
             t = clean_cell_newlines(t)
-            t = complete_direction_column(t, _header_col_idx(t, ["金额"], 5), _header_col_idx(t, ["收/支"], 3), _header_col_idx(t, ["类型"], 2))
+            t = complete_direction_column(
+                t, _header_col_idx(t, ["金额"], 5), _header_col_idx(t, ["收/支"], 3), _header_col_idx(t, ["类型"], 2)
+            )
             t = normalize_char_encoding(t)
             out.append(t)
         return out, layer, conf
 
 
-__all__ = ["ColumnWrapRecovery", "clean_cell_newlines", "complete_direction_column", "normalize_char_encoding",
-    "normalize_punctuation", "complete_truncated_times"]
+__all__ = [
+    "ColumnWrapRecovery",
+    "clean_cell_newlines",
+    "complete_direction_column",
+    "normalize_char_encoding",
+    "normalize_punctuation",
+    "complete_truncated_times",
+]

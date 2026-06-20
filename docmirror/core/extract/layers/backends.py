@@ -20,6 +20,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def extract_by_pymupdf(
     fitz_page,
     table_zone_bbox: tuple[float, float, float, float] | None = None,

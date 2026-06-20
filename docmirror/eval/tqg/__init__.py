@@ -10,7 +10,7 @@ Re-exports ``load_track_manifest``, ``load_all_manifests``, and ``run_tqg_case``
 for CI integration.
 """
 
-from docmirror.eval.tqg.manifest import load_track_manifest, load_all_manifests
+from docmirror.eval.tqg.manifest import load_all_manifests, load_track_manifest
 from docmirror.eval.tqg.report import GateReport
 from docmirror.eval.tqg.runner import run_tqg_case
 

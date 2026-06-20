@@ -239,7 +239,9 @@ def _domain_specific(parse_result: Any) -> dict[str, Any]:
     return getattr(getattr(parse_result, "entities", None), "domain_specific", {}) or {}
 
 
-def _merge_unique_dicts(existing: list[dict[str, Any]], incoming: list[dict[str, Any]], *, id_key: str) -> list[dict[str, Any]]:
+def _merge_unique_dicts(
+    existing: list[dict[str, Any]], incoming: list[dict[str, Any]], *, id_key: str
+) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     seen: set[Any] = set()
     for item in [*existing, *incoming]:
@@ -262,7 +264,9 @@ def _extract_credit_accounts_from_local_structure_evidence(parse_result: Any) ->
     if not evidence_pages:
         return []
     try:
-        from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
+        from docmirror.plugins.credit_report.account_structure import (
+            extract_credit_accounts_from_local_structure_evidence,
+        )
     except Exception:
         return []
 

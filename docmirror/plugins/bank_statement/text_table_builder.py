@@ -37,17 +37,11 @@ _INCOME_HINTS = ("收入", "汇入", "入账", "结息", "付息")
 _EXPENSE_HINTS = ("支出", "汇出", "消费", "扣款", "转账")
 
 # 20220402支出 3.00 1070.13 POS消费
-_TXN_SPACED_RE = re.compile(
-    r"(?<!\d)(\d{8})(收入|支出)\s*([+-]?\d+\.\d{2})\s*(\d+\.\d{2})"
-)
+_TXN_SPACED_RE = re.compile(r"(?<!\d)(\d{8})(收入|支出)\s*([+-]?\d+\.\d{2})\s*(\d+\.\d{2})")
 # 20220325收入-50.0084.13 (amount glued to balance)
-_TXN_GLUED_RE = re.compile(
-    r"(?<!\d)(\d{8})(收入|支出)([+-]?\d+\.\d{2})(\d+\.\d{2})"
-)
+_TXN_GLUED_RE = re.compile(r"(?<!\d)(\d{8})(收入|支出)([+-]?\d+\.\d{2})(\d+\.\d{2})")
 # ISO date variants
-_TXN_ISO_RE = re.compile(
-    r"(\d{4}-\d{2}-\d{2})\s*(收入|支出)?\s*([+-]?\d+\.\d{2})\s*(\d+\.\d{2})"
-)
+_TXN_ISO_RE = re.compile(r"(\d{4}-\d{2}-\d{2})\s*(收入|支出)?\s*([+-]?\d+\.\d{2})\s*(\d+\.\d{2})")
 
 
 def looks_like_bank_ocr_text(text: str) -> bool:

@@ -135,12 +135,7 @@ def header_cells_to_column_anchors(
         token = _normalize_header(cell)
         if not token or len(token) < 2:
             continue
-        matches = [
-            c
-            for c in chars
-            if token in _normalize_header(c.get("text", ""))
-            and c.get("x0", 0) < cutoff
-        ]
+        matches = [c for c in chars if token in _normalize_header(c.get("text", "")) and c.get("x0", 0) < cutoff]
         if matches:
             xs = [(c.get("x0", 0) + c.get("x1", 0)) / 2 for c in matches]
             anchors.append(sum(xs) / len(xs))

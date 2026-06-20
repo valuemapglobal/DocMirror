@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ContentRegion:
     """A content region on the page."""
@@ -55,7 +56,6 @@ class ALPageLayout:
     footer_text: str = ""
 
 
-
 @dataclass(slots=True)
 class Zone:
     """A large zone on the page (3~5 zones/page)."""
@@ -67,7 +67,6 @@ class Zone:
     rects: list = field(default_factory=list)
     text: str = ""
     confidence: float = 1.0  # Model Detection Confidence, rule method default 1.0
-
 
 
 @dataclass
@@ -84,5 +83,3 @@ class ZoneTemplate:
     zones: list
     source_page: int = 0
     zone_count: int = 0
-
-

@@ -45,9 +45,7 @@ def run_extraction_audit_oracle(
         report.checks["audit_profile_id"] = ok
         if not ok:
             report.passed = False
-            report.failures.append(
-                f"audit profile_id expected {profile_id!r}, got {audit.get('profile_id')!r}"
-            )
+            report.failures.append(f"audit profile_id expected {profile_id!r}, got {audit.get('profile_id')!r}")
 
     min_pages = audit_spec.get("min_audit_pages")
     if min_pages is not None:

@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-from docmirror.configs.format.loader import load_enhancement_profiles, invalidate_format_cache
+from docmirror.configs.format.loader import invalidate_format_cache, load_enhancement_profiles
 from docmirror.configs.paths import MIDDLEWARE_CATALOG_YAML
 
 if TYPE_CHECKING:
@@ -134,9 +134,7 @@ def validate_catalog() -> list[str]:
                 if mw_name in optional_runtime:
                     continue
                 if mw_name not in catalog:
-                    errors.append(
-                        f"enhancement_profiles {model}.{mode}: middleware {mw_name!r} missing from catalog"
-                    )
+                    errors.append(f"enhancement_profiles {model}.{mode}: middleware {mw_name!r} missing from catalog")
                 elif not catalog[mw_name].enabled and mw_name not in optional_runtime:
                     # enabled=false entries must not appear in profiles unless SLM-style optional
                     pass  # profile may reference AnomalyDetector etc. when enabled in catalog

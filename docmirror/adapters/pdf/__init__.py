@@ -10,4 +10,3 @@ PDF adapter subpackage — CoreExtractor-backed PDF parsing.
 Re-exports the PDF ``BaseParser`` implementation and security-gate helpers
 used when encrypted documents must be unlocked before extraction.
 """
-

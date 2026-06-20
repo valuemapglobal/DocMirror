@@ -101,17 +101,9 @@ def post_process_ledger_table(
                 preamble_kv = _extract_preamble_kv(preamble_rows)
             except Exception:
                 preamble_kv = {}
-        clean = [
-            r
-            for r in data_rows
-            if _is_valid_ledger_data_row(r, min_cols) and not _is_junk_row(r)
-        ]
+        clean = [r for r in data_rows if _is_valid_ledger_data_row(r, min_cols) and not _is_junk_row(r)]
         return [header] + clean, preamble_kv
 
     # Continuation page — every row is data; do NOT treat row 0 as pseudo-header
-    clean = [
-        r
-        for r in table_data
-        if _is_valid_ledger_data_row(r, min_cols) and not _is_junk_row(r)
-    ]
+    clean = [r for r in table_data if _is_valid_ledger_data_row(r, min_cols) and not _is_junk_row(r)]
     return clean if clean else table_data, {}

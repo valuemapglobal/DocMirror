@@ -23,6 +23,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from docmirror.core.table.compose.ledger_quality import exported_data_row_estimate
+from docmirror.core.table.merge.merger import (
+    collect_cross_page_merge_groups,
+    is_quarantined_merge_group,
+)
 from docmirror.models.entities.domain import PageLayout
 from docmirror.models.entities.layout_profile import LayoutProfile
 from docmirror.models.entities.parse_result import (
@@ -32,11 +37,6 @@ from docmirror.models.entities.parse_result import (
     RowProvenance,
     RowType,
     TableRow,
-)
-from docmirror.core.table.compose.ledger_quality import exported_data_row_estimate
-from docmirror.core.table.merge.merger import (
-    collect_cross_page_merge_groups,
-    is_quarantined_merge_group,
 )
 
 logger = logging.getLogger(__name__)

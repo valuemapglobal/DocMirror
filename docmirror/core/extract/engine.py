@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from docmirror.models.entities.extraction_profile import ExtractionProfile
+
     from .template_injector import GlobalTableTemplate
 
 from ..utils.vocabulary import _is_header_row, _score_header_by_vocabulary
@@ -56,16 +57,12 @@ from .classifier import (
     _quick_classify,
     _tables_look_valid,
 )
+from .merged_cells import detect_merged_cells  # noqa: F401 — re-exported for table_zone
 from .pdfplumber_strategy import _recover_header_from_zone
 from .pipe_strategy import _extract_by_pipe_delimited
-
-
 from .profile_run_state import ProfileRunState as _ProfileRunState
-from .zone_crop import crop_simple_to_table_zone, crop_to_table_zone as _crop_to_table_zone
-from .merged_cells import detect_merged_cells  # noqa: F401 — re-exported for table_zone
-
-
-
+from .zone_crop import crop_simple_to_table_zone
+from .zone_crop import crop_to_table_zone as _crop_to_table_zone
 
 
 def extract_tables_layered(
@@ -672,8 +669,9 @@ def extract_tables_layered_with_geometry(
     return tables, layer, confidence, geometry_payloads
 
 
-
 from docmirror.core.extract.layers.backends import (
     extract_by_pymupdf as _extract_by_pymupdf,
+)
+from docmirror.core.extract.layers.backends import (
     extract_by_rapid_table as _extract_by_rapid_table,
 )

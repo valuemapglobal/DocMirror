@@ -13,4 +13,3 @@ Upstream: ``pipeline.stages.page_assemble``.
 
 Downstream: ``extract``, ``ocr``, ``segment`` utilities.
 """
-

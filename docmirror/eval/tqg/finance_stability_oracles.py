@@ -121,11 +121,7 @@ def run_pcm_finance_stability_oracle(
 
     required_anchors = list(spec.get("required_anchors") or golden.get("required_anchors") or [])
     if required_anchors:
-        found = [
-            anchor
-            for anchor in required_anchors
-            if _find_account_by_anchor(accounts, str(anchor)) is not None
-        ]
+        found = [anchor for anchor in required_anchors if _find_account_by_anchor(accounts, str(anchor)) is not None]
         ok = len(found) == len(required_anchors)
         report.checks["pcm_finance_required_anchors"] = ok
         if not ok:

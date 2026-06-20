@@ -187,8 +187,6 @@ def has_split_debit_credit_headers(tables: list[list[list[str]]]) -> bool:
     for tbl in tables:
         for row in tbl[:RELAXED_LOOKAHEAD]:
             joined = "".join(normalize_header_cell(c) for c in row)
-            if ("收入" in joined and "支出" in joined) or (
-                "借方发生额" in joined and "贷方发生额" in joined
-            ):
+            if ("收入" in joined and "支出" in joined) or ("借方发生额" in joined and "贷方发生额" in joined):
                 return True
     return False

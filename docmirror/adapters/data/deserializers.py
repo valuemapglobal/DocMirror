@@ -126,7 +126,14 @@ def deserialize_xml(path: Path) -> tuple[list[TextBlock], list[TableBlock], list
             rows.append(row_cells[:2] if len(row_cells) >= 2 else row_cells)
 
     if rows:
-        tables.append(TableBlock(table_id="xml_elements", headers=headers or ["element", "value"], rows=[TableRow(cells=r) for r in rows], page=0))
+        tables.append(
+            TableBlock(
+                table_id="xml_elements",
+                headers=headers or ["element", "value"],
+                rows=[TableRow(cells=r) for r in rows],
+                page=0,
+            )
+        )
     elif not key_values:
         texts.append(TextBlock(content=ET.tostring(root, encoding="unicode")[:8000], level=TextLevel.BODY))
 

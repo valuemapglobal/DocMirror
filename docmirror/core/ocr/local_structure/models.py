@@ -124,8 +124,5 @@ class LocalStructure:
             "audit": self.audit,
         }
         if self.cells:
-            out["cells"] = [
-                cell.to_dict() if hasattr(cell, "to_dict") else dict(cell)
-                for cell in self.cells
-            ]
+            out["cells"] = [cell.to_dict() if hasattr(cell, "to_dict") else dict(cell) for cell in self.cells]
         return out

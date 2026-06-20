@@ -68,8 +68,5 @@ def contains(outer: Sequence[float] | None, inner: Sequence[float] | None, *, to
     if o is None or i is None:
         return False
     return (
-        o[0] - tolerance <= i[0]
-        and o[1] - tolerance <= i[1]
-        and o[2] + tolerance >= i[2]
-        and o[3] + tolerance >= i[3]
+        o[0] - tolerance <= i[0] and o[1] - tolerance <= i[1] and o[2] + tolerance >= i[2] and o[3] + tolerance >= i[3]
     )

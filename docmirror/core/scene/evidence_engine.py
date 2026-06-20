@@ -21,69 +21,24 @@ from __future__ import annotations
 
 import logging
 
-from ...models.entities.parse_result import ParseResult
-from ...middlewares.base import BaseMiddleware
 from docmirror.core.debug.artifact import is_debug_mode
+from docmirror.core.scene.evidence_types import Evidence
+
+from ...middlewares.base import BaseMiddleware
+from ...models.entities.parse_result import ParseResult
 
 logger = logging.getLogger(__name__)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Evidence Data Structure
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class Evidence:
-    """A single evidence signal for document classification."""
-
-    __slots__ = ("source", "category", "weight", "direction", "detail")
-
-    def __init__(
-        self,
-        source: str,
-        category: str,
-        weight: float,
-        direction: int,
-        detail: str,
-    ):
-        self.source = source       # "keyword" / "header" / "entity" / "visual" / "metadata"
-        self.category = category   # target category name
-        self.weight = weight       # evidence strength 0.0-1.0 (or penalty magnitude for -1)
-        self.direction = direction # +1 support, -1 exclusion
-        self.detail = detail       # human-readable explanation
-
-    def to_dict(self) -> dict:
-        return {
-            "source": self.source,
-            "category": self.category,
-            "weight": round(self.weight, 3),
-            "direction": self.direction,
-            "detail": self.detail,
-        }
-
-    def __repr__(self) -> str:
-        return (
-            f"Evidence(source={self.source}, category={self.category}, "
-            f"weight={self.weight:.3f}, direction={'+' if self.direction == 1 else '-'})"
-        )
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Keyword Data Loading
-# ═══════════════════════════════════════════════════════════════════════════════
 
 from docmirror.configs.scene.loader import (
     compute_keyword_uniqueness,
     get_scene_excludes,
     get_scene_includes,
 )
-
+from docmirror.core.scene.evidence_types import Evidence
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # EvidenceEngine Middleware
 # ═══════════════════════════════════════════════════════════════════════════════
-
-
 
 
 class EvidenceEngine(BaseMiddleware):
@@ -135,10 +90,9 @@ class EvidenceEngine(BaseMiddleware):
 
         # Phase 3b: Refine layout profile hint for ledger archetypes (does not re-extract)
         from docmirror.core.scene.scene_resolver import scene_to_layout_profile_id
-        from docmirror.plugins.community import normalize_premium_document_type
 
         refined_profile = scene_to_layout_profile_id(doc_type)
-        plugin_doc_type = normalize_premium_document_type(doc_type)
+        plugin_doc_type = self._edition_document_type(doc_type)
         ds = result.entities.domain_specific
         if not isinstance(ds, dict):
             ds = {}
@@ -152,19 +106,13 @@ class EvidenceEngine(BaseMiddleware):
             ds["classification_source"] = "user_hint_force"
         hint_value, hint_strength = self._user_hint(result)
         conflicts = [
-            ev.to_dict()
-            for ev in all_evidence
-            if ev.direction == 1 and ev.category != doc_type and ev.weight >= 0.2
+            ev.to_dict() for ev in all_evidence if ev.direction == 1 and ev.category != doc_type and ev.weight >= 0.2
         ][:10]
         ds["classification_provenance"] = {
             "document_type": doc_type,
             "confidence": round(confidence, 3),
             "source": "user_hint_force" if forced_hint else ("user_hint+evidence" if hint_value else "evidence"),
-            "hint": (
-                {"value": hint_value, "strength": hint_strength, "source": "user"}
-                if hint_value
-                else None
-            ),
+            "hint": ({"value": hint_value, "strength": hint_strength, "source": "user"} if hint_value else None),
             "conflicts": conflicts,
             "fusion": fused_evidence[-1] if fused_evidence else None,
         }
@@ -201,17 +149,22 @@ class EvidenceEngine(BaseMiddleware):
             middleware_name=self.name,
             target_block_id="document",
             field_changed="scene",
-            old_value=getattr(result.entities, 'document_type', "unknown"),
+            old_value=getattr(result.entities, "document_type", "unknown"),
             new_value=doc_type,
             confidence=confidence,
             reason=f"evidence_fusion (best={verdict}, conf={confidence:.2f})",
         )
 
-        logger.info(
-            f"[EvidenceEngine] {doc_type} (conf={confidence:.2f}) | "
-            f"{len(all_evidence)} evidence items"
-        )
+        logger.info(f"[EvidenceEngine] {doc_type} (conf={confidence:.2f}) | {len(all_evidence)} evidence items")
         return result
+
+    @staticmethod
+    def _edition_document_type(document_type: str) -> str:
+        """Map Core aliases to edition-facing document types without importing plugins."""
+        aliases = {
+            "bank_reconciliation": "bank_statement",
+        }
+        return aliases.get(document_type, document_type)
 
     def _cover_page_text(self, result: ParseResult) -> str:
         """First-page narrative text + table headers (issuer lines often live here)."""
@@ -344,25 +297,29 @@ class EvidenceEngine(BaseMiddleware):
                     lf = 3 if len(kw) >= 8 else (2 if len(kw) >= 5 else 1)
                     score += uniqueness * lf
             if score >= 0.5:
-                evidence.append(Evidence(
-                    source="keyword",
-                    category=scene,
-                    weight=min(score / 10.0, 0.95),
-                    direction=1,
-                    detail=f"include matches: {matched} (score={score:.1f})",
-                ))
+                evidence.append(
+                    Evidence(
+                        source="keyword",
+                        category=scene,
+                        weight=min(score / 10.0, 0.95),
+                        direction=1,
+                        detail=f"include matches: {matched} (score={score:.1f})",
+                    )
+                )
 
         # Exclusion (hard veto)
         for scene, kws in excludes.items():
             matched = [kw for kw in kws if kw in full_text]
             if matched:
-                evidence.append(Evidence(
-                    source="keyword_exclude",
-                    category=scene,
-                    weight=100.0,  # absolute veto
-                    direction=-1,
-                    detail=f"hard veto by exclusion: {matched}",
-                ))
+                evidence.append(
+                    Evidence(
+                        source="keyword_exclude",
+                        category=scene,
+                        weight=100.0,  # absolute veto
+                        direction=-1,
+                        detail=f"hard veto by exclusion: {matched}",
+                    )
+                )
 
         return evidence
 
@@ -377,24 +334,65 @@ class EvidenceEngine(BaseMiddleware):
         # layout features of specific document types, not keywords)
         _header_sigs: dict[str, list[set[str]]] = {
             "bank_statement": [
-                {"\u4ea4\u6613\u65f6\u95f4", "\u91d1\u989d", "\u4f59\u989d", "\u5bf9\u65b9\u6237\u540d", "\u6458\u8981"},
+                {
+                    "\u4ea4\u6613\u65f6\u95f4",
+                    "\u91d1\u989d",
+                    "\u4f59\u989d",
+                    "\u5bf9\u65b9\u6237\u540d",
+                    "\u6458\u8981",
+                },
                 {"\u4ea4\u6613\u65e5\u671f", "\u6458\u8981", "\u5b58\u5165", "\u652f\u51fa", "\u4f59\u989d"},
                 {"DATE", "DESCRIPTION", "DEBITS", "CREDITS", "BALANCE"},
-                {"\u8bb0\u8d26\u65e5\u671f", "\u4ea4\u6613\u7c7b\u578b", "\u5bf9\u65b9\u8d26\u53f7", "\u5bf9\u65b9\u6237\u540d", "\u91d1\u989d"},
+                {
+                    "\u8bb0\u8d26\u65e5\u671f",
+                    "\u4ea4\u6613\u7c7b\u578b",
+                    "\u5bf9\u65b9\u8d26\u53f7",
+                    "\u5bf9\u65b9\u6237\u540d",
+                    "\u91d1\u989d",
+                },
             ],
             "credit_report": [
-                {"\u62a5\u544a\u7f16\u53f7", "\u67e5\u8be2\u65f6\u95f4", "\u88ab\u67e5\u8be2\u8005", "\u8bc1\u4ef6\u7c7b\u578b", "\u8bc1\u4ef6\u53f7\u7801"},
+                {
+                    "\u62a5\u544a\u7f16\u53f7",
+                    "\u67e5\u8be2\u65f6\u95f4",
+                    "\u88ab\u67e5\u8be2\u8005",
+                    "\u8bc1\u4ef6\u7c7b\u578b",
+                    "\u8bc1\u4ef6\u53f7\u7801",
+                },
                 {"\u88ab\u67e5\u8be2\u8005\u59d3\u540d", "\u88ab\u67e5\u8be2\u8005\u8bc1\u4ef6\u53f7\u7801"},
                 {"\u8d37\u4fe1\u8bb0\u5f55", "\u975e\u4fe1\u8d37\u4ea4\u6613\u8bb0\u5f55", "\u516c\u5171\u8bb0\u5f55"},
                 {"\u8d26\u6237\u6570", "\u4f59\u989d", "\u8fd8\u6b3e\u60c5\u51b5"},
             ],
             "invoice_vat": [
-                {"\u53d1\u7968\u4ee3\u7801", "\u53d1\u7968\u53f7\u7801", "\u5f00\u7968\u65e5\u671f", "\u8d2d\u65b9\u540d\u79f0", "\u9500\u65b9\u540d\u79f0"},
-                {"\u8d27\u7269\u6216\u5e94\u7a0e\u52b3\u52a1\u540d\u79f0", "\u89c4\u683c\u578b\u53f7", "\u6570\u91cf", "\u5355\u4ef7", "\u91d1\u989d"},
+                {
+                    "\u53d1\u7968\u4ee3\u7801",
+                    "\u53d1\u7968\u53f7\u7801",
+                    "\u5f00\u7968\u65e5\u671f",
+                    "\u8d2d\u65b9\u540d\u79f0",
+                    "\u9500\u65b9\u540d\u79f0",
+                },
+                {
+                    "\u8d27\u7269\u6216\u5e94\u7a0e\u52b3\u52a1\u540d\u79f0",
+                    "\u89c4\u683c\u578b\u53f7",
+                    "\u6570\u91cf",
+                    "\u5355\u4ef7",
+                    "\u91d1\u989d",
+                },
             ],
             "wechat_payment": [
-                {"\u4ea4\u6613\u5355\u53f7", "\u4ea4\u6613\u65f6\u95f4", "\u4ea4\u6613\u7c7b\u578b", "\u6536/\u652f", "\u91d1\u989d"},
-                {"\u4ea4\u6613\u5355\u53f7", "\u4ea4\u6613\u65f6\u95f4", "\u6536/\u652f/\u5176\u4ed6", "\u91d1\u989d(\u5143)"},
+                {
+                    "\u4ea4\u6613\u5355\u53f7",
+                    "\u4ea4\u6613\u65f6\u95f4",
+                    "\u4ea4\u6613\u7c7b\u578b",
+                    "\u6536/\u652f",
+                    "\u91d1\u989d",
+                },
+                {
+                    "\u4ea4\u6613\u5355\u53f7",
+                    "\u4ea4\u6613\u65f6\u95f4",
+                    "\u6536/\u652f/\u5176\u4ed6",
+                    "\u91d1\u989d(\u5143)",
+                },
                 {"\u4ea4\u6613\u5355\u53f7", "\u5bf9\u65b9", "\u91d1\u989d", "\u65f6\u95f4"},
             ],
             "alipay_payment": [
@@ -409,16 +407,39 @@ class EvidenceEngine(BaseMiddleware):
                 },
             ],
             "insurance_policy": [
-                {"\u4fdd\u9669\u5355\u53f7", "\u88ab\u4fdd\u9669\u4eba", "\u4fdd\u9669\u4eba", "\u4fdd\u9669\u671f\u95f4", "\u4fdd\u8d39"},
+                {
+                    "\u4fdd\u9669\u5355\u53f7",
+                    "\u88ab\u4fdd\u9669\u4eba",
+                    "\u4fdd\u9669\u4eba",
+                    "\u4fdd\u9669\u671f\u95f4",
+                    "\u4fdd\u8d39",
+                },
                 {"\u4fdd\u5355\u53f7", "\u6295\u4fdd\u4eba", "\u88ab\u4fdd\u9669\u4eba", "\u4fdd\u9669\u91d1\u989d"},
                 {"Policy No", "Insured", "Premium", "Period"},
             ],
             "business_license": [
-                {"\u7edf\u4e00\u793e\u4f1a\u4fe1\u7528\u4ee3\u7801", "\u540d\u79f0", "\u7c7b\u578b", "\u4f4f\u6240", "\u6cd5\u5b9a\u4ee3\u8868\u4eba"},
-                {"\u6ce8\u518c\u8d44\u672c", "\u6210\u7acb\u65e5\u671f", "\u8425\u4e1a\u671f\u9650", "\u7ecf\u8425\u8303\u56f4"},
+                {
+                    "\u7edf\u4e00\u793e\u4f1a\u4fe1\u7528\u4ee3\u7801",
+                    "\u540d\u79f0",
+                    "\u7c7b\u578b",
+                    "\u4f4f\u6240",
+                    "\u6cd5\u5b9a\u4ee3\u8868\u4eba",
+                },
+                {
+                    "\u6ce8\u518c\u8d44\u672c",
+                    "\u6210\u7acb\u65e5\u671f",
+                    "\u8425\u4e1a\u671f\u9650",
+                    "\u7ecf\u8425\u8303\u56f4",
+                },
             ],
             "household_register": [
-                {"\u6237\u53f7", "\u6237\u4e3b\u59d3\u540d", "\u4e0e\u6237\u4e3b\u5173\u7cfb", "\u59d3\u540d", "\u6027\u522b"},
+                {
+                    "\u6237\u53f7",
+                    "\u6237\u4e3b\u59d3\u540d",
+                    "\u4e0e\u6237\u4e3b\u5173\u7cfb",
+                    "\u59d3\u540d",
+                    "\u6027\u522b",
+                },
                 {"\u6237\u53f7", "\u59d3\u540d", "\u8eab\u4efd\u8bc1\u53f7", "\u4f4f\u5740"},
             ],
             "id_card": [
@@ -452,13 +473,15 @@ class EvidenceEngine(BaseMiddleware):
                             best_matched = matched
                             best_required_len = len(required)
                 if best_conf > 0:
-                    evidence.append(Evidence(
-                        source="header",
-                        category=scene,
-                        weight=best_conf,
-                        direction=1,
-                        detail=f"matched {best_matched}/{best_required_len} header columns",
-                    ))
+                    evidence.append(
+                        Evidence(
+                            source="header",
+                            category=scene,
+                            weight=best_conf,
+                            direction=1,
+                            detail=f"matched {best_matched}/{best_required_len} header columns",
+                        )
+                    )
                     break
 
         return evidence
@@ -494,7 +517,7 @@ class EvidenceEngine(BaseMiddleware):
         # Handle different entity access patterns
         if isinstance(entities, dict):
             keys = set(entities.keys())
-        elif hasattr(entities, 'kv_entities') and entities.kv_entities:
+        elif hasattr(entities, "kv_entities") and entities.kv_entities:
             keys = set(entities.kv_entities.keys())
         else:
             return []
@@ -504,44 +527,75 @@ class EvidenceEngine(BaseMiddleware):
 
         # Bank statement: bank_name OR (Account name + Account number)
         if "bank_name" in keys:
-            evidence.append(Evidence(
-                source="entity", category="bank_statement",
-                weight=0.15, direction=1,
-                detail="entity has bank_name",
-            ))
+            evidence.append(
+                Evidence(
+                    source="entity",
+                    category="bank_statement",
+                    weight=0.15,
+                    direction=1,
+                    detail="entity has bank_name",
+                )
+            )
         bank_fields = {"Account name", "Account number", "bank_name", "Card number", "Query period"}
         bank_match = len(keys & bank_fields)
         if bank_match >= 2:
-            evidence.append(Evidence(
-                source="entity", category="bank_statement",
-                weight=min(0.10 + 0.05 * bank_match, 0.25), direction=1,
-                detail=f"bank entity fields: matched {bank_match}",
-            ))
+            evidence.append(
+                Evidence(
+                    source="entity",
+                    category="bank_statement",
+                    weight=min(0.10 + 0.05 * bank_match, 0.25),
+                    direction=1,
+                    detail=f"bank entity fields: matched {bank_match}",
+                )
+            )
 
         # Invoice/增值税发票: contains invoice_code or invoice_number
-        inv_fields = {"invoice_code", "invoice_number", "buyer", "seller",
-                      "Invoice\u4ee3\u7801", "Invoice number", "Buyer", "Seller"}
+        inv_fields = {
+            "invoice_code",
+            "invoice_number",
+            "buyer",
+            "seller",
+            "Invoice\u4ee3\u7801",
+            "Invoice number",
+            "Buyer",
+            "Seller",
+        }
         inv_match = len(keys & inv_fields)
         if inv_match >= 2:
-            evidence.append(Evidence(
-                source="entity", category="invoice_vat",
-                weight=min(0.10 + 0.05 * inv_match, 0.25), direction=1,
-                detail=f"invoice entity fields: matched {inv_match}",
-            ))
+            evidence.append(
+                Evidence(
+                    source="entity",
+                    category="invoice_vat",
+                    weight=min(0.10 + 0.05 * inv_match, 0.25),
+                    direction=1,
+                    detail=f"invoice entity fields: matched {inv_match}",
+                )
+            )
 
         # Credit report / ID card: contains subject_name + id_number
-        id_fields = {"name", "id_number", "subject_name",
-                     "Name", "ID number", "\u516c\u6c11\u8eab\u4efd\u53f7\u7801",
-                     "\u88ab\u67e5\u8be2\u8005"}
+        id_fields = {
+            "name",
+            "id_number",
+            "subject_name",
+            "Name",
+            "ID number",
+            "\u516c\u6c11\u8eab\u4efd\u53f7\u7801",
+            "\u88ab\u67e5\u8be2\u8005",
+        }
         id_match = len(keys & id_fields)
         if id_match >= 2:
-            evidence.append(Evidence(
-                source="entity", category="credit_report",
-                weight=min(0.10 + 0.05 * id_match, 0.25), direction=1,
-                detail=f"identity entity fields: matched {id_match}",
-            ))
+            evidence.append(
+                Evidence(
+                    source="entity",
+                    category="credit_report",
+                    weight=min(0.10 + 0.05 * id_match, 0.25),
+                    direction=1,
+                    detail=f"identity entity fields: matched {id_match}",
+                )
+            )
 
         return evidence
+
     def _visual_evidence(self, pages) -> list[Evidence]:
         """Use title/heading text to boost confidence — driven by include keywords."""
         includes = get_scene_includes()
@@ -562,13 +616,15 @@ class EvidenceEngine(BaseMiddleware):
                     for kw in kws[:20]:  # only check first 20 keywords per category for speed
                         if len(kw) >= 4 and kw in content:
                             base = 0.20 if text_block.level.value in ("title", "h1") else 0.15
-                            evidence.append(Evidence(
-                                source="visual",
-                                category=scene,
-                                weight=base,
-                                direction=1,
-                                detail=f"heading keyword '{kw}' in {text_block.level.value}",
-                            ))
+                            evidence.append(
+                                Evidence(
+                                    source="visual",
+                                    category=scene,
+                                    weight=base,
+                                    direction=1,
+                                    detail=f"heading keyword '{kw}' in {text_block.level.value}",
+                                )
+                            )
                             seen_scenes.add(scene)
                             break
 
@@ -638,23 +694,23 @@ class EvidenceEngine(BaseMiddleware):
         # Ambiguous detection
         gap = (best_score - second_score) / max(best_score, epsilon)
         fused_evidence = [ev.to_dict() for ev in evidence_list]
-        fused_evidence.append({
-            "source": "fusion",
-            "category": "_decision",
-            "weight": round(confidence, 3),
-            "direction": 1,
-            "detail": (
-                f"best={best_scene}({best_score:.3f}) "
-                f"second={sorted_scores[1][0] if len(sorted_scores) >= 2 else 'none'}({second_score:.3f}) "
-                f"gap={gap:.3f} vetoed={sorted(vetoed)}"
-            ),
-        })
+        fused_evidence.append(
+            {
+                "source": "fusion",
+                "category": "_decision",
+                "weight": round(confidence, 3),
+                "direction": 1,
+                "detail": (
+                    f"best={best_scene}({best_score:.3f}) "
+                    f"second={sorted_scores[1][0] if len(sorted_scores) >= 2 else 'none'}({second_score:.3f}) "
+                    f"gap={gap:.3f} vetoed={sorted(vetoed)}"
+                ),
+            }
+        )
 
         if gap < 0.15 and len(sorted_scores) >= 2:
             second_scene = sorted_scores[1][0]
-            logger.info(
-                f"[EvidenceEngine] Ambiguous: {best_scene} vs {second_scene} (gap={gap:.3f})"
-            )
+            logger.info(f"[EvidenceEngine] Ambiguous: {best_scene} vs {second_scene} (gap={gap:.3f})")
             best_scene, best_score, second_score = self._disambiguate_payment_ledgers(
                 sorted_scores,
                 positive,

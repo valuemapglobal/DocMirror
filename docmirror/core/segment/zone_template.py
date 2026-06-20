@@ -22,6 +22,7 @@ from docmirror.core.segment.zone_models import Zone, ZoneTemplate
 
 logger = logging.getLogger(__name__)
 
+
 def build_zone_template(zones: list[Zone], page_w: float, page_h: float, page_idx: int = 0) -> ZoneTemplate:
     """Build a reusable zone template from a fully-segmented page.
 

@@ -14,8 +14,8 @@ Upstream: ``PagePipeline.run``.
 Downstream: ``pipeline.handlers``, ``segment``, ``extract``, ``ocr``.
 """
 
+from docmirror.core.pipeline.stages.page_assemble import run_assemble_zones
 from docmirror.core.pipeline.stages.page_prepare import run_prepare
 from docmirror.core.pipeline.stages.page_segment import run_segment
-from docmirror.core.pipeline.stages.page_assemble import run_assemble_zones
 
 __all__ = ["run_prepare", "run_segment", "run_assemble_zones"]

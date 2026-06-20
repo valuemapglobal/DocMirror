@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field, field_validator
 # Sub-Models
 # ---------------------------------------------------------
 
+
 class SubjectInfo(BaseModel):
     name: str = Field(default="", alias="name")
     id_type: str = Field(default="", alias="id_type")
@@ -70,15 +71,17 @@ class CreditSummary(BaseModel):
 
     @field_validator("total_accounts", "overdue_accounts", "unsettled_accounts", mode="before")
     def _clean_ints(cls, v):
-        if not v: return 0
+        if not v:
+            return 0
         try:
-            return int(str(v).replace(',', ''))
+            return int(str(v).replace(",", ""))
         except Exception:
             return 0
 
 
 class CreditAccount(BaseModel):
     """Normalized object for a single line of credit/loan/card."""
+
     account_type: str = Field(default="未知种类", alias="账户分类")
     business_type: str = Field(default="", alias="业务种类")
     currency: str = Field(default="人民币", alias="币种")
@@ -97,11 +100,12 @@ class CreditAccount(BaseModel):
 
     @field_validator("limit_amount", "balance", "overdue_amount", mode="before")
     def _clean_currency(cls, v):
-        if not v: return "0"
+        if not v:
+            return "0"
         if isinstance(v, str):
             # OCR often sees dot as comma or vice versa. E.g. "12.000,50" -> 12000.50
             # For simplicity, strip everything but digits and a single doc.
-            v_clean = re.sub(r'[^\d\.]', '', v)
+            v_clean = re.sub(r"[^\d\.]", "", v)
             return v_clean if v_clean else "0"
         return str(v)
 
@@ -116,9 +120,10 @@ class PublicRecords(BaseModel):
 
     @field_validator("*", mode="before")
     def _clean_all_counts(cls, v):
-        if not v: return 0
+        if not v:
+            return 0
         try:
-            return int(float(str(v).replace(',', '')))
+            return int(float(str(v).replace(",", "")))
         except Exception:
             return 0
 
@@ -127,11 +132,13 @@ class PublicRecords(BaseModel):
 # Root L2 DOM (Document Object Model)
 # ---------------------------------------------------------
 
+
 class CreditReportResultSchema(BaseModel):
     """
     The Absolute L2 Root Vault.
     Provides bullet-proof structure, default initializations, and deep validation.
     """
+
     report_id: str = Field(default="", alias="报告编号")
     report_subtype: str = Field(default="", alias="report_subtype")
     report_date: str = Field(default="", alias="报告时间")
@@ -149,4 +156,3 @@ class CreditReportResultSchema(BaseModel):
     features: dict[str, Any] | None = None
 
     model_config = {"extra": "allow", "populate_by_name": True}
-

@@ -8,10 +8,14 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from scripts.code_hygiene.runner import run_hygiene_audit
+from scripts.code_hygiene.runner import ALL_CHECKS, run_hygiene_audit
 from scripts.release_gate.config import GateStepDef, steps_for_profile
 from scripts.release_gate.models import GateReport, StepResult
+
+if TYPE_CHECKING:
+    from scripts.release_gate.progress import QualityGateProgress
 
 ROOT = Path(__file__).resolve().parents[2]
 _LOG_TAIL = 1200
@@ -53,9 +57,44 @@ def _run_shell(step: GateStepDef, *, cwd: Path) -> StepResult:
     )
 
 
-def _run_hygiene(step: GateStepDef) -> StepResult:
+def _hygiene_check_names(step: GateStepDef) -> tuple[str, ...]:
+    return step.hygiene_checks or tuple(ALL_CHECKS.keys())
+
+
+def _run_hygiene(step: GateStepDef, *, progress: QualityGateProgress | None = None) -> StepResult:
     t0 = time.perf_counter()
-    report = run_hygiene_audit(checks=step.hygiene_checks, console=False)
+    check_names = _hygiene_check_names(step)
+
+    def _on_check_start(index: int, _name: str) -> None:
+        if progress is None:
+            return
+        if index == 0:
+            progress.set_substeps(list(check_names))
+        else:
+            progress.start_substep(index)
+
+    def _on_check_done(index: int, result) -> None:
+        if progress is None:
+            return
+        passed = result.error_count == 0 and not result.skipped
+        detail = ""
+        if result.skipped:
+            detail = result.skip_reason
+        elif result.error_count:
+            detail = f"errors={result.error_count}"
+        progress.finish_substep(
+            index,
+            passed=passed or result.skipped,
+            duration_ms=result.duration_ms,
+            detail=detail,
+        )
+
+    report = run_hygiene_audit(
+        checks=step.hygiene_checks,
+        console=False,
+        on_check_start=_on_check_start if progress else None,
+        on_check_done=_on_check_done if progress else None,
+    )
     ms = int((time.perf_counter() - t0) * 1000)
     passed = report.total_errors == 0
     if step.hygiene_fail_on_warnings and report.total_warnings > 0:
@@ -63,7 +102,7 @@ def _run_hygiene(step: GateStepDef) -> StepResult:
     detail = f"errors={report.total_errors} warnings={report.total_warnings}"
     if not passed:
         failed = [r.name for r in report.results if r.error_count or r.warning_count]
-        detail += f"; failed checkers: {', '.join(failed)}"
+        detail += f"; failed: {', '.join(failed)}"
     return StepResult(
         step_id=step.step_id,
         title=step.title,
@@ -93,11 +132,16 @@ def _run_core_imports(step: GateStepDef) -> StepResult:
     )
 
 
-def _run_step(step: GateStepDef, *, cwd: Path) -> StepResult:
+def _run_step(
+    step: GateStepDef,
+    *,
+    cwd: Path,
+    progress: QualityGateProgress | None = None,
+) -> StepResult:
     if step.kind == "shell":
         return _run_shell(step, cwd=cwd)
     if step.kind == "hygiene":
-        return _run_hygiene(step)
+        return _run_hygiene(step, progress=progress)
     if step.kind == "core_imports":
         return _run_core_imports(step)
     return StepResult(
@@ -114,13 +158,21 @@ def run_release_gate(
     *,
     cwd: Path | None = None,
     stop_on_fail: bool = False,
+    progress: QualityGateProgress | None = None,
 ) -> GateReport:
     """Execute all steps for *profile* and return aggregated report."""
     cwd = cwd or ROOT
+    steps = steps_for_profile(profile)
     report = GateReport(profile=profile)
-    for step in steps_for_profile(profile):
-        result = _run_step(step, cwd=cwd)
+    for index, step in enumerate(steps):
+        if progress is not None:
+            progress.start(index)
+        result = _run_step(step, cwd=cwd, progress=progress)
         report.results.append(result)
+        if progress is not None:
+            progress.finish(index, result)
         if stop_on_fail and not result.passed and not result.skipped:
+            if progress is not None:
+                progress.cancel_remaining(index + 1)
             break
     return report

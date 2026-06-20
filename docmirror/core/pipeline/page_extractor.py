@@ -17,17 +17,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docmirror.models.entities.domain import PageLayout, Style, TextSpan
 from docmirror.core.pipeline.context import PageExtractionContext
-from docmirror.core.pipeline.handlers import scanned_page as scanned_page_mod
 from docmirror.core.pipeline.handlers import fallback_table as fallback_table_mod
 from docmirror.core.pipeline.handlers import formula_zone as formula_zone_mod
 from docmirror.core.pipeline.handlers import model_segmentation as model_segmentation_mod
 from docmirror.core.pipeline.handlers import page_images as page_images_mod
 from docmirror.core.pipeline.handlers import page_styles as page_styles_mod
+from docmirror.core.pipeline.handlers import scanned_page as scanned_page_mod
 from docmirror.core.pipeline.handlers import table_zone as table_zone_mod
 from docmirror.core.pipeline.handlers import text_zone as text_zone_mod
 from docmirror.core.pipeline.handlers import zone_utils as zone_utils_mod
+from docmirror.models.entities.domain import PageLayout, Style, TextSpan
 
 if TYPE_CHECKING:
     from docmirror.core.extraction.extractor import CoreExtractor

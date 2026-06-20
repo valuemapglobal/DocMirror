@@ -51,13 +51,16 @@ class IDCardPlugin(DomainPlugin):
 
     def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
-        return build_dec_kv("id_card", {
-            "name": entities.get("name", metadata.get("Name", "")),
-            "id_number": entities.get("id_number", metadata.get("ID Number", "")),
-            "gender": entities.get("gender", ""),
-            "address": entities.get("address", ""),
-        })
 
+        return build_dec_kv(
+            "id_card",
+            {
+                "name": entities.get("name", metadata.get("Name", "")),
+                "id_number": entities.get("id_number", metadata.get("ID Number", "")),
+                "gender": entities.get("gender", ""),
+                "address": entities.get("address", ""),
+            },
+        )
 
 
 plugin = IDCardPlugin()

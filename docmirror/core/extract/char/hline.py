@@ -21,6 +21,7 @@ from docmirror.core.utils.vocabulary import _is_header_row
 
 logger = logging.getLogger(__name__)
 
+
 def _extract_by_hline_columns(page_plum) -> list[list[str]] | None:
     """Horizontal-line column boundary method.
 
@@ -191,5 +192,3 @@ def _extract_by_hline_columns(page_plum) -> list[list[str]] | None:
 
     logger.info(f"hline-columns: {len(table) - 1} data rows, {col_count} cols from {len(h_lines)} h-lines")
     return table
-
-

@@ -107,9 +107,7 @@ class BaseParser(ABC):
 
         orchestrator = get_orchestrator()
         file_type = (
-            context.get("file_type")
-            or (pr.provenance.file_type if pr.provenance else None)
-            or "unknown"
+            context.get("file_type") or (pr.provenance.file_type if pr.provenance else None) or "unknown"
         ).lower()
         enhance_mode = context.get("enhance_mode", "standard")
         content_model = context.get("content_model", "")

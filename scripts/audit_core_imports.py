@@ -91,9 +91,7 @@ def plugin_forbidden_imports() -> list[dict[str, str]]:
         for imp in _imports_in_file(path):
             for forbidden in FORBIDDEN_FOR_PLUGINS:
                 if imp == forbidden or imp.startswith(forbidden + "."):
-                    violations.append(
-                        {"file": str(path.relative_to(ROOT)), "import": imp, "forbidden": forbidden}
-                    )
+                    violations.append({"file": str(path.relative_to(ROOT)), "import": imp, "forbidden": forbidden})
     return violations
 
 

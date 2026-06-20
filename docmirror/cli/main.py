@@ -51,7 +51,6 @@ main.add_command(classify)
 main.add_command(benchmark)
 
 
-
 @main.command()
 @click.argument("file", required=True)
 @click.option("--output-dir", "-o", default="output", show_default=True, help="Output directory")
@@ -67,12 +66,42 @@ main.add_command(benchmark)
     show_default=True,
     help="Parse mode",
 )
-@click.option("--ocr", default="auto", type=click.Choice(["auto", "force", "off", "fallback"]), show_default=True, help="OCR policy")
-@click.option("--format", "-f", "formats", default="json", show_default=True, help="Output formats: json,csv,markdown,chunks,html,parquet,all")
-@click.option("--editions", default="mirror,community", show_default=True, help="Output editions: mirror,community,enterprise,finance,all")
+@click.option(
+    "--ocr",
+    default="auto",
+    type=click.Choice(["auto", "force", "off", "fallback"]),
+    show_default=True,
+    help="OCR policy",
+)
+@click.option(
+    "--format",
+    "-f",
+    "formats",
+    default="json",
+    show_default=True,
+    help="Output formats: json,csv,markdown,chunks,html,parquet,all",
+)
+@click.option(
+    "--editions",
+    default="mirror,community",
+    show_default=True,
+    help="Output editions: mirror,community,enterprise,finance,all",
+)
 @click.option("--doc-type", default=None, help="Manual document type")
-@click.option("--doc-type-policy", default="prefer", type=click.Choice(["prefer", "force"]), show_default=True, help="How strongly to apply --doc-type")
-@click.option("--cache-policy", default="read-write", type=click.Choice(["read-write", "read-only", "refresh", "off"]), show_default=True, help="Cache policy")
+@click.option(
+    "--doc-type-policy",
+    default="prefer",
+    type=click.Choice(["prefer", "force"]),
+    show_default=True,
+    help="How strongly to apply --doc-type",
+)
+@click.option(
+    "--cache-policy",
+    default="read-write",
+    type=click.Choice(["read-write", "read-only", "refresh", "off"]),
+    show_default=True,
+    help="Cache policy",
+)
 @click.option("--split-layers", is_flag=True, help="Export L1/L2/L3 as separate files")
 @click.option("--include-text", is_flag=True, help="Include full text in output")
 @click.option(
@@ -81,16 +110,53 @@ main.add_command(benchmark)
     type=click.Choice(["standard", "forensic"]),
     help="Mirror output level: standard/forensic",
 )
-@click.option("--geometry", default=None, type=click.Choice(["none", "page", "block", "token", "full"]), help="Geometry output level")
+@click.option(
+    "--geometry",
+    default=None,
+    type=click.Choice(["none", "page", "block", "token", "full"]),
+    help="Geometry output level",
+)
 @click.option("--debug-artifact", is_flag=True, help="Write debug artifact")
 @click.option("--recursive", is_flag=True, help="Recursively parse directory/glob inputs")
 @click.option("--exclude", multiple=True, metavar="SUBSTR", help="Skip files whose path contains SUBSTR")
 @click.option("--include-ext", default=None, help="Comma-separated extensions to include in batch mode")
-@click.option("--log-level", default="info", type=click.Choice(["debug", "info", "warning", "error"]), show_default=True, help="Logging level")
+@click.option(
+    "--log-level",
+    default="info",
+    type=click.Choice(["debug", "info", "warning", "error"]),
+    show_default=True,
+    help="Logging level",
+)
 @click.option("--overwrite", is_flag=True, help="Allow overwriting an explicit --run-id output directory")
 @click.option("--run-id", default=None, help="Explicit run/task id for output directory")
 @click.option("--slm", is_flag=True, help="Enable SLM extraction")
-def parse(file, output_dir, no_save, pages, max_pages, workers, mode, ocr, formats, editions, doc_type, doc_type_policy, cache_policy, split_layers, include_text, mirror_level, geometry, debug_artifact, recursive, exclude, include_ext, log_level, overwrite, run_id, slm):
+def parse(
+    file,
+    output_dir,
+    no_save,
+    pages,
+    max_pages,
+    workers,
+    mode,
+    ocr,
+    formats,
+    editions,
+    doc_type,
+    doc_type_policy,
+    cache_policy,
+    split_layers,
+    include_text,
+    mirror_level,
+    geometry,
+    debug_artifact,
+    recursive,
+    exclude,
+    include_ext,
+    log_level,
+    overwrite,
+    run_id,
+    slm,
+):
     """Parse a document and save results."""
     import logging
 
@@ -107,36 +173,38 @@ def parse(file, output_dir, no_save, pages, max_pages, workers, mode, ocr, forma
     if not inputs:
         raise click.ClickException(f"Path/glob not found or no files matched: {file}")
     if len(inputs) == 1:
-        asyncio.run(parse_document(
-            str(inputs[0].resolve()),
-            "json",
-            Path(output_dir),
-            no_save=no_save,
-            skip_cache=resolved_skip_cache,
-            include_text=include_text,
-            split_layers=split_layers,
-            debug_artifact=debug_artifact,
-            export_chunks=False,
-            export_csv=False,
-            export_parquet=False,
-            mirror_level=mirror_level,
-            pages=pages,
-            max_pages=max_pages,
-            workers=workers,
-            mode=mode,
-            formats=formats,
-            editions=editions,
-            cache_policy=cache_policy,
-            doc_type=doc_type,
-            doc_type_policy=doc_type_policy,
-            doc_type_hint=None,
-            ocr=ocr,
-            geometry=geometry,
-            include_geometry=None,
-            run_id=run_id,
-            overwrite=overwrite,
-            slm=slm,
-        ))
+        asyncio.run(
+            parse_document(
+                str(inputs[0].resolve()),
+                "json",
+                Path(output_dir),
+                no_save=no_save,
+                skip_cache=resolved_skip_cache,
+                include_text=include_text,
+                split_layers=split_layers,
+                debug_artifact=debug_artifact,
+                export_chunks=False,
+                export_csv=False,
+                export_parquet=False,
+                mirror_level=mirror_level,
+                pages=pages,
+                max_pages=max_pages,
+                workers=workers,
+                mode=mode,
+                formats=formats,
+                editions=editions,
+                cache_policy=cache_policy,
+                doc_type=doc_type,
+                doc_type_policy=doc_type_policy,
+                doc_type_hint=None,
+                ocr=ocr,
+                geometry=geometry,
+                include_geometry=None,
+                run_id=run_id,
+                overwrite=overwrite,
+                slm=slm,
+            )
+        )
         return
 
     async def _parse_many() -> None:

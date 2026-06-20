@@ -21,6 +21,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def _resolve_external_ocr_provider(provider_spec: str | None):
     """Resolve 'module:callable' string to a callable, or return None.
 
@@ -126,16 +127,16 @@ def _read_exif_orientation(fitz_page) -> int:
     return 0
 
 
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Shared Preprocessing Primitives
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _adaptive_upscale(img_bgr):
     """Adaptive upscaling for low-resolution images (shared preprocessing)."""
     import cv2
     import numpy as np
+
     h, w = img_bgr.shape[:2]
     min_dim = min(h, w)
     if min_dim < 500:
@@ -168,6 +169,7 @@ def _gamma_histogram_stretch(img_bgr):
     """Apply gamma correction + histogram stretch for dark/low-contrast images."""
     import cv2
     import numpy as np
+
     gray_check = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     mean_br = float(gray_check.mean())
     contrast = float(gray_check.std())
@@ -181,7 +183,9 @@ def _gamma_histogram_stretch(img_bgr):
             p_lo, p_hi = np.percentile(ch, (1, 99))
             if p_hi - p_lo > 10:
                 img_bgr[:, :, c] = np.clip(
-                    (ch.astype(np.float32) - p_lo) / (p_hi - p_lo) * 255, 0, 255,
+                    (ch.astype(np.float32) - p_lo) / (p_hi - p_lo) * 255,
+                    0,
+                    255,
                 ).astype(np.uint8)
     return img_bgr
 
@@ -189,6 +193,7 @@ def _gamma_histogram_stretch(img_bgr):
 def _remove_red_seal(img_bgr):
     """Remove red seal/chop marks from document images."""
     import cv2
+
     try:
         hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
         mask1 = cv2.inRange(hsv, (0, 70, 50), (10, 255, 255))
@@ -205,12 +210,11 @@ def _remove_red_seal(img_bgr):
 def _clahe_bilateral(gray, clip_limit=2.0):
     """Apply CLAHE + bilateral filter to enhance text contrast."""
     import cv2
+
     clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(8, 8))
     gray = clahe.apply(gray)
     gray = cv2.bilateralFilter(gray, d=5, sigmaColor=50, sigmaSpace=50)
     return gray
-
-
 
 
 def _preprocess_minimal(img_bgr):
@@ -228,6 +232,7 @@ def _preprocess_minimal(img_bgr):
     gradient information for character recognition.
     """
     import cv2
+
     img_bgr = _adaptive_upscale(img_bgr)
     img_bgr = _gamma_histogram_stretch(img_bgr)
     img_bgr = _remove_red_seal(img_bgr)

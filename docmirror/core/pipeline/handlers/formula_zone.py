@@ -20,8 +20,8 @@ import re
 import time
 from typing import TYPE_CHECKING
 
-from docmirror.models.entities.domain import Block
 from docmirror.core.pipeline.handlers.zone_utils import crop_zone_image, recognize_formula
+from docmirror.models.entities.domain import Block
 
 if TYPE_CHECKING:
     from docmirror.core.pipeline.page_extractor import PageExtractor
@@ -29,7 +29,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _clock = time.perf_counter
 
-def handle_formula_zone(extractor: PageExtractor,
+
+def handle_formula_zone(
+    extractor: PageExtractor,
     zone,
     block_id: str,
     page_idx: int,
@@ -147,4 +149,3 @@ def handle_formula_zone(extractor: PageExtractor,
         )
         return block, _formula_ms
     return None, _formula_ms
-

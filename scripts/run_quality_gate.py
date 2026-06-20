@@ -34,12 +34,20 @@ if str(ROOT) not in sys.path:
 from scripts.code_hygiene.runner import ALL_CHECKS, run_hygiene_audit  # noqa: E402
 from scripts.release_gate.config import (  # noqa: E402
     PROFILE_DESCRIPTIONS,
-    PROFILES as GATE_PROFILES,
     steps_for_profile,
 )
+from scripts.release_gate.config import (
+    PROFILES as GATE_PROFILES,
+)
+from scripts.release_gate.models import StepResult  # noqa: E402
+from scripts.release_gate.progress import QualityGateProgress  # noqa: E402
 from scripts.release_gate.report import (  # noqa: E402
     print_console_summary as print_gate_summary,
+)
+from scripts.release_gate.report import (
     write_json_report as write_gate_json,
+)
+from scripts.release_gate.report import (
     write_markdown_report as write_gate_markdown,
 )
 from scripts.release_gate.runner import run_release_gate  # noqa: E402
@@ -48,16 +56,57 @@ HYGIENE_PROFILE = "hygiene"
 ALL_PROFILES = (HYGIENE_PROFILE,) + GATE_PROFILES
 
 
-def _run_hygiene_profile(args: argparse.Namespace) -> int:
-    checks = tuple(c.strip() for c in args.only.split(",") if c.strip()) or None
-    report = run_hygiene_audit(
-        checks=checks,
-        allowlist_path=args.allowlist,
-        min_vulture_confidence=args.min_vulture_confidence,
-        json_out=args.json_out,
-        markdown_out=args.markdown_out,
-        console=not args.quiet,
+def _resolve_hygiene_checks(args: argparse.Namespace) -> tuple[str, ...] | None:
+    return tuple(c.strip() for c in args.only.split(",") if c.strip()) or None
+
+
+def _check_to_step_result(name: str, result) -> StepResult:
+    if result.skipped:
+        return StepResult(
+            step_id=name,
+            title=name,
+            phase="hygiene",
+            passed=True,
+            skipped=True,
+            duration_ms=result.duration_ms,
+            detail=result.skip_reason,
+        )
+    passed = result.error_count == 0
+    detail = f"errors={result.error_count} warnings={result.warning_count}"
+    return StepResult(
+        step_id=name,
+        title=name,
+        phase="hygiene",
+        passed=passed,
+        duration_ms=result.duration_ms,
+        detail=detail if not passed else "",
     )
+
+
+def _run_hygiene_profile(args: argparse.Namespace) -> int:
+    checks = _resolve_hygiene_checks(args)
+    check_names = list(checks or ALL_CHECKS.keys())
+    show_progress = not args.quiet
+
+    with QualityGateProgress.for_hygiene_checks(check_names, enabled=show_progress) as progress:
+        report = run_hygiene_audit(
+            checks=checks,
+            allowlist_path=args.allowlist,
+            min_vulture_confidence=args.min_vulture_confidence,
+            json_out=args.json_out,
+            markdown_out=args.markdown_out,
+            console=False,
+            on_check_start=(lambda i, _n: progress.start(i)) if show_progress else None,
+            on_check_done=(lambda i, r: progress.finish(i, _check_to_step_result(r.name, r)))
+            if show_progress
+            else None,
+        )
+
+    if not args.quiet:
+        from scripts.code_hygiene.report import print_console_summary
+
+        print_console_summary(report)
+
     if args.strict and report.total_errors > 0:
         return 1
     if args.fail_on_warnings and (report.total_errors > 0 or report.total_warnings > 0):
@@ -66,10 +115,14 @@ def _run_hygiene_profile(args: argparse.Namespace) -> int:
 
 
 def _run_gate_profile(args: argparse.Namespace) -> int:
-    report = run_release_gate(
-        args.profile,
-        stop_on_fail=args.stop_on_fail,
-    )
+    steps = steps_for_profile(args.profile)
+    show_progress = not args.quiet
+    with QualityGateProgress.for_gate_steps(args.profile, steps, enabled=show_progress) as progress:
+        report = run_release_gate(
+            args.profile,
+            stop_on_fail=args.stop_on_fail,
+            progress=progress if show_progress else None,
+        )
     if args.json_out:
         write_gate_json(report, args.json_out)
     if args.markdown_out:
@@ -102,7 +155,7 @@ def main() -> int:
     )
     parser.add_argument("--json", type=Path, dest="json_out", help="Write JSON report")
     parser.add_argument("--markdown", type=Path, dest="markdown_out", help="Write Markdown report")
-    parser.add_argument("--quiet", action="store_true", help="Suppress console summary")
+    parser.add_argument("--quiet", action="store_true", help="Suppress live progress and final summary")
 
     # Hygiene-only options (--profile hygiene)
     parser.add_argument(

@@ -18,7 +18,10 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import Any
 
+from docmirror.core.table.pipeline.stage_preamble import _extract_preamble_kv
+from docmirror.core.table.table_structure_fix import merge_split_rows
 from docmirror.core.utils.text_utils import (
     _RE_DATE_COMPACT,
     _RE_DATE_HYPHEN,
@@ -30,11 +33,6 @@ from docmirror.core.utils.vocabulary import (
     _is_junk_row,
     _normalize_for_vocab,
 )
-
-from typing import Any
-
-from docmirror.core.table.pipeline.stage_preamble import _extract_preamble_kv
-from docmirror.core.table.table_structure_fix import merge_split_rows
 
 logger = logging.getLogger(__name__)
 
@@ -228,8 +226,6 @@ def _clean_cell(cell: str, col_name: str) -> str:
         return cleaned if cleaned else cell
 
     return cell
-
-
 
 
 def _repair_split_numbers(data_rows: list[list[str]]) -> None:

@@ -85,9 +85,11 @@ def _extract_semantic_spans(text: str) -> list[tuple[int, int, str, str]]:
     for match in _CURRENCY_IN_TEXT.finditer(text):
         _take(match.start(), match.end(), match.group(0), "currency")
 
-    comma_matches = [match for match in _AMOUNT_COMMA.finditer(text) if not any(
-        not (match.end() <= s or match.start() >= e) for s, e in occupied
-    )]
+    comma_matches = [
+        match
+        for match in _AMOUNT_COMMA.finditer(text)
+        if not any(not (match.end() <= s or match.start() >= e) for s, e in occupied)
+    ]
     if comma_matches:
         match = comma_matches[-1]
         val = match.group(0)
@@ -161,10 +163,7 @@ def route_semantic_tokens_to_bands(
             elif "amount" in inferred:
                 kind = "amount"
 
-        type_candidates = [
-            band for band in col_bands
-            if kind in _label_type_hint(str(band.get("header") or ""))
-        ]
+        type_candidates = [band for band in col_bands if kind in _label_type_hint(str(band.get("header") or ""))]
         pool = type_candidates or col_bands
         best_band: dict[str, Any] | None = None
         best_dist = float("inf")
@@ -173,7 +172,9 @@ def route_semantic_tokens_to_bands(
             bbox = band["bbox"]
             center = (float(bbox[0]) + float(bbox[2])) / 2.0
             dist = abs(cx - center)
-            if dist < best_dist and int(band["index"]) not in {int(b["index"]) for b in type_candidates if out[int(b["index"])]}:
+            if dist < best_dist and int(band["index"]) not in {
+                int(b["index"]) for b in type_candidates if out[int(b["index"])]
+            }:
                 best_band = band
                 best_dist = dist
         if best_band is None:

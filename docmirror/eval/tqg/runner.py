@@ -22,6 +22,10 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows
+from docmirror.core.entry.factory import PerceiveOptions, perceive_document
+from docmirror.core.extraction.extractor import CoreExtractor
+from docmirror.core.table.access import get_logical_tables
 from docmirror.eval.gates import (
     GATE_PROFILES,
     FailureClass,
@@ -32,10 +36,6 @@ from docmirror.eval.oracle import pdfplumber_full_page_sample_oracle
 from docmirror.eval.tqg.gates_eval import eval_gate, resolve_dot_path
 from docmirror.eval.tqg.manifest import TQGCase
 from docmirror.eval.tqg.report import GateReport
-from docmirror.core.extraction.extractor import CoreExtractor
-from docmirror.core.entry.factory import PerceiveOptions, perceive_document
-from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows
-from docmirror.core.table.access import get_logical_tables
 from docmirror.models.construction.parse_result_bridge import ParseResultBridge
 from docmirror.plugins.community import community_plugin_import_path
 
@@ -354,7 +354,11 @@ async def _execute_mirror_conservation_contract(case: TQGCase) -> tuple[Any, dic
                 TableBlock(
                     table_id="pt_1_0",
                     headers=["A"],
-                    rows=[TableRow(cells=[CellValue(text="1")], source_page=1, source_physical_id="pt_1_0", source_row_index=0)],
+                    rows=[
+                        TableRow(
+                            cells=[CellValue(text="1")], source_page=1, source_physical_id="pt_1_0", source_row_index=0
+                        )
+                    ],
                     extraction_layer="synthetic",
                     evidence_ids=["tbl_1"],
                 )
@@ -377,14 +381,62 @@ async def _execute_mirror_geometry_contract(_case: TQGCase) -> tuple[Any, dict[s
 
     cells = [
         [
-            CellValue(text="A1", bbox=[10, 20, 50, 40], row_index=0, col_index=0, geometry_status="exact", geometry_source="synthetic", token_ids=["tok_r0_c0"]),
-            CellValue(text="", bbox=[50, 20, 90, 40], row_index=0, col_index=1, geometry_status="estimated", geometry_source="synthetic", geometry_loss_reason="empty_cell_estimated_from_bands"),
-            CellValue(text="C1", bbox=[90, 20, 130, 40], row_index=0, col_index=2, geometry_status="exact", geometry_source="synthetic", token_ids=["tok_r0_c2"]),
+            CellValue(
+                text="A1",
+                bbox=[10, 20, 50, 40],
+                row_index=0,
+                col_index=0,
+                geometry_status="exact",
+                geometry_source="synthetic",
+                token_ids=["tok_r0_c0"],
+            ),
+            CellValue(
+                text="",
+                bbox=[50, 20, 90, 40],
+                row_index=0,
+                col_index=1,
+                geometry_status="estimated",
+                geometry_source="synthetic",
+                geometry_loss_reason="empty_cell_estimated_from_bands",
+            ),
+            CellValue(
+                text="C1",
+                bbox=[90, 20, 130, 40],
+                row_index=0,
+                col_index=2,
+                geometry_status="exact",
+                geometry_source="synthetic",
+                token_ids=["tok_r0_c2"],
+            ),
         ],
         [
-            CellValue(text="A2", bbox=[10, 40, 50, 60], row_index=1, col_index=0, geometry_status="exact", geometry_source="synthetic", token_ids=["tok_r1_c0"]),
-            CellValue(text="B2", bbox=[50, 40, 90, 60], row_index=1, col_index=1, geometry_status="exact", geometry_source="synthetic", token_ids=["tok_r1_c1"]),
-            CellValue(text="C2", bbox=[90, 40, 130, 60], row_index=1, col_index=2, geometry_status="exact", geometry_source="synthetic", token_ids=["tok_r1_c2"]),
+            CellValue(
+                text="A2",
+                bbox=[10, 40, 50, 60],
+                row_index=1,
+                col_index=0,
+                geometry_status="exact",
+                geometry_source="synthetic",
+                token_ids=["tok_r1_c0"],
+            ),
+            CellValue(
+                text="B2",
+                bbox=[50, 40, 90, 60],
+                row_index=1,
+                col_index=1,
+                geometry_status="exact",
+                geometry_source="synthetic",
+                token_ids=["tok_r1_c1"],
+            ),
+            CellValue(
+                text="C2",
+                bbox=[90, 40, 130, 60],
+                row_index=1,
+                col_index=2,
+                geometry_status="exact",
+                geometry_source="synthetic",
+                token_ids=["tok_r1_c2"],
+            ),
         ],
     ]
     rows = []
@@ -460,7 +512,13 @@ async def _execute_scanned_micro_grid_contract(case: TQGCase) -> tuple[Any, dict
         materialize_micro_grids_from_bundles,
         page_evidence_bundle,
     )
-    from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus, TextBlock
+    from docmirror.models.entities.parse_result import (
+        DocumentEntities,
+        PageContent,
+        ParseResult,
+        ResultStatus,
+        TextBlock,
+    )
     from docmirror.plugins.credit_report.repayment_grid import records_from_micro_grid_dict
 
     if "negative" in case.id:
@@ -500,10 +558,7 @@ async def _execute_scanned_micro_grid_contract(case: TQGCase) -> tuple[Any, dict
         pages=[
             PageContent(
                 page_number=4,
-                texts=[
-                    TextBlock(content=line["content"], bbox=line["bbox"])
-                    for line in lines
-                ],
+                texts=[TextBlock(content=line["content"], bbox=line["bbox"]) for line in lines],
                 width=834,
                 height=1207,
             )
@@ -514,7 +569,13 @@ async def _execute_scanned_micro_grid_contract(case: TQGCase) -> tuple[Any, dict
 
 async def _execute_scanned_local_structure_contract(case: TQGCase) -> tuple[Any, dict[str, Any]]:
     from docmirror.core.ocr.local_structure import extract_local_structure_evidence
-    from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus, TextBlock
+    from docmirror.models.entities.parse_result import (
+        DocumentEntities,
+        PageContent,
+        ParseResult,
+        ResultStatus,
+        TextBlock,
+    )
     from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
 
     if "negative" in case.id:
@@ -534,7 +595,11 @@ async def _execute_scanned_local_structure_contract(case: TQGCase) -> tuple[Any,
             {"content": "账户币种 到期日期 借款金额", "bbox": [20.0, 90.0, 320.0, 104.0], "confidence": 1.0},
             {"content": "人民币 2019.06.21 72,000", "bbox": [20.0, 110.0, 320.0, 124.0], "confidence": 1.0},
             {"content": "业务种类 担保方式 账户状态 关闭日期", "bbox": [20.0, 140.0, 420.0, 154.0], "confidence": 1.0},
-            {"content": "其他个人消费贷款 信用/免担保 结清 2019.06.21", "bbox": [20.0, 160.0, 420.0, 174.0], "confidence": 1.0},
+            {
+                "content": "其他个人消费贷款 信用/免担保 结清 2019.06.21",
+                "bbox": [20.0, 160.0, 420.0, 174.0],
+                "confidence": 1.0,
+            },
         ]
     evidence = extract_local_structure_evidence(lines, page=4, page_width=834, page_height=1207)
     account_out = extract_credit_accounts_from_local_structure_evidence(
@@ -570,7 +635,13 @@ async def _execute_scanned_local_structure_realistic_fixture(_case: TQGCase) -> 
     from pathlib import Path
 
     from docmirror.core.ocr.local_structure import extract_local_structure_evidence
-    from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus, TextBlock
+    from docmirror.models.entities.parse_result import (
+        DocumentEntities,
+        PageContent,
+        ParseResult,
+        ResultStatus,
+        TextBlock,
+    )
     from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
 
     fixture_path = Path("tests/fixtures/scanned/account_card_page4_layout.json")
@@ -622,7 +693,13 @@ async def _execute_scanned_local_structure_full_page_fixture(_case: TQGCase) -> 
     from pathlib import Path
 
     from docmirror.core.ocr.local_structure import extract_local_structure_evidence
-    from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus, TextBlock
+    from docmirror.models.entities.parse_result import (
+        DocumentEntities,
+        PageContent,
+        ParseResult,
+        ResultStatus,
+        TextBlock,
+    )
     from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
 
     fixture_path = Path("tests/fixtures/scanned/account_card_page4_full_layout.json")
@@ -715,10 +792,7 @@ def _dec_validation_issues(edition: dict[str, Any] | None) -> list[Any]:
         return ["missing edition payload"]
     status = edition.get("status") or {}
     errors = list(status.get("errors") or [])
-    warnings = [
-        w for w in (status.get("warnings") or [])
-        if isinstance(w, str) and w.startswith("dec_validation:")
-    ]
+    warnings = [w for w in (status.get("warnings") or []) if isinstance(w, str) and w.startswith("dec_validation:")]
     quality = edition.get("quality") or {}
     if quality.get("validation_passed") is False:
         return errors or warnings or ["validation_passed is false"]

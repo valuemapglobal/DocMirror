@@ -82,7 +82,9 @@ def discover_inputs(raw: str, *, recursive: bool = False, include_ext: str | Non
             return discover_files(path, recursive=recursive, include_ext=include_ext)
         return [path] if _matches_include_ext(path, allowed_ext) else []
     matches = [Path(p) for p in glob.glob(raw, recursive=recursive)]
-    return sorted(p for p in matches if p.is_file() and p.name not in SKIP_NAMES and _matches_include_ext(p, allowed_ext))
+    return sorted(
+        p for p in matches if p.is_file() and p.name not in SKIP_NAMES and _matches_include_ext(p, allowed_ext)
+    )
 
 
 BANNER = r"""[cyan]
@@ -355,9 +357,6 @@ async def parse_document(
         console.print(f"[bold red]Critical Error:[/bold red] {_safe_str(str(e))}")
 
 
-
-
-
 def _save_multi_edition(
     result,
     _api_dict: dict,
@@ -370,7 +369,7 @@ def _save_multi_edition(
     overwrite: bool = False,
 ) -> str:
     """Save mirror + community + enterprise + finance outputs to a timestamped subdirectory.
-    
+
     Returns task_id (directory name).
     """
     from docmirror.server.edition_outputs import write_four_files
@@ -482,21 +481,23 @@ def _format_community_summary(community_schema: dict) -> str:
 def _build_community_output(result, full_text: str = "") -> dict | None:
     """Delegate to shared output_builder (CLI/API shared)."""
     from docmirror.server.output_builder import build_community_output
+
     return build_community_output(result, full_text)
 
 
 def _build_extended_output(result, edition: str, full_text: str = "", file_path: str = "") -> dict | None:
     """Delegate to shared output_builder (CLI/API shared)."""
     from docmirror.server.output_builder import build_extended_output
+
     return build_extended_output(result, edition, full_text, file_path)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="DocMirror - Universal Document Parsing Engine")
+    parser.add_argument("file", nargs="?", help="Path to a document, directory, or glob")
     parser.add_argument(
-        "file", nargs="?", help="Path to a document, directory, or glob"
+        "--format", "-f", default="json", help="Output formats: json,csv,markdown,chunks,html,parquet,all"
     )
-    parser.add_argument("--format", "-f", default="json", help="Output formats: json,csv,markdown,chunks,html,parquet,all")
     parser.add_argument(
         "--output-dir",
         "-o",
@@ -522,7 +523,9 @@ def main() -> None:
         help="Parse mode",
     )
     parser.add_argument("--ocr", default="auto", choices=["auto", "force", "off", "fallback"], help="OCR policy")
-    parser.add_argument("--editions", default="mirror,community", help="Output editions: mirror,community,enterprise,finance,all")
+    parser.add_argument(
+        "--editions", default="mirror,community", help="Output editions: mirror,community,enterprise,finance,all"
+    )
     parser.add_argument("--doc-type", default=None, help="Manual document type")
     parser.add_argument(
         "--doc-type-policy",
@@ -559,9 +562,15 @@ def main() -> None:
         choices=["debug", "info", "warning", "error"],
         help="Logging level",
     )
-    parser.add_argument("--overwrite", action="store_true", help="Allow overwriting an explicit --run-id output directory")
+    parser.add_argument(
+        "--overwrite", action="store_true", help="Allow overwriting an explicit --run-id output directory"
+    )
     parser.add_argument("--run-id", default=None, help="Explicit run/task id for output directory")
-    parser.add_argument("--slm", action="store_true", help="[Experimental] Enable pure CPU Small Language Model (SLM) semantic KV extraction")
+    parser.add_argument(
+        "--slm",
+        action="store_true",
+        help="[Experimental] Enable pure CPU Small Language Model (SLM) semantic KV extraction",
+    )
 
     args = parser.parse_args()
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
@@ -642,7 +651,8 @@ def main() -> None:
                 name = fp.name
                 console.print(f"[bold cyan][{idx}/{total}][/bold cyan] ⏳ {name}")
                 try:
-                    from docmirror.core.entry.factory import perceive_document, PerceiveOptions
+                    from docmirror.core.entry.factory import PerceiveOptions, perceive_document
+
                     path = fp.resolve()
                     result = await perceive_document(path, PerceiveOptions(control=_per_file_control))
 
@@ -654,7 +664,9 @@ def main() -> None:
                         doctype = getattr(result.entities, "document_type", "unknown")
                         pages = getattr(result, "page_count", 0)
                         text_len = len(getattr(result, "full_text", ""))
-                        console.print(f"[bold cyan][{idx}/{total}][/bold cyan] ✅ {name}  → {doctype} ({pages}p, {text_len} chars)")
+                        console.print(
+                            f"[bold cyan][{idx}/{total}][/bold cyan] ✅ {name}  → {doctype} ({pages}p, {text_len} chars)"
+                        )
                     else:
                         console.print(f"[bold yellow][{idx}/{total}][/bold yellow] ⚠️ {name}  → parse returned failure")
 

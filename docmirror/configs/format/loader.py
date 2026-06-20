@@ -141,12 +141,7 @@ def load_enhancement_profiles() -> tuple[dict[str, dict[str, list[str] | dict]],
         if isinstance(raw, dict):
             if "stages" in raw:
                 stages = raw.get("stages") or {}
-                return {
-                    "stages": {
-                        str(stage): [str(n) for n in (names or [])]
-                        for stage, names in stages.items()
-                    }
-                }
+                return {"stages": {str(stage): [str(n) for n in (names or [])] for stage, names in stages.items()}}
             return raw
         return []
 

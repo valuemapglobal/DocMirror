@@ -16,4 +16,3 @@ Upstream: Preprocessed page/zone images.
 
 Downstream: ``ocr.recognize``, ``pipeline.handlers`` enrichment.
 """
-

@@ -119,11 +119,7 @@ def score_candidate(
     col_match = 1.0 if expected_cols and candidate.col_count == len(expected_cols) else 0.5
     layer_prior = _LAYER_PRIOR.get(candidate.layer, 0.5)
 
-    if (
-        candidate.layer == "template_injection"
-        and oracle_rows > 0
-        and candidate.row_count > oracle_rows * 1.03
-    ):
+    if candidate.layer == "template_injection" and oracle_rows > 0 and candidate.row_count > oracle_rows * 1.03:
         layer_prior = min(layer_prior, 0.55)
 
     preferred = profile.table_preferred_layers()
@@ -136,13 +132,7 @@ def score_candidate(
     ):
         layer_prior = max(layer_prior, 1.0)
 
-    return (
-        0.35 * row_ratio
-        + 0.25 * col_cons
-        + 0.20 * header_vocab
-        + 0.10 * col_match
-        + 0.10 * layer_prior
-    )
+    return 0.35 * row_ratio + 0.25 * col_cons + 0.20 * header_vocab + 0.10 * col_match + 0.10 * layer_prior
 
 
 def pick_best_candidate(
@@ -155,10 +145,7 @@ def pick_best_candidate(
     if not candidates:
         return None
 
-    scored = [
-        (score_candidate(c, profile=profile, oracle_rows=oracle_rows), c)
-        for c in candidates
-    ]
+    scored = [(score_candidate(c, profile=profile, oracle_rows=oracle_rows), c) for c in candidates]
 
     def _sort_key(item: tuple[float, ExtractCandidate]) -> tuple:
         score, c = item

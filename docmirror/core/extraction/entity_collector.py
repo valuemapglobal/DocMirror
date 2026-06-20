@@ -19,7 +19,6 @@ Downstream: ``bridge.parse_result_bridge`` metadata, plugins.
 
 from __future__ import annotations
 
-
 from docmirror.models.entities.domain import PageLayout
 
 

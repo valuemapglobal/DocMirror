@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-import sys
 import ast
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -113,9 +113,7 @@ def main() -> int:
             for imp in _imports_in_file(path):
                 for prefix in prefixes:
                     if imp == prefix or imp.startswith(prefix + "."):
-                        errors.append(
-                            f"forbidden dependency {imp!r} in {path.relative_to(ROOT)}"
-                        )
+                        errors.append(f"forbidden dependency {imp!r} in {path.relative_to(ROOT)}")
     if errors:
         for e in errors:
             print(f"ERROR: {e}", file=sys.stderr)

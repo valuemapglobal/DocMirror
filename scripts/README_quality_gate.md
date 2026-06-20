@@ -15,6 +15,19 @@ python scripts/run_quality_gate.py --list-steps
 | `standard` | *(default)* | Before push / PR (~8–20 min) |
 | `full` | `--profile full` | Release candidate (~30+ min) |
 
+During a run you get a live progress panel (requires `rich`, already a dev dependency):
+
+- Overall progress bar and percentage
+- Per-step status: pending / running / pass / fail / skip
+- Elapsed time per step (updates while running)
+- Sub-check list when `hygiene_full` is active
+
+Use `--quiet` to disable live progress (CI / logs).
+
+```bash
+python scripts/run_quality_gate.py --profile quick
+```
+
 ## Examples
 
 ```bash

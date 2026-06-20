@@ -66,6 +66,30 @@ def test_hygiene_fast_step_passes():
     assert result.passed, result.detail
 
 
+def test_overall_percent():
+    from scripts.release_gate.progress import ProgressRow, QualityGateProgress
+
+    progress = QualityGateProgress(
+        profile="quick",
+        rows=[
+            ProgressRow("a", "A", "style", state="pass", duration_ms=10),
+            ProgressRow("b", "B", "style", state="running"),
+            ProgressRow("c", "C", "tests"),
+        ],
+        enabled=False,
+    )
+    assert progress.completed_count == 1
+    assert progress.overall_percent == 33
+
+
+def test_format_duration_ms():
+    from scripts.release_gate.progress import _format_duration_ms
+
+    assert _format_duration_ms(500) == "500ms"
+    assert _format_duration_ms(2500) == "2.5s"
+    assert _format_duration_ms(125000) == "2m 5s"
+
+
 def test_quality_gate_cli_hygiene_profile():
     from scripts.run_quality_gate import main
 

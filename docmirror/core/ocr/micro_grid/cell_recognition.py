@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
-from collections.abc import Iterable
 
 from docmirror.core.ocr.micro_grid.models import BBox
 

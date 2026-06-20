@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from typing import Any
 from collections.abc import Sequence
+from typing import Any
 
 from docmirror.core.geometry.bbox import area, normalize, union
 from docmirror.core.geometry.models import BBox, TableGeometry
@@ -22,6 +22,31 @@ def _char_bbox(ch: dict[str, Any]) -> BBox | None:
     if x0 is None or x1 is None or top is None or bottom is None:
         return None
     return normalize((float(x0), float(top), float(x1), float(bottom)))
+
+
+def _char_ref(ch: dict[str, Any]) -> str | None:
+    for key in ("token_id", "evidence_id", "id", "char_id"):
+        value = ch.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+def _char_confidence(ch: dict[str, Any]) -> float | None:
+    value = ch.get("confidence", ch.get("conf"))
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _mean_confidence(chars: list[dict[str, Any]]) -> float | None:
+    vals = [conf for ch in chars if (conf := _char_confidence(ch)) is not None]
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
 
 
 def _chars_in_bbox(chars: list[dict[str, Any]], bbox: Sequence[float]) -> list[dict[str, Any]]:
@@ -169,9 +194,10 @@ def build_table_geometry(
                 else:
                     status_row.append("missing")
                     loss_row.append("no_table_or_band_geometry")
-            evidence_row.append([f"cell_p{page_number}_t{table_index}_r{ri}_c{ci}"])
-            token_row.append([])
-            confidence_row.append(geometry_confidence)
+            refs = [ref for ch in band_chars if (ref := _char_ref(ch))]
+            evidence_row.append(refs or [f"cell_p{page_number}_t{table_index}_r{ri}_c{ci}"])
+            token_row.append(refs)
+            confidence_row.append(_mean_confidence(band_chars) or geometry_confidence)
         cell_bboxes.append(bbox_row)
         statuses.append(status_row)
         loss_reasons.append(loss_row)
@@ -192,10 +218,7 @@ def build_table_geometry(
             {"index": i, "bbox": list(b), "role": row_roles[i] if i < len(row_roles) else "data"}
             for i, b in enumerate(rows)
         ],
-        col_bands=[
-            {"index": i, "bbox": list(b)}
-            for i, b in enumerate(cols)
-        ],
+        col_bands=[{"index": i, "bbox": list(b)} for i, b in enumerate(cols)],
         geometry_source=geometry_source,
         geometry_confidence=geometry_confidence,
     )

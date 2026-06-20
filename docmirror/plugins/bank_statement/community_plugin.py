@@ -100,13 +100,17 @@ class BankStatementCommunityPlugin(BaseTableParser):
 
     def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
-        return build_dec_kv("bank_statement", {
-            "account_holder": str(entities.get("account_holder", metadata.get("Account holder", ""))),
-            "account_number": str(entities.get("account_number", metadata.get("Account number", ""))),
-            "bank_name": str(entities.get("bank_name", "")),
-            "query_period": str(entities.get("query_period", metadata.get("Query period", ""))),
-            "currency": str(entities.get("currency", "CNY")),
-        })
+
+        return build_dec_kv(
+            "bank_statement",
+            {
+                "account_holder": str(entities.get("account_holder", metadata.get("Account holder", ""))),
+                "account_number": str(entities.get("account_number", metadata.get("Account number", ""))),
+                "bank_name": str(entities.get("bank_name", "")),
+                "query_period": str(entities.get("query_period", metadata.get("Query period", ""))),
+                "currency": str(entities.get("currency", "CNY")),
+            },
+        )
 
     def extract_from_mirror(self, parse_result, text: str = ""):
         """StyleDetector → Registry → v2.0 community output with style metadata."""

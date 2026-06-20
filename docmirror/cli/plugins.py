@@ -293,8 +293,8 @@ def show():
 @license.command("check-expiring")
 def check_expiring():
     """List licenses expiring within the configured threshold (default 90 days)."""
-    from docmirror.plugins.licensing.online import license_manager
     from docmirror.plugins.licensing.offline import offline_license_manager
+    from docmirror.plugins.licensing.online import license_manager
     from docmirror.plugins.licensing.tiers_loader import load_tiers
 
     threshold = int((load_tiers().get("lifecycle") or {}).get("expiring_soon_days") or 90)
@@ -484,8 +484,8 @@ def stats(show_all: bool):
 @license.command()
 def generate_demo():
     """Generate a demo license file for development/testing."""
-    import json
     import hashlib
+    import json
     import os
     from datetime import datetime, timedelta
     from pathlib import Path
@@ -541,16 +541,18 @@ def generate_demo():
     offline_license_manager._licenses.clear()
     offline_license_manager._load_all_licenses()
 
-    console.print(Panel(
-        f"[green]Demo license generated[/green]\n\n"
-        f"  License ID: [cyan]{license_data['license_info']['license_id']}[/cyan]\n"
-        f"  Tier: [cyan]enterprise (demo)[/cyan]\n"
-        f"  Expires: [cyan]{license_data['license_info']['validity']['expires_at']}[/cyan]\n"
-        f"  Features: [cyan]{len(feature_list)} entitlement features[/cyan]\n\n"
-        f"  Saved to: [yellow]{lic_path}[/yellow]",
-        title="Demo License",
-        border_style="green",
-    ))
+    console.print(
+        Panel(
+            f"[green]Demo license generated[/green]\n\n"
+            f"  License ID: [cyan]{license_data['license_info']['license_id']}[/cyan]\n"
+            f"  Tier: [cyan]enterprise (demo)[/cyan]\n"
+            f"  Expires: [cyan]{license_data['license_info']['validity']['expires_at']}[/cyan]\n"
+            f"  Features: [cyan]{len(feature_list)} entitlement features[/cyan]\n\n"
+            f"  Saved to: [yellow]{lic_path}[/yellow]",
+            title="Demo License",
+            border_style="green",
+        )
+    )
 
 
 # Export for integration

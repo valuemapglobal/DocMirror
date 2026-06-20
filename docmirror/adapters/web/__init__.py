@@ -10,4 +10,3 @@ Web and email adapter subpackage.
 Hosts HTML ``WebAdapter`` and ``.eml`` ``EmailAdapter`` implementations for
 saved web pages and RFC 5322 message files.
 """
-

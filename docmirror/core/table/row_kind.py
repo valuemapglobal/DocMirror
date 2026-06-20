@@ -55,9 +55,7 @@ def classify_pipe_cells(cells: list[str]) -> RowKind:
     first = (cells[0] or "").strip()
     first_lower = first.lower()
 
-    if (_PIPE_HEADER_ZH.search(joined) or _PIPE_HEADER_EN.search(joined)) and _has_split_amount_headers(
-        joined
-    ):
+    if (_PIPE_HEADER_ZH.search(joined) or _PIPE_HEADER_EN.search(joined)) and _has_split_amount_headers(joined):
         return RowKind.HEADER
     if first_lower in _PREAMBLE_FIRST or re.match(r"^(no\.?|序号)$", first_lower, re.I):
         return RowKind.PREAMBLE

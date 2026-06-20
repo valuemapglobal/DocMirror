@@ -16,8 +16,8 @@ generated through shared ``output_builder`` helpers when requested.
 
 from __future__ import annotations
 
-import glob
 import asyncio
+import glob
 import logging
 import os
 import shutil
@@ -25,7 +25,7 @@ import time
 from pathlib import Path
 from tempfile import NamedTemporaryFile, gettempdir
 
-from fastapi import Body, BackgroundTasks, FastAPI, File, Header, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, Body, FastAPI, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
 from docmirror import __version__
@@ -115,9 +115,15 @@ def _verify_api_key(authorization: str | None) -> None:
 async def parse_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="The document file to parse (PDF, PNG, JPEG, DOCX, etc.)"),
-    edition: str = Query(default="all", pattern="^(community|enterprise|finance|all)$", description="Output edition: community, enterprise, finance, or all"),
+    edition: str = Query(
+        default="all",
+        pattern="^(community|enterprise|finance|all)$",
+        description="Output edition: community, enterprise, finance, or all",
+    ),
     include_text: bool = Query(default=False, description="Include full markdown text in response"),
-    include_geometry: bool = Query(default=False, description="Include table/cell geometry using forensic mirror output"),
+    include_geometry: bool = Query(
+        default=False, description="Include table/cell geometry using forensic mirror output"
+    ),
     pages: str | None = Query(default=None, description="Page ranges, 1-based: 1-3,8,10-"),
     max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
     workers: str | None = Query(default=None, description="Total worker budget for this request"),
@@ -186,7 +192,9 @@ async def batch_parse(
     background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(..., description="Multiple document files to parse"),
     edition: str = Query(default="all", pattern="^(community|enterprise|finance|all)$", description="Output edition"),
-    include_geometry: bool = Query(default=False, description="Include table/cell geometry using forensic mirror output"),
+    include_geometry: bool = Query(
+        default=False, description="Include table/cell geometry using forensic mirror output"
+    ),
     pages: str | None = Query(default=None, description="Page ranges, 1-based: 1-3,8,10-"),
     max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
     workers: str | None = Query(default=None, description="Total worker budget for this request"),
@@ -198,11 +206,11 @@ async def batch_parse(
     _verify_api_key(authorization)
 
     import multiprocessing as _mp
-    from docmirror.server.output_builder import build_api_response
-
     from dataclasses import replace
+
     from docmirror.configs.runtime.performance import resolve_worker_budget
     from docmirror.core.entry.options import ResourceControl
+    from docmirror.server.output_builder import build_api_response
 
     _cpu_count = _mp.cpu_count()
     _control = normalize_parse_control(
@@ -229,6 +237,7 @@ async def batch_parse(
         suffix = Path(f.filename).suffix
         with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
             import shutil as _shutil
+
             _shutil.copyfileobj(f.file, temp_file)
             temp_path = Path(temp_file.name)
         background_tasks.add_task(cleanup_file, temp_path)
@@ -245,8 +254,10 @@ async def batch_parse(
                 return payload
             except Exception as e:
                 return {
-                    "code": 500, "message": "error",
-                    "file_name": f.filename, "error": str(e),
+                    "code": 500,
+                    "message": "error",
+                    "file_name": f.filename,
+                    "error": str(e),
                 }
 
     results = await asyncio.gather(*[_process_one(f) for f in files], return_exceptions=True)
@@ -260,7 +271,9 @@ async def parse_file_on_server(
     file_path: str = Body(..., description="Absolute path to a file on the server"),
     edition: str = Query(default="all", pattern="^(community|enterprise|finance|all)$", description="Output edition"),
     include_text: bool = Query(default=False, description="Include full markdown text in response"),
-    include_geometry: bool = Query(default=False, description="Include table/cell geometry using forensic mirror output"),
+    include_geometry: bool = Query(
+        default=False, description="Include table/cell geometry using forensic mirror output"
+    ),
     pages: str | None = Query(default=None, description="Page ranges, 1-based: 1-3,8,10-"),
     max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
     workers: str | None = Query(default=None, description="Total worker budget for this request"),

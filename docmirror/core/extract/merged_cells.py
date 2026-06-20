@@ -19,6 +19,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def detect_merged_cells(
     page_plum,
     table_zone_bbox: tuple[float, float, float, float] | None = None,

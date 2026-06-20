@@ -18,9 +18,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from docmirror.models.entities.domain import Block, PageLayout
 from docmirror.core.extraction.html_utils import parse_html_tables_to_key_value, strip_html_to_plain_text
 from docmirror.core.ocr.fallback import ocr_extract_universal
+from docmirror.models.entities.domain import Block, PageLayout
 
 _strip_html_to_plain_text = strip_html_to_plain_text
 _parse_html_tables_to_key_value = parse_html_tables_to_key_value
@@ -30,7 +30,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-def extract_scanned_page(extractor: PageExtractor,
+
+def extract_scanned_page(
+    extractor: PageExtractor,
     *,
     fitz_page,
     page_idx: int,
@@ -155,10 +157,14 @@ def extract_scanned_page(extractor: PageExtractor,
                             if not tb or len(tb) != 4:
                                 continue
                             tx0, ty0, tx1, ty1 = (float(tb[0]), float(tb[1]), float(tb[2]), float(tb[3]))
-                            text = str(token.get("text") if isinstance(token, dict) else getattr(token, "text", "") or "").strip()
+                            text = str(
+                                token.get("text") if isinstance(token, dict) else getattr(token, "text", "") or ""
+                            ).strip()
                             if not text:
                                 continue
-                            raw_bbox = token.get("raw_bbox") if isinstance(token, dict) else getattr(token, "raw_bbox", None)
+                            raw_bbox = (
+                                token.get("raw_bbox") if isinstance(token, dict) else getattr(token, "raw_bbox", None)
+                            )
                             scaled_tokens.append(
                                 OCRToken(
                                     token_id=str(
@@ -175,10 +181,14 @@ def extract_scanned_page(extractor: PageExtractor,
                                     ),
                                     page=page_idx + 1,
                                     source=str(
-                                        token.get("source", "rapidocr") if isinstance(token, dict) else getattr(token, "source", "rapidocr")
+                                        token.get("source", "rapidocr")
+                                        if isinstance(token, dict)
+                                        else getattr(token, "source", "rapidocr")
                                     ),
                                     coordinate_system="pdf_points_top_left",
-                                    raw_bbox=tuple(raw_bbox) if raw_bbox and len(raw_bbox) == 4 else (tx0, ty0, tx1, ty1),
+                                    raw_bbox=tuple(raw_bbox)
+                                    if raw_bbox and len(raw_bbox) == 4
+                                    else (tx0, ty0, tx1, ty1),
                                     raw_coordinate_system=str(
                                         token.get("raw_coordinate_system", "image_pixels")
                                         if isinstance(token, dict)
@@ -196,11 +206,13 @@ def extract_scanned_page(extractor: PageExtractor,
                     full_text_parts.append(text)
                     ox0, oy0, ox1, oy1 = line.get("bbox", (0, 0, 0, 0))
                     bbox = (ox0 * sx, oy0 * sy, ox1 * sx, oy1 * sy)
-                    scaled_lines.append({
-                        "content": text,
-                        "bbox": list(bbox),
-                        "confidence": float(line.get("confidence", 1.0) or 1.0),
-                    })
+                    scaled_lines.append(
+                        {
+                            "content": text,
+                            "bbox": list(bbox),
+                            "confidence": float(line.get("confidence", 1.0) or 1.0),
+                        }
+                    )
                     # If content is HTML (e.g. external OCR), store plain text in block.
                     # Drop table segments so tables appear only in key_value block, not duplicated as text.
                     if "<table" in text.lower() or "<td" in text.lower():
@@ -286,7 +298,9 @@ def extract_scanned_page(extractor: PageExtractor,
                     )
                     try:
                         from docmirror.core.ocr.micro_grid.materialize import extract_micro_grid_structures
-                        from docmirror.core.ocr.page_canvas.evidence_bundles import merge_micro_grid_structures_into_host
+                        from docmirror.core.ocr.page_canvas.evidence_bundles import (
+                            merge_micro_grid_structures_into_host,
+                        )
 
                         micro_grids = extract_micro_grid_structures(
                             scaled_lines,

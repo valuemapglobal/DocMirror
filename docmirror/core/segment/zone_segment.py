@@ -29,6 +29,7 @@ from docmirror.core.segment.zone_models import Zone
 
 logger = logging.getLogger(__name__)
 
+
 def segment_page_into_zones(
     page_plum,
     page_idx: int,

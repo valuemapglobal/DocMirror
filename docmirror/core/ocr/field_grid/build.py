@@ -6,10 +6,11 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 from collections.abc import Callable
+from typing import Any
 
 from docmirror.core.ocr.field_grid.assemble import (
+    _line_char_tokens,
     build_field_cell,
     first_dotted_date,
     line_has_mixed_semantics,
@@ -18,10 +19,8 @@ from docmirror.core.ocr.field_grid.assemble import (
     route_semantic_tokens_to_bands,
     score_cell_for_label,
     split_line_into_semantic_tokens,
-    _line_char_tokens,
 )
 from docmirror.core.ocr.field_grid.assign import cell_bbox
-from docmirror.core.ocr.grid_materialize import exclusive_assign_tokens_to_grid
 from docmirror.core.ocr.field_grid.bands import (
     estimate_col_bands_from_label_rows,
     extract_label_tokens,
@@ -30,8 +29,9 @@ from docmirror.core.ocr.field_grid.bands import (
 )
 from docmirror.core.ocr.field_grid.models import FieldCell, LabelToken
 from docmirror.core.ocr.field_grid.repair import repair_field_cells
-from docmirror.core.ocr.field_grid.type_gate import apply_type_gate
 from docmirror.core.ocr.field_grid.tokens import expand_tokens_to_char_tokens
+from docmirror.core.ocr.field_grid.type_gate import apply_type_gate
+from docmirror.core.ocr.grid_materialize import exclusive_assign_tokens_to_grid
 from docmirror.core.ocr.local_structure.models import LocalStructure, StructureEdge, StructureNode
 from docmirror.core.ocr.local_structure.utils import union_bbox
 from docmirror.core.ocr.micro_grid.models import OCRToken
@@ -236,7 +236,9 @@ def build_field_grid_from_block(
         return None
 
     anchor_line = block_lines[0]
-    anchor_display = str(anchors[0]) if anchors and not re.search(r"账户\s*\d+", anchor_line["text"]) else anchor_line["text"]
+    anchor_display = (
+        str(anchors[0]) if anchors and not re.search(r"账户\s*\d+", anchor_line["text"]) else anchor_line["text"]
+    )
     roi_bbox = union_bbox(line["bbox"] for line in block_lines)
     sections = segment_field_sections(block_lines, is_label_line=is_label_line)
     if not sections:

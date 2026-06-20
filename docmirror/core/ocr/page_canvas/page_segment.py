@@ -9,9 +9,9 @@ prose) from geometry, and emits region candidates without domain-specific regex.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
-from collections.abc import Iterable
 
 from docmirror.core.ocr.local_structure.utils import bbox_of, line_items, text_of, union_bbox
 from docmirror.core.ocr.micro_grid.models import OCRToken
@@ -137,11 +137,7 @@ def _field_morphology_score(
     left_edges = [line["bbox"][0] for line in block_lines]
     left_spread = max(left_edges) - min(left_edges)
     two_col_rows = sum(1 for line in block_lines if _line_two_column_hint(line, block_bbox))
-    paired_rows = sum(
-        1
-        for idx in range(len(block_lines))
-        if _paired_row_two_column(block_lines, idx, block_bbox)
-    )
+    paired_rows = sum(1 for idx in range(len(block_lines)) if _paired_row_two_column(block_lines, idx, block_bbox))
     layout_rows = two_col_rows + paired_rows
     if layout_rows < 2:
         return 0.0, ()
@@ -405,21 +401,15 @@ def detect_pre_grid_field_supplements(
     cutoff = grid_boundary_top - 4.0
 
     field_blocks = [
-        block
-        for block in blocks
-        if block.predicted_kind == "field_grid" and float(block.bbox[3]) <= cutoff
+        block for block in blocks if block.predicted_kind == "field_grid" and float(block.bbox[3]) <= cutoff
     ]
     candidates: list[LocalStructureCandidate] = []
     if field_blocks:
         for seq, block in enumerate(field_blocks):
             block_lines = [
-                items[idx]
-                for idx in block.line_indices
-                if idx < len(items) and float(items[idx]["bbox"][3]) <= cutoff
+                items[idx] for idx in block.line_indices if idx < len(items) and float(items[idx]["bbox"][3]) <= cutoff
             ]
-            block_lines = [
-                line for line in block_lines if not is_lattice_content_line(str(line.get("text") or ""))
-            ]
+            block_lines = [line for line in block_lines if not is_lattice_content_line(str(line.get("text") or ""))]
             if len(block_lines) < 2:
                 continue
             block_bbox = union_bbox(line["bbox"] for line in block_lines)

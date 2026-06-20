@@ -50,15 +50,18 @@ class LoanContractCommunityPlugin(DomainPlugin):
 
     def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
-        return build_dec_kv("loan_contract", {
-            "contract_number": str(entities.get("contract_number", "")),
-            "party_a": str(entities.get("lender", "")),
-            "party_b": str(entities.get("borrower", "")),
-            "contract_amount": str(entities.get("loan_amount", "")),
-            "interest_rate": str(entities.get("interest_rate", "")),
-            "loan_term": str(entities.get("loan_term", "")),
-        })
 
+        return build_dec_kv(
+            "loan_contract",
+            {
+                "contract_number": str(entities.get("contract_number", "")),
+                "party_a": str(entities.get("lender", "")),
+                "party_b": str(entities.get("borrower", "")),
+                "contract_amount": str(entities.get("loan_amount", "")),
+                "interest_rate": str(entities.get("interest_rate", "")),
+                "loan_term": str(entities.get("loan_term", "")),
+            },
+        )
 
 
 plugin = LoanContractCommunityPlugin()

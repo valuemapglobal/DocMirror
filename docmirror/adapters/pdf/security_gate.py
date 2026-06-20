@@ -57,7 +57,7 @@ class PDFSecurityGate:
         attack_dict.append("")  # For standard DRM locks (Owner password only)
 
         # Heuristic 1: Extract ID Card last 6 digits from filename (PBOC Credit Reports)
-        id_match = re.search(r'(\d{17}[\dXx])', filename)
+        id_match = re.search(r"(\d{17}[\dXx])", filename)
         if id_match:
             last_6 = id_match.group(1)[-6:]
             attack_dict.append(last_6)
@@ -66,7 +66,7 @@ class PDFSecurityGate:
             logger.info(f"[SecurityGate] Synthesized target from ID heuristic: ******{last_6}")
 
         # Heuristic 2: Extract Mobile Number last 6 digits
-        phone_match = re.search(r'(?<!\d)(1\d{10})(?!\d)', filename)
+        phone_match = re.search(r"(?<!\d)(1\d{10})(?!\d)", filename)
         if phone_match:
             last_6 = phone_match.group(1)[-6:]
             attack_dict.append(last_6)

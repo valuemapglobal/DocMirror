@@ -3,6 +3,7 @@
 
 """Public compose exports."""
 
+from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows
 from docmirror.core.table.compose.composer import (
     TableComposer,
     build_table_operations,
@@ -16,7 +17,6 @@ from docmirror.core.table.compose.ledger_quality import (
     should_enable_ltqg,
     sum_passed_data_row_estimates,
 )
-from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows
 
 __all__ = [
     "TableComposer",

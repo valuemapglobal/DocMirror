@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docmirror.models.entities.domain import Block, PageLayout
 from docmirror.core.geometry.table_attrs import build_table_geometry_attrs
 from docmirror.core.ocr.fallback import analyze_scanned_page
+from docmirror.models.entities.domain import Block, PageLayout
 
 if TYPE_CHECKING:
     from docmirror.core.pipeline.context import PageExtractionContext
@@ -52,9 +52,7 @@ def run_finalize(
     layout_al = ctx.layout_al
     is_digital = ctx.is_digital
 
-    img_blocks, reading_order = extractor._extract_page_images(
-        fitz_page, fitz_doc, page_idx, blocks, reading_order
-    )
+    img_blocks, reading_order = extractor._extract_page_images(fitz_page, fitz_doc, page_idx, blocks, reading_order)
     blocks.extend(img_blocks)
 
     if not page_has_table and layout_al.has_table and not layout_al.is_scanned:

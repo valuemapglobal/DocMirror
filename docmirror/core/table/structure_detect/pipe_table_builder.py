@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import re
 
-from docmirror.core.table.row_kind import RowKind, classify_pipe_line, filter_pipe_table_rows
 from docmirror.core.table.pipe_row_merge import merge_pipe_continuation_rows
+from docmirror.core.table.row_kind import RowKind, classify_pipe_line, filter_pipe_table_rows
 from docmirror.core.table.structure_detect.pipe_grid import (
     count_primary_pipe_rows,
     detect_pipe_header_in_text,

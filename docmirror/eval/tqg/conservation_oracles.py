@@ -105,7 +105,7 @@ def run_mirror_conservation_oracle(
     """Validate ``meta.conservation`` from a ParseResult or serialized mirror."""
     report = GateReport(case_id=case_id, track=track, tier=tier)
     api = _api_from_result(mirror_or_api, spec)
-    conservation = ((api.get("meta") or {}).get("conservation") or {})
+    conservation = (api.get("meta") or {}).get("conservation") or {}
     if not conservation:
         report.passed = False
         report.failures.append("conservation oracle: missing meta.conservation")

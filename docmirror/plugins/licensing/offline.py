@@ -21,11 +21,11 @@ Dependencies: stdlib crypto helpers (hash/base64), local filesystem for ``.lic``
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
 import os
-import base64
 import platform
 import uuid
 from datetime import datetime, timedelta
@@ -161,10 +161,7 @@ class OfflineLicenseManager:
             # Store license (replace same license_id if re-loaded)
             license_id = license_file.license_info.get("license_id")
             if license_id:
-                self._licenses = [
-                    lic for lic in self._licenses
-                    if lic.license_info.get("license_id") != license_id
-                ]
+                self._licenses = [lic for lic in self._licenses if lic.license_info.get("license_id") != license_id]
             self._licenses.append(license_file)
 
             # Save to license directory
@@ -357,20 +354,17 @@ class OfflineLicenseManager:
                 if key_path.exists():
                     public_key_pem = key_path.read_text()
                 else:
-                    logger.error(f"[OfflineLicense] Public key not found. Please set DOCMIRROR_PUBLIC_KEY or place public.pem in {key_path.parent}")
+                    logger.error(
+                        f"[OfflineLicense] Public key not found. Please set DOCMIRROR_PUBLIC_KEY or place public.pem in {key_path.parent}"
+                    )
                     return False
-            
+
             try:
                 public_key = serialization.load_pem_public_key(
                     public_key_pem.encode() if isinstance(public_key_pem, str) else public_key_pem,
-                    backend=default_backend()
+                    backend=default_backend(),
                 )
-                public_key.verify(
-                    sig_bytes,
-                    content_str.encode(),
-                    padding.PKCS1v15(),
-                    hashes.SHA256()
-                )
+                public_key.verify(sig_bytes, content_str.encode(), padding.PKCS1v15(), hashes.SHA256())
                 return True
             except Exception as e:
                 logger.error(f"[OfflineLicense] Signature verification failed: {e}")

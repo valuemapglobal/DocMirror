@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 from collections.abc import Iterable
+from typing import Any
 
 from docmirror.core.ocr.local_structure.models import LocalStructureCandidate
 from docmirror.core.ocr.local_structure.utils import line_items, union_bbox

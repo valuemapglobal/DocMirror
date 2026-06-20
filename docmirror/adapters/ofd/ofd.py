@@ -97,10 +97,7 @@ class OFDAdapter(BaseParser):
                     pages.append(
                         PageContent(
                             page_number=idx,
-                            texts=[
-                                TextBlock(content=line, level=TextLevel.BODY)
-                                for line in lines
-                            ],
+                            texts=[TextBlock(content=line, level=TextLevel.BODY) for line in lines],
                         )
                     )
         except zipfile.BadZipFile:

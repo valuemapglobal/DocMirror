@@ -104,7 +104,6 @@ class ExcelAdapter(BaseParser):
             TextBlock,
             TextLevel,
         )
-
         from docmirror.models.errors import build_failure_result
 
         ext = file_path.suffix.lower()

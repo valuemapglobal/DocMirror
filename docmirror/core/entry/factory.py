@@ -23,10 +23,10 @@ Downstream: ``framework.dispatcher``, ``bridge.parse_result_bridge``,
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
-from collections.abc import Callable
 
 from docmirror.core.entry.options import ParseControl, normalize_parse_control
 from docmirror.core.entry.perceive_result import PerceiveResult
@@ -182,11 +182,11 @@ async def perceive_document(
     if opts.editions:
         from copy import deepcopy
 
-        from docmirror.server.output_builder import build_all_projections
+        from docmirror.edition_facade import build_edition_projections
 
         core_mirror = deepcopy(result)
         requested = tuple(ed for ed in opts.editions if ed in {"community", "enterprise", "finance"})
-        projections = build_all_projections(
+        projections = build_edition_projections(
             result,
             full_text=getattr(result, "full_text", "") or "",
             file_path=str(file_path),
@@ -195,9 +195,7 @@ async def perceive_document(
             editions=requested,
         )
         edition_outputs = {
-            edition: payload
-            for edition, payload in projections.items()
-            if edition != "mirror" and payload is not None
+            edition: payload for edition, payload in projections.items() if edition != "mirror" and payload is not None
         }
         if edition_outputs:
             return PerceiveResult(mirror=core_mirror, editions=edition_outputs)

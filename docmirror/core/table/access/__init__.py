@@ -21,14 +21,14 @@ Downstream: Plugins, benchmarks, and external consumers.
 from __future__ import annotations
 
 import logging
-from typing import Any
 from collections.abc import Iterator
+from typing import Any
 
 from docmirror.models.entities.parse_result import (
-    ParseResult,
     LogicalTable,
-    TableRow,
+    ParseResult,
     RowProvenance,
+    TableRow,
 )
 
 logger = logging.getLogger(__name__)
@@ -69,17 +69,19 @@ def get_logical_tables(result: ParseResult) -> list[LogicalTable]:
         if not source_pages:
             source_pages = [1]
 
-        logical.append(LogicalTable(
-            table_id=table.table_id,
-            headers=list(table.headers),
-            rows=all_rows,
-            confidence=table.confidence,
-            source_pages=source_pages,
-            page_span=(min(source_pages), max(source_pages)),
-            row_count=table.row_count,
-            provenance=provenance,
-            merge_log=merge_log,
-        ))
+        logical.append(
+            LogicalTable(
+                table_id=table.table_id,
+                headers=list(table.headers),
+                rows=all_rows,
+                confidence=table.confidence,
+                source_pages=source_pages,
+                page_span=(min(source_pages), max(source_pages)),
+                row_count=table.row_count,
+                provenance=provenance,
+                merge_log=merge_log,
+            )
+        )
 
     return logical
 

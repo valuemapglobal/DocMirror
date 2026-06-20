@@ -50,13 +50,16 @@ class RealEstateCertificateCommunityPlugin(DomainPlugin):
 
     def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv
-        return build_dec_kv("real_estate_certificate", {
-            "obligee": entities.get("obligee", ""),
-            "certificate_number": entities.get("certificate_number", ""),
-            "property_location": entities.get("property_location", ""),
-            "property_area": entities.get("property_area", ""),
-        })
 
+        return build_dec_kv(
+            "real_estate_certificate",
+            {
+                "obligee": entities.get("obligee", ""),
+                "certificate_number": entities.get("certificate_number", ""),
+                "property_location": entities.get("property_location", ""),
+                "property_area": entities.get("property_area", ""),
+            },
+        )
 
 
 plugin = RealEstateCertificateCommunityPlugin()

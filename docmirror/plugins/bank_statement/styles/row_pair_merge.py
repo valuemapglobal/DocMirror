@@ -37,9 +37,7 @@ def merge_continuation_into_pending(
     if time_cell:
         pending["time_cell"] = time_cell.strip()
     if counterparty_cell:
-        pending["counterparty_cell"] = (
-            (pending.get("counterparty_cell", "") + counterparty_cell).strip()
-        )
+        pending["counterparty_cell"] = (pending.get("counterparty_cell", "") + counterparty_cell).strip()
 
 
 def pair_ledger_rows(
@@ -54,7 +52,7 @@ def pair_ledger_rows(
     transactions: list[dict[str, str]] = []
     pending: dict[str, str] | None = None
 
-    for row in table[header_idx + 1:]:
+    for row in table[header_idx + 1 :]:
         cells = [str(c or "").strip() for c in row]
         while len(cells) <= max(col_ledger, col_cp, col_summary):
             cells.append("")

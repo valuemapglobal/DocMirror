@@ -13,6 +13,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from docmirror.core.analyze.structure_provenance import (
+    SSO_VERSION,
+    PrimaryStructure,
+    StructureProvenanceEnvelope,
+)
 from docmirror.core.analyze.structure_signals import (
     PIPE_GRID_VETO_THRESHOLD,
     apply_scene_hint_prior,
@@ -21,11 +26,6 @@ from docmirror.core.analyze.structure_signals import (
     score_scan,
     score_section_headers,
     score_table_pdf,
-)
-from docmirror.core.analyze.structure_provenance import (
-    PrimaryStructure,
-    StructureProvenanceEnvelope,
-    SSO_VERSION,
 )
 
 TableExtractionMode = Literal["full", "skipped", "enrich_only"]
@@ -65,9 +65,10 @@ def _pick_primary(scores: dict[str, float]) -> PrimaryStructure:
         if scores.get("H_table_pdf", 0) >= 0.3 and scores.get("H_pipe_grid", 0) >= 0.3:
             return "mixed"
         return "unknown"
-    if best_key in ("H_pipe_grid", "H_table_pdf") and abs(
-        scores.get("H_pipe_grid", 0) - scores.get("H_table_pdf", 0)
-    ) < 0.1:
+    if (
+        best_key in ("H_pipe_grid", "H_table_pdf")
+        and abs(scores.get("H_pipe_grid", 0) - scores.get("H_table_pdf", 0)) < 0.1
+    ):
         if scores.get("H_pipe_grid", 0) >= 0.5:
             return "table_led"
     return mapping[best_key]  # type: ignore[return-value]
@@ -99,10 +100,7 @@ def classify_structure(
     scores = apply_scene_hint_prior(scores, scene_hint)
 
     veto_applied: list[str] = []
-    if (
-        scores["H_pipe_grid"] >= PIPE_GRID_VETO_THRESHOLD
-        and scores["H_section"] >= 0.5
-    ):
+    if scores["H_pipe_grid"] >= PIPE_GRID_VETO_THRESHOLD and scores["H_section"] >= 0.5:
         scores["H_section"] *= 0.2
         veto_applied.append("H_pipe_grid_veto_section_monopoly")
 

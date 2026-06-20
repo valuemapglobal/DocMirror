@@ -9,9 +9,9 @@ and may emit partial records with confidence + missing-field audit.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
-from collections.abc import Callable
 
 StructureDict = dict[str, Any]
 ProjectorFn = Callable[[StructureDict, int], "ProjectionResult | None"]
@@ -64,7 +64,9 @@ def register_projector_fn(schema_hint: str, fn: ProjectorFn) -> ProjectorFn:
         def project(self, structure: StructureDict, *, page: int, schema_hint: str) -> ProjectionResult:
             result = fn(structure, page)
             if result is None:
-                return ProjectionResult(record=None, rejected=True, reject_reason="projector_returned_none", schema_hint=schema_hint)
+                return ProjectionResult(
+                    record=None, rejected=True, reject_reason="projector_returned_none", schema_hint=schema_hint
+                )
             if isinstance(result, ProjectionResult):
                 return result
             return ProjectionResult(record=result, schema_hint=schema_hint)

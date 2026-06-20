@@ -63,6 +63,7 @@ class HeaderInferrerMiddleware(BaseMiddleware):
         self.weight_signature = self.config.get("weight_signature", 0.4)
         self.weight_vocab = self.config.get("weight_vocab", 0.4)
         self.weight_consistency = self.config.get("weight_consistency", 0.2)
+
     def process(self, result: ParseResult) -> ParseResult:
         tables_processed = 0
         headers_inferred = 0
@@ -113,7 +114,6 @@ class HeaderInferrerMiddleware(BaseMiddleware):
 
         logger.info(f"[HeaderInferrer] Processed {tables_processed} tables, inferred {headers_inferred} headers")
         return result
-
 
     def _infer_header(self, table_block) -> tuple[int | None, float]:
         """
@@ -185,10 +185,7 @@ class HeaderInferrerMiddleware(BaseMiddleware):
 
             # FIX-4a: Penalize candidates whose first cell is a pure digit
             # (sequence numbers like "1", "2" are data rows, not headers)
-            first_cell = (
-                rows[candidate_idx].cells[0].text.strip()
-                if rows[candidate_idx].cells else ""
-            )
+            first_cell = rows[candidate_idx].cells[0].text.strip() if rows[candidate_idx].cells else ""
             if first_cell.isdigit():
                 score -= 0.3
 

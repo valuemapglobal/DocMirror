@@ -40,8 +40,9 @@ def run_segment(
     fitz_page = ctx.fitz_page
     zone_template = ctx.zone_template
     extraction_profile = ctx.extraction_profile
-    width, height = ctx.layout_al.width if hasattr(ctx.layout_al, "width") else fitz_page.rect.width, (
-        ctx.layout_al.height if hasattr(ctx.layout_al, "height") else fitz_page.rect.height
+    width, height = (
+        ctx.layout_al.width if hasattr(ctx.layout_al, "width") else fitz_page.rect.width,
+        (ctx.layout_al.height if hasattr(ctx.layout_al, "height") else fitz_page.rect.height),
     )
 
     _seg_t = _clock()
@@ -64,11 +65,7 @@ def run_segment(
     if used_template:
         logger.debug(f"[DocMirror] Perf #9: page {page_idx} segmentation via template ({seg_ms:.0f}ms)")
 
-    should_build_template = (
-        not used_template
-        and zones
-        and len(zones) >= 2
-    )
+    should_build_template = not used_template and zones and len(zones) >= 2
     if should_build_template:
         try:
             width_plum = page_plum.width if hasattr(page_plum, "width") else width

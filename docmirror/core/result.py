@@ -22,10 +22,10 @@ Downstream: Entry layer, pipeline stages, and middleware that need structured er
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any, Generic, TypeVar
-from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -339,7 +339,7 @@ Example 2: Chaining operations
         .and_then(extract_text)
         .and_then(parse_entities)
     )
-    
+
     if result.is_success:
         entities = result.value
     else:
@@ -359,7 +359,7 @@ Example 4: Async usage
         lambda: cache.get(checksum),
         lambda e: CacheError(str(e))
     )
-    
+
     if result.is_success:
         return result.value
     elif result.error.recoverable:

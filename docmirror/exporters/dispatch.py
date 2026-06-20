@@ -5,9 +5,8 @@
 from __future__ import annotations
 
 import html
-
-from dataclasses import dataclass
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from docmirror.models.entities.parse_result import ParseResult
 
@@ -21,9 +20,9 @@ def export_to_html(result: ParseResult) -> str:
     title_escaped = html.escape(str(title))
     return (
         "<!doctype html>\n"
-        "<html lang=\"en\">\n"
+        '<html lang="en">\n'
         "<head>\n"
-        "  <meta charset=\"utf-8\">\n"
+        '  <meta charset="utf-8">\n'
         f"  <title>{title_escaped}</title>\n"
         "  <style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
         "line-height:1.5;margin:32px;max-width:960px}pre{white-space:pre-wrap;"

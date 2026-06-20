@@ -23,12 +23,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from docmirror.models.entities.domain import Block, PageLayout
-from docmirror.core.segment.zones import (
-    analyze_document_layout,
-    analyze_document_layout_parallel,
-    segment_page_into_zones,
-)
 from docmirror.core.extract.engine import extract_tables_layered
 from docmirror.core.extract.grid_tensor import build_global_grid_tensor
 from docmirror.core.extract.segmentation import segment_page_for_extraction
@@ -37,8 +31,14 @@ from docmirror.core.pipeline.context import DocumentPipelineContext, PageExtract
 from docmirror.core.pipeline.document_pipeline import DocumentPipeline
 from docmirror.core.pipeline.page_extractor import PageExtractor
 from docmirror.core.pipeline.page_pipeline import PagePipeline
+from docmirror.core.pipeline.pdf_processor_table_fixup import fix_table_structures, infer_missing_headers
 from docmirror.core.pipeline.profiler import merge_page_stage_timings
-from docmirror.core.pipeline.page_worker import extract_single_page_digital_worker
+from docmirror.core.segment.zones import (
+    analyze_document_layout,
+    analyze_document_layout_parallel,
+    segment_page_into_zones,
+)
+from docmirror.models.entities.domain import PageLayout
 
 if TYPE_CHECKING:
     from docmirror.core.extraction.extractor import CoreExtractor
@@ -104,23 +104,21 @@ class PdfSyncProcessor:
             _perf, _page_perf)`` 6-tuple.
         """
         # === Strategy Registry: route by structural content_type ===
-        from docmirror.core.extraction.strategies.strategy_registry import get_strategy
+        import docmirror.core.extraction.strategies.mixed  # noqa: F401
+        import docmirror.core.extraction.strategies.scanned  # noqa: F401
 
         # Import to trigger @register_strategy decorators
         import docmirror.core.extraction.strategies.section_driven  # noqa: F401
         import docmirror.core.extraction.strategies.table_led  # noqa: F401
-        import docmirror.core.extraction.strategies.scanned  # noqa: F401
-        import docmirror.core.extraction.strategies.mixed  # noqa: F401
         import docmirror.core.extraction.strategies.text_dominant  # noqa: F401
+        from docmirror.core.extraction.strategies.strategy_registry import get_strategy
 
         self._process_ctx = (has_text, is_image_input, cleaned_path, file_path, dict(options or {}))
         proc_token = _active_pdf_processor.set(self)
         try:
             parse_control = (options or {}).get("parse_control")
             force_generic = bool(
-                parse_control is not None
-                and hasattr(parse_control, "pages")
-                and not parse_control.pages.is_all_pages
+                parse_control is not None and hasattr(parse_control, "pages") and not parse_control.pages.is_all_pages
             )
             strategy = get_strategy(pre_analysis.content_type)
             if strategy is not None and not force_generic:
@@ -172,8 +170,14 @@ class PdfSyncProcessor:
             selected_page_indices = list(parse_control.pages.resolve(source_page_count))
         else:
             max_pages_opt = options.get("max_pages")
-            max_pages = int(max_pages_opt or 0) if max_pages_opt is not None else int(os.environ.get("DOCMIRROR_MAX_PAGES", "0"))
-            selected_page_indices = list(range(source_page_count if max_pages <= 0 else min(source_page_count, max_pages)))
+            max_pages = (
+                int(max_pages_opt or 0)
+                if max_pages_opt is not None
+                else int(os.environ.get("DOCMIRROR_MAX_PAGES", "0"))
+            )
+            selected_page_indices = list(
+                range(source_page_count if max_pages <= 0 else min(source_page_count, max_pages))
+            )
         selected_page_set = set(selected_page_indices)
         if not selected_page_indices and source_page_count:
             logger.warning("[DocMirror] Page selection resolved to zero pages")
@@ -195,8 +199,7 @@ class PdfSyncProcessor:
             layout_workers = (
                 min(num_pages, explicit_layout_workers)
                 if explicit_layout_workers is not None
-                else
-                min(num_pages, env_layout)
+                else min(num_pages, env_layout)
                 if env_layout > 0
                 else min(self._host._max_page_concurrency, num_pages, os.cpu_count() or 4)
             )
@@ -311,20 +314,16 @@ class PdfSyncProcessor:
 
         # -- Phase 1.8: Golden Page Template Sampling (Graph-Propagated Injection) --
         global_table_template = None
-        if (
-            plumber_doc
-            and len(fitz_doc) >= 3
-            and _extraction_profile.enable_grid_template
-        ):
+        if plumber_doc and len(fitz_doc) >= 3 and _extraction_profile.enable_grid_template:
             try:
-                sample_idx = selected_page_indices[min(1, len(selected_page_indices) - 1)] if selected_page_indices else 0
+                sample_idx = (
+                    selected_page_indices[min(1, len(selected_page_indices) - 1)] if selected_page_indices else 0
+                )
                 if page_has_text[sample_idx]:
                     sp_t0 = _clock()
                     sample_plum = plumber_doc.pages[sample_idx]
                     sample_fitz = fitz_doc[sample_idx]
-                    sample_zones = segment_page_for_extraction(
-                        sample_plum, sample_idx, _extraction_profile
-                    )
+                    sample_zones = segment_page_for_extraction(sample_plum, sample_idx, _extraction_profile)
 
                     table_zone = None
                     for z in sample_zones:
@@ -340,8 +339,10 @@ class PdfSyncProcessor:
                             fitz_page=sample_fitz,
                             extraction_profile=_extraction_profile,
                         )
-                        if stabs and len(stabs[0]) >= 2 and (
-                            sconf >= 0.85 or _extraction_profile.is_borderless_ledger()
+                        if (
+                            stabs
+                            and len(stabs[0]) >= 2
+                            and (sconf >= 0.85 or _extraction_profile.is_borderless_ledger())
                         ):
                             logger.info(
                                 "[DocMirror] Golden Page Sampling: page %d layer=%s conf=%.2f → GlobalTableTemplate",
@@ -360,15 +361,15 @@ class PdfSyncProcessor:
                     )
             except Exception as e:
                 logger.warning(f"[DocMirror] Golden Page Template Sampling failed: {e}")
-        elif (
-            plumber_doc
-            and len(fitz_doc) >= 3
-            and _extraction_profile.profile_id == "generic"
-        ):
+        elif plumber_doc and len(fitz_doc) >= 3 and _extraction_profile.profile_id == "generic":
             # Legacy template sampling — generic docs only (EPO profiles use enable_grid_template branch)
             try:
                 # Sample the very middle page
-                sample_idx = selected_page_indices[len(selected_page_indices) // 2] if selected_page_indices else len(fitz_doc) // 2
+                sample_idx = (
+                    selected_page_indices[len(selected_page_indices) // 2]
+                    if selected_page_indices
+                    else len(fitz_doc) // 2
+                )
                 if page_has_text[sample_idx]:
                     sp_t0 = _clock()
                     sample_plum = plumber_doc.pages[sample_idx]
@@ -412,7 +413,9 @@ class PdfSyncProcessor:
                 _extraction_profile.profile_id,
             )
             use_page_concurrency = False
-        max_workers = min(self._host._max_page_concurrency, 4, len(selected_page_indices)) if use_page_concurrency else 1
+        max_workers = (
+            min(self._host._max_page_concurrency, 4, len(selected_page_indices)) if use_page_concurrency else 1
+        )
 
         try:
             if use_page_concurrency:
@@ -597,8 +600,7 @@ class PdfSyncProcessor:
             _t = _clock()
             if _dual_view:
                 logger.info(
-                    "[DocMirror] Dual-view mode: preserving per-page physical tables "
-                    "(destructive merge disabled)"
+                    "[DocMirror] Dual-view mode: preserving per-page physical tables (destructive merge disabled)"
                 )
                 _perf["dual_view"] = True
                 _perf["cross_page_merge_ms"] = 0
@@ -631,18 +633,14 @@ class PdfSyncProcessor:
                         "infer_missing_headers (compose unavailable — preserve physical fidelity)"
                     )
                 else:
-                    pages = self.fix_table_structures(pages)
-                    pages = self.infer_missing_headers(pages)
+                    pages = fix_table_structures(pages)
+                    pages = infer_missing_headers(pages)
 
             # ── Log performance breakdown ──
             _logical_payload = _perf.pop("_logical_tables", None)
             logger.info(
                 "[DocMirror] ⏱ Pipeline timing breakdown:\n"
-                + "\n".join(
-                    f"    {k}: {v:.0f}ms"
-                    for k, v in _perf.items()
-                    if isinstance(v, (int, float))
-                )
+                + "\n".join(f"    {k}: {v:.0f}ms" for k, v in _perf.items() if isinstance(v, (int, float)))
             )
             if _logical_payload is not None:
                 _perf["_logical_tables"] = _logical_payload
@@ -661,9 +659,7 @@ class PdfSyncProcessor:
                     if _ltqg.get("enabled"):
                         _primary_logical = int(_ltqg.get("expected_data_rows") or 0)
                     else:
-                        _primary_logical = max(
-                            int(lt.get("row_count") or 0) for lt in _logical_tables_payload
-                        )
+                        _primary_logical = max(int(lt.get("row_count") or 0) for lt in _logical_tables_payload)
                 _perf["extraction_audit"] = {
                     "profile_id": _profile_id,
                     "pages": list(_audit),
@@ -695,136 +691,12 @@ class PdfSyncProcessor:
                         if k == "page":
                             continue
                         if k == "stages_ms" and isinstance(v, dict):
-                            parts.append(
-                                "stages="
-                                + ",".join(f"{sk}={sv:.0f}ms" for sk, sv in v.items())
-                            )
+                            parts.append("stages=" + ",".join(f"{sk}={sv:.0f}ms" for sk, sv in v.items()))
                         elif isinstance(v, (int, float)):
                             parts.append(f"{k}={v:.0f}ms")
-                    logger.debug(
-                        f"[DocMirror] ⏱ Page {pp['page']}: " + " | ".join(parts)
-                    )
+                    logger.debug(f"[DocMirror] ⏱ Page {pp['page']}: " + " | ".join(parts))
 
             return pages, full_text, extraction_layer, extraction_confidence, _perf, _page_perf
-
-    def fix_table_structures(self, pages: list) -> list:
-        """Step 5.5: Apply table structure fix to all table blocks.
-
-        Run AFTER cross-page merge so column removal doesn't cause col-count
-        mismatches that prevent merging.
-        """
-        from docmirror.core.table.table_structure_fix import fix_table_structure
-
-        fixed_pages = []
-        for pg in pages:
-            new_blocks = []
-            for block in pg.blocks:
-                if block.block_type == "table" and isinstance(block.raw_content, list) and len(block.raw_content) >= 2:
-                    fixed = fix_table_structure(block.raw_content)
-                    new_blocks.append(
-                        Block(
-                            block_id=block.block_id,
-                            block_type=block.block_type,
-                            bbox=block.bbox,
-                            reading_order=block.reading_order,
-                            page=block.page,
-                            raw_content=fixed,
-                            attrs=block.attrs,
-                            evidence_ids=block.evidence_ids,
-                        )
-                    )
-                else:
-                    new_blocks.append(block)
-            fixed_pages.append(
-                PageLayout(
-                    page_number=pg.page_number,
-                    width=pg.width,
-                    height=pg.height,
-                    blocks=tuple(new_blocks),
-                    semantic_zones=pg.semantic_zones,
-                    is_scanned=pg.is_scanned,
-                )
-            )
-        return fixed_pages
-
-    def infer_missing_headers(self, pages: list) -> list:
-        """Step 5.6: Infer and prepend missing table headers from text blocks.
-
-        When a merged table starts with a data row (no header), scans
-        text blocks from earlier pages for a vocabulary-matching header
-        line and prepends it.
-        """
-        from ..utils.vocabulary import _is_header_row, _score_header_by_vocabulary
-
-        for pg in pages:
-            for block in pg.blocks:
-                if block.block_type != "table" or not isinstance(block.raw_content, list):
-                    continue
-                rc = block.raw_content
-                if not rc or len(rc) < 2:
-                    continue
-                if _is_header_row(rc[0]):
-                    continue
-
-                logger.warning(
-                    f"[Extractor] Page {pg.page_number}: Table block missing header, searching for header in text..."
-                )
-                candidate_header = None
-                best_vocab = 0
-                for prev_pg in pages:
-                    if prev_pg.page_number > pg.page_number:
-                        break
-                    for tb in prev_pg.blocks:
-                        if tb.block_type == "text" and isinstance(tb.raw_content, str):
-                            words = [w.strip() for w in tb.raw_content.split() if w.strip()]
-                            if len(words) >= 3:
-                                vs = _score_header_by_vocabulary(words)
-                                if vs > best_vocab and vs >= 3:
-                                    best_vocab = vs
-                                    candidate_header = words
-                if candidate_header:
-                    logger.info(
-                        f"[Merger] Page {pg.page_number}: Prepending inferred header (vocabulary score: {best_vocab})"
-                    )
-                    ncols = len(rc[0])
-                    if len(candidate_header) == ncols:
-                        aligned = candidate_header
-                    elif len(candidate_header) > ncols:
-                        aligned = candidate_header[:ncols]
-                    else:
-                        aligned = candidate_header + [""] * (ncols - len(candidate_header))
-                    rc_new = [aligned] + list(rc)
-                    new_blocks = []
-                    for b in pg.blocks:
-                        if b is block:
-                            new_blocks.append(
-                                Block(
-                                    block_id=b.block_id,
-                                    block_type=b.block_type,
-                                    bbox=b.bbox,
-                                    reading_order=b.reading_order,
-                                    page=b.page,
-                                    raw_content=rc_new,
-                                    attrs=b.attrs,
-                                    evidence_ids=b.evidence_ids,
-                                )
-                            )
-                        else:
-                            new_blocks.append(b)
-                    idx = pages.index(pg)
-                    pages[idx] = PageLayout(
-                        page_number=pg.page_number,
-                        width=pg.width,
-                        height=pg.height,
-                        blocks=tuple(new_blocks),
-                        semantic_zones=pg.semantic_zones,
-                        is_scanned=pg.is_scanned,
-                    )
-                    logger.info(
-                        f"[DocMirror] header inferred from text: vocab={best_vocab}, words={len(candidate_header)}"
-                    )
-                    break
-        return pages
 
 
 def _attach_stage_timings(host: Any, page_idx: int, page_entry: dict[str, Any]) -> None:

@@ -23,6 +23,7 @@ from docmirror.core.utils.watermark import is_watermark_char
 
 logger = logging.getLogger(__name__)
 
+
 def detect_columns_by_word_anchors(page_plum) -> list[list[str]] | None:
     """Word-anchor column detection.
 
@@ -124,5 +125,3 @@ def detect_columns_by_word_anchors(page_plum) -> list[list[str]] | None:
         f"word-anchors: {len(result) - 1} data rows, {len(col_bounds)} cols from {len(header_words)} header words"
     )
     return result
-
-

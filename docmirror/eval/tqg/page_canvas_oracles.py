@@ -23,7 +23,7 @@ def _doc(mirror_or_api: Any) -> dict[str, Any]:
         api = mirror_or_api.to_api_dict(mirror_level="forensic", include_text=True)
         return ((api.get("data") or {}).get("document") or {}) if isinstance(api, dict) else {}
     if isinstance(mirror_or_api, dict):
-        return ((mirror_or_api.get("data") or {}).get("document") or {})
+        return (mirror_or_api.get("data") or {}).get("document") or {}
     return {}
 
 
@@ -84,9 +84,7 @@ def run_page_canvas_oracle(
         report.metrics["field_grid_cell_count"] = cell_count
         if not ok:
             report.passed = False
-            report.failures.append(
-                f"field_grid cells expected >= {min_field_grid_cells}, got {cell_count}"
-            )
+            report.failures.append(f"field_grid cells expected >= {min_field_grid_cells}, got {cell_count}")
 
     if spec.get("require_flow_texts"):
         api_page = get_page_canvas(doc, page)

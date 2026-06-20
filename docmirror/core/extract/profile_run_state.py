@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from docmirror.models.entities.extraction_profile import ExtractionProfile
 
+
 class ProfileRunState:
     """Tracks candidates and gating when ExtractionProfile is active."""
 
@@ -44,9 +45,7 @@ class ProfileRunState:
         if not self.profile:
             return True
         row_count = len(tables[0]) if tables and tables[0] else 0
-        self.candidates.append(
-            self._ExtractCandidate(tables=tables, layer=layer, confidence=conf, row_count=row_count)
-        )
+        self.candidates.append(self._ExtractCandidate(tables=tables, layer=layer, confidence=conf, row_count=row_count))
         if self.use_bcs:
             return False
         if self.min_conf > 0 and conf < self.min_conf:
@@ -54,7 +53,7 @@ class ProfileRunState:
         return True
 
     def finalize(self, default_tables: list, default_layer: str, default_conf: float):
-        from .best_candidate import pick_best_candidate, count_data_rows
+        from .best_candidate import count_data_rows, pick_best_candidate
 
         if not self.profile or not self.candidates:
             return default_tables, default_layer, default_conf

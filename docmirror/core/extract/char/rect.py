@@ -20,6 +20,7 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
+
 def _extract_by_rect_columns(page_plum) -> list[list[str]] | None:
     """Rectangle column boundary method."""
     rects = page_plum.rects
@@ -102,5 +103,3 @@ def _extract_by_rect_columns(page_plum) -> list[list[str]] | None:
         logger.debug(f"rect columns failed: {e}")
 
     return None
-
-

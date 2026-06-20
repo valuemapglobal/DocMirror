@@ -105,7 +105,13 @@ class BaseTableParser(DomainPlugin):
 
         # Step 8: 构建输出
         return self._build_output(
-            parse_result, identity_fields, records, raw_headers, summary, period, text=text,
+            parse_result,
+            identity_fields,
+            records,
+            raw_headers,
+            summary,
+            period,
+            text=text,
         )
 
     # ── Step 1: KV 头部区提取 ──
@@ -244,7 +250,8 @@ class BaseTableParser(DomainPlugin):
     # ── Step 3: 表头检测 ──
 
     def _detect_headers(
-        self, tables: list[list[list[str]]],
+        self,
+        tables: list[list[list[str]]],
     ) -> tuple[int, list[str], dict[str, int]]:
         """检测表头行。
 
@@ -288,7 +295,7 @@ class BaseTableParser(DomainPlugin):
             if not tbl or header_row_idx >= len(tbl):
                 continue
 
-            for row in tbl[header_row_idx + 1:]:
+            for row in tbl[header_row_idx + 1 :]:
                 if not row or not any(str(c).strip() for c in row):
                     continue
 
@@ -300,7 +307,11 @@ class BaseTableParser(DomainPlugin):
                 # 首列验证：必须是日期或长数字（交易单号）
                 if not _ISO_DATE_RE.match(first_cell) and not re.match(r"^\d{16,}", first_cell):
                     date_cell = next(
-                        (str(c).strip() for c in row if _ISO_DATE_RE.match(str(c).strip()) or _ISO_DATETIME_RE.match(str(c).strip())),
+                        (
+                            str(c).strip()
+                            for c in row
+                            if _ISO_DATE_RE.match(str(c).strip()) or _ISO_DATETIME_RE.match(str(c).strip())
+                        ),
                         "",
                     )
                     if not date_cell:
@@ -311,7 +322,9 @@ class BaseTableParser(DomainPlugin):
                     txn: dict[str, str] = {}
                     for field_name, col_idx in col_map.items():
                         if col_idx < len(row):
-                            txn[raw_headers[col_idx] if col_idx < len(raw_headers) else f"col_{col_idx}"] = str(row[col_idx] or "").strip()
+                            txn[raw_headers[col_idx] if col_idx < len(raw_headers) else f"col_{col_idx}"] = str(
+                                row[col_idx] or ""
+                            ).strip()
                     if any(txn.values()):
                         transactions.append(txn)
                 else:
@@ -339,11 +352,13 @@ class BaseTableParser(DomainPlugin):
 
         for idx, raw_txn in enumerate(transactions, start=1):
             normalized = self._normalize(raw_txn)
-            records.append({
-                "row_index": idx,
-                "raw": dict(raw_txn),
-                "normalized": normalized,
-            })
+            records.append(
+                {
+                    "row_index": idx,
+                    "raw": dict(raw_txn),
+                    "normalized": normalized,
+                }
+            )
 
         return records
 
@@ -418,21 +433,13 @@ class BaseTableParser(DomainPlugin):
         expense_recs = [r for r in records if r["normalized"].get("direction") == "expense"]
         other_recs = [r for r in records if r["normalized"].get("direction") not in ("income", "expense")]
 
-        income_amounts = [
-            r["normalized"]["amount"] for r in income_recs
-            if r["normalized"].get("amount") is not None
-        ]
-        expense_amounts = [
-            r["normalized"]["amount"] for r in expense_recs
-            if r["normalized"].get("amount") is not None
-        ]
+        income_amounts = [r["normalized"]["amount"] for r in income_recs if r["normalized"].get("amount") is not None]
+        expense_amounts = [r["normalized"]["amount"] for r in expense_recs if r["normalized"].get("amount") is not None]
 
         total_income = round(sum(income_amounts), 2) if income_amounts else 0.0
         total_expense = round(sum(expense_amounts), 2) if expense_amounts else 0.0
 
-        all_ts = sorted(
-            r["normalized"]["timestamp"] for r in records if r["normalized"].get("timestamp")
-        )
+        all_ts = sorted(r["normalized"]["timestamp"] for r in records if r["normalized"].get("timestamp"))
         period: dict[str, str] = {}
         if len(all_ts) >= 2:
             period = {"start": all_ts[0][:10], "end": all_ts[-1][:10]}

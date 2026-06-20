@@ -6,15 +6,15 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
-from collections.abc import Iterable
 
-from docmirror.core.ocr.micro_grid.detect import detect_micro_grid_candidates
 from docmirror.core.ocr.micro_grid.cell_recognition import (
     normalize_allowlist_text,
     recognize_micro_cell_from_image,
 )
+from docmirror.core.ocr.micro_grid.detect import detect_micro_grid_candidates
 from docmirror.core.ocr.micro_grid.models import BBox, MicroGrid, MicroGridCell, OCRToken
 from docmirror.core.ocr.micro_grid.reconstruct import (
     assign_tokens_to_col_bands,
@@ -111,7 +111,9 @@ def _cell_bbox(row_band: dict[str, Any], col_band: dict[str, Any]) -> BBox:
     return cell_bbox(row_band, col_band)
 
 
-def _assign_row(tokens: list[OCRToken], row_band: dict[str, Any], cols: list[dict[str, Any]]) -> dict[int, list[OCRToken]]:
+def _assign_row(
+    tokens: list[OCRToken], row_band: dict[str, Any], cols: list[dict[str, Any]]
+) -> dict[int, list[OCRToken]]:
     return assign_tokens_to_col_bands(tokens, row_band, cols)
 
 
@@ -153,7 +155,8 @@ def _find_anchor(lines: list[dict[str, Any]]) -> tuple[dict[str, Any], tuple[int
 def _nearest_year_lines(lines: list[dict[str, Any]], anchor: dict[str, Any]) -> list[dict[str, Any]]:
     ax0, ay0, ax1, ay1 = anchor["bbox"]
     candidates = [
-        line for line in lines
+        line
+        for line in lines
         if _YEAR_RE.match(line["text"].strip()) and line["bbox"][1] > ay1 and line["bbox"][1] < ay1 + 160
     ]
     return candidates[:4]
@@ -216,7 +219,9 @@ def _row_band(line: dict[str, Any], role: str, *, x0: float, x1: float, pad_y: f
     }
 
 
-def _line_after(lines: list[dict[str, Any]], y: float, *, x_min: float, x_max: float, max_gap: float = 55.0) -> dict[str, Any] | None:
+def _line_after(
+    lines: list[dict[str, Any]], y: float, *, x_min: float, x_max: float, max_gap: float = 55.0
+) -> dict[str, Any] | None:
     candidates = []
     for line in lines:
         lx0, ly0, lx1, ly1 = line["bbox"]
@@ -228,7 +233,9 @@ def _line_after(lines: list[dict[str, Any]], y: float, *, x_min: float, x_max: f
     return candidates[0] if candidates else None
 
 
-def _line_before(lines: list[dict[str, Any]], y: float, *, x_min: float, x_max: float, max_gap: float = 55.0) -> dict[str, Any] | None:
+def _line_before(
+    lines: list[dict[str, Any]], y: float, *, x_min: float, x_max: float, max_gap: float = 55.0
+) -> dict[str, Any] | None:
     candidates = []
     for line in lines:
         lx0, ly0, lx1, ly1 = line["bbox"]
@@ -362,14 +369,22 @@ def reconstruct_repayment_micro_grid_from_lines(
 
     for year_line in years:
         year = int(year_line["text"])
-        status_line = _line_before(line_items, year_line["bbox"][1], x_min=grid_x0 - 10, x_max=grid_x1 + 10, max_gap=55.0)
+        status_line = _line_before(
+            line_items, year_line["bbox"][1], x_min=grid_x0 - 10, x_max=grid_x1 + 10, max_gap=55.0
+        )
         if status_line is None or status_line is header_line or "还款记录" in status_line["text"]:
-            status_line = _line_after(line_items, year_line["bbox"][1], x_min=grid_x0 - 10, x_max=grid_x1 + 10, max_gap=55.0)
+            status_line = _line_after(
+                line_items, year_line["bbox"][1], x_min=grid_x0 - 10, x_max=grid_x1 + 10, max_gap=55.0
+            )
         if status_line is None:
             continue
-        amount_line = _line_after(line_items, status_line["bbox"][1], x_min=grid_x0 - 10, x_max=grid_x1 + 10, max_gap=35.0)
+        amount_line = _line_after(
+            line_items, status_line["bbox"][1], x_min=grid_x0 - 10, x_max=grid_x1 + 10, max_gap=35.0
+        )
         if amount_line and _YEAR_RE.match(amount_line["text"].strip()):
-            amount_line = _line_after(line_items, amount_line["bbox"][1], x_min=grid_x0 - 10, x_max=grid_x1 + 10, max_gap=35.0)
+            amount_line = _line_after(
+                line_items, amount_line["bbox"][1], x_min=grid_x0 - 10, x_max=grid_x1 + 10, max_gap=35.0
+            )
 
         status_band = _row_band(status_line, "status", x0=grid_x0, x1=grid_x1)
         status_band["index"] = len(row_bands)
@@ -412,14 +427,14 @@ def reconstruct_repayment_micro_grid_from_lines(
             status_by_month = {}
 
         status_assignments = _assign_row(synthetic_tokens, status_band, month_cols)
-        amount_assignments = (
-            _assign_row(synthetic_tokens, amount_band, month_cols) if amount_band is not None else {}
-        )
+        amount_assignments = _assign_row(synthetic_tokens, amount_band, month_cols) if amount_band is not None else {}
 
         for col in month_cols:
             month = int(col["header"])
             st_tokens = status_assignments.get(month, [])
-            status = normalize_allowlist_text(status_by_month.get(month) or _token_text(st_tokens), _STATUS_CHARS, max_chars=1)
+            status = normalize_allowlist_text(
+                status_by_month.get(month) or _token_text(st_tokens), _STATUS_CHARS, max_chars=1
+            )
             status_crop = None
             status_recognition_source = "tokens"
             status_recognition_audit: dict[str, Any] = {}
@@ -506,10 +521,17 @@ def reconstruct_repayment_micro_grid_from_lines(
                 )
 
             if (year, month) in record_months and status:
-                status_ref = {"page": page, "grid_id": f"mg_p{page}_repayment_0", "row": st_cell.row_index, "col": month}
+                status_ref = {
+                    "page": page,
+                    "grid_id": f"mg_p{page}_repayment_0",
+                    "row": st_cell.row_index,
+                    "col": month,
+                }
                 refs = [status_ref]
                 if amount_band is not None:
-                    refs.append({"page": page, "grid_id": f"mg_p{page}_repayment_0", "row": amount_band["index"], "col": month})
+                    refs.append(
+                        {"page": page, "grid_id": f"mg_p{page}_repayment_0", "row": amount_band["index"], "col": month}
+                    )
                 records.append(
                     {
                         "year": year,
@@ -541,7 +563,7 @@ def reconstruct_repayment_micro_grid_from_lines(
         bbox=grid_bbox,
         anchor_text=anchor["text"],
         row_bands=row_bands,
-        col_bands=month_cols,
+        col_bands=[year_col_band, *month_cols],
         cells=cell_rows,
         grid_type_hint="credit_repayment_record",
         geometry_source=f"{token_source}+estimated_month_bands",
@@ -658,11 +680,7 @@ def records_from_micro_grid_dict(grid: dict[str, Any]) -> list[dict[str, Any]]:
     for row in grid.get("cells") or []:
         if not isinstance(row, list) or not row:
             continue
-        roles = {
-            str(cell.get("role") or "")
-            for cell in row
-            if isinstance(cell, dict)
-        }
+        roles = {str(cell.get("role") or "") for cell in row if isinstance(cell, dict)}
         if "status" in roles:
             status_rows.append([cell for cell in row if isinstance(cell, dict)])
         elif "overdue_amount" in roles:
@@ -679,11 +697,7 @@ def records_from_micro_grid_dict(grid: dict[str, Any]) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for status_row in status_rows:
         row_idx = next(
-            (
-                int(cell.get("row_index") or 0)
-                for cell in status_row
-                if str(cell.get("role") or "") == "status"
-            ),
+            (int(cell.get("row_index") or 0) for cell in status_row if str(cell.get("role") or "") == "status"),
             0,
         )
         row_year = years_by_row.get(row_idx)

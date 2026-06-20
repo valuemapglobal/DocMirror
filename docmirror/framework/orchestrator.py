@@ -47,9 +47,7 @@ class Orchestrator:
     ):
         self.settings = settings or DocMirrorSettings.from_env()
         self.config = config or self.settings.to_dict()
-        self.pipeline = MiddlewarePipeline(
-            fail_strategy=fail_strategy or self.settings.fail_strategy
-        )
+        self.pipeline = MiddlewarePipeline(fail_strategy=fail_strategy or self.settings.fail_strategy)
 
     async def enhance(
         self,
@@ -75,9 +73,7 @@ class Orchestrator:
         if enhance_mode == "raw":
             logger.info("[Orchestrator] Raw mode — skipping middleware pipeline")
         else:
-            middlewares = self._build_middlewares(
-                enhance_mode, file_type, content_model, result
-            )
+            middlewares = self._build_middlewares(enhance_mode, file_type, content_model, result)
             result = self.pipeline.execute(middlewares, result)
 
         elapsed = (time.time() - t0) * 1000
@@ -115,9 +111,7 @@ class Orchestrator:
         from ..configs.format.enhancement import transport_to_content_model
 
         model = content_model or transport_to_content_model(file_type)
-        middleware_names = resolve_pipeline(
-            model, enhance_mode, result, file_type=file_type
-        )
+        middleware_names = resolve_pipeline(model, enhance_mode, result, file_type=file_type)
         middlewares: list[BaseMiddleware] = []
 
         for name in middleware_names:

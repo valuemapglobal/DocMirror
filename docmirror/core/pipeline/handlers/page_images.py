@@ -25,7 +25,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-def extract_page_images(_extractor: PageExtractor,
+
+def extract_page_images(
+    _extractor: PageExtractor,
     fitz_page,
     fitz_doc,
     page_idx: int,
@@ -60,11 +62,7 @@ def extract_page_images(_extractor: PageExtractor,
                 for existing_block in blocks:
                     if existing_block.block_type == "text" and existing_block.raw_content:
                         bx0, by0, bx1, by1 = existing_block.bbox
-                        if (
-                            caption_y_range[0] <= by0 <= caption_y_range[1]
-                            and bx0 < img_rect.x1
-                            and bx1 > img_rect.x0
-                        ):
+                        if caption_y_range[0] <= by0 <= caption_y_range[1] and bx0 < img_rect.x1 and bx1 > img_rect.x0:
                             caption = existing_block.raw_content
                             break
 
@@ -87,4 +85,3 @@ def extract_page_images(_extractor: PageExtractor,
     except Exception as e:
         logger.debug(f"[DocMirror] image extraction skip: {e}")
     return new_blocks, reading_order
-

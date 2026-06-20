@@ -18,10 +18,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from docmirror.models.entities.domain import Block
 from docmirror.core.extract.engine import extract_tables_layered
 from docmirror.core.geometry.table_attrs import build_table_geometry_attrs
 from docmirror.core.ocr.fallback import analyze_scanned_page
+from docmirror.models.entities.domain import Block
 
 if TYPE_CHECKING:
     from docmirror.core.pipeline.page_extractor import PageExtractor
@@ -53,7 +53,9 @@ def _stamp_geometry_audit(extractor: PageExtractor, page_no: int, attrs: dict) -
         {"page": page_no, "geometry_coverage_ratio": attrs["geometry_coverage_ratio"]}
     )
 
-def fallback_table_extraction(extractor: PageExtractor,
+
+def fallback_table_extraction(
+    extractor: PageExtractor,
     page_plum,
     fitz_page,
     fitz_doc,

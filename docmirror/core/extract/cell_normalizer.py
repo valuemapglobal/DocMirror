@@ -63,18 +63,13 @@ def normalize_table_cells(
     profile: ExtractionProfile | None = None,
 ) -> list[list[list[str]]]:
     """Apply cell normalization to all tables in-place copy."""
-    if not profile or not (
-        profile.normalize_intracellular_newlines or profile.collapse_duplicate_spaces
-    ):
+    if not profile or not (profile.normalize_intracellular_newlines or profile.collapse_duplicate_spaces):
         return tables
     out: list[list[list[str]]] = []
     for tbl in tables:
         if not tbl:
             out.append(tbl)
             continue
-        normalized = [
-            [normalize_cell_text(cell, profile=profile) for cell in row]
-            for row in tbl
-        ]
+        normalized = [[normalize_cell_text(cell, profile=profile) for cell in row] for row in tbl]
         out.append(normalized)
     return out

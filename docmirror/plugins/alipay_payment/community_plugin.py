@@ -119,7 +119,8 @@ class AlipayPaymentPlugin(BaseTableParser):
         return ALIPAY_IDENTITY_FIELDS
 
     def _detect_headers(
-        self, tables: list[list[list[str]]],
+        self,
+        tables: list[list[list[str]]],
     ) -> tuple[int, list[str], dict[str, int]]:
         """表头检测：ColumnMatcher 优先，否则按支付宝 marker 行 + 默认列 fallback。"""
         header_row_idx, raw_headers, col_map = super()._detect_headers(tables)
@@ -177,11 +178,7 @@ class AlipayPaymentPlugin(BaseTableParser):
                     txn: dict[str, str] = {}
                     for field_name, col_idx in col_map.items():
                         if col_idx < len(row):
-                            header_key = (
-                                raw_headers[col_idx]
-                                if col_idx < len(raw_headers)
-                                else f"col_{col_idx}"
-                            )
+                            header_key = raw_headers[col_idx] if col_idx < len(raw_headers) else f"col_{col_idx}"
                             txn[header_key] = str(row[col_idx] or "").strip().replace("\n", "")
                     if any(txn.values()):
                         transactions.append(txn)
@@ -217,12 +214,8 @@ class AlipayPaymentPlugin(BaseTableParser):
         return build_dec_kv(
             "alipay_payment",
             {
-                "account_holder": str(
-                    entities.get("account_holder", metadata.get("Account holder", ""))
-                ),
-                "account_number": str(
-                    entities.get("account_number", metadata.get("Account number", ""))
-                ),
+                "account_holder": str(entities.get("account_holder", metadata.get("Account holder", ""))),
+                "account_number": str(entities.get("account_number", metadata.get("Account number", ""))),
                 "total_transactions": total_transactions,
                 "total_income": total_income,
                 "total_expense": total_expense,

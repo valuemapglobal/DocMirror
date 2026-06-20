@@ -57,10 +57,7 @@ class TableGeometry:
     def to_attrs(self) -> dict:
         return {
             "table_bbox": list(self.table_bbox) if self.table_bbox else None,
-            "cell_bboxes": [
-                [list(cell) if cell else None for cell in row]
-                for row in self.cell_bboxes
-            ],
+            "cell_bboxes": [[list(cell) if cell else None for cell in row] for row in self.cell_bboxes],
             "cell_geometry_status": self.cell_geometry_status,
             "cell_geometry_loss_reason": self.cell_geometry_loss_reason,
             "cell_evidence_ids": self.cell_evidence_ids,

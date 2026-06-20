@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any
 from collections.abc import Callable, Iterable
+from typing import Any
 
 from docmirror.core.ocr.local_structure.detect import detect_local_structure_candidates
 from docmirror.core.ocr.local_structure.models import (
@@ -83,9 +83,7 @@ def _is_label_line(line: dict[str, Any]) -> bool:
 def _line_tokens(tokens: list[OCRToken], bbox: BBox) -> tuple[str, ...]:
     x0, y0, x1, y1 = bbox
     ids = [
-        token.token_id
-        for token in tokens
-        if x0 <= token.center[0] <= x1 and y0 - 4.0 <= token.center[1] <= y1 + 4.0
+        token.token_id for token in tokens if x0 <= token.center[0] <= x1 and y0 - 4.0 <= token.center[1] <= y1 + 4.0
     ]
     return tuple(ids)
 
@@ -107,7 +105,8 @@ def _split_value_line_against_labels(
         return []
     line_bbox = value_line["bbox"]
     line_tokens = [
-        token for token in tokens
+        token
+        for token in tokens
         if line_bbox[0] - 2.0 <= token.center[0] <= line_bbox[2] + 2.0
         and line_bbox[1] - 4.0 <= token.center[1] <= line_bbox[3] + 4.0
     ]
@@ -117,10 +116,7 @@ def _split_value_line_against_labels(
         for label in labels_sorted:
             lx0, _ly0, lx1, _ly1 = label.bbox
             margin = max((lx1 - lx0) * 0.55, 12.0)
-            bucket = [
-                token for token in line_tokens
-                if lx0 - margin <= token.center[0] <= lx1 + margin
-            ]
+            bucket = [token for token in line_tokens if lx0 - margin <= token.center[0] <= lx1 + margin]
             if not bucket:
                 continue
             bucket = sorted(bucket, key=lambda token: token.bbox[0])
@@ -141,7 +137,9 @@ def _split_value_line_against_labels(
 
     segments = _interpolate_segments(value_line)
     if len(segments) <= 1:
-        return [(labels_sorted[0], value_line["text"], line_bbox, _line_tokens(tokens, line_bbox), value_line["confidence"])]
+        return [
+            (labels_sorted[0], value_line["text"], line_bbox, _line_tokens(tokens, line_bbox), value_line["confidence"])
+        ]
 
     for idx, (text, bbox) in enumerate(segments[: len(labels_sorted)]):
         if not text.strip():
@@ -170,10 +168,7 @@ def _nearest_values_for_labels(
     edge_idx = 0
     for label_line_id, line_labels in labels_by_line.items():
         label_y = min(label.bbox[3] for label in line_labels)
-        below = [
-            line for line in value_by_y
-            if line["line_id"] not in used_lines and line["bbox"][1] >= label_y - 1.0
-        ]
+        below = [line for line in value_by_y if line["line_id"] not in used_lines and line["bbox"][1] >= label_y - 1.0]
         if not below:
             continue
         value_line = min(below, key=lambda line: line["bbox"][1] - label_y)
@@ -375,8 +370,11 @@ def build_local_structures(
     for cand_idx, candidate in enumerate(candidate_list):
         cbox = candidate.bbox
         block_lines = [
-            line for line in items
-            if cbox[0] - 1 <= line["bbox"][0] and line["bbox"][2] <= cbox[2] + 1 and cbox[1] - 1 <= line["bbox"][1] <= cbox[3] + 1
+            line
+            for line in items
+            if cbox[0] - 1 <= line["bbox"][0]
+            and line["bbox"][2] <= cbox[2] + 1
+            and cbox[1] - 1 <= line["bbox"][1] <= cbox[3] + 1
         ]
         force_field_grid = any(
             code in (candidate.reason_codes or ())
@@ -393,8 +391,7 @@ def build_local_structures(
                 block_lines = [
                     line
                     for line in block_lines
-                    if float(line["bbox"][3]) <= cutoff
-                    and not is_lattice_content_line(str(line.get("text") or ""))
+                    if float(line["bbox"][3]) <= cutoff and not is_lattice_content_line(str(line.get("text") or ""))
                 ]
         if not block_lines:
             continue
@@ -402,9 +399,7 @@ def build_local_structures(
         prefix = structure_id
 
         field_grid: LocalStructure | None = None
-        if ENABLE_FIELD_GRID and (
-            force_field_grid or _prefers_field_grid(block_lines, is_label_line=_is_label_line)
-        ):
+        if ENABLE_FIELD_GRID and (force_field_grid or _prefers_field_grid(block_lines, is_label_line=_is_label_line)):
             field_grid = build_field_grid_from_block(
                 block_lines,
                 structure_id=structure_id,
@@ -425,15 +420,17 @@ def build_local_structures(
             structures.append(field_grid)
             continue
 
-        structures.append(_build_label_value_graph_structure(
-            block_lines,
-            page=page,
-            prefix=prefix,
-            structure_id=structure_id,
-            candidate=candidate,
-            token_list=token_list,
-            audit_extra={"fallback_from": "field_grid_failed"},
-        ))
+        structures.append(
+            _build_label_value_graph_structure(
+                block_lines,
+                page=page,
+                prefix=prefix,
+                structure_id=structure_id,
+                candidate=candidate,
+                token_list=token_list,
+                audit_extra={"fallback_from": "field_grid_failed"},
+            )
+        )
 
     if ENABLE_FIELD_GRID and len(structures) > 1:
         dicts = [s.to_dict() for s in structures if s.structure_kind == "field_grid"]
@@ -509,7 +506,9 @@ def _build_label_value_graph_structure(
                 )
             )
             label_idx += 1
-    values, edges = _nearest_values_for_labels(labels=labels, value_lines=value_lines, tokens=token_list, page=page, prefix=prefix)
+    values, edges = _nearest_values_for_labels(
+        labels=labels, value_lines=value_lines, tokens=token_list, page=page, prefix=prefix
+    )
     _append_continuation_values(
         values=values,
         edges=edges,

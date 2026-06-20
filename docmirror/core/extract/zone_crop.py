@@ -22,6 +22,7 @@ from ..utils.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE, _is_header_cell, _sco
 
 logger = logging.getLogger(__name__)
 
+
 def crop_to_table_zone(
     page_plum,
     table_zone_bbox: tuple[float, float, float, float],

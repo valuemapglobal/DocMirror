@@ -38,8 +38,7 @@ def _ocr_ref_for_page(document: dict[str, Any], page: int) -> str | None:
 
 def collect_legacy_sources(document: dict[str, Any], page: int) -> tuple[list[dict], list[dict]]:
     micro_grids = [
-        g for g in (document.get("micro_grids") or [])
-        if isinstance(g, dict) and int(g.get("page") or 0) == page
+        g for g in (document.get("micro_grids") or []) if isinstance(g, dict) and int(g.get("page") or 0) == page
     ]
     structures: list[dict] = []
     for evidence in document.get("scanned_local_structure_evidence") or []:
@@ -146,13 +145,9 @@ def enrich_api_page_with_canvas(
             page["reading_order"] = list(reading_order or built_order)
             from docmirror.core.ocr.page_canvas.block_index import reading_order_v1_from_blocks
 
-            page["reading_order_v1"] = list(
-                reading_order_v1 or reading_order_v1_from_blocks(built_blocks)
-            )
+            page["reading_order_v1"] = list(reading_order_v1 or reading_order_v1_from_blocks(built_blocks))
         else:
-            page["blocks"] = [
-                b.to_dict() if hasattr(b, "to_dict") else b for b in blocks
-            ]
+            page["blocks"] = [b.to_dict() if hasattr(b, "to_dict") else b for b in blocks]
             if morphology_summary is not None:
                 page["morphology_summary"] = dict(morphology_summary)
             if reading_order is not None:

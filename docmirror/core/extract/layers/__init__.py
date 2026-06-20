@@ -12,4 +12,3 @@ Upstream: ``extract.engine`` tier dispatch.
 
 Downstream: Raw table matrices to ``extract.best_candidate``.
 """
-
