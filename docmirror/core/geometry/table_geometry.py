@@ -137,11 +137,59 @@ def _max_cols(table: list[list[Any]]) -> int:
     return max((len(row) for row in table if isinstance(row, list)), default=0)
 
 
+def _normalize_native_cell_bboxes(
+    native_cell_bboxes: list[list[Sequence[float] | None]] | None,
+    *,
+    n_rows: int,
+    n_cols: int,
+) -> list[list[BBox | None]] | None:
+    if not native_cell_bboxes or len(native_cell_bboxes) < n_rows:
+        return None
+    out: list[list[BBox | None]] = []
+    any_bbox = False
+    for ri in range(n_rows):
+        row = native_cell_bboxes[ri]
+        if not isinstance(row, list) or len(row) < n_cols:
+            return None
+        out_row: list[BBox | None] = []
+        for ci in range(n_cols):
+            bbox = normalize(row[ci]) if row[ci] else None
+            out_row.append(bbox)
+            any_bbox = any_bbox or bool(bbox and area(bbox) > 0)
+        out.append(out_row)
+    return out if any_bbox else None
+
+
+def _row_bands_from_native(native: list[list[BBox | None]], fallback: BBox) -> list[BBox]:
+    bands: list[BBox] = []
+    for idx, row in enumerate(native):
+        row_bbox = union(cell for cell in row if cell)
+        if row_bbox:
+            bands.append((fallback[0], row_bbox[1], fallback[2], row_bbox[3]))
+        else:
+            bands.append(_even_bands(fallback, len(native), axis="y")[idx])
+    return bands
+
+
+def _col_bands_from_native(native: list[list[BBox | None]], fallback: BBox) -> list[BBox]:
+    n_cols = max((len(row) for row in native), default=0)
+    even = _even_bands(fallback, n_cols, axis="x")
+    bands: list[BBox] = []
+    for ci in range(n_cols):
+        col_bbox = union(row[ci] for row in native if ci < len(row) and row[ci])
+        if col_bbox:
+            bands.append((col_bbox[0], fallback[1], col_bbox[2], fallback[3]))
+        elif ci < len(even):
+            bands.append(even[ci])
+    return bands
+
+
 def build_table_geometry(
     table: list[list[Any]],
     *,
     chars: list[dict[str, Any]] | None = None,
     table_bbox: Sequence[float] | None = None,
+    native_cell_bboxes: list[list[Sequence[float] | None]] | None = None,
     page_number: int = 0,
     table_index: int = 0,
     geometry_source: str = "estimated_from_chars",
@@ -161,8 +209,9 @@ def build_table_geometry(
             geometry_confidence=geometry_confidence,
         )
 
-    rows = _row_bands(tb, chars, n_rows)
-    cols = _col_bands(tb, chars, n_cols)
+    native = _normalize_native_cell_bboxes(native_cell_bboxes, n_rows=n_rows, n_cols=n_cols)
+    rows = _row_bands_from_native(native, tb) if native else _row_bands(tb, chars, n_rows)
+    cols = _col_bands_from_native(native, tb) if native else _col_bands(tb, chars, n_cols)
     cell_bboxes: list[list[BBox | None]] = []
     statuses: list[list[str]] = []
     loss_reasons: list[list[str | None]] = []
@@ -177,12 +226,17 @@ def build_table_geometry(
         token_row: list[list[str]] = []
         confidence_row: list[float | None] = []
         for ci in range(n_cols):
-            band_bbox = _band_intersection(rows[ri], cols[ci])
+            native_bbox = native[ri][ci] if native else None
+            band_bbox = native_bbox or _band_intersection(rows[ri], cols[ci])
             band_chars = _dominant_chars_by_band(chars, rows[ri], cols[ci])
             exact_bbox = union(_char_bbox(ch) for ch in band_chars)
             row_data = table[ri] if ri < len(table) and isinstance(table[ri], list) else []
             text = str(row_data[ci]) if ci < len(row_data) else ""
-            if exact_bbox and str(text).strip():
+            if native_bbox and str(text).strip():
+                bbox_row.append(native_bbox)
+                status_row.append("exact")
+                loss_row.append(None)
+            elif exact_bbox and str(text).strip():
                 bbox_row.append(exact_bbox)
                 status_row.append("exact")
                 loss_row.append(None)

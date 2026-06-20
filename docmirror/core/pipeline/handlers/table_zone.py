@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 from docmirror.core.extract.cell_normalizer import normalize_table_cells
 from docmirror.core.extract.engine import detect_merged_cells, extract_tables_layered
+from docmirror.core.geometry.pdfplumber_native import native_cell_bboxes_for_table
 from docmirror.core.geometry.table_attrs import build_table_geometry_attrs
 from docmirror.core.ocr.fallback import analyze_scanned_page
 from docmirror.core.segment.zones import _reconstruct_rows_from_chars
@@ -119,7 +120,7 @@ def handle_data_table_zone(
     zone_tables_extracted = False
     ro = reading_order
 
-    for tbl in page_tables:
+    for table_index, tbl in enumerate(page_tables):
         if tbl and len(tbl) >= 1:
             zone_tables_extracted = True
             tbl_id = f"blk_{page_idx}_{ro}"
@@ -135,8 +136,16 @@ def handle_data_table_zone(
                 tbl,
                 chars=list(getattr(zone, "chars", None) or []),
                 table_bbox=zone.bbox,
+                native_cell_bboxes=native_cell_bboxes_for_table(
+                    page_plum,
+                    tbl,
+                    table_bbox=zone.bbox,
+                    table_index=table_index,
+                )
+                if extraction_layer in {"pdfplumber_default", "text_fallback"}
+                else None,
                 page_number=page_idx + 1,
-                table_index=len(result_blocks),
+                table_index=table_index,
                 geometry_source=extraction_layer or "table_zone",
                 geometry_confidence=extraction_confidence,
                 base_attrs=metadata,

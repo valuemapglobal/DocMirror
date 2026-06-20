@@ -108,14 +108,19 @@ def test_core_mirror_geometry_golden_matches_synthetic_contract():
                     "mirror_level": "forensic",
                     "min_physical_tables": 1,
                     "min_cell_bbox_coverage": 0.9,
+                    "min_exact_geometry_ratio": 0.8,
+                    "max_estimated_geometry_ratio": 0.2,
                     "max_missing_geometry_cells": 0,
                     "require_monotonic_rows": True,
                     "require_monotonic_cols": True,
                     "require_table_bbox_contains_cells": True,
                     "require_row_col_bands": True,
                     "require_logical_source_cell_refs": True,
+                    "require_logical_source_refs_resolve": True,
+                    "require_physical_cell_source_refs": True,
                     "require_geometry_loss_reason_for_estimated": True,
                     "require_cell_token_ids": True,
+                    "require_unique_cell_token_ownership": True,
                     "require_merged_cell_bbox_consistency": True,
                 }
             },
@@ -159,6 +164,145 @@ def test_mirror_geometry_oracle_rejects_missing_cell_bboxes():
     assert any("cell bbox coverage" in failure for failure in report.failures)
 
 
+def test_mirror_geometry_oracle_rejects_low_exact_geometry_ratio():
+    api = {
+        "data": {
+            "document": {
+                "pages": [
+                    {
+                        "page_number": 1,
+                        "tables": [
+                            {
+                                "table_id": "pt_1_0",
+                                "bbox": [0, 0, 20, 10],
+                                "rows": [
+                                    {
+                                        "cells": [
+                                            {
+                                                "text": "A",
+                                                "bbox": [0, 0, 10, 10],
+                                                "geometry_status": "estimated",
+                                            },
+                                            {
+                                                "text": "B",
+                                                "bbox": [10, 0, 20, 10],
+                                                "geometry_status": "estimated",
+                                            },
+                                        ]
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+        }
+    }
+
+    report = run_mirror_geometry_oracle(
+        api,
+        {"min_exact_geometry_ratio": 0.8, "max_estimated_geometry_ratio": 0.2},
+        case_id="low_exact",
+    )
+
+    assert not report.passed
+    assert report.metrics["exact_geometry_ratio"] == 0.0
+    assert report.metrics["estimated_geometry_ratio"] == 1.0
+    assert any("exact geometry ratio" in failure for failure in report.failures)
+
+
+def test_mirror_geometry_oracle_rejects_unresolved_logical_source_refs():
+    api = {
+        "data": {
+            "document": {
+                "pages": [
+                    {
+                        "page_number": 1,
+                        "tables": [
+                            {
+                                "table_id": "pt_1_0",
+                                "page": 1,
+                                "rows": [
+                                    {
+                                        "source_row_index": 0,
+                                        "cells": [
+                                            {
+                                                "text": "1",
+                                                "bbox": [0, 0, 10, 10],
+                                                "source_cell_refs": [
+                                                    {"page": 1, "table_id": "pt_1_0", "row": 0, "col": 0}
+                                                ],
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+                "logical_tables": [
+                    {
+                        "rows": [
+                            {
+                                "source_cell_refs": [
+                                    {"page": 1, "table_id": "pt_1_0", "row": 99, "col": 0}
+                                ]
+                            }
+                        ]
+                    }
+                ],
+            }
+        }
+    }
+
+    report = run_mirror_geometry_oracle(
+        api,
+        {"require_logical_source_refs_resolve": True},
+        case_id="bad_ref",
+    )
+
+    assert not report.passed
+    assert any("resolve to physical table cells" in failure for failure in report.failures)
+
+
+def test_mirror_geometry_oracle_rejects_duplicate_cell_token_ownership():
+    api = {
+        "data": {
+            "document": {
+                "pages": [
+                    {
+                        "page_number": 1,
+                        "tables": [
+                            {
+                                "table_id": "pt_1_0",
+                                "page": 1,
+                                "rows": [
+                                    {
+                                        "cells": [
+                                            {"text": "A", "bbox": [0, 0, 10, 10], "token_ids": ["tok_1"]},
+                                            {"text": "B", "bbox": [10, 0, 20, 10], "token_ids": ["tok_1"]},
+                                        ]
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+        }
+    }
+
+    report = run_mirror_geometry_oracle(
+        api,
+        {"require_unique_cell_token_ownership": True},
+        case_id="duplicate_token",
+    )
+
+    assert not report.passed
+    assert report.metrics["duplicate_cell_token_ownership_count"] == 1
+    assert any("belong to one cell" in failure for failure in report.failures)
+
+
 def test_table_geometry_aggregates_char_refs_and_confidence():
     from docmirror.core.geometry.table_geometry import build_table_geometry
 
@@ -178,3 +322,55 @@ def test_table_geometry_aggregates_char_refs_and_confidence():
     assert attrs["cell_token_ids"][0][0] == ["tok_a", "tok_b"]
     assert attrs["cell_evidence_ids"][0][0] == ["tok_a", "tok_b"]
     assert abs(attrs["cell_confidences"][0][0] - 0.7) < 1e-9
+
+
+def test_table_geometry_prefers_native_exact_cell_bboxes():
+    from docmirror.core.geometry.table_geometry import build_table_geometry
+
+    geometry = build_table_geometry(
+        [["A", "B"]],
+        chars=[
+            {"text": "A", "bbox": [1, 1, 8, 8], "token_id": "tok_a"},
+            {"text": "B", "bbox": [11, 1, 18, 8], "token_id": "tok_b"},
+        ],
+        table_bbox=[0, 0, 20, 10],
+        native_cell_bboxes=[[[0, 0, 10, 10], [10, 0, 20, 10]]],
+        page_number=1,
+        table_index=0,
+        geometry_source="pdfplumber_native",
+    )
+
+    attrs = geometry.to_attrs()
+    assert attrs["cell_bboxes"][0][0] == [0.0, 0.0, 10.0, 10.0]
+    assert attrs["cell_bboxes"][0][1] == [10.0, 0.0, 20.0, 10.0]
+    assert attrs["cell_geometry_status"][0] == ["exact", "exact"]
+    assert attrs["cell_token_ids"][0] == [["tok_a"], ["tok_b"]]
+
+
+def test_pdfplumber_native_cell_bboxes_for_table_shape_match():
+    from docmirror.core.geometry.pdfplumber_native import native_cell_bboxes_for_table
+
+    class FakeRow:
+        def __init__(self, cells):
+            self.cells = cells
+
+    class FakeTable:
+        rows = [
+            FakeRow([(0, 0, 10, 10), (10, 0, 20, 10)]),
+            FakeRow([(0, 10, 10, 20), (10, 10, 20, 20)]),
+        ]
+
+    class FakePage:
+        def find_tables(self):
+            return [FakeTable()]
+
+    bboxes = native_cell_bboxes_for_table(
+        FakePage(),
+        [["A", "B"], ["1", "2"]],
+        table_bbox=[0, 0, 20, 20],
+    )
+
+    assert bboxes == [
+        [(0.0, 0.0, 10.0, 10.0), (10.0, 0.0, 20.0, 10.0)],
+        [(0.0, 10.0, 10.0, 20.0), (10.0, 10.0, 20.0, 20.0)],
+    ]

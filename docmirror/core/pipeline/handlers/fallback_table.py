@@ -19,6 +19,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from docmirror.core.extract.engine import extract_tables_layered
+from docmirror.core.geometry.pdfplumber_native import native_cell_bboxes_for_table
 from docmirror.core.geometry.table_attrs import build_table_geometry_attrs
 from docmirror.core.ocr.fallback import analyze_scanned_page
 from docmirror.models.entities.domain import Block
@@ -158,6 +159,14 @@ def fallback_table_extraction(
                 tbl,
                 chars=_page_chars(page_plum),
                 table_bbox=table_bbox,
+                native_cell_bboxes=native_cell_bboxes_for_table(
+                    page_plum,
+                    tbl,
+                    table_bbox=table_bbox,
+                    table_index=tbl_idx,
+                )
+                if extraction_layer in {"pdfplumber_default", "text_fallback"}
+                else None,
                 page_number=page_idx + 1,
                 table_index=tbl_idx,
                 geometry_source=extraction_layer or "fallback_table",

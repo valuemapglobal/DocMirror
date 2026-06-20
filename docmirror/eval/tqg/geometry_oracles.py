@@ -61,6 +61,19 @@ def _bbox_coverage(tables: list[dict[str, Any]]) -> tuple[int, int, float]:
     return covered, total, ratio
 
 
+def _geometry_status_counts(tables: list[dict[str, Any]]) -> dict[str, int]:
+    counts = {"exact": 0, "estimated": 0, "missing": 0, "other": 0, "total": 0}
+    for table in tables:
+        for cell in _non_empty_cells(table):
+            counts["total"] += 1
+            status = str(cell.get("geometry_status") or "missing")
+            if status in ("exact", "estimated", "missing"):
+                counts[status] += 1
+            else:
+                counts["other"] += 1
+    return counts
+
+
 def _row_monotonic(table: dict[str, Any]) -> bool:
     for row in table.get("rows") or []:
         xs: list[float] = []
@@ -101,6 +114,94 @@ def _logical_refs_present(api: dict[str, Any]) -> bool:
             if not refs:
                 return False
     return True
+
+
+def _physical_cell_index(api: dict[str, Any]) -> set[tuple[int, str, int, int]]:
+    index: set[tuple[int, str, int, int]] = set()
+    for table in _tables(api):
+        table_id = str(table.get("table_id") or "")
+        page = int(table.get("page") or 0)
+        if not table_id:
+            continue
+        for row_idx, row in enumerate(table.get("rows") or []):
+            if not isinstance(row, dict):
+                continue
+            ref_row = row.get("source_row_index")
+            try:
+                source_row = int(ref_row) if ref_row is not None else row_idx
+            except (TypeError, ValueError):
+                source_row = row_idx
+            for col_idx, cell in enumerate(row.get("cells") or []):
+                if isinstance(cell, dict):
+                    index.add((page, table_id, row_idx, col_idx))
+                    index.add((page, table_id, source_row, col_idx))
+    return index
+
+
+def _ref_candidates(ref: dict[str, Any]) -> list[tuple[int, str, int, int]]:
+    table_id = str(ref.get("table_id") or ref.get("source_physical_id") or "")
+    try:
+        page = int(ref.get("page") or ref.get("source_page") or 0)
+    except (TypeError, ValueError):
+        page = 0
+    try:
+        col = int(ref.get("col") if ref.get("col") is not None else ref.get("col_index"))
+    except (TypeError, ValueError):
+        return []
+    rows: list[int] = []
+    for key in ("row", "row_index", "source_row_index", "raw_row"):
+        if ref.get(key) is None:
+            continue
+        try:
+            rows.append(int(ref.get(key)))
+        except (TypeError, ValueError):
+            continue
+    return [(page, table_id, row, col) for row in dict.fromkeys(rows) if table_id and page > 0]
+
+
+def _logical_refs_resolve(api: dict[str, Any]) -> bool:
+    physical = _physical_cell_index(api)
+    if not physical:
+        return True
+    logical = _doc(api).get("logical_tables") or []
+    for table in logical:
+        for row in table.get("rows") or []:
+            for ref in row.get("source_cell_refs") or []:
+                if not isinstance(ref, dict):
+                    return False
+                candidates = _ref_candidates(ref)
+                if not candidates or not any(candidate in physical for candidate in candidates):
+                    return False
+    return True
+
+
+def _physical_cell_refs_present(tables: list[dict[str, Any]]) -> bool:
+    nonempty = [cell for table in tables for cell in _non_empty_cells(table)]
+    if not nonempty:
+        return True
+    return all(cell.get("source_cell_refs") for cell in nonempty)
+
+
+def _unique_cell_token_ownership(tables: list[dict[str, Any]]) -> tuple[bool, int]:
+    owners: dict[str, tuple[str, int, int]] = {}
+    duplicate_count = 0
+    for table in tables:
+        table_id = str(table.get("table_id") or "")
+        for row_idx, row in enumerate(table.get("rows") or []):
+            if not isinstance(row, dict):
+                continue
+            for col_idx, cell in enumerate(row.get("cells") or []):
+                if not isinstance(cell, dict):
+                    continue
+                for token_id in cell.get("token_ids") or []:
+                    token = str(token_id)
+                    owner = (table_id, row_idx, col_idx)
+                    previous = owners.get(token)
+                    if previous is not None and previous != owner:
+                        duplicate_count += 1
+                    else:
+                        owners[token] = owner
+    return duplicate_count == 0, duplicate_count
 
 
 def _band_by_index(bands: list[Any]) -> dict[int, dict[str, Any]]:
@@ -200,6 +301,42 @@ def run_mirror_geometry_oracle(
             report.passed = False
             report.failures.append(f"cell bbox coverage expected >= {min_coverage}, got {ratio:.3f}")
 
+    status_counts = _geometry_status_counts(tables)
+    if status_counts["total"] > 0:
+        exact_ratio = status_counts["exact"] / status_counts["total"]
+        estimated_ratio = status_counts["estimated"] / status_counts["total"]
+        missing_ratio = status_counts["missing"] / status_counts["total"]
+    else:
+        exact_ratio = 1.0
+        estimated_ratio = 0.0
+        missing_ratio = 0.0
+    report.metrics.update(
+        {
+            "exact_geometry_cells": status_counts["exact"],
+            "estimated_geometry_cells": status_counts["estimated"],
+            "missing_status_geometry_cells": status_counts["missing"],
+            "exact_geometry_ratio": exact_ratio,
+            "estimated_geometry_ratio": estimated_ratio,
+            "missing_status_geometry_ratio": missing_ratio,
+        }
+    )
+
+    min_exact = spec.get("min_exact_geometry_ratio")
+    if min_exact is not None:
+        ok = exact_ratio >= float(min_exact)
+        report.checks["geometry_min_exact_ratio"] = ok
+        if not ok:
+            report.passed = False
+            report.failures.append(f"exact geometry ratio expected >= {min_exact}, got {exact_ratio:.3f}")
+
+    max_estimated = spec.get("max_estimated_geometry_ratio")
+    if max_estimated is not None:
+        ok = estimated_ratio <= float(max_estimated)
+        report.checks["geometry_max_estimated_ratio"] = ok
+        if not ok:
+            report.passed = False
+            report.failures.append(f"estimated geometry ratio expected <= {max_estimated}, got {estimated_ratio:.3f}")
+
     max_missing = spec.get("max_missing_geometry_cells")
     if max_missing is not None:
         covered, total, _ratio = _bbox_coverage(tables)
@@ -250,6 +387,20 @@ def run_mirror_geometry_oracle(
             report.passed = False
             report.failures.append("expected logical rows to carry source_cell_refs")
 
+    if spec.get("require_logical_source_refs_resolve"):
+        ok = _logical_refs_resolve(forensic)
+        report.checks["geometry_logical_source_refs_resolve"] = ok
+        if not ok:
+            report.passed = False
+            report.failures.append("expected logical source_cell_refs to resolve to physical table cells")
+
+    if spec.get("require_physical_cell_source_refs"):
+        ok = _physical_cell_refs_present(tables)
+        report.checks["geometry_physical_cell_source_refs"] = ok
+        if not ok:
+            report.passed = False
+            report.failures.append("expected non-empty physical cells to carry source_cell_refs")
+
     if spec.get("require_geometry_loss_reason_for_estimated"):
         estimated = [cell for cell in _iter_cells(tables) if cell.get("geometry_status") in {"estimated", "missing"}]
         ok = all(cell.get("geometry_loss_reason") for cell in estimated)
@@ -267,6 +418,14 @@ def run_mirror_geometry_oracle(
         if not ok:
             report.passed = False
             report.failures.append("expected non-empty geometry cells to carry token_ids")
+
+    if spec.get("require_unique_cell_token_ownership"):
+        ok, duplicate_count = _unique_cell_token_ownership(tables)
+        report.checks["geometry_unique_cell_token_ownership"] = ok
+        report.metrics["duplicate_cell_token_ownership_count"] = duplicate_count
+        if not ok:
+            report.passed = False
+            report.failures.append(f"expected token_ids to belong to one cell, found {duplicate_count} duplicates")
 
     if spec.get("require_merged_cell_bbox_consistency"):
         results = [_merged_cell_bands_consistent(table) for table in tables]

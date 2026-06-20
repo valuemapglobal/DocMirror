@@ -12,14 +12,19 @@ cases:
         mirror_level: forensic
         min_physical_tables: 1
         min_cell_bbox_coverage: 0.9
+        min_exact_geometry_ratio: 0.8
+        max_estimated_geometry_ratio: 0.2
         max_missing_geometry_cells: 0
         require_monotonic_rows: true
         require_monotonic_cols: true
         require_table_bbox_contains_cells: true
         require_row_col_bands: true
         require_logical_source_cell_refs: true
+        require_logical_source_refs_resolve: true
+        require_physical_cell_source_refs: true
         require_geometry_loss_reason_for_estimated: true
         require_cell_token_ids: true
+        require_unique_cell_token_ownership: true
         require_merged_cell_bbox_consistency: true
     tags: [mirror, geometry, layout]
 
