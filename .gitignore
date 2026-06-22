@@ -80,4 +80,7 @@ docs/*
 !docs/*.md
 !docs/*.rst
 !docs/*.txt
-!docs/design/
+## Additional privacy guards
+*.log
+credentials/
+secrets/
