@@ -23,6 +23,7 @@ import os
 import shutil
 import time
 from pathlib import Path
+from dotenv import load_dotenv
 from tempfile import NamedTemporaryFile, gettempdir
 
 from fastapi import BackgroundTasks, Body, FastAPI, File, Header, HTTPException, Query, UploadFile
@@ -32,6 +33,10 @@ from docmirror import __version__
 from docmirror.core.entry.factory import PerceiveOptions, perceive_document
 from docmirror.core.entry.options import normalize_parse_control
 from docmirror.server.schemas import ParseResponse
+
+# Load .env from project root
+_env_root = Path(__file__).resolve().parent.parent.parent
+load_dotenv(_env_root / '.env', override=False)
 
 logger = logging.getLogger(__name__)
 
