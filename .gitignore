@@ -55,14 +55,7 @@ output/
 artifacts/
 
 ## Audit / hygiene reports (regenerate via quality gate or audit scripts)
-reports/*
-!reports/.gitkeep
-
-## Customer licenses & signing keys (never commit)
-licenses/
-*.lic
-*.pem
-*.key
+reports/
 
 ## Paid edition packages (private wheels — not part of public docmirror OSS)
 docmirror_enterprise/
