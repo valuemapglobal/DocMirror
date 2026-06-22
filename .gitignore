@@ -61,9 +61,6 @@ reports/
 docmirror_enterprise/
 docmirror_finance/
 
-## Vendor Ops Plane — license issuance tools (not shipped in docmirror wheel)
-vendor/
-
 ## Local-only test inputs & golden expected outputs
 tests/fixtures/
 tests/golden/
