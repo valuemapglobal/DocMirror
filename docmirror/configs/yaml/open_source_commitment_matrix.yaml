@@ -1,0 +1,107 @@
+version: 1
+
+editions:
+  community:
+    label: Community
+  enterprise:
+    label: Enterprise
+  finance:
+    label: Finance
+
+commitments:
+  mirror_json:
+    label: Mirror JSON
+    community: yes
+    enterprise: yes
+    finance: yes
+    category: always_open
+  markdown:
+    label: Markdown
+    community: yes
+    enterprise: yes
+    finance: yes
+    category: always_open
+  generic_fallback:
+    label: Generic fallback
+    community: yes
+    enterprise: yes
+    finance: yes
+    category: always_open
+  community_core_domains_6_plus_1:
+    label: Community Core Domains 6+1 basic fields
+    community: yes
+    enterprise: yes
+    finance: yes
+    category: always_open
+  basic_evidence:
+    label: Evidence basic tracing
+    community: yes
+    enterprise: yes
+    finance: yes
+    category: always_open
+  batch_job_api:
+    label: Batch job API
+    community: limited
+    enterprise: yes
+    finance: yes
+    category: open_limited
+  enterprise_workflow:
+    label: Enterprise workflow
+    community: no
+    enterprise: yes
+    finance: yes
+    category: commercial_enhancement
+  multi_tenant:
+    label: Multi-tenant
+    community: no
+    enterprise: yes
+    finance: yes
+    category: commercial_enhancement
+  finance_risk_features:
+    label: Finance risk features
+    community: no
+    enterprise: no
+    finance: yes
+    category: finance_exclusive
+  regulatory_audit_bundle:
+    label: Regulatory audit bundle
+    community: no
+    enterprise: optional
+    finance: yes
+    category: finance_exclusive
+  human_review_workflow:
+    label: Human review workflow
+    community: no
+    enterprise: yes
+    finance: yes
+    category: commercial_enhancement
+  active_learning_loop:
+    label: Active learning loop
+    community: no
+    enterprise: yes
+    finance: yes
+    category: commercial_enhancement
+
+community_core_domains:
+  - generic
+  - bank_statement
+  - wechat_payment
+  - alipay_payment
+  - vat_invoice
+  - business_license
+  - credit_report
+
+rules:
+  license_missing_must_not_affect:
+    - mirror_json
+    - markdown
+    - generic_fallback
+    - community_core_domains_6_plus_1
+    - basic_evidence
+  public_route_terms:
+    - core_domain
+    - generic_fallback
+    - enterprise_only
+    - mirror_only
+  forbidden_public_terms:
+    - premium

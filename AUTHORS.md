@@ -10,4 +10,3 @@ We are incredibly grateful to the developers, researchers, and community members
 ## Contributors
 *(Alphabetical order. Please add your name here if you submit a significant PR!)*
 
-- **Antigravity** (Google DeepMind) - Extensive structural reform, traceability optimization, and architectural purification in Phase 1-15 (March 2026).

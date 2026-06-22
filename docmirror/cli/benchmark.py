@@ -40,7 +40,7 @@ console = Console()
 @click.option(
     "--output-dir",
     type=click.Path(path_type=Path),
-    default=Path("tests/benchmark/results"),
+    default=Path("output/benchmark/results"),
     help="Directory to write benchmark results",
 )
 @click.option("--fail-on-regression", is_flag=True, help="Exit 1 if any metric regresses vs baseline")

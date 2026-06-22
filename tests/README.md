@@ -1,6 +1,6 @@
 # DocMirror Test Suite
 
-See **`docs/design/10_test_architecture_first_principles_redesign.md`** for the TQG (Test Quality Gate Platform) architecture.
+The TQG (Test Quality Gate Platform) architecture drives manifest-driven test gates.
 
 ## Layout (Design 10)
 
@@ -14,9 +14,7 @@ See **`docs/design/10_test_architecture_first_principles_redesign.md`** for the 
 | `integration/` | Legacy golden (dual-run with TQG) | `tier_regression` |
 | `fixtures/` | Sample files + `registry.yaml` | — |
 | `golden/` | Expected-output index (`manifest.json`) + per-track subdirs | — |
-| `tools/` | Non-pytest utilities (`profile_parse.py`, etc.) | — |
 
-Legacy root `test_*.py` and `contracts/` shims re-export moved modules for backward compatibility.
 
 ## TQG manifests (SSOT)
 
@@ -31,15 +29,6 @@ Gate cases live under `docmirror/configs/yaml/test/gates/`:
 
 Classify case template: `gates/classify/_template.yaml` (reference only, not loaded by runner).
 
-Validate before commit:
-
-```bash
-python3 tools/validate_test_manifest.py
-python3 tools/sync_fixture_registry.py
-python3 tools/sync_golden_manifest.py
-python3 tools/generate_classify_text_samples.py --limit 20
-python3 tools/test_scene_coverage.py
-```
 
 ## Markers
 
@@ -53,13 +42,6 @@ python3 tools/test_scene_coverage.py
 
 Track markers: `track_extract`, `track_classify`, `track_mirror`, `track_edition`, `track_e2e`, `track_transport`.
 
-## Tools (non-pytest)
-
-```bash
-python3 tests/tools/profile_parse.py tests/fixtures/<sample>.pdf
-```
-
-Legacy path `tests/profile_parse.py` is a backward-compat shim.
 
 ## Running tests
 
@@ -83,13 +65,13 @@ TQG JSON reports are written to `artifacts/tqg/` when running regression tests.
 2. Register in `tests/fixtures/registry.yaml`
 3. Add plugin + `scene_keywords` / classification rules
 4. Add case to `configs/yaml/test/gates/classify.yaml` (and `extract.yaml` / `edition.yaml` if needed)
-5. Run `python tools/validate_test_manifest.py` and `python tools/validate_dti.py`
+5. Run `python scripts/validate/validate_test_manifest.py` and `python scripts/validate/validate_dti.py`
 
 No new `test_new_type_foo.py` required.
 
 ## Fixtures & Git LFS
 
-`tests/fixtures/registry.yaml` is auto-generated (`tools/sync_fixture_registry.py`). Each asset records `size_bytes`; files ≥ **10 MB** are flagged `lfs: true` and `bytes: lfs_candidate` (migrate to Git LFS before commit). Current tree has no fixtures above the threshold (max ≈ 9.4 MB).
+`tests/fixtures/registry.yaml` manually maintained. Each asset records `size_bytes`; files ≥ **10 MB** are flagged `lfs: true` and `bytes: lfs_candidate` (migrate to Git LFS before commit). Current tree has no fixtures above the threshold (max ≈ 9.4 MB).
 
 ## Session hooks
 

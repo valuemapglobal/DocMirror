@@ -1,0 +1,91 @@
+# GA 1.0 Step 14: Demo gate — validates the 3 first-principles demos
+version: 1
+track: demo
+layer: dgc
+
+# The 3 demos defined in ga_demo_manifest.yaml are validated here as CI gates.
+# Each demo proves a fundamental capability of DocMirror GA 1.0.
+#
+# Demo 1: complex_pdf_to_rag — Section-led document → RAG chunks
+# Demo 2: bank_flow_to_finance_json — Table-led bank statement → Finance JSON  
+# Demo 3: low_quality_scan_to_partial_evidence — Low-quality scan → partial + quality
+
+demos:
+  complex_pdf_to_rag:
+    fixture: tests/fixtures/synthetic/credit_report_section_smoke.pdf
+    profile: full
+    gates:
+      - artifact_exists: 001_mirror.json
+      - artifact_not_empty: output.md
+      - artifact_exists: 005_evidence_bundle.json
+      - field: mirror.pages.len >= 3
+
+  bank_flow_to_finance_json:
+    fixture: tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    profile: full
+    gates:
+      - artifact_not_empty: 002_community.json
+      - artifact_not_empty: 004_finance.json
+      - field: finance.data.records.len >= 20
+
+  low_quality_scan_to_partial_evidence:
+    fixture: tests/fixtures/scanned/account_card_page4_full_layout.json
+    profile: full
+    gates:
+      - artifact_exists: quality_report.json
+      - field: quality_report.needs_review.len >= 1
+      - field: quality_report.status in [partial, success]
+
+cases:
+  - id: demo_complex_pdf_artifacts
+    tier: nightly
+    pipeline: full
+    fixture: tests/fixtures/synthetic/credit_report_section_smoke.pdf
+    skip_if_fixture_missing: true
+    options:
+      profile: full
+      max_pages: 10
+    oracle:
+      artifacts:
+        - 001_mirror.json:
+            exists: true
+            min_size_bytes: 100
+        - output.md:
+            exists: true
+            min_size_bytes: 10
+        - 005_evidence_bundle.json:
+            exists: true
+    tags: [demo, complex_pdf, rag]
+
+  - id: demo_bank_flow_artifacts
+    tier: nightly
+    pipeline: full
+    fixture: tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    skip_if_fixture_missing: true
+    options:
+      profile: full
+    oracle:
+      artifacts:
+        - 002_community.json:
+            exists: true
+            min_size_bytes: 100
+        - 004_finance.json:
+            exists: true
+            min_size_bytes: 100
+    tags: [demo, bank_flow, finance]
+
+  - id: demo_low_quality_scan
+    tier: nightly
+    pipeline: full
+    fixture: tests/fixtures/scanned/account_card_page4_full_layout.json
+    skip_if_fixture_missing: true
+    options:
+      profile: full
+    oracle:
+      artifacts:
+        - quality_report.json:
+            exists: true
+      quality:
+        needs_review_min: 1
+        status_in: [partial, success]
+    tags: [demo, low_quality, scan]

@@ -1,0 +1,284 @@
+version: 1
+track: domain_ga
+layer: dgc
+gates:
+  reading_order: structure.reading_order
+domains:
+  generic:
+    gates:
+      classify: domain.generic.classify
+      extract: domain.generic.extract
+      edition_schema: domain.generic.edition_schema
+      evidence: domain.generic.evidence
+      failure:
+      - generic_empty_input
+      - generic_low_quality
+      fixtures:
+        synthetic: generic_synthetic
+    cases: []
+  bank_statement:
+    gates:
+      classify: domain.bank_statement.classify
+      extract: domain.bank_statement.extract
+      edition_schema: domain.bank_statement.edition_schema
+      evidence: domain.bank_statement.evidence
+      failure:
+      - bank_statement_missing_header
+      - bank_statement_missing_amount_column
+      - bank_statement_low_ocr_quality
+      fixtures:
+        easy: tests/fixtures/bank_statement/golden/borderless_ocr.json
+        medium: tests/fixtures/bank_statement/ZHAO YA_银行流水_20251104_1.pdf
+        hard: tests/fixtures/bank_statement/上海第一支行_银行流水_中国建计银行_20200405.pdf
+        broken: tests/fixtures-private/adversarial/ocr_trap_blurry.pdf
+        low_quality: tests/fixtures-private/low_quality/low_quality_bank_statement_placeholder.pdf
+        edge_case: tests/fixtures-private/edge_case/edge_case_bank_statement_placeholder.pdf
+    golden_refs:
+    - bank_statement_golden_borderless_ocr_json
+    - bank_statement_golden_compact_merged_ledger_json
+    - bank_statement_golden_grid_standard_json
+    - bank_statement_golden_signed_amount_json
+    - bank_statement_golden_split_debit_credit_json
+    - bank_statement_golden_split_debit_credit_boc_json
+    - golden_pcm_l3_credit_finance_json
+    - golden_pcm_mirror_volume_baseline_json
+    cases:
+    - id: bank_statement_community_cqf
+      tier: regression
+      fixture: fixtures/bank_statement/建行-镇江超乾物流有限公司_1.pdf
+      skip_if_fixture_missing: true
+      pipeline: edition
+      editions:
+      - community
+      oracle:
+        bank_statement:
+          min_edition_records: 20
+          forbidden_extract_status: degraded
+  wechat_payment:
+    gates:
+      classify: domain.wechat_payment.classify
+      extract: domain.wechat_payment.extract
+      edition_schema: domain.wechat_payment.edition_schema
+      evidence: domain.wechat_payment.evidence
+      failure:
+      - wechat_quarantine_not_lost
+      - wechat_column_mismatch
+      fixtures:
+        easy: tests/fixtures/wechat_payment/synthetic_easy_standard.pdf
+        medium: tests/fixtures/wechat_payment/黄照荣+微信流水_cleaned.pdf
+        hard: tests/fixtures-private/adversarial/resource_bomb.pdf
+        broken: tests/fixtures-private/broken/broken_wechat_payment_placeholder.pdf
+        low_quality: tests/fixtures-private/low_quality/low_quality_wechat_payment_placeholder.pdf
+        edge_case: tests/fixtures-private/edge_case/edge_case_wechat_payment_placeholder.pdf
+    cases:
+    - id: wechat_community_records_parity
+      tier: regression
+      tier_tags:
+      - slow
+      fixture: fixtures/wechat_payment/黄照荣+微信流水.pdf
+      pipeline: edition
+      editions:
+      - community
+      oracle:
+        wechat_payment:
+          min_edition_records: 5000
+          max_edition_drift_ratio: 0.01
+          quarantine_pages_preserved: true
+  alipay_payment:
+    gates:
+      classify: domain.alipay_payment.classify
+      extract: domain.alipay_payment.extract
+      edition_schema: domain.alipay_payment.edition_schema
+      evidence: domain.alipay_payment.evidence
+      failure:
+      - alipay_time_normalization_failed
+      - alipay_amount_normalization_failed
+      fixtures:
+        easy: tests/fixtures/alipay_payment/synthetic_easy_standard.pdf
+        medium: tests/fixtures/alipay_payment/黄照荣+支付宝流水_cleaned.pdf
+        hard: tests/fixtures-private/adversarial/resource_bomb.pdf
+        broken: tests/fixtures-private/broken/broken_alipay_payment_placeholder.pdf
+        low_quality: tests/fixtures-private/low_quality/low_quality_alipay_payment_placeholder.pdf
+        edge_case: tests/fixtures-private/edge_case/edge_case_alipay_payment_placeholder.pdf
+    cases:
+    - id: alipay_community_records
+      tier: regression
+      fixture: fixtures/alipay_payment/黄照荣+支付宝流水.pdf
+      pipeline: edition
+      editions:
+      - community
+      oracle:
+        alipay_payment:
+          min_edition_records: 100
+          normalized_amount_rate:
+            min: 0.95
+          normalized_time_rate:
+            min: 0.9
+  vat_invoice:
+    gates:
+      classify: domain.vat_invoice.classify
+      extract: domain.vat_invoice.extract
+      edition_schema: domain.vat_invoice.edition_schema
+      evidence: domain.vat_invoice.evidence
+      failure:
+      - vat_invoice_empty_input
+      - vat_invoice_amount_inconsistent
+      fixtures:
+        easy: tests/fixtures/vat_invoice/synthetic_easy_standard.pdf
+        medium: tests/fixtures/vat_invoice/synthetic_medium_variant.pdf
+        hard: tests/fixtures-private/adversarial/resource_bomb.pdf
+        broken: tests/fixtures-private/broken/broken_vat_invoice_placeholder.pdf
+        low_quality: tests/fixtures-private/adversarial/ocr_trap_blurry.pdf
+        edge_case: tests/fixtures-private/adversarial/missing_pages.pdf
+    cases: []
+    note: 'VAT invoice currently at manual_target=candidate in community_core.yaml. Gate IDs are defined but no real fixtures
+      exist yet; DGC compiler will reflect candidate status until fixtures are populated.
+
+      '
+  business_license:
+    gates:
+      classify: domain.business_license.classify
+      extract: domain.business_license.extract
+      edition_schema: domain.business_license.edition_schema
+      evidence: domain.business_license.evidence
+      failure:
+      - business_license_uscc_checksum_invalid
+      - business_license_missing_required_field
+      fixtures:
+        easy: tests/fixtures/business_license/成立日期注册资本营业期限中国_营业执照_万元整营业执照一人有限责任公司_201264.pdf
+        medium: tests/fixtures/business_license/synthetic_medium_variant.pdf
+        hard: tests/fixtures-private/adversarial/resource_bomb.pdf
+        broken: tests/fixtures-private/broken/broken_business_license_placeholder.pdf
+        low_quality: tests/fixtures-private/low_quality/low_quality_business_license_placeholder.pdf
+        edge_case: tests/fixtures-private/edge_case/edge_case_business_license_placeholder.pdf
+    cases:
+    - id: business_license_community_kv
+      tier: regression
+      fixture: fixtures/business_license/成立日期注册资本营业期限中国_营业执照_万元整营业执照一人有限责任公司_201264.pdf
+      pipeline: edition
+      editions:
+      - community
+      oracle:
+        business_license:
+          required_fields_present:
+          - company_name
+          - unified_social_credit_code
+          - legal_representative
+          max_validation_issues: 0
+  credit_report:
+    gates:
+      classify: domain.credit_report.classify
+      extract: domain.credit_report.extract
+      edition_schema: domain.credit_report.edition_schema
+      evidence: domain.credit_report.evidence
+      failure:
+      - credit_report_scanned_low_quality
+      - credit_report_missing_section
+      fixtures:
+        easy: tests/fixtures/credit_report/兰瑞存.pdf
+        medium: tests/fixtures/credit_report/synthetic_medium_sections.pdf
+        hard: tests/fixtures-private/adversarial/resource_bomb.pdf
+        broken: tests/fixtures-private/broken/broken_credit_report_placeholder.pdf
+        low_quality: tests/fixtures-private/low_quality/low_quality_credit_report_placeholder.pdf
+        edge_case: tests/fixtures-private/edge_case/edge_case_credit_report_placeholder.pdf
+    cases:
+    - id: credit_report_sections
+      tier: regression
+      fixture: fixtures/credit_report/兰瑞存.pdf
+      pipeline: edition
+      editions:
+      - community
+      oracle:
+        credit_report:
+          min_sections: 2
+          required_sections_present:
+          - accounts
+          - repayments
+          subject_name_present: true
+fixture_assignments:
+  bank_statement:
+    easy:
+    - tests/fixtures/bank_statement/建行-镇江超乾物流有限公司_1.pdf
+    - tests/fixtures/bank_statement/重庆恒腾科技有限公司_银行流水_银座银行_20251229.pdf
+    medium:
+    - tests/fixtures/bank_statement/上海第一支行_银行流水_中国建计银行_20200405.pdf
+    - tests/fixtures/bank_statement/中国银行-南京创沃电气设备有限公司_1.pdf
+    - tests/fixtures/bank_statement/农行-上海宏立机械设备租赁有限公司_1.pdf
+    - tests/fixtures/bank_statement/安徽康安设备吊装工程有限公司_银行流水_光大银行_20240902.pdf
+    - tests/fixtures/bank_statement/重庆数宜信信用管理有_银行流水_浦发银行_20250104.pdf
+    - tests/fixtures/bank_statement/重庆数宜信信用管理有限公司_银行流水_富滇银行_20260224.pdf
+    - tests/fixtures/bank_statement/重庆数宜信信用管理有限公司_银行流水_重庆三峡银行_20250101.pdf
+    - tests/fixtures/bank_statement/浙江天宏国际物流有限公司_银行流水_台州银行_20240329.pdf
+    hard:
+    - tests/fixtures/bank_statement/收入收款账号收款账户名支出余额交易渠道币_银行流水_20251020.pdf
+    - tests/fixtures/bank_statement/ZHAO YA_银行流水_20251104.pdf
+    low_quality:
+    - tests/fixtures/bank_statement/曹兴勇_银行流水_江苏镇江农村商业银行_20250117.pdf
+    - tests/fixtures/bank_statement/于鑫日_银行流水_个人银行.pdf
+    edge_case:
+    - tests/fixtures/bank_statement/ZHAO YA_银行流水_20251104_cleaned.pdf
+  wechat_payment:
+    easy:
+    - tests/fixtures/wechat_payment/黄照荣+微信流水.pdf
+    medium:
+    - tests/fixtures/wechat_payment/黄照荣+微信流水_cleaned.pdf
+    broken:
+    - tests/fixtures-private/broken/broken_wechat_payment_placeholder.gitkeep
+    low_quality:
+    - tests/fixtures-private/low_quality/low_quality_wechat_payment_placeholder.gitkeep
+    edge_case:
+    - tests/fixtures-private/edge_case/edge_case_wechat_payment_placeholder.gitkeep
+  alipay_payment:
+    easy:
+    - tests/fixtures/alipay_payment/黄照荣+支付宝流水.pdf
+    medium:
+    - tests/fixtures/alipay_payment/黄照荣+支付宝流水_cleaned.pdf
+    broken:
+    - tests/fixtures-private/broken/broken_alipay_payment_placeholder.gitkeep
+    low_quality:
+    - tests/fixtures-private/low_quality/low_quality_alipay_payment_placeholder.gitkeep
+    edge_case:
+    - tests/fixtures-private/edge_case/edge_case_alipay_payment_placeholder.gitkeep
+  business_license:
+    easy:
+    - tests/fixtures/business_license/成立日期注册资本营业期限中国_营业执照_万元整营业执照一人有限责任公司_201264.pdf
+    medium: null
+    broken:
+    - tests/fixtures-private/broken/broken_business_license_placeholder.gitkeep
+    low_quality:
+    - tests/fixtures-private/low_quality/low_quality_business_license_placeholder.gitkeep
+    edge_case:
+    - tests/fixtures-private/edge_case/edge_case_business_license_placeholder.gitkeep
+  credit_report:
+    easy:
+    - tests/fixtures/credit_report/兰瑞存.pdf
+    medium:
+    - tests/fixtures/credit_report/兰瑞存_征信详版_拆分.pdf
+    broken:
+    - tests/fixtures-private/broken/broken_credit_report_placeholder.gitkeep
+    low_quality:
+    - tests/fixtures-private/low_quality/low_quality_credit_report_placeholder.gitkeep
+    edge_case:
+    - tests/fixtures-private/edge_case/edge_case_credit_report_placeholder.gitkeep
+  id_card:
+    broken:
+    - tests/fixtures-private/broken/broken_id_card_placeholder.gitkeep
+    low_quality:
+    - tests/fixtures-private/low_quality/low_quality_id_card_placeholder.gitkeep
+    edge_case:
+    - tests/fixtures-private/edge_case/edge_case_id_card_placeholder.gitkeep
+  vat_invoice: null
+  generic: null
+fixture_matrix:
+  easy:
+    description: Clean, standard-format document; P0 happy path
+  medium:
+    description: Slight variations in format/layout
+  hard:
+    description: Significant layout departures; edge cases
+  broken:
+    description: Damaged scans, missing pages
+  low_quality:
+    description: Low DPI, blurry, or heavy noise
+  edge_case:
+    description: Unusual but valid document variant

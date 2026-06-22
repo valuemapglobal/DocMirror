@@ -1,0 +1,68 @@
+version: 1
+
+source_types:
+  - public
+  - synthetic
+  - desensitized_real
+  - customer_regression
+  - golden_benchmark
+  - adversarial
+
+quality_buckets:
+  - easy
+  - medium
+  - hard
+  - broken
+  - low_quality
+  - edge_case
+
+fixtures:
+  - id: public_complex_pdf_rag
+    source_type: public
+    quality_bucket: medium
+    domain: credit_report
+    support_level: L2
+    path: tests/fixtures/synthetic/credit_report_section_smoke.pdf
+    expected_outputs: [mirror, markdown, chunks, evidence]
+
+  - id: synthetic_bank_ledger_easy
+    source_type: synthetic
+    quality_bucket: easy
+    domain: bank_statement
+    support_level: L2
+    path: tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    expected_outputs: [mirror, community, evidence]
+
+  - id: desensitized_bank_hard
+    source_type: desensitized_real
+    quality_bucket: hard
+    domain: bank_statement
+    support_level: L2
+    path: tests/fixtures/bank_statement/ZHAO YA_银行流水_20251104.pdf
+    expected_outputs: [mirror, community, evidence]
+
+  - id: customer_regression_private_low_quality
+    source_type: customer_regression
+    quality_bucket: low_quality
+    domain: generic
+    support_level: private
+    private: true
+    path: private/customer_regression/low_quality_scan.pdf
+    expected_outputs: [mirror, evidence]
+
+  - id: golden_benchmark_pcm_finance
+    source_type: golden_benchmark
+    quality_bucket: edge_case
+    domain: bank_statement
+    support_level: L2
+    path: tests/fixtures/golden/pcm_l3_credit_finance.json
+    expected_outputs: [mirror, finance, quality]
+
+  - id: adversarial_broken_pdf_contract
+    source_type: adversarial
+    quality_bucket: broken
+    domain: generic
+    support_level: L0
+    private: true
+    path: private/adversarial/broken_resource_bomb.pdf
+    expected_outputs: [error_envelope, partial]

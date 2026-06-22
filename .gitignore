@@ -71,16 +71,12 @@ docmirror_finance/
 ## Vendor Ops Plane — license issuance tools (not shipped in docmirror wheel)
 vendor/
 
-## Local-only test inputs (PII / large binaries) & golden expected outputs
+## Local-only test inputs & golden expected outputs
 tests/fixtures/
 tests/golden/
 
-## Docs: track root-level files only; subfolders stay local
-docs/*
-!docs/*.md
-!docs/*.rst
-!docs/*.txt
 ## Additional privacy guards
 *.log
 credentials/
 secrets/
+tests/fixtures-private/

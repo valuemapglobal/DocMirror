@@ -114,7 +114,7 @@ def _run_hygiene(step: GateStepDef, *, progress: QualityGateProgress | None = No
 
 
 def _run_core_imports(step: GateStepDef) -> StepResult:
-    from scripts.audit_core_imports import audit_failures, run_audit
+    from scripts.validate.audit_core_imports import audit_failures, run_audit
 
     t0 = time.perf_counter()
     data = run_audit()

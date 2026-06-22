@@ -1,0 +1,109 @@
+version: 1
+description: Artifact role registry — maps artifact keys to human/machine roles for
+  explainability
+roles:
+  mirror:
+    role: primary_fact_output
+    consumer: machine
+    description: 001_mirror.json — canonical Mirror fact output
+  community:
+    role: edition_output
+    consumer: both
+    description: 002_community.json — Community edition output
+  enterprise:
+    role: edition_output
+    consumer: both
+    description: 003_enterprise.json — Enterprise edition output
+  finance:
+    role: edition_output
+    consumer: both
+    description: 004_finance.json — Finance edition output
+  markdown:
+    role: human_viewable_output
+    consumer: human
+    description: output.md — human-readable Markdown
+  quality_report:
+    role: ingestion_decision
+    consumer: both
+    description: quality_report.json — quality decision report
+  quality_decision:
+    role: ingestion_decision
+    consumer: machine
+    description: quality_decision.json — machine-readable decision
+  visual_debug:
+    role: human_visualization
+    consumer: human
+    description: visual_debug.html — primary visual explainability surface
+  visual_evidence_graph:
+    role: machine_explainability
+    consumer: machine
+    description: visual_evidence_graph.json — Visual Evidence Graph
+  overlay_manifest:
+    role: visual_overlay
+    consumer: machine
+    description: overlay_manifest.json — overlay primitives for visualization
+  source_span_ledger:
+    role: audit_trace
+    consumer: both
+    description: source_span_ledger.json — field-to-source traceability
+  outcome_ledger:
+    role: failure_accounting
+    consumer: both
+    description: outcome_ledger.json — Failure & Degradation Contract ledger
+  diff_report:
+    role: regression_explanation
+    consumer: both
+    description: diff_report.json/html — run-to-run comparison report
+  diff_overlay:
+    role: visual_overlay
+    consumer: machine
+    description: diff_overlay.json — diff change overlay data
+  support_bundle:
+    role: support
+    consumer: human
+    description: support_bundle.zip — redacted minimal reproduction package
+  support_bundle_manifest:
+    role: support
+    consumer: machine
+    description: support_bundle_manifest.json — support bundle contents
+  evidence_bundle:
+    role: audit_trace
+    consumer: both
+    description: evidence bundle — field/cell evidence with bbox and source refs
+  evidence_dir:
+    role: evidence_storage
+    consumer: machine
+    description: evidence/ — crops, overlays, debug data
+  layout_overlay:
+    role: visual_overlay
+    consumer: human
+    description: layout_overlay.pdf — static PDF overlay for QA review
+  schema_validation:
+    role: quality_validation
+    consumer: machine
+    description: schema_validation.json — Pydantic/JSON Schema validation result
+role_categories:
+  human_visualization:
+  - visual_debug
+  - layout_overlay
+  machine_explainability:
+  - visual_evidence_graph
+  - source_span_ledger
+  ingestion_decision:
+  - quality_report
+  - quality_decision
+  regression_explanation:
+  - diff_report
+  - diff_overlay
+  support:
+  - support_bundle
+  - support_bundle_manifest
+  audit_trace:
+  - source_span_ledger
+  - evidence_bundle
+  primary_output:
+  - mirror
+  - community
+  - enterprise
+  - finance
+  - markdown

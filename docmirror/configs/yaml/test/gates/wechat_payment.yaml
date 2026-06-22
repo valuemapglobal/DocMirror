@@ -1,0 +1,32 @@
+# TQG wechat_payment track — edition + quarantine gates
+version: 1
+track: wechat_payment
+layer: pec
+
+cases:
+  - id: wechat_community_records_parity
+    tier: regression
+    tier_tags: [slow]
+    fixture: fixtures/wechat_payment/黄照荣+微信流水.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    options:
+      enhance_mode: standard
+    gates:
+      edition_total_rows: { min: 5000 }
+      edition_drift_ratio: { max: 0.01 }
+    tags: [cashflow, wechat, community]
+
+  - id: wechat_quarantine_metadata
+    tier: regression
+    tier_tags: [slow]
+    fixture: fixtures/wechat_payment/黄照荣+微信流水.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    options:
+      enhance_mode: standard
+    gates:
+      quarantine_pages_preserved: true
+    tags: [cashflow, wechat, quarantine, community]

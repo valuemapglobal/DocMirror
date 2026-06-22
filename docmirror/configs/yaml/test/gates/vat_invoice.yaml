@@ -1,0 +1,33 @@
+# TQG vat_invoice track — P0 field edition gate
+version: 1
+track: vat_invoice
+layer: pec
+note: >
+  VAT invoice currently at candidate status (manual_target).
+  Gate cases defined but skipped when fixtures are missing.
+
+cases:
+  - id: vat_invoice_p0_fields
+    tier: regression
+    fixture: fixtures/vat_invoice/placeholder.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    options:
+      enhance_mode: standard
+    gates:
+      required_fields_present:
+        - invoice_code
+        - invoice_number
+        - total_amount
+    tags: [invoice, vat, community]
+
+  - id: vat_invoice_amount_consistency
+    tier: regression
+    fixture: fixtures/vat_invoice/placeholder.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    gates:
+      amount_consistency: { min: 0.99 }
+    tags: [invoice, vat, consistency, community]

@@ -1,0 +1,102 @@
+# GA 1.0 Step 13: Reading order gate — DFG column-aware reading order accuracy
+version: 1
+track: mirror_structure
+layer: dgc
+
+# Description: Validates the DFG engine's column detection and reading order
+# accuracy across fixtures with varying layout complexity.
+#
+# easy: single-column, clear text flow
+# medium: two-column layout, mixed content
+# hard: multi-column, tables, irregular layouts
+
+reading_order:
+  fixtures:
+    easy: 10
+    medium: 6
+    hard: 4
+  gates:
+    block_pair_accuracy:
+      target: 0.95
+      description: "相邻块对中，顺序与 golden 一致的比例"
+    column_detection_accuracy:
+      target: 0.90
+      description: "列被正确检测的页面比例"
+    section_tree_depth_accuracy:
+      target: 0.85
+      description: "标题层级与前 3 级 golden 一致的比例"
+
+cases:
+  # ── Easy: single-column documents ──
+  - id: single_column_prose
+    tier: regression
+    pipeline: extract_only
+    fixture: fixtures/synthetic/credit_report_section_smoke.pdf
+    skip_if_fixture_missing: true
+    options:
+      max_pages: 5
+    oracle:
+      reading_order:
+        min_columns_per_page: 1
+        max_columns_per_page: 1
+        block_count_gt: 3
+        column_detection_accuracy: 1.0
+      section_tree:
+        min_headings: 1
+        max_depth_gt: 0
+    tags: [reading_order, single_column, smoke]
+
+  # ── Medium: two-column layout ──
+  - id: two_column_mixed
+    tier: regression
+    pipeline: extract_only
+    fixture: fixtures/synthetic/credit_report_section_smoke.pdf
+    skip_if_fixture_missing: true
+    options:
+      max_pages: 5
+    oracle:
+      reading_order:
+        min_columns_per_page: 1
+        reading_order_degraded: false
+      section_tree:
+        min_headings: 1
+    tags: [reading_order, two_column, mixed]
+
+  # ── Section tree validation ──
+  - id: section_tree_depth
+    tier: regression
+    pipeline: extract_only
+    fixture: fixtures/synthetic/credit_report_section_smoke.pdf
+    skip_if_fixture_missing: true
+    options:
+      max_pages: 5
+    oracle:
+      section_tree:
+        min_headings: 1
+        max_depth_ge: 1
+        section_tree_depth_accuracy_ge: 0.7
+    tags: [reading_order, section_tree, depth]
+
+  # ── Cross-page continuity ──
+  - id: cross_page_continuity
+    tier: regression
+    pipeline: extract_only
+    fixture: fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    skip_if_fixture_missing: true
+    oracle:
+      cross_page:
+        min_pages: 2
+        bridges_detected: true
+    tags: [reading_order, cross_page, continuity]
+
+  # ── Fallback: degraded path ──
+  - id: degraded_fallback
+    tier: smoke
+    pipeline: extract_only
+    fixture: fixtures/id_card/刘进_身份证_1976112.pdf
+    skip_if_fixture_missing: true
+    oracle:
+      reading_order:
+        reading_order_degraded_or_single_page: true
+        block_count_gt: 0
+    tags: [reading_order, degraded, fallback]

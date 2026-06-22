@@ -1,0 +1,535 @@
+# Failure Code Registry — canonical failure/degradation taxonomy
+# =================================================================
+# Part of the Failure & Degradation Contract (FDC) for DocMirror GA 1.0.
+# Every public error, warning, fallback, and degradation MUST have a
+# registered entry here so CLI / SDK / REST / Task / Manifest surfaces
+# share the same semantics.
+#
+# Field glossary:
+#   canonical_code    Stable UPPER_SNAKE_CASE identifier (internal).
+#   user_code         Stable lower_snake_case identifier (public API).
+#   category          input / parse / ocr / table / license / domain / runtime / artifact
+#   default_scope     document / page / table / field / edition / task
+#   severity          info / warning / degraded / partial / error / fatal
+#   recoverable       Whether user action (convert, install, rescan, etc.) can fix it.
+#   retryable         Whether a direct retry is safe.
+#   default_message   Human-readable one-line explanation.
+#   default_suggestion What the user should do next.
+#   docs_anchor       Slug pointing to the relevant docs section.
+#   public            Whether this code is exposed to end users.
+
+# ── Input / Format category ──────────────────────────────────────
+file_not_found:
+  canonical_code: FILE_NOT_FOUND
+  user_code: file_not_found
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: false
+  retryable: false
+  default_message: "File not found."
+  default_suggestion: "Check the file path and ensure the file exists."
+  docs_anchor: "input-requirements"
+  public: true
+
+file_too_small:
+  canonical_code: FILE_TOO_SMALL
+  user_code: file_too_small
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: false
+  retryable: false
+  default_message: "File is too small to contain a valid document."
+  default_suggestion: "Provide a larger file with actual document content."
+  docs_anchor: "input-requirements"
+  public: true
+
+file_too_large:
+  canonical_code: FILE_TOO_LARGE
+  user_code: file_too_large
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: false
+  retryable: false
+  default_message: "File exceeds maximum allowed size."
+  default_suggestion: "Split the document into smaller files or reduce resolution."
+  docs_anchor: "input-requirements"
+  public: true
+
+file_empty:
+  canonical_code: FILE_EMPTY
+  user_code: file_empty
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: false
+  retryable: false
+  default_message: "File is empty."
+  default_suggestion: "Provide a file with document content."
+  docs_anchor: "input-requirements"
+  public: true
+
+unsupported_format:
+  canonical_code: UNSUPPORTED_FORMAT
+  user_code: unsupported_format
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: false
+  retryable: false
+  default_message: "Input format is not supported."
+  default_suggestion: "Convert the file to a supported format (PDF, PNG, JPEG, TIFF, WebP, DOCX, XLSX, PPTX) or install/configure a converter."
+  docs_anchor: "formats"
+  public: true
+
+format_requires_converter:
+  canonical_code: FORMAT_REQUIRES_CONVERTER
+  user_code: format_requires_converter
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: true
+  retryable: false
+  default_message: "This format requires LibreOffice (soffice) to be installed for conversion."
+  default_suggestion: "Install LibreOffice on the system or convert the document to PDF/DOCX before parsing."
+  docs_anchor: "formats"
+  public: true
+
+unknown_extension:
+  canonical_code: UNKNOWN_EXTENSION
+  user_code: unknown_extension
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: false
+  retryable: false
+  default_message: "File extension is not recognized."
+  default_suggestion: "Rename the file with a recognized extension or convert to a supported format."
+  docs_anchor: "formats"
+  public: true
+
+encrypted_pdf:
+  canonical_code: ENCRYPTED_PDF
+  user_code: encrypted_pdf
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: true
+  retryable: false
+  default_message: "PDF is password-protected."
+  default_suggestion: "Remove password protection or provide the password for decryption."
+  docs_anchor: "formats"
+  public: true
+
+archive_password_protected:
+  canonical_code: ARCHIVE_PASSWORD_PROTECTED
+  user_code: archive_password_protected
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: false
+  retryable: false
+  default_message: "Password-protected archives are not supported yet."
+  default_suggestion: "Please provide an unencrypted archive."
+  docs_anchor: "formats"
+  public: true
+
+archive_resource_limit:
+  canonical_code: ARCHIVE_RESOURCE_LIMIT
+  user_code: archive_resource_limit
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: false
+  retryable: false
+  default_message: "Archive exceeds resource limits (entries, size, depth, or compression ratio)."
+  default_suggestion: "Split into smaller archives or extract individual files."
+  docs_anchor: "formats"
+  public: true
+
+archive_unsafe_path:
+  canonical_code: ARCHIVE_UNSAFE_PATH
+  user_code: archive_unsafe_path
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: false
+  retryable: false
+  default_message: "Archive contains unsafe paths (path traversal or dangerous members)."
+  default_suggestion: "Repackage the archive with safe paths and retry."
+  docs_anchor: "formats"
+  public: true
+
+damaged_pdf:
+  canonical_code: DAMAGED_PDF
+  user_code: damaged_pdf
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: true
+  retryable: true
+  default_message: "PDF file is damaged or corrupted and cannot be opened."
+  default_suggestion: "Re-export the PDF from the source application and retry."
+  docs_anchor: "formats"
+  public: true
+
+invalid_image:
+  canonical_code: INVALID_IMAGE
+  user_code: invalid_image
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: true
+  retryable: true
+  default_message: "Image cannot be decoded."
+  default_suggestion: "Re-export as PNG, JPEG, TIFF, or WebP and retry."
+  docs_anchor: "formats"
+  public: true
+
+# ── OCR / Quality category ───────────────────────────────────────
+low_ocr_confidence:
+  canonical_code: LOW_OCR_CONFIDENCE
+  user_code: low_ocr_confidence
+  category: ocr
+  default_scope: page
+  severity: partial
+  recoverable: true
+  retryable: true
+  default_message: "OCR confidence is below threshold on affected pages."
+  default_suggestion: "Retry with profile=forensic, increase scan DPI to 300 or higher, or manually review affected pages."
+  docs_anchor: "ocr-quality"
+  public: true
+
+low_quality_image:
+  canonical_code: LOW_QUALITY_IMAGE
+  user_code: low_quality_image
+  category: ocr
+  default_scope: page
+  severity: partial
+  recoverable: true
+  retryable: true
+  default_message: "Image quality is too low for reliable extraction."
+  default_suggestion: "Increase resolution, reduce noise, or retry with a clearer image."
+  docs_anchor: "ocr-quality"
+  public: true
+
+low_quality_input:
+  canonical_code: LOW_QUALITY_INPUT
+  user_code: low_quality_input
+  category: ocr
+  default_scope: document
+  severity: degraded
+  recoverable: false
+  retryable: false
+  default_message: "Input document quality is too low for reliable extraction."
+  default_suggestion: "Please provide a higher-quality file."
+  docs_anchor: "ocr-quality"
+  public: true
+
+empty_result:
+  canonical_code: EMPTY_RESULT
+  user_code: empty_result
+  category: parse
+  default_scope: document
+  severity: partial
+  recoverable: true
+  retryable: true
+  default_message: "Parser returned no extractable content. The file may be blank or unreadable."
+  default_suggestion: "Verify the file contains visible text or graphic content and retry."
+  docs_anchor: "troubleshooting"
+  public: true
+
+# ── Table / Structure category ────────────────────────────────────
+table_merge_quarantined:
+  canonical_code: TABLE_MERGE_QUARANTINED
+  user_code: table_merge_quarantined
+  category: table
+  default_scope: table
+  severity: degraded
+  recoverable: false
+  retryable: false
+  default_message: "Table merge was not possible; physical table data preserved."
+  default_suggestion: "Review quarantined tables in Mirror output. Column count or structure mismatch prevented automated merge."
+  docs_anchor: "table-extraction"
+  public: true
+
+# ── License / Edition category ────────────────────────────────────
+license_missing_degraded:
+  canonical_code: LICENSE_MISSING_DEGRADED
+  user_code: license_missing_degraded
+  category: license
+  default_scope: edition
+  severity: degraded
+  recoverable: true
+  retryable: false
+  default_message: "Enterprise/Finance edition requires a valid license."
+  default_suggestion: "Install a valid Enterprise license to enable full edition features. Mirror and Community output remain available."
+  docs_anchor: "licensing"
+  public: true
+
+license_invalid:
+  canonical_code: LICENSE_INVALID
+  user_code: license_invalid
+  category: license
+  default_scope: edition
+  severity: degraded
+  recoverable: true
+  retryable: false
+  default_message: "License is invalid or expired."
+  default_suggestion: "Renew or reinstall your license. Mirror and Community output remain available."
+  docs_anchor: "licensing"
+  public: true
+
+# ── Domain / Edition category ─────────────────────────────────────
+domain_not_ga_fallback:
+  canonical_code: DOMAIN_NOT_GA_FALLBACK
+  user_code: domain_not_ga_fallback
+  category: domain
+  default_scope: document
+  severity: degraded
+  recoverable: false
+  retryable: false
+  default_message: "Domain is not yet GA; falling back to generic extraction."
+  default_suggestion: "Generic extraction result is provided. Domain-specific fields are not available for this document type."
+  docs_anchor: "domain-support"
+  public: true
+
+domain_low_confidence_fallback:
+  canonical_code: DOMAIN_LOW_CONFIDENCE_FALLBACK
+  user_code: domain_low_confidence_fallback
+  category: domain
+  default_scope: document
+  severity: degraded
+  recoverable: false
+  retryable: false
+  default_message: "Domain classification confidence is low; falling back to generic extraction."
+  default_suggestion: "Verify document type classification or provide explicit doc_type hint."
+  docs_anchor: "domain-support"
+  public: true
+
+domain_extraction_failed_fallback:
+  canonical_code: DOMAIN_EXTRACTION_FAILED_FALLBACK
+  user_code: domain_extraction_failed_fallback
+  category: domain
+  default_scope: document
+  severity: partial
+  recoverable: true
+  retryable: true
+  default_message: "Domain extraction failed; partial or generic result provided."
+  default_suggestion: "Retry with a different profile or report the issue with a support bundle."
+  docs_anchor: "domain-support"
+  public: true
+
+# ── Runtime / Resource category ───────────────────────────────────
+timeout:
+  canonical_code: TIMEOUT
+  user_code: timeout
+  category: runtime
+  default_scope: document
+  severity: error
+  recoverable: true
+  retryable: true
+  default_message: "Processing timed out."
+  default_suggestion: "Retry with profile=compact, reduce page range, or increase timeout budget."
+  docs_anchor: "runtime-limits"
+  public: true
+
+stage_timeout:
+  canonical_code: STAGE_TIMEOUT
+  user_code: stage_timeout
+  category: runtime
+  default_scope: document
+  severity: partial
+  recoverable: true
+  retryable: true
+  default_message: "A processing stage timed out."
+  default_suggestion: "Retry with profile=compact, reduce document size, or increase resource budget."
+  docs_anchor: "runtime-limits"
+  public: true
+
+resource_limit_exceeded:
+  canonical_code: RESOURCE_LIMIT_EXCEEDED
+  user_code: resource_limit_exceeded
+  category: runtime
+  default_scope: document
+  severity: error
+  recoverable: true
+  retryable: true
+  default_message: "Processing exceeded resource limits."
+  default_suggestion: "Reduce document size or complexity, use profile=compact, or increase DOCMIRROR_MAX_WORKERS."
+  docs_anchor: "runtime-limits"
+  public: true
+
+resource_budget_exhausted:
+  canonical_code: RESOURCE_BUDGET_EXHAUSTED
+  user_code: resource_budget_exhausted
+  category: runtime
+  default_scope: document
+  severity: error
+  recoverable: true
+  retryable: true
+  default_message: "Resource budget (memory, workers, tokens) exhausted."
+  default_suggestion: "Retry with profile=compact, reduce page count, or increase budget configuration."
+  docs_anchor: "runtime-limits"
+  public: true
+
+# ── Parse / Internal category ─────────────────────────────────────
+extraction_failed:
+  canonical_code: EXTRACTION_FAILED
+  user_code: extraction_failed
+  category: parse
+  default_scope: document
+  severity: error
+  recoverable: false
+  retryable: false
+  default_message: "Document extraction failed."
+  default_suggestion: "Verify the file is not corrupted and is a valid document. Submit a support bundle if the issue persists."
+  docs_anchor: "troubleshooting"
+  public: true
+
+orchestration_failure:
+  canonical_code: ORCHESTRATION_FAILURE
+  user_code: orchestration_failure
+  category: parse
+  default_scope: document
+  severity: error
+  recoverable: false
+  retryable: false
+  default_message: "Parsing pipeline failed."
+  default_suggestion: "Retry the operation. If the issue persists, submit a support bundle for investigation."
+  docs_anchor: "troubleshooting"
+  public: true
+
+parser_error:
+  canonical_code: PARSER_ERROR
+  user_code: parser_error
+  category: parse
+  default_scope: document
+  severity: error
+  recoverable: true
+  retryable: true
+  default_message: "An unexpected parser error occurred."
+  default_suggestion: "Retry the operation. If the issue persists, please submit a support bundle."
+  docs_anchor: "troubleshooting"
+  public: true
+
+partial_page_failure:
+  canonical_code: PARTIAL_PAGE_FAILURE
+  user_code: partial_page_failure
+  category: parse
+  default_scope: page
+  severity: partial
+  recoverable: true
+  retryable: true
+  default_message: "Some pages could not be fully processed."
+  default_suggestion: "Partial results are available. Retry affected pages individually or with a different profile."
+  docs_anchor: "troubleshooting"
+  public: true
+
+invalid_options:
+  canonical_code: INVALID_OPTIONS
+  user_code: invalid_options
+  category: input
+  default_scope: document
+  severity: error
+  recoverable: true
+  retryable: false
+  default_message: "Invalid parse options provided."
+  default_suggestion: "Check the options (profile, mode, page range, formats) and correct any conflicts."
+  docs_anchor: "api-reference"
+  public: true
+
+# ── Artifact category ─────────────────────────────────────────────
+artifact_missing:
+  canonical_code: ARTIFACT_MISSING
+  user_code: artifact_missing
+  category: artifact
+  default_scope: task
+  severity: error
+  recoverable: true
+  retryable: true
+  default_message: "Expected artifact is missing from output."
+  default_suggestion: "Re-run the parse task. If artifacts are consistently missing, submit a support bundle."
+  docs_anchor: "troubleshooting"
+  public: true
+
+# ── Silent failure category (internal detection) ──────────────────
+silent_failure_detected:
+  canonical_code: SILENT_FAILURE_DETECTED
+  user_code: silent_failure_detected
+  category: artifact
+  default_scope: task
+  severity: fatal
+  recoverable: false
+  retryable: false
+  default_message: "Silent failure detected: operation failed without visible error."
+  default_suggestion: "Review the quality report and outcome ledger. Contact support with the support bundle."
+  docs_anchor: "quality"
+  public: true
+
+silent_fallback_detected:
+  canonical_code: SILENT_FALLBACK_DETECTED
+  user_code: silent_fallback_detected
+  category: artifact
+  default_scope: task
+  severity: fatal
+  recoverable: false
+  retryable: false
+  default_message: "A fallback occurred without explicit reason in output."
+  default_suggestion: "Review the outcome ledger for fallback details. Submit a support bundle."
+  docs_anchor: "quality"
+  public: true
+
+silent_degradation_detected:
+  canonical_code: SILENT_DEGRADATION_DETECTED
+  user_code: silent_degradation_detected
+  category: artifact
+  default_scope: task
+  severity: fatal
+  recoverable: false
+  retryable: false
+  default_message: "A degradation occurred without visible warning."
+  default_suggestion: "Review edition availability and outcome ledger. Submit a support bundle."
+  docs_anchor: "quality"
+  public: true
+
+silent_quality_failure_detected:
+  canonical_code: SILENT_QUALITY_FAILURE_DETECTED
+  user_code: silent_quality_failure_detected
+  category: artifact
+  default_scope: task
+  severity: fatal
+  recoverable: false
+  retryable: false
+  default_message: "Low quality result was produced without quality warning."
+  default_suggestion: "Review OCR confidence and quality in outcome ledger. Submit a support bundle."
+  docs_anchor: "quality"
+  public: true
+
+silent_page_failure_detected:
+  canonical_code: SILENT_PAGE_FAILURE_DETECTED
+  user_code: silent_page_failure_detected
+  category: artifact
+  default_scope: task
+  severity: fatal
+  recoverable: false
+  retryable: false
+  default_message: "Page-level failure occurred without page outcome entry."
+  default_suggestion: "Review page outcomes in the outcome ledger. Submit a support bundle."
+  docs_anchor: "quality"
+  public: true
+
+silent_table_degradation_detected:
+  canonical_code: SILENT_TABLE_DEGRADATION_DETECTED
+  user_code: silent_table_degradation_detected
+  category: artifact
+  default_scope: task
+  severity: fatal
+  recoverable: false
+  retryable: false
+  default_message: "Table degradation occurred without quarantine reason."
+  default_suggestion: "Review table quarantine entries in outcome ledger. Submit a support bundle."
+  docs_anchor: "quality"
+  public: true

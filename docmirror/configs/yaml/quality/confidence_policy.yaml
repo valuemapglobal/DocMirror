@@ -1,0 +1,56 @@
+# Confidence Policy for Quality & Trust Contract (QTC)
+# ====================================================
+# Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md §6.3
+#
+# Defines thresholds and actions for high/medium/low/no-evidence confidence levels.
+# Every field or cell output must follow this policy:
+# - High confidence + evidence  -> auto_accept
+# - Medium confidence + evidence -> emit_with_confidence (requires source_refs)
+# - Low confidence               -> needs_review
+# - No evidence                  -> needs_evidence (never auto_accept)
+# - Normalize failure            -> preserve raw, normalized=null, warning
+
+version: 1
+
+default:
+  high: 0.85
+  medium: 0.60
+  low: 0.0
+
+actions:
+  high:
+    output: auto_accept
+    require_evidence: true
+    description: "Field is auto-accepted; evidence must still be present."
+  medium:
+    output: emit_with_confidence
+    require_evidence: true
+    description: "Field is emitted with confidence and source_refs; manual review is optional."
+  low:
+    output: needs_review
+    require_evidence: true
+    description: "Field requires manual review before being trusted."
+  no_evidence:
+    output: needs_evidence
+    auto_accept: false
+    description: "Field lacks evidence and must not be auto-accepted."
+
+per_domain_overrides:
+  # Finance domains have stricter thresholds
+  bank_statement:
+    high: 0.90
+    medium: 0.70
+  vat_invoice:
+    high: 0.90
+    medium: 0.70
+  credit_report:
+    high: 0.90
+    medium: 0.70
+  payment_flow:
+    high: 0.90
+    medium: 0.70
+
+normalize_failure:
+  action: preserve_raw
+  normalized: null
+  warning: "Normalization failed; raw value preserved."

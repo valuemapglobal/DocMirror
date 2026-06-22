@@ -11,38 +11,15 @@ Test structure:
     tests/
     ├── conftest.py          # Shared fixtures
     ├── fixtures/            # Test sample files (PDFs, images, etc.)
-    ├── test_imports.py      # Import smoke tests
-    ├── test_settings.py     # Configuration tests
-    └── test_dispatcher.py   # Dispatcher routing tests
+    ├── smoke/               # Import / settings / plugin smoke tests
+    ├── contract/            # MOC / PEC / DEC boundary invariants
+    └── unit/                # Component tests
 """
 import os
 import sys
 from pathlib import Path
 
 import pytest
-
-# Ensure the project root is on sys.path for imports
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
-# Root-level shim files — collected implementations live in smoke/e2e/contract/
-collect_ignore = [
-    "test_imports.py",
-    "test_settings.py",
-    "test_plugins.py",
-    "test_models.py",
-    "test_domain_registry.py",
-    "test_quality_router.py",
-    "test_semantic_closure_direct.py",
-    "test_omml_extractor.py",
-    "test_server.py",
-    "test_integration.py",
-    "test_edition_schema_conformance.py",
-    "contracts/test_pec_contract.py",
-    "contracts/test_four_file_output.py",
-]
-
 
 def pytest_sessionstart(session):
     """Fail fast when MEP catalog YAML is inconsistent."""
@@ -62,7 +39,7 @@ def pytest_sessionstart(session):
     # TQG manifest validation (Design 10)
     gates_dir = Path(PROJECT_ROOT) / "docmirror" / "configs" / "yaml" / "test" / "gates"
     if gates_dir.is_dir():
-        from tools.validate_test_manifest import validate_manifest_file
+        from scripts.validate.validate_test_manifest import validate_manifest_file
 
         manifest_errors: list[str] = []
         for path in sorted(gates_dir.glob("*.yaml")):

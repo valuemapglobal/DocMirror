@@ -73,35 +73,35 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Validate format capability registry
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python tools/validate_format_capabilities.py
+        run: python scripts/validate/validate_format_capabilities.py
       - name: Validate DTI (business_scene + classification maps)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python tools/validate_dti.py
+        run: python scripts/validate/validate_dti.py
       - name: Validate middleware catalog (MEP)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python scripts/validate_middleware_catalog.py
+        run: python scripts/validate/validate_middleware_catalog.py
       - name: Validate post-extract catalog
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python scripts/validate_post_extract.py
+        run: python scripts/validate/validate_post_extract.py
       - name: Validate TQG manifests
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python tools/validate_test_manifest.py
+        run: python scripts/validate/validate_test_manifest.py
       - name: Validate CPA CPS layout (design 12)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python scripts/validate_core_cps_layout.py
+        run: python scripts/validate/validate_core_cps_layout.py
       - name: Validate core god-file gate (design 12 §7.2)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python scripts/validate_core_god_files.py
+        run: python scripts/validate/validate_core_god_files.py
       - name: PCM legacy JSON reference gate (Design 19 G2/G3)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python tools/gate_pcm_legacy_refs.py
+        run: python scripts/validate/gate_pcm_legacy_refs.py
       - name: PCM mirror volume gate (Design 19 G5/C2)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python tools/gate_pcm_mirror_volume.py
+        run: python scripts/validate/gate_pcm_mirror_volume.py
       - name: Audit core imports (CPA §13)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: |
-          python scripts/audit_core_imports.py --json reports/ci_core_import_audit.json
+          python scripts/validate/audit_core_imports.py --json reports/ci_core_import_audit.json
           python -c "import json; r=json.load(open('reports/ci_core_import_audit.json')); assert not r['plugin_forbidden_imports'], r['plugin_forbidden_imports']; assert not r['lazy_hub_present']"
       - name: CCP import-linter contract
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'

@@ -6,8 +6,8 @@ Thank you for your interest in contributing to DocMirror! This guide will help y
 
 ```bash
 # Clone the repository
-git clone https://github.com/valuemapglobal/docmirror.git
-cd docmirror
+git clone https://github.com/valuemapglobal/DocMirror.git
+cd DocMirror
 
 # Create a virtual environment
 python -m venv .venv
@@ -32,9 +32,10 @@ pytest tests/ -v
 
 3. **Run checks** before committing:
    ```bash
-   ruff check docmirror/        # Lint
-   ruff format docmirror/       # Format
-   pytest tests/ -v             # Test (110 cases)
+   ruff check docmirror/          # Lint
+   ruff format docmirror/         # Format
+   pytest tests/ -v               # Tests (1090+ test cases, 298 test files)
+   python scripts/run_quality_gate.py --profile standard  # Quality gates
    ```
 
 4. **Commit** with [Conventional Commits](https://www.conventionalcommits.org/):
@@ -59,33 +60,58 @@ pytest tests/ -v
 
 ```
 docmirror/
-├── adapters/       # Format-specific adapters (PDF, Image, Office, ...)
-│   ├── pdf/        # PDF adapter with multi-strategy extraction
-│   ├── image/      # Image adapter with OCR
-│   ├── office/     # Word, Excel, PowerPoint adapters
-│   ├── web/        # HTML and Email adapters
-│   └── data/       # Structured data (JSON, XML, CSV)
-├── configs/        # Settings, pipeline registry, domain registry
-├── core/           # Core engines
-│   ├── extraction/ # Extraction, pre-analysis, quality routing
-│   ├── layout/     # Layout analysis (DocLayout-YOLO, graph router)
-│   ├── ocr/        # RapidOCR, formula recognition, seal detection
-│   ├── table/      # Multi-strategy table extraction
-│   ├── security/   # Forgery detection
-│   └── output/     # Markdown export, visualization
-├── framework/      # Dispatcher, orchestrator, cache, base classes
-├── middlewares/    # Pipeline middlewares
-│   ├── detection/  # Scene, institution, language detection
-│   ├── extraction/ # Entity extraction
-│   ├── alignment/  # Header alignment, amount splitting
-│   └── validation/ # Trust scoring, mutation analysis
-├── models/         # Data models
-│   ├── entities/   # ParseResult (MOC), DomainExtractionResult (DEC)
-│   configs/models/ # LayoutProfile, ExtractionProfile (EPO — not Mirror)
-│   ├── construction/ # Builder pattern for result assembly
-│   └── tracking/   # Mutation tracking
-├── plugins/        # Domain plugins (bank_statement, ...)
-└── server/         # FastAPI server
+├── core/             # Core extraction engines (CPS seven-stage pipeline)
+│   ├── entry/        # perceive_document(), PerceiveOptions, PerceiveResult
+│   ├── pipeline/     # DocumentPipeline, PagePipeline, PdfSyncProcessor
+│   ├── table/        # Table Normalization Pipeline (TNP) — generic, ledger
+│   ├── ocr/          # OCR pipeline (UOP) — RapidOCR + external fallback
+│   ├── scene/        # EvidenceEngine — 120-type document classification
+│   ├── extract/      # Core extraction from parsed pages
+│   ├── segment/      # Page segmentation and layout
+│   └── bridge/       # ParseResultBridge (Path B only)
+├── adapters/         # Format-specific adapters
+│   ├── pdf/          # PDF adapter with multi-strategy extraction
+│   ├── image/        # Image adapter with OCR
+│   ├── ofd/          # OFD (Chinese electronic invoice) adapter
+│   ├── office/       # Word, Excel, PowerPoint adapters
+│   ├── web/          # HTML and Email adapters
+│   ├── data/         # Structured data (JSON, XML, CSV)
+│   └── archive/      # Archive support (ZIP/RAR)
+├── framework/        # Pipeline orchestration
+│   ├── dispatcher.py  # L0 routing (FCR-driven)
+│   ├── orchestrator.py # Middleware pipeline supervision
+│   └── base.py        # BaseParser contract
+├── middlewares/      # Enhancement pipeline steps (MEP platform)
+│   ├── detection/    # EvidenceEngine, institution, language detection
+│   ├── extraction/   # Entity extraction (bilingual, generic, SLM)
+│   └── validation/   # Trust scoring, mutation analysis, anomaly detection
+├── configs/          # YAML configuration
+│   ├── yaml/         # FCR, enhancement profiles, middleware catalog, scene keywords
+│   ├── runtime/      # DocMirrorSettings, env-backed configuration
+│   └── pipeline/     # Registry and profile resolution
+├── models/           # Data models
+│   ├── entities/     # ParseResult (MOC), DomainExtractionResult (DEC)
+│   └── construction/ # ParseResult bridge shims
+├── plugins/          # Domain plugins
+│   ├── community.py  # Community capability yaml + plugin discovery
+│   ├── plugin_registry.py  # DomainPlugin ABC + registry singleton
+│   ├── runner.py     # PEC extract runner
+│   ├── bank_statement/  # Bank statement community plugin
+│   ├── wechat_payment/  # WeChat payment community plugin
+│   ├── alipay_payment/  # Alipay payment community plugin
+│   ├── vat_invoice/     # VAT invoice community plugin
+│   ├── business_license/ # Business license community plugin
+│   ├── credit_report/   # Credit report community plugin
+│   └── generic/     # Generic fallback plugin
+├── cli/              # CLI entry point
+├── server/           # FastAPI HTTP server
+├── di/               # Service container (dispatcher, orchestrator, settings)
+├── evidence/         # Security evidence ledger
+├── security/         # Forgery detection, resource gates
+├── quality/          # Quality gate infrastructure
+├── features/         # Feature flag management
+├── runtime/          # Runtime environment detection
+└── scripts/          # CLI tooling (quality gates, validation, audit)
 ```
 
 ## Adding a New Adapter
@@ -96,21 +122,26 @@ docmirror/
 4. Register in `docmirror/configs/yaml/format_capabilities.yaml`:
    - set `transport`, `content_model`, `extensions`, `binding.adapter`, `status: supported`
    - use `binding.transcode` if the adapter needs a converted canonical file
-5. Run `python tools/validate_format_capabilities.py`
+5. Run `python scripts/validate_format_capabilities.py`
 6. Add tests in `tests/unit/` or `tests/`
 
-## Adding a New Middleware
+## Adding a New Middleware (MEP)
+
+Mirror-layer middleware is registered via **Middleware Execution Platform (MEP)** — not `orchestrator.py` dicts.
 
 1. Create `docmirror/middlewares/your_category/your_middleware.py`
 2. Subclass `BaseMiddleware` from `docmirror.middlewares.base`
 3. Implement `process(result: ParseResult) -> ParseResult`
-4. Register class in `docmirror/framework/orchestrator.py` → `MIDDLEWARE_REGISTRY`
-5. Add the middleware name to `docmirror/configs/yaml/enhancement_profiles.yaml` (by `content_model`)
-6. Add tests
+4. Add an entry to **`docmirror/configs/yaml/middleware_catalog.yaml`** (`module`, `class`, `stage`, optional `when` / `depends_on`)
+5. Add the middleware name to **`docmirror/configs/yaml/enhancement_profiles.yaml`** under the appropriate `content_model` → `stages`
+6. Run `python3 scripts/validate_middleware_catalog.py` and `python3 scripts/validate_format_capabilities.py`
+7. Add tests in `tests/unit/`
+
+Do **not** add middleware via decorators — use `middleware_catalog.yaml` only. Plugin logic belongs in `docmirror/plugins/runner.py`; post-extract hooks in `post_extract.yaml`.
 
 ## Reporting Issues
 
-- Use [GitHub Issues](https://github.com/valuemapglobal/docmirror/issues)
+- Use [GitHub Issues](https://github.com/valuemapglobal/DocMirror/issues)
 - Include: Python version, OS, DocMirror version, minimal reproduction steps
 - For document parsing issues, include a sample file if possible (redact sensitive data)
 

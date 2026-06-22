@@ -48,7 +48,7 @@ Install dev dependencies for gate profiles: `pip install -e ".[dev]"`.
 ## Layers (standard / full)
 
 1. **Style** — ruff format + lint
-2. **Hygiene** — full strict audit ([design doc](../docs/design/25_code_hygiene_audit_program.md))
+2. **Hygiene** — full strict audit (dead code, imports, ruff strict, commented blocks)
 3. **Contracts** — FCR, DTI, MEP, post-extract, TQG, CPS layout
 4. **Architecture** — god-file, PCM gates, core imports, import-linter
 5. **Tests** — unit; + tier matrix + coverage (`full`)

@@ -36,7 +36,7 @@ jobs:
           fi
 
       - name: Validate MEP + post-extract catalogs
-        run: python3 scripts/validate_middleware_catalog.py
+        run: python3 scripts/validate/validate_middleware_catalog.py
 
       - name: Enterprise PEC integration
         run: |

@@ -1,5 +1,5 @@
 # Enhancement profiles — middleware pipelines keyed by content_model × enhance_mode.
-# SSOT for Orchestrator MEP; validated by scripts/validate_middleware_catalog.py
+# SSOT for Orchestrator MEP; validated by scripts/validate/validate_middleware_catalog.py
 # See docs/design/08_middleware_layer_first_principles_redesign.md
 
 version: 2

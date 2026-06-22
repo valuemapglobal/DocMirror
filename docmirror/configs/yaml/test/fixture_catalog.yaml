@@ -1,0 +1,28 @@
+version: 1
+generated_by: validate_fixture_bank.py + manual audit
+total_entries: 234
+source_types:
+  public: Real-world public domain fixtures
+  synthetic: Programmatically generated edge cases
+  desensitized_real: Real documents with PII redacted (84 entries, compliance verified)
+  golden_benchmark: Frozen golden fixtures (8 entries, ga-1.0)
+  adversarial: Security/resource adversarial fixtures (8 entries)
+  customer_regression: Enterprise SKU — fixtures/customer/ (gitignored)
+quality_buckets:
+- easy
+- medium
+- hard
+- broken
+- low_quality
+- edge_case
+domains:
+- generic
+- bank_statement
+- wechat_payment
+- alipay_payment
+- vat_invoice
+- business_license
+- credit_report
+golden_frozen_path: tests/golden/frozen/ga-1.0/
+manifest_ref: tests/fixtures/fixture_bank.yaml
+validation: 'validate_fixture_bank.py --strict: 0 errors, 0 warnings, PASSED'

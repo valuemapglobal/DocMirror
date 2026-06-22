@@ -1,0 +1,68 @@
+# DocMirror SKU Tiers
+# Aligned with DGC enterprise GA domains from ga_readiness.yaml
+# For domains not covered here, see external product boundary docs.
+
+version: 1
+
+tiers:
+  community:
+    description: "Open-source Community Core — 7 domains, local-first, CPU-only capable"
+    domains:
+      - generic
+      - bank_statement
+      - wechat_payment
+      - alipay_payment
+      - vat_invoice
+      - business_license
+      - credit_report
+    features:
+      - mirror_parse
+      - format_registry
+      - markdown_output
+      - mirror_json_output
+      - community_plugins
+
+  enterprise:
+    description: "Enterprise — extended domain support, regulatory bundles, human review"
+    domains:
+      - generic
+      - bank_statement
+      - wechat_payment
+      - alipay_payment
+      - vat_invoice
+      - business_license
+      - credit_report
+    features:
+      - all_community_features
+      - edition_json_output
+      - evidence_bundle
+      - support_bundle
+      - extended_plugins
+    external_note: "Some enterprise-only domains are validated in external packages; see product-boundaries.md"
+
+  finance:
+    description: "Finance — transaction-level metrics with evidence and needs_review recall"
+    domains:
+      - bank_statement
+      - wechat_payment
+      - alipay_payment
+    features:
+      - all_enterprise_features
+      - finance_metrics
+      - transaction_line_recall
+      - amount_date_keyid_evidence
+    external_note: "Finance metrics available when domain finance_metrics: true in ga_readiness.yaml"
+
+license_behavior:
+  no_license:
+    edition: degraded
+    mirror: unaffected
+  expired:
+    edition: degraded
+    mirror: unaffected
+  grace:
+    edition: full
+    mirror: unaffected
+  valid:
+    edition: full
+    mirror: unaffected

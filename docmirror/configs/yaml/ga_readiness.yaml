@@ -1,0 +1,122 @@
+version: 1
+
+route_taxonomy:
+  community:
+    allowed:
+      - core_domain
+      - generic_fallback
+      - enterprise_only
+      - mirror_only
+    deprecated:
+      - premium
+
+community_core_domains:
+  - generic
+  - bank_statement
+  - wechat_payment
+  - alipay_payment
+  - vat_invoice
+  - business_license
+  - credit_report
+
+domains:
+  generic:
+    dgc_status: ga
+    support_level: L1
+    community_route: generic_fallback
+    edition_schema_gate: true
+    evidence_gate: true
+    sku:
+      community: ga
+      enterprise: ga
+      finance: ga
+
+  bank_statement:
+    dgc_status: ga
+    support_level: L2
+    community_route: core_domain
+    edition_schema_gate: true
+    evidence_gate: true
+    finance_metrics: true
+    sku:
+      community: ga
+      enterprise: ga
+      finance: ga
+
+  wechat_payment:
+    dgc_status: ga
+    support_level: L2
+    community_route: core_domain
+    edition_schema_gate: true
+    evidence_gate: true
+    finance_metrics: true
+    sku:
+      community: ga
+      enterprise: ga
+      finance: ga
+
+  alipay_payment:
+    dgc_status: ga
+    support_level: L2
+    community_route: core_domain
+    edition_schema_gate: true
+    evidence_gate: true
+    finance_metrics: true
+    sku:
+      community: ga
+      enterprise: ga
+      finance: ga
+
+  vat_invoice:
+    dgc_status: candidate
+    dgc_status_source: manual_target
+    target_status: ga
+    support_level: L2
+    community_route: core_domain
+    edition_schema_gate: true
+    evidence_gate: true
+    finance_metrics: true
+    sku:
+      community: ga
+      enterprise: ga
+      finance: ga
+
+  business_license:
+    dgc_status: ga
+    support_level: L2
+    community_route: core_domain
+    edition_schema_gate: true
+    evidence_gate: true
+    sku:
+      community: ga
+      enterprise: ga
+      finance: ga
+
+  credit_report:
+    dgc_status: ga
+    support_level: L2
+    community_route: core_domain
+    edition_schema_gate: true
+    evidence_gate: true
+    finance_metrics: true
+    sku:
+      community: ga
+      enterprise: ga
+      finance: ga
+
+  audit_report:
+    dgc_status: candidate
+    support_level: mirror-only
+    community_route: enterprise_only
+    edition_schema_gate: false
+    evidence_gate: false
+    sku:
+      community: mirror-only
+      enterprise: candidate
+      finance: candidate
+
+license_missing_policy:
+  mirror: unaffected
+  community: unaffected
+  enterprise: degraded
+  finance: degraded

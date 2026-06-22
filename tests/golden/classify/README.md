@@ -12,7 +12,7 @@ This directory holds **expected classification snapshots** (e.g. `document_type`
 Regenerate the index after adding gate cases:
 
 ```bash
-python3 tools/sync_golden_manifest.py
+python3 scripts/sync/sync_golden_manifest.py
 ```
 
 Case definitions live in `docmirror/configs/yaml/test/gates/classify.yaml` — not in this folder.

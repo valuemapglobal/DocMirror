@@ -1,0 +1,35 @@
+# TQG credit_report track — section-level edition gate
+version: 1
+track: credit_report
+layer: pec
+
+cases:
+  - id: credit_report_sections_from_kv
+    tier: regression
+    fixture: fixtures/credit_report/兰瑞存.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    options:
+      enhance_mode: standard
+    gates:
+      min_sections: 2
+      required_sections_present:
+        - accounts
+        - repayments
+      subject_name_present: true
+    tags: [credit, sections, community]
+
+  - id: credit_report_subject_fields
+    tier: regression
+    fixture: fixtures/credit_report/兰瑞存.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    options:
+      enhance_mode: standard
+    gates:
+      required_fields_present:
+        - subject_name
+        - id_number
+    tags: [credit, identity, community]

@@ -1,0 +1,30 @@
+# TQG alipay_payment track — edition + normalization gates
+version: 1
+track: alipay_payment
+layer: pec
+
+cases:
+  - id: alipay_community_records
+    tier: regression
+    fixture: fixtures/alipay_payment/黄照荣+支付宝流水.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    options:
+      enhance_mode: standard
+    gates:
+      edition_total_rows: { min: 100 }
+    tags: [cashflow, alipay, community]
+
+  - id: alipay_normalization_metrics
+    tier: regression
+    fixture: fixtures/alipay_payment/黄照荣+支付宝流水.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    options:
+      enhance_mode: standard
+    gates:
+      normalized_amount_rate: { min: 0.90 }
+      normalized_time_rate: { min: 0.85 }
+    tags: [cashflow, alipay, normalization, community]

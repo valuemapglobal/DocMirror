@@ -1,0 +1,78 @@
+# DocMirror Privacy Policy v1
+#
+# Defines the default privacy mode, redaction profiles, and data classification
+# behavior. This is the canonical source of truth for the PSC (Privacy / Security /
+# Compliance) contract.
+#
+# Design reference: docs/design/GA1.0/12_privacy_security_compliance_ga_gap_closure_plan.md
+
+version: 1
+default_mode: local
+
+modes:
+  local:
+    allow_network: false
+    allow_external_ocr: false
+    allow_vlm: false
+    allow_online_license_verify_during_parse: false
+    support_bundle_profile: redacted
+    log_profile: minimal
+  egress_opt_in:
+    allow_network: true
+    require_provider_allowlist: true
+    require_consent: true
+    require_egress_audit: true
+  offline_enterprise:
+    allow_network: false
+    allow_external_ocr: false
+    allow_vlm: false
+    allow_online_license_verify_during_parse: false
+    support_bundle_profile: redacted
+    log_profile: minimal
+  debug_internal:
+    allow_raw_debug_artifacts: true
+    require_local_output_dir: true
+    public_release_allowed: false
+
+redaction_profiles:
+  minimal:
+    include_values: false
+    include_raw_text: false
+    include_crops: false
+  redacted:
+    include_values: masked
+    include_raw_text: false
+    include_crops: blurred
+  evidence_only:
+    include_values: false
+    include_raw_text: false
+    include_crops: false
+    include_bbox_and_refs: true
+  forensic_internal:
+    include_values: true
+    include_raw_text: true
+    include_crops: true
+
+provider_allowlist:
+  ocr:
+    - rapidocr
+    - paddlex_ocr
+  vlm:
+    - openai
+    - azure
+    - anthropic
+  license:
+    - offline
+    - online
+
+data_classification:
+  levels:
+    - public
+    - internal
+    - confidential
+    - restricted
+    - secret
+  default_document_classification: confidential
+  pii_patterns:
+    enabled: true
+    scan_on_input: true

@@ -1,0 +1,28 @@
+# TQG generic track — fallback safety net gate
+version: 1
+track: generic
+layer: pec
+
+cases:
+  - id: generic_fallback_nonempty
+    tier: regression
+    fixture: fixtures/id_card/刘进_身份证_1976112.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    options:
+      enhance_mode: standard
+    gates:
+      community_generic_fallback_warning: true
+      dec_validation: { max_issues: 0 }
+    tags: [generic, fallback, community]
+
+  - id: generic_empty_input_safe
+    tier: regression
+    fixture: fixtures/scanned/empty_page.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    gates:
+      empty_input_status: true
+    tags: [generic, empty, community]

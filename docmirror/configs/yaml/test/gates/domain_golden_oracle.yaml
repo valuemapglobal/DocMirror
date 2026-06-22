@@ -1,0 +1,196 @@
+++ # Domain Golden Oracle — per-domain expected output characteristics
+# Read by nightly regression and drift report tools (W4-04, W4-05, DOM-17).
+# Defines expected fields, record counts, section coverage, and evidence references
+# for each domain's key fixture(s).  Used as regression baselines.
+version: 1
+track: domain_golden_oracle
+layer: dgc
+description: >
+  Per-domain golden oracle definitions.  Each oracle entry describes
+  the expected output for a specific fixture — fields that must be
+  present, record count ranges, section coverage, and evidence
+  requirements.  Regressions are detected by comparing current output
+  against these oracles.
+
+oracles:
+  # ── bank_statement ──────────────────────────────────────────────
+  bank_statement:
+    fixture: tests/fixtures/bank_statement/建行-镇江超乾物流有限公司_1.pdf
+    description: Standard CCB bank statement, multi-page transactions
+    fields:
+      required_present:
+        - account_holder
+        - bank_name
+      conditional:
+        - account_number
+        - query_period
+        - currency
+    records:
+      transaction:
+        min_count: 20
+        required_fields:
+          - transaction_date
+          - amount
+        conditional_fields:
+          - balance
+          - summary
+          - counter_party
+    quality:
+      table_quality_min: 0.80
+      amount_parse_rate_min: 0.95
+      anomaly_flags_max: 5
+    evidence:
+      p0_field_evidence_min: 0.80
+      record_evidence_min: 0.70
+
+  # ── wechat_payment ──────────────────────────────────────────────
+  wechat_payment:
+    fixture: tests/fixtures/wechat_payment/黄照荣+微信流水.pdf
+    description: Standard WeChat payment records, multi-page
+    fields:
+      conditional:
+        - account_holder
+        - query_period
+    records:
+      transaction:
+        min_count: 5000
+        required_fields:
+          - trade_no
+          - timestamp
+          - amount
+        conditional_fields:
+          - counter_party
+          - transaction_type
+          - direction
+    quality:
+      primary_logical_rows_min: 4000
+      quarantine_pages_preserved: true
+      drift_ratio_max: 0.01
+    evidence:
+      p0_field_evidence_min: 0.90
+      record_evidence_min: 0.85
+
+  # ── alipay_payment ──────────────────────────────────────────────
+  alipay_payment:
+    fixture: tests/fixtures/alipay_payment/黄照荣+支付宝流水.pdf
+    description: Standard Alipay payment records, multi-page
+    fields:
+      conditional:
+        - account_holder
+    records:
+      transaction:
+        min_count: 100
+        required_fields:
+          - trade_no
+          - timestamp
+          - amount
+        conditional_fields:
+          - merchant_no
+          - counter_party
+          - payment_method
+    quality:
+      normalized_amount_rate_min: 0.95
+      normalized_time_rate_min: 0.90
+      bad_timestamp_ratio_max: 0.05
+    evidence:
+      p0_field_evidence_min: 0.85
+      record_evidence_min: 0.80
+
+  # ── business_license ────────────────────────────────────────────
+  business_license:
+    fixture: tests/fixtures/business_license/成立日期注册资本营业期限中国_营业执照_万元整营业执照一人有限责任公司_201264.pdf
+    description: Standard Chinese business license
+    fields:
+      required_present:
+        - company_name
+        - unified_social_credit_code
+        - legal_representative
+      conditional:
+        - registered_capital
+        - business_term
+        - date_of_establishment
+        - address
+    sections:
+      conditional:
+        - business_scope
+    quality:
+      uscc_checksum_valid: true
+      field_presence_min: 0.75
+    evidence:
+      p0_field_evidence_min: 0.70
+
+  # ── credit_report ───────────────────────────────────────────────
+  credit_report:
+    fixture: tests/fixtures/credit_report/兰瑞存.pdf
+    description: Standard personal credit report
+    fields:
+      required_present:
+        - subject_name
+        - id_number
+      conditional:
+        - report_time
+        - report_number
+    sections:
+      required_present:
+        - accounts
+        - credit_lines
+        - repayments
+        - overdue
+      conditional:
+        - inquiries
+        - public_records
+    records:
+      credit_accounts:
+        min_count: 1
+      repayment_records:
+        min_count: 0
+      overdue_records:
+        min_count: 0
+    quality:
+      section_coverage_min: 0.80
+      overdue_detection_confidence_min: 0.80
+    evidence:
+      p0_field_evidence_min: 0.75
+      section_evidence_min: 0.70
+
+  # ── generic ─────────────────────────────────────────────────────
+  generic:
+    fixture: tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    description: Generic fallback — synthetic ledger smoke fixture
+    fields:
+      optional:
+        - discovered_key_values
+    records:
+      optional:
+        - logical_table_records
+    quality:
+      fallback_not_empty: true
+    evidence:
+      p0_field_evidence_min: 0.50
+    note: >
+      Generic is L1 safety net (not a core domain).  Oracle is
+      deliberately lenient — it verifies fallback path works, not
+      domain-specific field completeness.
+
+  # ── vat_invoice ─────────────────────────────────────────────────
+  vat_invoice:
+    fixture: tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    description: VAT invoice — placeholder oracle (awaiting real fixtures)
+    fields:
+      conditional:
+        - invoice_code
+        - invoice_number
+        - total_amount
+        - buyer_name
+        - seller_name
+    records:
+      conditional:
+        - line_items
+    quality:
+      amount_consistency: true
+    evidence:
+      p0_field_evidence_min: 0.70
+    note: >
+      VAT invoice is manual_target=candidate.  Oracle is defined
+      for forward compatibility but cannot be validated until real
+      fixtures are available.

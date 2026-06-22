@@ -73,12 +73,36 @@ STEPS: tuple[GateStepDef, ...] = (
     ),
     # ── Phase 3: Architecture & contracts (CI parity) ──
     GateStepDef(
+        "validate_support_matrix",
+        "Support Matrix registry",
+        "contracts",
+        "shell",
+        frozenset({"standard", "full"}),
+        ("python3", "scripts/validate/validate_support_matrix.py"),
+    ),
+    GateStepDef(
+        "validate_real_world_fixture_catalog",
+        "Real-world fixture catalog",
+        "contracts",
+        "shell",
+        frozenset({"standard", "full"}),
+        ("python3", "scripts/validate/validate_real_world_fixture_catalog.py"),
+    ),
+    GateStepDef(
         "validate_format_capabilities",
         "Format capability registry (FCR)",
         "contracts",
         "shell",
         frozenset({"standard", "full"}),
-        ("python3", "tools/validate_format_capabilities.py"),
+        ("python3", "scripts/validate/validate_format_capabilities.py"),
+    ),
+    GateStepDef(
+        "validate_input_p0_matrix",
+        "P0 input coverage matrix (IAC)",
+        "contracts",
+        "shell",
+        frozenset({"standard", "full"}),
+        ("python3", "scripts/validate/validate_input_p0_matrix.py"),
     ),
     GateStepDef(
         "validate_dti",
@@ -86,7 +110,7 @@ STEPS: tuple[GateStepDef, ...] = (
         "contracts",
         "shell",
         frozenset({"standard", "full"}),
-        ("python3", "tools/validate_dti.py"),
+        ("python3", "scripts/validate/validate_dti.py"),
     ),
     GateStepDef(
         "validate_middleware_catalog",
@@ -94,7 +118,7 @@ STEPS: tuple[GateStepDef, ...] = (
         "contracts",
         "shell",
         frozenset({"standard", "full"}),
-        ("python3", "scripts/validate_middleware_catalog.py"),
+        ("python3", "scripts/validate/validate_middleware_catalog.py"),
     ),
     GateStepDef(
         "validate_post_extract",
@@ -102,7 +126,7 @@ STEPS: tuple[GateStepDef, ...] = (
         "contracts",
         "shell",
         frozenset({"standard", "full"}),
-        ("python3", "scripts/validate_post_extract.py"),
+        ("python3", "scripts/validate/validate_post_extract.py"),
     ),
     GateStepDef(
         "validate_test_manifest",
@@ -110,7 +134,7 @@ STEPS: tuple[GateStepDef, ...] = (
         "contracts",
         "shell",
         frozenset({"standard", "full"}),
-        ("python3", "tools/validate_test_manifest.py"),
+        ("python3", "scripts/validate/validate_test_manifest.py"),
     ),
     GateStepDef(
         "validate_core_cps_layout",
@@ -118,7 +142,7 @@ STEPS: tuple[GateStepDef, ...] = (
         "contracts",
         "shell",
         frozenset({"standard", "full"}),
-        ("python3", "scripts/validate_core_cps_layout.py"),
+        ("python3", "scripts/validate/validate_core_cps_layout.py"),
     ),
     GateStepDef(
         "validate_core_god_files",
@@ -126,7 +150,7 @@ STEPS: tuple[GateStepDef, ...] = (
         "architecture",
         "shell",
         frozenset({"standard", "full"}),
-        ("python3", "scripts/validate_core_god_files.py"),
+        ("python3", "scripts/validate/validate_core_god_files.py"),
     ),
     GateStepDef(
         "gate_pcm_legacy_refs",
@@ -134,7 +158,7 @@ STEPS: tuple[GateStepDef, ...] = (
         "architecture",
         "shell",
         frozenset({"standard", "full"}),
-        ("python3", "tools/gate_pcm_legacy_refs.py"),
+        ("python3", "scripts/validate/gate_pcm_legacy_refs.py"),
     ),
     GateStepDef(
         "gate_pcm_mirror_volume",
@@ -142,7 +166,7 @@ STEPS: tuple[GateStepDef, ...] = (
         "architecture",
         "shell",
         frozenset({"standard", "full"}),
-        ("python3", "tools/gate_pcm_mirror_volume.py"),
+        ("python3", "scripts/validate/gate_pcm_mirror_volume.py"),
     ),
     GateStepDef(
         "audit_core_imports",
@@ -168,6 +192,14 @@ STEPS: tuple[GateStepDef, ...] = (
         "shell",
         frozenset({"standard", "full"}),
         ("python3", "-m", "pytest", "tests/unit/", "-q", "--tb=line"),
+    ),
+    GateStepDef(
+        "test_input_p0_matrix",
+        "P0 input coverage contract tests (IAC)",
+        "tests",
+        "shell",
+        frozenset({"standard", "full"}),
+        ("python3", "-m", "pytest", "tests/contract/test_input_p0_matrix.py", "tests/contract/test_input_p0_office_smoke.py", "tests/contract/test_input_p0_web_email_archive_smoke.py", "-q", "--tb=line"),
     ),
     GateStepDef(
         "pytest_tiers",

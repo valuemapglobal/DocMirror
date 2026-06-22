@@ -1,0 +1,33 @@
+# TQG business_license track — P0 field + USCC gate
+version: 1
+track: business_license
+layer: pec
+
+cases:
+  - id: business_license_community_kv
+    tier: regression
+    fixture: fixtures/business_license/成立日期注册资本营业期限中国_营业执照_万元整营业执照一人有限责任公司_201264.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    options:
+      enhance_mode: standard
+    gates:
+      dec_validation: { max_issues: 0 }
+      required_fields_present:
+        - company_name
+        - unified_social_credit_code
+        - legal_representative
+    tags: [identity, license, community]
+
+  - id: business_license_uscc_quality
+    tier: regression
+    fixture: fixtures/business_license/成立日期注册资本营业期限中国_营业执照_万元整营业执照一人有限责任公司_201264.pdf
+    skip_if_fixture_missing: true
+    pipeline: edition
+    editions: [community]
+    options:
+      enhance_mode: standard
+    gates:
+      uscc_valid_or_warning: true
+    tags: [identity, license, uscc, community]

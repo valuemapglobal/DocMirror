@@ -12,7 +12,7 @@ This directory holds **expected DEC/community/enterprise JSON** snapshots for ed
 Regenerate the index after adding gate cases:
 
 ```bash
-python3 tools/sync_golden_manifest.py
+python3 scripts/sync/sync_golden_manifest.py
 ```
 
 Case definitions live in `docmirror/configs/yaml/test/gates/edition.yaml` — not in this folder.

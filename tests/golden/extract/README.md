@@ -12,7 +12,7 @@ This directory holds **expected JSON/YAML snapshots** for extract-track TQG case
 Regenerate the index after adding gate cases:
 
 ```bash
-python3 tools/sync_golden_manifest.py
+python3 scripts/sync/sync_golden_manifest.py
 ```
 
 Case definitions live in `docmirror/configs/yaml/test/gates/extract.yaml` — not in this folder.

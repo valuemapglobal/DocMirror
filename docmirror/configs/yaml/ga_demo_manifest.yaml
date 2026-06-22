@@ -1,0 +1,52 @@
+version: 1
+
+demos:
+  complex_pdf_to_rag:
+    title: "Complex PDF -> RAG"
+    input: tests/fixtures/synthetic/credit_report_section_smoke.pdf
+    fixture_role: public
+    command: "docmirror parse tests/fixtures/synthetic/credit_report_section_smoke.pdf --format markdown,chunks,evidence --editions mirror,community"
+    expected_artifacts:
+      - 001_mirror.json
+      - output.md
+      - 005_evidence_bundle.json
+      - manifest.json
+    proves:
+      - document_structure
+      - markdown
+      - rag_chunks
+      - source_refs
+
+  bank_flow_to_finance_json:
+    title: "Bank/payment flow -> Finance JSON"
+    input: tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    fixture_role: public
+    command: "docmirror parse tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf --format json,evidence --editions all"
+    expected_artifacts:
+      - 001_mirror.json
+      - 002_community.json
+      - 004_finance.json
+      - quality_report.json
+      - 005_evidence_bundle.json
+      - manifest.json
+    proves:
+      - transaction_rows
+      - amount_normalization
+      - confidence
+      - quality_report
+
+  low_quality_scan_to_partial_evidence:
+    title: "Low quality scan -> Partial + Evidence"
+    input: tests/fixtures/scanned/account_card_page4_full_layout.json
+    fixture_role: synthetic
+    command: "docmirror parse tests/fixtures/scanned/account_card_page4_full_layout.json --format evidence --editions mirror,community"
+    expected_artifacts:
+      - 001_mirror.json
+      - quality_report.json
+      - 005_evidence_bundle.json
+      - visual_debug.html
+    proves:
+      - partial_result
+      - low_confidence_warning
+      - needs_review
+      - retry_suggestion

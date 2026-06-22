@@ -1,0 +1,81 @@
+# DocMirror Long Document Runtime Configuration
+# GA 1.0 DRC-W3-01: Thresholds and policies for long/huge document processing.
+#
+# All thresholds can be overridden via environment variables:
+#   DOCMIRROR_SMALL_DOC_PAGES, DOCMIRROR_LONG_DOC_PAGES, etc.
+
+version: 1
+track: runtime
+layer: drc
+
+# ── Document size classification thresholds ─────────────────────────────
+thresholds:
+  small_doc_pages: 10        # <= 10 pages: sync parse, no auto-task
+  long_doc_pages: 50         # >= 50 pages: task mode + progress ledger
+  huge_doc_pages: 200        # >= 200 pages: windowed checkpoint + chunk streaming
+  large_file_mb: 100         # >= 100 MB: resource gate + async
+  ocr_heavy_ratio: 0.5       # >= 50% scanned pages: lower page concurrency
+
+# ── Auto-planning behavior per document size ─────────────────────────────
+planning:
+  small:
+    task_mode: sync
+    checkpoints: false
+    page_streaming: false
+    chunk_streaming: false
+  medium:
+    task_mode: auto
+    checkpoints: false
+    page_streaming: false
+    chunk_streaming: false
+  long:
+    task_mode: async
+    checkpoints: true
+    page_streaming: true
+    chunk_streaming: false
+  huge:
+    task_mode: async
+    checkpoints: true
+    page_streaming: true
+    chunk_streaming: true
+
+# ── Worker budget adjustments for different document sizes ───────────────
+worker_adjustments:
+  small:
+    page_concurrency: 2
+    layout_concurrency: 1
+  medium:
+    page_concurrency: 4
+    layout_concurrency: 2
+  long:
+    page_concurrency: 4
+    layout_concurrency: 2
+  huge:
+    page_concurrency: 2       # Lower concurrency for huge docs (memory)
+    layout_concurrency: 1
+
+# ── Checkpoint policies ──────────────────────────────────────────────────
+checkpoint_policy:
+  enabled_for_profiles:
+    - full
+    - forensic
+  page_fragment: true         # Save per-page mirror fragments
+  quality_fragment: true      # Save per-page quality data
+  chunk_fragment: true        # Save per-chunk data
+  retention_hours: 72         # Auto-clean checkpoints older than this
+
+# ── Progress event policy ────────────────────────────────────────────────
+progress_policy:
+  emit_events_by_default: true
+  events_path: "progress_events.ndjson"
+  per_page_events: true       # Emit one event per page outcome
+  per_chunk_events: true      # Emit one event per chunk
+  aggregate_interval_pages: 10  # Emit aggregate progress every N pages
+
+# ── Intermediate artifact policy ─────────────────────────────────────────
+intermediate_artifacts:
+  enabled: true
+  page_mirror_fragment: true
+  page_markdown_fragment: true
+  chunk_fragment: true
+  projection_partial: true

@@ -1,0 +1,114 @@
+# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Input Acceptance Report models — serialisable IAC contract."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class InputProbeReport:
+    """File-level probe: identity, integrity, basic metadata."""
+
+    file_name: str = ""
+    extension: str = ""
+    mime_type: str = ""
+    size_bytes: int = 0
+    checksum: str = ""
+    exists: bool = False
+    readable: bool = False
+
+
+@dataclass
+class ResourceGateReport:
+    """Resource budget check result."""
+
+    status: str = "pass"  # pass | fail
+    limits: dict[str, Any] = field(default_factory=dict)
+    actual: dict[str, Any] = field(default_factory=dict)
+    violations: list[str] = field(default_factory=list)
+
+
+@dataclass
+class SafetyGateReport:
+    """Safety probe result."""
+
+    status: str = "pass"  # pass | fail | warn
+    checks: dict[str, Any] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
+class CapabilityReport:
+    """FCR / Support Matrix routing result."""
+
+    id: str = ""
+    transport: str = ""
+    support_status: str = ""
+    requires_converter: str | None = None
+    requires_dependency: list[str] = field(default_factory=list)
+    limitations: list[str] = field(default_factory=list)
+
+
+@dataclass
+class InputDecisionReport:
+    """Final acceptance decision."""
+
+    accepted: bool = False
+    outcome: str = "reject"  # parse | partial | reject
+    reason: str = ""
+    suggestion: str = ""
+
+
+@dataclass
+class InputAcceptanceReport:
+    """Complete Input Acceptance Contract report — serialisable into parser_info."""
+
+    version: int = 1
+    input: InputProbeReport = field(default_factory=InputProbeReport)
+    capability: CapabilityReport = field(default_factory=CapabilityReport)
+    resource_gate: ResourceGateReport = field(default_factory=ResourceGateReport)
+    safety_gate: SafetyGateReport = field(default_factory=SafetyGateReport)
+    decision: InputDecisionReport = field(default_factory=InputDecisionReport)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "version": self.version,
+            "input": {
+                "file_name": self.input.file_name,
+                "extension": self.input.extension,
+                "mime_type": self.input.mime_type,
+                "size_bytes": self.input.size_bytes,
+                "checksum": self.input.checksum,
+                "exists": self.input.exists,
+                "readable": self.input.readable,
+            },
+            "capability": {
+                "id": self.capability.id,
+                "transport": self.capability.transport,
+                "support_status": self.capability.support_status,
+                "requires_converter": self.capability.requires_converter,
+                "requires_dependency": self.capability.requires_dependency,
+                "limitations": self.capability.limitations,
+            },
+            "resource_gate": {
+                "status": self.resource_gate.status,
+                "limits": dict(self.resource_gate.limits),
+                "actual": dict(self.resource_gate.actual),
+                "violations": list(self.resource_gate.violations),
+            },
+            "safety_gate": {
+                "status": self.safety_gate.status,
+                "checks": dict(self.safety_gate.checks),
+                "warnings": list(self.safety_gate.warnings),
+            },
+            "decision": {
+                "accepted": self.decision.accepted,
+                "outcome": self.decision.outcome,
+                "reason": self.decision.reason,
+                "suggestion": self.decision.suggestion,
+            },
+        }

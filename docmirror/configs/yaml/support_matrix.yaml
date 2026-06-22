@@ -1,0 +1,231 @@
+# DocMirror Support Matrix — product support status per FCR capability.
+# FCR answers "can the router choose an adapter"; this file answers "what can
+# the product honestly promise to users".
+
+version: 1
+
+statuses:
+  - ga
+  - candidate
+  - fallback
+  - unsupported
+
+formats:
+  pdf_native:
+    ga_status: ga
+    user_label: "PDF"
+    inputs: [".pdf"]
+    transport: pdf
+    parse_modes: [fast, balanced, accurate, forensic]
+    outputs: {mirror: full, markdown: structured, evidence: forensic}
+    dependencies: []
+    limitations: []
+
+  xps_fixed_layout:
+    ga_status: fallback
+    user_label: "XPS"
+    inputs: [".xps"]
+    transport: pdf
+    parse_modes: [balanced]
+    outputs: {mirror: partial, markdown: structured, evidence: partial}
+    requires_converter: libreoffice
+    fallback_to: pdf_native
+    limitations: ["Requires conversion to PDF before parsing."]
+
+  image_raster:
+    ga_status: candidate
+    user_label: "Image"
+    inputs: [".png", ".jpg", ".jpeg", ".tiff", ".tif", ".bmp", ".webp"]
+    transport: image
+    parse_modes: [balanced, accurate, forensic]
+    outputs: {mirror: partial, markdown: structured, evidence: forensic}
+    dependencies: [ocr]
+    limitations: ["Text, bbox, and table quality depend on OCR image quality."]
+
+  ofd_native:
+    ga_status: candidate
+    user_label: "OFD"
+    inputs: [".ofd"]
+    transport: ofd
+    parse_modes: [balanced]
+    outputs: {mirror: partial, markdown: structured, evidence: partial}
+    limitations: ["OFD support is adapter-dependent and needs GA fixture coverage."]
+
+  word_docx:
+    ga_status: candidate
+    user_label: "DOCX"
+    inputs: [".docx"]
+    transport: word
+    parse_modes: [fast, balanced]
+    outputs: {mirror: text_structure, markdown: structured, evidence: partial}
+    limitations: ["Native DOCX does not guarantee token-level bbox/source refs."]
+
+  word_legacy_doc:
+    ga_status: fallback
+    user_label: "DOC"
+    inputs: [".doc"]
+    transport: word
+    parse_modes: [balanced]
+    outputs: {mirror: partial, markdown: structured, evidence: partial}
+    requires_converter: libreoffice
+    fallback_to: pdf_native
+    limitations: ["Requires LibreOffice conversion to PDF."]
+
+  word_rtf:
+    ga_status: fallback
+    user_label: "RTF"
+    inputs: [".rtf"]
+    transport: word
+    parse_modes: [balanced]
+    outputs: {mirror: partial, markdown: structured, evidence: partial}
+    requires_converter: libreoffice
+    fallback_to: word_docx
+    limitations: ["Requires LibreOffice conversion to DOCX."]
+
+  wps_word:
+    ga_status: unsupported
+    user_label: "WPS Writer"
+    inputs: [".wps"]
+    transport: word
+    outputs: {mirror: missing, markdown: missing, evidence: missing}
+    limitations: ["Recognized but not supported."]
+
+  excel_xlsx:
+    ga_status: candidate
+    user_label: "XLSX"
+    inputs: [".xlsx"]
+    transport: excel
+    parse_modes: [fast, balanced]
+    outputs: {mirror: text_structure, markdown: structured, evidence: partial}
+    limitations: ["Native spreadsheet geometry is logical rather than page-bbox based."]
+
+  excel_xls:
+    ga_status: fallback
+    user_label: "XLS"
+    inputs: [".xls"]
+    transport: excel
+    parse_modes: [balanced]
+    outputs: {mirror: partial, markdown: structured, evidence: partial}
+    requires_converter: libreoffice
+    fallback_to: excel_xlsx
+    limitations: ["Requires LibreOffice conversion to XLSX."]
+
+  excel_csv:
+    ga_status: candidate
+    user_label: "CSV"
+    inputs: [".csv"]
+    transport: excel
+    parse_modes: [fast]
+    outputs: {mirror: text_structure, markdown: structured, evidence: basic}
+    limitations: ["CSV has logical rows only; page geometry is not available."]
+
+  wps_excel:
+    ga_status: unsupported
+    user_label: "WPS Spreadsheet"
+    inputs: [".et"]
+    transport: excel
+    outputs: {mirror: missing, markdown: missing, evidence: missing}
+    limitations: ["Recognized but not supported."]
+
+  ppt_pptx:
+    ga_status: candidate
+    user_label: "PPTX"
+    inputs: [".pptx"]
+    transport: ppt
+    parse_modes: [balanced]
+    outputs: {mirror: text_structure, markdown: structured, evidence: partial}
+    limitations: ["Slide geometry is logical unless converted/rendered."]
+
+  ppt_legacy:
+    ga_status: fallback
+    user_label: "PPT"
+    inputs: [".ppt"]
+    transport: ppt
+    parse_modes: [balanced]
+    outputs: {mirror: partial, markdown: structured, evidence: partial}
+    requires_converter: libreoffice
+    fallback_to: pdf_native
+    limitations: ["Requires LibreOffice conversion to PDF."]
+
+  wps_ppt:
+    ga_status: unsupported
+    user_label: "WPS Presentation"
+    inputs: [".dps"]
+    transport: ppt
+    outputs: {mirror: missing, markdown: missing, evidence: missing}
+    limitations: ["Recognized but not supported."]
+
+  email_eml:
+    ga_status: candidate
+    user_label: "EML"
+    inputs: [".eml"]
+    transport: email
+    parse_modes: [fast, balanced]
+    outputs: {mirror: text_structure, markdown: structured, evidence: basic}
+    limitations: ["Attachment expansion and bbox evidence are not GA."]
+
+  email_msg:
+    ga_status: fallback
+    user_label: "MSG"
+    inputs: [".msg"]
+    transport: email
+    parse_modes: [balanced]
+    outputs: {mirror: text_structure, markdown: structured, evidence: basic}
+    requires_converter: extract_msg
+    fallback_to: email_eml
+    limitations: ["Requires extract_msg conversion to EML."]
+
+  web_html:
+    ga_status: candidate
+    user_label: "HTML"
+    inputs: [".html", ".htm"]
+    transport: web
+    parse_modes: [fast, balanced]
+    outputs: {mirror: text_structure, markdown: structured, evidence: basic}
+    limitations: ["Rendered visual geometry is not guaranteed."]
+
+  web_mhtml:
+    ga_status: fallback
+    user_label: "MHTML"
+    inputs: [".mhtml"]
+    transport: web
+    parse_modes: [balanced]
+    outputs: {mirror: text_structure, markdown: structured, evidence: basic}
+    fallback_to: web_html
+    limitations: ["Converted internally to HTML."]
+
+  structured_json:
+    ga_status: candidate
+    user_label: "JSON"
+    inputs: [".json"]
+    transport: structured
+    parse_modes: [fast]
+    outputs: {mirror: text_structure, markdown: structured, evidence: basic}
+    limitations: ["Input is logical structured data, not visual document evidence."]
+
+  structured_xml:
+    ga_status: candidate
+    user_label: "XML"
+    inputs: [".xml"]
+    transport: structured
+    parse_modes: [fast]
+    outputs: {mirror: text_structure, markdown: structured, evidence: basic}
+    limitations: ["Input is logical structured data, not visual document evidence."]
+
+  structured_txt:
+    ga_status: candidate
+    user_label: "TXT"
+    inputs: [".txt"]
+    transport: structured
+    parse_modes: [fast]
+    outputs: {mirror: text_structure, markdown: structured, evidence: basic}
+    limitations: ["Plain text has no page geometry unless externally supplied."]
+
+  archive_zip:
+    ga_status: candidate
+    user_label: "Archive"
+    inputs: [".zip", ".rar"]
+    transport: archive
+    parse_modes: [balanced]
+    outputs: {mirror: container, markdown: structured, evidence: partial}
+    limitations: ["Archive members may have mixed support levels; password-protected archives are not GA."]
