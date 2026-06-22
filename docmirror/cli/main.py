@@ -53,7 +53,7 @@ main.add_command(benchmark)
 
 @main.command()
 @click.argument("file", required=True)
-@click.option("--output-dir", "-o", default="output", show_default=True, help="Output directory")
+@click.option("--output-dir", "-o", default=lambda: os.environ.get("DOCMIRROR_TASK_OUTPUT_DIR", "output"), show_default=True, help="Output directory (env: DOCMIRROR_TASK_OUTPUT_DIR or default 'output')")
 @click.option("--no-save", is_flag=True, help="Do not save result to disk")
 @click.option("--pages", default=None, help="Page ranges, 1-based: 1-3,8,10-")
 @click.option("--max-pages", type=int, default=None, help="Maximum pages after applying --pages")

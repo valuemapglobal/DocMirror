@@ -36,7 +36,7 @@ from rich.table import Table
 console = Console()
 
 # Default output directory (relative to cwd)
-DEFAULT_OUTPUT_DIR = Path("output")
+DEFAULT_OUTPUT_DIR = Path(os.environ.get("DOCMIRROR_TASK_OUTPUT_DIR", "output"))
 DEFAULT_MIRROR_LEVEL = os.environ.get("DOCMIRROR_MIRROR_LEVEL", "standard")
 
 
