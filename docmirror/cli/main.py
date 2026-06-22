@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 import click
 
@@ -34,8 +35,12 @@ from docmirror.cli.benchmark import benchmark
 from docmirror.cli.classify import classify
 from docmirror.cli.plugins import plugins
 
+# Load .env from project root
+_env_root = Path(__file__).resolve().parent.parent.parent
+load_dotenv(_env_root / '.env', override=False)
 
 @click.group()
+
 @click.version_option(version="0.4.0", prog_name="DocMirror")
 def main():
     """DocMirror - Universal Document Parsing Engine.

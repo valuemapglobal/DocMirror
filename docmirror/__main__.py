@@ -27,13 +27,18 @@ import time
 import traceback
 from dataclasses import replace
 from pathlib import Path
-
+ 
+from dotenv import load_dotenv
+ 
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-
+ 
 console = Console()
+ 
+_project_root = Path(__file__).resolve().parent.parent
+load_dotenv(_project_root / ".env", override=False)
 
 # Default output directory (relative to cwd)
 DEFAULT_OUTPUT_DIR = Path(os.environ.get("DOCMIRROR_TASK_OUTPUT_DIR", "output"))
