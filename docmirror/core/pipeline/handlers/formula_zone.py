@@ -129,6 +129,41 @@ def handle_formula_zone(
     _formula_ms = (_clock() - _fml_t) * 1000
 
     if latex_str:
+        # GA 1.0 FM-2: Build formula evidence (source refs / bbox / confidence)
+        formula_attrs: dict = {}
+        try:
+            from docmirror.core.ocr.formula_evidence import build_evidence_from_ast
+            evidence = build_evidence_from_ast(block_id, latex_str, zone.chars)
+            formula_attrs["formula_evidence"] = evidence.to_dict()
+        except Exception:
+            pass
+
+        # GA 1.0 FM-3: Classify formula as inline/display/multiline
+        try:
+            from docmirror.core.ocr.formula_class import classify_formula
+            fclass = classify_formula(
+                latex_str,
+                zone.bbox,
+                width,
+                height,
+                context_chars=zone.chars if hasattr(zone, "chars") else None,
+            )
+            formula_attrs["formula_display_type"] = fclass.display_type.value
+            formula_attrs["formula_class_confidence"] = fclass.confidence
+            if fclass.needs_review:
+                formula_attrs["formula_needs_review"] = True
+        except Exception:
+            pass
+
+        # GA 1.0 FM-1: Parse and normalize LaTeX via AST
+        try:
+            from docmirror.core.ocr.formula_ast import LaTeXSymbolTree
+            ast = LaTeXSymbolTree.parse(latex_str)
+            normalized = LaTeXSymbolTree.normalize(ast)
+            formula_attrs["normalized_latex"] = LaTeXSymbolTree.to_latex(normalized)
+        except Exception:
+            pass
+
         block = Block(
             block_id=block_id,
             block_type="formula",
@@ -136,6 +171,7 @@ def handle_formula_zone(
             reading_order=reading_order,
             page=page_idx + 1,
             raw_content=latex_str,
+            attrs=formula_attrs,
         )
         return block, _formula_ms
     elif _skip_formula_ocr and zone.text:

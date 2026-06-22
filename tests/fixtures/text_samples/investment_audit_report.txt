@@ -1,0 +1,10 @@
+投资决策
+文档类型：investment_audit_report
+
+审计报告
+Investment Audit
+投资审计
+项目审计
+投资合规
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

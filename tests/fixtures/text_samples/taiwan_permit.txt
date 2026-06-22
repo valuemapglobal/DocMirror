@@ -1,0 +1,9 @@
+台湾居民
+文档类型：taiwan_permit
+
+Taiwan Permit
+台湾居民来往大陆通行证
+台湾同胞
+Macau Permit
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

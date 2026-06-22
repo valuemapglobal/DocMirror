@@ -1,0 +1,11 @@
+基金合同
+文档类型：fund_contract
+
+基金名称
+基金代码
+基金管理人
+基金托管人
+基金份额
+基金运作
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

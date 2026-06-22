@@ -1,0 +1,10 @@
+监管问询
+文档类型：regulatory_inquiry
+
+Inquiry
+Regulatory Inquiry
+交易所问询
+证监会问询
+问询函件
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

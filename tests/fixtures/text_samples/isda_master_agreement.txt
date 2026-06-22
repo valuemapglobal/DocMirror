@@ -1,0 +1,9 @@
+ISDA
+文档类型：isda_master_agreement
+
+Master Agreement
+ISDA主协议
+国际掉期
+衍生品主协议
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

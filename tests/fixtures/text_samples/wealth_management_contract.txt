@@ -1,0 +1,12 @@
+理财合同
+文档类型：wealth_management_contract
+
+理财产品
+预期收益率
+投资金额
+产品期限
+Wealth Management
+理财协议
+理财计划
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

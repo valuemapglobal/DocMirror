@@ -1,0 +1,3102 @@
+description: Unified Fixture Bank SSOT — single source of truth for all DocMirror test fixtures
+fixture_count: 157
+fixtures:
+- domain: alipay_payment
+  expected_outputs: []
+  id: broken_alipay_statement_synthetic
+  path: tests/fixtures-private/broken/broken_alipay_payment_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - broken
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- domain: alipay_payment
+  expected_outputs: []
+  id: edge_case_alipay_payment_synthetic
+  path: tests/fixtures-private/edge_case/edge_case_alipay_payment_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: edge_case
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - edge_case
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- domain: alipay_payment
+  expected_outputs: []
+  id: low_quality_alipay_payment_synthetic
+  path: tests/fixtures-private/low_quality/low_quality_alipay_payment_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: low_quality
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - low_quality
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- docmirror_version: 2.0.0
+  domain: alipay_payment
+  generated_at: '2026-06-21T07:16:35.244823+00:00'
+  generated_by: generate_synthetic_fixtures.py
+  id: synthetic_alipay_payment_easy_auto
+  is_generated: true
+  path: tests/fixtures/alipay_payment/synthetic_easy_standard.pdf
+  quality_bucket: easy
+  role: benchmark
+  source_type: synthetic
+  support_level: ga
+  tracks:
+  - classify
+  - extract
+  - edition_schema
+  - evidence
+  transport: pdf
+- domain: bank_statement
+  expected_outputs: []
+  id: adversarial_ocr_trap_blurry
+  is_generated: true
+  path: tests/fixtures-private/adversarial/ocr_trap_blurry.pdf
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 553
+  source_type: adversarial
+  support_level: L2
+  tags:
+  - adversarial
+  - broken
+  - ocr_trap
+  tracks:
+  - classify
+  transport: pdf
+- domain: bank_statement
+  expected_outputs: []
+  id: adversarial_ocr_trap_overlap
+  is_generated: true
+  path: tests/fixtures-private/adversarial/ocr_trap_overlap.pdf
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 529
+  source_type: adversarial
+  support_level: L2
+  tags:
+  - adversarial
+  - broken
+  - ocr_trap
+  tracks:
+  - classify
+  transport: pdf
+- domain: bank_statement
+  expected_outputs: []
+  id: adversarial_template_trap
+  is_generated: true
+  path: tests/fixtures-private/adversarial/template_trap.pdf
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 567
+  source_type: adversarial
+  support_level: L2
+  tags:
+  - adversarial
+  - broken
+  - template_trap
+  tracks:
+  - classify
+  transport: pdf
+- dgc_ref: dgc_bank_statement_golden_borderless_ocr
+  domain: bank_statement
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  frozen_at: '2026-06-21'
+  frozen_commit: TBD
+  golden_version: ga-1.0
+  id: bank_statement_golden_borderless_ocr_json
+  path: tests/fixtures/bank_statement/golden/borderless_ocr.json
+  pii: scrubbed
+  quality_bucket: easy
+  release_gate_refs:
+  - R06
+  - R08
+  role: benchmark
+  size_bytes: 195
+  source_type: golden_benchmark
+  support_level: L2
+  tags:
+  - golden
+  tqg_refs:
+  - tqg_classify_bank_statement
+  tracks:
+  - classify
+  transport: pdf
+- dgc_ref: dgc_bank_statement_golden_compact_merged_ledger
+  domain: bank_statement
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  frozen_at: '2026-06-21'
+  frozen_commit: TBD
+  golden_version: ga-1.0
+  id: bank_statement_golden_compact_merged_ledger_json
+  path: tests/fixtures/bank_statement/golden/compact_merged_ledger.json
+  pii: scrubbed
+  quality_bucket: easy
+  release_gate_refs:
+  - R06
+  - R08
+  role: benchmark
+  size_bytes: 374
+  source_type: golden_benchmark
+  support_level: L2
+  tags:
+  - golden
+  tqg_refs:
+  - tqg_classify_bank_statement
+  tracks:
+  - classify
+  transport: pdf
+- dgc_ref: dgc_bank_statement_golden_grid_standard
+  domain: bank_statement
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  frozen_at: '2026-06-21'
+  frozen_commit: TBD
+  golden_version: ga-1.0
+  id: bank_statement_golden_grid_standard_json
+  path: tests/fixtures/bank_statement/golden/grid_standard.json
+  pii: scrubbed
+  quality_bucket: easy
+  release_gate_refs:
+  - R06
+  - R08
+  role: benchmark
+  size_bytes: 118
+  source_type: golden_benchmark
+  support_level: L2
+  tags:
+  - golden
+  tqg_refs:
+  - tqg_classify_bank_statement
+  tracks:
+  - classify
+  transport: pdf
+- dgc_ref: dgc_bank_statement_golden_signed_amount
+  domain: bank_statement
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  frozen_at: '2026-06-21'
+  frozen_commit: TBD
+  golden_version: ga-1.0
+  id: bank_statement_golden_signed_amount_json
+  path: tests/fixtures/bank_statement/golden/signed_amount.json
+  pii: scrubbed
+  quality_bucket: easy
+  release_gate_refs:
+  - R06
+  - R08
+  role: benchmark
+  size_bytes: 175
+  source_type: golden_benchmark
+  support_level: L2
+  tags:
+  - golden
+  tqg_refs:
+  - tqg_classify_bank_statement
+  tracks:
+  - classify
+  transport: pdf
+- dgc_ref: dgc_bank_statement_golden_split_debit_credit_boc
+  domain: bank_statement
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  frozen_at: '2026-06-21'
+  frozen_commit: TBD
+  golden_version: ga-1.0
+  id: bank_statement_golden_split_debit_credit_boc_json
+  path: tests/fixtures/bank_statement/golden/split_debit_credit_boc.json
+  pii: scrubbed
+  quality_bucket: easy
+  release_gate_refs:
+  - R06
+  - R08
+  role: benchmark
+  size_bytes: 407
+  source_type: golden_benchmark
+  support_level: L2
+  tags:
+  - golden
+  tqg_refs:
+  - tqg_classify_bank_statement
+  tracks:
+  - classify
+  transport: pdf
+- dgc_ref: dgc_bank_statement_golden_split_debit_credit
+  domain: bank_statement
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  frozen_at: '2026-06-21'
+  frozen_commit: TBD
+  golden_version: ga-1.0
+  id: bank_statement_golden_split_debit_credit_json
+  path: tests/fixtures/bank_statement/golden/split_debit_credit.json
+  pii: scrubbed
+  quality_bucket: easy
+  release_gate_refs:
+  - R06
+  - R08
+  role: benchmark
+  size_bytes: 180
+  source_type: golden_benchmark
+  support_level: L2
+  tags:
+  - golden
+  tqg_refs:
+  - tqg_classify_bank_statement
+  tracks:
+  - classify
+  transport: pdf
+- domain: bank_statement
+  expected_outputs: []
+  id: edge_case_bank_statement_synthetic
+  path: tests/fixtures-private/edge_case/edge_case_bank_statement_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: edge_case
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - edge_case
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- dgc_ref: dgc_golden_pcm_l3_credit_finance
+  domain: bank_statement
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  frozen_at: '2026-06-21'
+  frozen_commit: TBD
+  golden_version: ga-1.0
+  id: golden_pcm_l3_credit_finance_json
+  path: tests/fixtures/golden/pcm_l3_credit_finance.json
+  pii: needs_review
+  quality_bucket: easy
+  release_gate_refs:
+  - R06
+  - R08
+  role: benchmark
+  size_bytes: 714
+  source_type: golden_benchmark
+  support_level: L1
+  tags:
+  - golden
+  tqg_refs:
+  - tqg_classify_bank_statement
+  tracks:
+  - classify
+  transport: pdf
+- dgc_ref: dgc_golden_pcm_mirror_volume_baseline
+  domain: bank_statement
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  frozen_at: '2026-06-21'
+  frozen_commit: TBD
+  golden_version: ga-1.0
+  id: golden_pcm_mirror_volume_baseline_json
+  path: tests/fixtures/golden/pcm_mirror_volume_baseline.json
+  pii: needs_review
+  quality_bucket: easy
+  release_gate_refs:
+  - R06
+  - R08
+  role: benchmark
+  size_bytes: 387
+  source_type: golden_benchmark
+  support_level: L1
+  tags:
+  - golden
+  tqg_refs:
+  - tqg_classify_bank_statement
+  tracks:
+  - classify
+  transport: pdf
+- domain: bank_statement
+  expected_outputs: []
+  id: low_quality_bank_statement_synthetic
+  path: tests/fixtures-private/low_quality/low_quality_bank_statement_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: low_quality
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - low_quality
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- domain: business_license
+  expected_outputs: []
+  id: broken_business_license_synthetic
+  path: tests/fixtures-private/broken/broken_business_license_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - broken
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- domain: business_license
+  expected_outputs: []
+  id: edge_case_business_license_synthetic
+  path: tests/fixtures-private/edge_case/edge_case_business_license_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: edge_case
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - edge_case
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- domain: business_license
+  expected_outputs: []
+  id: low_quality_business_license_synthetic
+  path: tests/fixtures-private/low_quality/low_quality_business_license_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: low_quality
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - low_quality
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- docmirror_version: 2.0.0
+  domain: business_license
+  generated_at: '2026-06-21T07:16:36.328367+00:00'
+  generated_by: generate_synthetic_fixtures.py
+  id: synthetic_business_license_medium_auto
+  is_generated: true
+  path: tests/fixtures/business_license/synthetic_medium_variant.pdf
+  quality_bucket: medium
+  role: benchmark
+  source_type: synthetic
+  support_level: ga
+  tracks:
+  - classify
+  - extract
+  - edition_schema
+  - evidence
+  transport: pdf
+- domain: credit_report
+  expected_outputs: []
+  id: broken_credit_report_synthetic
+  path: tests/fixtures-private/broken/broken_credit_report_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - broken
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- domain: credit_report
+  expected_outputs: []
+  id: edge_case_credit_report_synthetic
+  path: tests/fixtures-private/edge_case/edge_case_credit_report_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: edge_case
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - edge_case
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- domain: credit_report
+  expected_outputs: []
+  id: low_quality_credit_report_synthetic
+  path: tests/fixtures-private/low_quality/low_quality_credit_report_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: low_quality
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - low_quality
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- docmirror_version: 2.0.0
+  domain: credit_report
+  generated_at: '2026-06-21T07:16:37.405850+00:00'
+  generated_by: generate_synthetic_fixtures.py
+  id: synthetic_credit_report_medium_auto
+  is_generated: true
+  path: tests/fixtures/credit_report/synthetic_medium_sections.pdf
+  quality_bucket: medium
+  role: benchmark
+  source_type: synthetic
+  support_level: ga
+  tracks:
+  - classify
+  - extract
+  - edition_schema
+  - evidence
+  transport: pdf
+- domain: generic
+  expected_outputs: []
+  id: adversarial_corrupt_stream
+  is_generated: true
+  path: tests/fixtures-private/adversarial/corrupt_stream.pdf
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 465
+  source_type: adversarial
+  support_level: L2
+  tags:
+  - adversarial
+  - broken
+  - corrupt_stream
+  tracks: []
+  transport: pdf
+- domain: generic
+  expected_outputs: []
+  id: adversarial_corrupt_truncated
+  is_generated: true
+  path: tests/fixtures-private/adversarial/corrupt_truncated.pdf
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 292
+  source_type: adversarial
+  support_level: L2
+  tags:
+  - adversarial
+  - broken
+  - truncated
+  tracks: []
+  transport: pdf
+- domain: generic
+  expected_outputs: []
+  id: adversarial_missing_pages
+  is_generated: true
+  path: tests/fixtures-private/adversarial/missing_pages.pdf
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 336
+  source_type: adversarial
+  support_level: L2
+  tags:
+  - adversarial
+  - broken
+  - missing_pages
+  tracks: []
+  transport: pdf
+- domain: generic
+  expected_outputs: []
+  id: adversarial_resource_bomb
+  is_generated: true
+  path: tests/fixtures-private/adversarial/resource_bomb.pdf
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 363
+  source_type: adversarial
+  support_level: L2
+  tags:
+  - adversarial
+  - broken
+  - resource_bomb
+  tracks: []
+  transport: pdf
+- domain: generic
+  expected_outputs: []
+  id: adversarial_resource_bomb_font
+  is_generated: true
+  path: tests/fixtures-private/adversarial/resource_bomb_font.pdf
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 1505
+  source_type: adversarial
+  support_level: L2
+  tags:
+  - adversarial
+  - broken
+  - resource_bomb
+  tracks: []
+  transport: pdf
+- compliance:
+    redaction:
+      method: Automated PII scrubbing
+      pii_scan_status: clean
+    retention:
+      delete_by: on-request
+    source_record: Generic document — desensitized real fixture
+  domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: evidence_core_mirror_synthetic_geometry_golden_json
+  path: tests/fixtures/evidence/core_mirror/synthetic_geometry_golden.json
+  pii: needs_review
+  quality_bucket: easy
+  role: benchmark
+  size_bytes: 688
+  source_type: desensitized_real
+  support_level: L1
+  tags:
+  - core_mirror
+  tracks:
+  - classify
+  transport: pdf
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: synthetic_bank_ledger_3page_smoke_pdf
+  path: tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf
+  pii: needs_review
+  quality_bucket: easy
+  role: demo
+  size_bytes: 4077
+  source_type: synthetic
+  support_level: L0
+  tags:
+  - synthetic
+  tracks:
+  - classify
+  transport: pdf
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: synthetic_credit_report_section_smoke_pdf
+  path: tests/fixtures/synthetic/credit_report_section_smoke.pdf
+  pii: needs_review
+  quality_bucket: easy
+  role: demo
+  size_bytes: 2074
+  source_type: synthetic
+  support_level: L0
+  tags:
+  - synthetic
+  tracks:
+  - classify
+  transport: pdf
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_abs_prospectus_txt
+  path: tests/fixtures/text_samples/abs_prospectus.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 240
+  source_type: public
+  support_level: L0
+  tags:
+  - abs_prospectus
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_accident_proof_txt
+  path: tests/fixtures/text_samples/accident_proof.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 218
+  source_type: public
+  support_level: L0
+  tags:
+  - accident_proof
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_account_opening_permit_txt
+  path: tests/fixtures/text_samples/account_opening_permit.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 228
+  source_type: public
+  support_level: L0
+  tags:
+  - account_opening_permit
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_adverse_audit_report_txt
+  path: tests/fixtures/text_samples/adverse_audit_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 262
+  source_type: public
+  support_level: L0
+  tags:
+  - adverse_audit_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_ai_compliance_report_txt
+  path: tests/fixtures/text_samples/ai_compliance_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 230
+  source_type: public
+  support_level: L0
+  tags:
+  - ai_compliance_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_alternative_credit_report_txt
+  path: tests/fixtures/text_samples/alternative_credit_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 242
+  source_type: public
+  support_level: L0
+  tags:
+  - alternative_credit_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_aml_report_txt
+  path: tests/fixtures/text_samples/aml_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 236
+  source_type: public
+  support_level: L0
+  tags:
+  - aml_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_apostille_certificate_txt
+  path: tests/fixtures/text_samples/apostille_certificate.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 246
+  source_type: public
+  support_level: L0
+  tags:
+  - apostille_certificate
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_arbitration_award_txt
+  path: tests/fixtures/text_samples/arbitration_award.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 229
+  source_type: public
+  support_level: L0
+  tags:
+  - arbitration_award
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_asset_management_contract_txt
+  path: tests/fixtures/text_samples/asset_management_contract.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 246
+  source_type: public
+  support_level: L0
+  tags:
+  - asset_management_contract
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_audit_report_txt
+  path: tests/fixtures/text_samples/audit_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 238
+  source_type: public
+  support_level: L0
+  tags:
+  - audit_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_balance_sheet_txt
+  path: tests/fixtures/text_samples/balance_sheet.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 228
+  source_type: public
+  support_level: L0
+  tags:
+  - balance_sheet
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_bank_confirmation_letter_txt
+  path: tests/fixtures/text_samples/bank_confirmation_letter.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 237
+  source_type: public
+  support_level: L0
+  tags:
+  - bank_confirmation_letter
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_bank_reconciliation_txt
+  path: tests/fixtures/text_samples/bank_reconciliation.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 236
+  source_type: public
+  support_level: L0
+  tags:
+  - bank_reconciliation
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_bankruptcy_liquidation_txt
+  path: tests/fixtures/text_samples/bankruptcy_liquidation.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 230
+  source_type: public
+  support_level: L0
+  tags:
+  - bankruptcy_liquidation
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_beneficiary_proof_txt
+  path: tests/fixtures/text_samples/beneficiary_proof.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 240
+  source_type: public
+  support_level: L0
+  tags:
+  - beneficiary_proof
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_bill_of_lading_txt
+  path: tests/fixtures/text_samples/bill_of_lading.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 143
+  source_type: public
+  support_level: L0
+  tags:
+  - bill_of_lading
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_board_resolution_txt
+  path: tests/fixtures/text_samples/board_resolution.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 225
+  source_type: public
+  support_level: L0
+  tags:
+  - board_resolution
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_bond_audit_report_txt
+  path: tests/fixtures/text_samples/bond_audit_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 220
+  source_type: public
+  support_level: L0
+  tags:
+  - bond_audit_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_capital_verification_report_txt
+  path: tests/fixtures/text_samples/capital_verification_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 240
+  source_type: public
+  support_level: L0
+  tags:
+  - capital_verification_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_carbon_allowance_confirmation_txt
+  path: tests/fixtures/text_samples/carbon_allowance_confirmation.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 195
+  source_type: public
+  support_level: L0
+  tags:
+  - carbon_allowance_confirmation
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_carbon_emission_audit_txt
+  path: tests/fixtures/text_samples/carbon_emission_audit.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 206
+  source_type: public
+  support_level: L0
+  tags:
+  - carbon_emission_audit
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_cash_flow_statement_txt
+  path: tests/fixtures/text_samples/cash_flow_statement.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 285
+  source_type: public
+  support_level: L0
+  tags:
+  - cash_flow_statement
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_clearing_reconciliation_file_txt
+  path: tests/fixtures/text_samples/clearing_reconciliation_file.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 196
+  source_type: public
+  support_level: L0
+  tags:
+  - clearing_reconciliation_file
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_commercial_invoice_txt
+  path: tests/fixtures/text_samples/commercial_invoice.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 226
+  source_type: public
+  support_level: L0
+  tags:
+  - commercial_invoice
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_compliance_report_txt
+  path: tests/fixtures/text_samples/compliance_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 207
+  source_type: public
+  support_level: L0
+  tags:
+  - compliance_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_corporate_charter_txt
+  path: tests/fixtures/text_samples/corporate_charter.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 254
+  source_type: public
+  support_level: L0
+  tags:
+  - corporate_charter
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_court_judgment_txt
+  path: tests/fixtures/text_samples/court_judgment.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 176
+  source_type: public
+  support_level: L0
+  tags:
+  - court_judgment
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_credit_assignment_txt
+  path: tests/fixtures/text_samples/credit_assignment.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 216
+  source_type: public
+  support_level: L0
+  tags:
+  - credit_assignment
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_credit_audit_report_txt
+  path: tests/fixtures/text_samples/credit_audit_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 198
+  source_type: public
+  support_level: L0
+  tags:
+  - credit_audit_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_credit_report_enterprise_txt
+  path: tests/fixtures/text_samples/credit_report_enterprise.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 184
+  source_type: public
+  support_level: L0
+  tags:
+  - credit_report_enterprise
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_credit_report_txt
+  path: tests/fixtures/text_samples/credit_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 166
+  source_type: public
+  support_level: L0
+  tags:
+  - credit_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_customs_declaration_txt
+  path: tests/fixtures/text_samples/customs_declaration.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 193
+  source_type: public
+  support_level: L0
+  tags:
+  - customs_declaration
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_data_asset_certificate_txt
+  path: tests/fixtures/text_samples/data_asset_certificate.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 237
+  source_type: public
+  support_level: L0
+  tags:
+  - data_asset_certificate
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_debt_restructuring_txt
+  path: tests/fixtures/text_samples/debt_restructuring.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 222
+  source_type: public
+  support_level: L0
+  tags:
+  - debt_restructuring
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_derivative_trade_confirmation_txt
+  path: tests/fixtures/text_samples/derivative_trade_confirmation.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 231
+  source_type: public
+  support_level: L0
+  tags:
+  - derivative_trade_confirmation
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_disclaimer_audit_report_txt
+  path: tests/fixtures/text_samples/disclaimer_audit_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 239
+  source_type: public
+  support_level: L0
+  tags:
+  - disclaimer_audit_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_drivers_license_txt
+  path: tests/fixtures/text_samples/drivers_license.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 159
+  source_type: public
+  support_level: L0
+  tags:
+  - drivers_license
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_electronic_medical_record_txt
+  path: tests/fixtures/text_samples/electronic_medical_record.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 219
+  source_type: public
+  support_level: L0
+  tags:
+  - electronic_medical_record
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_equator_principles_assessment_txt
+  path: tests/fixtures/text_samples/equator_principles_assessment.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 230
+  source_type: public
+  support_level: L0
+  tags:
+  - equator_principles_assessment
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_equipment_appraisal_txt
+  path: tests/fixtures/text_samples/equipment_appraisal.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 227
+  source_type: public
+  support_level: L0
+  tags:
+  - equipment_appraisal
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_equity_penetration_txt
+  path: tests/fixtures/text_samples/equity_penetration.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 223
+  source_type: public
+  support_level: L0
+  tags:
+  - equity_penetration
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_equity_statement_txt
+  path: tests/fixtures/text_samples/equity_statement.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 204
+  source_type: public
+  support_level: L0
+  tags:
+  - equity_statement
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_esg_report_txt
+  path: tests/fixtures/text_samples/esg_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 201
+  source_type: public
+  support_level: L0
+  tags:
+  - esg_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_finance_lease_contract_txt
+  path: tests/fixtures/text_samples/finance_lease_contract.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 182
+  source_type: public
+  support_level: L0
+  tags:
+  - finance_lease_contract
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_financial_license_txt
+  path: tests/fixtures/text_samples/financial_license.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 250
+  source_type: public
+  support_level: L0
+  tags:
+  - financial_license
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_fiscal_invoice_txt
+  path: tests/fixtures/text_samples/fiscal_invoice.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 118
+  source_type: public
+  support_level: L0
+  tags:
+  - fiscal_invoice
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_foreign_residence_permit_txt
+  path: tests/fixtures/text_samples/foreign_residence_permit.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 265
+  source_type: public
+  support_level: L0
+  tags:
+  - foreign_residence_permit
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_fund_contract_txt
+  path: tests/fixtures/text_samples/fund_contract.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 211
+  source_type: public
+  support_level: L0
+  tags:
+  - fund_contract
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_fund_nav_report_txt
+  path: tests/fixtures/text_samples/fund_nav_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 187
+  source_type: public
+  support_level: L0
+  tags:
+  - fund_nav_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_fund_prospectus_txt
+  path: tests/fixtures/text_samples/fund_prospectus.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 213
+  source_type: public
+  support_level: L0
+  tags:
+  - fund_prospectus
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_fund_report_txt
+  path: tests/fixtures/text_samples/fund_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 215
+  source_type: public
+  support_level: L0
+  tags:
+  - fund_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_green_bond_certification_txt
+  path: tests/fixtures/text_samples/green_bond_certification.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 226
+  source_type: public
+  support_level: L0
+  tags:
+  - green_bond_certification
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_guarantee_contract_txt
+  path: tests/fixtures/text_samples/guarantee_contract.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 171
+  source_type: public
+  support_level: L0
+  tags:
+  - guarantee_contract
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_hong_kong_macao_permit_txt
+  path: tests/fixtures/text_samples/hong_kong_macao_permit.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 218
+  source_type: public
+  support_level: L0
+  tags:
+  - hong_kong_macao_permit
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_household_registration_txt
+  path: tests/fixtures/text_samples/household_registration.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 167
+  source_type: public
+  support_level: L0
+  tags:
+  - household_registration
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_income_statement_txt
+  path: tests/fixtures/text_samples/income_statement.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 215
+  source_type: public
+  support_level: L0
+  tags:
+  - income_statement
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_industry_research_report_txt
+  path: tests/fixtures/text_samples/industry_research_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 225
+  source_type: public
+  support_level: L0
+  tags:
+  - industry_research_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_institution_credit_code_cert_txt
+  path: tests/fixtures/text_samples/institution_credit_code_cert.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 217
+  source_type: public
+  support_level: L0
+  tags:
+  - institution_credit_code_cert
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_insurance_claim_form_txt
+  path: tests/fixtures/text_samples/insurance_claim_form.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 209
+  source_type: public
+  support_level: L0
+  tags:
+  - insurance_claim_form
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_insurance_claim_txt
+  path: tests/fixtures/text_samples/insurance_claim.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 184
+  source_type: public
+  support_level: L0
+  tags:
+  - insurance_claim
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_insurance_policy_txt
+  path: tests/fixtures/text_samples/insurance_policy.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 170
+  source_type: public
+  support_level: L0
+  tags:
+  - insurance_policy
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_intangible_asset_appraisal_txt
+  path: tests/fixtures/text_samples/intangible_asset_appraisal.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 215
+  source_type: public
+  support_level: L0
+  tags:
+  - intangible_asset_appraisal
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_interbank_cd_offering_txt
+  path: tests/fixtures/text_samples/interbank_cd_offering.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 183
+  source_type: public
+  support_level: L0
+  tags:
+  - interbank_cd_offering
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_interbank_lending_agreement_txt
+  path: tests/fixtures/text_samples/interbank_lending_agreement.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 209
+  source_type: public
+  support_level: L0
+  tags:
+  - interbank_lending_agreement
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_intercompany_confirmation_txt
+  path: tests/fixtures/text_samples/intercompany_confirmation.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 213
+  source_type: public
+  support_level: L0
+  tags:
+  - intercompany_confirmation
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_investment_analysis_report_txt
+  path: tests/fixtures/text_samples/investment_analysis_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 215
+  source_type: public
+  support_level: L0
+  tags:
+  - investment_analysis_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_investment_audit_report_txt
+  path: tests/fixtures/text_samples/investment_audit_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 206
+  source_type: public
+  support_level: L0
+  tags:
+  - investment_audit_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_investment_strategy_report_txt
+  path: tests/fixtures/text_samples/investment_strategy_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 212
+  source_type: public
+  support_level: L0
+  tags:
+  - investment_strategy_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_isda_master_agreement_txt
+  path: tests/fixtures/text_samples/isda_master_agreement.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 190
+  source_type: public
+  support_level: L0
+  tags:
+  - isda_master_agreement
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_land_appraisal_txt
+  path: tests/fixtures/text_samples/land_appraisal.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 214
+  source_type: public
+  support_level: L0
+  tags:
+  - land_appraisal
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_legacy_scan_doc_txt
+  path: tests/fixtures/text_samples/legacy_scan_doc.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 226
+  source_type: public
+  support_level: L0
+  tags:
+  - legacy_scan_doc
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_letter_of_credit_txt
+  path: tests/fixtures/text_samples/letter_of_credit.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 198
+  source_type: public
+  support_level: L0
+  tags:
+  - letter_of_credit
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_listing_announcement_txt
+  path: tests/fixtures/text_samples/listing_announcement.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 200
+  source_type: public
+  support_level: L0
+  tags:
+  - listing_announcement
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_loan_contract_txt
+  path: tests/fixtures/text_samples/loan_contract.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 132
+  source_type: public
+  support_level: L0
+  tags:
+  - loan_contract
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_market_trend_report_txt
+  path: tests/fixtures/text_samples/market_trend_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 211
+  source_type: public
+  support_level: L0
+  tags:
+  - market_trend_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_medical_diagnosis_report_txt
+  path: tests/fixtures/text_samples/medical_diagnosis_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 201
+  source_type: public
+  support_level: L0
+  tags:
+  - medical_diagnosis_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_medication_detail_txt
+  path: tests/fixtures/text_samples/medication_detail.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 170
+  source_type: public
+  support_level: L0
+  tags:
+  - medication_detail
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_military_id_txt
+  path: tests/fixtures/text_samples/military_id.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 140
+  source_type: public
+  support_level: L0
+  tags:
+  - military_id
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_mortgage_contract_txt
+  path: tests/fixtures/text_samples/mortgage_contract.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 182
+  source_type: public
+  support_level: L0
+  tags:
+  - mortgage_contract
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_organization_code_cert_txt
+  path: tests/fixtures/text_samples/organization_code_cert.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 207
+  source_type: public
+  support_level: L0
+  tags:
+  - organization_code_cert
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_origin_declaration_txt
+  path: tests/fixtures/text_samples/origin_declaration.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 183
+  source_type: public
+  support_level: L0
+  tags:
+  - origin_declaration
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_passport_txt
+  path: tests/fixtures/text_samples/passport.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 94
+  source_type: public
+  support_level: L0
+  tags:
+  - passport
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_payment_voucher_txt
+  path: tests/fixtures/text_samples/payment_voucher.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 207
+  source_type: public
+  support_level: L0
+  tags:
+  - payment_voucher
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_payroll_slip_txt
+  path: tests/fixtures/text_samples/payroll_slip.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 127
+  source_type: public
+  support_level: L0
+  tags:
+  - payroll_slip
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_performance_evaluation_report_txt
+  path: tests/fixtures/text_samples/performance_evaluation_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 220
+  source_type: public
+  support_level: L0
+  tags:
+  - performance_evaluation_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_police_id_txt
+  path: tests/fixtures/text_samples/police_id.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 133
+  source_type: public
+  support_level: L0
+  tags:
+  - police_id
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_portfolio_analysis_report_txt
+  path: tests/fixtures/text_samples/portfolio_analysis_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 201
+  source_type: public
+  support_level: L0
+  tags:
+  - portfolio_analysis_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_property_loss_assessment_txt
+  path: tests/fixtures/text_samples/property_loss_assessment.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 193
+  source_type: public
+  support_level: L0
+  tags:
+  - property_loss_assessment
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_property_preservation_txt
+  path: tests/fixtures/text_samples/property_preservation.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 187
+  source_type: public
+  support_level: L0
+  tags:
+  - property_preservation
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_qualified_audit_report_txt
+  path: tests/fixtures/text_samples/qualified_audit_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 218
+  source_type: public
+  support_level: L0
+  tags:
+  - qualified_audit_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_real_estate_appraisal_txt
+  path: tests/fixtures/text_samples/real_estate_appraisal.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 216
+  source_type: public
+  support_level: L0
+  tags:
+  - real_estate_appraisal
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_real_estate_certificate_txt
+  path: tests/fixtures/text_samples/real_estate_certificate.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 141
+  source_type: public
+  support_level: L0
+  tags:
+  - real_estate_certificate
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_regulatory_audit_report_txt
+  path: tests/fixtures/text_samples/regulatory_audit_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 232
+  source_type: public
+  support_level: L0
+  tags:
+  - regulatory_audit_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_regulatory_filing_txt
+  path: tests/fixtures/text_samples/regulatory_filing.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 223
+  source_type: public
+  support_level: L0
+  tags:
+  - regulatory_filing
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_regulatory_inquiry_txt
+  path: tests/fixtures/text_samples/regulatory_inquiry.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 204
+  source_type: public
+  support_level: L0
+  tags:
+  - regulatory_inquiry
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_regulatory_inspection_letter_txt
+  path: tests/fixtures/text_samples/regulatory_inspection_letter.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 236
+  source_type: public
+  support_level: L0
+  tags:
+  - regulatory_inspection_letter
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_risk_assessment_report_txt
+  path: tests/fixtures/text_samples/risk_assessment_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 240
+  source_type: public
+  support_level: L0
+  tags:
+  - risk_assessment_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_securities_prospectus_txt
+  path: tests/fixtures/text_samples/securities_prospectus.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 251
+  source_type: public
+  support_level: L0
+  tags:
+  - securities_prospectus
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_social_security_card_txt
+  path: tests/fixtures/text_samples/social_security_card.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 112
+  source_type: public
+  support_level: L0
+  tags:
+  - social_security_card
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_social_security_proof_txt
+  path: tests/fixtures/text_samples/social_security_proof.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 134
+  source_type: public
+  support_level: L0
+  tags:
+  - social_security_proof
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_structured_product_txt
+  path: tests/fixtures/text_samples/structured_product.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 244
+  source_type: public
+  support_level: L0
+  tags:
+  - structured_product
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_swift_message_txt
+  path: tests/fixtures/text_samples/swift_message.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 193
+  source_type: public
+  support_level: L0
+  tags:
+  - swift_message
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_taiwan_permit_txt
+  path: tests/fixtures/text_samples/taiwan_permit.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 201
+  source_type: public
+  support_level: L0
+  tags:
+  - taiwan_permit
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_tax_certificate_txt
+  path: tests/fixtures/text_samples/tax_certificate.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 137
+  source_type: public
+  support_level: L0
+  tags:
+  - tax_certificate
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_tax_payment_certificate_txt
+  path: tests/fixtures/text_samples/tax_payment_certificate.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 241
+  source_type: public
+  support_level: L0
+  tags:
+  - tax_payment_certificate
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_tax_return_txt
+  path: tests/fixtures/text_samples/tax_return.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 219
+  source_type: public
+  support_level: L0
+  tags:
+  - tax_return
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_third_party_credit_score_txt
+  path: tests/fixtures/text_samples/third_party_credit_score.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 246
+  source_type: public
+  support_level: L0
+  tags:
+  - third_party_credit_score
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_traffic_accident_verdict_txt
+  path: tests/fixtures/text_samples/traffic_accident_verdict.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 257
+  source_type: public
+  support_level: L0
+  tags:
+  - traffic_accident_verdict
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_unqualified_audit_report_txt
+  path: tests/fixtures/text_samples/unqualified_audit_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 268
+  source_type: public
+  support_level: L0
+  tags:
+  - unqualified_audit_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_valuation_report_txt
+  path: tests/fixtures/text_samples/valuation_report.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 228
+  source_type: public
+  support_level: L0
+  tags:
+  - valuation_report
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_vam_agreement_txt
+  path: tests/fixtures/text_samples/vam_agreement.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 236
+  source_type: public
+  support_level: L0
+  tags:
+  - vam_agreement
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_warehouse_receipt_txt
+  path: tests/fixtures/text_samples/warehouse_receipt.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 172
+  source_type: public
+  support_level: L0
+  tags:
+  - warehouse_receipt
+  tracks:
+  - classify
+  transport: text
+- domain: generic
+  expected_outputs:
+  - mirror
+  - community
+  - evidence
+  id: text_samples_wealth_management_contract_txt
+  path: tests/fixtures/text_samples/wealth_management_contract.txt
+  pii: none
+  quality_bucket: easy
+  role: both
+  size_bytes: 239
+  source_type: public
+  support_level: L0
+  tags:
+  - wealth_management_contract
+  tracks:
+  - classify
+  transport: text
+- domain: id_card
+  expected_outputs: []
+  id: broken_id_card_synthetic
+  path: tests/fixtures-private/broken/broken_id_card_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - broken
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- customer_regression:
+    count: 0
+    ga_boundary: 'Customer regression fixtures are managed outside the open-source fixture bank.
+
+      They are onboarded via the Enterprise SKU private registry and nightly pipeline.
+
+      The public fixture bank serves Community and Platform GA validation.
+
+      '
+    scope: enterprise
+    status: pending_enterprise_sku
+  domain: id_card
+  expected_outputs: []
+  id: edge_case_id_card_synthetic
+  path: tests/fixtures-private/edge_case/edge_case_id_card_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: edge_case
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - edge_case
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- domain: id_card
+  expected_outputs: []
+  id: low_quality_id_card_synthetic
+  path: tests/fixtures-private/low_quality/low_quality_id_card_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: low_quality
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - low_quality
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- domain: vat_invoice
+  expected_outputs: []
+  id: broken_vat_invoice_synthetic
+  path: tests/fixtures-private/broken/broken_vat_invoice_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - broken
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- docmirror_version: 2.0.0
+  domain: vat_invoice
+  generated_at: '2026-06-21T07:16:38.229073+00:00'
+  generated_by: generate_synthetic_fixtures.py
+  id: synthetic_vat_invoice_easy_auto
+  is_generated: true
+  path: tests/fixtures/vat_invoice/synthetic_easy_standard.pdf
+  quality_bucket: easy
+  role: benchmark
+  source_type: synthetic
+  support_level: ga
+  tracks:
+  - classify
+  - extract
+  - edition_schema
+  - evidence
+  transport: pdf
+- docmirror_version: 2.0.0
+  domain: vat_invoice
+  generated_at: '2026-06-21T07:16:39.066144+00:00'
+  generated_by: generate_synthetic_fixtures.py
+  id: synthetic_vat_invoice_medium_auto
+  is_generated: true
+  path: tests/fixtures/vat_invoice/synthetic_medium_variant.pdf
+  quality_bucket: medium
+  role: benchmark
+  source_type: synthetic
+  support_level: ga
+  tracks:
+  - classify
+  - extract
+  - edition_schema
+  - evidence
+  transport: pdf
+- domain: wechat_payment
+  expected_outputs: []
+  id: broken_wechat_statement_synthetic
+  path: tests/fixtures-private/broken/broken_wechat_payment_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - broken
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- domain: wechat_payment
+  expected_outputs: []
+  id: edge_case_wechat_payment_synthetic
+  path: tests/fixtures-private/edge_case/edge_case_wechat_payment_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: edge_case
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - edge_case
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- domain: wechat_payment
+  expected_outputs: []
+  id: low_quality_wechat_payment_synthetic
+  path: tests/fixtures-private/low_quality/low_quality_wechat_payment_placeholder.gitkeep
+  pii: none
+  private: true
+  quality_bucket: low_quality
+  role: both
+  size_bytes: 0
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - low_quality
+  - synthetic
+  - placeholder
+  tracks:
+  - classify
+  transport: pdf
+- docmirror_version: 2.0.0
+  domain: wechat_payment
+  generated_at: '2026-06-21T07:16:39.858482+00:00'
+  generated_by: generate_synthetic_fixtures.py
+  id: synthetic_wechat_payment_easy_auto
+  is_generated: true
+  path: tests/fixtures/wechat_payment/synthetic_easy_standard.pdf
+  quality_bucket: easy
+  role: benchmark
+  source_type: synthetic
+  support_level: ga
+  tracks:
+  - classify
+  - extract
+  - edition_schema
+  - evidence
+  transport: pdf
+quality_buckets:
+- easy
+- medium
+- hard
+- broken
+- low_quality
+- edge_case
+source_types:
+- public
+- synthetic
+- desensitized_real
+- customer_regression
+- golden_benchmark
+- adversarial
+- domain: generic
+  expected_outputs:
+  - mirror
+  - evidence
+  id: formula_quadratic_synthetic
+  path: tests/fixtures-private/formula/quadratic_formula.pdf
+  pii: none
+  private: true
+  quality_bucket: easy
+  role: formula_benchmark
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - formula
+  - math
+  - synthetic
+  tracks:
+  - recognize
+  transport: pdf
+- domain: generic
+  expected_outputs:
+  - mirror
+  - evidence
+  id: formula_frac_sum_synthetic
+  path: tests/fixtures-private/formula/frac_sum.pdf
+  pii: none
+  private: true
+  quality_bucket: easy
+  role: formula_benchmark
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - formula
+  - math
+  - synthetic
+  tracks:
+  - recognize
+  transport: pdf
+- domain: generic
+  expected_outputs:
+  - mirror
+  - evidence
+  id: formula_matrix_synthetic
+  path: tests/fixtures-private/formula/matrix.pdf
+  pii: none
+  private: true
+  quality_bucket: medium
+  role: formula_benchmark
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - formula
+  - math
+  - synthetic
+  tracks:
+  - recognize
+  transport: pdf
+- domain: generic
+  expected_outputs:
+  - mirror
+  - evidence
+  id: formula_nested_sqrt_frac_synthetic
+  path: tests/fixtures-private/formula/nested_sqrt_frac.pdf
+  pii: none
+  private: true
+  quality_bucket: medium
+  role: formula_benchmark
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - formula
+  - math
+  - synthetic
+  tracks:
+  - recognize
+  transport: pdf
+- domain: generic
+  expected_outputs:
+  - mirror
+  - evidence
+  id: formula_sum_prod_synthetic
+  path: tests/fixtures-private/formula/sum_prod.pdf
+  pii: none
+  private: true
+  quality_bucket: hard
+  role: formula_benchmark
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - formula
+  - math
+  - synthetic
+  tracks:
+  - recognize
+  transport: pdf
+- domain: generic
+  expected_outputs:
+  - mirror
+  - evidence
+  id: formula_multiline_align_synthetic
+  path: tests/fixtures-private/formula/multiline_align.pdf
+  pii: none
+  private: true
+  quality_bucket: hard
+  role: formula_benchmark
+  source_type: synthetic
+  support_level: L2
+  tags:
+  - formula
+  - math
+  - synthetic
+  tracks:
+  - recognize
+  transport: pdf
+- domain: generic
+  expected_outputs:
+  - mirror
+  - evidence
+  id: formula_adversarial_broken_synthetic
+  path: tests/fixtures-private/formula/adversarial_broken.pdf
+  pii: none
+  private: true
+  quality_bucket: broken
+  role: formula_benchmark
+  source_type: adversarial
+  support_level: L2
+  tags:
+  - formula
+  - adversarial
+  - synthetic
+  tracks:
+  - recognize
+  transport: pdf
+- domain: generic
+  expected_outputs:
+  - mirror
+  - evidence
+  id: formula_low_quality_synthetic
+  path: tests/fixtures-private/formula/low_quality_fuzzy.pdf
+  pii: none
+  private: true
+  quality_bucket: low_quality
+  role: formula_benchmark
+  source_type: adversarial
+  support_level: L2
+  tags:
+  - formula
+  - low_quality
+  - synthetic
+  tracks:
+  - recognize
+  transport: pdf
+- domain: generic
+  expected_outputs:
+  - mirror
+  - evidence
+  id: formula_golden_integral_synthetic
+  path: tests/fixtures-private/formula/golden_integral.pdf
+  pii: none
+  private: true
+  quality_bucket: medium
+  role: golden_benchmark
+  source_type: golden_benchmark
+  support_level: L2
+  tags:
+  - formula
+  - math
+  - golden
+  tracks:
+  - recognize
+  transport: pdf
+version: 2

@@ -1,0 +1,12 @@
+董事会决议
+文档类型：board_resolution
+
+股东会决议
+Resolution
+股东大会
+决议事项
+出席董事
+表决结果
+股东决议
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

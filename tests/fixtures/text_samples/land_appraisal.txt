@@ -1,0 +1,12 @@
+土地评估
+文档类型：land_appraisal
+
+土地使用权
+土地估价
+Land
+土地价值
+土地出让
+土地价格
+地价评估
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

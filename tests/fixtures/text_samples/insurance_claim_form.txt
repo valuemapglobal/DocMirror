@@ -1,0 +1,10 @@
+理赔申请书
+文档类型：insurance_claim_form
+
+索赔申请书
+Claim Form
+理赔申请表
+索赔申请
+出险通知书
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

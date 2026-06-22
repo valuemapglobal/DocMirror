@@ -1,0 +1,12 @@
+信用评分
+文档类型：third_party_credit_score
+
+Credit Score
+企业信用查询
+第三方征信
+Credit Scoring
+企业查询
+工商查询
+企业信用信息
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

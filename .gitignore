@@ -54,6 +54,10 @@ output/
 ## TQG / CI generated reports (regenerate via pytest)
 artifacts/
 
+## Audit / hygiene reports (regenerate via quality gate or audit scripts)
+reports/*
+!reports/.gitkeep
+
 ## Customer licenses & signing keys (never commit)
 licenses/
 *.lic

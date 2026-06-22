@@ -1,0 +1,8 @@
+融资租赁
+文档类型：finance_lease_contract
+
+租赁合同
+Finance Lease
+融资租赁合同
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

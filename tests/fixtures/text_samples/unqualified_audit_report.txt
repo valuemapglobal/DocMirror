@@ -1,0 +1,12 @@
+无保留意见
+文档类型：unqualified_audit_report
+
+审计报告
+Unqualified
+无保留意见审计报告
+Unqualified Opinion
+标准审计意见
+清洁审计意见
+审计无保留
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

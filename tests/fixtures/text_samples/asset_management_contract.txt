@@ -1,0 +1,12 @@
+资产管理
+文档类型：asset_management_contract
+
+资管合同
+Asset Management
+资产管理合同
+资产管理计划
+资管计划
+资产托管
+委托资产
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

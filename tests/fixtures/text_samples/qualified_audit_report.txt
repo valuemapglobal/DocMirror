@@ -1,0 +1,10 @@
+保留意见
+文档类型：qualified_audit_report
+
+审计报告
+Qualified
+保留意见审计报告
+Qualified Opinion
+除保留意见
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

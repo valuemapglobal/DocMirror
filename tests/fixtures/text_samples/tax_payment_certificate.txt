@@ -1,0 +1,12 @@
+缴税证明
+文档类型：tax_payment_certificate
+
+纳税证明
+税收完税
+实缴税款
+Tax Payment
+税收缴款书
+Tax Payment Certificate
+税款缴纳
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

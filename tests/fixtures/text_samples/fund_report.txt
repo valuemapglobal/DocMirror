@@ -1,0 +1,11 @@
+基金年度报告
+文档类型：fund_report
+
+基金季度报告
+基金报告
+基金资产
+基金投资
+基金持仓
+基金净值
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

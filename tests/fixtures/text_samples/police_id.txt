@@ -1,0 +1,6 @@
+Police ID
+文档类型：police_id
+
+公安机关
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

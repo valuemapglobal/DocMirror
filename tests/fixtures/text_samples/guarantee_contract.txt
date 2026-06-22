@@ -1,0 +1,8 @@
+担保合同
+文档类型：guarantee_contract
+
+担保金额
+担保方式
+保证担保
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

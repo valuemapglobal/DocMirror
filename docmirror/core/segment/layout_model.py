@@ -45,7 +45,7 @@ _CATEGORY_MAP = {
     "table_caption": "text",
     "table_footnote": "text",
     "isolate_formula": "formula",
-    "formula_caption": "text",
+    "formula_caption": "formula_context",
     # PP-Layout-CDLA — additional classes
     "text": "text",
     "header": "title",

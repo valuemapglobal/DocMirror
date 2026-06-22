@@ -1,0 +1,11 @@
+债务重组
+文档类型：debt_restructuring
+
+和解协议
+Debt Restructuring
+债务重组协议
+债务减免
+债务展期
+重组方案
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

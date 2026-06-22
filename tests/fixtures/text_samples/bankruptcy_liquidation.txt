@@ -1,0 +1,12 @@
+破产清算
+文档类型：bankruptcy_liquidation
+
+Bankruptcy
+破产重整
+破产管理人
+Liquidation
+破产申请
+破产程序
+债权人会议
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

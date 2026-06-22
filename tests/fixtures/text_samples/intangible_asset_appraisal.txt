@@ -1,0 +1,10 @@
+无形资产
+文档类型：intangible_asset_appraisal
+
+专利评估
+商标评估
+知识产权
+Intangible Asset
+无形资产评估
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

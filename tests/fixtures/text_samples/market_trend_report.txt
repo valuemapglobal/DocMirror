@@ -1,0 +1,11 @@
+市场趋势
+文档类型：market_trend_report
+
+趋势分析
+Market Trend
+市场分析
+走势分析
+行情分析
+市场调研
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

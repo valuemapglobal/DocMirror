@@ -1,0 +1,12 @@
+股权穿透
+文档类型：equity_penetration
+
+实际控制人
+股权结构
+持股比例
+Equity
+股权架构
+控股股东
+最终受益人
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

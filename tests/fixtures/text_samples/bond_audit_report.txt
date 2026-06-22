@@ -1,0 +1,12 @@
+债券发行
+文档类型：bond_audit_report
+
+审计报告
+Bond Audit
+债券审计
+发行债券
+信用评级
+债项评级
+债券募集
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

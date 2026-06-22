@@ -1,0 +1,12 @@
+监管报送
+文档类型：regulatory_audit_report
+
+审计报告
+Regulatory Audit
+监管审计
+监管报告
+合规审计
+外部监管
+监管检查
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

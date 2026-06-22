@@ -1,0 +1,12 @@
+事故证明
+文档类型：accident_proof
+
+保险事故
+Accident
+事故经过
+事故报告
+保险出险
+Accident Report
+事故认定
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

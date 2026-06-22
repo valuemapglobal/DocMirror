@@ -1,0 +1,12 @@
+大额交易
+文档类型：aml_report
+
+可疑交易
+客户身份识别
+Anti-Money Laundering
+洗钱风险
+制裁名单
+尽职调查
+客户尽职调查
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

@@ -1,0 +1,11 @@
+Compliance
+文档类型：compliance_report
+
+合规自查
+合规培训
+合规报告
+合规检查
+合规管理
+合规风险
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

@@ -1,0 +1,11 @@
+电子病历
+文档类型：electronic_medical_record
+
+Medical Record
+就诊记录
+出院小结
+入院记录
+病程记录
+检查报告
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

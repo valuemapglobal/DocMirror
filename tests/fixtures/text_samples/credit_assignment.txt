@@ -1,0 +1,10 @@
+债权转让
+文档类型：credit_assignment
+
+资产证券化
+Credit Assignment
+债权转让协议
+应收账款转让
+资产转让
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

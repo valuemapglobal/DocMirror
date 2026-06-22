@@ -1,0 +1,12 @@
+历史档案
+文档类型：legacy_scan_doc
+
+Legacy Document
+扫描文件
+历史文件
+文档扫描
+纸质存档
+历史记录
+道路运输证
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

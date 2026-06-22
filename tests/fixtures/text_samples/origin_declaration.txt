@@ -1,0 +1,8 @@
+原产地声明
+文档类型：origin_declaration
+
+Origin Declaration
+原产地证
+原产地证明
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

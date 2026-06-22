@@ -1,0 +1,12 @@
+AI合规
+文档类型：ai_compliance_report
+
+大模型合规
+金融大模型
+AI Compliance
+合规报告
+AI治理
+模型风险管理
+算法合规
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

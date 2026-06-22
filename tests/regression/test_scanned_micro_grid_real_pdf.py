@@ -12,7 +12,7 @@ from docmirror.plugins.credit_report.repayment_grid import extract_credit_repaym
 from tests._scanned_ocr_helpers import ocr_page_as_pdf_points
 
 
-_FIXTURE = Path("tests/fixtures/credit_report/兰瑞存_征信详版_拆分.pdf")
+_FIXTURE = Path("tests/fixtures/synthetic/credit_report_section_smoke.pdf")
 
 
 pytestmark = [

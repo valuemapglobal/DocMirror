@@ -1,0 +1,9 @@
+机构信用代码
+文档类型：institution_credit_code_cert
+
+信用代码证
+Credit Code
+机构信用代码证
+信用代码证书
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

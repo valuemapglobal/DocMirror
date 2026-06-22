@@ -1,0 +1,10 @@
+Intercompany
+文档类型：intercompany_confirmation
+
+应收账款
+内部往来询证函
+应付账款
+内部往来
+关联交易
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

@@ -1,0 +1,9 @@
+财产损失
+文档类型：property_loss_assessment
+
+损失评估
+Loss Assessment
+损失鉴定
+损失清单
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

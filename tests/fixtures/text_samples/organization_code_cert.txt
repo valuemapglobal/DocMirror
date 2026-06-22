@@ -1,0 +1,8 @@
+组织机构代码
+文档类型：organization_code_cert
+
+组织机构代码证
+Organization Code
+统一社会信用代码
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

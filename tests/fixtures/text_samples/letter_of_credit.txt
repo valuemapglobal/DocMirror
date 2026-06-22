@@ -1,0 +1,9 @@
+Letter of Credit
+文档类型：letter_of_credit
+
+跟单信用证
+信用证开证
+信用证通知
+信用证保兑
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

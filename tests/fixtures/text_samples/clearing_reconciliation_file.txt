@@ -1,0 +1,9 @@
+Clearing
+文档类型：clearing_reconciliation_file
+
+清算对账文件
+对账文件
+清算数据
+资金清算
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

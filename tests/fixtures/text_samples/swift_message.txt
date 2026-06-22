@@ -1,0 +1,12 @@
+SWIFT
+文档类型：swift_message
+
+MT报文
+跨境支付
+SWIFT报文
+MT103
+MT202
+SWIFT Message
+汇款报文
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

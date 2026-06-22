@@ -1,0 +1,9 @@
+港澳通行证
+文档类型：hong_kong_macao_permit
+
+Hong Kong
+Macau Permit
+往来港澳通行证
+港澳居民来往内地通行证
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

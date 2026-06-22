@@ -1,0 +1,12 @@
+资产支持证券
+文档类型：abs_prospectus
+
+募集说明书
+Asset-Backed Securities
+发行说明书
+Prospectus
+信用评级
+债项评级
+评级报告
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

@@ -1,0 +1,11 @@
+营业收入
+文档类型：income_statement
+
+营业成本
+利润总额
+Income Statement
+营业利润
+投资收益
+营业外收入
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

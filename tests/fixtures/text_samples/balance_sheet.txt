@@ -1,0 +1,12 @@
+资产负债表
+文档类型：balance_sheet
+
+流动资产
+非流动资产
+资产总计
+流动负债
+负债合计
+所有者权益
+Balance Sheet
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

@@ -1,0 +1,11 @@
+Beneficiary
+文档类型：beneficiary_proof
+
+保险金领取
+受益人证明
+受益人身份证明
+Beneficiary Certificate
+保险受益人
+受益人指定
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

@@ -1,0 +1,12 @@
+商业发票
+文档类型：commercial_invoice
+
+Invoice
+Commercial
+Commercial Invoice
+发票日期
+Proforma Invoice
+形式发票
+出口发票
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

@@ -1,0 +1,12 @@
+审计报告
+文档类型：audit_report
+
+审计意见
+注册会计师
+会计师事务所
+资产负债表日
+审计准则
+年度审计
+财务报表审计
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

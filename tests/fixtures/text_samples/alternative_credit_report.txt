@@ -1,0 +1,12 @@
+百行征信
+文档类型：alternative_credit_report
+
+朴道征信
+替代性征信
+信用报告
+替代数据
+非银行信用
+Alternative Credit
+征信评分
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

@@ -1,0 +1,12 @@
+现金流量表
+文档类型：cash_flow_statement
+
+经营活动产生的现金流量
+投资活动
+筹资活动
+现金及现金等价物
+Cash Flow Statement
+经营活动现金流
+投资活动现金流
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

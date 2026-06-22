@@ -1,0 +1,12 @@
+仲裁裁决
+文档类型：arbitration_award
+
+Arbitration
+仲裁裁决书
+仲裁委员会
+仲裁协议
+Arbitral Award
+仲裁规则
+仲裁程序
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

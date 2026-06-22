@@ -1,0 +1,10 @@
+上市公告书
+文档类型：listing_announcement
+
+股票上市
+Listing
+发行公告
+招股说明书
+上市公司
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

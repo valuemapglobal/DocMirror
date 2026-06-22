@@ -1,0 +1,8 @@
+同业存单
+文档类型：interbank_cd_offering
+
+发行公告
+募集说明书
+同业存单发行
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

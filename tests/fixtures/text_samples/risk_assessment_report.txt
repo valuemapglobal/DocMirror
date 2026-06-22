@@ -1,0 +1,12 @@
+风险评估
+文档类型：risk_assessment_report
+
+内部控制
+Risk Assessment
+风险评价
+Risk Assessment Report
+内部风险
+风险控制
+市场风险
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

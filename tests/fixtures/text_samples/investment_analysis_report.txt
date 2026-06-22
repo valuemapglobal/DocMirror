@@ -1,0 +1,11 @@
+投资分析
+文档类型：investment_analysis_report
+
+财务分析
+Investment
+Analysis
+投资可行性
+投资项目
+投资回报
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

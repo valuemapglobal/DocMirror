@@ -1,0 +1,10 @@
+投资组合
+文档类型：portfolio_analysis_report
+
+资产配置
+Portfolio
+组合分析
+组合管理
+持仓分析
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

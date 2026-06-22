@@ -1,0 +1,12 @@
+交通事故
+文档类型：traffic_accident_verdict
+
+责任认定
+事故认定书
+Traffic Accident
+交通事故认定书
+交通责任
+交通肇事
+Traffic Accident Verdict
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

@@ -1,0 +1,12 @@
+验资报告
+文档类型：capital_verification_report
+
+出资证明
+实缴资本
+注册资本
+Capital Verification
+实收资本
+股东出资
+出资比例
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

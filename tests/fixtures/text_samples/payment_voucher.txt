@@ -1,0 +1,11 @@
+电子回单
+文档类型：payment_voucher
+
+支付凭证
+转账凭证
+业务回单
+记账凭证
+银行回执
+汇款凭证
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

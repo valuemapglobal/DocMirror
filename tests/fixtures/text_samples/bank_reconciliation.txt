@@ -1,0 +1,12 @@
+银行对账单
+文档类型：bank_reconciliation
+
+账户余额
+银行盖章
+Reconciliation
+Bank Reconciliation
+余额调节
+银行余额
+银行回单
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

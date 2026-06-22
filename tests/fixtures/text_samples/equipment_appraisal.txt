@@ -1,0 +1,12 @@
+设备评估
+文档类型：equipment_appraisal
+
+机器设备
+评估报告
+Appraisal
+设备价值
+设备估价
+资产评估
+固定资产评估
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

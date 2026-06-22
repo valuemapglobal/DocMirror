@@ -1,0 +1,11 @@
+赤道原则
+文档类型：equator_principles_assessment
+
+Equator Principles
+环境评估
+环境影响
+社会责任评估
+ESG评估
+绿色信贷
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

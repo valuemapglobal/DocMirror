@@ -1,0 +1,12 @@
+证券发行
+文档类型：securities_prospectus
+
+债券募集
+Prospectus
+发行公告
+证券募集说明书
+债券募集说明书
+Securities Prospectus
+股票募集
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

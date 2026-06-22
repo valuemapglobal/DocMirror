@@ -1,0 +1,6 @@
+Military ID
+文档类型：military_id
+
+军人身份证
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

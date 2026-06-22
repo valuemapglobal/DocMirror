@@ -1,0 +1,12 @@
+否定意见
+文档类型：adverse_audit_report
+
+审计报告
+Adverse
+Audit Report
+否定意见审计报告
+Adverse Opinion
+出具否定意见
+无法表示意见的审计报告
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

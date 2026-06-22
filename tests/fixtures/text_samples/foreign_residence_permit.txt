@@ -1,0 +1,12 @@
+外国人居留
+文档类型：foreign_residence_permit
+
+居留许可
+Residence Permit
+外国人居留许可
+外国人工作居留
+外国人居留证
+Foreign Residence
+工作居留
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

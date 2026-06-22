@@ -1,0 +1,11 @@
+绿色债券
+文档类型：green_bond_certification
+
+Green Bond
+绿色认证
+债券认证
+绿色债券认证
+碳中和债券
+可持续发展
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

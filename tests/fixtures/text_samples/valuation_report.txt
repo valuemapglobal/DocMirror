@@ -1,0 +1,12 @@
+估值分析
+文档类型：valuation_report
+
+企业估值
+Valuation
+估值报告
+Valuation Report
+企业价值评估
+公司估值
+资产评估
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

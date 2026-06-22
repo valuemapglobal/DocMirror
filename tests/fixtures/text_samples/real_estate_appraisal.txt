@@ -1,0 +1,11 @@
+房地产评估
+文档类型：real_estate_appraisal
+
+房产评估
+估价报告
+Appraisal
+不动产评估
+物业评估
+房价评估
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

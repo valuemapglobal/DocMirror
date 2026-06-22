@@ -1,0 +1,10 @@
+社会责任
+文档类型：esg_report
+
+公司治理
+环境社会治理
+企业社会责任
+ESG报告
+可持续发展
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

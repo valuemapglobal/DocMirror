@@ -1,0 +1,12 @@
+监管报送
+文档类型：regulatory_filing
+
+监管数据
+Regulatory
+监管报表
+监管报送文件
+Regulatory Filing
+数据报送
+EAST
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

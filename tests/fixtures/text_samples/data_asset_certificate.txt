@@ -1,0 +1,12 @@
+数据资产
+文档类型：data_asset_certificate
+
+数据凭证
+数据质押
+Data Asset
+数据资产登记
+数据确权
+数据资产证书
+数据产品
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

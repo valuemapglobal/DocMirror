@@ -1,0 +1,10 @@
+海关报关
+文档类型：customs_declaration
+
+Customs
+出口报关
+进口报关
+报关单号
+海关编号
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

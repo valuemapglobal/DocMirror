@@ -1,0 +1,10 @@
+同业拆借
+文档类型：interbank_lending_agreement
+
+拆借协议
+Interbank
+同业拆借合同
+拆借资金
+拆借利率
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

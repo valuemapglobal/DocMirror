@@ -1,0 +1,12 @@
+公司章程
+文档类型：corporate_charter
+
+Articles of Association
+章程修正案
+组织章程细则
+股东权利
+董事会职责
+本公司及董事会
+全体股东
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

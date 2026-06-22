@@ -1,0 +1,12 @@
+对赌协议
+文档类型：vam_agreement
+
+回购协议
+估值调整
+Valuation Adjustment Mechanism
+业绩对赌
+股权回购
+业绩承诺
+补偿条款
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

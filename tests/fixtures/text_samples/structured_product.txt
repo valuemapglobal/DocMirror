@@ -1,0 +1,12 @@
+结构性产品
+文档类型：structured_product
+
+结构化产品
+产品说明书
+收益凭证
+Structured Product
+结构性存款
+理财计划
+结构化理财
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

@@ -1,0 +1,10 @@
+金融许可证
+文档类型：financial_license
+
+机构编码
+中国银行业监督管理委员会
+中国银行保险监督管理委员会
+金融业务
+金融牌照
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

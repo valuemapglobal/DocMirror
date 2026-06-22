@@ -1,0 +1,6 @@
+海运提单
+文档类型：bill_of_lading
+
+Bill of Lading
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

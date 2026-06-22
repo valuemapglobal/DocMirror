@@ -1,0 +1,12 @@
+监管检查
+文档类型：regulatory_inspection_letter
+
+处罚决定
+Inspection
+检查通知
+Inspection Notice
+行政处罚
+监管处罚
+整改通知
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

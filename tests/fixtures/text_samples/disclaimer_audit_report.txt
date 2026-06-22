@@ -1,0 +1,10 @@
+无法表示意见
+文档类型：disclaimer_audit_report
+
+审计报告
+Disclaimer
+无法表示意见的审计报告
+Disclaimer Opinion
+审计范围受限
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

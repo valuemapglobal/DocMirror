@@ -1,0 +1,11 @@
+开户许可证
+文档类型：account_opening_permit
+
+Account Opening
+开户核准
+基本存款账户
+存款账户
+开户登记
+Account Permit
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

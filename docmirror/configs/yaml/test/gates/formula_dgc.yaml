@@ -1,0 +1,231 @@
+# DocMirror GA 1.0 — Formula DGC Gate
+# Generated: 2026-06-21 for F11 (formula quality benchmark)
+#
+# Validates formula recognition quality:
+#   - AST structural equivalence rate (golden comparisons)
+#   - Inline/Display classification accuracy
+#   - MathML validity
+#   - Evidence attachment rate
+#   - Spoken text availability
+#
+# Design ref: 19_formula_recognition_first_principles_redesign.md
+
+version: 1
+track: recognize
+layer: mep
+cases:
+  # ── Formula AST & Recognition ──────────────────────────────────────
+  - id: formula_ast_quadratic
+    tier: regression
+    fixture: tests/fixtures-private/formula/quadratic_formula.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+    gates:
+      document_type:
+        equals: generic
+      status:
+        in:
+        - success
+        - partial
+      formula_ast_equiv_rate:
+        min: 0.85
+    tags:
+    - formula
+    - f11
+    - ast
+
+  - id: formula_ast_frac_sum
+    tier: regression
+    fixture: tests/fixtures-private/formula/frac_sum.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+    gates:
+      document_type:
+        equals: generic
+      status:
+        in:
+        - success
+        - partial
+      formula_ast_equiv_rate:
+        min: 0.80
+    tags:
+    - formula
+    - f11
+    - ast
+
+  - id: formula_ast_matrix
+    tier: regression
+    fixture: tests/fixtures-private/formula/matrix.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+    gates:
+      document_type:
+        equals: generic
+      status:
+        in:
+        - success
+        - partial
+      formula_ast_equiv_rate:
+        min: 0.70
+    tags:
+    - formula
+    - f11
+    - ast
+
+  - id: formula_ast_nested_sqrt_frac
+    tier: regression
+    fixture: tests/fixtures-private/formula/nested_sqrt_frac.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+    gates:
+      document_type:
+        equals: generic
+      status:
+        in:
+        - success
+        - partial
+      formula_ast_equiv_rate:
+        min: 0.75
+    tags:
+    - formula
+    - f11
+    - ast
+
+  - id: formula_ast_sum_prod
+    tier: regression
+    fixture: tests/fixtures-private/formula/sum_prod.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+    gates:
+      document_type:
+        equals: generic
+      status:
+        in:
+        - success
+        - partial
+      formula_ast_equiv_rate:
+        min: 0.70
+    tags:
+    - formula
+    - f11
+    - ast
+
+  - id: formula_ast_multiline_align
+    tier: regression
+    fixture: tests/fixtures-private/formula/multiline_align.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+    gates:
+      document_type:
+        equals: generic
+      multiline_detected:
+        equals: true
+    tags:
+    - formula
+    - f11
+    - classification
+
+  # ── Formula Quality Buckets ─────────────────────────────────────────
+  - id: formula_broken_adversarial
+    tier: regression
+    fixture: tests/fixtures-private/formula/adversarial_broken.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+    gates:
+      status:
+        in:
+        - success
+        - partial
+    tags:
+    - formula
+    - adversarial
+    - broken
+
+  - id: formula_low_quality_fuzzy
+    tier: regression
+    fixture: tests/fixtures-private/formula/low_quality_fuzzy.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+    gates:
+      status:
+        in:
+        - success
+        - partial
+    tags:
+    - formula
+    - low_quality
+    - edge_case
+
+  # ── Formula Evidence ────────────────────────────────────────────────
+  - id: formula_evidence_attachment
+    tier: regression
+    fixture: tests/fixtures-private/formula/golden_integral.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+    gates:
+      document_type:
+        equals: generic
+      formula_evidence_bound:
+        min: 0.90
+    tags:
+    - formula
+    - evidence
+    - golden
+
+  # ── MathML Validation ───────────────────────────────────────────────
+  - id: formula_mathml_output
+    tier: qa
+    fixture: tests/fixtures-private/formula/quadratic_formula.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+      output_formats:
+      - mathml
+    gates:
+      mathml_valid:
+        equals: true
+    tags:
+    - formula
+    - mathml
+    - accessibility
+
+  # ── Spoken Text ─────────────────────────────────────────────────────
+  - id: formula_spoken_text
+    tier: qa
+    fixture: tests/fixtures-private/formula/frac_sum.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+    gates:
+      spoken_text_available:
+        equals: true
+    tags:
+    - formula
+    - accessibility
+    - spoken
+
+  # ── Inline/Display Classification ───────────────────────────────────
+  - id: formula_classification_inline
+    tier: qa
+    fixture: tests/fixtures-private/formula/quadratic_formula.pdf
+    pipeline: perceive
+    options:
+      profile: forensic
+    gates:
+      formula_display_type:
+        in:
+        - inline
+        - display
+        - multiline
+    tags:
+    - formula
+    - classification

@@ -1,0 +1,10 @@
+Carbon
+文档类型：carbon_emission_audit
+
+碳排放权
+碳排放核查报告
+温室气体
+碳排放量
+碳排放审计
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

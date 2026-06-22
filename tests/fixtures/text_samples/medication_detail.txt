@@ -1,0 +1,8 @@
+药品费用
+文档类型：medication_detail
+
+用药明细
+药品清单
+用药记录
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）

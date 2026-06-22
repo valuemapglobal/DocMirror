@@ -189,6 +189,15 @@ _UNICODE_TO_LATEX = {
     "‡": r"\ddagger",
 }
 
+# Atomic Unicode math symbols used as additional math signal when lowering threshold
+_UNICODE_MATH_ATOMIC: set[str] = {
+    "∞", "∂", "∇", "∀", "∃", "∑", "∏", "∫", "√", "∝", "∼", "≅",
+    "≠", "≡", "≤", "≥", "⊂", "⊃", "∈", "∉", "∋", "∪", "∩",
+    "α", "β", "γ", "δ", "ε", "θ", "λ", "μ", "π", "σ", "τ", "φ", "ψ", "ω",
+    "Γ", "Δ", "Θ", "Λ", "Ξ", "Π", "Σ", "Φ", "Ψ", "Ω",
+    "±", "×", "÷", "→", "←", "⇒", "⇐", "↔",
+}
+
 
 def extract_formula_from_chars(
     chars: list,
@@ -213,6 +222,7 @@ def extract_formula_from_chars(
     margin = 2.0
     formula_chars = []
     math_font_count = 0
+    unicode_math_count = 0
 
     for c in chars:
         cx0 = c.get("x0", 0)
@@ -224,22 +234,27 @@ def extract_formula_from_chars(
             formula_chars.append(c)
             if is_math_font(c.get("fontname", "")):
                 math_font_count += 1
+            if c.get("text", "") in _UNICODE_MATH_ATOMIC:
+                unicode_math_count += 1
 
     if not formula_chars:
         return None
 
-    # 2. Check math font ratio — must be ≥ 30 % to be a genuine formula
+    # 2. Check math signal: combined math font ratio + Unicode math symbol count
     total = len(formula_chars)
     math_ratio = math_font_count / total if total > 0 else 0
+    combined_math_signal = math_font_count + unicode_math_count
+    combined_ratio = combined_math_signal / total if total > 0 else 0
 
-    if math_ratio < 0.3:
+    # GA F4: Lowered from 30% to 15%, supplemented by Unicode math symbol count
+    if math_ratio < 0.15 and combined_ratio < 0.15:
         return None
 
     # 3. Sort by position and rebuild LaTeX
     formula_chars.sort(key=lambda c: (c.get("top", 0), c.get("x0", 0)))
 
-    # Group into rows
-    rows = _group_by_rows(formula_chars)
+    # GA F4: ML-aware row grouping (adaptive KMeans clustering)
+    rows = _group_by_rows_ml(formula_chars)
 
     # 4. Convert character stream → LaTeX
     parts = []
@@ -261,7 +276,7 @@ def extract_formula_from_chars(
 
 
 def _group_by_rows(chars: list) -> list[list[dict]]:
-    """Group characters into rows by y-coordinate proximity."""
+    """Group characters into rows by y-coordinate proximity (legacy, kept for reference)."""
     if not chars:
         return []
 
@@ -282,11 +297,107 @@ def _group_by_rows(chars: list) -> list[list[dict]]:
     return rows
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ML-aware row grouping (GA F4)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _group_by_rows_ml(chars: list) -> list[list[dict]]:
+    """ML-aware row grouping using adaptive baseline clustering.
+
+    Strategy:
+        1. Compute char mids and cluster using 1D KMeans on y-coordinate.
+        2. Determine optimal number of rows via gap analysis.
+        3. Fall back to fixed-threshold grouping if too few chars.
+    """
+    if len(chars) <= 2:
+        return _group_by_rows(chars)
+
+    mids = [(c.get("top", 0) + c.get("bottom", 0)) / 2 for c in chars]
+    return _kmeans_row_grouping(chars, mids)
+
+
+def _kmeans_row_grouping(chars: list, mids: list[float]) -> list[list[dict]]:
+    """Cluster characters into rows using 1D KMeans on y-midpoints."""
+    if len(mids) < 3:
+        return _group_by_rows(chars)
+
+    try:
+        from statistics import mean, stdev
+        span = max(mids) - min(mids)
+        if span < 1.0:
+            return [chars]
+
+        # Determine optimal k via stdev-based gap heuristic
+        n_clusters = max(1, int(span / max(1.0, stdev(mids) * 0.5)))
+        n_clusters = min(n_clusters, len(chars))
+
+        return _cluster_chars(chars, mids, n_clusters)
+    except Exception:
+        return _group_by_rows(chars)
+
+
+def _cluster_chars(chars: list, mids: list[float], k: int) -> list[list[dict]]:
+    """1D KMeans-based char clustering into rows.
+
+    Args:
+        chars: Character dicts.
+        mids: Corresponding y-midpoints.
+        k: Number of clusters (rows).
+
+    Returns:
+        List of char lists, one per row, sorted by ascending y-coordinate.
+    """
+    if k <= 1:
+        return [chars]
+
+    # Initialize centroids evenly spaced across the y-range
+    min_y = min(mids)
+    max_y = max(mids)
+    span = max_y - min_y
+    centroids = [min_y + span * (i + 0.5) / k for i in range(k)]
+
+    # KMeans iterations (max 20)
+    labels = [0] * len(chars)
+    for _ in range(20):
+        # Assign step
+        changed = False
+        for i, mid in enumerate(mids):
+            best_k = min(range(k), key=lambda ki: abs(mid - centroids[ki]))
+            if labels[i] != best_k:
+                labels[i] = best_k
+                changed = True
+
+        if not changed:
+            break
+
+        # Update step
+        for ki in range(k):
+            cluster_mids = [mids[i] for i in range(len(chars)) if labels[i] == ki]
+            if cluster_mids:
+                centroids[ki] = sum(cluster_mids) / len(cluster_mids)
+
+    # Build rows, sorted by cluster centroid y
+    rows: list[list[dict]] = [[] for _ in range(k)]
+    for i, c in enumerate(chars):
+        rows[labels[i]].append(c)
+
+    # Sort rows by ascending y
+    row_centroids = [(ki, centroids[ki], rows[ki]) for ki in range(k) if rows[ki]]
+    row_centroids.sort(key=lambda rc: rc[1])
+
+    return [rc[2] for rc in row_centroids]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Row to LaTeX conversion (GA F4: multi-level sup/sub detection)
+# ═══════════════════════════════════════════════════════════════════════════════
+
 def _row_to_latex(row_chars: list) -> str:
-    """Convert a row of character dicts to a LaTeX string.
+    """Convert a row of character dicts to a LaTeX string with multi-level sup/sub detection.
 
     Detects superscripts and subscripts by comparing each character's
-    vertical centre against the row baseline.
+    vertical centre against the row baseline. Supports up to 2 levels
+    of nesting based on offset ratio.
     """
     row_chars.sort(key=lambda c: c.get("x0", 0))
 
@@ -302,15 +413,22 @@ def _row_to_latex(row_chars: list) -> str:
         # Unicode → LaTeX mapping
         latex = _UNICODE_TO_LATEX.get(text, text)
 
-        # Superscript / subscript detection
+        # Multi-level superscript / subscript detection
         char_mid = (c.get("top", 0) + c.get("bottom", 0)) / 2
         char_height = c.get("bottom", 0) - c.get("top", 0)
 
         if baseline > 0 and char_height > 0:
-            if char_mid < baseline - char_height * 0.3:
-                latex = f"^{{{latex}}}"  # Superscript
-            elif char_mid > baseline + char_height * 0.3:
-                latex = f"_{{{latex}}}"  # Subscript
+            offset_ratio = (char_mid - baseline) / char_height
+            if offset_ratio < -0.8:
+                # Double superscript (e.g., exponent of exponent)
+                latex = "^{^{" + latex + "}}"
+            elif offset_ratio < -0.3:
+                latex = "^{" + latex + "}"
+            elif offset_ratio > 0.8:
+                # Double subscript (e.g., subscript of subscript)
+                latex = "_{_{" + latex + "}}"
+            elif offset_ratio > 0.3:
+                latex = "_{" + latex + "}"
 
         parts.append(latex)
 

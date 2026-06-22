@@ -1,0 +1,10 @@
+投资策略
+文档类型：investment_strategy_report
+
+策略报告
+Investment Strategy
+资产配置
+投资组合
+策略分析
+
+（自动化 classify_text 回归样例 — 关键词来自 scene_keywords.yaml）
