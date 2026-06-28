@@ -25,10 +25,7 @@ Public exports: ``ParseResult``, ``DomainExtractionResult``, ``BaseResult``,
 ``Block``, ``PageLayout``, ``Style``, ``TextSpan``, ``Mutation``.
 """
 
-from .entities.domain import BaseResult, Block, PageLayout, Style, TextSpan
-from .entities.domain_result import DomainExtractionResult
-from .entities.parse_result import ParseResult
-from .tracking.mutation import Mutation
+from __future__ import annotations
 
 __all__ = [
     "Style",
@@ -40,3 +37,26 @@ __all__ = [
     "ParseResult",
     "DomainExtractionResult",
 ]
+
+_LAZY_EXPORTS = {
+    "Style": ("docmirror.models.entities.domain", "Style"),
+    "TextSpan": ("docmirror.models.entities.domain", "TextSpan"),
+    "Block": ("docmirror.models.entities.domain", "Block"),
+    "PageLayout": ("docmirror.models.entities.domain", "PageLayout"),
+    "BaseResult": ("docmirror.models.entities.domain", "BaseResult"),
+    "Mutation": ("docmirror.models.tracking.mutation", "Mutation"),
+    "ParseResult": ("docmirror.models.entities.parse_result", "ParseResult"),
+    "DomainExtractionResult": ("docmirror.models.entities.domain_result", "DomainExtractionResult"),
+}
+
+
+def __getattr__(name: str):
+    target = _LAZY_EXPORTS.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attr = target
+    from importlib import import_module
+
+    value = getattr(import_module(module_name), attr)
+    globals()[name] = value
+    return value

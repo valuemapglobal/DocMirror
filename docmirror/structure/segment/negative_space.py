@@ -21,10 +21,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from typing import Any
 
-import numpy as np
+from docmirror.runtime.optional_deps import require_optional_module
 
 logger = logging.getLogger(__name__)
+
+
+def _np() -> Any:
+    return require_optional_module("numpy", feature="negative-space layout profiling", extra="ocr")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -48,10 +53,10 @@ class NegativeSpaceProfile:
 
     column_gaps: list[float] = field(default_factory=list)
     row_gaps: list[float] = field(default_factory=list)
-    density_map: np.ndarray | None = None
+    density_map: Any = None
     blank_regions: list[tuple[float, float, float, float]] = field(default_factory=list)
-    v_projection: np.ndarray | None = None
-    h_projection: np.ndarray | None = None
+    v_projection: Any = None
+    h_projection: Any = None
 
     def summary(self) -> str:
         """生成人类可读的摘要"""
@@ -144,7 +149,7 @@ class NegativeSpaceAnalyzer:
             return NegativeSpaceProfile()
 
     @classmethod
-    def _vertical_projection(cls, words: list[dict], resolution: int) -> np.ndarray:
+    def _vertical_projection(cls, words: list[dict], resolution: int) -> Any:
         """
         垂直投影分析 — 统计每个x位置的字符数
 
@@ -160,6 +165,7 @@ class NegativeSpaceAnalyzer:
         Returns:
             投影数组
         """
+        np = _np()
         if not words:
             return np.zeros(100)
 
@@ -178,7 +184,7 @@ class NegativeSpaceAnalyzer:
         return projection
 
     @classmethod
-    def _horizontal_projection(cls, words: list[dict], resolution: int) -> np.ndarray:
+    def _horizontal_projection(cls, words: list[dict], resolution: int) -> Any:
         """
         水平投影分析 — 统计每个y位置的字符数
 
@@ -194,6 +200,7 @@ class NegativeSpaceAnalyzer:
         Returns:
             投影数组
         """
+        np = _np()
         if not words:
             return np.zeros(100)
 
@@ -212,7 +219,7 @@ class NegativeSpaceAnalyzer:
         return projection
 
     @classmethod
-    def _smooth_projection(cls, projection: np.ndarray, sigma: float) -> np.ndarray:
+    def _smooth_projection(cls, projection: Any, sigma: float) -> Any:
         """
         平滑投影（减少噪声）
 
@@ -238,7 +245,7 @@ class NegativeSpaceAnalyzer:
             return smoothed
 
     @classmethod
-    def _find_projection_valleys(cls, projection: np.ndarray, threshold_ratio: float = 0.3) -> list[int]:
+    def _find_projection_valleys(cls, projection: Any, threshold_ratio: float = 0.3) -> list[int]:
         """
         查找投影谷值（空白间隙）
 
@@ -249,6 +256,7 @@ class NegativeSpaceAnalyzer:
         Returns:
             谷值位置列表（索引）
         """
+        np = _np()
         if len(projection) == 0:
             return []
 
@@ -281,7 +289,7 @@ class NegativeSpaceAnalyzer:
         return valleys
 
     @classmethod
-    def _generate_density_heatmap(cls, words: list[dict], resolution: int) -> np.ndarray:
+    def _generate_density_heatmap(cls, words: list[dict], resolution: int) -> Any:
         """
         生成密度热图
 
@@ -292,6 +300,7 @@ class NegativeSpaceAnalyzer:
         Returns:
             2D密度热图 (height x width)
         """
+        np = _np()
         if not words:
             return np.zeros((10, 10))
 
@@ -317,7 +326,7 @@ class NegativeSpaceAnalyzer:
 
     @classmethod
     def _detect_blank_regions(
-        cls, words: list[dict], density_map: np.ndarray, resolution: int, min_blank_size: int = 10
+        cls, words: list[dict], density_map: Any, resolution: int, min_blank_size: int = 10
     ) -> list[tuple[float, float, float, float]]:
         """
         检测空白区域
@@ -358,7 +367,7 @@ class NegativeSpaceAnalyzer:
 
     @classmethod
     def _flood_fill_blank(
-        cls, mask: np.ndarray, start_y: int, start_x: int, visited: set, resolution: int
+        cls, mask: Any, start_y: int, start_x: int, visited: set, resolution: int
     ) -> tuple[float, float, float, float] | None:
         """泛洪填充找空白区域"""
         height, width = mask.shape

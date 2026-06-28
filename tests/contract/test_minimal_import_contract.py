@@ -21,3 +21,24 @@ def test_import_docmirror_is_quiet_and_light():
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_deep_optional_modules_do_not_import_numpy_at_module_import():
+    script = """
+import importlib
+import sys
+for name in (
+    'docmirror.input.extraction.extractor',
+    'docmirror.structure.segment.negative_space',
+):
+    importlib.import_module(name)
+assert 'numpy' not in sys.modules, sorted(k for k in sys.modules if k.startswith('numpy'))[:5]
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

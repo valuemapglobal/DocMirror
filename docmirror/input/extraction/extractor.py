@@ -29,10 +29,9 @@ _clock = time.perf_counter
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
 from docmirror.input.entry.exceptions import ExtractionError
 from docmirror.models.entities.domain import BaseResult, Block, PageLayout, TextSpan
+from docmirror.runtime.optional_deps import require_optional_module
 from docmirror.structure.tables.classifier import get_last_layer_timings
 from docmirror.structure.utils.vocabulary import _is_header_row
 from docmirror.structure.utils.watermark import preprocess_document
@@ -76,6 +75,7 @@ def _ocr_blocks_for_pdf_page(
 
     from docmirror.structure.ocr.vision.rapidocr_engine import get_ocr_engine
 
+    np = require_optional_module("numpy", feature="PDF page OCR fallback", extra="ocr")
     zoom = 2.0
     with fitz.open(file_path) as doc:
         if page_index < 0 or page_index >= len(doc):
@@ -121,8 +121,8 @@ def _ocr_blocks_for_pdf_page(
     return blocks
 
 
-def _select_ocr_orientation(image: np.ndarray, engine: Any, *, zoom: float) -> tuple[list[Any], int, float, float, dict[str, Any]]:
-    candidates: list[tuple[float, int, list[Any], np.ndarray, dict[str, Any]]] = []
+def _select_ocr_orientation(image: Any, engine: Any, *, zoom: float) -> tuple[list[Any], int, float, float, dict[str, Any]]:
+    candidates: list[tuple[float, int, list[Any], Any, dict[str, Any]]] = []
     original_words = engine.detect_image_words(image)
     original_metrics = _ocr_orientation_metrics(original_words)
     candidates.append((float(original_metrics["score"]), 0, original_words, image, original_metrics))
@@ -150,7 +150,7 @@ def _needs_orientation_probe(metrics: dict[str, Any]) -> bool:
     return False
 
 
-def _rotate_image(image: np.ndarray, rotation: int) -> np.ndarray:
+def _rotate_image(image: Any, rotation: int) -> Any:
     import cv2
 
     if rotation == 0:
@@ -769,6 +769,7 @@ class CoreExtractor:
     def _preprocess_ocr_image(img):
         import cv2
 
+        np = require_optional_module("numpy", feature="OCR image preprocessing", extra="ocr")
         if img is None:
             return img
         if img.size == 0 or img.shape[0] < 10 or img.shape[1] < 10:

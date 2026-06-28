@@ -1153,7 +1153,7 @@ CLI public commands work in base install and do not load OCR/license/server.
 
 ### Phase 3: Fix Dependency Extras
 
-Status: 部分已完成.
+Status: 已完成.
 
 Execution note:
 
@@ -1173,10 +1173,11 @@ the full dependency set is too slow for a release gate. Lightweight public extra
 smoke from the built wheel, while the manifest statically proves `all` contains
 only approved public extras.
 
-未完成: not every historical adapter/backend has been migrated to the shared
-optional dependency helper. Remaining deep numpy-heavy algorithm paths are
-documented by the architecture hotspot report and should be migrated during 1.1
-hardening.
+已完成: remaining top-level optional dependency leaks were removed from deep
+adapter/backend import paths. `docmirror.structure`, `docmirror.structure.segment`,
+`docmirror.models`, and `docmirror.models.entities` now use lazy re-exports;
+`extractor.py` and `negative_space.py` load numpy only at feature execution time.
+The architecture hotspot report now shows `optional_import_warnings=0`.
 ```
 
 Goal:
@@ -1628,7 +1629,7 @@ The Trust Layer for Commercial Documents.
 Status: 已完成.
 
 5. `docmirror[all]` installs only public OSS dependencies. Status: 已完成; static metadata validation proves no private packages are included, and lightweight per-extra wheel smoke now passes.
-6. Missing optional features return visible install guidance. Status: 部分已完成; `doctor`, the shared helper, and forgery detection cover the public surface, but remaining deep backend migration remains a 1.1 hardening task.
+6. Missing optional features return visible install guidance. Status: 已完成; `doctor`, the shared helper, forgery detection, OCR preprocessing, and negative-space profiling now keep optional dependencies behind feature execution paths.
 7. The wheel does not include mutable local state. Status: 已完成.
 8. Public benchmark claims are reproducible or removed. Status: 已完成.
 9. Public quickstart demonstrates evidence and trust, not just parsed text. Status: 已完成.

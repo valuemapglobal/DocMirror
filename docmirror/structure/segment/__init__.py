@@ -1,35 +1,38 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Segment package — layout analysis and semantic zone partitioning.
+"""Segment package — layout analysis and semantic zone partitioning."""
 
-Purpose: Transforms raw page geometry into typed zones (text, table, formula)
-that the pipeline handlers consume.
-
-Main components: ``segment_page_into_zones``, layout analyzers, zone models.
-
-Upstream: ``FitzEngine`` page chars/lines, ``pipeline.stages.page_segment``.
-
-Downstream: ``pipeline.handlers``, ``extract.zone_crop``.
-"""
-
-from docmirror.structure.segment.zones import (
-    Zone,
-    analyze_document_layout,
-    analyze_document_layout_parallel,
-    analyze_page_layout,
-    segment_page_into_zones,
-)
+from __future__ import annotations
 
 __all__ = [
     "Zone",
+    "GraphRouter",
+    "LayoutDetector",
     "analyze_document_layout",
     "analyze_document_layout_parallel",
     "analyze_page_layout",
     "segment_page_into_zones",
 ]
 
-# Optional layout helpers (CPA design 12 — formerly core/layout/)
-from docmirror.structure.segment.graph_router import GraphRouter  # noqa: F401
-from docmirror.structure.segment.layout_model import LayoutDetector  # noqa: F401
+_LAZY_EXPORTS = {
+    "Zone": ("docmirror.structure.segment.zones", "Zone"),
+    "analyze_document_layout": ("docmirror.structure.segment.zones", "analyze_document_layout"),
+    "analyze_document_layout_parallel": ("docmirror.structure.segment.zones", "analyze_document_layout_parallel"),
+    "analyze_page_layout": ("docmirror.structure.segment.zones", "analyze_page_layout"),
+    "segment_page_into_zones": ("docmirror.structure.segment.zones", "segment_page_into_zones"),
+    "GraphRouter": ("docmirror.structure.segment.graph_router", "GraphRouter"),
+    "LayoutDetector": ("docmirror.structure.segment.layout_model", "LayoutDetector"),
+}
+
+
+def __getattr__(name: str):
+    target = _LAZY_EXPORTS.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attr = target
+    from importlib import import_module
+
+    value = getattr(import_module(module_name), attr)
+    globals()[name] = value
+    return value

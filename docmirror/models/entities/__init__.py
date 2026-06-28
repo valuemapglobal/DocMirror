@@ -14,9 +14,7 @@ Import from this subpackage for stable public API access without reaching
 into individual module files.
 """
 
-from .domain import BaseResult, Block, PageLayout, Style, TextSpan
-from .domain_result import DomainExtractionResult
-from .parse_result import ParseResult
+from __future__ import annotations
 
 __all__ = [
     "Style",
@@ -27,3 +25,25 @@ __all__ = [
     "DomainExtractionResult",
     "ParseResult",
 ]
+
+_LAZY_EXPORTS = {
+    "Style": ("docmirror.models.entities.domain", "Style"),
+    "TextSpan": ("docmirror.models.entities.domain", "TextSpan"),
+    "Block": ("docmirror.models.entities.domain", "Block"),
+    "PageLayout": ("docmirror.models.entities.domain", "PageLayout"),
+    "BaseResult": ("docmirror.models.entities.domain", "BaseResult"),
+    "DomainExtractionResult": ("docmirror.models.entities.domain_result", "DomainExtractionResult"),
+    "ParseResult": ("docmirror.models.entities.parse_result", "ParseResult"),
+}
+
+
+def __getattr__(name: str):
+    target = _LAZY_EXPORTS.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attr = target
+    from importlib import import_module
+
+    value = getattr(import_module(module_name), attr)
+    globals()[name] = value
+    return value
