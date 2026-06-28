@@ -1,6 +1,39 @@
 # Quick Start
 
-## Parse a PDF
+DocMirror is the Commercial Document Trust Layer: Parse. Prove. Trust.
+
+## 1. Install
+
+```bash
+pip install docmirror
+docmirror --version
+docmirror doctor
+```
+
+Install only the capabilities you need:
+
+```bash
+pip install "docmirror[pdf]"
+pip install "docmirror[ocr]"
+pip install "docmirror[office]"
+```
+
+## 2. Parse A Commercial Document
+
+```bash
+docmirror parse statement.pdf --format json --output-dir ./output
+```
+
+The command writes mirror/evidence/trust outputs under `./output`.
+
+To inspect the public evidence/trust contract without private fixtures or OCR
+models:
+
+```bash
+python examples/trust_quickstart.py
+```
+
+## 3. Python API
 
 ```python
 import asyncio
@@ -8,105 +41,54 @@ from docmirror import perceive_document
 
 async def main():
     result = await perceive_document("statement.pdf")
+    mirror = result.to_mirror_json_vnext()
 
-    # Check status
-    print(f"Status: {result.status}")
-    print(f"Confidence: {result.confidence:.0%}")
-    print(f"Scene: {result.scene}")  # "bank_statement", "invoice", etc.
+    print("schema:", mirror["mirror"]["schema_version"])
+    print("document:", mirror["document"].get("document_type"))
+    print("quality:", mirror["quality"].get("overall", {}))
 
-    # Full text (Markdown format)
-    print(result.content.text)
-
-    # Iterate content blocks
-    for block in result.content.blocks:
-        if block.type == "table":
-            print(f"Table: {block.table.headers}")
-            for row in block.table.rows:
-                print(f"  {row}")
-        elif block.type == "key_value":
-            for k, v in block.key_value.pairs.items():
-                print(f"  {k}: {v}")
-
-    # Domain-specific data (if detected)
-    if result.domain:
-        print(f"Domain: {result.domain.document_type}")
+    for fact in mirror.get("semantics", {}).get("facts", []):
+        evidence = fact.get("evidence") or {}
+        print(
+            fact.get("field") or fact.get("name"),
+            fact.get("value"),
+            evidence.get("page"),
+            evidence.get("bbox"),
+            evidence.get("source_ref"),
+            fact.get("confidence"),
+            fact.get("needs_review", False),
+        )
 
 asyncio.run(main())
 ```
 
-## Parse an Image
+## 4. Output Layers
 
-```python
-result = await perceive_document("receipt.jpg")
-print(result.content.text)  # OCR-extracted text
+DocMirror outputs are designed for downstream systems:
+
+```text
+Mirror        facts and document structure
+Evidence      page / bbox / source_ref / raw value
+Trust Report  score / status / warnings / needs_review
+Diagnostics   visible failure and partial-result context
 ```
 
-## CLI Usage
+## 5. Batch Parse
 
 ```bash
-# Basic parse
-python3 -m docmirror invoice.pdf
-
-# Force re-parse (--skip-cache is a no-op; kept for API compatibility)
-python3 -m docmirror --skip-cache invoice.pdf
-
-# Don't save output to disk
-python3 -m docmirror --no-save invoice.pdf
+docmirror parse ./documents --recursive --format json --output-dir ./output
 ```
 
-## Mirror Output Structure
-
-`to_mirror_json_vnext()` returns the canonical document-shaped vNext mirror:
-
-```json
-{
-  "mirror": {"schema_version": "3.0.0"},
-  "source": {"filename": "invoice.pdf"},
-  "document": {"document_type_candidates": []},
-  "pages": [...],
-  "evidence": {"text_atoms": [], "visual_atoms": []},
-  "regions": [...],
-  "blocks": [...],
-  "graph": {"nodes": [], "edges": []},
-  "semantics": {"entities": [], "facts": [], "views": {}},
-  "quality": {"gates": []},
-  "diagnostics": {"pipeline": []},
-  "assets": {}
-}
-```
-
-## Batch Processing
-
-```python
-from pathlib import Path
-
-async def batch_parse(folder: str):
-    for path in Path(folder).glob("*.pdf"):
-        result = await perceive_document(str(path))
-        print(f"{path.name}: {result.status}, {len(result.content.blocks)} blocks")
-```
-
-## Configuration via Environment
+## 6. Server
 
 ```bash
-export DOCMIRROR_ENHANCE_MODE=standard
-export DOCMIRROR_MAX_PAGES=100
-export DOCMIRROR_OCR_DPI=200
+pip install "docmirror[server]"
+uvicorn docmirror.server.api:app --host 0.0.0.0 --port 8000
 ```
 
-## Output Files
+## 7. Public Mini Benchmark
 
-Each `docmirror` command produces output files in `./output/` (configurable via `-o`):
-
+```bash
+python scripts/run_first_benchmark.py --public-mini
+python scripts/generate_benchmark_table.py --public-mini
 ```
-output/
-└── {task_id}/
-    ├── 001_mirror.json        # Base parse result (mirror layer)
-    └── 001_community.json     # Community plugin data (all 18 plugins merged)
-```
-
-- `task_id` = `{YYYYMMDD}_{HHMMSS}_{random4}` (e.g. `20260611_163000_a1b2`)
-- `file_id` = `001` for single file, sequential for batch
-- Enterprise edition adds `001_enterprise.json`
-
-See [Architecture → Output File Naming](architecture.md#output-file-naming) for details.

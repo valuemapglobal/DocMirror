@@ -1,0 +1,50 @@
+{
+  "document": {
+    "id": "synthetic_invoice_001",
+    "type": "commercial_invoice",
+    "page_count": 1
+  },
+  "fields": [
+    {
+      "name": "invoice_number",
+      "value": "INV-2026-001",
+      "confidence": 0.99,
+      "evidence": {
+        "page": 1,
+        "bbox": [88, 112, 236, 132],
+        "source_ref": "synthetic_invoice_001#page=1&bbox=88,112,236,132"
+      },
+      "needs_review": false
+    },
+    {
+      "name": "supplier_name",
+      "value": "Northwind Components LLC",
+      "confidence": 0.97,
+      "evidence": {
+        "page": 1,
+        "bbox": [88, 150, 318, 172],
+        "source_ref": "synthetic_invoice_001#page=1&bbox=88,150,318,172"
+      },
+      "needs_review": false
+    },
+    {
+      "name": "total_amount",
+      "value": "12842.50",
+      "currency": "USD",
+      "confidence": 0.93,
+      "evidence": {
+        "page": 1,
+        "bbox": [438, 620, 536, 646],
+        "source_ref": "synthetic_invoice_001#page=1&bbox=438,620,536,646"
+      },
+      "needs_review": true,
+      "review_reason": "Amount is high enough to require policy review in this sample."
+    }
+  ],
+  "trust": {
+    "document_confidence": 0.96,
+    "field_count": 3,
+    "evidence_coverage": 1.0,
+    "review_required": true
+  }
+}

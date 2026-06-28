@@ -1,248 +1,125 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/DocMirror-通用文档解析引擎-blueviolet?style=for-the-badge" alt="DocMirror">
-</p>
+# DocMirror
 
-<h1 align="center">📄 DocMirror</h1>
+**商业凭证的可信文档智能层。**  
+**Parse. Prove. Trust.**
 
-<p align="center">
-  <strong>将复杂文档转化为 LLM 可用的结构化数据，具备工业级精度。</strong><br/>
-  PDF · 图片 · Word · Excel · PPT · HTML · 邮件 — 一个 API，结构化 JSON 输出。
-</p>
+Category: **Commercial Document Trust Layer**.
 
-<p align="center">
-  <a href="https://pypi.org/project/docmirror/"><img src="https://img.shields.io/pypi/v/docmirror?color=blue&style=for-the-badge" alt="PyPI"></a>
-  <a href="https://pypi.org/project/docmirror/"><img src="https://img.shields.io/pypi/pyversions/docmirror?style=for-the-badge" alt="Python"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green?style=for-the-badge" alt="License"></a>
-  <a href="https://github.com/valuemapglobal/docmirror/actions"><img src="https://github.com/valuemapglobal/docmirror/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-</p>
+DocMirror 将银行流水、发票、合同、证照、税单、付款记录等商业凭证，转化为可追溯、可审计、可计算、可进入系统的结构化信号。
 
-<p align="center">
-  <a href="README.md">English</a> | <b>简体中文</b>
-</p>
+DocMirror 不是普通 OCR，也不是通用 RAG loader。它的核心承诺是：
 
-<p align="center">
-  <a href="#-快速开始">快速开始</a> •
-  <a href="#-核心特性">核心特性</a> •
-  <a href="#-架构">架构</a> •
-  <a href="#-api-输出">API 输出</a> •
-  <a href="#-支持格式">支持格式</a> •
-  <a href="https://valuemapglobal.github.io/docmirror/">文档</a>
-</p>
+> 每一个关键字段都应该能说明：来自哪里、在哪一页、哪个区域、置信度多少、是否需要复核。
 
----
+## 核心能力
 
-## 项目介绍
+- **Parse**：解析真实世界的商业凭证。
+- **Prove**：为字段提供 source ref、page、bbox、raw value、转换链路。
+- **Trust**：输出质量状态、置信度、异常信号、partial result 和 `needs_review`。
 
-DocMirror 是一个通用文档解析引擎，能够将复杂文档（PDF、图片、扫描件、Office 文档）转换为干净的结构化 JSON，并提供标准化的 RESTful API。专为 **RAG 知识管道**、**AI Agent 工作流**和**企业级数据提取**而构建。
-
-与简单的文本提取工具不同，DocMirror 融合了**计算机视觉**、**拓扑布局分析**和**中间件智能**，提供：
-- 🎯 **结构化表格** — 带类型的单元格（货币、日期、文本、数字）
-- 🔍 **领域感知的实体抽取** — 银行账号、发票号码等
-- 🛡️ **文档可信度评分** — 含伪造检测
-- ⚡ **50ms 解析速度** — 数字 PDF 毫秒级处理
-
-## 🚀 快速开始
-
-### 安装
+## 安装
 
 ```bash
-# 核心引擎
 pip install docmirror
-
-# 全量安装（PDF + OCR + 布局 + 表格 + Office）
-pip install "docmirror[all]"
 ```
 
-### Python API
+按需安装能力：
+
+```bash
+pip install "docmirror[pdf]"      # 数字 PDF
+pip install "docmirror[ocr]"      # 扫描件 OCR
+pip install "docmirror[office]"   # DOCX/XLSX/PPTX
+pip install "docmirror[server]"   # HTTP API
+pip install "docmirror[all]"      # 所有公开 OSS extras
+```
+
+## 快速开始
+
+```bash
+docmirror --version
+docmirror doctor
+docmirror parse statement.pdf --format json --output-dir ./output
+python examples/trust_quickstart.py
+```
 
 ```python
 import asyncio
 from docmirror import perceive_document
 
 async def main():
-    result = await perceive_document("bank_statement.pdf")
+    result = await perceive_document("statement.pdf")
     mirror = result.to_mirror_json_vnext()
 
-    # Canonical vNext mirror 输出
-    print(mirror["mirror"]["schema_version"])  # "3.0.0"
-    print(mirror["source"]["filename"])
+    print(mirror["document"].get("document_type"))
+    print(mirror["quality"].get("overall", {}))
 
-    # 遍历结构化表格
-    for block in mirror["blocks"]:
-        if block["type"] != "table":
-            continue
-        headers = block["content"].get("headers", [])
-        for row in block["content"].get("rows", []):
-            print(dict(zip(headers, row, strict=False)))
+    for fact in mirror.get("semantics", {}).get("facts", []):
+        evidence = fact.get("evidence") or {}
+        print({
+            "field": fact.get("field") or fact.get("name"),
+            "value": fact.get("value"),
+            "page": evidence.get("page"),
+            "bbox": evidence.get("bbox"),
+            "source_ref": evidence.get("source_ref"),
+            "confidence": fact.get("confidence"),
+            "needs_review": fact.get("needs_review", False),
+        })
 
 asyncio.run(main())
 ```
 
-### 命令行
+## 输出结构
+
+DocMirror 的 canonical mirror 输出包含：
+
+```text
+Mirror        事实层
+JSON          结构层
+Evidence      证据层
+Trust Report  可信度/质量层
+```
+
+关键原则：
+
+```text
+不是只把字段读出来，而是让字段可证明、可复核、可进入下游系统。
+```
+
+## 公开能力
+
+| 能力 | 安装方式 |
+|---|---|
+| 核心 API 和 CLI | `pip install docmirror` |
+| 数字 PDF | `pip install "docmirror[pdf]"` |
+| 扫描件 OCR | `pip install "docmirror[ocr]"` |
+| Office 文件 | `pip install "docmirror[office]"` |
+| Server API | `pip install "docmirror[server]"` |
+| 公开全量能力 | `pip install "docmirror[all]"` |
+
+企业版和金融版扩展单独分发，不是开源包基础安装的前置条件。
+
+## 命令行
 
 ```bash
-# 解析并输出 JSON
-docmirror document.pdf --format json
-
-# 解析并包含 Markdown 全文
-docmirror document.pdf --format json --include-text
-
-# 批量解析目录
-docmirror ./documents/ --format json --output-dir ./results/
+docmirror parse document.pdf --format json
+docmirror parse ./documents --recursive --output-dir ./output
+docmirror doctor
+docmirror plugins list
 ```
 
-### REST API 服务
+## 已知边界
 
-```bash
-# 启动服务
-pip install "docmirror[server]"
-uvicorn docmirror.server.api:app --host 0.0.0.0 --port 8000
+- OCR 精度依赖扫描质量和可选 OCR 依赖。
+- 复杂合并表格和特殊阅读顺序可能需要人工复核。
+- 商业扩展能力由单独分发的包提供。
+- 公开 benchmark 数字会以可复现 release gate 为准。
+- 可复现的公开 mini benchmark：`python scripts/run_first_benchmark.py --public-mini`。
 
-# 解析文档
-curl -X POST http://localhost:8000/v1/parse \
-  -F "file=@document.pdf" \
-  -F "include_text=true"
-```
+## 社区
 
-## ✨ 核心特性
+- 文档：[valuemapglobal.github.io/docmirror](https://valuemapglobal.github.io/docmirror/)
+- Issue：[github.com/valuemapglobal/docmirror/issues](https://github.com/valuemapglobal/docmirror/issues)
+- 贡献：[CONTRIBUTING.md](CONTRIBUTING.md)
+- 安全：[SECURITY.md](SECURITY.md)
 
-- **多格式支持** — PDF、PNG、JPG、DOCX、XLSX、PPTX、HTML、EML 开箱即用
-- **结构化表格提取** — 表头识别、类型化单元格（货币/日期/数字/文本）、行分类
-- **智能 OCR 降级** — 自动检测扫描件，应用 RapidOCR 动态对比度增强
-- **布局分析** — DocLayout-YOLO + 空间聚类，支持复杂多栏布局
-- **领域插件（6+1）** — 6 个 premium 社区插件（银行/微信/支付宝/发票/营业执照/征信）+ 通用兜底，覆盖 120+ 识别类型
-- **防伪造检测** — 像素误差分析 (ELA) + 元数据黑名单
-- **RESTful API** — 标准 `{code, message, data, meta}` 信封格式
-- **纯 CPU 支持** — 无需 GPU；支持 GPU/MPS 加速
-- **跨平台** — macOS、Linux、Windows，Python 3.10–3.13
-
-## 📐 架构
-
-```mermaid
-graph TD
-    classDef orchestrator fill:#2b2b2b,stroke:#00f0ff,stroke-width:2px,color:#fff
-    classDef adapter fill:#3a3a3a,stroke:#ffa500,stroke-width:2px,color:#fff
-    classDef core fill:#444,stroke:#ff0055,stroke-width:2px,color:#fff
-    classDef data fill:#1f2937,stroke:#a855f7,stroke-width:2px,color:#fff
-    classDef none fill:none,stroke:none
-
-    FILE[["任意文档"]]:::none --> DISPATCH
-
-    DISPATCH["L0 调度器 + 缓存"]:::orchestrator --> ADAPTERS
-
-    subgraph "格式适配器"
-        ADAPTERS("PDF · 图片 · Office · Web"):::adapter --> CORE{"核心引擎"}:::core
-    end
-
-    CORE --> |"OCR · 布局 · 表格"| BASERESULT[("BaseResult")]:::data
-
-    BASERESULT --> ORCHESTRATOR
-
-    subgraph "增强管道"
-        ORCHESTRATOR["编排器"]:::orchestrator --> MW1["场景检测"]
-        MW1 --> MW2["实体抽取"]
-        MW2 --> MW3["校验 & 信任"]
-    end
-
-    MW3 --> BRIDGE(("桥接器")):::orchestrator
-    BRIDGE --> PR[("ParseResult → RESTful JSON")]:::data
-```
-
-## 📦 API 输出
-
-DocMirror 直接返回 vNext mirror JSON：
-
-```json
-{
-  "mirror": {
-    "schema": "docmirror.mirror_json",
-    "schema_version": "3.0.0"
-  },
-  "source": {"filename": "bank_statement.pdf"},
-  "document": {
-    "document_type": "bank_statement",
-    "document_type_candidates": [{"type": "bank_statement", "confidence": 0.98}]
-  },
-  "pages": [{"id": "page:0001", "page_number": 1}],
-  "evidence": {"text_atoms": []},
-  "regions": [],
-  "blocks": [
-    {
-      "type": "table",
-      "content": {
-        "grid": {
-          "columns": [{"header": "日期"}, {"header": "摘要"}, {"header": "金额"}],
-          "cells": []
-        }
-      }
-    }
-  ],
-  "graph": {},
-  "semantics": {"facts": [], "entities": [], "views": {}},
-  "quality": {"overall": {"status": "pass", "score": 1.0}},
-  "diagnostics": {},
-  "assets": {}
-}
-```
-
-**表格单元格会携带规范化值**：
-```json
-{"text": "2,970.00", "value": {"raw": "2,970.00", "normalized": 2970.0, "type": "number"}}
-{"text": "2025-03-27", "value": {"raw": "2025-03-27", "normalized": "2025-03-27", "type": "date"}}
-{"text": "Demo Bank", "value": {"raw": "Demo Bank", "normalized": "Demo Bank", "type": "string"}}
-```
-
-## 📋 支持格式
-
-| 格式 | 适配器 | 引擎 |
-|---|---|---|
-| PDF（数字版） | `PDFAdapter` | PyMuPDF 原生表格 |
-| PDF（扫描版） | `PDFAdapter` | RapidOCR + Layout YOLO |
-| PNG / JPG / TIFF | `PDFAdapter` → CoreExtractor（兜底：`ImageAdapter` OCR） | 布局 + 表格提取 |
-| DOCX | `WordAdapter` | python-docx |
-| XLSX | `ExcelAdapter` | openpyxl |
-| PPTX | `PPTAdapter` | python-pptx |
-| HTML | `WebAdapter` | BeautifulSoup |
-| EML | `EmailAdapter` | email.parser |
-| CSV / JSON | `StructuredAdapter` | 原生 |
-
-## 🗺️ 路线图
-
-- [x] vNext mirror JSON API 输出 + 规范化单元格
-- [x] 防伪造像素 ELA 检测
-- [x] Redis 缓存层
-- [x] CLI `--include-text` 参数
-- [ ] VLM（视觉语言模型）集成
-- [ ] 大文档流式解析
-- [ ] WebSocket 实时解析进度
-- [ ] 多语言 OCR（109 种语言，PaddleOCR）
-- [ ] Docker GPU 部署
-- [ ] 与 MinerU / Docling / Marker 的性能对比
-
-## ❓ 已知问题
-
-- 极复杂多栏布局下阅读顺序可能不够理想
-- OCR 精度取决于扫描质量，模糊/低 DPI 文档可能需要预处理
-- 大量合并单元格的表格可能出现行列识别偏差
-- 竖排中文暂不完全支持
-
-## 🤝 社区 & 支持
-
-- **文档**: [完整 API 指南](https://valuemapglobal.github.io/docmirror/)
-- **问题追踪**: [GitHub Issues](https://github.com/valuemapglobal/docmirror/issues)
-- **贡献代码**: 欢迎 PR！提交前请运行 `pytest tests/`（131 个测试）
-
-## 🙏 致谢
-
-- [PyMuPDF](https://github.com/pymupdf/PyMuPDF) — PDF 渲染和原生表格提取
-- [RapidOCR](https://github.com/RapidAI/RapidOCR) — 高性能 OCR 引擎
-- [DocLayout-YOLO](https://github.com/opendatalab/DocLayout-YOLO) — 文档布局检测
-- [RapidTable](https://github.com/RapidAI/RapidTable) — 表格结构识别
-- [fast-langdetect](https://github.com/LlmKira/fast-langdetect) — 语言检测
-- [Pydantic](https://github.com/pydantic/pydantic) — 数据校验和序列化
-- [FastAPI](https://github.com/tiangolo/fastapi) — REST API 框架
-
-## 📄 许可证
-
-由 **Adam Lin** 创建，**[ValueMap Global](https://valuemapglobal.com)** 维护。  
-基于 [Apache 2.0 许可证](LICENSE) 发布。
+由 **Adam Lin** 创建，**ValueMap Global** 维护。Apache 2.0 许可。

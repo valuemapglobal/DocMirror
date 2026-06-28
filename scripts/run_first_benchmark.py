@@ -28,13 +28,12 @@ sys.path.insert(0, str(ROOT))
 
 os.environ["DOCMIRROR_ENHANCE_MODE"] = "auto"
 
-from docmirror.input.entry.factory import perceive_document
-
 # ── Fixture discovery ──
 FIXTURE_DIR = ROOT / "tests" / "fixtures"
 OUTPUT_DIR = ROOT / "docs" / "benchmarks"
 RESULTS_DIR = OUTPUT_DIR / "results"
 COMPETITORS_DIR = OUTPUT_DIR / "competitors"
+PUBLIC_MINI_ARTIFACT = ROOT / "examples" / "fixtures" / "trust_quickstart_artifact.json"
 
 # Domain mapping based on fixture directory structure
 DOMAIN_MAP = {
@@ -72,6 +71,8 @@ async def run_single_benchmark(fixture: dict[str, Any]) -> dict[str, Any]:
     start = time.perf_counter()
 
     try:
+        from docmirror.input.entry.factory import perceive_document
+
         result = await perceive_document(file_path)
         elapsed_ms = (time.perf_counter() - start) * 1000
     except Exception as exc:
@@ -128,6 +129,63 @@ async def run_benchmark() -> list[dict[str, Any]]:
         results.append(r)
 
     return results
+
+
+def generate_public_mini_manifest() -> dict[str, Any]:
+    """Generate a dependency-light public benchmark from the synthetic trust artifact."""
+    artifact = json.loads(PUBLIC_MINI_ARTIFACT.read_text(encoding="utf-8"))
+    fields = artifact["fields"]
+    trust = artifact["trust"]
+    review_count = sum(1 for field in fields if field.get("needs_review"))
+
+    return {
+        "manifest_version": "1.0",
+        "release_tag": "v1.0.0-public-mini",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "summary": {
+            "record_count": 1,
+            "field_count": len(fields),
+            "evidence_coverage": trust["evidence_coverage"],
+            "review_required_count": review_count,
+            "document_confidence": trust["document_confidence"],
+        },
+        "records": [
+            {
+                "golden_case_id": artifact["document"]["id"],
+                "document_type": artifact["document"]["type"],
+                "format": "synthetic_json",
+                "mode": "public-mini",
+                "page_count": artifact["document"]["page_count"],
+                "field_count": len(fields),
+                "evidence_coverage": trust["evidence_coverage"],
+                "review_required_count": review_count,
+                "document_confidence": trust["document_confidence"],
+                "docmirror_version": "v1.0.0",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        ],
+    }
+
+
+def generate_public_mini_md(manifest: dict[str, Any]) -> str:
+    summary = manifest["summary"]
+    return "\n".join(
+        [
+            "# Public Mini Benchmark - DocMirror",
+            "",
+            "This benchmark is intentionally synthetic and dependency-light. It verifies",
+            "the public evidence/trust contract without private fixtures or OCR models.",
+            "",
+            "| Metric | Value |",
+            "|---|---|",
+            f"| Records | {summary['record_count']} |",
+            f"| Fields with evidence | {summary['field_count']} |",
+            f"| Evidence coverage | {summary['evidence_coverage']:.2f} |",
+            f"| Document confidence | {summary['document_confidence']:.2f} |",
+            f"| Fields requiring review | {summary['review_required_count']} |",
+            "",
+        ]
+    )
 
 
 def generate_manifest(results: list[dict[str, Any]]) -> dict[str, Any]:
@@ -230,11 +288,11 @@ def generate_benchmarks_md(manifest: dict[str, Any]) -> str:
     speed_10pg_str = f"~{speed_10pg:.0f}ms" if isinstance(speed_10pg, float) else "—"
 
     lines.append(f"| Speed (10pg) | {speed_10pg_str} | **~15ms** | **~30ms** | ~1200ms | ~3400ms |")
-    lines.append(f"| Table detection | — | **0.928** | 0.82 | 0.88 | 0.93 |")
-    lines.append(f"| Text extraction | — | **0.99** | **0.99** | 0.95 | 0.97 |")
-    lines.append(f"| KV extraction | — | — | — | 0.82 | 0.89 |")
+    lines.append("| Table detection | — | **0.928** | 0.82 | 0.88 | 0.93 |")
+    lines.append("| Text extraction | — | **0.99** | **0.99** | 0.95 | 0.97 |")
+    lines.append("| KV extraction | — | — | — | 0.82 | 0.89 |")
     lines.append(f"| Reading Order | {summary.get('avg_reading_order_score', '—')} | **0.94** | 0.72 | 0.78 | 0.85 |")
-    lines.append(f"| Multi-format | **8 formats** | 1 (PDF) | 2 | 5 | 3 |")
+    lines.append("| Multi-format | **8 formats** | 1 (PDF) | 2 | 5 | 3 |")
     lines.append("")
     lines.append("> _DocMirror F1 scores (table, text, KV) require ground-truth labels for the golden matrix. These will be populated in a future release._")
     lines.append("")
@@ -266,20 +324,28 @@ def generate_benchmarks_md(manifest: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-async def main():
+async def main(public_mini: bool = False):
     print("=" * 60)
     print("DocMirror First Benchmark Run")
     print("=" * 60)
     print()
 
-    results = await run_benchmark()
-    manifest = generate_manifest(results)
-
-    # Create output directories
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     COMPETITORS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Write manifest
+    if public_mini:
+        manifest = generate_public_mini_manifest()
+        manifest_path = RESULTS_DIR / "public-mini.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+        benchmarks_path = OUTPUT_DIR / "PUBLIC_MINI_BENCHMARK.md"
+        benchmarks_path.write_text(generate_public_mini_md(manifest), encoding="utf-8")
+        print(f"Public mini manifest written to {manifest_path}")
+        print(f"Public mini benchmark written to {benchmarks_path}")
+        return
+
+    results = await run_benchmark()
+    manifest = generate_manifest(results)
+
     manifest_path = RESULTS_DIR / "v1.0.0.json"
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
@@ -305,4 +371,13 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run DocMirror release benchmarks")
+    parser.add_argument(
+        "--public-mini",
+        action="store_true",
+        help="Run the dependency-light public trust/evidence mini benchmark",
+    )
+    parsed = parser.parse_args()
+    asyncio.run(main(public_mini=parsed.public_mini))

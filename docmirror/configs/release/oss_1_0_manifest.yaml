@@ -1,0 +1,34 @@
+version: "1.0.0"
+position:
+  category: "Commercial Document Trust Layer"
+  tagline: "Parse. Prove. Trust."
+  forbidden_primary_phrases:
+    - "Universal Document Parser"
+    - "Universal Document Parsing Engine"
+    - "LLM-ready structured data"
+    - "RAG pipelines"
+install_contract:
+  base_commands:
+    - ["python", "-c", "import docmirror; print(docmirror.__version__)"]
+    - ["docmirror", "--help"]
+    - ["docmirror", "--version"]
+    - ["docmirror", "version"]
+    - ["docmirror", "doctor"]
+  public_all_must_not_include:
+    - "docmirror-enterprise"
+    - "docmirror-finance"
+required_public_files:
+  - README.md
+  - README_zh-CN.md
+  - LICENSE
+  - CHANGELOG.md
+  - SECURITY.md
+  - CODE_OF_CONDUCT.md
+  - CONTRIBUTING.md
+wheel_forbidden_paths:
+  - "docmirror/plugins/.plugin_state.json"
+  - "docmirror_enterprise/"
+  - "docmirror_finance/"
+  - "docs/design/"
+  - "tests/"
+  - "examples/"

@@ -168,10 +168,57 @@ def generate_table(
     return "\n".join(lines)
 
 
+def generate_public_mini_table(manifest: dict[str, Any]) -> str:
+    summary = manifest.get("summary", {})
+    records = manifest.get("records", [])
+    lines = [
+        "# Public Mini Benchmark - DocMirror",
+        "",
+        "_Synthetic, dependency-light, and reproducible from public files._",
+        "",
+        "## Evidence And Trust Contract",
+        "",
+        "| Metric | Value |",
+        "| --- | --- |",
+        f"| Records | {summary.get('record_count', 0)} |",
+        f"| Fields with evidence | {summary.get('field_count', 0)} |",
+        f"| Evidence coverage | {summary.get('evidence_coverage', 0):.2f} |",
+        f"| Document confidence | {summary.get('document_confidence', 0):.2f} |",
+        f"| Fields requiring review | {summary.get('review_required_count', 0)} |",
+        "",
+        "## Records",
+        "",
+        "| Case | Type | Format | Fields | Evidence coverage | Review fields |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for record in records:
+        lines.append(
+            f"| {record.get('golden_case_id', '')} | "
+            f"{record.get('document_type', '')} | "
+            f"{record.get('format', '')} | "
+            f"{record.get('field_count', 0)} | "
+            f"{record.get('evidence_coverage', 0):.2f} | "
+            f"{record.get('review_required_count', 0)} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Methodology",
+            "",
+            "- Input: `examples/fixtures/trust_quickstart_artifact.json`.",
+            "- Scope: public Parse + Prove + Trust contract shape.",
+            "- Excluded: OCR accuracy, private fixture performance, and competitor comparisons.",
+        ]
+    )
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Generate benchmark comparison table")
+    parser.add_argument("--public-mini", action="store_true",
+                        help="Generate a public mini benchmark table from docs/benchmarks/results/public-mini.json")
     parser.add_argument("--manifest", default="docs/benchmarks/results/latest.json",
                         help="Path to DocMirror benchmark manifest JSON")
     parser.add_argument("--competitors", default="docs/benchmarks/competitors/",
@@ -181,14 +228,22 @@ if __name__ == "__main__":
                         help="Output markdown file path")
     args = parser.parse_args()
 
-    docmirror_metrics = load_docmirror_manifest(args.manifest)
-    competitor_metrics = load_competitor_results(args.competitors)
+    if args.public_mini:
+        args.manifest = "docs/benchmarks/results/public-mini.json"
+        args.competitors = ""
+        args.output = "docs/benchmarks/PUBLIC_MINI_BENCHMARK.md"
 
-    table = generate_table(
-        docmirror_metrics=docmirror_metrics,
-        competitor_metrics=competitor_metrics,
-        release_tag=args.release_tag,
-    )
+    if args.public_mini:
+        table = generate_public_mini_table(json.loads(Path(args.manifest).read_text(encoding="utf-8")))
+    else:
+        docmirror_metrics = load_docmirror_manifest(args.manifest)
+        competitor_metrics = load_competitor_results(args.competitors)
+
+        table = generate_table(
+            docmirror_metrics=docmirror_metrics,
+            competitor_metrics=competitor_metrics,
+            release_tag=args.release_tag,
+        )
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

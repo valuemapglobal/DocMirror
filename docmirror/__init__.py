@@ -4,54 +4,52 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""
-DocMirror: Universal Document Parsing Engine
+"""DocMirror public API.
 
-Directory structure:
-- input/: File intake, adapters, parse controls, and extraction intake.
-- structure/: Evidence plane, page topology, OCR, tables, graph, and verification.
-- output/: Canonical mirror JSON, projections, exporters, and serialization.
-- models/: Shared contracts and typed data models.
-- framework/: Orchestration, dispatch, dependency injection, and middleware framework.
-- runtime/: Execution state, progress, artifacts, scheduling, and checkpoints.
-- plugins/: Domain plugins plus internal plugin runtime.
-- configs/: Config loaders and packaged YAML/JSON schemas.
-- evidence/, quality/, security/: Cross-cutting ledgers, gates, and safety controls.
-- cli/, server/, sdk/: User-facing execution boundaries.
+DocMirror is the Commercial Document Trust Layer: Parse. Prove. Trust.
 
-Single public entry point: perceive_document()
+The package import is intentionally light. Optional engines such as OCR,
+PDF rendering, layout models, server integrations, and AI backends are loaded
+only when their feature paths are invoked.
 """
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 __version__ = "1.0.0"
 __author__ = "Adam Lin <adamlin@valuemapglobal.com>"
 __copyright__ = "Copyright 2026, ValueMap Global"
 __license__ = "Apache 2.0"
 
-import logging
-import sys
+if TYPE_CHECKING:  # pragma: no cover
+    from docmirror.models.entities.domain_result import DomainExtractionResult
+    from docmirror.models.entities.parse_result import ParseResult
 
-# Configure root logger with millisecond precision, process/thread IDs, and source context
-logging.basicConfig(
-    format="%(asctime)s.%(msecs)03d - [%(levelname)s] [%(process)d:%(threadName)s] %(name)s:%(lineno)d - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.INFO,
-    stream=sys.stdout,
-)
 
-logger = logging.getLogger(__name__)
+async def perceive_document(*args: Any, **kwargs: Any) -> Any:
+    """Parse a document into a DocMirror perceive result.
 
-# ── Light deps: static import (always loaded, statically traceable) ──
-from docmirror.models.entities.parse_result import ParseResult  # noqa: E402
-from docmirror.models.entities.domain_result import DomainExtractionResult  # noqa: E402
-
-async def perceive_document(*args, **kwargs):
-    """Parse a document -> PerceiveResult.
-
-    Deferred wrapper around ``docmirror.input.pipeline.perceive_document``.
-    All positional/keyword arguments are forwarded as-is.
+    The implementation is imported lazily so ``import docmirror`` remains fast,
+    quiet, and usable with the base package installation.
     """
-    from docmirror.input.pipeline import perceive_document as _pd
-    return await _pd(*args, **kwargs)
+    from docmirror.input.pipeline import perceive_document as _perceive_document
+
+    return await _perceive_document(*args, **kwargs)
+
+
+def __getattr__(name: str) -> Any:
+    """Lazy compatibility access for historical top-level model exports."""
+    if name == "ParseResult":
+        from docmirror.models.entities.parse_result import ParseResult
+
+        return ParseResult
+    if name == "DomainExtractionResult":
+        from docmirror.models.entities.domain_result import DomainExtractionResult
+
+        return DomainExtractionResult
+    raise AttributeError(f"module 'docmirror' has no attribute {name!r}")
+
 
 __all__ = [
     "perceive_document",

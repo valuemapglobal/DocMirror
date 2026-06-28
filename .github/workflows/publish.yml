@@ -30,6 +30,10 @@ jobs:
         run: |
           pip install dist/*.whl
           python -c "import docmirror; print(f'✅ docmirror installed')"
+          docmirror --help
+          docmirror --version
+          docmirror doctor
+          python scripts/validate/validate_oss_release.py
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

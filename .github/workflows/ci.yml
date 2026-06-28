@@ -150,3 +150,30 @@ jobs:
         run: |
           pip install dist/*.whl
           python -c "import docmirror; print(f'✅ docmirror {docmirror.__version__} imports successfully')"
+
+  oss-release-smoke:
+    name: OSS release smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build tools
+        run: pip install build twine pyyaml
+      - name: Build package
+        run: python -m build
+      - name: Check metadata
+        run: twine check dist/*
+      - name: Validate release contract
+        run: python scripts/validate/validate_oss_release.py
+      - name: Base wheel clean-venv smoke
+        run: |
+          python -m venv /tmp/docmirror-base-smoke
+          /tmp/docmirror-base-smoke/bin/python -m pip install --upgrade pip
+          /tmp/docmirror-base-smoke/bin/python -m pip install dist/*.whl
+          /tmp/docmirror-base-smoke/bin/python -c "import docmirror; print(docmirror.__version__)"
+          /tmp/docmirror-base-smoke/bin/docmirror --help
+          /tmp/docmirror-base-smoke/bin/docmirror --version
+          /tmp/docmirror-base-smoke/bin/docmirror version
+          /tmp/docmirror-base-smoke/bin/docmirror doctor

@@ -1,182 +1,87 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/DocMirror-Universal%20Document%20Parser-blueviolet?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+PHBhdGggZD0iTTE0IDJINmMtMS4xIDAtMiAuOS0yIDJ2MTZjMCAxLjEuOSAyIDIgMmgxMmMxLjEgMCAyLS45IDItMlY4bC02LTZ6Ii8+PC9zdmc+" alt="DocMirror">
-</p>
+# DocMirror
 
-<h1 align="center">📄 DocMirror</h1>
+**The Trust Layer for Commercial Documents.**  
+**Parse. Prove. Trust.**
 
-<p align="center">
-  <strong>Transforms complex documents into LLM-ready structured data with industrial-grade precision.</strong><br/>
-  PDF · Image · Word · Excel · PPT · HTML · Email — one API, structured JSON output.
-</p>
+Category: **Commercial Document Trust Layer**.
 
-<p align="center">
-  <a href="https://pypi.org/project/docmirror/"><img src="https://img.shields.io/pypi/v/docmirror?color=blue&style=for-the-badge" alt="PyPI"></a>
-  <a href="https://pypi.org/project/docmirror/"><img src="https://img.shields.io/pypi/pyversions/docmirror?style=for-the-badge" alt="Python"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green?style=for-the-badge" alt="License"></a>
-  <a href="https://github.com/valuemapglobal/docmirror/actions"><img src="https://github.com/valuemapglobal/docmirror/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-</p>
+DocMirror turns commercial documents into verifiable, audit-ready, machine-usable signals. It is built for documents that move money, create obligations, prove identity, support compliance, or feed risk and audit systems.
 
-<p align="center">
-  <b>English</b> | <a href="README_zh-CN.md">Chinese</a>
-</p>
+DocMirror is not a generic OCR tool and not a generic RAG loader. Its core promise is stronger:
 
-<p align="center">
-  <a href="#-quick-start">Quick Start</a> •
-  <a href="#-key-features">Key Features</a> •
-  <a href="#-architecture">Architecture</a> •
-  <a href="#-api-output">API Output</a> •
-  <a href="#-supported-formats">Formats</a> •
-  <a href="https://valuemapglobal.github.io/docmirror/">Documentation</a>
-</p>
+> Every important field should be traceable to source text, page, geometry, confidence, and review status.
 
----
+## What It Does
 
-## Project Introduction
+- **Parse** commercial documents such as bank statements, invoices, receipts, contracts, IDs, licenses, tax forms, and payment records.
+- **Prove** fields with source references, page numbers, bounding boxes, raw values, and transformation traces.
+- **Trust** outputs with quality status, confidence, anomaly signals, partial-result handling, and `needs_review` markers.
 
-DocMirror is a universal document parsing engine that converts complex documents (PDFs, images, scanned files, Office documents) into clean, structured JSON with a standardized RESTful API. Built for **RAG pipelines**, **Agentic AI workflows**, and **enterprise data extraction**.
-
-Unlike simple text extraction tools, DocMirror combines **computer vision**, **topological layout analysis**, and **middleware intelligence** to deliver:
-- 🎯 **Structured tables** with typed cells (currency, date, text, number)
-- 🔍 **Domain-aware entity extraction** (bank accounts, invoice numbers, etc.)
-- 🛡️ **Document trust scoring** with forgery detection
-- ⚡ **50ms parsing speed** for digital PDFs
-
-## 🚀 Quick Start
-
-### Install
+## Install
 
 ```bash
-# Core engine
 pip install docmirror
-
-# Full stack (PDF + OCR + Layout + Table + Office)
-pip install "docmirror[all]"
 ```
 
-### Python API
+Install optional capabilities as needed:
+
+```bash
+pip install "docmirror[pdf]"      # digital PDF support
+pip install "docmirror[ocr]"      # scanned document OCR
+pip install "docmirror[office]"   # DOCX/XLSX/PPTX
+pip install "docmirror[server]"   # HTTP API
+pip install "docmirror[all]"      # all public OSS extras
+```
+
+## Quick Start
+
+```bash
+docmirror --version
+docmirror doctor
+docmirror parse statement.pdf --format json --output-dir ./output
+python examples/trust_quickstart.py
+```
 
 ```python
 import asyncio
 from docmirror import perceive_document
 
 async def main():
-    result = await perceive_document("bank_statement.pdf")
+    result = await perceive_document("statement.pdf")
     mirror = result.to_mirror_json_vnext()
 
-    # Canonical vNext mirror output
-    print(mirror["mirror"]["schema_version"])  # "3.0.0"
-    print(mirror["source"]["filename"])
+    print(mirror["mirror"]["schema_version"])
+    print(mirror["document"].get("document_type"))
+    print(mirror["quality"].get("overall", {}))
 
-    # Access structured tables
-    for block in mirror["blocks"]:
-        if block["type"] != "table":
-            continue
-        headers = block["content"].get("headers", [])
-        for row in block["content"].get("rows", []):
-            print(dict(zip(headers, row, strict=False)))
+    for fact in mirror.get("semantics", {}).get("facts", []):
+        evidence = fact.get("evidence") or {}
+        print({
+            "field": fact.get("field") or fact.get("name"),
+            "value": fact.get("value"),
+            "page": evidence.get("page"),
+            "bbox": evidence.get("bbox"),
+            "source_ref": evidence.get("source_ref"),
+            "confidence": fact.get("confidence"),
+            "needs_review": fact.get("needs_review", False),
+        })
 
 asyncio.run(main())
 ```
 
-### CLI
+## Output Shape
 
-```bash
-# Parse and output JSON
-docmirror document.pdf --format json
-
-# Parse with full markdown text
-docmirror document.pdf --format json --include-text
-
-# Batch parse a directory
-docmirror ./documents/ --format json --output-dir ./results/
-```
-
-### REST API Server
-
-```bash
-# Start the server
-pip install "docmirror[server]"
-uvicorn docmirror.server.api:app --host 0.0.0.0 --port 8000
-
-# Parse a document
-curl -X POST http://localhost:8000/v1/parse \
-  -F "file=@document.pdf" \
-  -F "include_text=true"
-```
-
-## ✨ Key Features
-
-- **Multi-Format Support** — PDF, PNG, JPG, DOCX, XLSX, PPTX, HTML, EML out of the box
-- **Structured Table Extraction** — Headers, typed cells (currency/date/number/text), row classification
-- **Smart OCR Fallback** — Auto-detects scanned documents, applies RapidOCR with dynamic contrast boosting
-- **Layout Analysis** — DocLayout-YOLO + spatial clustering for complex multi-column layouts
-- **Domain Plugins (6+1)** — 6 premium community plugins (bank/wechat/alipay/invoice/license/credit) + generic fallback for 120+ classified types
-- **Anti-Forgery Detection** — Pixel Error Level Analysis (ELA) + metadata blacklisting
-- **RESTful API** — Standard `{code, message, data, meta}` envelope with typed cells
-- **Pure CPU Support** — No GPU required; GPU/MPS acceleration available when present
-- **Cross-Platform** — macOS, Linux, Windows with Python 3.10–3.13
-
-## 📐 Architecture
-
-```mermaid
-graph TD
-    classDef orchestrator fill:#2b2b2b,stroke:#00f0ff,stroke-width:2px,color:#fff
-    classDef adapter fill:#3a3a3a,stroke:#ffa500,stroke-width:2px,color:#fff
-    classDef core fill:#444,stroke:#ff0055,stroke-width:2px,color:#fff
-    classDef data fill:#1f2937,stroke:#a855f7,stroke-width:2px,color:#fff
-    classDef none fill:none,stroke:none
-
-    FILE[[Any Document]]:::none --> DISPATCH
-
-    DISPATCH["L0 Dispatcher"]:::orchestrator --> ADAPTERS
-
-    subgraph "Format Adapters"
-        ADAPTERS("PDF · Image · Office · Web"):::adapter --> CORE{"Core Engine"}:::core
-    end
-
-    CORE --> |"OCR · Layout · Tables"| BASERESULT[(BaseResult)]:::data
-
-    BASERESULT --> ORCHESTRATOR
-
-    subgraph "Enhancement Pipeline"
-        ORCHESTRATOR["Orchestrator (singleton)"]:::orchestrator --> MW1["EvidenceEngine · Classification"]
-        MW1 --> MW2["Entity Extraction"]
-        MW2 --> MW3["Validation & Trust"]
-    end
-
-    MW3 --> BRIDGE(("Bridge")):::orchestrator
-    BRIDGE --> PR[("ParseResult → RESTful JSON")]:::data
-```
-
-## 📦 API Output
-
-DocMirror returns vNext mirror JSON directly:
+DocMirror's canonical mirror output is document-shaped:
 
 ```json
 {
-  "mirror": {
-    "schema": "docmirror.mirror_json",
-    "schema_version": "3.0.0"
-  },
-  "source": {"filename": "bank_statement.pdf"},
-  "document": {
-    "document_type": "bank_statement",
-    "document_type_candidates": [{"type": "bank_statement", "confidence": 0.98}]
-  },
-  "pages": [{"id": "page:0001", "page_number": 1}],
-  "evidence": {"text_atoms": []},
+  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "3.0.0"},
+  "source": {"filename": "statement.pdf"},
+  "document": {"document_type": "bank_statement", "document_type_candidates": []},
+  "pages": [],
+  "evidence": {"text_atoms": [], "visual_atoms": []},
   "regions": [],
-  "blocks": [
-    {
-      "type": "table",
-      "content": {
-        "grid": {
-          "columns": [{"header": "Date"}, {"header": "Description"}, {"header": "Amount"}],
-          "cells": []
-        }
-      }
-    }
-  ],
+  "blocks": [],
   "graph": {},
   "semantics": {"facts": [], "entities": [], "views": {}},
   "quality": {"overall": {"status": "pass", "score": 1.0}},
@@ -185,89 +90,50 @@ DocMirror returns vNext mirror JSON directly:
 }
 ```
 
-**Cell values are normalized in table grids**:
-```json
-{"text": "2,970.00", "value": {"raw": "2,970.00", "normalized": 2970.0, "type": "number"}}
-{"text": "2025-03-27", "value": {"raw": "2025-03-27", "normalized": "2025-03-27", "type": "date"}}
-{"text": "Demo Bank", "value": {"raw": "Demo Bank", "normalized": "Demo Bank", "type": "string"}}
+The key design rule is simple: parsed fields should be accompanied by evidence and quality information, so downstream systems can decide whether to act, review, or reject.
+
+## Supported Public Capabilities
+
+| Capability | Install |
+|---|---|
+| Core API and CLI shell | `pip install docmirror` |
+| Digital PDF | `pip install "docmirror[pdf]"` |
+| Scanned OCR | `pip install "docmirror[ocr]"` |
+| Office files | `pip install "docmirror[office]"` |
+| Server API | `pip install "docmirror[server]"` |
+| Public full stack | `pip install "docmirror[all]"` |
+
+Commercial enterprise and finance extensions are distributed separately and are not required for the open-source package.
+
+## Command Line
+
+```bash
+docmirror parse document.pdf --format json
+docmirror parse ./documents --recursive --output-dir ./output
+docmirror doctor
+docmirror plugins list
 ```
 
+## API Server
 
+```bash
+pip install "docmirror[server]"
+uvicorn docmirror.server.api:app --host 0.0.0.0 --port 8000
+```
 
-## 📊 Benchmark Scoreboard
+## Known Limits
 
-DocMirror is evaluated against a [golden matrix](docs/benchmarks/golden-matrix.json) of document types. Results are automatically generated on every release.
+- OCR quality depends on scan quality and optional OCR dependencies.
+- Complex merged tables and unusual reading order may require review.
+- Some advanced commercial editions require separately distributed packages.
+- Public benchmark claims are being moved to reproducible release gates before being advertised as fixed numbers.
+- A dependency-light public mini benchmark is available via `python scripts/run_first_benchmark.py --public-mini`.
 
-| Metric | DocMirror | Best Competitor | Gap |
-|--------|-----------|----------------|-----|
-| Table F1 (digital PDF) | **~0.97** | 0.93 (Azure) | **+4%** |
-| Text F1 (digital PDF) | **~0.99** | 0.99 (PyMuPDF) | **tied** |
-| KV F1 (invoices) | **~0.94** | 0.91 (Azure) | **+3%** |
-| Reading Order | ~0.89 | **0.94 (ODL)** | **-5%** |
-| Multi-format | **8 formats** | 5 (Unstructured) | **+3 formats** |
-| Speed (10pg) | ~50ms | **~15ms (ODL)** | 3.3x slower |
+## Community
 
-> _Exact scores populated on GA1.0 release. See [Full Comparison](docs/benchmarks/COMPARISON.md) for details and methodology._
+- Documentation: [valuemapglobal.github.io/docmirror](https://valuemapglobal.github.io/docmirror/)
+- Issues: [github.com/valuemapglobal/docmirror/issues](https://github.com/valuemapglobal/docmirror/issues)
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security: [SECURITY.md](SECURITY.md)
 
-
-## 📋 Supported Formats
-
-| Format | Adapter | Engine |
-|---|---|---|
-| PDF (digital) | `PDFAdapter` | PyMuPDF native tables |
-| PDF (scanned) | `PDFAdapter` | RapidOCR + Layout YOLO |
-| PNG / JPG / TIFF | `PDFAdapter` → CoreExtractor (fallback: `ImageAdapter` OCR) | Layout + table extraction |
-| DOCX | `WordAdapter` | python-docx |
-| XLSX | `ExcelAdapter` | openpyxl |
-| PPTX | `PPTAdapter` | python-pptx |
-| HTML | `WebAdapter` | BeautifulSoup |
-| EML | `EmailAdapter` | email.parser |
-| CSV / JSON | `StructuredAdapter` | Native |
-
-## 🗺️ Roadmap
-
-- [x] RESTful API v1.0 envelope with typed cells
-- [x] Anti-forgery pixel ELA detection
-- [x] Redis caching layer
-- [x] CLI with `--include-text` flag
-- [ ] VLM (Vision-Language Model) integration for complex layouts
-- [ ] Streaming parse for large documents
-- [ ] WebSocket real-time parse progress
-- [ ] Multi-language OCR (109 languages via PaddleOCR)
-- [ ] Docker-based deployment with GPU support
-- [ ] Benchmark suite against MinerU / Docling / Marker
-
-## ❓ Known Issues
-
-- Reading order may be suboptimal for extremely complex multi-column layouts
-- OCR accuracy depends on scan quality; faded/low-DPI documents may need preprocessing
-- Table recognition may produce row/column errors in tables with heavily merged cells
-- Vertical Chinese text is not yet fully supported
-
-## 🧭 Project Vision
-
-See [VISION.md](VISION.md) for the long-term roadmap and design philosophy.
-
-## 💬 Community
-
-- **GitHub Discussions**: [Ask questions, share ideas](https://github.com/valuemapglobal/docmirror/discussions)
-- **Bug Tracker**: [GitHub Issues](https://github.com/valuemapglobal/docmirror/issues)
-- **Documentation**: [Complete API & Guide](https://valuemapglobal.github.io/docmirror/)
-- **Contribute**: PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
-
-> **Have a question?** Start a [Discussion](https://github.com/valuemapglobal/docmirror/discussions) — issues are for confirmed bugs and feature requests.
-
-## 🙏 Acknowledgments
-
-- [PyMuPDF](https://github.com/pymupdf/PyMuPDF) — PDF rendering and native table extraction
-- [RapidOCR](https://github.com/RapidAI/RapidOCR) — High-performance OCR engine
-- [DocLayout-YOLO](https://github.com/opendatalab/DocLayout-YOLO) — Document layout detection
-- [RapidTable](https://github.com/RapidAI/RapidTable) — Table structure recognition
-- [fast-langdetect](https://github.com/LlmKira/fast-langdetect) — Language detection
-- [Pydantic](https://github.com/pydantic/pydantic) — Data validation and serialization
-- [FastAPI](https://github.com/tiangolo/fastapi) — REST API framework
-
-## 📄 License
-
-Created by **Adam Lin** and maintained by **[ValueMap Global](https://valuemapglobal.com)**.  
-Released under the [Apache 2.0 License](LICENSE).
+Created by **Adam Lin** and maintained by **ValueMap Global**. Licensed under Apache 2.0.

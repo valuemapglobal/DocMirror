@@ -1,4 +1,4 @@
-.PHONY: help install lint format validate-clean test test-smoke test-contract test-regression test-golden test-udtr-golden test-udtr-cross-format-matrix coverage clean
+.PHONY: help install lint format validate-clean validate-release test test-smoke test-contract test-regression test-golden test-udtr-golden test-udtr-cross-format-matrix coverage clean
 
 help:
 	@echo "Available commands:"
@@ -6,6 +6,7 @@ help:
 	@echo "  make format    - Format code using ruff"
 	@echo "  make lint      - Run static analysis using ruff and mypy"
 	@echo "  make validate-clean - Validate clean architecture manifest and stale path refs"
+	@echo "  make validate-release - Validate OSS 1.0 release readiness"
 	@echo "  make test      - Run tests with pytest (PR tier matrix)"
 	@echo "  make test-smoke     - Tier SMOKE only"
 	@echo "  make test-contract  - Tier CONTRACT only"
@@ -34,6 +35,10 @@ validate-clean:
 	python3 scripts/validate/validate_clean_manifest.py
 	python3 scripts/validate/report_clean_quarantine.py --fail-overdue
 	lint-imports --config .importlinter
+
+validate-release:
+	python3 scripts/validate/validate_import_purity.py
+	python3 scripts/validate/validate_oss_release.py
 
 test:
 	pytest tests/unit/ -q

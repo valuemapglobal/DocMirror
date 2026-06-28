@@ -10,9 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Formula Recognition GA**: Complete F1–F12 formula type coverage with full test golden gates
 - **Privacy Guard Patterns**: `.gitignore` hardened — `!docs/design/` negation bug fixed; credential, fixture, and private-path patterns added
+- **OSS Release Gate**: `validate-release` now checks public metadata, pure imports, release manifest requirements, and built archive boundaries
+- **Public Trust Quickstart**: synthetic dependency-light artifact and example demonstrate field evidence, bbox, confidence, source refs, and review status
+- **Public Mini Benchmark**: reproducible `--public-mini` benchmark path for evidence/trust contract coverage without private fixtures
+
+### Changed
+- Public positioning now consistently uses **Commercial Document Trust Layer** and **Parse. Prove. Trust.**
+- `docmirror`, `docmirror --help`, `docmirror --version`, `docmirror version`, and `docmirror doctor` are dependency-light first-run surfaces
+- `docmirror[all]` is limited to public OSS extras; commercial/enterprise packages remain separate
 
 ### Security
 - Final OSS boundary pass: `docs/design/` and all private fixture references removed from git tracking
+- Mutable local plugin state is excluded from release wheels
 
 ---
 

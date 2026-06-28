@@ -2,6 +2,11 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+exclude = [
+    "/docmirror/plugins/.plugin_state.json",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = [
     "docmirror",
@@ -16,22 +21,23 @@ packages = [
 [project]
 name = "docmirror"
 version = "1.0.0"
-description = "Universal document parsing engine with OCR, layout analysis, and table extraction"
+description = "Commercial Document Trust Layer for verifiable, audit-ready document signals"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
 readme = "README.md"
 keywords = [
+    "commercial-documents",
+    "trust-layer",
+    "evidence-extraction",
+    "audit-ready",
     "document-parsing",
-    "ocr",
-    "pdf",
-    "table-extraction",
-    "layout-analysis",
-    "document-ai",
+    "field-evidence",
+    "document-trust",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
+    "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -40,11 +46,13 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Text Processing :: General",
+    "Topic :: Office/Business :: Financial",
 ]
 dependencies = [
+    "click>=8.1",
     "pydantic>=2.0",
     "filetype>=1.2",
+    "python-dotenv>=1.0",
     "PyYAML>=6.0",
     "rich>=13.0.0",
 ]
@@ -81,7 +89,7 @@ plugins = ["pluggy>=1.5"]
 ai = ["openai>=1.0", "google-generativeai>=0.8"]
 ocr-tesseract = ["pytesseract>=0.3"]
 all = [
-    "docmirror[pdf,ocr,layout,table,formula,office,security,cache,langdetect,server,archive,enterprise]",
+    "docmirror[pdf,ocr,layout,table,formula,office,security,cache,langdetect,server,archive]",
     "docmirror[langchain]",
     "docmirror[llamaindex]",
     "docmirror[haystack]",

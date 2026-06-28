@@ -1,0 +1,27 @@
+{
+  "manifest_version": "1.0",
+  "release_tag": "v1.0.0-public-mini",
+  "generated_at": "2026-06-28T11:13:08.741214+00:00",
+  "summary": {
+    "record_count": 1,
+    "field_count": 3,
+    "evidence_coverage": 1.0,
+    "review_required_count": 1,
+    "document_confidence": 0.96
+  },
+  "records": [
+    {
+      "golden_case_id": "synthetic_invoice_001",
+      "document_type": "commercial_invoice",
+      "format": "synthetic_json",
+      "mode": "public-mini",
+      "page_count": 1,
+      "field_count": 3,
+      "evidence_coverage": 1.0,
+      "review_required_count": 1,
+      "document_confidence": 0.96,
+      "docmirror_version": "v1.0.0",
+      "timestamp": "2026-06-28T11:13:08.741573+00:00"
+    }
+  ]
+}

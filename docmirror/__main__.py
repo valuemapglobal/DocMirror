@@ -112,7 +112,8 @@ BANNER = r"""[cyan]
 | |_| | (_) | (__| |  | | | |  | | | (_) | |
 |____/ \___/ \___|_|  |_|_|_|  |_|  \___/|_|
 [/cyan]
-[bold white]Universal Document Parsing Engine[/bold white]
+[bold white]Commercial Document Trust Layer[/bold white]
+[white]Parse. Prove. Trust.[/white]
 [yellow]Support us with a ⭐ on GitHub: https://github.com/valuemapglobal/docmirror[/yellow]
 """
 
@@ -486,7 +487,9 @@ def main() -> None:
         return
 
 
-    parser = argparse.ArgumentParser(description="DocMirror - Universal Document Parsing Engine")
+    parser = argparse.ArgumentParser(
+        description="DocMirror - The Trust Layer for Commercial Documents. Parse. Prove. Trust."
+    )
     parser.add_argument("file", nargs="?", help="Path to a document, directory, or glob")
     parser.add_argument(
         "--format", "-f", default="json", help="Output formats: json,csv,markdown,chunks,html,parquet,all"
