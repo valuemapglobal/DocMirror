@@ -1,0 +1,23 @@
+thresholds:
+  large_file_warn_lines: 1500
+  large_function_warn_lines: 250
+  top_level_optional_import_warn: true
+top_n:
+  files: 12
+  functions: 20
+optional_modules:
+  - cv2
+  - fitz
+  - google.generativeai
+  - numpy
+  - onnxruntime
+  - openai
+  - pdfplumber
+  - rapidocr_onnxruntime
+allowed_top_level_optional_import_prefixes:
+  - docmirror/input/adapters/
+  - docmirror/structure/ocr/
+  - docmirror/structure/pdf/
+  - docmirror/structure/tables/
+  - docmirror/server/
+  - docmirror/cli/

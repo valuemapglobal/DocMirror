@@ -22,7 +22,7 @@ import logging
 import os
 from pathlib import Path
 
-import fitz
+from docmirror.runtime.optional_deps import FeatureUnavailableError, require_optional_module, require_optional_modules
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +68,12 @@ def detect_pdf_forgery(file_path: str | Path) -> tuple[bool, list[str]]:
     """
     is_forged = False
     reasons = []
+
+    try:
+        fitz = require_optional_module("fitz", feature="PDF forgery detection", extra="pdf")
+    except FeatureUnavailableError as exc:
+        logger.warning(str(exc))
+        return False, [f"Verification Skipped: {exc}"]
 
     try:
         doc = fitz.open(str(file_path))
@@ -137,11 +143,12 @@ def detect_image_forgery(file_path: str | Path) -> tuple[bool, list[str]]:
     reasons = []
 
     try:
-        import cv2
-        import numpy as np
-    except ImportError:
-        logger.warning("cv2 is required for Image ELA forgery detection.")
-        return False, ["Verification Skipped: cv2 unavailable"]
+        modules = require_optional_modules(("cv2", "numpy"), feature="Image ELA forgery detection", extra="ocr")
+        cv2 = modules["cv2"]
+        np = modules["numpy"]
+    except FeatureUnavailableError as exc:
+        logger.warning(str(exc))
+        return False, [f"Verification Skipped: {exc}"]
 
     img_ext = Path(file_path).suffix.lower()
     if img_ext not in [".jpg", ".jpeg", ".png"]:

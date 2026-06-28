@@ -14,6 +14,32 @@ install_contract:
     - ["docmirror", "--version"]
     - ["docmirror", "version"]
     - ["docmirror", "doctor"]
+  public_all_extra_members:
+    - pdf
+    - ocr
+    - layout
+    - table
+    - formula
+    - office
+    - security
+    - cache
+    - langdetect
+    - server
+    - archive
+    - langchain
+    - llamaindex
+    - haystack
+    - projection
+    - mcp
+    - plugins
+    - ai
+    - ocr-tesseract
+  lightweight_extra_smoke:
+    - plugins
+    - projection
+    - archive
+    - langdetect
+    - cache
   public_all_must_not_include:
     - "docmirror-enterprise"
     - "docmirror-finance"

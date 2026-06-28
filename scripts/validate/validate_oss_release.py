@@ -63,6 +63,53 @@ def validate_metadata(manifest: dict[str, Any], pyproject: dict[str, Any]) -> li
     return errors
 
 
+def _extra_refs(requirement: str) -> list[str]:
+    match = re.fullmatch(r"docmirror\[([A-Za-z0-9_,.-]+)\]", requirement.strip())
+    if not match:
+        return []
+    return [part.strip() for part in match.group(1).split(",") if part.strip()]
+
+
+def validate_extra_contract(manifest: dict[str, Any], pyproject: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    optional = pyproject["project"].get("optional-dependencies", {})
+    all_deps = optional.get("all", [])
+    allowed = set(manifest["install_contract"].get("public_all_extra_members", []))
+    referenced: set[str] = set()
+
+    if "all" not in optional:
+        errors.append("missing optional dependency group: all")
+        return errors
+
+    for requirement in all_deps:
+        refs = _extra_refs(requirement)
+        if not refs:
+            errors.append(f"docmirror[all] must reference explicit docmirror[...] extras only: {requirement}")
+            continue
+        referenced.update(refs)
+        for ref in refs:
+            if ref not in optional:
+                errors.append(f"docmirror[all] references missing extra: {ref}")
+            if ref not in allowed:
+                errors.append(f"docmirror[all] references extra not allowed by release manifest: {ref}")
+
+    missing = allowed - referenced
+    if missing:
+        errors.append(f"docmirror[all] missing manifest-approved extras: {', '.join(sorted(missing))}")
+
+    forbidden = manifest["install_contract"]["public_all_must_not_include"]
+    for extra_name in allowed | {"all"}:
+        for dep in optional.get(extra_name, []):
+            for token in forbidden:
+                if token in dep:
+                    errors.append(f"public extra {extra_name!r} must not include private dependency {token}: {dep}")
+
+    for extra_name in manifest["install_contract"].get("lightweight_extra_smoke", []):
+        if extra_name not in optional:
+            errors.append(f"lightweight extra smoke references missing extra: {extra_name}")
+    return errors
+
+
 def validate_required_files(manifest: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     for rel in manifest.get("required_public_files", []):
@@ -141,6 +188,7 @@ def main() -> int:
     errors: list[str] = []
     for check in (
         lambda: validate_metadata(manifest, pyproject),
+        lambda: validate_extra_contract(manifest, pyproject),
         lambda: validate_required_files(manifest),
         lambda: validate_public_positioning(manifest),
         lambda: validate_built_archives(manifest),

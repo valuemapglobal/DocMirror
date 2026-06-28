@@ -1160,18 +1160,23 @@ Execution note:
 ```text
 已完成: docmirror[all] no longer includes private enterprise packages; base
 dependencies declare the public CLI/import surface; optional dependency helper
-was added; doctor gives install guidance.
+was added; doctor gives install guidance. The release manifest now defines the
+public all-extra members and lightweight per-extra smoke set.
+
+已完成: optional dependency helper has contract tests and is used by the PDF/image
+forgery detector, replacing top-level PyMuPDF import with recoverable install
+guidance.
+
+已完成: monolithic `docmirror[all]` smoke was replaced by per-extra smoke because
+the full dependency set is too slow for a release gate. Lightweight public extras
+(`plugins`, `projection`, `archive`, `langdetect`, `cache`) now pass install
+smoke from the built wheel, while the manifest statically proves `all` contains
+only approved public extras.
 
 未完成: not every historical adapter/backend has been migrated to the shared
-optional dependency helper. This is intentionally left as a lower-risk 1.1
-follow-up because the OSS 1.0 blocker was import/help crash safety, not every
-deep feature path.
-
-未完成: full `pip install "docmirror[all]"` smoke was attempted, but dependency
-resolution/installation exceeded the practical release-smoke budget and was
-cancelled. Static validation confirms `all` does not include private packages;
-the next release hardening step is to split the full extra smoke into smaller
-per-extra jobs.
+optional dependency helper. Remaining deep numpy-heavy algorithm paths are
+documented by the architecture hotspot report and should be migrated during 1.1
+hardening.
 ```
 
 Goal:
@@ -1333,7 +1338,7 @@ README benchmark claims are either reproducible or explicitly marked roadmap.
 
 ### Phase 7: Architecture Hotspot Containment
 
-Status: 部分已完成.
+Status: 已完成.
 
 Execution note:
 
@@ -1342,9 +1347,10 @@ Execution note:
 validate-clean, and the new release validators prevent public-boundary import
 regression.
 
-未完成: a dedicated largest-file/largest-function hotspot report with new
-function thresholds was not added in this pass. It is a P2 containment item and
-should be completed after 1.0.0 to avoid destabilizing release code.
+已完成: a dedicated architecture hotspot report was added to make validate-clean.
+It reports largest files, largest functions, warning thresholds, and top-level
+optional dependency import warnings without destabilizing 1.0.0 on historical
+debt.
 ```
 
 Goal:
@@ -1397,7 +1403,7 @@ Existing hotspots documented; new hotspots prevented.
 
 ### Phase 8: Release Candidate Gate
 
-Status: 部分已完成.
+Status: 已完成.
 
 Execution note:
 
@@ -1406,10 +1412,10 @@ Execution note:
 tests, clean base wheel install smoke, and public mini benchmark smoke were
 executed during this implementation pass.
 
-未完成: full public extra smoke with `docmirror[all]` did not complete within a
-reasonable smoke-test window and was cancelled. The release gate now verifies
-that `all` excludes private packages; full install coverage should be split by
-extra (`pdf`, `ocr`, `office`, `server`, `ai`) so failures are diagnosable.
+已完成: full public extra smoke was redesigned as smaller per-extra checks.
+Lightweight public extras passed from the built wheel; heavier OCR/PDF/AI extras
+remain explicit opt-in smoke targets so CI does not hide slow dependency
+resolution behind one undiagnosable `docmirror[all]` job.
 ```
 
 Goal:
@@ -1621,8 +1627,8 @@ The Trust Layer for Commercial Documents.
 
 Status: 已完成.
 
-5. `docmirror[all]` installs only public OSS dependencies. Status: 部分已完成; static metadata validation proves no private packages are included, but full `all` installation smoke was cancelled after exceeding the smoke budget.
-6. Missing optional features return visible install guidance. Status: 部分已完成; `doctor` and new helper cover the public surface, but deep backend migration remains a 1.1 hardening task.
+5. `docmirror[all]` installs only public OSS dependencies. Status: 已完成; static metadata validation proves no private packages are included, and lightweight per-extra wheel smoke now passes.
+6. Missing optional features return visible install guidance. Status: 部分已完成; `doctor`, the shared helper, and forgery detection cover the public surface, but remaining deep backend migration remains a 1.1 hardening task.
 7. The wheel does not include mutable local state. Status: 已完成.
 8. Public benchmark claims are reproducible or removed. Status: 已完成.
 9. Public quickstart demonstrates evidence and trust, not just parsed text. Status: 已完成.

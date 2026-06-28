@@ -177,3 +177,5 @@ jobs:
           /tmp/docmirror-base-smoke/bin/docmirror --version
           /tmp/docmirror-base-smoke/bin/docmirror version
           /tmp/docmirror-base-smoke/bin/docmirror doctor
+      - name: Lightweight optional extras smoke
+        run: python scripts/validate/smoke_optional_extras.py --timeout 180
