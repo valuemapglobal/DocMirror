@@ -173,7 +173,7 @@ ocr:
   external:
     # Provider name or module path.
     # Keep null to preserve the default local OCR path.
-    # Set to "docmirror.structure.ocr.vlm_gateway:vlm_ocr_provider" to enable VLM OCR fallback.
+    # Set to "docmirror.ocr.vlm_gateway:vlm_ocr_provider" to enable VLM OCR fallback.
     provider: null
     
     # API credentials (use environment variables for security)

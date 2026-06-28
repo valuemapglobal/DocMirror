@@ -49,9 +49,9 @@ source_modules =
     docmirror.plugins
 forbidden_modules =
     docmirror.input.extraction.extractor
-    docmirror.structure.segment.zones
-    docmirror.structure.tables.engine
-    docmirror.structure.ocr.fallback
+    docmirror.layout.segment.zones
+    docmirror.tables.engine
+    docmirror.ocr.fallback
     docmirror.server
     docmirror.cli
 allow_indirect_imports = True
@@ -72,14 +72,14 @@ allow_indirect_imports = True
 ignore_imports =
     docmirror.models.construction.parse_result_bridge -> docmirror.input.bridge.parse_result_bridge
     docmirror.models.entities.parse_result -> docmirror.output.mirror
-    docmirror.models.entities.parse_result -> docmirror.structure.ocr.page_canvas.models
-    docmirror.models.entities.parse_result -> docmirror.structure.ocr.page_canvas.sync
-    docmirror.models.mirror.domain_access -> docmirror.structure.ocr.page_canvas.evidence_bundles
-    docmirror.models.mirror.legacy_project -> docmirror.structure.ocr.page_canvas.block_index
-    docmirror.models.mirror.legacy_project -> docmirror.structure.ocr.page_canvas.build
-    docmirror.models.mirror.legacy_project -> docmirror.structure.ocr.page_canvas.flow_filter
-    docmirror.models.mirror.legacy_project -> docmirror.structure.ocr.page_canvas.models
-    docmirror.models.mirror.page_canvas_export -> docmirror.structure.ocr.page_canvas.build
+    docmirror.models.entities.parse_result -> docmirror.ocr.page_canvas.models
+    docmirror.models.entities.parse_result -> docmirror.ocr.page_canvas.sync
+    docmirror.models.mirror.domain_access -> docmirror.ocr.page_canvas.evidence_bundles
+    docmirror.models.mirror.legacy_project -> docmirror.ocr.page_canvas.block_index
+    docmirror.models.mirror.legacy_project -> docmirror.ocr.page_canvas.build
+    docmirror.models.mirror.legacy_project -> docmirror.ocr.page_canvas.flow_filter
+    docmirror.models.mirror.legacy_project -> docmirror.ocr.page_canvas.models
+    docmirror.models.mirror.page_canvas_export -> docmirror.ocr.page_canvas.build
     docmirror.models.mirror.serialization_contract -> docmirror.structure.analysis.structure_provenance
-    docmirror.models.mirror.serialization_contract -> docmirror.structure.tables.compose.ledger_quality
+    docmirror.models.mirror.serialization_contract -> docmirror.tables.compose.ledger_quality
     docmirror.models.mirror.serialization_contract -> docmirror.structure.utils.vocabulary

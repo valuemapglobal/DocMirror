@@ -80,7 +80,7 @@ async def _warmup_ocr_engine():
     First request otherwise pays ~500ms-2s for model loading.
     """
     try:
-        from docmirror.structure.ocr.vision.rapidocr_engine import get_ocr_engine
+        from docmirror.ocr.vision.rapidocr_engine import get_ocr_engine
 
         engine = get_ocr_engine()
         if engine:

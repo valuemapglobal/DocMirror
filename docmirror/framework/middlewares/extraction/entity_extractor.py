@@ -18,6 +18,7 @@ import logging
 import re
 
 from docmirror.models.entities.parse_result import ParseResult
+
 from ..base import BaseMiddleware
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ class EntityExtractor(BaseMiddleware):
                     entities[kv.key] = kv.value
 
         # 2. Regex Fallback from header zone only (ADR-M13 / M6)
-        from docmirror.structure.tables.structure_detect import extract_header_zone
+        from docmirror.tables.structure_detect import extract_header_zone
 
         header_text = extract_header_zone(full_text, parse_result=result) if full_text else ""
 

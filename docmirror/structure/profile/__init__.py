@@ -1,20 +1,13 @@
-# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
+"""Compatibility shim for ``docmirror.layout.profile``."""
 
-"""
-Profile package — extraction profile registry and layout profile resolution.
+from __future__ import annotations
 
-Purpose: Loads YAML/JSON extraction profiles and resolves layout profile IDs
-from document signals.
+from importlib import import_module
+from pathlib import Path
 
-Main components: ``load_profiles``, ``resolve_layout_profile``.
+_TARGET = "docmirror.layout.profile"
+__path__ = [str(Path(__file__).resolve().parents[2] / "layout" / "profile")]
 
-Upstream: Config files, ``scene.scene_resolver`` output.
 
-Downstream: ``pipeline.document_profile``, ``extract.engine``.
-"""
-
-from docmirror.structure.profile.registry import get_profile, match_layout_profile
-from docmirror.structure.profile.resolver import resolve_layout_profile
-
-__all__ = ["get_profile", "match_layout_profile", "resolve_layout_profile"]
+def __getattr__(name: str):
+    return getattr(import_module(_TARGET), name)

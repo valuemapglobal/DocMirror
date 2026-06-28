@@ -43,6 +43,7 @@ from docmirror.models.entities.parse_result import (
     TableBlock,
     TableRow,
 )
+
 from ..base import BaseMiddleware
 
 logger = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ def _split_x(line: list[_Cell]) -> list[list[_Cell]]:
     approach, which generalises better across varied page widths and
     font sizes.
     """
-    from docmirror.structure.ocr.reconstruct.gcr import GCRColumns
+    from docmirror.ocr.reconstruct.gcr import GCRColumns
     return GCRColumns.split_line(line)
 
 

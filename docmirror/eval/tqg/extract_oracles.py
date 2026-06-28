@@ -14,8 +14,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from docmirror.structure.tables.access import primary_export_logical_table
 from docmirror.eval.tqg.report import GateReport
+from docmirror.tables.access import primary_export_logical_table
 
 
 def run_column_fidelity_oracle(

@@ -10,13 +10,13 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from docmirror.structure.ocr.micro_grid.cell_recognition import (
+from docmirror.ocr.micro_grid.cell_recognition import (
     normalize_allowlist_text,
     recognize_micro_cell_from_image,
 )
-from docmirror.structure.ocr.micro_grid.detect import detect_micro_grid_candidates
-from docmirror.structure.ocr.micro_grid.models import BBox, MicroGrid, MicroGridCell, OCRToken
-from docmirror.structure.ocr.micro_grid.reconstruct import (
+from docmirror.ocr.micro_grid.detect import detect_micro_grid_candidates
+from docmirror.ocr.micro_grid.models import BBox, MicroGrid, MicroGridCell, OCRToken
+from docmirror.ocr.micro_grid.reconstruct import (
     assign_tokens_to_col_bands,
     build_cell,
     cell_bbox,

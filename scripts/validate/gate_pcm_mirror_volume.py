@@ -14,7 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def _synthetic_parse_result():
     from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult
-    from docmirror.structure.ocr.page_canvas.evidence_bundles import (
+    from docmirror.ocr.page_canvas.evidence_bundles import (
         domain_specific_with_page_bundles,
         page_evidence_bundle,
     )

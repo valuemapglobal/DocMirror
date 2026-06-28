@@ -96,14 +96,14 @@ class ParseResultBridge:
         ):
             ds = dict(getattr(pr.entities, "domain_specific", None) or {})
             if meta.get("micro_grids"):
-                from docmirror.structure.ocr.page_canvas.evidence_bundles import merge_micro_grid_structures_into_bundles
+                from docmirror.ocr.page_canvas.evidence_bundles import merge_micro_grid_structures_into_bundles
 
                 merge_micro_grid_structures_into_bundles(ds, list(meta.get("micro_grids") or []))
             if meta.get("page_evidence_bundles"):
                 ds["_page_evidence_bundles"] = list(meta.get("page_evidence_bundles") or [])
             else:
                 if meta.get("scanned_micro_grid_evidence") or meta.get("scanned_local_structure_evidence"):
-                    from docmirror.structure.ocr.page_canvas.evidence_bundles import bundles_from_legacy_extractor_meta
+                    from docmirror.ocr.page_canvas.evidence_bundles import bundles_from_legacy_extractor_meta
 
                     bundles = bundles_from_legacy_extractor_meta(
                         scanned_micro_grid_evidence=list(meta.get("scanned_micro_grid_evidence") or []),
@@ -112,7 +112,7 @@ class ParseResultBridge:
                     if bundles:
                         ds["_page_evidence_bundles"] = bundles
             pr.entities.domain_specific = ds
-            from docmirror.structure.ocr.page_canvas.sync import sync_parse_result_page_canvases
+            from docmirror.ocr.page_canvas.sync import sync_parse_result_page_canvases
 
             sync_parse_result_page_canvases(pr)
 
@@ -368,7 +368,7 @@ def _compose_logical_tables(
          composed before destructive merge, preserves cross-page provenance).
       2. Live composition from PageLayout list (same path as extractor Step 4.5).
     """
-    from docmirror.structure.tables.compose.composer import build_table_operations
+    from docmirror.tables.compose.composer import build_table_operations
 
     # Priority 1: Pre-composed from extractor metadata
     raw_tables = None
@@ -390,7 +390,7 @@ def _compose_logical_tables(
 
     # Priority 2: Live composition — merger quarantine + LTQG export (parity with extractor)
     try:
-        from docmirror.structure.tables.compose.export_pipeline import (
+        from docmirror.tables.compose.export_pipeline import (
             compose_logical_export_from_layouts,
             page_content_to_layouts,
         )

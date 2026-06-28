@@ -1,9 +1,9 @@
 # DocMirror 1.1 Structure Domain Decomposition Plan
 
-**Date:** 2026-06-28  
-**Status:** Design for implementation after OSS 1.0.0 release  
-**Source:** `docmirror/` tree audit, architecture hotspot report, clean manifest, OSS 1.0 release readiness work  
-**Scope:** `docmirror/structure/`, adjacent evidence/topology/table/OCR/layout modules, compatibility shims, import boundaries, validation gates  
+**Date:** 2026-06-28
+**Status:** 已完成（2026-06-28 implemented and validated）
+**Source:** `docmirror/` tree audit, architecture hotspot report, clean manifest, OSS 1.0 release readiness work
+**Scope:** `docmirror/structure/`, adjacent evidence/topology/table/OCR/layout modules, compatibility shims, import boundaries, validation gates
 **Goal:** Decompose the current `structure/` super-domain into stable domain packages without breaking OSS 1.0 public APIs, CLI behavior, package import purity, or existing parser scenarios.
 
 ---
@@ -651,7 +651,7 @@ Do not emit noisy deprecation warnings from common import paths in 1.1.0. Warnin
 
 ### Phase 0: Freeze Domain Manifest
 
-Status: not started.
+Status: 已完成。
 
 Goal:
 
@@ -726,7 +726,7 @@ The future domain map exists and is validated before any move.
 
 ### Phase 1: Create Target Packages With No Logic Moves
 
-Status: not started.
+Status: 已完成。
 
 Goal:
 
@@ -765,7 +765,7 @@ New target packages can be imported without triggering heavy dependencies.
 
 ### Phase 2: Low-Risk Layout And Geometry Move
 
-Status: not started.
+Status: 已完成。
 
 Goal:
 
@@ -807,7 +807,7 @@ Layout and geometry have new ownership. Old imports still work.
 
 ### Phase 3: Tables Domain Move
 
-Status: not started.
+Status: 已完成。
 
 Goal:
 
@@ -862,7 +862,7 @@ Tables become a first-class domain with no server/plugin coupling.
 
 ### Phase 4: OCR Domain Move
 
-Status: not started.
+Status: 已完成。
 
 Goal:
 
@@ -914,7 +914,7 @@ OCR is a top-level optional domain with no import-time optional dependency leaks
 
 ### Phase 5: Evidence Plane Merge
 
-Status: not started.
+Status: 已完成。
 
 Goal:
 
@@ -957,7 +957,7 @@ There is one evidence domain, not two parallel evidence concepts.
 
 ### Phase 6: Topology Domain Move
 
-Status: not started.
+Status: 已完成。
 
 Goal:
 
@@ -999,7 +999,7 @@ Topology is a graph/relationship domain, not a mixed extraction domain.
 
 ### Phase 7: Clean Up `structure/`
 
-Status: not started.
+Status: 已完成。
 
 Goal:
 
@@ -1349,3 +1349,50 @@ geometry = how coordinates are transformed and verified
 ```
 
 That is the durable architecture. It is also the cleanest bridge between the current implementation and a contributor-friendly open-source 1.1.
+
+---
+
+## 15. 2026-06-28 Implementation Audit
+
+Status: 已完成。
+
+Completed items:
+
+1. 已完成 Phase 0: added `docmirror/configs/architecture/domain_decomposition.yaml` and `scripts/validate/validate_domain_decomposition.py`.
+2. 已完成 Phase 1: added canonical domain package roots for `layout`, `ocr`, `tables`, `topology`, and `geometry`; reused existing `evidence`.
+3. 已完成 Phase 2: moved layout and geometry domains with old-path compatibility shims.
+4. 已完成 Phase 3: moved table domain to `docmirror/tables`; moved root fusion logic to `docmirror/tables/cross_page_fusion.py` and kept old shims.
+5. 已完成 Phase 4: moved OCR domain to `docmirror/ocr`; fixed import-time optional dependency leaks in OCR vision and preprocessing paths.
+6. 已完成 Phase 5: moved `structure/evidence_plane.py` to `evidence/plane.py` and kept the legacy shim.
+7. 已完成 Phase 6: moved page topology, region graph, relations, and resolution into `docmirror/topology`.
+8. 已完成 Phase 7: migrated internal imports for all moved domains to canonical paths; `docmirror/structure` remains as compatibility shims plus still-owned unmigrated subdomains.
+9. 已完成 machine gate integration: `make validate-clean` now runs `validate_domain_decomposition.py --strict-new-imports`.
+10. 已完成 packaging hygiene fix: root output ignore rules now use `/output/`, so `docmirror/output` is not accidentally ignored.
+
+Validation completed during implementation:
+
+```bash
+python3 scripts/validate/validate_domain_decomposition.py --strict-new-imports
+python3 -m compileall -q docmirror scripts/validate tests/contract
+python3 -m pytest tests/contract/test_domain_package_imports.py tests/contract/test_minimal_import_contract.py -q
+```
+
+Compatibility verified:
+
+```text
+docmirror.structure.segment.*       -> docmirror.layout.segment.*
+docmirror.structure.geometry.*      -> docmirror.geometry.*
+docmirror.structure.verification.*  -> docmirror.geometry.verification.*
+docmirror.structure.tables.*        -> docmirror.tables.*
+docmirror.structure.ocr.*           -> docmirror.ocr.*
+docmirror.structure.evidence_plane  -> docmirror.evidence.plane
+docmirror.structure.page_topology   -> docmirror.topology.page
+docmirror.structure.region_graph.*  -> docmirror.topology.region_graph.*
+docmirror.structure.relations.*     -> docmirror.topology.relations.*
+docmirror.structure.resolution.*    -> docmirror.topology.resolution.*
+```
+
+Remaining intentionally not completed:
+
+1. 未完成: removing old `docmirror.structure.*` compatibility paths. This is intentionally deferred to the documented 1.2+/2.0 compatibility window.
+2. 未完成: decomposing `docmirror/structure/analysis`, `docmirror/structure/utils`, and `docmirror/structure/structure`. They were explicitly outside this execution batch because they do not yet have a finalized canonical owner in this design.

@@ -158,7 +158,7 @@ def _ensure_table_geometry(
     if bbox is None:
         return geometry
 
-    from docmirror.structure.geometry.table_attrs import build_table_geometry_attrs
+    from docmirror.geometry.table_attrs import build_table_geometry_attrs
 
     source = (
         geometry.get("geometry_source")

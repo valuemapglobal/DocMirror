@@ -1,38 +1,17 @@
-# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
+"""Compatibility shim for ``docmirror.layout.segment``.
 
-"""Segment package — layout analysis and semantic zone partitioning."""
+New imports should use ``docmirror.layout.segment``. This package redirects
+legacy submodule imports during the 1.1 migration window.
+"""
 
 from __future__ import annotations
 
-__all__ = [
-    "Zone",
-    "GraphRouter",
-    "LayoutDetector",
-    "analyze_document_layout",
-    "analyze_document_layout_parallel",
-    "analyze_page_layout",
-    "segment_page_into_zones",
-]
+from importlib import import_module
+from pathlib import Path
 
-_LAZY_EXPORTS = {
-    "Zone": ("docmirror.structure.segment.zones", "Zone"),
-    "analyze_document_layout": ("docmirror.structure.segment.zones", "analyze_document_layout"),
-    "analyze_document_layout_parallel": ("docmirror.structure.segment.zones", "analyze_document_layout_parallel"),
-    "analyze_page_layout": ("docmirror.structure.segment.zones", "analyze_page_layout"),
-    "segment_page_into_zones": ("docmirror.structure.segment.zones", "segment_page_into_zones"),
-    "GraphRouter": ("docmirror.structure.segment.graph_router", "GraphRouter"),
-    "LayoutDetector": ("docmirror.structure.segment.layout_model", "LayoutDetector"),
-}
+_TARGET = "docmirror.layout.segment"
+__path__ = [str(Path(__file__).resolve().parents[2] / "layout" / "segment")]
 
 
 def __getattr__(name: str):
-    target = _LAZY_EXPORTS.get(name)
-    if target is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    module_name, attr = target
-    from importlib import import_module
-
-    value = getattr(import_module(module_name), attr)
-    globals()[name] = value
-    return value
+    return getattr(import_module(_TARGET), name)

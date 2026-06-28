@@ -311,7 +311,7 @@ def _ensure_credit_repayment_records(parse_result: Any) -> list[dict[str, Any]]:
                 records.extend(projected)
 
     if not records:
-        from docmirror.structure.ocr.page_canvas.evidence_bundles import micro_grid_structures_from_bundles
+        from docmirror.ocr.page_canvas.evidence_bundles import micro_grid_structures_from_bundles
 
         for grid in micro_grid_structures_from_bundles(domain_specific):
             projected = records_from_micro_grid_dict(grid)

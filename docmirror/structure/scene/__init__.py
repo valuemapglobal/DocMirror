@@ -1,29 +1,13 @@
-# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
+"""Compatibility shim for ``docmirror.layout.scene``."""
 
-"""
-Scene package — document scene classification and evidence rules.
+from __future__ import annotations
 
-Purpose: Determines high-level document scene (bank statement, invoice, etc.)
-from rules and evidence for profile selection.
+from importlib import import_module
+from pathlib import Path
 
-Main components: ``resolve_document_scene``, ``EvidenceEngine``.
+_TARGET = "docmirror.layout.scene"
+__path__ = [str(Path(__file__).resolve().parents[2] / "layout" / "scene")]
 
-Upstream: Pre-analysis, resolver output, full text.
 
-Downstream: ``profile.resolver``, ``classification`` middleware.
-"""
-
-from docmirror.structure.scene.evidence_engine import Evidence, EvidenceEngine
-from docmirror.structure.scene.rules import ClassificationRule, ClassificationRules, RuleManager
-from docmirror.structure.scene.scene_resolver import resolve_document_scene, scene_to_layout_profile_id
-
-__all__ = [
-    "ClassificationRule",
-    "ClassificationRules",
-    "Evidence",
-    "EvidenceEngine",
-    "RuleManager",
-    "resolve_document_scene",
-    "scene_to_layout_profile_id",
-]
+def __getattr__(name: str):
+    return getattr(import_module(_TARGET), name)

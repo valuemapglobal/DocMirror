@@ -1,14 +1,13 @@
-# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
-# Author: Adam Lin <adamlin@valuemapglobal.com>
-#
-# This source code is licensed under the Apache 2.0 license found in the
-# LICENSE file in the root directory of this source tree.
+"""Compatibility shim for ``docmirror.topology.resolution``."""
 
-"""Resolution package — shared resolver scoring primitives."""
+from __future__ import annotations
 
-from docmirror.structure.resolution.base import ResolverDecision, ResolverScoreWeights
+from importlib import import_module
+from pathlib import Path
 
-__all__ = [
-    "ResolverDecision",
-    "ResolverScoreWeights",
-]
+_TARGET = "docmirror.topology.resolution"
+__path__ = [str(Path(__file__).resolve().parents[2] / "topology" / "resolution")]
+
+
+def __getattr__(name: str):
+    return getattr(import_module(_TARGET), name)

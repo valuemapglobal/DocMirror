@@ -1,0 +1,75 @@
+version: 1
+status: active
+canonical_domains:
+  layout:
+    moved: true
+    target_path: docmirror/layout
+    old_paths:
+      - docmirror/structure/segment
+      - docmirror/structure/profile
+      - docmirror/structure/scene
+      - docmirror/structure/normalization
+    forbidden_imports:
+      - docmirror.server
+      - docmirror.cli
+      - docmirror.plugins
+  ocr:
+    moved: true
+    target_path: docmirror/ocr
+    old_paths:
+      - docmirror/structure/ocr
+    forbidden_imports:
+      - docmirror.server
+      - docmirror.cli
+      - docmirror.plugins
+  tables:
+    moved: true
+    target_path: docmirror/tables
+    old_paths:
+      - docmirror/structure/tables
+      - docmirror/structure/fusion.py
+    forbidden_imports:
+      - docmirror.server
+      - docmirror.cli
+      - docmirror.plugins
+  evidence:
+    moved: true
+    target_path: docmirror/evidence
+    old_paths:
+      - docmirror/structure/evidence_plane.py
+    forbidden_imports:
+      - docmirror.server
+      - docmirror.cli
+  topology:
+    moved: true
+    target_path: docmirror/topology
+    old_paths:
+      - docmirror/structure/page_topology.py
+      - docmirror/structure/region_graph
+      - docmirror/structure/relations
+      - docmirror/structure/resolution
+    forbidden_imports:
+      - docmirror.server
+      - docmirror.cli
+      - docmirror.plugins
+  geometry:
+    moved: true
+    target_path: docmirror/geometry
+    old_paths:
+      - docmirror/structure/geometry
+      - docmirror/structure/verification
+    forbidden_imports:
+      - docmirror.server
+      - docmirror.cli
+compatibility:
+  old_root: docmirror/structure
+  shim_style: path_redirect_or_module_reexport
+  removal_target: "1.2+"
+strict_new_imports:
+  allowed_old_import_prefixes:
+    - docmirror.structure
+  exempt_paths:
+    - docmirror/structure/**
+    - tests/**
+    - docs/**
+    - scripts/validate/validate_domain_decomposition.py

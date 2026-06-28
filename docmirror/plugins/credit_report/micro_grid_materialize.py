@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from docmirror.structure.ocr.micro_grid.materialize import register_micro_grid_materializer
+from docmirror.ocr.micro_grid.materialize import register_micro_grid_materializer
 from docmirror.plugins.credit_report.repayment_grid import extract_credit_repayment_records
 
 

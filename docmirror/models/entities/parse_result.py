@@ -48,7 +48,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from docmirror.models.tracking.mutation import Mutation
-from docmirror.structure.ocr.page_canvas.models import PageCanvas
+from docmirror.ocr.page_canvas.models import PageCanvas
 
 if TYPE_CHECKING:
     from docmirror.models.entities.evidence import EvidenceSummary
@@ -1049,7 +1049,7 @@ class ParseResult(BaseModel):
         scanned_ocr_pages: list[dict[str, Any]] | None = None,
     ) -> None:
         """Materialize PageCanvas on each page from domain_specific evidence."""
-        from docmirror.structure.ocr.page_canvas.sync import sync_parse_result_page_canvases
+        from docmirror.ocr.page_canvas.sync import sync_parse_result_page_canvases
 
         sync_parse_result_page_canvases(self, scanned_ocr_pages=scanned_ocr_pages)
 

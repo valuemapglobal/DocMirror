@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from docmirror.structure.normalization import is_invertible_matrix
+from docmirror.layout.normalization import is_invertible_matrix
 
 
 def build_udtr_quality_gates(*, pages: list[Any], regions: list[Any], blocks: list[Any]) -> list[dict[str, Any]]:

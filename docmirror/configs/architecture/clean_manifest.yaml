@@ -34,9 +34,9 @@ layers:
     import_linter_allow_indirect: true
     forbidden_imports:
     - docmirror.input.extraction.extractor
-    - docmirror.structure.segment.zones
-    - docmirror.structure.tables.engine
-    - docmirror.structure.ocr.fallback
+    - docmirror.layout.segment.zones
+    - docmirror.tables.engine
+    - docmirror.ocr.fallback
     - docmirror.server
     - docmirror.cli
   runtime:
@@ -69,35 +69,35 @@ layers:
       reason: ParseResult serialization still delegates mirror export helpers.
       review_by: '2026-08-01'
     - importer: docmirror.models.entities.parse_result
-      imported: docmirror.structure.ocr.page_canvas.models
+      imported: docmirror.ocr.page_canvas.models
       reason: ParseResult still materializes page canvas model fields.
       review_by: '2026-08-01'
     - importer: docmirror.models.entities.parse_result
-      imported: docmirror.structure.ocr.page_canvas.sync
+      imported: docmirror.ocr.page_canvas.sync
       reason: ParseResult page canvas sync remains an active compatibility method.
       review_by: '2026-08-01'
     - importer: docmirror.models.mirror.domain_access
-      imported: docmirror.structure.ocr.page_canvas.evidence_bundles
+      imported: docmirror.ocr.page_canvas.evidence_bundles
       reason: Mirror access layer still exposes page canvas evidence bundles.
       review_by: '2026-08-01'
     - importer: docmirror.models.mirror.legacy_project
-      imported: docmirror.structure.ocr.page_canvas.block_index
+      imported: docmirror.ocr.page_canvas.block_index
       reason: Legacy mirror bridge still builds block indexes for compatibility.
       review_by: '2026-08-01'
     - importer: docmirror.models.mirror.legacy_project
-      imported: docmirror.structure.ocr.page_canvas.build
+      imported: docmirror.ocr.page_canvas.build
       reason: Legacy mirror bridge still constructs page canvas projections.
       review_by: '2026-08-01'
     - importer: docmirror.models.mirror.legacy_project
-      imported: docmirror.structure.ocr.page_canvas.flow_filter
+      imported: docmirror.ocr.page_canvas.flow_filter
       reason: Legacy mirror bridge still applies page canvas flow filtering.
       review_by: '2026-08-01'
     - importer: docmirror.models.mirror.legacy_project
-      imported: docmirror.structure.ocr.page_canvas.models
+      imported: docmirror.ocr.page_canvas.models
       reason: Legacy mirror bridge still consumes page canvas model types.
       review_by: '2026-08-01'
     - importer: docmirror.models.mirror.page_canvas_export
-      imported: docmirror.structure.ocr.page_canvas.build
+      imported: docmirror.ocr.page_canvas.build
       reason: Page canvas export still delegates construction to structure layer.
       review_by: '2026-08-01'
     - importer: docmirror.models.mirror.serialization_contract
@@ -105,7 +105,7 @@ layers:
       reason: Serialization contract still includes structure provenance snapshot.
       review_by: '2026-08-01'
     - importer: docmirror.models.mirror.serialization_contract
-      imported: docmirror.structure.tables.compose.ledger_quality
+      imported: docmirror.tables.compose.ledger_quality
       reason: Serialization contract still exports table ledger quality metadata.
       review_by: '2026-08-01'
     - importer: docmirror.models.mirror.serialization_contract
@@ -178,17 +178,17 @@ quarantine_modules:
   reason: Active counters for legacy mirror access auditing.
   exit_criteria: Remove once legacy projection helpers are deleted.
   review_by: '2026-08-01'
-- module: docmirror.structure.ocr.recognize.runner_legacy
+- module: docmirror.ocr.recognize.runner_legacy
   owner: ocr
   reason: Active fallback OCR runner used by scanned pipeline.
   exit_criteria: Replacement OCR runner covers scanned fallback paths.
   review_by: '2026-08-01'
-- module: docmirror.structure.ocr.preprocess.legacy_fallback
+- module: docmirror.ocr.preprocess.legacy_fallback
   owner: ocr
   reason: Active fallback preprocessing used by scanned and OCR fallback paths.
   exit_criteria: Replacement preprocessing path reaches parity.
   review_by: '2026-08-01'
-- module: docmirror.structure.ocr.reconstruct.grid_legacy
+- module: docmirror.ocr.reconstruct.grid_legacy
   owner: ocr
   reason: Active grid reconstruction fallback used by page topology and scanned OCR.
   exit_criteria: GCR replacement covers all callers.

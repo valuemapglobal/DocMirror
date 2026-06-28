@@ -1,31 +1,13 @@
-# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
+"""Compatibility shim for ``docmirror.geometry``."""
 
-"""Geometry helpers for Mirror physical layout conservation."""
+from __future__ import annotations
 
-from docmirror.structure.geometry.bbox import (
-    area,
-    center,
-    contains,
-    intersection,
-    iou,
-    normalize,
-    union,
-)
-from docmirror.structure.geometry.models import EvidenceToken
-from docmirror.structure.geometry.table_attrs import build_table_geometry_attrs, table_geometry_coverage
-from docmirror.structure.geometry.table_geometry import build_table_geometry
+from importlib import import_module
+from pathlib import Path
 
-__all__ = [
-    "area",
-    "center",
-    "contains",
-    "intersection",
-    "iou",
-    "normalize",
-    "union",
-    "EvidenceToken",
-    "build_table_geometry_attrs",
-    "build_table_geometry",
-    "table_geometry_coverage",
-]
+_TARGET = "docmirror.geometry"
+__path__ = [str(Path(__file__).resolve().parents[2] / "geometry")]
+
+
+def __getattr__(name: str):
+    return getattr(import_module(_TARGET), name)

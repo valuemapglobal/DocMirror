@@ -3,7 +3,7 @@ orphan_modules:
 - docmirror.plugins._runtime.post_extract.hooks.trust_projection
 - docmirror.plugins._runtime.post_extract.hooks.mirror_table_rebuild
 - docmirror.framework.middlewares.classification.evidence_engine
-- docmirror.structure.ocr.vision.seal_detector
+- docmirror.ocr.vision.seal_detector
 vulture:
 - process
 ruff: null

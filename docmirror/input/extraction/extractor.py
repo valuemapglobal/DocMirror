@@ -32,9 +32,9 @@ from typing import Any
 from docmirror.input.entry.exceptions import ExtractionError
 from docmirror.models.entities.domain import BaseResult, Block, PageLayout, TextSpan
 from docmirror.runtime.optional_deps import require_optional_module
-from docmirror.structure.tables.classifier import get_last_layer_timings
 from docmirror.structure.utils.vocabulary import _is_header_row
 from docmirror.structure.utils.watermark import preprocess_document
+from docmirror.tables.classifier import get_last_layer_timings
 
 from .entity_collector import collect_kv_entities
 from .foundation import FitzEngine
@@ -73,7 +73,7 @@ def _ocr_blocks_for_pdf_page(
 ) -> list[Block]:
     import fitz
 
-    from docmirror.structure.ocr.vision.rapidocr_engine import get_ocr_engine
+    from docmirror.ocr.vision.rapidocr_engine import get_ocr_engine
 
     np = require_optional_module("numpy", feature="PDF page OCR fallback", extra="ocr")
     zoom = 2.0
@@ -289,13 +289,13 @@ class CoreExtractor:
         self._model_render_dpi = model_render_dpi
 
         # Formula recognition engine (Strategy pattern: UniMERNet ONNX > rapid_latex_ocr > empty)
-        from docmirror.structure.ocr.formula_engine import FormulaEngine
+        from docmirror.ocr.formula_engine import FormulaEngine
 
         self._formula_engine = FormulaEngine(model_path=formula_model_path)
 
         if layout_model_path:
             try:
-                from docmirror.structure.segment.layout_model import LayoutDetector
+                from docmirror.layout.segment.layout_model import LayoutDetector
 
                 # layout_model_path acts as model type name
                 # "auto" -> default doclayout_docstructbench
@@ -349,7 +349,7 @@ class CoreExtractor:
     ) -> BaseResult:
         import asyncio
 
-        from docmirror.structure.evidence_plane import EvidencePlaneBuilder
+        from docmirror.evidence.plane import EvidencePlaneBuilder
 
         options = dict(options or {})
         parse_control = options.get("parse_control")
@@ -872,7 +872,7 @@ class CoreExtractor:
             logger.debug("[QGE] Image preprocessing skipped: %s", exc)
 
         try:
-            from docmirror.structure.ocr.vision.rapidocr_engine import get_ocr_engine
+            from docmirror.ocr.vision.rapidocr_engine import get_ocr_engine
 
             engine = get_ocr_engine()
             words = engine.detect_image_words(img)
@@ -903,7 +903,7 @@ class CoreExtractor:
         # Pass 2: Column-aware splitting within each Y-line using GCR.
         # Uses the universal Geometry Column Reconstruction algorithm (Otsu-like
         # adaptive threshold) instead of the old fixed max(median_gap*4, 60) rule.
-        from docmirror.structure.ocr.reconstruct.gcr import GCRColumns
+        from docmirror.ocr.reconstruct.gcr import GCRColumns
 
         column_blocks: list[list] = []
         for line_words in y_lines:
@@ -947,7 +947,7 @@ class CoreExtractor:
 
         # Also build OCRToken evidence for the GA1.0 evidence bus
         qge_tokens: list[dict] = []
-        from docmirror.structure.ocr.micro_grid.models import OCRToken as _OCRToken
+        from docmirror.ocr.micro_grid.models import OCRToken as _OCRToken
         for idx, ww in enumerate(words):
             token_text = str(ww[4] or "").strip()
             if not token_text:

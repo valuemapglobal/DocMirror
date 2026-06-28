@@ -301,7 +301,7 @@ def _collect_entity_fields(parse_result: Any) -> dict[str, Any]:
 
 def _collect_table_records(parse_result: Any) -> list[dict[str, Any]]:
     """Collect table records from ParseResult into raw rows."""
-    from docmirror.structure.tables.access import get_logical_tables
+    from docmirror.tables.access import get_logical_tables
 
     records: list[dict[str, Any]] = []
     logical = get_logical_tables(parse_result)
@@ -330,8 +330,8 @@ def _collect_table_records(parse_result: Any) -> list[dict[str, Any]]:
 
 def _collect_structure_projected_records(parse_result: Any) -> list[dict[str, Any]]:
     """Project L1 regions via structure_project registry."""
-    from docmirror.structure.ocr.structure_project import project_structure
-    from docmirror.structure.ocr.structure_projectors import core as _core  # noqa: F401
+    from docmirror.ocr.structure_project import project_structure
+    from docmirror.ocr.structure_projectors import core as _core  # noqa: F401
 
     if hasattr(parse_result, "sync_page_canvases"):
         parse_result.sync_page_canvases()
@@ -378,7 +378,7 @@ def build_generic_community_output(
         records = records + structure_records
 
     # ── Heuristic column type detection ──
-    from docmirror.structure.tables.access import get_logical_tables
+    from docmirror.tables.access import get_logical_tables
 
     all_tables = get_logical_tables(parse_result) or []
     if not all_tables:

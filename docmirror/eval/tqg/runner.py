@@ -37,7 +37,7 @@ from docmirror.input.extraction.extractor import CoreExtractor
 from docmirror.models.construction.parse_result_bridge import ParseResultBridge
 from docmirror.plugins._runtime.community import community_plugin_import_path
 from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows
-from docmirror.structure.tables.access import get_logical_tables
+from docmirror.tables.access import get_logical_tables
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ def _local_structure_bundle_domain(
     evidence: dict[str, Any],
     **extra: Any,
 ) -> dict[str, Any]:
-    from docmirror.structure.ocr.page_canvas.evidence_bundles import (
+    from docmirror.ocr.page_canvas.evidence_bundles import (
         domain_specific_with_page_bundles,
         page_evidence_bundle,
     )
@@ -119,8 +119,8 @@ async def _execute_extract_only(case: TQGCase) -> tuple[Any, dict[str, Any]]:
 
 async def _execute_classify_text(case: TQGCase) -> tuple[Any, dict[str, Any]]:
     """Run EvidenceEngine on a keyword-rich text fixture (no full extraction)."""
+    from docmirror.layout.scene.evidence_engine import EvidenceEngine
     from docmirror.models.entities.parse_result import PageContent, ParseResult, TextBlock, TextLevel
-    from docmirror.structure.scene.evidence_engine import EvidenceEngine
 
     text = case.fixture.read_text(encoding="utf-8")
     result = ParseResult(
@@ -517,12 +517,12 @@ async def _execute_scanned_micro_grid_contract(case: TQGCase) -> tuple[Any, dict
         ResultStatus,
         TextBlock,
     )
-    from docmirror.plugins.credit_report.repayment_grid import records_from_micro_grid_dict
-    from docmirror.structure.ocr.page_canvas.evidence_bundles import (
+    from docmirror.ocr.page_canvas.evidence_bundles import (
         domain_specific_with_page_bundles,
         materialize_micro_grids_from_bundles,
         page_evidence_bundle,
     )
+    from docmirror.plugins.credit_report.repayment_grid import records_from_micro_grid_dict
 
     if "negative" in case.id:
         lines = [
@@ -578,8 +578,8 @@ async def _execute_scanned_local_structure_contract(case: TQGCase) -> tuple[Any,
         ResultStatus,
         TextBlock,
     )
+    from docmirror.ocr.local_structure import extract_local_structure_evidence
     from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
-    from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
 
     if "negative" in case.id:
         lines = [
@@ -644,8 +644,8 @@ async def _execute_scanned_local_structure_realistic_fixture(_case: TQGCase) -> 
         ResultStatus,
         TextBlock,
     )
+    from docmirror.ocr.local_structure import extract_local_structure_evidence
     from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
-    from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
 
     fixture_path = Path("tests/fixtures/scanned/account_card_page4_layout.json")
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -702,8 +702,8 @@ async def _execute_scanned_local_structure_full_page_fixture(_case: TQGCase) -> 
         ResultStatus,
         TextBlock,
     )
+    from docmirror.ocr.local_structure import extract_local_structure_evidence
     from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
-    from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
 
     fixture_path = Path("tests/fixtures/scanned/account_card_page4_full_layout.json")
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))

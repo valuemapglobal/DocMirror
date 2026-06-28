@@ -261,7 +261,7 @@ def logical_table_composition(lt: Any) -> dict[str, Any]:
 
 
 def serialize_logical_table_dict(lt: Any, *, row_serializer, include_debug: bool = False) -> dict[str, Any]:
-    from docmirror.structure.tables.compose.ledger_quality import exported_data_row_estimate
+    from docmirror.tables.compose.ledger_quality import exported_data_row_estimate
 
     role = logical_table_role(lt)
     payload: dict[str, Any] = {

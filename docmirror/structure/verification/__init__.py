@@ -1,32 +1,13 @@
-"""Universal evidence verification layer."""
+"""Compatibility shim for ``docmirror.geometry.verification``."""
 
-from docmirror.structure.verification.builder import build_verification_report
-from docmirror.structure.verification.crops import attach_unit_crop_ocr_candidates, attach_verification_crop_assets
-from docmirror.structure.verification.models import (
-    VerificationCandidate,
-    VerificationClaim,
-    VerificationReport,
-    VerificationRule,
-    VerifiedUnit,
-)
-from docmirror.structure.verification.quality_gates import build_verification_quality_gates
-from docmirror.structure.verification.rule_packs import (
-    FunctionVerificationRulePack,
-    VerificationRulePackRegistry,
-    default_verification_rule_pack_registry,
-)
+from __future__ import annotations
 
-__all__ = [
-    "FunctionVerificationRulePack",
-    "VerificationCandidate",
-    "VerificationClaim",
-    "VerificationReport",
-    "VerificationRule",
-    "VerificationRulePackRegistry",
-    "VerifiedUnit",
-    "attach_unit_crop_ocr_candidates",
-    "attach_verification_crop_assets",
-    "build_verification_quality_gates",
-    "build_verification_report",
-    "default_verification_rule_pack_registry",
-]
+from importlib import import_module
+from pathlib import Path
+
+_TARGET = "docmirror.geometry.verification"
+__path__ = [str(Path(__file__).resolve().parents[2] / "geometry" / "verification")]
+
+
+def __getattr__(name: str):
+    return getattr(import_module(_TARGET), name)

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from docmirror.structure.ocr.structure_project import ProjectionResult, register_structure_projector
+from docmirror.ocr.structure_project import ProjectionResult, register_structure_projector
 from docmirror.plugins.credit_report.account_structure import (
     _account_from_field_grid,
     _account_from_label_value_graph,

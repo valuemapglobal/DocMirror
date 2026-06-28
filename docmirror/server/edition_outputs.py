@@ -116,7 +116,7 @@ def write_four_files(
         _inject_output_ids(mirror, document_id=document_id, task_id=task_id, file_id=file_id)
         if file_path:
             try:
-                from docmirror.structure.verification.crops import (
+                from docmirror.geometry.verification.crops import (
                     attach_unit_crop_ocr_candidates,
                     attach_verification_crop_assets,
                 )

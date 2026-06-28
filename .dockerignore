@@ -24,7 +24,7 @@ build
 htmlcov
 
 # Output artifacts & model caches
-output/
+/output/
 model_cache/
 *.onnx
 

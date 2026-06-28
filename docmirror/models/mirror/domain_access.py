@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from docmirror.structure.ocr.page_canvas.evidence_bundles import (
+from docmirror.ocr.page_canvas.evidence_bundles import (
     bundle_evidence_items,
     local_structure_evidence_pages_from_bundles,
 )

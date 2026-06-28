@@ -22,8 +22,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from docmirror.structure.tables.pipeline import TableNormalizeContext, normalize_table
 from docmirror.models.entities.domain import Block, PageLayout
+from docmirror.tables.pipeline import TableNormalizeContext, normalize_table
 
 logger = logging.getLogger(__name__)
 

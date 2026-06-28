@@ -33,9 +33,9 @@ def test_imports_in_file_finds_docmirror():
 def test_resolved_relative_import_from_extract_engine():
     from scripts.code_hygiene.graph import resolved_imports_in_file
 
-    path = ROOT / "docmirror" / "structure" / "tables" / "engine.py"
+    path = ROOT / "docmirror" / "tables" / "engine.py"
     imports = resolved_imports_in_file(path)
-    assert "docmirror.structure.tables.char_strategy" in imports
+    assert "docmirror.tables.char_strategy" in imports
 
 
 def test_patch_literals_are_import_references(tmp_path):

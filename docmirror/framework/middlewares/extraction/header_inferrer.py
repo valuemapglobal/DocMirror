@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 from docmirror.framework.middlewares.base import BaseMiddleware
 from docmirror.models.entities.parse_result import RowType
-from docmirror.structure.tables.signature import TypeSignatureLibrary
+from docmirror.tables.signature import TypeSignatureLibrary
 
 if TYPE_CHECKING:
     from docmirror.models.entities.parse_result import ParseResult, RowType

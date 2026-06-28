@@ -23,7 +23,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from docmirror.structure.scene.rules import RuleManager
+from docmirror.layout.scene.rules import RuleManager
 from docmirror.plugins import PluginRegistry
 
 logger = logging.getLogger(__name__)

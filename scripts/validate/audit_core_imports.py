@@ -23,8 +23,8 @@ PLUGINS = ROOT / DM / "plugins"
 
 FORBIDDEN_FOR_PLUGINS = {
     "docmirror.input.extraction.extractor",
-    "docmirror.structure.segment.zones",
-    "docmirror.structure.ocr.fallback",
+    "docmirror.layout.segment.zones",
+    "docmirror.ocr.fallback",
 }
 
 FORBIDDEN_CORE_IMPORT_PREFIXES = {

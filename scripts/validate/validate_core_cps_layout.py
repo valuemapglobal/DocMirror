@@ -22,8 +22,11 @@ EXPECTED_TOP_LEVEL_DIRS = {
     "evidence",
     "features",
     "framework",
+    "geometry",
     "input",
+    "layout",
     "models",
+    "ocr",
     "output",
     "plugins",
     "quality",
@@ -32,6 +35,8 @@ EXPECTED_TOP_LEVEL_DIRS = {
     "security",
     "server",
     "structure",
+    "tables",
+    "topology",
 }
 
 REQUIRED_DIRS = [
@@ -48,9 +53,14 @@ REQUIRED_DIRS = [
     DOCMIRROR / "structure" / "segment",
     DOCMIRROR / "structure" / "tables",
     DOCMIRROR / "structure" / "utils",
+    DOCMIRROR / "geometry",
+    DOCMIRROR / "layout",
+    DOCMIRROR / "layout" / "segment",
+    DOCMIRROR / "ocr",
+    DOCMIRROR / "tables",
+    DOCMIRROR / "topology",
     DOCMIRROR / "output",
     DOCMIRROR / "output" / "debug",
-    DOCMIRROR / "output" / "exporters",
     DOCMIRROR / "runtime",
     DOCMIRROR / "framework",
     DOCMIRROR / "framework" / "di",
@@ -70,8 +80,12 @@ REQUIRED_FILES = [
     DOCMIRROR / "structure" / "evidence_plane.py",
     DOCMIRROR / "structure" / "page_topology.py",
     DOCMIRROR / "structure" / "fusion.py",
-    DOCMIRROR / "structure" / "tables" / "engine.py",
-    DOCMIRROR / "structure" / "ocr" / "pipeline.py",
+    DOCMIRROR / "structure" / "tables" / "__init__.py",
+    DOCMIRROR / "structure" / "ocr" / "__init__.py",
+    DOCMIRROR / "tables" / "engine.py",
+    DOCMIRROR / "ocr" / "pipeline.py",
+    DOCMIRROR / "evidence" / "plane.py",
+    DOCMIRROR / "topology" / "page.py",
     DOCMIRROR / "output" / "mirror.py",
     DOCMIRROR / "runtime" / "progress_bus.py",
     DOCMIRROR / "runtime" / "control.py",
@@ -83,7 +97,6 @@ REQUIRED_FILES = [
 
 REMOVED_PATHS = [
     DOCMIRROR / "adapters",
-    DOCMIRROR / "ocr",
     DOCMIRROR / "core",
     DOCMIRROR / "di",
     DOCMIRROR / "middlewares",
@@ -120,7 +133,6 @@ REMOVED_PATHS = [
 
 FORBIDDEN_IMPORT_PREFIXES = (
     f"{DM}.adapters",
-    f"{DM}.ocr",
     f"{DM}.di",
     f"{DM}.middlewares",
     f"{DM}.integration",

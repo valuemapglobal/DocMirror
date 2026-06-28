@@ -75,7 +75,7 @@ class ImageAdapter(BaseParser):
     def _extract_text_from_image(self, img, _file_path: Path) -> str:
         """Use built-in or external OCR depending on image quality."""
         from docmirror.configs.runtime.settings import default_settings
-        from docmirror.structure.ocr.fallback import (
+        from docmirror.ocr.fallback import (
             _resolve_external_ocr_provider,
             assess_image_quality_from_bgr,
         )
@@ -100,7 +100,7 @@ class ImageAdapter(BaseParser):
                 logger.info(f"[ImageAdapter] Delegated to external OCR (quality={quality})")
                 return self._text_from_ocr_result(out)
         try:
-            from docmirror.structure.ocr.vision.rapidocr_engine import get_ocr_engine
+            from docmirror.ocr.vision.rapidocr_engine import get_ocr_engine
 
             engine = get_ocr_engine()
             words = engine.detect_image_words(img)

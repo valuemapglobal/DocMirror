@@ -202,7 +202,7 @@ class BaseTableParser(DomainPlugin):
             return out
 
         # Try logical tables first (composed cross-page)
-        from docmirror.structure.tables.access import get_logical_tables
+        from docmirror.tables.access import get_logical_tables
 
         logical = get_logical_tables(parse_result)
         if logical:

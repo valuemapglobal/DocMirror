@@ -15,11 +15,11 @@ import logging
 from dataclasses import dataclass, replace
 from typing import Any
 
-from docmirror.structure.tables.access import get_logical_tables
 from docmirror.models.entities.parse_result import LogicalTable
 from docmirror.plugins.bank_statement.canonical import dedupe_transaction_rows
 from docmirror.plugins.bank_statement.context import StyleContext
 from docmirror.plugins.bank_statement.style_detector import BankStyleDetector, StyleDetectionResult
+from docmirror.tables.access import get_logical_tables
 
 logger = logging.getLogger(__name__)
 

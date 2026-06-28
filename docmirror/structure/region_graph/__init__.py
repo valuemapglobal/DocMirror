@@ -1,27 +1,13 @@
-"""Candidate RegionGraph and ownership ledger for UDTR."""
+"""Compatibility shim for ``docmirror.topology.region_graph``."""
 
-from docmirror.structure.region_graph.models import OwnershipLedger, RegionCandidate, RegionGraph
-from docmirror.structure.region_graph.producers import (
-    KindFilteredRegionCandidateProducer,
-    RegionCandidateBatch,
-    RegionCandidateProducer,
-    TopologyRegionCandidateProducer,
-    default_region_candidate_producers,
-    merge_equivalent_candidates,
-    produce_region_candidates,
-)
-from docmirror.structure.region_graph.solver import solve_region_graph
+from __future__ import annotations
 
-__all__ = [
-    "OwnershipLedger",
-    "RegionCandidate",
-    "RegionGraph",
-    "RegionCandidateBatch",
-    "RegionCandidateProducer",
-    "KindFilteredRegionCandidateProducer",
-    "TopologyRegionCandidateProducer",
-    "default_region_candidate_producers",
-    "merge_equivalent_candidates",
-    "produce_region_candidates",
-    "solve_region_graph",
-]
+from importlib import import_module
+from pathlib import Path
+
+_TARGET = "docmirror.topology.region_graph"
+__path__ = [str(Path(__file__).resolve().parents[2] / "topology" / "region_graph")]
+
+
+def __getattr__(name: str):
+    return getattr(import_module(_TARGET), name)

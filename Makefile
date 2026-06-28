@@ -34,6 +34,7 @@ lint:
 validate-clean:
 	python3 scripts/validate/generate_import_linter.py --check
 	python3 scripts/validate/validate_clean_manifest.py
+	python3 scripts/validate/validate_domain_decomposition.py --strict-new-imports
 	python3 scripts/validate/report_clean_quarantine.py --fail-overdue
 	python3 scripts/validate/report_architecture_hotspots.py --json reports/architecture_hotspots.json
 	lint-imports --config .importlinter

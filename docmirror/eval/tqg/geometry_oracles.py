@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from docmirror.eval.tqg.report import GateReport
-from docmirror.structure.geometry.bbox import area, center, contains
+from docmirror.geometry.bbox import area, center, contains
 
 
 def _api(mirror_or_api: Any, *, mirror_level: str = "forensic") -> dict[str, Any]:

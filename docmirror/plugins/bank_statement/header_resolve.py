@@ -25,9 +25,9 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
+from docmirror.layout.profile.registry import resolve_header_aliases
 from docmirror.plugins._base.column_registry import ColumnMatcher
 from docmirror.plugins.bank_statement.institution import get_bank_layout_profile
-from docmirror.structure.profile.registry import resolve_header_aliases
 
 # OCR / regional header variants merged into plugin-layer SSOT (not Mirror EPO).
 _OCR_HEADER_ALIASES: dict[str, str] = {

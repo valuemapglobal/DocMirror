@@ -1,18 +1,13 @@
-# Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
-# Author: Adam Lin <adamlin@valuemapglobal.com>
-#
-# This source code is licensed under the Apache 2.0 license found in the
-# LICENSE file in the root directory of this source tree.
+"""Compatibility shim for ``docmirror.tables``."""
 
-"""
-Table package — table normalization, merge, composition, and access layer.
+from __future__ import annotations
 
-Purpose: Post-extraction table processing: header detection, structure fix,
-cross-page merge, logical/physical dual view, and consumer access API.
+from importlib import import_module
+from pathlib import Path
 
-Main components: ``table.pipeline``, ``table.compose``, ``table.access``.
+_TARGET = "docmirror.tables"
+__path__ = [str(Path(__file__).resolve().parents[2] / "tables")]
 
-Upstream: ``extract.engine`` table blocks, OCR reconstruction.
 
-Downstream: ``bridge.parse_result_bridge``, plugins via ``table.access``.
-"""
+def __getattr__(name: str):
+    return getattr(import_module(_TARGET), name)

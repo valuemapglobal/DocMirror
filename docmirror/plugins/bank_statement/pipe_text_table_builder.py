@@ -9,8 +9,8 @@ Thin wrapper over Core SDU ``build_pipe_table_from_text`` for Plugin LTRO.
 
 from __future__ import annotations
 
-from docmirror.structure.tables.structure_detect.pipe_grid import detect_pipe_header_in_text, split_pipe_row
-from docmirror.structure.tables.structure_detect.pipe_table_builder import (
+from docmirror.tables.structure_detect.pipe_grid import detect_pipe_header_in_text, split_pipe_row
+from docmirror.tables.structure_detect.pipe_table_builder import (
     build_pipe_table_from_text,
     count_expected_primary_rows,
 )

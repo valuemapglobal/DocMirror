@@ -1,5 +1,13 @@
-"""Document graph relation builders for UDTR."""
+"""Compatibility shim for ``docmirror.topology.relations``."""
 
-from docmirror.structure.relations.builders import add_udtr_relation_edges
+from __future__ import annotations
 
-__all__ = ["add_udtr_relation_edges"]
+from importlib import import_module
+from pathlib import Path
+
+_TARGET = "docmirror.topology.relations"
+__path__ = [str(Path(__file__).resolve().parents[2] / "topology" / "relations")]
+
+
+def __getattr__(name: str):
+    return getattr(import_module(_TARGET), name)
