@@ -35,7 +35,7 @@ def attach_mirror_ltqg(parse_result: Any, base_metadata: dict[str, Any] | None =
 
     quarantined_physical = meta.get("quarantined_tables") or []
     quarantined_logical = meta.get("quarantined_logical_tables") or []
-    from docmirror.output.debug.artifact import is_debug_mode
+    from docmirror.runtime.debug_artifact import is_debug_mode
 
     if quarantined_physical:
         structure["quarantined_physical_count"] = len(quarantined_physical)

@@ -51,7 +51,7 @@ def run_cross_format_matrix(
             continue
         output_path = _resolve_case_path(output_path_value, base_dir=base_dir)
         try:
-            from docmirror.output.mirror import MirrorCoreVNext, MirrorOptions
+            from docmirror.models.mirror.core import MirrorCoreVNext, MirrorOptions
 
             if core is None:
                 core = MirrorCoreVNext()

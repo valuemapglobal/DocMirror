@@ -45,7 +45,7 @@ def build_classification_block(
         "candidate_types": candidate_types or [],
     }
     try:
-        from docmirror.output.debug.artifact import is_debug_mode
+        from docmirror.runtime.debug_artifact import is_debug_mode
     except ImportError:
         is_debug_mode = lambda: False  # noqa: E731
     if is_debug_mode():

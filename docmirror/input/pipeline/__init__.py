@@ -22,7 +22,7 @@ async def perceive_document(path: str | Path, options: Any = None) -> PerceiveRe
     path = Path(path)
     try:
         from docmirror.framework.di.container import get_dispatcher
-        from docmirror.output.mirror import MirrorCoreVNext
+        from docmirror.models.mirror.core import MirrorCoreVNext
 
         control = options.normalized_control() if hasattr(options, "normalized_control") else None
         dispatcher = get_dispatcher()
@@ -45,7 +45,7 @@ async def perceive_document(path: str | Path, options: Any = None) -> PerceiveRe
 
 
 def _mirror_options(path: Path, options: Any) -> Any:
-    from docmirror.output.mirror import MirrorOptions
+    from docmirror.models.mirror.core import MirrorOptions
 
     profile = getattr(options, "profile", None)
     engine_version = getattr(options, "engine_version", None)

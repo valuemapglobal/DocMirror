@@ -257,7 +257,7 @@ def mirror_quarantine_annex_fields(
     mirror_level: str = "standard",
 ) -> dict[str, Any]:
     """Full quarantine lists for debug / forensic API export."""
-    from docmirror.output.debug.artifact import is_debug_mode
+    from docmirror.runtime.debug_artifact import is_debug_mode
 
     if mirror_level != "forensic" and not is_debug_mode():
         return {}

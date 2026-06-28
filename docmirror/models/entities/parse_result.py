@@ -918,7 +918,7 @@ class ParseResult(BaseModel):
             document, pages, evidence, regions, blocks, graph, quality,
             semantics).
         """
-        from docmirror.output.mirror import MirrorCoreVNext, MirrorOptions, MirrorResult
+        from docmirror.models.mirror.core import MirrorCoreVNext, MirrorOptions, MirrorResult
 
         _ = include_text
         options = MirrorOptions(

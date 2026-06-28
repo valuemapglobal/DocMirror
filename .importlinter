@@ -71,7 +71,7 @@ forbidden_modules =
 allow_indirect_imports = True
 ignore_imports =
     docmirror.models.construction.parse_result_bridge -> docmirror.input.bridge.parse_result_bridge
-    docmirror.models.entities.parse_result -> docmirror.output.mirror
+    docmirror.models.entities.parse_result -> docmirror.models.mirror.core
     docmirror.models.entities.parse_result -> docmirror.ocr.page_canvas.models
     docmirror.models.entities.parse_result -> docmirror.ocr.page_canvas.sync
     docmirror.models.mirror.domain_access -> docmirror.ocr.page_canvas.evidence_bundles

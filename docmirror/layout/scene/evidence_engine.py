@@ -23,7 +23,7 @@ import logging
 
 from docmirror.framework.middlewares.base import BaseMiddleware
 from docmirror.layout.scene.evidence_types import Evidence
-from docmirror.output.debug.artifact import is_debug_mode
+from docmirror.runtime.debug_artifact import is_debug_mode
 
 from ...models.entities.parse_result import ParseResult
 

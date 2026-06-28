@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from docmirror.output.serialization import dumps_json
+from docmirror.runtime.serialization import dumps_json
 
 logger = logging.getLogger(__name__)
 

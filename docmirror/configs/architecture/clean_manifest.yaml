@@ -65,8 +65,8 @@ layers:
       reason: Legacy construction shim retained for parser bridge compatibility.
       review_by: '2026-08-01'
     - importer: docmirror.models.entities.parse_result
-      imported: docmirror.output.mirror
-      reason: ParseResult serialization still delegates mirror export helpers.
+      imported: docmirror.models.mirror.core
+      reason: ParseResult builds canonical MirrorJson through the model-layer projection core.
       review_by: '2026-08-01'
     - importer: docmirror.models.entities.parse_result
       imported: docmirror.ocr.page_canvas.models
