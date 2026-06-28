@@ -8,14 +8,16 @@
 DocMirror: Universal Document Parsing Engine
 
 Directory structure:
-- core/: Core extraction engines (CoreExtractor, LayoutAnalysis, TableExtraction)
-- models/: Data models (ParseResult MOC, DomainExtractionResult DEC)
-- middlewares/: Middleware pipeline (EvidenceEngine, EntityExtractor, Validator, ...)
-- configs/: YAML configs (FCR, enhancement profiles, scene keywords) + loaders
-- framework/: Pipeline orchestration (dispatcher, extraction_runner, orchestrator)
-- di/: Service container (shared dispatcher / orchestrator singletons)
-- adapters/: Format adapters (PDF, Image, Office, Email, Web)
-- plugins/: Domain plugins (bank_statement, ...)
+- input/: File intake, adapters, parse controls, and extraction intake.
+- structure/: Evidence plane, page topology, OCR, tables, graph, and verification.
+- output/: Canonical mirror JSON, projections, exporters, and serialization.
+- models/: Shared contracts and typed data models.
+- framework/: Orchestration, dispatch, dependency injection, and middleware framework.
+- runtime/: Execution state, progress, artifacts, scheduling, and checkpoints.
+- plugins/: Domain plugins plus internal plugin runtime.
+- configs/: Config loaders and packaged YAML/JSON schemas.
+- evidence/, quality/, security/: Cross-cutting ledgers, gates, and safety controls.
+- cli/, server/, sdk/: User-facing execution boundaries.
 
 Single public entry point: perceive_document()
 """

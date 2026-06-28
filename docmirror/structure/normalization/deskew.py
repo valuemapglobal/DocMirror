@@ -169,4 +169,3 @@ def _normalize_angle(angle: float) -> float:
     while angle > 90.0:
         angle -= 180.0
     return angle
-    return 0.0

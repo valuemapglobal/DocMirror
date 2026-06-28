@@ -22,8 +22,8 @@ def test_lic01_premium_feature_naming():
 
 
 def test_lic02_community_free_domain_not_entitled_without_license():
-    with patch("docmirror.plugins.licensing.offline.offline_license_manager._licenses", []):
-        with patch("docmirror.plugins.licensing.online.license_manager.is_licensed", return_value=False):
+    with patch("docmirror.plugins._runtime.licensing.offline.offline_license_manager._licenses", []):
+        with patch("docmirror.plugins._runtime.licensing.online.license_manager.is_licensed", return_value=False):
             assert is_entitled("bank_statement") is False
 
 
@@ -31,7 +31,7 @@ def test_lic03_entitled_with_premium_feature_in_offline_lic():
     lic = MagicMock()
     lic.is_valid = True
     lic.get_features.return_value = ["alipay_payment_premium"]
-    with patch("docmirror.plugins.licensing.offline.offline_license_manager._licenses", [lic]):
+    with patch("docmirror.plugins._runtime.licensing.offline.offline_license_manager._licenses", [lic]):
         assert is_entitled("alipay_payment") is True
 
 
@@ -39,7 +39,7 @@ def test_lic04_bare_domain_in_lic_features_not_entitled():
     lic = MagicMock()
     lic.is_valid = True
     lic.get_features.return_value = ["alipay_payment"]
-    with patch("docmirror.plugins.licensing.offline.offline_license_manager._licenses", [lic]):
+    with patch("docmirror.plugins._runtime.licensing.offline.offline_license_manager._licenses", [lic]):
         assert is_entitled("alipay_payment") is False
 
 
@@ -48,8 +48,8 @@ def test_lic05_runner_degrade_warning_without_license():
         domain_name = "audit_report"
         requires_license = True
 
-    with patch("docmirror.plugins.licensing.offline.offline_license_manager._licenses", []):
-        with patch("docmirror.plugins.licensing.online.license_manager.is_licensed", return_value=False):
+    with patch("docmirror.plugins._runtime.licensing.offline.offline_license_manager._licenses", []):
+        with patch("docmirror.plugins._runtime.licensing.online.license_manager.is_licensed", return_value=False):
             assert _is_edition_plugin_licensed(_Plugin()) is False
 
     payload = _wrap_license_degraded(
@@ -68,7 +68,7 @@ def test_lic05_runner_no_warning_when_entitled():
     lic = MagicMock()
     lic.is_valid = True
     lic.get_features.return_value = ["audit_report_premium"]
-    with patch("docmirror.plugins.licensing.offline.offline_license_manager._licenses", [lic]):
+    with patch("docmirror.plugins._runtime.licensing.offline.offline_license_manager._licenses", [lic]):
         assert _is_edition_plugin_licensed(_Plugin()) is True
 
 
@@ -76,7 +76,7 @@ def test_lic06_grace_period_still_entitled():
     lic = MagicMock()
     lic.is_valid = True
     lic.get_features.return_value = ["alipay_payment_premium"]
-    with patch("docmirror.plugins.licensing.offline.offline_license_manager._licenses", [lic]):
+    with patch("docmirror.plugins._runtime.licensing.offline.offline_license_manager._licenses", [lic]):
         assert is_entitled("alipay_payment") is True
 
 

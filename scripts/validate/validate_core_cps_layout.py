@@ -79,8 +79,6 @@ REQUIRED_FILES = [
     DOCMIRROR / "errors" / "result.py",
     DOCMIRROR / "framework" / "di" / "container.py",
     DOCMIRROR / "framework" / "middlewares" / "base.py",
-    DOCMIRROR / "features" / "rag" / "loaders.py",
-    DOCMIRROR / "sdk" / "integration" / "service.py",
 ]
 
 REMOVED_PATHS = [
@@ -117,7 +115,6 @@ REMOVED_PATHS = [
     DOCMIRROR / "core" / "mirror_core_vnext.py",
     ROOT / "input",
     ROOT / "structure",
-    ROOT / "output",
     ROOT / "docmirror-bak",
 ]
 

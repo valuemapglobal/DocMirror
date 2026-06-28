@@ -39,7 +39,7 @@ def _mirror(document_type: str = "bank_statement") -> ParseResult:
 
 def test_pec_invariants_on_fake_enterprise_plugin():
     mirror = _mirror()
-    with patch("docmirror.plugins.runner._edition_package_available", return_value=True):
+    with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=True):
         with patch("docmirror.plugins.registry.get", return_value=FakeEnterprisePlugin()):
             out = run_plugin_extract_sync(mirror, edition="enterprise")
     assert out is not None
@@ -49,7 +49,7 @@ def test_pec_invariants_on_fake_enterprise_plugin():
 
 def test_pec_trust_projection_enriches_edition_only():
     mirror = _mirror()
-    with patch("docmirror.plugins.runner._edition_package_available", return_value=True):
+    with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=True):
         with patch("docmirror.plugins.registry.get", return_value=FakeEnterprisePlugin()):
             out = run_plugin_extract_sync(mirror, edition="enterprise")
     assert out is not None

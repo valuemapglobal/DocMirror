@@ -65,63 +65,27 @@ pytest tests/smoke/ -v    # Quick smoke tests (no fixtures needed)
 
 ```
 docmirror/
-├── core/             # Core extraction engines (CPS seven-stage pipeline)
-│   ├── entry/        # perceive_document(), PerceiveOptions, PerceiveResult
-│   ├── pipeline/     # DocumentPipeline, PagePipeline, PdfSyncProcessor
-│   ├── table/        # Table Normalization Pipeline (TNP) — generic, ledger
-│   ├── ocr/          # OCR pipeline (UOP) — RapidOCR + external fallback
-│   ├── scene/        # EvidenceEngine — 120-type document classification
-│   ├── extract/      # Core extraction from parsed pages
-│   ├── segment/      # Page segmentation and layout
-│   └── bridge/       # ParseResultBridge (Path B only)
-├── adapters/         # Format-specific adapters
-│   ├── pdf/          # PDF adapter with multi-strategy extraction
-│   ├── image/        # Image adapter with OCR
-│   ├── ofd/          # OFD (Chinese electronic invoice) adapter
-│   ├── office/       # Word, Excel, PowerPoint adapters
-│   ├── web/          # HTML and Email adapters
-│   ├── data/         # Structured data (JSON, XML, CSV)
-│   └── archive/      # Archive support (ZIP/RAR)
-├── framework/        # Pipeline orchestration
-│   ├── dispatcher.py  # L0 routing (FCR-driven)
-│   ├── orchestrator.py # Middleware pipeline supervision
-│   └── base.py        # BaseParser contract
-├── middlewares/      # Enhancement pipeline steps (MEP platform)
-│   ├── detection/    # EvidenceEngine, institution, language detection
-│   ├── extraction/   # Entity extraction (bilingual, generic, SLM)
-│   └── validation/   # Trust scoring, mutation analysis, anomaly detection
-├── configs/          # YAML configuration
-│   ├── yaml/         # FCR, enhancement profiles, middleware catalog, scene keywords
-│   ├── runtime/      # DocMirrorSettings, env-backed configuration
-│   └── pipeline/     # Registry and profile resolution
-├── models/           # Data models
-│   ├── entities/     # ParseResult (MOC), DomainExtractionResult (DEC)
-│   └── construction/ # ParseResult bridge shims
-├── plugins/          # Domain plugins
-│   ├── community.py  # Community capability yaml + plugin discovery
-│   ├── plugin_registry.py  # DomainPlugin ABC + registry singleton
-│   ├── runner.py     # PEC extract runner
-│   ├── bank_statement/  # Bank statement community plugin
-│   ├── wechat_payment/  # WeChat payment community plugin
-│   ├── alipay_payment/  # Alipay payment community plugin
-│   ├── vat_invoice/     # VAT invoice community plugin
-│   ├── business_license/ # Business license community plugin
-│   ├── credit_report/   # Credit report community plugin
-│   └── generic/     # Generic fallback plugin
-├── cli/              # CLI entry point
-├── server/           # FastAPI HTTP server
-├── di/               # Service container (dispatcher, orchestrator, settings)
-├── evidence/         # Security evidence ledger
-├── security/         # Forgery detection, resource gates
-├── quality/          # Quality gate infrastructure
-├── features/         # Feature flag management
-├── runtime/          # Runtime environment detection
-└── scripts/          # CLI tooling (quality gates, validation, audit)
+├── input/            # File intake, adapters, parse control, extraction intake
+├── structure/        # Evidence plane, page topology, OCR, tables, graph, verification
+├── output/           # Canonical mirror JSON, projections, exporters, serialization
+├── models/           # Shared contracts and typed data models
+├── framework/        # Orchestration, dispatch, DI, middleware framework
+├── runtime/          # Execution state, progress, artifacts, scheduling, checkpoint
+├── plugins/          # Domain plugins plus internal plugin runtime
+├── configs/          # Config loaders and packaged YAML/JSON schemas
+├── evidence/         # Evidence bundles, ledgers, visual evidence
+├── quality/          # Quality outcomes, gates, aggregation
+├── security/         # Safety, redaction, egress, privacy, resource gates
+├── features/         # Optional integrations such as RAG
+├── eval/             # Evaluation and benchmark support
+├── cli/              # Console commands
+├── server/           # FastAPI and MCP serving boundaries
+└── sdk/              # Python client/integration helpers
 ```
 
 ## Adding a New Adapter
 
-1. Create `docmirror/adapters/your_format/your_format.py`
+1. Create `docmirror/input/adapters/your_format/your_format.py`
 2. Subclass `BaseParser` from `docmirror.framework.base`
 3. Implement `to_parse_result(file_path) -> ParseResult` (canonical format only)
 4. Register in `docmirror/configs/yaml/format_capabilities.yaml`:
@@ -134,15 +98,15 @@ docmirror/
 
 Mirror-layer middleware is registered via **Middleware Execution Platform (MEP)** — not `orchestrator.py` dicts.
 
-1. Create `docmirror/middlewares/your_category/your_middleware.py`
-2. Subclass `BaseMiddleware` from `docmirror.middlewares.base`
+1. Create `docmirror/framework/middlewares/your_category/your_middleware.py`
+2. Subclass `BaseMiddleware` from `docmirror.framework.middlewares.base`
 3. Implement `process(result: ParseResult) -> ParseResult`
 4. Add an entry to **`docmirror/configs/yaml/middleware_catalog.yaml`** (`module`, `class`, `stage`, optional `when` / `depends_on`)
 5. Add the middleware name to **`docmirror/configs/yaml/enhancement_profiles.yaml`** under the appropriate `content_model` → `stages`
 6. Run `python3 scripts/validate_middleware_catalog.py` and `python3 scripts/validate_format_capabilities.py`
 7. Add tests in `tests/unit/`
 
-Do **not** add middleware via decorators — use `middleware_catalog.yaml` only. Plugin logic belongs in `docmirror/plugins/runner.py`; post-extract hooks in `post_extract.yaml`.
+Do **not** add middleware via decorators — use `middleware_catalog.yaml` only. Plugin runtime logic belongs under `docmirror/plugins/_runtime/`; post-extract hooks are declared in `post_extract.yaml`.
 
 ## Reporting Issues
 

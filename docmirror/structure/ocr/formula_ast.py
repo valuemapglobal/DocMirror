@@ -15,7 +15,7 @@ Main components:
   - tokenize_latex() — tokenizer for LaTeX math mode
   - LaTeXSymbolTree — parse / normalize / serialize / compare
 
-Upstream: flat LaTeX strings from formula_chars.py or formula_engine.py.
+Upstream: flat LaTeX strings from formula engines.
 Downstream: formula_zone.py (integration), formula_evidence.py (evidence),
   exporters/markdown.py (rendering), exporters/mathml.py (MathML output).
 """
@@ -454,7 +454,6 @@ class _Parser:
         # right brace at atom position (unbalanced) => skip
         if ttype == "rbrace":
             return None  # (advance removed — let outer caller consume)
-            return None
 
         # end / begin at wrong position
         if ttype in ("begin", "end"):
@@ -1396,4 +1395,3 @@ def _zh_func_name(cmd: str) -> str:
         r"\max": "最大值", r"\min": "最小值",
     }
     return _map.get(cmd, cmd.lstrip("\\"))
-

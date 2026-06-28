@@ -1,0 +1,48 @@
+name: Clean Architecture Governance
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/clean-architecture.yml"
+      - ".importlinter"
+      - "docmirror/**/*.py"
+      - "docmirror/configs/architecture/**"
+      - "scripts/code_hygiene/**"
+      - "scripts/validate/**"
+      - "tests/**/*"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/clean-architecture.yml"
+      - ".importlinter"
+      - "docmirror/**/*.py"
+      - "docmirror/configs/architecture/**"
+      - "scripts/code_hygiene/**"
+      - "scripts/validate/**"
+      - "tests/**/*"
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  validate-clean-architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install validation dependencies
+        run: python -m pip install --upgrade pip pyyaml import-linter
+      - name: Validate clean architecture contract
+        run: |
+          python scripts/validate/generate_import_linter.py --check
+          python scripts/validate/validate_clean_manifest.py
+          python scripts/validate/report_clean_quarantine.py --fail-overdue --summary-json reports/clean_quarantine.json
+          lint-imports --config .importlinter
+      - name: Upload quarantine report
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-quarantine-report
+          path: reports/clean_quarantine.json
+          if-no-files-found: error

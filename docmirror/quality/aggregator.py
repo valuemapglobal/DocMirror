@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from docmirror.quality.ga_metrics import PLATFORM_TARGETS, FINANCE_TARGETS
-from docmirror.quality.observation import QualityObservationEvent, observation_to_dict
+from docmirror.quality.observation import QualityObservationEvent
 from docmirror.quality.evidence_coverage import (
     compute_evidence_coverage,
     build_evidence_coverage_summary,

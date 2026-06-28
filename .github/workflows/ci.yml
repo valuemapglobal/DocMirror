@@ -86,6 +86,13 @@ jobs:
       - name: Validate TQG manifests
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python scripts/validate/validate_test_manifest.py
+      - name: Validate clean architecture manifest
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        run: |
+          python scripts/validate/generate_import_linter.py --check
+          python scripts/validate/validate_clean_manifest.py
+          python scripts/validate/report_clean_quarantine.py --fail-overdue --summary-json reports/clean_quarantine_ci.json
+          lint-imports --config .importlinter
       - name: Validate CPA CPS layout (design 12)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python scripts/validate/validate_core_cps_layout.py
@@ -105,7 +112,7 @@ jobs:
           python -c "import json; r=json.load(open('reports/ci_core_import_audit.json')); assert not r['plugin_forbidden_imports'], r['plugin_forbidden_imports']; assert not r['lazy_hub_present']"
       - name: CCP import-linter contract
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python -m lint_imports
+        run: lint-imports --config .importlinter
       - name: Run unit tests
         run: pytest tests/unit/ -v --tb=short -q
       - name: Run tests (PR tier matrix)

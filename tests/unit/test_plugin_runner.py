@@ -43,15 +43,15 @@ def test_runner_id_card_uses_generic_fallback():
     assert "community_generic_fallback" in out["status"]["warnings"]
 
 
-def test_runner_audit_report_mirror_only():
+def test_runner_audit_report_uses_generic_fallback():
     out = run_plugin_extract_sync(_mirror("audit_report"), edition="community")
     assert out is not None
     assert out["data"]["summary"]["total_rows"] == 0
-    assert "mirror_only" in " ".join(out["status"]["warnings"])
+    assert "community_generic_fallback" in out["status"]["warnings"]
 
 
 def test_runner_skips_when_edition_package_missing():
-    with patch("docmirror.plugins.runner._edition_package_available", return_value=False):
+    with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=False):
         assert (
             run_plugin_extract_sync(_mirror("bank_statement"), edition="enterprise") is None
         )
@@ -74,8 +74,8 @@ class _LicensedEnterprisePlugin:
 
 def test_is_edition_plugin_licensed_false_without_premium_feature():
     plugin = _LicensedEnterprisePlugin()
-    with patch("docmirror.plugins.licensing.offline.offline_license_manager._licenses", []):
-        with patch("docmirror.plugins.licensing.online.license_manager.is_licensed", return_value=False):
+    with patch("docmirror.plugins._runtime.licensing.offline.offline_license_manager._licenses", []):
+        with patch("docmirror.plugins._runtime.licensing.online.license_manager.is_licensed", return_value=False):
             assert _is_edition_plugin_licensed(plugin) is False
 
 
@@ -85,7 +85,7 @@ def test_is_edition_plugin_licensed_true_with_offline_feature():
     license_file.is_valid = True
     license_file.get_features.return_value = ["bank_statement_premium"]
     with patch(
-        "docmirror.plugins.licensing.offline.offline_license_manager._licenses",
+        "docmirror.plugins._runtime.licensing.offline.offline_license_manager._licenses",
         [license_file],
     ):
         assert _is_edition_plugin_licensed(plugin) is True
@@ -115,11 +115,11 @@ def test_enterprise_reuses_community_baseline_without_reextract():
         "metadata": {"parser": "docmirror-community"},
     }
 
-    with patch("docmirror.plugins.runner._edition_package_available", return_value=True):
+    with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=True):
         with patch("docmirror.plugins.registry.get", return_value=_LicensedEnterprisePlugin()):
-            with patch("docmirror.plugins.runner._is_edition_plugin_licensed", return_value=False):
+            with patch("docmirror.plugins._runtime.runner._is_edition_plugin_licensed", return_value=False):
                 with patch(
-                    "docmirror.plugins.runner._run_community_extract",
+                    "docmirror.plugins._runtime.runner._run_community_extract",
                     return_value=community_payload,
                 ):
                     out = run_plugin_extract_sync(mirror, edition="enterprise")
@@ -138,9 +138,9 @@ def test_enterprise_runs_extract_when_licensed():
         "status": {"success": True, "warnings": [], "errors": []},
     }
 
-    with patch("docmirror.plugins.runner._edition_package_available", return_value=True):
+    with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=True):
         with patch("docmirror.plugins.registry.get", return_value=_LicensedEnterprisePlugin()):
-            with patch("docmirror.plugins.runner._is_edition_plugin_licensed", return_value=True):
+            with patch("docmirror.plugins._runtime.runner._is_edition_plugin_licensed", return_value=True):
                 out = run_plugin_extract_sync(mirror, edition="enterprise")
 
     assert out is not None
@@ -170,11 +170,11 @@ def test_finance_degrades_without_license():
         "metadata": {},
     }
 
-    with patch("docmirror.plugins.runner._edition_package_available", return_value=True):
+    with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=True):
         with patch("docmirror.plugins.registry.get", return_value=_FinancePlugin()):
-            with patch("docmirror.plugins.runner._is_edition_plugin_licensed", return_value=False):
+            with patch("docmirror.plugins._runtime.runner._is_edition_plugin_licensed", return_value=False):
                 with patch(
-                    "docmirror.plugins.runner._run_community_extract",
+                    "docmirror.plugins._runtime.runner._run_community_extract",
                     return_value=community_payload,
                 ):
                     out = run_plugin_extract_sync(mirror, edition="finance")

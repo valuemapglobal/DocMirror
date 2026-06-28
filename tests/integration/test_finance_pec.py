@@ -31,7 +31,7 @@ def test_finance_alipay_extract_smoke():
     pr = ParseResult(status=ResultStatus.SUCCESS)
     pr.entities = DocumentEntities(document_type="alipay_payment")
 
-    with patch("docmirror.plugins.runner._is_edition_plugin_licensed", return_value=True):
+    with patch("docmirror.plugins._runtime.runner._is_edition_plugin_licensed", return_value=True):
         out = run_plugin_extract_sync(pr, edition="finance")
 
     if out is None:
@@ -51,7 +51,7 @@ def test_finance_alipay_fixture_quality_metrics():
         perceive_document(ALIPAY_FIXTURE, PerceiveOptions(enhance_mode="standard"))
     ).mirror
 
-    with patch("docmirror.plugins.runner._is_edition_plugin_licensed", return_value=True):
+    with patch("docmirror.plugins._runtime.runner._is_edition_plugin_licensed", return_value=True):
         out = run_plugin_extract_sync(
             mirror,
             edition="finance",

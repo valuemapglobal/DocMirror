@@ -198,17 +198,3 @@ exclude_lines = [
     "pass",
     "raise ImportError",
 ]
-
-[tool.importlinter]
-root_package = "docmirror"
-
-[[tool.importlinter.contracts]]
-name = "CCP — plugins must not import internal engines"
-type = "forbidden"
-source_modules = ["docmirror.plugins"]
-forbidden_modules = [
-    "docmirror.input.extraction.extractor",
-    "docmirror.structure.segment.zones",
-    "docmirror.structure.tables.engine",
-    "docmirror.structure.ocr.fallback",
-]

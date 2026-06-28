@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import base64
+import importlib.util
 import logging
 from typing import Any
 
@@ -62,11 +63,7 @@ class OpenAIBackend:
     def is_available(self) -> bool:
         if not self._config.openai_api_key:
             return False
-        try:
-            import openai
-            return True
-        except ImportError:
-            return False
+        return importlib.util.find_spec("openai") is not None
 
     def _get_client(self):
         """Lazy-initialize the OpenAI client."""

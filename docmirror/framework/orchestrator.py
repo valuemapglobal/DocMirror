@@ -35,7 +35,7 @@ class Orchestrator:
     Middleware enhancement orchestrator (Mirror layer only).
 
     Plugin execution (Community / Enterprise / Finance) happens **after**
-    ``enhance()`` via ``docmirror.plugins.runner`` — not in this pipeline.
+    ``enhance()`` via ``docmirror.plugins._runtime.runner`` — not in this pipeline.
     """
 
     def __init__(

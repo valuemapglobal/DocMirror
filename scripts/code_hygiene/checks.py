@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from scripts.code_hygiene.allowlist import is_allowed, load_allowlist
+from scripts.code_hygiene.clean_manifest import load_clean_manifest
 from scripts.code_hygiene.config import (
     CONFIGS_YAML,
     ENTRY_MODULE_PATHS,
@@ -148,6 +149,7 @@ def check_vulture(allowlist: dict | None = None, *, min_confidence: int = 80) ->
 def check_orphan_modules(allowlist: dict | None = None) -> CheckResult:
     """Modules under docmirror/ with zero static inbound imports."""
     allowlist = allowlist or load_allowlist()
+    manifest = load_clean_manifest()
     t0 = time.perf_counter()
     result = CheckResult(name="orphan_modules")
     modules = package_modules()
@@ -159,6 +161,8 @@ def check_orphan_modules(allowlist: dict | None = None) -> CheckResult:
 
     for mod, path in sorted(modules.items()):
         if mod in ENTRY_MODULE_PATHS:
+            continue
+        if mod in manifest.live_modules:
             continue
         if any(mod.endswith(s) for s in ENTRY_MODULE_SUFFIXES):
             continue

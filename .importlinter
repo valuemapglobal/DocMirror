@@ -1,0 +1,85 @@
+# DocMirror Import Dependency Contract
+#
+# Generated from docmirror/configs/architecture/clean_manifest.yaml.
+# Run: python3 scripts/validate/generate_import_linter.py --check
+
+[importlinter]
+root_package = docmirror
+
+include_external_packages = True
+
+[importlinter:manifest_forbidden_1_input]
+name = Clean manifest forbidden imports for input
+type = forbidden
+source_modules =
+    docmirror.input
+forbidden_modules =
+    docmirror.server
+    docmirror.cli
+    docmirror.sdk
+allow_indirect_imports = True
+
+[importlinter:manifest_forbidden_2_structure]
+name = Clean manifest forbidden imports for structure
+type = forbidden
+source_modules =
+    docmirror.structure
+forbidden_modules =
+    docmirror.server
+    docmirror.cli
+    docmirror.sdk
+    docmirror.plugins
+allow_indirect_imports = True
+
+[importlinter:manifest_forbidden_3_output]
+name = Clean manifest forbidden imports for output
+type = forbidden
+source_modules =
+    docmirror.output
+forbidden_modules =
+    docmirror.server
+    docmirror.cli
+    docmirror.sdk
+allow_indirect_imports = True
+
+[importlinter:manifest_forbidden_4_plugins]
+name = Clean manifest forbidden imports for plugins
+type = forbidden
+source_modules =
+    docmirror.plugins
+forbidden_modules =
+    docmirror.input.extraction.extractor
+    docmirror.structure.segment.zones
+    docmirror.structure.tables.engine
+    docmirror.structure.ocr.fallback
+    docmirror.server
+    docmirror.cli
+allow_indirect_imports = True
+
+[importlinter:manifest_forbidden_5_models]
+name = Clean manifest forbidden imports for models
+type = forbidden
+source_modules =
+    docmirror.models
+forbidden_modules =
+    docmirror.input
+    docmirror.structure
+    docmirror.output
+    docmirror.server
+    docmirror.cli
+    docmirror.plugins
+allow_indirect_imports = True
+ignore_imports =
+    docmirror.models.construction.parse_result_bridge -> docmirror.input.bridge.parse_result_bridge
+    docmirror.models.entities.parse_result -> docmirror.output.mirror
+    docmirror.models.entities.parse_result -> docmirror.structure.ocr.page_canvas.models
+    docmirror.models.entities.parse_result -> docmirror.structure.ocr.page_canvas.sync
+    docmirror.models.mirror.domain_access -> docmirror.structure.ocr.page_canvas.evidence_bundles
+    docmirror.models.mirror.legacy_project -> docmirror.structure.ocr.page_canvas.block_index
+    docmirror.models.mirror.legacy_project -> docmirror.structure.ocr.page_canvas.build
+    docmirror.models.mirror.legacy_project -> docmirror.structure.ocr.page_canvas.flow_filter
+    docmirror.models.mirror.legacy_project -> docmirror.structure.ocr.page_canvas.models
+    docmirror.models.mirror.page_canvas_export -> docmirror.structure.ocr.page_canvas.build
+    docmirror.models.mirror.serialization_contract -> docmirror.structure.analysis.structure_provenance
+    docmirror.models.mirror.serialization_contract -> docmirror.structure.tables.compose.ledger_quality
+    docmirror.models.mirror.serialization_contract -> docmirror.structure.utils.vocabulary

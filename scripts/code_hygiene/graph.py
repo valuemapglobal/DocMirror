@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import ast
+import os
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -119,6 +120,33 @@ def importlib_literals_in_file(path: Path) -> list[str]:
     return out
 
 
+def patch_literals_in_file(path: Path) -> list[str]:
+    """Extract module paths used by mock.patch / monkeypatch.setattr string targets."""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except SyntaxError:
+        return []
+
+    out: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = None
+        if isinstance(func, ast.Attribute):
+            name = func.attr
+        elif isinstance(func, ast.Name):
+            name = func.id
+        if name not in {"patch", "setattr"}:
+            continue
+        if not node.args:
+            continue
+        arg0 = node.args[0]
+        if isinstance(arg0, ast.Constant) and isinstance(arg0.value, str) and arg0.value.startswith("docmirror."):
+            out.append(arg0.value)
+    return out
+
+
 def yaml_config_module_refs() -> list[str]:
     """Collect docmirror module paths declared in YAML configs (FCR, MEP, plugins)."""
     refs: list[str] = []
@@ -198,6 +226,8 @@ def inbound_reference_counts(
                 _bump(imp)
             for imp in importlib_literals_in_file(path):
                 _bump(imp)
+            for imp in patch_literals_in_file(path):
+                _bump(imp)
 
     for ref in yaml_config_module_refs():
         _bump(ref)
@@ -213,15 +243,36 @@ def string_references_in_repo(needle: str, *, search_roots: tuple[Path, ...] | N
     for base in roots:
         if not base.is_dir():
             continue
-        for path in base.rglob("*"):
-            if not path.is_file() or path.suffix not in extensions:
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [
+                name
+                for name in dirnames
+                if name not in EXCLUDE_DIR_NAMES
+                and name
+                not in {
+                    ".deepseek",
+                    ".ruff_cache",
+                    ".mypy_cache",
+                    "artifacts",
+                    "build",
+                    "dist",
+                    "docmirror_enterprise",
+                    "docmirror_finance",
+                    "output",
+                    "reports",
+                }
+            ]
+            current = Path(dirpath)
+            if any(part in EXCLUDE_DIR_NAMES for part in current.parts):
                 continue
-            if any(part in EXCLUDE_DIR_NAMES for part in path.parts):
-                continue
-            try:
-                text = path.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            if needle in text:
-                total += 1
+            for filename in filenames:
+                path = current / filename
+                if path.suffix not in extensions:
+                    continue
+                try:
+                    text = path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    continue
+                if needle in text:
+                    total += 1
     return total

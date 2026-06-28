@@ -181,7 +181,7 @@ STEPS: tuple[GateStepDef, ...] = (
         "architecture",
         "shell",
         frozenset({"standard", "full"}),
-        ("lint-imports",),
+        ("lint-imports", "--config", ".importlinter"),
         optional=True,
     ),
     # ── Phase 4: Tests ──

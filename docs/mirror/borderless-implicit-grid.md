@@ -260,13 +260,13 @@ def reconstruct_borderless_grid(page):
 
 当前实现位置：
 
-- `docmirror/core/extraction/table_kernel/char/grid_reconstructor.py`
+- `docmirror/structure/tables/char/grid_reconstructor.py`
   - 表头锚点检测
   - 列边线重建
   - 字符中心单元格分配
   - 逻辑行带恢复
   - 页脚过滤
-- `docmirror/core/extraction/table_kernel/best_candidate.py`
+- `docmirror/structure/tables/best_candidate.py`
   - 无框线流水候选的逻辑行质量评分
   - 防止碎片化物理行候选误胜
 - `tests/unit/test_grid_reconstructor_logical_rows.py`

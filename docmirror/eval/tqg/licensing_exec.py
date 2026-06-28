@@ -78,8 +78,8 @@ async def execute_licensing(case: TQGCase) -> tuple[dict[str, Any], dict[str, An
     setup = str(opts.get("setup") or "no_license")
     licenses = _licenses_for_setup(setup, domain)
 
-    with patch("docmirror.plugins.licensing.offline.offline_license_manager._licenses", licenses):
-        with patch("docmirror.plugins.licensing.online.license_manager.is_licensed", return_value=False):
+    with patch("docmirror.plugins._runtime.licensing.offline.offline_license_manager._licenses", licenses):
+        with patch("docmirror.plugins._runtime.licensing.online.license_manager.is_licensed", return_value=False):
             meta: dict[str, Any] = {"domain": domain, "setup": setup}
 
             if check == "premium_feature":
@@ -96,7 +96,7 @@ async def execute_licensing(case: TQGCase) -> tuple[dict[str, Any], dict[str, An
                 doc_type = str(opts.get("document_type") or domain)
                 mirror = ParseResult(status=ResultStatus.SUCCESS)
                 mirror.entities = DocumentEntities(document_type=doc_type)
-                with patch("docmirror.plugins.runner._edition_package_available", return_value=True):
+                with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=True):
                     out = run_plugin_extract_sync(mirror, edition="enterprise")
                 if out:
                     if meta["is_entitled"] and lc.state in (

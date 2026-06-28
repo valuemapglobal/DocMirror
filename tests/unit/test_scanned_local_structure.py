@@ -202,9 +202,9 @@ def test_forensic_api_exports_scanned_local_structure_evidence_only():
     assert "tokens" not in evidence
 
 
-def test_core_local_structure_does_not_export_credit_specific_mappers():
-    core_files = Path("docmirror/core/ocr/local_structure").glob("*.py")
-    source = "\n".join(path.read_text(encoding="utf-8") for path in core_files)
+def test_structure_local_structure_does_not_export_credit_specific_mappers():
+    structure_files = Path("docmirror/structure/ocr/local_structure").glob("*.py")
+    source = "\n".join(path.read_text(encoding="utf-8") for path in structure_files)
 
     assert "repayment" not in source.lower()
     assert "extract_credit" not in source

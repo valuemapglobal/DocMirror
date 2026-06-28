@@ -28,7 +28,7 @@ def test_license_show_offline_snapshot():
         "entitled_features_sample": ["alipay_payment_premium", "batch_processing"],
         "lifecycle": {},
     }
-    with patch("docmirror.plugins.licensing.snapshot.resolve_license_snapshot", return_value=snapshot):
+    with patch("docmirror.plugins._runtime.licensing.snapshot.resolve_license_snapshot", return_value=snapshot):
         result = runner.invoke(plugins, ["license", "show"])
     assert result.exit_code == 0
     assert "offline" in result.output.lower() or "Offline" in result.output
@@ -38,7 +38,7 @@ def test_license_show_offline_snapshot():
 def test_license_show_no_license():
     runner = CliRunner()
     with patch(
-        "docmirror.plugins.licensing.snapshot.resolve_license_snapshot",
+        "docmirror.plugins._runtime.licensing.snapshot.resolve_license_snapshot",
         return_value={"offline": None, "online": None, "offline_licenses": []},
     ):
         result = runner.invoke(plugins, ["license", "show"])

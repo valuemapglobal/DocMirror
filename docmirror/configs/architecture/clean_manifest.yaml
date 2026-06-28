@@ -1,0 +1,201 @@
+version: 1
+layers:
+  input:
+    paths:
+    - docmirror/input/**
+    import_linter_allow_indirect: true
+    forbidden_imports:
+    - docmirror.server
+    - docmirror.cli
+    - docmirror.sdk
+  structure:
+    paths:
+    - docmirror/structure/**
+    import_linter_allow_indirect: true
+    forbidden_imports:
+    - docmirror.server
+    - docmirror.cli
+    - docmirror.sdk
+    - docmirror.plugins
+  output:
+    paths:
+    - docmirror/output/**
+    import_linter_allow_indirect: true
+    forbidden_imports:
+    - docmirror.server
+    - docmirror.cli
+    - docmirror.sdk
+  framework:
+    paths:
+    - docmirror/framework/**
+  plugins:
+    paths:
+    - docmirror/plugins/**
+    import_linter_allow_indirect: true
+    forbidden_imports:
+    - docmirror.input.extraction.extractor
+    - docmirror.structure.segment.zones
+    - docmirror.structure.tables.engine
+    - docmirror.structure.ocr.fallback
+    - docmirror.server
+    - docmirror.cli
+  runtime:
+    paths:
+    - docmirror/runtime/**
+  cli:
+    paths:
+    - docmirror/cli/**
+  server:
+    paths:
+    - docmirror/server/**
+  models:
+    paths:
+    - docmirror/models/**
+    import_linter_allow_indirect: true
+    forbidden_imports:
+    - docmirror.input
+    - docmirror.structure
+    - docmirror.output
+    - docmirror.server
+    - docmirror.cli
+    - docmirror.plugins
+    import_linter_ignore_imports:
+    - importer: docmirror.models.construction.parse_result_bridge
+      imported: docmirror.input.bridge.parse_result_bridge
+      reason: Legacy construction shim retained for parser bridge compatibility.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.entities.parse_result
+      imported: docmirror.output.mirror
+      reason: ParseResult serialization still delegates mirror export helpers.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.entities.parse_result
+      imported: docmirror.structure.ocr.page_canvas.models
+      reason: ParseResult still materializes page canvas model fields.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.entities.parse_result
+      imported: docmirror.structure.ocr.page_canvas.sync
+      reason: ParseResult page canvas sync remains an active compatibility method.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.mirror.domain_access
+      imported: docmirror.structure.ocr.page_canvas.evidence_bundles
+      reason: Mirror access layer still exposes page canvas evidence bundles.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.mirror.legacy_project
+      imported: docmirror.structure.ocr.page_canvas.block_index
+      reason: Legacy mirror bridge still builds block indexes for compatibility.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.mirror.legacy_project
+      imported: docmirror.structure.ocr.page_canvas.build
+      reason: Legacy mirror bridge still constructs page canvas projections.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.mirror.legacy_project
+      imported: docmirror.structure.ocr.page_canvas.flow_filter
+      reason: Legacy mirror bridge still applies page canvas flow filtering.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.mirror.legacy_project
+      imported: docmirror.structure.ocr.page_canvas.models
+      reason: Legacy mirror bridge still consumes page canvas model types.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.mirror.page_canvas_export
+      imported: docmirror.structure.ocr.page_canvas.build
+      reason: Page canvas export still delegates construction to structure layer.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.mirror.serialization_contract
+      imported: docmirror.structure.analysis.structure_provenance
+      reason: Serialization contract still includes structure provenance snapshot.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.mirror.serialization_contract
+      imported: docmirror.structure.tables.compose.ledger_quality
+      reason: Serialization contract still exports table ledger quality metadata.
+      review_by: '2026-08-01'
+    - importer: docmirror.models.mirror.serialization_contract
+      imported: docmirror.structure.utils.vocabulary
+      reason: Serialization contract still normalizes vocabulary through structure utilities.
+      review_by: '2026-08-01'
+external_modules:
+- regex: ^pydantic\.*
+- regex: ^typing\.*
+- regex: ^(pathlib|os|sys|re|json|abc|enum|functools|itertools|collections|dataclasses|datetime|types|logging|warnings|inspect|copy|math|csv|hashlib|uuid|textwrap|shutil|tempfile|html)\.*
+- regex: ^numpy\.*
+- regex: ^PIL\.*
+- regex: ^yaml\.*
+- regex: ^rich\.*
+- regex: ^importlib\.*
+public_modules:
+- module: docmirror
+  reason: Public Python API.
+- module: docmirror.__main__
+  reason: python -m docmirror entry point.
+- module: docmirror.cli.main
+  reason: Console script entry point.
+- module: docmirror.server.api
+  reason: FastAPI serving boundary.
+- module: docmirror.server.mcp
+  reason: MCP serving boundary.
+- module: docmirror.plugins
+  reason: Public plugin registry API.
+dynamic_modules:
+- module: docmirror.plugins._runtime.post_extract.hooks.credit_sections
+  source: docmirror/configs/yaml/post_extract.yaml
+- module: docmirror.plugins._runtime.post_extract.hooks.mirror_table_rebuild
+  source: docmirror/configs/yaml/post_extract.yaml
+- module: docmirror.plugins._runtime.post_extract.hooks.trust_projection
+  source: docmirror/configs/yaml/post_extract.yaml
+- module: docmirror.input.adapters.ai.backends.openai
+  source: docmirror/input/adapters/ai/__init__.py
+- module: docmirror.input.adapters.ai.backends.gemini
+  source: docmirror/input/adapters/ai/__init__.py
+compatibility_modules: []
+removed_modules:
+- module: docmirror.core
+  replacement: docmirror.structure
+- module: docmirror.adapters
+  replacement: docmirror.input.adapters
+- module: docmirror.middlewares
+  replacement: docmirror.framework.middlewares
+- module: docmirror.exporters
+  replacement: docmirror.output.exporters
+- module: docmirror.integration
+  replacement: docmirror.sdk.integration
+- module: docmirror.deployment
+  replacement: docmirror.server
+- module: docmirror.di
+  replacement: docmirror.framework.di
+- module: docmirror.plugins.runner
+  replacement: docmirror.plugins._runtime.runner
+- module: docmirror.plugins.licensing
+  replacement: docmirror.plugins._runtime.licensing
+- module: docmirror.plugins.post_extract
+  replacement: docmirror.plugins._runtime.post_extract
+quarantine_modules:
+- module: docmirror.models.mirror.legacy_project
+  owner: mirror-core
+  reason: Active bridge for legacy mirror projection and page canvas compatibility.
+  exit_criteria: Replace callers with vNext page access helpers.
+  review_by: '2026-08-01'
+- module: docmirror.models.mirror.legacy_access
+  owner: mirror-core
+  reason: Active counters for legacy mirror access auditing.
+  exit_criteria: Remove once legacy projection helpers are deleted.
+  review_by: '2026-08-01'
+- module: docmirror.structure.ocr.recognize.runner_legacy
+  owner: ocr
+  reason: Active fallback OCR runner used by scanned pipeline.
+  exit_criteria: Replacement OCR runner covers scanned fallback paths.
+  review_by: '2026-08-01'
+- module: docmirror.structure.ocr.preprocess.legacy_fallback
+  owner: ocr
+  reason: Active fallback preprocessing used by scanned and OCR fallback paths.
+  exit_criteria: Replacement preprocessing path reaches parity.
+  review_by: '2026-08-01'
+- module: docmirror.structure.ocr.reconstruct.grid_legacy
+  owner: ocr
+  reason: Active grid reconstruction fallback used by page topology and scanned OCR.
+  exit_criteria: GCR replacement covers all callers.
+  review_by: '2026-08-01'
+- module: docmirror.evidence.visual
+  owner: evidence
+  reason: Visual evidence helper is referenced by tests/docs but not static production
+    imports.
+  exit_criteria: Wire into visual graph path or move to tests/support.
+  review_by: '2026-07-15'

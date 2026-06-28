@@ -28,7 +28,7 @@ def test_enterprise_bank_yinzuo_conformance():
         perceive_document(YINZUO, PerceiveOptions(enhance_mode="standard"))
     ).mirror
 
-    with patch("docmirror.plugins.runner._is_edition_plugin_licensed", return_value=True):
+    with patch("docmirror.plugins._runtime.runner._is_edition_plugin_licensed", return_value=True):
         out = run_plugin_extract_sync(
             mirror,
             edition="enterprise",
@@ -53,7 +53,7 @@ def test_finance_bank_yinzuo_conformance():
         perceive_document(YINZUO, PerceiveOptions(enhance_mode="standard"))
     ).mirror
 
-    with patch("docmirror.plugins.runner._is_edition_plugin_licensed", return_value=True):
+    with patch("docmirror.plugins._runtime.runner._is_edition_plugin_licensed", return_value=True):
         out = run_plugin_extract_sync(
             mirror,
             edition="finance",

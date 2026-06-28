@@ -67,7 +67,12 @@ def test_import_linter_contract() -> None:
 
     lint_imports = shutil.which("lint-imports")
     assert lint_imports, "lint-imports CLI not found (pip install import-linter)"
-    result = subprocess.run([lint_imports], capture_output=True, text=True, cwd=ROOT)
+    subprocess.run(
+        [sys.executable, "scripts/validate/generate_import_linter.py", "--check"],
+        check=True,
+        cwd=ROOT,
+    )
+    result = subprocess.run([lint_imports, "--config", ".importlinter"], capture_output=True, text=True, cwd=ROOT)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
