@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from docmirror.adapters.transcode.gate import FormatRequiresConverterError, transcode_session
+from docmirror.input.adapters.transcode.gate import FormatRequiresConverterError, transcode_session
 from docmirror.configs.format.models import FormatCapability
 from docmirror.framework.base import BaseParser
 from docmirror.models.entities.parse_result import ParseResult, ResultStatus

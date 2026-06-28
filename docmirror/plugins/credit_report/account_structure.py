@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from docmirror.core.ocr.structure_project import finalize_partial_record
+from docmirror.structure.ocr.structure_project import finalize_partial_record
 from docmirror.plugins.credit_report.field_schema import domain_type_ok
 
 _FIELD_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -33,7 +33,7 @@ def extract_credit_accounts_from_local_structure_evidence(
     evidence_pages: list[dict[str, Any]],
 ) -> dict[str, Any]:
     import docmirror.plugins.credit_report.structure_projectors  # noqa: F401
-    from docmirror.core.ocr.structure_project import infer_schema_hint, project_structure
+    from docmirror.structure.ocr.structure_project import infer_schema_hint, project_structure
 
     projected: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for evidence in evidence_pages or []:
@@ -169,8 +169,8 @@ def _index_cells_by_label(cells: list[Any]) -> dict[str, dict[str, Any]]:
 
 
 def _cell_score_for_label(cell: dict[str, Any], label_text: str) -> float:
-    from docmirror.core.ocr.field_grid.assemble import score_cell_for_label
-    from docmirror.core.ocr.field_grid.models import FieldCell
+    from docmirror.structure.ocr.field_grid.assemble import score_cell_for_label
+    from docmirror.structure.ocr.field_grid.models import FieldCell
 
     proxy = FieldCell(
         cell_id=str(cell.get("cell_id") or ""),

@@ -26,34 +26,34 @@ from enum import Enum
 logger = logging.getLogger(__name__)
 
 
-# ========== 枚举定义 ==========
+# ========== Enum definitions ==========
 
 
 class TableType(str, Enum):
-    """表格类型枚举。"""
+    """Table type enum."""
 
-    BANK_STATEMENT_TRANSACTION = "bank_statement_transaction"  # 银行流水交易明细
-    BANK_STATEMENT_SUMMARY = "bank_statement_summary"  # 银行流水汇总
-    FINANCIAL_BALANCE_SHEET = "financial_balance_sheet"  # 资产负债表
-    FINANCIAL_INCOME_STATEMENT = "financial_income_statement"  # 利润表
-    FINANCIAL_CASH_FLOW = "financial_cash_flow"  # 现金流量表
-    STATISTICAL_REPORT = "statistical_report"  # 统计报表
+    BANK_STATEMENT_TRANSACTION = "bank_statement_transaction"  # bank statement transaction details
+    BANK_STATEMENT_SUMMARY = "bank_statement_summary"  # bank statement summary
+    FINANCIAL_BALANCE_SHEET = "financial_balance_sheet"  # balance sheet
+    FINANCIAL_INCOME_STATEMENT = "financial_income_statement"  # income statement
+    FINANCIAL_CASH_FLOW = "financial_cash_flow"  # cash flow statement
+    STATISTICAL_REPORT = "statistical_report"  # statistical report
     UNKNOWN = "unknown"
 
 
 class ColumnRelationType(str, Enum):
-    """列关系类型枚举。"""
+    """Column relationship type enum."""
 
-    OPPOSITE = "opposite"  # 相反关系 (借方↔贷方)
-    CALCULATION = "calculation"  # 计算关系 (余额=上期+收入-支出)
-    CAUSAL = "causal"  # 因果关系 (交易金额→账户余额)
+    OPPOSITE = "opposite"  # opposite relationship (debit↔credit)
+    CALCULATION = "calculation"  # calculation relationship (balance=previous+income-expense)
+    CAUSAL = "causal"  # causal relationship (transaction amount→account balance)
     MASTER_DETAIL = "master_detail"  # 主从关系 (交易流水→摘要)
     TEMPORAL = "temporal"  # 时间关系 (开始日期→结束日期)
     UNKNOWN = "unknown"
 
 
 class RowGroupType(str, Enum):
-    """行分组类型枚举。"""
+    """Row grouping type enum."""
 
     TIME_MONTH = "time_month"  # 按月分组
     TIME_QUARTER = "time_quarter"  # 按季度分组
@@ -66,12 +66,12 @@ class RowGroupType(str, Enum):
     UNKNOWN = "unknown"
 
 
-# ========== 数据类 ==========
+# ========== Data classes ==========
 
 
 @dataclass
 class ColumnRelation:
-    """列关系。"""
+    """Column relationship."""
 
     relation_type: ColumnRelationType
     columns: list[int]  # 列索引
@@ -82,7 +82,7 @@ class ColumnRelation:
 
 @dataclass
 class RowGroup:
-    """行分组。"""
+    """Row grouping."""
 
     group_type: RowGroupType
     rows: list[int]  # 行索引列表
@@ -92,7 +92,7 @@ class RowGroup:
 
 @dataclass
 class TableSemantics:
-    """表格语义知识图谱。"""
+    """Table semantic knowledge graph."""
 
     table_type: TableType = TableType.UNKNOWN
     table_type_confidence: float = 0.0
@@ -104,14 +104,14 @@ class TableSemantics:
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
-    # 原始数据引用
+    # Raw data reference
     header: list[str] = field(default_factory=list)
     column_types: dict[int, str] = field(default_factory=dict)
 
 
-# ========== 配置常量 ==========
+# ========== Configuration constants ==========
 
-# 表格类型特征关键词
+# Table type feature keywords
 TABLE_TYPE_FEATURES = {
     TableType.BANK_STATEMENT_TRANSACTION: {
         "keywords": ["交易日期", "记账日期", "借方", "贷方", "交易金额", "账户余额", "摘要", "对方户名"],
@@ -139,7 +139,7 @@ TABLE_TYPE_FEATURES = {
     },
 }
 
-# 列关系模式
+# Column relationship patterns
 COLUMN_RELATION_PATTERNS = [
     {
         "type": ColumnRelationType.OPPOSITE,
@@ -160,14 +160,14 @@ COLUMN_RELATION_PATTERNS = [
 ]
 
 
-# ========== 核心函数 ==========
+# ========== Core functions ==========
 
 
 def understand_table_semantics(
     table: list[list[str]],
     column_types: dict[int, str] | None = None,
 ) -> TableSemantics:
-    """理解表格语义（道法自然 · 第十九重境界）。
+    """Understand table semantics (Tao Te Ching · 19th realm).
 
     Args:
         table: 2D表格数据（包含表头）
@@ -182,22 +182,22 @@ def understand_table_semantics(
     semantics = TableSemantics()
     semantics.header = table[0]
 
-    # 推断列类型（如未提供）
+    # Infer column types (if not provided)
     if column_types is None:
         semantics.column_types = _infer_column_types(table)
     else:
         semantics.column_types = column_types
 
-    # Layer 1: 表格类型识别
+    # Layer 1: Table type identification
     semantics.table_type, semantics.table_type_confidence = _identify_table_type(table)
 
-    # Layer 2: 列关系推断
+    # Layer 2: Column relationship inference
     semantics.column_relations = _infer_column_relations(table, semantics)
 
-    # Layer 3: 行语义分组
+    # Layer 3: Row semantic grouping
     semantics.row_groups = _identify_row_groups(table, semantics)
 
-    # Layer 4: 语义置信度评估
+    # Layer 4: Semantic confidence evaluation
     semantics.semantic_confidence = _compute_semantic_confidence(table, semantics)
 
     logger.debug(
@@ -210,11 +210,11 @@ def understand_table_semantics(
     return semantics
 
 
-# ========== Layer 1: 表格类型识别 ==========
+# ========== Layer 1: Table type identification ==========
 
 
 def _identify_table_type(table: list[list[str]]) -> tuple[TableType, float]:
-    """识别表格类型。
+    """Identify table type.
 
     Returns:
         (table_type, confidence)
@@ -231,10 +231,10 @@ def _identify_table_type(table: list[list[str]]) -> tuple[TableType, float]:
     for table_type, features in TABLE_TYPE_FEATURES.items():
         score = 0.0
 
-        # 关键词匹配得分
+        # Keyword match score
         keyword_matches = sum(1 for kw in features["keywords"] if kw in header_text)
 
-        # 检查是否达到最小关键词匹配数
+        # Check if minimum keyword match count is met
         min_matches = features.get("min_keyword_matches", 1)
         if keyword_matches < min_matches:
             continue  # 不满足最小匹配数，跳过
@@ -242,14 +242,14 @@ def _identify_table_type(table: list[list[str]]) -> tuple[TableType, float]:
         keyword_score = keyword_matches / len(features["keywords"]) if features["keywords"] else 0.0
         score += keyword_score * 0.6
 
-        # 必需列检查
+        # Required column check
         has_required = all(
             any(_column_matches_type(col, req_type) for col in header) for req_type in features["required_columns"]
         )
         if has_required:
             score += 0.3
 
-        # 行数检查
+        # Row count check
         if len(table) >= features["min_rows"]:
             score += 0.1
 
@@ -261,15 +261,15 @@ def _identify_table_type(table: list[list[str]]) -> tuple[TableType, float]:
     return best_type, confidence
 
 
-# ========== Layer 2: 列关系推断 ==========
+# ========== Layer 2: Column relationship inference ==========
 
 
 def _infer_column_relations(table: list[list[str]], semantics: TableSemantics) -> list[ColumnRelation]:
-    """推断列关系。"""
+    """Infer column relationships."""
     relations = []
     header = semantics.header
 
-    # 1. 基于模式匹配的关系
+    # 1. Pattern-based relationship
     for pattern_def in COLUMN_RELATION_PATTERNS:
         matched_cols = []
         for i, col_name in enumerate(header):
@@ -288,7 +288,7 @@ def _infer_column_relations(table: list[list[str]], semantics: TableSemantics) -
             )
             relations.append(relation)
 
-    # 2. 基于计算关系的关系（如余额=上期+收入-支出）
+    # 2. Calculation-based relationship (e.g. balance=previous+income-expense)
     calc_relations = _detect_calculation_relations(table, semantics)
     relations.extend(calc_relations)
 
@@ -296,11 +296,11 @@ def _infer_column_relations(table: list[list[str]], semantics: TableSemantics) -
 
 
 def _detect_calculation_relations(table: list[list[str]], semantics: TableSemantics) -> list[ColumnRelation]:
-    """检测计算关系。"""
+    """Detect calculation relationships."""
     relations = []
     col_types = semantics.column_types
 
-    # 查找"余额"列
+    # Look up "balance" column
     balance_cols = [i for i, t in col_types.items() if t == "balance"]
     amount_cols = [i for i, t in col_types.items() if t in ("amount", "income", "expense")]
 
@@ -319,18 +319,18 @@ def _detect_calculation_relations(table: list[list[str]], semantics: TableSemant
     return relations
 
 
-# ========== Layer 3: 行语义分组 ==========
+# ========== Layer 3: Row semantic grouping ==========
 
 
 def _identify_row_groups(table: list[list[str]], semantics: TableSemantics) -> list[RowGroup]:
-    """识别行分组。"""
+    """Identify row groupings."""
     groups = []
 
-    # 1. 时间分组（按月份）
+    # 1. Time-based grouping (monthly)
     time_groups = _group_by_time(table, semantics)
     groups.extend(time_groups)
 
-    # 2. 汇总行识别
+    # 2. Summary row identification
     summary_groups = _identify_summary_rows(table, semantics)
     groups.extend(summary_groups)
 
@@ -338,7 +338,7 @@ def _identify_row_groups(table: list[list[str]], semantics: TableSemantics) -> l
 
 
 def _group_by_time(table: list[list[str]], semantics: TableSemantics) -> list[RowGroup]:
-    """按时间分组。"""
+    """Group by time."""
     date_col = _find_date_column(semantics)
     if date_col is None:
         return []
@@ -369,7 +369,7 @@ def _group_by_time(table: list[list[str]], semantics: TableSemantics) -> list[Ro
         else:
             current_rows.append(i)
 
-    # 添加最后一组
+    # Add the last group
     if current_rows:
         groups.append(
             RowGroup(
@@ -384,14 +384,14 @@ def _group_by_time(table: list[list[str]], semantics: TableSemantics) -> list[Ro
 
 
 def _identify_summary_rows(table: list[list[str]], _semantics: TableSemantics) -> list[RowGroup]:
-    """识别汇总行。"""
+    """Identify summary rows."""
     groups = []
     summary_keywords = ["合计", "总计", "小计", "汇总", "累计"]
 
     for i, row in enumerate(table):
         row_text = " ".join(row)
         if any(kw in row_text for kw in summary_keywords):
-            # 检查是否是最后一行（通常是总计）
+            # Check if it's the last row (usually totals)
             if i == len(table) - 1:
                 group_type = RowGroupType.SUMMARY_TOTAL
             else:
@@ -409,30 +409,30 @@ def _identify_summary_rows(table: list[list[str]], _semantics: TableSemantics) -
     return groups
 
 
-# ========== Layer 4: 语义置信度评估 ==========
+# ========== Layer 4: Semantic confidence evaluation ==========
 
 
 def _compute_semantic_confidence(table: list[list[str]], semantics: TableSemantics) -> float:
-    """计算语义置信度。"""
+    """Compute semantic confidence."""
     if semantics.table_type == TableType.UNKNOWN:
         return 0.3
 
     confidence = semantics.table_type_confidence * 0.4
 
-    # 列关系置信度
+    # Column relationship confidence
     if semantics.column_relations:
         avg_relation_conf = sum(r.confidence for r in semantics.column_relations) / len(semantics.column_relations)
         confidence += avg_relation_conf * 0.3
     else:
         confidence += 0.15  # 无关系不惩罚太多
 
-    # 行分组置信度
+    # Row grouping confidence
     if semantics.row_groups:
         confidence += 0.2
     else:
         confidence += 0.1
 
-    # 逻辑一致性验证
+    # Logical consistency validation
     logical_score = _verify_logical_consistency(table, semantics)
     confidence += logical_score * 0.1
 
@@ -440,8 +440,8 @@ def _compute_semantic_confidence(table: list[list[str]], semantics: TableSemanti
 
 
 def _verify_logical_consistency(table: list[list[str]], semantics: TableSemantics) -> float:
-    """验证逻辑一致性。"""
-    # 简化实现：检查数值约束
+    """Verify logical consistency."""
+    # Simplified implementation: check numerical constraints
     violations = 0
     total_checks = 0
 
@@ -465,11 +465,11 @@ def _verify_logical_consistency(table: list[list[str]], semantics: TableSemantic
     return 1.0 - (violations / total_checks)
 
 
-# ========== 辅助函数 ==========
+# ========== Helper functions ==========
 
 
 def _infer_column_types(table: list[list[str]]) -> dict[int, str]:
-    """推断列类型。"""
+    """Infer column types."""
     if not table or len(table) < 2:
         return {}
 
@@ -483,7 +483,7 @@ def _infer_column_types(table: list[list[str]]) -> dict[int, str]:
 
 
 def _detect_type_from_header(header: str) -> str:
-    """从表头推断类型。"""
+    """Infer type from header."""
     header_lower = header.lower()
 
     type_keywords = {
@@ -503,12 +503,12 @@ def _detect_type_from_header(header: str) -> str:
 
 
 def _column_matches_type(col_name: str, type_name: str) -> bool:
-    """检查列名是否匹配类型。"""
+    """Check if column name matches type."""
     return _detect_type_from_header(col_name) == type_name
 
 
 def _find_date_column(semantics: TableSemantics) -> int | None:
-    """查找日期列。"""
+    """Find date column."""
     for col_idx, col_type in semantics.column_types.items():
         if col_type == "date":
             return col_idx
@@ -516,7 +516,7 @@ def _find_date_column(semantics: TableSemantics) -> int | None:
 
 
 def _extract_month(date_str: str) -> str:
-    """从日期字符串提取月份。"""
+    """Extract month from date string."""
     match = re.search(r"(\d{4}[-/]\d{2})", date_str)
     if match:
         return match.group(1)
@@ -524,7 +524,7 @@ def _extract_month(date_str: str) -> str:
 
 
 def _verify_calculation_pattern(table: list[list[str]], balance_col: int, _amount_cols: list[int]) -> bool:
-    """验证计算模式。"""
+    """Verify calculation pattern."""
     if len(table) < 3:
         return False
 
@@ -536,7 +536,7 @@ def _verify_calculation_pattern(table: list[list[str]], balance_col: int, _amoun
             prev_balance = float(table[i - 1][balance_col].replace(",", ""))
             curr_balance = float(table[i][balance_col].replace(",", ""))
 
-            # 简化验证：余额应该有变化
+            # Simplified validation: balance should have changed
             if abs(curr_balance - prev_balance) > 0.01:
                 correct_count += 1
             total_checks += 1

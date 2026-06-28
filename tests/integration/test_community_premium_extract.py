@@ -10,11 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.core.entry.factory import PerceiveOptions, perceive_document
+from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.plugins.community import get_community_premium_domains
-from docmirror.plugins.community import community_plugin_module, find_premium_community_plugin
-from docmirror.plugins.runner import run_plugin_extract_sync
+from docmirror.plugins._runtime.community import get_community_premium_domains
+from docmirror.plugins._runtime.community import community_plugin_module, find_premium_community_plugin
+from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 from tests.contract.test_edition_schema_conformance import check_community
 
 pytestmark = [pytest.mark.integration]

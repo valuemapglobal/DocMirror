@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from docmirror.core.table.merge.merger import collect_quarantined_tables
 from docmirror.models.entities.domain import Block, PageLayout
+from docmirror.structure.fusion import collect_quarantined_tables
 
 
 def _bank_profile():

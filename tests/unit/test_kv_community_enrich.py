@@ -31,7 +31,7 @@ def test_validate_uscc_rejects_short_code():
 def test_enrich_business_license_uscc_invalid():
     out = enrich_business_license_output(
         {"data": {"fields": {"unified_social_credit_code": "INVALIDCODE1234567"}}, "status": {"warnings": []}},
-        _parse_result=object(),
+        parse_result=object(),
     )
     assert out["data"]["fields"]["uscc_valid"] is False
     assert "uscc_checksum_invalid" in out["status"]["warnings"]
@@ -43,7 +43,7 @@ def test_enrich_business_license_business_scope_section():
             "data": {"fields": {"business_scope": "软件开发"}},
             "status": {"warnings": []},
         },
-        _parse_result=object(),
+        parse_result=object(),
     )
     sections = out["data"]["sections"]
     assert sections[0]["title"] == "经营范围"

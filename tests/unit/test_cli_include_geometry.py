@@ -87,6 +87,8 @@ def test_click_cli_passes_converged_contract_options(monkeypatch, tmp_path):
             "force",
             "--geometry",
             "full",
+            "--mirror-level",
+            "compact",
             "--run-id",
             "test_run",
             "--overwrite",
@@ -100,5 +102,6 @@ def test_click_cli_passes_converged_contract_options(monkeypatch, tmp_path):
     assert seen["editions"] == "mirror,finance"
     assert seen["ocr"] == "force"
     assert seen["geometry"] == "full"
+    assert seen["mirror_level"] == "compact"
     assert seen["run_id"] == "test_run"
     assert seen["overwrite"] is True

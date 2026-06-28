@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.scene.evidence_engine import Evidence, EvidenceEngine
+from docmirror.structure.scene.evidence_engine import Evidence, EvidenceEngine
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 
 
@@ -43,7 +43,7 @@ def test_extractor_hint_shields_bank_statement_from_keyword_veto():
 
 
 def test_plugin_document_type_falls_back_to_extractor_hint():
-    from docmirror.plugins.runner import _plugin_document_type
+    from docmirror.plugins._runtime.runner import _plugin_document_type
 
     result = ParseResult(
         entities=DocumentEntities(document_type="generic"),

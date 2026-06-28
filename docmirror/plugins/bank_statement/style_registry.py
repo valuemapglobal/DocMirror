@@ -42,7 +42,7 @@ _PARSERS = {
     "borderless_ocr": borderless_ocr,
 }
 
-_FALLBACK_PARSER_IDS = ("grid_standard", "borderless_ocr")
+_FALLBACK_PARSER_IDS = ("grid_standard", "borderless_ocr", "signed_amount", "compact_merged")
 _CAPS_THRESHOLD = 0.55
 _COVERAGE_THRESHOLD = 0.80
 
@@ -91,7 +91,7 @@ def _parser_score(
 
 def _expected_rows(ctx: StyleContext) -> int:
     if ctx.parse_result is not None:
-        from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows, read_structure_spe
+        from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows, read_structure_spe
 
         expected = mirror_expected_primary_rows(ctx.parse_result, read_structure_spe(ctx.parse_result))
         if expected > 0:

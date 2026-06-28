@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.table.compose.ledger_quality import (
+from docmirror.structure.tables.compose.ledger_quality import (
     apply_ltqg,
     assess_logical_table,
     should_enable_ltqg,

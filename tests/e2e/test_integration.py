@@ -164,19 +164,19 @@ class TestOCRPostprocess:
     """Verify OCR postprocessing pipeline."""
 
     def test_basic_postprocess(self):
-        from docmirror.core.ocr.ocr_postprocess import postprocess_ocr_text
+        from docmirror.structure.ocr.ocr_postprocess import postprocess_ocr_text
         # Should not crash on empty input
         result = postprocess_ocr_text("")
         assert result == ""
 
     def test_postprocess_whitespace(self):
-        from docmirror.core.ocr.ocr_postprocess import postprocess_ocr_text
+        from docmirror.structure.ocr.ocr_postprocess import postprocess_ocr_text
         result = postprocess_ocr_text("  hello   world  ")
         assert "hello" in result
         assert "world" in result
 
     def test_postprocess_preserves_content(self):
-        from docmirror.core.ocr.ocr_postprocess import postprocess_ocr_text
+        from docmirror.structure.ocr.ocr_postprocess import postprocess_ocr_text
         text = "Transaction Date: 2024-01-15, Amount: $1,234.56"
         result = postprocess_ocr_text(text)
         assert "2024" in result
@@ -189,14 +189,14 @@ class TestTextUtils:
     """Verify text utility functions."""
 
     def test_is_cjk_char(self):
-        from docmirror.core.utils.text_utils import _is_cjk_char
+        from docmirror.structure.utils.text_utils import _is_cjk_char
         assert _is_cjk_char("中")
         assert _is_cjk_char("字")
         assert not _is_cjk_char("A")
         assert not _is_cjk_char("1")
 
     def test_normalize_table(self):
-        from docmirror.core.utils.text_utils import normalize_table
+        from docmirror.structure.utils.text_utils import normalize_table
         table = [["  A  ", "  B  "], ["  1  ", "  2  "]]
         result = normalize_table(table)
         assert result[0][0] == "A"
@@ -209,17 +209,17 @@ class TestVocabulary:
     """Verify vocabulary detection utilities."""
 
     def test_known_header_words(self):
-        from docmirror.core.utils.vocabulary import KNOWN_HEADER_WORDS
+        from docmirror.structure.utils.vocabulary import KNOWN_HEADER_WORDS
         assert isinstance(KNOWN_HEADER_WORDS, frozenset)
         assert len(KNOWN_HEADER_WORDS) > 0
 
     def test_is_header_row(self):
-        from docmirror.core.utils.vocabulary import _is_header_row
+        from docmirror.structure.utils.vocabulary import _is_header_row
         header = ["Date", "Description", "Amount", "Balance"]
         assert _is_header_row(header)
 
     def test_score_header_by_vocabulary(self):
-        from docmirror.core.utils.vocabulary import _score_header_by_vocabulary, KNOWN_HEADER_WORDS
+        from docmirror.structure.utils.vocabulary import _score_header_by_vocabulary, KNOWN_HEADER_WORDS
         # Use words from the actual KNOWN_HEADER_WORDS set
         sample_words = list(KNOWN_HEADER_WORDS)[:4]
         if len(sample_words) >= 3:
@@ -230,7 +230,7 @@ class TestVocabulary:
             _score_header_by_vocabulary(["Date", "Amount"])
 
     def test_normalize_for_vocab(self):
-        from docmirror.core.utils.vocabulary import _normalize_for_vocab
+        from docmirror.structure.utils.vocabulary import _normalize_for_vocab
         result = _normalize_for_vocab("  DATE  ")
         assert "date" in result.lower()
 
@@ -241,18 +241,18 @@ class TestPluginSystem:
     """Verify plugin discovery and registry."""
 
     def test_registry_singleton(self):
-        from docmirror.plugins import registry
+        from docmirror.plugins._runtime import registry
         assert registry is not None
 
     def test_list_plugins(self):
-        from docmirror.plugins import registry
+        from docmirror.plugins._runtime import registry
         plugins = registry.list_plugins()
         assert isinstance(plugins, dict)
         # bank_statement should be auto-discovered
         assert "bank_statement" in plugins
 
     def test_bank_statement_plugin(self):
-        from docmirror.plugins import registry
+        from docmirror.plugins._runtime import registry
         plugin = registry.get("bank_statement")
         assert plugin is not None
         assert plugin.domain_name == "bank_statement"
@@ -301,7 +301,7 @@ class TestWatermarkUtils:
     """Verify watermark utility functions."""
 
     def test_is_watermark_char(self):
-        from docmirror.core.utils.watermark import is_watermark_char
+        from docmirror.structure.utils.watermark import is_watermark_char
         # is_watermark_char takes a Dict (char object from pdfplumber)
         char_obj = {"text": "A", "size": 6.0, "fontname": "WatermarkFont"}
         result = is_watermark_char(char_obj)
@@ -309,7 +309,7 @@ class TestWatermarkUtils:
 
     def test_watermark_module_imports(self):
         """Ensure watermark module imports without error."""
-        from docmirror.core.utils import watermark
+        from docmirror.structure.utils import watermark
         assert hasattr(watermark, 'filter_watermark_page')
         assert hasattr(watermark, 'is_watermark_char')
 

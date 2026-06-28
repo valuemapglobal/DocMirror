@@ -11,15 +11,14 @@ from docmirror.eval.tqg.report import GateReport
 
 
 def _api_from_result(mirror_or_api: Any, spec: dict[str, Any]) -> dict[str, Any]:
-    if hasattr(mirror_or_api, "to_api_dict"):
-        return mirror_or_api.to_api_dict(
-            mirror_level=str(spec.get("mirror_level", "standard")),
-            include_text=bool(spec.get("include_text", False)),
-        )
+    if hasattr(mirror_or_api, "to_mirror_json_vnext"):
+        return mirror_or_api.to_mirror_json_vnext()
     return mirror_or_api if isinstance(mirror_or_api, dict) else {}
 
 
 def _document(api: dict[str, Any]) -> dict[str, Any]:
+    if isinstance(api.get("document"), dict):
+        return api["document"]
     data = api.get("data") or {}
     doc = data.get("document") or {}
     return doc if isinstance(doc, dict) else {}

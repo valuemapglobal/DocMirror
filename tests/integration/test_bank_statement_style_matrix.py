@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.core.entry.factory import PerceiveOptions, perceive_document
-from docmirror.plugins.runner import run_plugin_extract_sync
+from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
 YINZUO = Path("tests/fixtures/bank_statement/重庆恒腾科技有限公司_银行流水_银座银行_20251229.pdf")
 CCB = Path("tests/fixtures/bank_statement/银行流水_中国建设银行_20231226.pdf")

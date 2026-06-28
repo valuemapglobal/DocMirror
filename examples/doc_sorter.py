@@ -4,7 +4,7 @@ DocMirror Document Sorter (doc-sorter)
 =======================================
 
 Scans a target directory, parses each file with DocMirror,
-classifies using SceneDetector, and moves files into Temp/{scene_name}/.
+uses vNext document type candidates, and moves files into Temp/{scene_name}/.
 
 Usage:
     python examples/doc_sorter.py /path/to/target/directory
@@ -15,20 +15,20 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import shutil
 import sys
 from datetime import datetime
-import re
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from docmirror.core.entry.factory import perceive_document
-from docmirror.configs.scene.loader import get_scene_includes as CLASSIFICATION_CATEGORIES
-
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
+
+from docmirror import perceive_document
+from docmirror.configs.scene.loader import get_scene_includes as CLASSIFICATION_CATEGORIES
 
 console = Console()
 
@@ -58,18 +58,14 @@ def ensure_temp_structure(temp_dir: Path) -> None:
         (temp_dir / name).mkdir(parents=True, exist_ok=True)
 
 
-def rename_and_move(file_path: Path, target_dir: Path, scene: str, entities) -> Path:
+def rename_and_move(file_path: Path, target_dir: Path, scene: str, properties: dict) -> Path:
     """Rename file using extracted info, then move into target_dir."""
-    # Build name parts from entities
-    name = ""
-    if hasattr(entities, "subject_name") and entities.subject_name:
-        name = entities.subject_name.strip()
-    org = ""
-    if hasattr(entities, "organization") and entities.organization:
-        org = entities.organization.strip()
+    # Build name parts from semantic document properties.
+    name = str(properties.get("subject_name") or properties.get("name") or "").strip()
+    org = str(properties.get("organization") or properties.get("company") or "").strip()
     date_str = ""
-    if hasattr(entities, "document_date") and entities.document_date:
-        raw = entities.document_date.strip()
+    if properties.get("document_date"):
+        raw = str(properties["document_date"]).strip()
         if raw:
             date_str = raw.replace("/", "").replace("-", "").replace("年", "").replace("月", "").replace("日", "")[:8]
 
@@ -102,9 +98,12 @@ async def process_file(file_path: Path, temp_dir: Path) -> dict:
     except Exception as e:
         return {"file": str(rel_path), "status": "failed", "domain": None, "error": str(e)}
 
-    scene = getattr(result.entities, "document_type", None)
+    mirror = result.to_mirror_json_vnext()
+    candidates = mirror.get("document", {}).get("document_type_candidates", [])
+    scene = candidates[0]["type"] if candidates else None
+    properties = _document_properties(mirror)
     if scene and scene not in ("unknown", "other", "DocumentType.OTHER", ""):
-        new_path = rename_and_move(file_path, temp_dir / scene, scene, result.entities)
+        new_path = rename_and_move(file_path, temp_dir / scene, scene, properties)
         return {
             "file": str(rel_path),
             "status": "matched",
@@ -113,6 +112,17 @@ async def process_file(file_path: Path, temp_dir: Path) -> dict:
         }
     else:
         return {"file": str(rel_path), "status": "unmatched", "domain": None, "error": None}
+
+
+def _document_properties(mirror: dict) -> dict:
+    views = mirror.get("semantics", {}).get("views", {})
+    if isinstance(views, dict):
+        for view in views.values():
+            if isinstance(view, dict):
+                props = view.get("properties") or view.get("metadata") or {}
+                if isinstance(props, dict):
+                    return props
+    return {}
 
 
 async def sort_documents(target_dir: Path) -> None:

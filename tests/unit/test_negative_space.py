@@ -14,14 +14,14 @@ Negative Space Analyzer 单元测试
 
 import pytest
 import numpy as np
-from docmirror.core.segment.negative_space import NegativeSpaceAnalyzer, NegativeSpaceProfile
+from docmirror.structure.segment.negative_space import NegativeSpaceAnalyzer, NegativeSpaceProfile
 
 
 class TestNegativeSpaceProfile:
-    """测试负空间特征画像"""
+    """Test negative space feature profiling"""
     
     def test_profile_creation(self):
-        """测试创建"""
+        """Test creation"""
         profile = NegativeSpaceProfile(
             column_gaps=[100.0, 200.0, 300.0],
             row_gaps=[50.0, 100.0],
@@ -33,7 +33,7 @@ class TestNegativeSpaceProfile:
         assert len(profile.blank_regions) == 1
     
     def test_summary(self):
-        """测试摘要"""
+        """Test summary"""
         profile = NegativeSpaceProfile(
             column_gaps=[100.0, 200.0],
             row_gaps=[50.0],
@@ -48,24 +48,24 @@ class TestNegativeSpaceProfile:
 
 
 class TestNegativeSpaceAnalyzer:
-    """测试负空间分析器"""
+    """Test negative space analyzer"""
     
     def _create_test_words(self):
-        """创建测试单词（2列3行）"""
+        """Create test words (2 columns, 3 rows)"""
         return [
-            # 行1
+            # Row 1
             {'x0': 10, 'y0': 10, 'x1': 50, 'y1': 20, 'text': 'Date'},
             {'x0': 100, 'y0': 10, 'x1': 150, 'y1': 20, 'text': 'Amount'},
-            # 行2
+            # Row 2
             {'x0': 10, 'y0': 30, 'x1': 50, 'y1': 40, 'text': '1/15'},
             {'x0': 100, 'y0': 30, 'x1': 150, 'y1': 40, 'text': '1000'},
-            # 行3
+            # Row 3
             {'x0': 10, 'y0': 50, 'x1': 50, 'y1': 60, 'text': '1/16'},
             {'x0': 100, 'y0': 50, 'x1': 150, 'y1': 60, 'text': '2000'},
         ]
     
     def test_analyze_basic(self):
-        """测试基础分析"""
+        """Test basic analysis"""
         words = self._create_test_words()
         profile = NegativeSpaceAnalyzer.analyze(words)
         
@@ -74,86 +74,86 @@ class TestNegativeSpaceAnalyzer:
         assert len(profile.row_gaps) >= 1     # 应该有行间隙
     
     def test_analyze_empty(self):
-        """测试空输入"""
+        """Test empty input"""
         profile = NegativeSpaceAnalyzer.analyze([])
         
         assert len(profile.column_gaps) == 0
         assert len(profile.row_gaps) == 0
     
     def test_vertical_projection(self):
-        """测试垂直投影"""
+        """Test vertical projection"""
         words = self._create_test_words()
         projection = NegativeSpaceAnalyzer._vertical_projection(words, resolution=2)
         
         assert len(projection) > 0
-        # 列内应该有值
+        # Column should have values
         assert projection[5] > 0  # x=10位置
         assert projection[50] > 0  # x=100位置
     
     def test_horizontal_projection(self):
-        """测试水平投影"""
+        """Test horizontal projection"""
         words = self._create_test_words()
         projection = NegativeSpaceAnalyzer._horizontal_projection(words, resolution=2)
         
         assert len(projection) > 0
-        # 行内应该有值
+        # Row should have values
         assert projection[5] > 0  # y=10位置
         assert projection[15] > 0  # y=30位置
     
     def test_find_valleys(self):
-        """测试谷值检测"""
-        # 创建有明显谷值的投影
+        """Test valley detection"""
+        # Create projection with clear valleys
         projection = np.array([10, 10, 10, 1, 1, 1, 10, 10, 10])
         valleys = NegativeSpaceAnalyzer._find_projection_valleys(projection, threshold_ratio=0.3)
         
         assert len(valleys) >= 1
-        # 谷值应该在索引3-5之间
+        # Valleys should be at indices 3-5
         assert any(3 <= v <= 5 for v in valleys)
     
     def test_find_valleys_empty(self):
-        """测试空投影"""
+        """Test empty projection"""
         valleys = NegativeSpaceAnalyzer._find_projection_valleys(np.array([]))
         assert len(valleys) == 0
     
     def test_find_valleys_flat(self):
-        """测试平坦投影（无谷值）"""
+        """Test flat projection (no valley)"""
         projection = np.array([5, 5, 5, 5, 5])
         valleys = NegativeSpaceAnalyzer._find_projection_valleys(projection, threshold_ratio=0.3)
         assert len(valleys) == 0
     
     def test_density_heatmap(self):
-        """测试密度热图"""
+        """Test density heatmap"""
         words = self._create_test_words()
         heatmap = NegativeSpaceAnalyzer._generate_density_heatmap(words, resolution=2)
         
         assert heatmap.ndim == 2
         assert heatmap.shape[0] > 0  # height
         assert heatmap.shape[1] > 0  # width
-        # 单词覆盖区域应该有值
+        # Word coverage area should have values
         assert heatmap[5, 5] > 0  # y=10, x=10位置
     
     def test_detect_blank_regions(self):
-        """测试空白区域检测"""
+        """Test blank region detection"""
         words = self._create_test_words()
         heatmap = NegativeSpaceAnalyzer._generate_density_heatmap(words, resolution=2)
         blank_regions = NegativeSpaceAnalyzer._detect_blank_regions(words, heatmap, resolution=2)
         
-        # 应该有空白区域（列之间）
+        # Should have blank areas (between columns)
         assert len(blank_regions) >= 0  # 可能为0（取决于单词分布）
     
     def test_smooth_projection(self):
-        """测试平滑"""
+        """Test smoothing"""
         projection = np.array([1, 10, 1, 10, 1])
         smoothed = NegativeSpaceAnalyzer._smooth_projection(projection, sigma=1.0)
         
         assert len(smoothed) == len(projection)
-        # 平滑后峰值应该降低，谷值应该升高
+        # After smoothing, peaks should decrease, valleys should increase
         assert smoothed[1] < projection[1]  # 峰值降低
         assert smoothed[0] > projection[0]  # 谷值升高
     
     def test_multiple_columns(self):
-        """测试多列检测"""
-        # 创建3列单词
+        """Test multi-column detection"""
+        # Create 3 columns of words
         words = [
             {'x0': 10, 'y0': 10, 'x1': 30, 'y1': 20, 'text': 'A'},
             {'x0': 60, 'y0': 10, 'x1': 80, 'y1': 20, 'text': 'B'},
@@ -162,5 +162,5 @@ class TestNegativeSpaceAnalyzer:
         
         profile = NegativeSpaceAnalyzer.analyze(words)
         
-        # 应该有2个列间隙（3列之间有2个间隙）
+        # Should have 2 column gaps (3 columns have 2 gaps)
         assert len(profile.column_gaps) >= 1

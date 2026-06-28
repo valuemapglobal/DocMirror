@@ -1,6 +1,6 @@
 import pytest
 
-from docmirror.middlewares.validation.anomaly_detector import AnomalyDetectorMiddleware
+from docmirror.framework.middlewares.validation.anomaly_detector import AnomalyDetectorMiddleware
 from docmirror.models.entities.parse_result import (
     CellValue,
     DocumentEntities,

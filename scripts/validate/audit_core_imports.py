@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Audit docmirror/core import graph (CPA design 12 §13)."""
+"""Audit DocMirror architecture import graph."""
 
 from __future__ import annotations
 
@@ -13,16 +13,18 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-CORE = ROOT / "docmirror" / "core"
-PLUGINS = ROOT / "docmirror" / "plugins"
+ROOT = Path(__file__).resolve().parents[2]
+DM = "docmirror"
+LEGACY_CORE_IMPORT = f"{DM}.core"
+CORE = ROOT / DM / "core"
+INPUT = ROOT / DM / "input"
+STRUCTURE = ROOT / DM / "structure"
+PLUGINS = ROOT / DM / "plugins"
 
 FORBIDDEN_FOR_PLUGINS = {
-    "docmirror.core.extraction.extractor",
-    "docmirror.core.segment.zones",
-    "docmirror.core.extract.engine",
-    "docmirror.core.pipeline",
-    "docmirror.core.ocr.fallback",
+    "docmirror.input.extraction.extractor",
+    "docmirror.structure.segment.zones",
+    "docmirror.structure.ocr.fallback",
 }
 
 FORBIDDEN_CORE_IMPORT_PREFIXES = {
@@ -31,17 +33,17 @@ FORBIDDEN_CORE_IMPORT_PREFIXES = {
 }
 
 FORBIDDEN_MODELS_IMPORT_PREFIXES = {
-    "docmirror.core": "models_must_not_depend_on_core",
+    LEGACY_CORE_IMPORT: "models_must_not_depend_on_core",
     "docmirror.framework": "models_must_not_depend_on_framework",
-    "docmirror.adapters": "models_must_not_depend_on_adapters",
+    "docmirror.input.adapters": "models_must_not_depend_on_adapters",
 }
 
 FORBIDDEN_BRIDGE_IMPORT_PREFIXES = {
-    "docmirror.adapters": "bridge_must_not_call_adapters",
+    "docmirror.input.adapters": "bridge_must_not_call_adapters",
     "docmirror.framework.dispatcher": "bridge_must_not_call_dispatcher",
 }
 
-LAZY_HUB_FILE = CORE / "segment" / "zones.py"
+LAZY_HUB_FILE = STRUCTURE / "segment" / "zones.py"
 LAZY_HUB_MARKERS = ("def __getattr__", "_DEPRECATED_REEXPORTS")
 GOD_FILE_LOC = 800
 
@@ -99,7 +101,7 @@ def efmp_boundary_violations() -> list[dict[str, str]]:
     """Report EFMP evidence/hypothesis and projection boundary violations."""
     violations: list[dict[str, str]] = []
     models = ROOT / "docmirror" / "models"
-    bridge = CORE / "bridge"
+    bridge = INPUT / "bridge"
 
     for path in _py_files(CORE):
         for imp in _imports_in_file(path):
@@ -162,7 +164,7 @@ def lazy_hub_present() -> bool:
 
 def run_audit() -> dict:
     refs = inbound_reference_counts()
-    dead = [m for m, c in refs.items() if c == 0 and m.startswith("docmirror.core")]
+    dead = [m for m, c in refs.items() if c == 0 and m.startswith(LEGACY_CORE_IMPORT)]
     return {
         "layout_analysis_consumers": layout_analysis_consumers(),
         "plugin_forbidden_imports": plugin_forbidden_imports(),
@@ -178,13 +180,15 @@ def audit_failures(data: dict) -> list[str]:
     failures: list[str] = []
     if data.get("plugin_forbidden_imports"):
         failures.append(f"plugin_forbidden_imports: {data['plugin_forbidden_imports']}")
+    if data.get("efmp_boundary_violations"):
+        failures.append(f"efmp_boundary_violations: {data['efmp_boundary_violations']}")
     if data.get("lazy_hub_present"):
         failures.append("lazy_hub_present: segment/zones.py still exposes deprecated re-exports")
     return failures
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Audit docmirror/core imports (CPA §13)")
+    parser = argparse.ArgumentParser(description="Audit DocMirror architecture imports")
     parser.add_argument("--json", type=Path, help="Write JSON report to path")
     parser.add_argument(
         "--strict",

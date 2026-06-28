@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from docmirror.core.ocr.local_structure import extract_local_structure_evidence
-from docmirror.core.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
+from docmirror.structure.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
 from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
@@ -89,7 +89,7 @@ def test_local_structure_continuation_chain_is_preserved_in_account_field():
 
 
 def test_region_crop_ocr_is_audit_only(monkeypatch):
-    from docmirror.core.ocr.local_structure import repair
+    from docmirror.structure.ocr.local_structure import repair
 
     class FakeImage:
         shape = (800, 600, 3)
@@ -189,11 +189,11 @@ def test_forensic_api_exports_scanned_local_structure_evidence_only():
         )
     )
 
-    standard = pr.to_api_dict(mirror_level="standard")
-    forensic = pr.to_api_dict(mirror_level="forensic")
+    standard = pr.to_mirror_json_vnext(mirror_level="standard")
+    forensic = pr.to_mirror_json_vnext(mirror_level="forensic")
 
-    assert "scanned_local_structure_evidence" not in standard["data"]["document"]
-    forensic_doc = forensic["data"]["document"]
+    assert "scanned_local_structure_evidence" not in standard
+    forensic_doc = forensic
     assert forensic_doc["scanned_ocr_pages"][0]["page"] == 4
     evidence = forensic_doc["scanned_local_structure_evidence"][0]
     assert evidence["page"] == 4

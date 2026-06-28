@@ -1,4 +1,4 @@
-.PHONY: help install lint format test test-smoke test-contract test-regression test-golden coverage clean
+.PHONY: help install lint format test test-smoke test-contract test-regression test-golden test-udtr-golden test-udtr-cross-format-matrix coverage clean
 
 help:
 	@echo "Available commands:"
@@ -10,6 +10,8 @@ help:
 	@echo "  make test-contract  - Tier CONTRACT only"
 	@echo "  make test-regression- Tier REGRESSION (not slow)"
 	@echo "  make test-golden    - Tier slow / nightly golden"
+	@echo "  make test-udtr-golden - UDTR metadata-only golden manifest"
+	@echo "  make test-udtr-cross-format-matrix - UDTR real cross-format matrix (skips missing private samples)"
 	@echo "  make coverage  - Run tests with coverage report"
 	@echo "  make clean     - Remove build artifacts and cache directories"
 
@@ -40,6 +42,12 @@ test-regression:
 
 test-golden:
 	pytest -m "tier_slow" tests/regression/ -v
+
+test-udtr-golden:
+	python3 scripts/validate/validate_udtr_golden.py tests/golden/udtr/manifest.example.json
+
+test-udtr-cross-format-matrix:
+	python3 scripts/validate/run_udtr_cross_format_matrix.py tests/golden/udtr/cross_format_real_manifest.example.json
 
 coverage:
 	coverage run -m pytest

@@ -193,7 +193,7 @@ def _matches_any_pattern(text: str, patterns: list[re.Pattern]) -> bool:
 
 
 def _find_formula_number(text: str) -> re.Match | None:
-    """Find a formula number reference in text like '式(5)' or 'Equation 3.2'."""
+    """Find a formula number reference in text like 'Eq. (5)' or 'Equation 3.2'."""
     return _FORMULA_NUM_DIGIT.search(text)
 
 
@@ -202,7 +202,7 @@ def _extract_formula_evidence(text: str, formula_num: str) -> FormulaRefEvidence
 
     Higher confidence for explicit numbering patterns, lower for generic ones.
     """
-    # Explicit: "式(5)" or "Equation (5)"
+    # Explicit: "Eq. (5)" or "Equation (5)"
     explicit = re.search(
         rf"(?:公式|式|Equation|Eq\.)\s*[\(（]\s*{re.escape(formula_num)}\s*[\)）]",
         text, re.IGNORECASE,
@@ -210,7 +210,7 @@ def _extract_formula_evidence(text: str, formula_num: str) -> FormulaRefEvidence
     if explicit:
         return FormulaRefEvidence(pattern="explicit_paren", confidence=0.90)
 
-    # Partial: "式5" or "Eq 5"
+    # Partial: "Eq. 5" or "Eq 5"
     partial = re.search(
         rf"(?:公式|式|Equation|Eq\.?)\s*{re.escape(formula_num)}",
         text, re.IGNORECASE,

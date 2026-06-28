@@ -12,9 +12,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from docmirror.plugins.licensing.contract import premium_feature
-from docmirror.plugins.licensing.entitlements import demo_features, is_entitled
-from docmirror.plugins.runner import _is_edition_plugin_licensed, _wrap_license_degraded
+from docmirror.plugins._runtime.licensing.contract import premium_feature
+from docmirror.plugins._runtime.licensing.entitlements import demo_features, is_entitled
+from docmirror.plugins._runtime.runner import _is_edition_plugin_licensed, _wrap_license_degraded
 
 
 def test_lic01_premium_feature_naming():
@@ -92,10 +92,10 @@ def test_lic07_demo_features_use_premium_suffix_or_literals():
         assert premium_re.match(feat) or feat in literals
 
 
-def test_offline_simplified_requires_dev_mode(tmp_path, monkeypatch):
-    from docmirror.plugins.licensing.offline import OfflineLicenseManager
+def test_offline_rejects_simplified_and_unknown_formats(tmp_path):
+    """Only RSA-SHA256 signatures with the embedded public key are accepted."""
+    from docmirror.plugins._runtime.licensing.offline import OfflineLicenseManager
 
-    monkeypatch.setenv("DOCMIRROR_LICENSE_DEV_MODE", "")
     mgr = OfflineLicenseManager.__new__(OfflineLicenseManager)
     license_info = {
         "license_id": "TEST-1",
@@ -108,14 +108,24 @@ def test_offline_simplified_requires_dev_mode(tmp_path, monkeypatch):
         "features": ["alipay_payment_premium"],
     }
     content_str = json.dumps(license_info, sort_keys=True)
-    sig = json.dumps(
-        {
-            "license_info": license_info,
-            "security": {"signature": f"simplified:{__import__('hashlib').sha256(content_str.encode()).hexdigest()}"},
-        }
-    )
-    data = json.loads(sig)
-    assert mgr._verify_signature(data) is False
 
-    monkeypatch.setenv("DOCMIRROR_LICENSE_DEV_MODE", "1")
-    assert mgr._verify_signature(data) is True
+    # Simplified hash — should be rejected
+    data_simple = {
+        "license_info": license_info,
+        "security": {"signature": f"simplified:{__import__('hashlib').sha256(content_str.encode()).hexdigest()}"},
+    }
+    assert mgr._verify_signature(data_simple) is False
+
+    # Unknown format — should be rejected
+    data_unknown = {
+        "license_info": license_info,
+        "security": {"signature": "MD5:deadbeef"},
+    }
+    assert mgr._verify_signature(data_unknown) is False
+
+    # Missing signature — should be rejected
+    data_no_sig = {
+        "license_info": license_info,
+        "security": {},
+    }
+    assert mgr._verify_signature(data_no_sig) is False

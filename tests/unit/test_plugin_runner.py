@@ -10,12 +10,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.plugins.runner import (
+from docmirror.plugins._runtime.runner import (
     _is_edition_plugin_licensed,
     _wrap_license_degraded,
     run_plugin_extract_sync,
 )
-from docmirror.plugins.composition import CompositionReason
+from docmirror.plugins._runtime.composition import CompositionReason
 
 
 def _mirror(document_type: str = "unknown") -> ParseResult:

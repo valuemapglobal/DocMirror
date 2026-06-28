@@ -11,7 +11,7 @@ from docmirror.models.entities.parse_result import (
     ParseResult, PageContent, TableBlock, TableRow, CellValue, TextBlock,
     TextLevel, ParserInfo,
 )
-from docmirror.middlewares.validation.validator import Validator
+from docmirror.framework.middlewares.validation.validator import Validator
 
 
 @pytest.fixture

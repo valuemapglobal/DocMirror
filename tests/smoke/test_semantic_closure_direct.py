@@ -4,7 +4,7 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
-from docmirror.core.table.table_structure_fix import merge_split_rows
+from docmirror.structure.tables.table_structure_fix import merge_split_rows
 import json
 import pytest
 

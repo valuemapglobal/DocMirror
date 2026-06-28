@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from docmirror.exporters.tabular import export_parse_result, export_tables_to_csv
+from docmirror.output.exporters.tabular import export_parse_result, export_tables_to_csv
 from docmirror.models.entities.parse_result import CellValue, PageContent, ParseResult, TableBlock, TableRow
 
 

@@ -9,7 +9,7 @@ Tests for Result Pattern
 """
 
 import pytest
-from docmirror.core.result import (
+from docmirror.errors.result import (
     Success,
     Failure,
     DocMirrorError,

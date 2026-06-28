@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.core.entry.factory import PerceiveOptions, PerceptionFactory, perceive_document
+from docmirror.input.entry.factory import PerceiveOptions, PerceptionFactory, perceive_document
 from docmirror.framework.base import BaseParser
 from docmirror.models.entities.parse_result import PageContent, ParseResult, ResultStatus
 
@@ -47,7 +47,7 @@ class _CapturingDispatcher:
 
 
 def test_base_parser_forwards_parse_context_and_fills_provenance(tmp_path: Path, monkeypatch):
-    container_module = importlib.import_module("docmirror.di.container")
+    container_module = importlib.import_module("docmirror.framework.di.container")
     monkeypatch.setattr(
         container_module,
         "get_orchestrator",

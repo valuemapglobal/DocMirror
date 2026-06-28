@@ -14,9 +14,9 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.models.mirror.page_access import PageStatus
-from docmirror.output.projection_resolver import build_partial_result_envelope
 from docmirror.evidence.bundle import _build_page_status_ledger
+from docmirror.models.mirror.page_access import PageStatus
+from docmirror.output.projection.resolver import build_partial_result_envelope
 
 
 class TestPageStatusEnum:
@@ -160,26 +160,11 @@ class TestPageStatusLedger:
 
     def test_build_page_status_ledger_from_result(self):
         """_build_page_status_ledger must correctly count per-page status."""
-        try:
-            from docmirror.core.pipeline.document_pipeline import DocumentPipeline
-            partial_output = DocumentPipeline._build_partial_output(
-                parse_result=None,  # trigger fallback path
-                page_ledger=None,
-                document_id="test-001",
-            )
-        except (ImportError, AttributeError):
-            # If DocumentPipeline is not importable or _build_partial_output doesn't exist,
-            # test directly with _build_page_status_ledger
-            result = type("FakeResult", (), {})()
-            result.pages = []
-            ledger = _build_page_status_ledger(result)
-            assert ledger["total_pages"] == 0
-            assert ledger["page_level_partial_retention"] == 0.0
-            return
-
-        assert "partial_result" in partial_output
-        assert "total_pages" in partial_output
-        assert isinstance(partial_output["total_pages"], int)
+        result = type("FakeResult", (), {})()
+        result.pages = []
+        ledger = _build_page_status_ledger(result)
+        assert ledger["total_pages"] == 0
+        assert ledger["page_level_partial_retention"] == 0.0
 
     def test_fallback_empty_pages(self):
         """When result has no pages, ledger reports 0 pages."""

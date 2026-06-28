@@ -38,9 +38,23 @@ def test_build_api_response_mirror_level_forensic_includes_geometry():
     standard = build_api_response(result, mirror_level="standard")
     forensic = build_api_response(result, mirror_level="forensic")
 
-    standard_cell = standard["data"]["document"]["pages"][0]["tables"][0]["rows"][0]["cells"][0]
-    forensic_cell = forensic["data"]["document"]["pages"][0]["tables"][0]["rows"][0]["cells"][0]
+    assert "code" not in standard
+    assert "message" not in standard
+    assert "data" not in standard
+    assert "meta" not in standard
+    assert "metadata" not in standard
+    assert "request_id" not in standard
+    assert "timestamp" not in standard
+    assert standard["mirror"]["schema"] == "docmirror.mirror_json"
+    assert standard["source"]["provenance"]["output_ids"]["request_id"]
+    assert forensic["mirror"]["profile"] == "forensic"
 
-    assert "bbox" not in standard_cell
+    standard_table = next(block for block in standard["blocks"] if block["type"] == "table")
+    forensic_table = next(block for block in forensic["blocks"] if block["type"] == "table")
+    standard_cell = standard_table["content"]["grid"]["cells"][-1]
+    forensic_cell = forensic_table["content"]["grid"]["cells"][-1]
+
+    assert standard_cell["text"] == "A1"
+    assert forensic_cell["text"] == "A1"
     assert forensic_cell["bbox"] == [1, 2, 3, 4]
-    assert forensic_cell["token_ids"] == ["tok1"]
+    assert forensic_cell["evidence_ids"]

@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from docmirror.core.ocr.page_canvas.models import PageRegion
-from docmirror.core.ocr.page_canvas.morphology_orchestrator import orchestrate_page_morphology
+from docmirror.structure.ocr.page_canvas.models import PageRegion
+from docmirror.structure.ocr.page_canvas.morphology_orchestrator import orchestrate_page_morphology
 
 
 def _field_region(y0: float) -> PageRegion:

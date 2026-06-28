@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import sys
 
-from docmirror.plugins.post_extract.catalog import get_hook_class, load_post_extract_catalog
+from docmirror.plugins._runtime.post_extract.catalog import get_hook_class, load_post_extract_catalog
 
 
 def validate_post_extract() -> list[str]:

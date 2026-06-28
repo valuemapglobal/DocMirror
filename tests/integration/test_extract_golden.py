@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.core.extraction.extractor import CoreExtractor
+from docmirror.input.extraction.extractor import CoreExtractor
 from tests.regression.conftest import _EXTRACT_CASES, _run_and_assert
 
 pytestmark = [
@@ -46,7 +46,7 @@ def test_bank_statement_scan_image_smoke():
 
 def test_wechat_profile_grid_template_enabled():
     """P4-1: grid template enabled after BCS + row filtering fixes."""
-    from docmirror.core.profile.registry import get_profile
+    from docmirror.structure.profile.registry import get_profile
 
     profile = get_profile("borderless_ledger_wechat")
     assert profile.enable_grid_template is True

@@ -2,7 +2,7 @@
 
 """Unit tests for table_access unified read layer."""
 
-from docmirror.core.table.access import get_logical_tables, table_flatten
+from docmirror.structure.tables.access import get_logical_tables, table_flatten
 from docmirror.models.entities.parse_result import (
     CellValue,
     LogicalTable,

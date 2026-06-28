@@ -1,5 +1,9 @@
 # DocMirror Test Suite
 
+> **Note on test data**: `tests/fixtures/` and `tests/golden/` are gitignored.
+> They contain private/sensitive real-world documents and are **not** included
+> in the public repository. See [Fixture Availability](#fixture-availability) below.
+
 The TQG (Test Quality Gate Platform) architecture drives manifest-driven test gates.
 
 ## Layout (Design 10)
@@ -51,10 +55,12 @@ make test-smoke           # tier_smoke only
 make test-contract        # tier_contract only
 make test-regression      # tier_regression, excludes slow
 make test-golden          # tier_slow (5111 wechat, etc.)
+make test-udtr-golden     # metadata-only UDTR golden manifest
 
 pytest tests/unit -q
 pytest tests/regression -q -m "tier_regression and not tier_slow"
 pytest tests/regression -m "tier_slow" -v   # nightly golden
+python3 scripts/validate/validate_udtr_golden.py tests/golden/udtr/manifest.example.json
 ```
 
 TQG JSON reports are written to `artifacts/tqg/` when running regression tests.
@@ -77,7 +83,61 @@ No new `test_new_type_foo.py` required.
 
 `conftest.py` validates MEP catalog, post-extract catalog, and TQG manifest YAML at session start.
 
+## Fixture Availability
+
+`tests/fixtures/` and `tests/golden/` are **gitignored** — they contain private/sensitive
+real-world documents that cannot be distributed publicly. When these directories are
+missing or empty, tests that depend on them will be skipped with a clear message.
+
+### Running tests without fixtures
+
+The following test tiers do **not** require fixtures and will work on a fresh clone:
+
+```bash
+# Smoke tests — imports, settings, models, plugins (fastest)
+make test-smoke
+pytest tests/smoke/ -q
+
+# Unit tests — most unit tests run without fixtures
+pytest tests/unit/ -q -m "not tier_slow"
+
+# Contract tests — mock-heavy boundary tests
+pytest tests/contract/ -q -m "not tier_slow"
+```
+
+### Running tests with fixtures
+
+To obtain the full test dataset, **contact the DocMirror team** or request access
+via [GitHub Issues](https://github.com/valuemapglobal/docmirror/issues).
+
+Once fixtures are available, all tiers can run:
+
+```bash
+# Full PR tier matrix
+make test
+
+# All tests including slow/nightly
+pytest tests/ -v
+```
+
+### Adding new fixtures
+
+If you contribute a new document type that requires a test fixture:
+
+1. Create an anonymized sample under `tests/fixtures/<type>/`
+2. Register in `tests/fixtures/registry.yaml`
+3. Add golden expected output under `tests/golden/` if applicable
+4. Ensure files ≥ 10 MB are marked `lfs: true`
+
 ## CI
 
 - **PR** — `.github/workflows/ci.yml`: `tests/unit/` + `tier_smoke | tier_contract | tier_regression (not slow)`
-- **Nightly** — `.github/workflows/nightly-golden.yml`: `tier_slow` extract + MEP golden
+- **Nightly** — `.github/workflows/nightly-golden.yml`: `tier_slow` extract + MEP golden + UDTR metadata-only golden
+
+## UDTR Metadata-Only Golden
+
+`tests/golden/udtr/manifest.example.json` is intentionally metadata-only: it stores
+assertions about Mirror JSON output, not private source PDFs. Private cases can set
+`private_source: true` or `skip_if_missing: true`; CI will skip them when the local
+output is absent, while local/private runners can add `--strict-private` to enforce
+the same manifest against generated outputs.

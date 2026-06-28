@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.plugins.post_extract.catalog import load_post_extract_catalog, resolve_post_extract_hooks
+from docmirror.plugins._runtime.post_extract.catalog import load_post_extract_catalog, resolve_post_extract_hooks
 
 
 def test_post_extract_catalog_loads():

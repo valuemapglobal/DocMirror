@@ -7,17 +7,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from docmirror.core.geometry.bbox import area, center, contains
 from docmirror.eval.tqg.report import GateReport
+from docmirror.structure.geometry.bbox import area, center, contains
 
 
 def _api(mirror_or_api: Any, *, mirror_level: str = "forensic") -> dict[str, Any]:
-    if hasattr(mirror_or_api, "to_api_dict"):
-        return mirror_or_api.to_api_dict(mirror_level=mirror_level, include_text=True)
+    if hasattr(mirror_or_api, "to_mirror_json_vnext"):
+        return mirror_or_api.to_mirror_json_vnext()
     return mirror_or_api if isinstance(mirror_or_api, dict) else {}
 
 
 def _doc(api: dict[str, Any]) -> dict[str, Any]:
+    if isinstance(api.get("document"), dict):
+        return api["document"]
     data = api.get("data") or {}
     doc = data.get("document") or {}
     return doc if isinstance(doc, dict) else {}

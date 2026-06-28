@@ -23,15 +23,14 @@ REQUIRED_PACKAGES = [
     "docmirror",
     "docmirror.configs",
     "docmirror.configs.runtime.settings",
-    "docmirror.core",
-    "docmirror.core.entry.exceptions",
+    "docmirror.input.entry.exceptions",
     "docmirror.framework",
     "docmirror.framework.base",
     "docmirror.models",
     "docmirror.models.entities",
     "docmirror.models.entities.domain",
     "docmirror.models.tracking",
-    "docmirror.adapters",
+    "docmirror.input.adapters",
 ]
 
 
@@ -71,7 +70,7 @@ class TestImports:
 
     def test_exception_hierarchy(self):
         """Custom exceptions should be importable."""
-        from docmirror.core.entry.exceptions import (
+        from docmirror.input.entry.exceptions import (
             MultiModalError,
             ExtractionError,
             LayoutAnalysisError,

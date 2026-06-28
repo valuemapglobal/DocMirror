@@ -23,7 +23,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from docmirror.core.scene.rules import RuleManager
+from docmirror.structure.scene.rules import RuleManager
 from docmirror.plugins import PluginRegistry
 
 logger = logging.getLogger(__name__)
@@ -31,9 +31,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ClassificationMatch:
-    """分类匹配结果"""
+    """Classification match result."""
 
-    source: str  # "rule" 或 "plugin"
+    source: str  # "rule" or "plugin"
     category_id: str
     category_name: str
     target_dir: str
@@ -43,7 +43,7 @@ class ClassificationMatch:
 
 @dataclass
 class ClassificationResult:
-    """单个文件的分类结果"""
+    """Classification result for a single file."""
 
     source_path: Path
     category: str | None = None
@@ -52,12 +52,12 @@ class ClassificationResult:
     confidence: float = 0.0
     success: bool = False
     error: str | None = None
-    is_pending: bool = False  # 是否需要人工审核
+    is_pending: bool = False  # whether manual review is needed
 
 
 @dataclass
 class ClassificationResults:
-    """分类结果集合"""
+    """Collection of classification results."""
 
     results: list[ClassificationResult] = field(default_factory=list)
     errors: list[tuple[Path, str]] = field(default_factory=list)
@@ -66,45 +66,45 @@ class ClassificationResults:
 
     @property
     def total_files(self) -> int:
-        """总文件数"""
+        """Total number of files."""
         return len(self.results) + len(self.errors)
 
     @property
     def success_count(self) -> int:
-        """成功分类数"""
+        """Number of successfully classified files."""
         return sum(1 for r in self.results if r.success)
 
     @property
     def failed_count(self) -> int:
-        """失败数"""
+        """Number of failed classifications."""
         return len(self.errors)
 
     @property
     def unmatched_count(self) -> int:
-        """未匹配数"""
+        """Number of unmatched files."""
         return sum(1 for r in self.results if not r.success and not r.error)
 
     @property
     def pending_count(self) -> int:
-        """待处理数"""
+        """Number of pending files."""
         return sum(1 for r in self.results if r.is_pending)
 
     @property
     def avg_confidence(self) -> float:
-        """平均置信度"""
+        """Average confidence score."""
         successful = [r.confidence for r in self.results if r.success]
         return sum(successful) / len(successful) if successful else 0.0
 
     def add(self, result: ClassificationResult) -> None:
-        """添加分类结果"""
+        """Add a classification result."""
         self.results.append(result)
 
     def add_error(self, file_path: Path, error: str) -> None:
-        """添加错误记录"""
+        """Add an error record."""
         self.errors.append((file_path, error))
 
     def get_results_by_category(self) -> dict[str, list[ClassificationResult]]:
-        """按类别分组结果"""
+        """Group results by category."""
         grouped: dict[str, list[ClassificationResult]] = {}
         for result in self.results:
             if result.category:
@@ -115,16 +115,16 @@ class ClassificationResults:
 
 
 class FileClassifier:
-    """智能文件分类器"""
+    """Intelligent File Classifier."""
 
     def __init__(self, rules_path: Path | None = None, output_dir: Path | None = None, dry_run: bool = False):
         """
-        初始化分类器
+        Initialize the classifier.
 
         Args:
-            rules_path: 规则配置文件路径
-            output_dir: 输出目录
-            dry_run: 是否仅预览不移动文件
+            rules_path: Rule configuration path
+            output_dir: Output directory
+            dry_run: Preview only (do not move files)
         """
         self.rule_manager = RuleManager(rules_path)
         self.rules = self.rule_manager.get_rules()
@@ -135,28 +135,28 @@ class FileClassifier:
 
     async def classify_directory(self, source_dir: Path) -> ClassificationResults:
         """
-        遍历目录并分类所有文件
+        Traverse a directory and classify all files.
 
         Args:
-            source_dir: 源目录路径
+            source_dir: Source directory path
 
         Returns:
-            分类结果集合
+            Classification result collection
         """
         import asyncio
 
         self.results.start_time = datetime.now()
         logger.info(f"[FileClassifier] Starting classification of: {source_dir}")
 
-        # 扫描文件
+        # Scan files
         files = self._scan_files(source_dir)
         logger.info(f"[FileClassifier] Found {len(files)} files to classify")
 
-        # 并行处理文件
+        # Process files in parallel
         tasks = [self._classify_file(file_path) for file_path in files]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # 处理结果
+        # Process results
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 self.results.add_error(files[i], str(result))
@@ -173,13 +173,13 @@ class FileClassifier:
 
     def _scan_files(self, source_dir: Path) -> list[Path]:
         """
-        扫描目录中的文件
+        Scan files in a directory.
 
         Args:
-            source_dir: 源目录
+            source_dir: Source directory
 
         Returns:
-            文件路径列表
+            List of file paths
         """
         files = []
         config = self.rules.file_handling
@@ -188,20 +188,20 @@ class FileClassifier:
             if not file_path.is_file():
                 continue
 
-            # 跳过隐藏文件
+            # Skip hidden files
             if config.skip_hidden_files and file_path.name.startswith("."):
                 continue
 
-            # 跳过系统文件
+            # Skip system files
             if config.skip_system_files and file_path.name.startswith(("~", "Thumbs.db", ".DS_Store")):
                 continue
 
-            # 检查扩展名
+            # Check file extension
             if config.supported_extensions:
                 if file_path.suffix.lower() not in config.supported_extensions:
                     continue
 
-            # 检查文件大小
+            # Check file size
             try:
                 file_size_mb = file_path.stat().st_size / (1024 * 1024)
                 if file_size_mb > config.max_file_size_mb:
@@ -216,47 +216,47 @@ class FileClassifier:
 
     async def _classify_file(self, file_path: Path) -> ClassificationResult:
         """
-        分类单个文件
+        Classify a single file.
 
         Args:
-            file_path: 文件路径
+            file_path: File path
 
         Returns:
-            分类结果
+            Classification result
         """
         logger.info(f"[FileClassifier] Classifying: {file_path.name}")
 
         result = ClassificationResult(source_path=file_path, matches=[])
 
         try:
-            # 1. 使用DocMirror解析文件
+            # 1. Parse file with DocMirror
             parse_result = await self._parse_file(file_path)
 
-            # 2. 提取文本内容
+            # 2. Extract text content
             text_content = self._extract_text(parse_result)
 
-            # 3. 规则匹配
+            # 3. Rule matching
             rule_matches = self._match_rules(text_content, file_path)
             result.matches.extend(rule_matches)
 
-            # 4. 插件匹配
+            # 4. Plugin matching
             plugin_matches = self._match_plugins(parse_result, text_content)
             result.matches.extend(plugin_matches)
 
-            # 5. 冲突解决与决策
+            # 5. Conflict resolution & decision
             if result.matches:
                 final_match, is_pending = self._resolve_conflicts(result.matches)
                 result.category = final_match.category_id
                 result.confidence = final_match.confidence
                 result.is_pending = is_pending
 
-                # 6. 移动文件(如果不是dry_run)
+                # 6. Move file (if not dry_run)
                 if not self.dry_run:
                     target_path = self._move_file(file_path, final_match.target_dir)
                     result.target_path = target_path
                     result.success = True
                 else:
-                    # dry_run模式,只计算目标路径
+                    # dry_run mode, only compute target path
                     target_dir = self.output_dir / final_match.target_dir
                     result.target_path = target_dir / file_path.name
                     result.success = True
@@ -273,40 +273,40 @@ class FileClassifier:
 
     async def _parse_file(self, file_path: Path):
         """
-        使用DocMirror解析文件
+        Parse a file using DocMirror.
 
         Args:
-            file_path: 文件路径
+            file_path: File path
 
         Returns:
-            ParseResult对象
+            ParseResult object
         """
-        from docmirror.core.entry.factory import perceive_document
+        from docmirror.input.entry.factory import perceive_document
 
         try:
             parse_result = await perceive_document(file_path)
             return parse_result
         except Exception as e:
             logger.warning(f"[FileClassifier] DocMirror parsing failed for {file_path}: {e}")
-            # 返回None,后续将使用基础文本提取
+            # Return None; fall back to basic text extraction
             return None
 
     def _extract_text(self, parse_result) -> str:
         """
-        从解析结果中提取文本内容
+        Extract text content from a parse result.
 
         Args:
-            parse_result: ParseResult对象
+            parse_result: ParseResult object
 
         Returns:
-            提取的文本内容
+            Extracted text content
         """
         if parse_result is None:
             return ""
 
         texts = []
 
-        # 提取页面文本
+        # Extract page text
         if hasattr(parse_result, "pages"):
             for page in parse_result.pages:
                 if hasattr(page, "texts"):
@@ -314,7 +314,7 @@ class FileClassifier:
                         if hasattr(text_block, "content") and text_block.content:
                             texts.append(text_block.content)
 
-        # 提取键值对
+        # Extract key-value pairs
         if hasattr(parse_result, "pages"):
             for page in parse_result.pages:
                 if hasattr(page, "key_values"):
@@ -322,7 +322,7 @@ class FileClassifier:
                         if hasattr(kv, "key") and kv.key:
                             texts.append(f"{kv.key}: {kv.value}")
 
-        # 提取实体
+        # Extract entities
         if hasattr(parse_result, "entities"):
             entities = parse_result.entities
             if hasattr(entities, "domain_specific") and entities.domain_specific:
@@ -333,14 +333,14 @@ class FileClassifier:
 
     def _match_rules(self, text: str, _file_path: Path) -> list[ClassificationMatch]:
         """
-        使用规则匹配文件
+        Match a file against classification rules.
 
         Args:
-            text: 文件文本内容
-            file_path: 文件路径
+            text: File text content
+            file_path: File path
 
         Returns:
-            匹配的规则列表
+            List of matching rules
         """
         if not text:
             return []
@@ -365,14 +365,14 @@ class FileClassifier:
 
     def _match_plugins(self, _parse_result, text: str) -> list[ClassificationMatch]:
         """
-        使用插件匹配文件
+        Match a file against plugins.
 
         Args:
-            parse_result: ParseResult对象
-            text: 文件文本内容
+            parse_result: ParseResult object
+            text: File text content
 
         Returns:
-            匹配的插件列表
+            List of matching plugins
         """
         if not text:
             return []
@@ -380,11 +380,11 @@ class FileClassifier:
         matches = []
         document_context = {"text": text}
 
-        # 遍历所有插件
+        # Iterate through all plugins
         for (domain_name, ed), plugin in self.plugin_registry._plugins.items():
             try:
                 if hasattr(plugin, "match") and plugin.match(document_context):
-                    # 插件匹配成功
+                    # Plugin matched successfully
                     keywords = getattr(plugin, "scene_keywords", [])
                     match_count = sum(1 for kw in keywords if kw in text)
                     confidence = min(1.0, match_count / len(keywords) * 0.8 + 0.2)
@@ -394,7 +394,7 @@ class FileClassifier:
                     if hasattr(plugin, "get_classification_category"):
                         target_dir = plugin.get_classification_category()
                     else:
-                        # 默认使用插件域名作为目录
+                        # Default to plugin domain as directory
                         target_dir = f"plugins/{domain_name}"
 
                     matches.append(
@@ -414,31 +414,31 @@ class FileClassifier:
 
     def _resolve_conflicts(self, matches: list[ClassificationMatch]) -> tuple[ClassificationMatch, bool]:
         """
-        解决分类冲突
+        Resolve classification conflicts.
 
         Args:
-            matches: 匹配结果列表
+            matches: List of match results
 
         Returns:
-            (最终匹配, 是否需要人工审核)
+            (final match, whether manual review is needed)
         """
         if not matches:
             raise ValueError("No matches to resolve")
 
-        # 按置信度排序
+        # Sort by confidence
         matches.sort(key=lambda m: m.confidence, reverse=True)
 
-        # 检查是否为多匹配
+        # Check for multiple matches
         is_pending = False
         config = self.rules.conflict_resolution
 
         if len(matches) >= config.multi_match_threshold:
-            # 检查最高置信度的匹配是否明显优于其他
+            # Check if highest confidence match clearly outperforms others
             best = matches[0]
             second_best = matches[1] if len(matches) > 1 else None
 
             if second_best and (best.confidence - second_best.confidence) < 0.1:
-                # 置信度接近,需要人工审核
+                # Confidence too close, needs manual review
                 is_pending = config.generate_pending_report
                 logger.warning(
                     f"[FileClassifier] Multiple close matches: "
@@ -446,7 +446,7 @@ class FileClassifier:
                     f"{second_best.category_name}({second_best.confidence:.2f})"
                 )
 
-        # 返回最高置信度的匹配
+        # Return highest confidence match
         return matches[0], is_pending
 
     def _move_file(self, source_path: Path, target_dir: str) -> Path:
@@ -462,18 +462,18 @@ class FileClassifier:
         """
         target_path = self.output_dir / target_dir / source_path.name
 
-        # 创建目标目录
+        # Create target directory
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # 处理文件名冲突
+        # Handle filename conflict
         if target_path.exists():
-            # 添加时间戳
+            # Add timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             stem = source_path.stem
             suffix = source_path.suffix
             target_path = self.output_dir / target_dir / f"{stem}_{timestamp}{suffix}"
 
-        # 移动文件
+        # Move file
         shutil.copy2(source_path, target_path)
         logger.info(f"[FileClassifier] Moved: {source_path.name} -> {target_path}")
 

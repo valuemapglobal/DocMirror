@@ -22,11 +22,12 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
-from docmirror.core.profile.registry import resolve_header_aliases
 from docmirror.plugins._base.column_registry import ColumnMatcher
 from docmirror.plugins.bank_statement.institution import get_bank_layout_profile
+from docmirror.structure.profile.registry import resolve_header_aliases
 
 # OCR / regional header variants merged into plugin-layer SSOT (not Mirror EPO).
 _OCR_HEADER_ALIASES: dict[str, str] = {
@@ -68,6 +69,7 @@ class HeaderMatch:
     mode: str  # strict | relaxed
 
 
+@lru_cache(maxsize=2048)
 def normalize_header_cell(text: str) -> str:
     cell = unicodedata.normalize("NFKC", str(text or "").strip())
     if not cell:
@@ -183,10 +185,49 @@ def strict_header_match_count(tables: list[list[list[str]]], registry: dict[str,
     return best
 
 
-def has_split_debit_credit_headers(tables: list[list[list[str]]]) -> bool:
+
+_INCOME_CELL_KEYS: tuple[str, ...] = ("收入", "贷方发生额", "贷方", "Credit")
+_EXPENSE_CELL_KEYS: tuple[str, ...] = ("支出", "借方发生额", "借方", "Debit")
+
+
+def _cell_has_any(text: str, needles: tuple[str, ...]) -> bool:
+    return any(n in text for n in needles)
+
+
+def has_merged_amount_header(tables: list[list[list[str]]]) -> bool:
+    """True when a header cell contains BOTH income and expense keywords (e.g. 收入/支出金额).
+
+    This signals a single combined amount column, NOT split debit/credit columns."""
     for tbl in tables:
         for row in tbl[:RELAXED_LOOKAHEAD]:
-            joined = "".join(normalize_header_cell(c) for c in row)
-            if ("收入" in joined and "支出" in joined) or ("借方发生额" in joined and "贷方发生额" in joined):
+            for cell in row:
+                text = normalize_header_cell(cell)
+                if _cell_has_any(text, _INCOME_CELL_KEYS) and _cell_has_any(text, _EXPENSE_CELL_KEYS):
+                    return True
+    return False
+
+
+def has_split_debit_credit_headers(tables: list[list[list[str]]]) -> bool:
+    """True when income and expense keywords appear in DIFFERENT header cells.
+
+    This function explicitly resists false positives from merged headers like
+    ``收入/支出金额`` where both keywords land in one cell.  A merged header
+    is a signed-amount column, not separate debit/credit columns.
+
+    Cell-level matching is the single most impactful fix for ICBC-style
+    statements (BS-018)."""
+    for tbl in tables:
+        for row in tbl[:RELAXED_LOOKAHEAD]:
+            cells = [normalize_header_cell(c) for c in row]
+
+            if any(
+                _cell_has_any(c, _INCOME_CELL_KEYS) and _cell_has_any(c, _EXPENSE_CELL_KEYS)
+                for c in cells
+            ):
+                continue
+
+            has_income = any(_cell_has_any(c, _INCOME_CELL_KEYS) for c in cells)
+            has_expense = any(_cell_has_any(c, _EXPENSE_CELL_KEYS) for c in cells)
+            if has_income and has_expense:
                 return True
     return False

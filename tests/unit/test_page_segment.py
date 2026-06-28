@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.core.ocr.page_canvas.page_segment import (
+from docmirror.structure.ocr.page_canvas.page_segment import (
     lines_to_synthetic_tokens,
     segment_page_blocks,
 )

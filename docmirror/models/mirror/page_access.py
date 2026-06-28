@@ -197,3 +197,39 @@ def block_structure(document: dict[str, Any], page: int, block: dict[str, Any]) 
         structure = resolved.get("structure")
         return structure if isinstance(structure, dict) else None
     return None
+
+from enum import Enum
+from typing import Any
+
+
+class PageStatus(Enum):
+    """Page-level processing status for partial-result tracking."""
+
+    success = "success"
+    partial = "partial"
+    failure = "failure"
+    skipped = "skipped"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_exception(
+        cls, exception: BaseException | None, *, skipped: bool = False
+    ) -> PageStatus:
+        """Determine PageStatus from an optional exception and skip flag."""
+        if skipped:
+            return cls.skipped
+        if exception is None:
+            return cls.success
+        return cls.partial
+
+    @property
+    def is_ok(self) -> bool:
+        """Whether this status allows the page to be counted as successful."""
+        return self in (PageStatus.success, PageStatus.partial)
+
+    @property
+    def needs_review(self) -> bool:
+        """Whether this page status requires human review."""
+        return self in (PageStatus.partial, PageStatus.failure)

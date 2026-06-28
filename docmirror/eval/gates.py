@@ -23,7 +23,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from docmirror.configs.paths import YAML_DIR
-from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows
+from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows
 from docmirror.models.entities.parse_result import ParseResult
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ class QualityGateProfile(BaseModel):
     min_transaction_rows: int = 0
     min_table_count: int = 0
     max_empty_row_ratio: float = 0.50
-    expected_merged_table: bool = False  # 跨页合并且合并后数据完整的文档跳过 page_loss
+    expected_merged_table: bool = False  # skip page_loss for documents with cross-page merged tables
     min_merge_confidence: float = 0.65  # CROSS_PAGE_CHECK threshold for logical_tables
     min_row_preservation_ratio: float = 0.0  # EXTRACT_GATE: min logical/physical row ratio
     min_logical_rows: int = 0  # EXTRACT_GATE: absolute floor for ledger documents

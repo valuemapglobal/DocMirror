@@ -1,12 +1,12 @@
-# 金融机构全生命周期文件分类规则
-# 基于《金融机构全生命周期文件清单分析报告》生成
-# 包含240类文件的分类规则
+# Financial institution full-lifecycle document classification rules
+# Generated based on the "Financial Institution Full-Lifecycle Document Inventory Analysis Report"
+# Covers classification rules for 240 document types
 #
 # Community PEC note (6+1): identity_personal cluster types (id_card, passport, …)
 # still classify here; community structured output uses generic_community fallback.
 
 categories:
-  # 一、身份证明类文件
+  # 1. Identity certificate files
   identity_personal:
     name: "身份证明类-个人"
     maps_to_scenes:
@@ -61,7 +61,7 @@ categories:
     target_dir: "01_身份证明/专业资质证明"
     priority: 100
 
-  # 二、财务与税务类文件
+  # 2. Finance and tax documents
   financial_bank:
     name: "财务与税务类-银行凭证"
     keywords:
@@ -113,7 +113,7 @@ categories:
     target_dir: "02_财务与税务/社保公积金"
     priority: 90
 
-  # 三、合同与协议类文件
+  # 3. Contracts and agreements
   contract_financing:
     name: "合同与协议类-融资类"
     keywords:
@@ -156,7 +156,7 @@ categories:
     target_dir: "03_合同与协议/特殊协议"
     priority: 85
 
-  # 四、金融产品相关文件
+  # 4. Financial product documents
   product_fund:
     name: "金融产品-基金产品"
     keywords:
@@ -202,7 +202,7 @@ categories:
     target_dir: "04_金融产品/创新产品"
     priority: 80
 
-  # 五、监管与合规类文件
+  # 5. Regulatory and compliance documents
   compliance_regulatory:
     name: "监管与合规-监管报表"
     keywords:
@@ -240,7 +240,7 @@ categories:
     target_dir: "05_监管与合规/内部合规"
     priority: 95
 
-  # 六、市场与投资分析类文件
+  # 6. Market and investment analysis documents
   market_research:
     name: "市场与投资-研究报告"
     keywords:
@@ -272,7 +272,7 @@ categories:
     target_dir: "06_市场与投资/决策支持"
     priority: 75
 
-  # 七、保险与理赔类文件
+  # 7. Insurance and claims documents
   insurance_claim:
     name: "保险与理赔-理赔申请"
     keywords:
@@ -315,7 +315,7 @@ categories:
     target_dir: "07_保险与理赔/受益人材料"
     priority: 85
 
-  # 八、特殊场景文件
+  # 8. Special scenario documents
   special_legal:
     name: "特殊场景-法律文书"
     keywords:
@@ -349,7 +349,7 @@ categories:
     target_dir: "08_特殊场景/多语言文件"
     priority: 70
 
-  # 九、审计报告类文件
+  # 9. Audit report documents
   audit_opinion:
     name: "审计报告-按审计意见"
     keywords:
@@ -370,7 +370,7 @@ categories:
     target_dir: "09_审计报告/按业务场景"
     priority: 80
 
-  # 十、数字化与技术相关
+  # 10. Digitalization and technology
   tech_system:
     name: "数字化与技术-系统与数据"
     keywords:
@@ -385,7 +385,7 @@ categories:
     target_dir: "10_数字化与技术/系统与数据"
     priority: 75
 
-  # 十一、ESG与可持续发展
+  # 11. ESG and sustainable development
   esg_disclosure:
     name: "ESG与可持续发展-ESG披露"
     keywords:
@@ -398,7 +398,7 @@ categories:
     target_dir: "11_ESG与可持续发展/ESG披露"
     priority: 70
 
-  # 十二、风险管理相关
+  # 12. Risk management
   risk_management:
     name: "风险管理-全面风险管理"
     keywords:
@@ -412,7 +412,7 @@ categories:
     target_dir: "12_风险管理/全面风险管理"
     priority: 85
 
-  # 十三、客户与市场相关
+  # 13. Customer and market
   customer_market:
     name: "客户与市场-客户管理"
     keywords:
@@ -425,7 +425,7 @@ categories:
     target_dir: "13_客户与市场/客户管理"
     priority: 75
 
-  # 十四、员工与组织相关
+  # 14. Employee and organization
   employee_organization:
     name: "员工与组织-内部管理"
     keywords:
@@ -440,7 +440,7 @@ categories:
     target_dir: "14_员工与组织/内部管理"
     priority: 70
 
-  # 十五、并购与重组相关
+  # 15. M&A and restructuring
   ma_transaction:
     name: "并购与重组-交易支持"
     keywords:
@@ -455,7 +455,7 @@ categories:
     target_dir: "15_并购与重组/交易支持"
     priority: 80
 
-  # 十六、资产证券化相关
+  # 16. Asset securitization
   abs_business:
     name: "资产证券化-ABS业务"
     keywords:
@@ -468,7 +468,7 @@ categories:
     target_dir: "16_资产证券化/ABS业务"
     priority: 80
 
-  # 十七、跨境与国际业务相关
+  # 17. Cross-border and international business
   cross_border:
     name: "跨境与国际业务-国际业务"
     keywords:
@@ -481,7 +481,7 @@ categories:
     target_dir: "17_跨境与国际业务/国际业务"
     priority: 75
 
-  # 十八、投资者关系相关
+  # 18. Investor relations
   investor_relation:
     name: "投资者关系-投资者沟通"
     keywords:
@@ -493,7 +493,7 @@ categories:
     target_dir: "18_投资者关系/投资者沟通"
     priority: 70
 
-  # 十九、其他重要文件
+  # 19. Other important documents
   other_comprehensive:
     name: "其他重要文件-综合管理"
     keywords:
@@ -509,17 +509,17 @@ categories:
     target_dir: "19_其他重要文件/综合管理"
     priority: 65
 
-# 冲突解决策略
+# Conflict Resolution Strategy
 conflict_resolution:
-  strategy: "priority_first"  # priority_first: 优先选择最高优先级规则
-  generate_pending_report: true  # 生成待处理报告
-  multi_match_threshold: 2  # 匹配类别数超过此阈值时记录为待处理
+  strategy: "priority_first"  # priority_first: select highest-priority rule first
+  generate_pending_report: true  # Generate pending report
+  multi_match_threshold: 2  # Record as pending when matched categories exceed this threshold
 
-# 文件处理选项
+# File Processing Options
 file_handling:
-  skip_hidden_files: true  # 跳过隐藏文件
-  skip_system_files: true  # 跳过系统文件
-  max_file_size_mb: 500  # 最大文件大小(MB),超过则跳过
+  skip_hidden_files: true  # Skip hidden files
+  skip_system_files: true  # Skip system files
+  max_file_size_mb: 500  # Max file size (MB); larger files are skipped
   supported_extensions:
     - ".pdf"
     - ".doc"

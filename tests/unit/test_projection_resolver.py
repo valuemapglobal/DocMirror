@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.output.projection_resolver import build_projection_lineage
+from docmirror.output.projection.resolver import build_projection_lineage
 
 
 def _bank_payload(*, records: list[dict]) -> dict:

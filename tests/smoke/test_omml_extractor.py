@@ -6,7 +6,7 @@
 
 import pytest
 from lxml import etree
-from docmirror.adapters.office.omml_extractor import OMMLExtractor
+from docmirror.input.adapters.office.omml_extractor import OMMLExtractor
 
 pytestmark = [pytest.mark.tier_smoke]
 

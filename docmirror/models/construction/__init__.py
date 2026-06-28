@@ -11,7 +11,7 @@ Re-exports ``ParseResultBridge`` which converts heterogeneous parser outputs
 (legacy dicts, physical block lists, adapter-specific formats) into the unified
 ``ParseResult`` Mirror Object Contract.
 
-See ``docmirror.core.bridge.parse_result_bridge`` for the canonical implementation
+See ``docmirror.input.bridge.parse_result_bridge`` for the canonical implementation
 and design 09 §4.6 / Appendix C for the models-layer re-export rationale.
 """
 

@@ -104,10 +104,10 @@ class BankStatementCommunityPlugin(BaseTableParser):
         return build_dec_kv(
             "bank_statement",
             {
-                "account_holder": str(entities.get("account_holder", metadata.get("Account holder", ""))),
-                "account_number": str(entities.get("account_number", metadata.get("Account number", ""))),
+                "account_holder": str(entities.get("account_holder", _metadata.get("Account holder", ""))),
+                "account_number": str(entities.get("account_number", _metadata.get("Account number", ""))),
                 "bank_name": str(entities.get("bank_name", "")),
-                "query_period": str(entities.get("query_period", metadata.get("Query period", ""))),
+                "query_period": str(entities.get("query_period", _metadata.get("Query period", ""))),
                 "currency": str(entities.get("currency", "CNY")),
             },
         )

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.table.pipe_row_merge import merge_pipe_continuation_rows
+from docmirror.structure.tables.pipe_row_merge import merge_pipe_continuation_rows
 from docmirror.plugins.bank_statement.pipe_text_table_builder import (
     build_tables_from_pipe_text,
     count_expected_primary_rows,

@@ -34,7 +34,7 @@ def bank_plugin():
 def perceive_fixture():
     import asyncio
 
-    from docmirror.core.entry.factory import perceive_document
+    from docmirror.input.entry.factory import perceive_document
 
     async def _run(path: Path):
         return await perceive_document(path)
@@ -70,7 +70,7 @@ def test_abc_multi_lt_exports_canonical_rows(perceive_fixture, bank_plugin):
     reason="Set DOCMIRROR_RUN_BANK_REPRESENTATIVES=1",
 )
 def test_liming_guizhou_has_records(perceive_fixture, bank_plugin):
-    """BS-014: 黎明贵州银行 — was 0 records; BLO fallback should yield rows."""
+    """BS-014: Liming Guizhou Bank - was 0 records; BLO fallback should yield rows."""
     result = _extract(_fixture("黎明_银行流水_贵州银行_20250530.pdf"), perceive_fixture, bank_plugin)
     assert len(result.records) >= 1
     assert result.style_meta.extract_status in ("degraded", "low_coverage")
@@ -81,7 +81,7 @@ def test_liming_guizhou_has_records(perceive_fixture, bank_plugin):
     reason="Set DOCMIRROR_RUN_BANK_REPRESENTATIVES=1",
 )
 def test_taizhou_has_records(perceive_fixture, bank_plugin):
-    """BS-014: 台州银行 — was 0 records."""
+    """BS-014: Taizhou Bank - was 0 records."""
     result = _extract(_fixture("浙江天宏国际物流有限公司_银行流水_台州银行_20240329.pdf"), perceive_fixture, bank_plugin)
     assert len(result.records) >= 1
 
@@ -91,7 +91,7 @@ def test_taizhou_has_records(perceive_fixture, bank_plugin):
     reason="Set DOCMIRROR_RUN_BANK_REPRESENTATIVES=1",
 )
 def test_guangda_not_false_success(perceive_fixture, bank_plugin):
-    """BS-013: 光大 525 rows all direction other — CQF must not report success."""
+    """BS-013: China Everbright 525 rows all direction other - CQF must not report success."""
     result = _extract(
         _fixture("安徽康安设备吊装工程有限公司_银行流水_光大银行_20240902.pdf"),
         perceive_fixture,

@@ -14,7 +14,7 @@ from docmirror.configs.format.loader import load_enhancement_profiles, load_form
 from docmirror.configs.middleware.catalog import load_catalog
 from docmirror.configs.middleware.resolver import flatten_profile_middleware_names
 
-_KNOWN_OPTIONAL = frozenset({"SLMEntityExtractor", "AnomalyDetector"})
+_KNOWN_OPTIONAL = frozenset({"AnomalyDetector"})
 
 
 def main() -> int:

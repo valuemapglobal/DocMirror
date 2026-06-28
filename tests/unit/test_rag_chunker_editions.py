@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from unittest.mock import PropertyMock, patch
 
-from docmirror.exporters.rag_chunks import export_chunks_to_json
+from docmirror.output.exporters.rag_chunks import export_chunks_to_json
 from docmirror.features.rag.chunker import chunk_parse_result
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
 

@@ -13,11 +13,9 @@ cases:
     options:
       enhance_mode: standard
     gates:
-      min_sections: 2
-      required_sections_present:
-        - accounts
-        - repayments
-      subject_name_present: true
+      min_sections: {min: 2}
+      required_sections_present: {contains: [accounts, repayments]}
+      subject_name_present: {equals: true}
     tags: [credit, sections, community]
 
   - id: credit_report_subject_fields
@@ -29,7 +27,5 @@ cases:
     options:
       enhance_mode: standard
     gates:
-      required_fields_present:
-        - subject_name
-        - id_number
+      required_fields_present: {contains: [subject_name, id_number]}
     tags: [credit, identity, community]

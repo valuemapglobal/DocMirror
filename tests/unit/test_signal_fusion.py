@@ -1,9 +1,9 @@
-"""Tests for signal fusion engine (道法自然 · 第十七重境界)."""
+"""Tests for signal fusion engine."""
 from __future__ import annotations
 
 import pytest
 
-from docmirror.core.table.signal_fusion import (
+from docmirror.structure.tables.signal_fusion import (
     fuse_column_signals,
     should_use_fusion,
     SIGNAL_WEIGHTS,
@@ -27,7 +27,7 @@ class TestSignalFusion:
 
         assert len(fused) == 4
         assert confidence >= 0.8  # 高置信度
-        # 边界应该在100, 200, 300, 400附近
+        # Boundaries should be around 100, 200, 300, 400
         assert 95 <= fused[0] <= 105
         assert 195 <= fused[1] <= 205
         assert 295 <= fused[2] <= 305
@@ -43,7 +43,7 @@ class TestSignalFusion:
 
         fused, confidence = fuse_column_signals(signals)
 
-        # 应该有2-3个边界（100和300有3票，200/250有分歧）
+        # Should have 2-3 boundaries (100 and 300 have 3 votes, 200/250 has split)
         assert len(fused) >= 2
         assert confidence >= 0.5  # 中置信度
 
@@ -57,7 +57,7 @@ class TestSignalFusion:
 
         fused, confidence = fuse_column_signals(signals)
 
-        # 可能没有足够的投票
+        # May not have enough votes
         assert confidence < 0.5  # 低置信度
 
     def test_fuse_single_signal(self):
@@ -68,7 +68,7 @@ class TestSignalFusion:
 
         fused, confidence = fuse_column_signals(signals)
 
-        # 单一信号源，无法融合
+        # Single source, cannot fuse
         assert len(fused) == 0 or confidence < 0.5
 
     def test_fuse_empty_signals(self):
@@ -105,7 +105,7 @@ class TestSignalFusion:
 
         fused, confidence = fuse_column_signals(signals)
 
-        # 所有边界都在容差范围内，应该聚类为一个
+        # All boundaries within tolerance, should cluster into one
         assert len(fused) == 1
         assert 99 <= fused[0] <= 101
 
@@ -120,7 +120,7 @@ class TestSignalFusion:
 
         fused, confidence = fuse_column_signals(signals)
 
-        # 500.0应该被移除（只有1票）
+        # 500.0 should be removed (only 1 vote)
         assert 500.0 not in fused
         assert len(fused) == 3
 

@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.core.ocr.page_canvas.evidence_bundles import (
+from docmirror.structure.ocr.page_canvas.evidence_bundles import (
     attach_page_evidence_bundles,
     build_page_evidence_bundles,
     bundles_from_legacy_extractor_meta,

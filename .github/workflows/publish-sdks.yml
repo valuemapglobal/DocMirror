@@ -1,0 +1,108 @@
+name: Publish SDK Clients
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  generate-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[server]"
+
+      - name: Extract OpenAPI spec
+        run: |
+          python scripts/generate_openapi.py docs/openapi/openapi.json
+
+      - name: Upload OpenAPI spec as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: docs/openapi/openapi.json
+
+  publish-dmir-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy versioned DMIR schema for release
+        run: |
+          SCHEMA_DIR="docs/schemas/dmir"
+          RELEASE_TAG="${GITHUB_REF_NAME}"
+          cp "$SCHEMA_DIR/v1.0.schema.json" "$SCHEMA_DIR/v1.0.release.schema.json"
+          echo "Schema prepared for release ${RELEASE_TAG}"
+
+      - name: Upload DMIR schema as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmir-schema
+          path: docs/schemas/dmir/*.schema.json
+
+
+  generate-typescript:
+    needs: generate-openapi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: openapi-spec
+          path: docs/openapi/
+
+      - name: Generate TypeScript SDK
+        run: |
+          cd sdks/typescript
+          npm install
+          npx openapi-typescript ../../docs/openapi/openapi.json -o src/client.ts
+          npm run build
+
+      - name: Publish to npm
+        if: github.event_name == 'release' && github.event.action == 'published'
+        run: |
+          cd sdks/typescript
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  generate-go:
+    needs: generate-openapi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: openapi-spec
+          path: docs/openapi/
+
+      - name: Generate Go SDK
+        run: |
+          go install github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen@latest
+          mkdir -p sdks/go
+          oapi-codegen -package docmirror -generate client,types \
+            docs/openapi/openapi.json > sdks/go/client.go
+
+      - name: Tag Go module
+        run: |
+          git tag sdks/go/v0.1.0
+          git push origin sdks/go/v0.1.0
+
+  generate-java:
+    needs: generate-openapi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: openapi-spec
+          path: docs/openapi/
+
+      - name: Generate Java SDK
+        run: |
+          docker run --rm -v $(pwd):/local openapitools/openapi-generator-cli generate \
+            -i /local/docs/openapi/openapi.json \
+            -g java \
+            -o /local/sdks/java/

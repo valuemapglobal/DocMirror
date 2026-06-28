@@ -2,150 +2,86 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://docmirror.dev/schemas/mirror.schema.json",
   "title": "DocMirror Mirror JSON",
-  "description": "Design 21 serialization contract for ParseResult.to_api_dict output.",
+  "description": "Canonical vNext mirror output. This schema is document-shaped and intentionally has no code/message/data REST envelope.",
   "type": "object",
-  "required": ["code", "api_version", "mirror_profile", "meta"],
-  "properties": {
-    "code": { "type": "integer" },
-    "message": { "type": "string" },
-    "api_version": { "type": "string" },
-    "request_id": { "type": "string" },
-    "timestamp": { "type": "string", "format": "date-time" },
-    "mirror_profile": {
-      "type": "object",
-      "required": ["contract_version", "level", "includes"],
-      "properties": {
-        "contract_version": { "type": "string" },
-        "level": { "enum": ["standard", "forensic"] },
-        "includes": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "data": {
-      "type": "object",
-      "properties": {
-        "document": { "$ref": "#/$defs/document" },
-        "quality": { "type": "object" }
-      }
-    },
-    "meta": { "$ref": "#/$defs/meta" }
+  "required": [
+    "mirror",
+    "source",
+    "document",
+    "pages",
+    "evidence",
+    "regions",
+    "blocks",
+    "graph",
+    "semantics",
+    "quality",
+    "diagnostics",
+    "assets"
+  ],
+  "additionalProperties": true,
+  "not": {
+    "anyOf": [
+      { "required": ["code"] },
+      { "required": ["message"] },
+      { "required": ["api_version"] },
+      { "required": ["data"] }
+    ]
   },
-  "$defs": {
-    "counts": {
+  "properties": {
+    "mirror": {
       "type": "object",
-      "required": [
-        "physical_tables",
-        "physical_data_rows",
-        "logical_tables_total",
-        "logical_tables_export",
-        "logical_tables_annex",
-        "logical_data_rows_export"
-      ],
+      "required": ["schema", "schema_version"],
+      "additionalProperties": true,
       "properties": {
-        "physical_tables": { "type": "integer", "minimum": 0 },
-        "physical_data_rows": { "type": "integer", "minimum": 0 },
-        "logical_tables_total": { "type": "integer", "minimum": 0 },
-        "logical_tables_export": { "type": "integer", "minimum": 0 },
-        "logical_tables_annex": { "type": "integer", "minimum": 0 },
-        "logical_data_rows_export": { "type": "integer", "minimum": 0 },
-        "reconciliation": {
-          "type": "object",
-          "properties": {
-            "annex_data_rows": { "type": "integer" },
-            "physical_rows_in_export_pages": { "type": "integer" },
-            "cross_page_merge_adjustment": { "type": "integer" }
-          }
-        }
+        "schema": { "const": "docmirror.mirror_json" },
+        "schema_version": { "type": "string" },
+        "engine": { "type": "string" },
+        "engine_version": { "type": "string" },
+        "profile": { "type": "string" }
       }
     },
-    "document_identity": {
+    "source": {
       "type": "object",
+      "additionalProperties": true,
       "properties": {
-        "document_type": { "type": "string" },
-        "structure_class": { "type": "string" },
-        "scene_hint": { "type": "string" },
-        "layout_profile_id": { "type": ["string", "null"] },
-        "plugin_domain_hint": { "type": "string" },
-        "extraction_layer": { "type": ["string", "null"] }
-      }
-    },
-    "physical_table": {
-      "type": "object",
-      "required": ["table_id", "ssot", "raw_rows", "header_row_index", "header_source"],
-      "properties": {
-        "table_id": { "type": "string" },
-        "ssot": { "const": "raw_rows" },
-        "raw_rows": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
-        "header_row_index": { "type": "integer", "minimum": 0 },
-        "header_source": {
-          "enum": ["none", "vocabulary_match", "inherited", "data_row", "prose_block"]
-        },
-        "content_role": { "enum": ["ledger", "annex", "prose"] },
-        "navigation_ref": { "type": "string", "pattern": "^table:" },
-        "block_ref": { "type": "string" }
-      }
-    },
-    "logical_table": {
-      "type": "object",
-      "required": ["logical_id", "role", "composition"],
-      "properties": {
-        "logical_id": { "type": "string" },
-        "role": { "enum": ["primary", "annex"] },
-        "composition": {
-          "type": "object",
-          "properties": {
-            "topology": { "enum": ["single_page", "cross_page", "annex"] },
-            "merge_policy": { "enum": ["none", "continuation", "standalone"] },
-            "quarantine_reason": { "type": ["string", "null"] }
-          }
-        }
+        "source_id": { "type": "string" },
+        "filename": { "type": "string" },
+        "mime_type": { "type": "string" },
+        "page_count": { "type": "integer", "minimum": 0 }
       }
     },
     "document": {
       "type": "object",
+      "additionalProperties": true,
       "properties": {
-        "type": { "type": "string" },
-        "identity": { "$ref": "#/$defs/document_identity" },
-        "information_architecture": { "type": "object" },
-        "properties": { "type": "object" },
-        "pages": {
+        "document_id": { "type": "string" },
+        "document_type": { "type": "string" },
+        "document_type_candidates": {
           "type": "array",
           "items": {
             "type": "object",
+            "additionalProperties": true,
             "properties": {
-              "page_number": { "type": "integer" },
-              "tables": { "type": "array", "items": { "$ref": "#/$defs/physical_table" } },
-              "morphology_slots": { "type": "object" },
-              "reading_order_canonical": { "type": "string" },
-              "reading_order_v1_deprecated": { "type": "boolean" }
+              "type": { "type": "string" },
+              "confidence": { "type": "number" }
             }
           }
-        },
-        "logical_tables": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/logical_table" }
-        },
-        "morphology_stats": { "type": "object" }
+        }
       }
     },
-    "meta": {
-      "type": "object",
-      "required": ["counts", "structure"],
-      "properties": {
-        "counts": { "$ref": "#/$defs/counts" },
-        "structure": {
-          "type": "object",
-          "required": ["counts", "quarantine"],
-          "properties": {
-            "counts": { "$ref": "#/$defs/counts" },
-            "quarantine": { "type": "object" },
-            "morphology_aggregate_ref": { "type": "string" }
-          }
-        },
-        "table_count": { "type": "integer", "description": "deprecated alias" },
-        "physical_table_count": { "type": "integer", "description": "deprecated alias" },
-        "logical_table_count": { "type": "integer", "description": "deprecated alias" },
-        "row_count": { "type": "integer", "description": "deprecated alias" }
-      }
-    }
+    "pages": { "type": "array", "items": { "type": "object" } },
+    "evidence": { "type": "object", "additionalProperties": true },
+    "regions": { "type": "array", "items": { "type": "object" } },
+    "blocks": { "type": "array", "items": { "type": "object" } },
+    "graph": { "type": "object", "additionalProperties": true },
+    "semantics": { "type": "object", "additionalProperties": true },
+    "quality": { "type": "object", "additionalProperties": true },
+    "diagnostics": { "type": "object", "additionalProperties": true },
+    "assets": { "type": "object", "additionalProperties": true },
+    "meta": { "type": "object", "additionalProperties": true },
+    "editions": { "type": "object", "additionalProperties": true },
+    "dmir": { "type": "object", "additionalProperties": true },
+    "request_id": { "type": "string" },
+    "timestamp": { "type": "string" }
   }
 }

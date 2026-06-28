@@ -1,8 +1,8 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.core.ocr.page_canvas.build import reading_order_for_page
-from docmirror.core.ocr.page_canvas.models import PageRegion
+from docmirror.structure.ocr.page_canvas.build import reading_order_for_page
+from docmirror.structure.ocr.page_canvas.models import PageRegion
 from docmirror.models.mirror.page_canvas_export import attach_region_refs_to_sections
 
 

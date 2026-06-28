@@ -35,7 +35,7 @@ from docmirror.configs.format.loader import invalidate_format_cache, load_enhanc
 from docmirror.configs.paths import MIDDLEWARE_CATALOG_YAML
 
 if TYPE_CHECKING:
-    from docmirror.middlewares.base import BaseMiddleware
+    from docmirror.framework.middlewares.base import BaseMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ def get_middleware_class(name: str) -> type[BaseMiddleware]:
         raise KeyError(f"Middleware {name!r} not in middleware_catalog.yaml")
     mod = importlib.import_module(spec.module)
     cls = getattr(mod, spec.class_name)
-    from docmirror.middlewares.base import BaseMiddleware
+    from docmirror.framework.middlewares.base import BaseMiddleware
 
     if not issubclass(cls, BaseMiddleware):
         raise TypeError(f"{name}: {cls} is not a BaseMiddleware subclass")
@@ -127,7 +127,7 @@ def validate_catalog() -> list[str]:
     from docmirror.configs.middleware.resolver import flatten_profile_middleware_names
 
     profiles, _ = load_enhancement_profiles()
-    optional_runtime = {"SLMEntityExtractor", "AnomalyDetector"}
+    optional_runtime = {"AnomalyDetector"}
     for model, modes in profiles.items():
         for mode, mode_cfg in modes.items():
             for mw_name in flatten_profile_middleware_names(mode_cfg):

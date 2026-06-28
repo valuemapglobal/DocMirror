@@ -1,0 +1,43 @@
+# Pipeline Phase Weight Configuration
+# GA 1.0 §4.3 — Part of the Instrumented Pipeline Bus (IPB)
+#
+# Weights define how each phase contributes to the overall pipeline progress bar.
+# Total must sum to 100%. Per-page phases automatically divide their weight
+# evenly across the actual page count.
+#
+# ver: 1
+
+version: 1
+
+phases:
+  load_document:
+    pct: 5
+    detail: "Loading document..."
+
+  page_extraction:
+    pct: 70
+    per_page: true
+    detail: "Extracting page {page}/{total}..."
+
+  cross_page_merge:
+    pct: 1
+    detail: "Merging cross-page tables..."
+
+  middleware_pipeline:
+    pct: 2
+    detail: "Running validation & enrichment middlewares..."
+
+  community_plugin:
+    pct: 7
+    detail: "Building community edition output..."
+
+  extended_plugins:
+    pct: 15
+    detail: "Building enterprise/finance edition outputs..."
+    sub_phases:
+      - name: enterprise
+        pct: 50
+        detail: "Enterprise plugin registration & extract..."
+      - name: finance
+        pct: 50
+        detail: "Finance plugin registration & extract..."

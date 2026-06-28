@@ -129,12 +129,13 @@ def run_pcm_finance_stability_oracle(
             missing = [a for a in required_anchors if a not in found]
             report.failures.append(f"missing account anchors: {missing}")
 
-    if spec.get("require_pcm_mirror_shape") and hasattr(mirror_or_api, "to_api_dict"):
-        api = mirror_or_api.to_api_dict(mirror_level="standard")
-        doc = (api.get("data") or {}).get("document") or {}
-        page = next((p for p in doc.get("pages") or [] if int(p.get("page_number") or 0) == 4), {})
-        region_count = sum(len(p.get("regions") or []) for p in doc.get("pages") or [])
-        flow_ok = bool((page.get("flow") or {}).get("texts") is not None)
+    if spec.get("require_pcm_mirror_shape") and hasattr(mirror_or_api, "to_mirror_json_vnext"):
+        api = mirror_or_api.to_mirror_json_vnext()
+        pages = api.get("pages") or []
+        page = next((p for p in pages if int(p.get("page_number") or 0) == 4), {})
+        region_count = len(api.get("regions") or [])
+        flow_ok = bool((api.get("graph") or {}).get("reading_flows") is not None)
+        doc = api.get("document") or {}
         no_legacy_doc_fields = "micro_grids" not in doc and "_deprecated" not in doc
         no_top_level_texts = "texts" not in page
         ok = region_count > 0 and flow_ok and no_legacy_doc_fields and no_top_level_texts

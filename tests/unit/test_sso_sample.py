@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from docmirror.core.analyze.structure_signals import build_sso_sample_text, sso_sample_page_indices
-from docmirror.plugins.community import normalize_premium_document_type
+from docmirror.structure.analysis.structure_signals import build_sso_sample_text, sso_sample_page_indices
+from docmirror.plugins._runtime.community import normalize_premium_document_type
 
 
 class _FakePage:

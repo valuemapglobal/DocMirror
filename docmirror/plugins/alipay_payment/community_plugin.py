@@ -92,7 +92,7 @@ ALIPAY_IDENTITY_FIELDS: Sequence[tuple[str, Sequence[str]]] = (
 
 
 class AlipayPaymentPlugin(BaseTableParser):
-    """社区版 v2.0：支付宝流水插件（BaseTableParser + 收/支首列行过滤）。"""
+    """Community v2.0: Alipay statement plugin (BaseTableParser + income/expense first-column row filtering)."""
 
     @property
     def domain_name(self) -> str:
@@ -122,7 +122,7 @@ class AlipayPaymentPlugin(BaseTableParser):
         self,
         tables: list[list[list[str]]],
     ) -> tuple[int, list[str], dict[str, int]]:
-        """表头检测：ColumnMatcher 优先，否则按支付宝 marker 行 + 默认列 fallback。"""
+        """Header detection: ColumnMatcher first, otherwise Alipay marker row + default column fallback."""
         header_row_idx, raw_headers, col_map = super()._detect_headers(tables)
         if len(col_map) >= 3:
             return header_row_idx, raw_headers, col_map
@@ -155,7 +155,7 @@ class AlipayPaymentPlugin(BaseTableParser):
         raw_headers: list[str],
         col_map: dict[str, int],
     ) -> list[dict[str, str]]:
-        """支付宝流水首列为收/支，需按方向枚举过滤数据行（非日期首列）。"""
+        """Alipay first column is income/expense, filter data rows by direction enum (not date first column)."""
         transactions: list[dict[str, str]] = []
         has_col_map = bool(col_map)
 

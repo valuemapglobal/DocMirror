@@ -140,7 +140,12 @@ class BankStyleDetector:
         excludes_any = signals.get("header_excludes_any") or []
         if excludes_any:
             if any(token in joined_headers for token in excludes_any):
-                score *= 0.25
+                if style_id == "signed_amount":
+                    from docmirror.plugins.bank_statement.header_resolve import has_merged_amount_header
+                    if not has_merged_amount_header(ctx.tables):
+                        score *= 0.25
+                else:
+                    score *= 0.25
             else:
                 score += 0.1
 

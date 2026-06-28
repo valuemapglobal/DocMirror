@@ -24,7 +24,6 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any
 
-from docmirror.plugins import DomainPlugin
 from docmirror.plugins._base.column_registry import ColumnMapping, ColumnMatcher
 from docmirror.plugins._base.standardizer import (
     extract_period,
@@ -32,6 +31,7 @@ from docmirror.plugins._base.standardizer import (
     normalize_enum,
     normalize_timestamp,
 )
+from docmirror.plugins._runtime.plugin_registry import DomainPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -40,35 +40,35 @@ _ISO_DATETIME_RE = re.compile(r"^\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}")
 
 
 class BaseTableParser(DomainPlugin):
-    """通用流水解析器基类。
+    """Generic statement parser base class.
 
-    子类只需实现以下抽象属性：
+    Subclasses only need to implement these abstract attributes:
     - domain_name
     - display_name
     - scene_keywords
     - column_registry (Dict[str, ColumnMapping])
     - standard_fields (List[str])
 
-    可选覆盖：
+    Optional overrides:
     - identity_fields
-    - edition (默认 community)
+    - edition (default community)
     """
 
-    # ── 子类必须实现的抽象属性 ──
+    # ── Abstract attributes that subclasses must implement ──
 
     @property
     @abstractmethod
     def column_registry(self) -> dict[str, ColumnMapping]:
-        """列映射注册表。"""
+        """Column mapping registry."""
         ...
 
     @property
     @abstractmethod
     def standard_fields(self) -> list[str]:
-        """标准化字段顺序（用于 normalized 块）。"""
+        """Standardized field order (for normalized block)."""
         ...
 
-    # ── 可选覆盖 ──
+    # ── Optional overrides ──
 
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
@@ -81,29 +81,29 @@ class BaseTableParser(DomainPlugin):
     # ── Public API ──
 
     def extract_from_mirror(self, parse_result, text: str = "") -> dict[str, Any]:
-        """从 ParseResult 中提取并返回 v2.0 社区版输出。"""
-        # Step 1: 提取 KV 头部区
+        """Extract and return v2.0 community edition output from ParseResult."""
+        # Step 1: Extract KV header area
         identity_fields = self._extract_identity(parse_result)
 
-        # Step 2: 提取交易表格
+        # Step 2: Extract transaction table
         tables = self._collect_tables(parse_result)
 
-        # Step 3: 检测表头
+        # Step 3: Detect header
         header_row_idx, raw_headers, col_map = self._detect_headers(tables)
 
-        # Step 4: 提取交易记录
+        # Step 4: Extract transaction records
         transactions = self._extract_records(tables, header_row_idx, raw_headers, col_map)
 
-        # Step 5: 构建 records (raw + normalized)
+        # Step 5: Build records (raw + normalized)
         records = self._build_records(transactions)
 
-        # Step 6: 汇总统计
+        # Step 6: Summary statistics
         summary = self._build_summary(records)
 
-        # Step 7: 周期
+        # Step 7: Period
         period = extract_period(text) or summary.get("period", {})
 
-        # Step 8: 构建输出
+        # Step 8: Build output
         return self._build_output(
             parse_result,
             identity_fields,
@@ -114,10 +114,10 @@ class BaseTableParser(DomainPlugin):
             text=text,
         )
 
-    # ── Step 1: KV 头部区提取 ──
+    # ── Step 1: KV header area extraction ──
 
     def _extract_identity(self, parse_result) -> dict[str, dict]:
-        """从 mirror KV pair 中提取身份字段。
+        """Extract identity fields from mirror KV pairs.
 
         返回 {field_key: {raw_name, raw_value, normalized_value, data_type}}。
         """
@@ -147,7 +147,7 @@ class BaseTableParser(DomainPlugin):
                             }
                             break
 
-                # 通用字段检测（即使 identity_config 为空也尝试）
+                # Generic field detection (try even when identity_config is empty)
                 if "account_holder" not in fields and "兹证明" in key:
                     name = re.sub(r"\(.*", "", val).strip()
                     if name:
@@ -178,17 +178,17 @@ class BaseTableParser(DomainPlugin):
 
     @staticmethod
     def _normalize_identity(field_name: str, raw_value: str) -> str:
-        """对身份字段值进行基础标准化。"""
+        """Basic standardization of identity field values."""
         if field_name == "currency":
             if "人民" in raw_value:
                 return "CNY"
             return raw_value
         return raw_value
 
-    # ── Step 2: 收集表格 ──
+    # ── Step 2: Collect tables ──
 
     def _collect_tables(self, parse_result) -> list[list[list[str]]]:
-        """从 ParseResult 中收集所有表格。
+        """Collect all tables from ParseResult.
 
         优先级：
           1. logical_tables（已跨页合并的逻辑表）— 优先使用
@@ -202,7 +202,7 @@ class BaseTableParser(DomainPlugin):
             return out
 
         # Try logical tables first (composed cross-page)
-        from docmirror.core.table.access import get_logical_tables
+        from docmirror.structure.tables.access import get_logical_tables
 
         logical = get_logical_tables(parse_result)
         if logical:
@@ -247,13 +247,13 @@ class BaseTableParser(DomainPlugin):
                     out.append(rows)
         return out
 
-    # ── Step 3: 表头检测 ──
+    # ── Step 3: Header detection ──
 
     def _detect_headers(
         self,
         tables: list[list[list[str]]],
     ) -> tuple[int, list[str], dict[str, int]]:
-        """检测表头行。
+        """Detect header row.
 
         使用 ColumnMatcher 对每张表的前 N 行做列匹配。
         返回 (header_row_index, raw_headers, col_map)。
@@ -272,7 +272,7 @@ class BaseTableParser(DomainPlugin):
 
         return 0, [], {}
 
-    # ── Step 4: 提取交易记录 ──
+    # ── Step 4: Extract transaction records ──
 
     def _extract_records(
         self,
@@ -281,7 +281,7 @@ class BaseTableParser(DomainPlugin):
         raw_headers: list[str],
         col_map: dict[str, int],
     ) -> list[dict[str, str]]:
-        """从表格中提取交易行。
+        """Extract transaction rows from table.
 
         处理策略：
         - 跳过表头行
@@ -299,12 +299,12 @@ class BaseTableParser(DomainPlugin):
                 if not row or not any(str(c).strip() for c in row):
                     continue
 
-                # 跳过汇总行（含"合计"、"小计"、"本页"等）
+                # Skip summary rows (containing "合计", "小计", "本页", etc.)
                 first_cell = str(row[0] or "").strip() if row else ""
                 if any(kw in first_cell for kw in ("合计", "小计", "本页", "总计", "收入", "支出")):
                     continue
 
-                # 首列验证：必须是日期或长数字（交易单号）
+                # First column validation: must be date or long number (transaction ID)
                 if not _ISO_DATE_RE.match(first_cell) and not re.match(r"^\d{16,}", first_cell):
                     date_cell = next(
                         (
@@ -317,7 +317,7 @@ class BaseTableParser(DomainPlugin):
                     if not date_cell:
                         continue
 
-                # 使用 col_map 提取
+                # Extract using col_map
                 if has_col_map:
                     txn: dict[str, str] = {}
                     for field_name, col_idx in col_map.items():
@@ -328,7 +328,7 @@ class BaseTableParser(DomainPlugin):
                     if any(txn.values()):
                         transactions.append(txn)
                 else:
-                    # 无 col_map，按原始列索引
+                    # No col_map, use original column index
                     txn = {}
                     for i, cell in enumerate(row):
                         h = raw_headers[i] if i < len(raw_headers) else f"col_{i}"
@@ -338,10 +338,10 @@ class BaseTableParser(DomainPlugin):
 
         return transactions
 
-    # ── Step 5: 构建 records (raw + normalized) ──
+    # ── Step 5: Build records (raw + normalized) ──
 
     def _build_records(self, transactions: list[dict[str, str]]) -> list[dict]:
-        """构建标准 records 格式。
+        """Build standard records format.
 
         每条记录包含：
         - row_index: int
@@ -363,7 +363,7 @@ class BaseTableParser(DomainPlugin):
         return records
 
     def _normalize(self, raw_txn: dict[str, str]) -> dict[str, Any]:
-        """对单条原始交易进行标准化。
+        """Normalize a single raw transaction.
 
         使用 column_registry 中的映射进行：
         - 枚举转换（方向、类型等）
@@ -373,16 +373,16 @@ class BaseTableParser(DomainPlugin):
         """
         normalized: dict[str, Any] = {}
 
-        # 先通过 column_registry 的 canonical_name 建立字段值
+        # Build field values using column_registry canonical_name first
         for canonical_name, mapping in self.column_registry.items():
-            # 在 raw_txn 中查找匹配的 key
+            # Find matching key in raw_txn
             raw_val = ""
             for raw_key, raw_v in raw_txn.items():
                 if raw_key == canonical_name or (mapping.aliases and raw_key in mapping.aliases):
                     raw_val = raw_v
                     break
             if not raw_val:
-                # 子串匹配
+                # Substring match
                 for raw_key, raw_v in raw_txn.items():
                     if canonical_name in raw_key or raw_key in canonical_name:
                         raw_val = raw_v
@@ -401,7 +401,7 @@ class BaseTableParser(DomainPlugin):
             else:
                 normalized[mapping.field] = raw_val
 
-        # 确保所有 standard_fields 都有默认值
+        # Ensure all standard_fields have default values
         for field in self.standard_fields:
             if field not in normalized:
                 if field == "amount":
@@ -417,11 +417,11 @@ class BaseTableParser(DomainPlugin):
 
         return normalized
 
-    # ── Step 6: 汇总统计 ──
+    # ── Step 6: Summary statistics ──
 
     @staticmethod
     def _build_summary(records: list[dict]) -> dict[str, Any]:
-        """构建汇总统计。
+        """Build summary statistics.
 
         包括：
         - total_rows
@@ -439,9 +439,18 @@ class BaseTableParser(DomainPlugin):
         total_income = round(sum(income_amounts), 2) if income_amounts else 0.0
         total_expense = round(sum(expense_amounts), 2) if expense_amounts else 0.0
 
+        all_dates = sorted(
+            str(r["normalized"]["date"])[:10]
+            for r in records
+            if _ISO_DATE_RE.match(str(r["normalized"].get("date") or "")[:10])
+        )
         all_ts = sorted(r["normalized"]["timestamp"] for r in records if r["normalized"].get("timestamp"))
         period: dict[str, str] = {}
-        if len(all_ts) >= 2:
+        if len(all_dates) >= 2:
+            period = {"start": all_dates[0], "end": all_dates[-1]}
+        elif len(all_dates) == 1:
+            period = {"start": all_dates[0], "end": all_dates[0]}
+        elif len(all_ts) >= 2:
             period = {"start": all_ts[0][:10], "end": all_ts[-1][:10]}
         elif len(all_ts) == 1:
             period = {"start": all_ts[0][:10], "end": all_ts[0][:10]}
@@ -463,7 +472,7 @@ class BaseTableParser(DomainPlugin):
             },
         }
 
-    # ── Step 8: 构建 v2.0 输出 ──
+    # ── Step 8: Build v2.0 output ──
 
     def _build_output(
         self,
@@ -492,5 +501,19 @@ class BaseTableParser(DomainPlugin):
 
     @staticmethod
     def _detect_domain() -> str:
-        """检测业务域。"""
+        """Detect business domain."""
         return "cashflow_payment"
+
+
+def public_record_raw(raw: dict) -> dict:
+    """Strip parser-internal keys (prefixed with ``_``) from a raw record.
+
+    Returns a new dict containing only public-facing keys. Used when
+    serializing edition output to prevent internal metadata from leaking
+    into the consumer-facing ``raw`` field.
+
+    Example:
+        >>> public_record_raw({"_norm": {}, "amount": "100", "_style_id": "x"})
+        {"amount": "100"}
+    """
+    return {k: v for k, v in raw.items() if not k.startswith("_")}

@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _audit_report() -> dict:
-    script = ROOT / "scripts" / "audit_core_imports.py"
+    script = ROOT / "scripts" / "validate" / "audit_core_imports.py"
     out = ROOT / "reports" / "ccp_test_audit.json"
     subprocess.run(
         [sys.executable, str(script), "--json", str(out)],
@@ -52,7 +52,7 @@ def test_segment_zones_has_no_lazy_hub() -> None:
 
 
 def test_cps_layout_validator_passes() -> None:
-    script = ROOT / "scripts" / "validate_core_cps_layout.py"
+    script = ROOT / "scripts" / "validate" / "validate_core_cps_layout.py"
     result = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, cwd=ROOT)
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -71,38 +71,5 @@ def test_import_linter_contract() -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_page_pipeline_orchestrates_cps_stages() -> None:
-    from docmirror.core.pipeline.context import PageExtractionContext
-    from docmirror.core.pipeline.page_pipeline import PagePipeline
-
-    host = MagicMock()
-    ctx = MagicMock(spec=PageExtractionContext)
-    ctx.page_plum = MagicMock()
-    ctx.page_idx = 0
-    ctx.fitz_page = MagicMock()
-    ctx.fitz_page.rect.width = 612.0
-    ctx.fitz_page.rect.height = 792.0
-    ctx.extraction_profile = None
-    ctx.global_table_template = None
-    ctx.content_type = "table_dominant"
-    expected = (MagicMock(), ["ocr"], "pdfplumber_default", 0.9)
-
-    with (
-        patch("docmirror.core.pipeline.page_pipeline.run_prepare") as prep,
-        patch("docmirror.core.pipeline.page_pipeline.run_segment") as seg,
-        patch("docmirror.core.pipeline.page_pipeline.run_assemble_zones") as asm,
-        patch("docmirror.core.pipeline.page_pipeline.run_finalize") as fin,
-        patch("docmirror.core.pipeline.page_pipeline.PageExtractor") as pe_cls,
-    ):
-        prep.return_value = (ctx.page_plum, True, None)
-        seg.return_value = ([], False, 1.0)
-        asm.return_value = ([], [], False, "pdfplumber_default", 0.9, ["ocr"], [], 0.0, 0.0)
-        fin.return_value = expected
-        pe_cls.return_value._extract_page_styles.return_value = {}
-        result = PagePipeline(host).run(ctx)
-
-    prep.assert_called_once()
-    seg.assert_called_once()
-    asm.assert_called_once()
-    fin.assert_called_once()
-    assert result == expected
+def test_legacy_input_pipeline_removed() -> None:
+    assert not (ROOT / "docmirror" / "input" / "pipeline" / "legacy").exists()

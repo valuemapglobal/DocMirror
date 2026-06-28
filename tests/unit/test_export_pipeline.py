@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.table.compose.export_pipeline import compose_logical_export_from_layouts
+from docmirror.structure.tables.compose.export_pipeline import compose_logical_export_from_layouts
 from docmirror.models.entities.domain import Block, PageLayout
 
 

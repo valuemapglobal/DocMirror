@@ -9,9 +9,9 @@ DocMirror REST API — FastAPI application and HTTP endpoints.
 
 Exposes document upload and parse routes, health checks, and optional
 background task hooks. Uploads are written to a temp path, passed through
-``perceive_document()``, and returned using the standardized envelope defined
-in ``docmirror.server.schemas``. Multi-edition structured outputs can be
-generated through shared ``output_builder`` helpers when requested.
+``perceive_document()``, and returned as vNext mirror JSON. Multi-edition
+structured outputs can be generated through shared ``output_builder`` helpers
+when requested.
 """
 
 from __future__ import annotations
@@ -23,15 +23,15 @@ import os
 import shutil
 import time
 from pathlib import Path
-from dotenv import load_dotenv
 from tempfile import NamedTemporaryFile, gettempdir
 
+from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Body, FastAPI, File, Header, HTTPException, Query, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from docmirror import __version__
-from docmirror.core.entry.factory import PerceiveOptions, perceive_document
-from docmirror.core.entry.options import normalize_parse_control
+from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.input.entry.options import normalize_parse_control
 from docmirror.server.schemas import ParseResponse
 
 # Load .env from project root
@@ -80,7 +80,7 @@ async def _warmup_ocr_engine():
     First request otherwise pays ~500ms-2s for model loading.
     """
     try:
-        from docmirror.core.ocr.vision.rapidocr_engine import get_ocr_engine
+        from docmirror.structure.ocr.vision.rapidocr_engine import get_ocr_engine
 
         engine = get_ocr_engine()
         if engine:
@@ -183,9 +183,7 @@ async def parse_document(
             mirror_level=control.output.mirror_level,
         )
 
-        status_code = api_payload.get("code", 200)
-
-        return JSONResponse(status_code=status_code, content=api_payload)
+        return JSONResponse(status_code=200, content=api_payload)
 
     except Exception as e:
         logger.exception("[Server] Parse failed with uncaught exception")
@@ -214,7 +212,7 @@ async def batch_parse(
     from dataclasses import replace
 
     from docmirror.configs.runtime.performance import resolve_worker_budget
-    from docmirror.core.entry.options import ResourceControl
+    from docmirror.input.entry.options import ResourceControl
     from docmirror.server.output_builder import build_api_response
 
     _cpu_count = _mp.cpu_count()
@@ -259,8 +257,6 @@ async def batch_parse(
                 return payload
             except Exception as e:
                 return {
-                    "code": 500,
-                    "message": "error",
                     "file_name": f.filename,
                     "error": str(e),
                 }
@@ -268,7 +264,7 @@ async def batch_parse(
     results = await asyncio.gather(*[_process_one(f) for f in files], return_exceptions=True)
     results = [r for r in results if r is not None]
 
-    return JSONResponse(content={"code": 200, "message": "success", "data": results})
+    return JSONResponse(content={"results": results})
 
 
 @app.post("/v1/parse/file", tags=["Parsing"])
@@ -316,8 +312,107 @@ async def parse_file_on_server(
             include_text=include_text,
             mirror_level=control.output.mirror_level,
         )
-        status_code = api_payload.get("code", 200)
-        return JSONResponse(status_code=status_code, content=api_payload)
+        return JSONResponse(status_code=200, content=api_payload)
     except Exception as e:
         logger.exception("[Server] Parse file failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post(
+    "/v1/export/pdfua",
+    tags=["Export"],
+    summary="Export document as PDF/UA accessible document",
+)
+async def export_pdfua_endpoint(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(..., description="The document file to convert to accessible PDF"),
+    language: str = Query(default="en-US", description="Document language code"),
+    title: str | None = Query(default=None, description="Document title (defaults to detected type)"),
+    pdfua_version: str = Query(default="UA-1", pattern="^(UA-1|UA-2)$", description="PDF/UA version target"),
+    authorization: str | None = Header(default=None),
+):
+    """
+    Parse a document and return a tagged, accessible PDF/UA document.
+
+    Accepts any document format DocMirror supports (PDF, images, DOCX, etc.),
+    parses it into structured DMIR, then projects the structure onto a tagged
+    PDF/UA-compliant document using PyMuPDF's tagging API.
+
+    Requirements:
+    - Requires ``pip install docmirror[pdfua]`` (PyMuPDF >= 1.23.0)
+    - The output PDF includes reading order, heading levels, table structure,
+      and language metadata suitable for screen reader consumption.
+
+    Returns the tagged PDF as a binary file download.
+    """
+    _verify_api_key(authorization)
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided in upload")
+
+    # Save uploaded file to temp location
+    suffix = Path(file.filename).suffix
+    with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+        shutil.copyfileobj(file.file, temp_file)
+        temp_path = Path(temp_file.name)
+
+    background_tasks.add_task(cleanup_file, temp_path)
+
+    try:
+        from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+        from docmirror.input.entry.options import normalize_parse_control
+        from docmirror.output.dmir import serialize_dmir
+        from docmirror.output.exporters.pdfua import PdfUaVersion, export_pdfua
+
+        # Parse document
+        control = normalize_parse_control(mode="auto")
+        result = await perceive_document(temp_path, PerceiveOptions(control=control))
+
+        # Serialize to DMIR
+        dmir = serialize_dmir(result)
+
+        # Create output path next to the temp input
+        pdf_version = PdfUaVersion.PDFUA_2 if pdfua_version == "UA-2" else PdfUaVersion.PDFUA_1
+        output_path = temp_path.with_suffix(".pdfua.pdf")
+
+        # Export to tagged PDF
+        export_result = export_pdfua(
+            dmir,
+            output_path=str(output_path),
+            title=title,
+            language=language,
+            schema_version=pdf_version,
+        )
+
+        background_tasks.add_task(cleanup_file, output_path)
+
+        if not export_result.success:
+            error_detail = "; ".join(export_result.errors) if export_result.errors else "PDF/UA export failed"
+            raise HTTPException(status_code=500, detail=error_detail)
+
+        # Return the tagged PDF as a file download
+        media_type = "application/pdf"
+        download_name = f"{Path(file.filename).stem}_accessible.pdf"
+
+        return FileResponse(
+            path=str(output_path),
+            media_type=media_type,
+            filename=download_name,
+            headers={
+                "X-PDFUA-Version": pdfua_version,
+                "X-PDFUA-Page-Count": str(export_result.page_count),
+            },
+        )
+
+    except ImportError as e:
+        if "pdfua" in str(e) or "PyMuPDF" in str(e) or "fitz" in str(e):
+            raise HTTPException(
+                status_code=501,
+                detail="PDF/UA export requires docmirror[pdfua] extra: pip install docmirror[pdfua]",
+            )
+        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("[Server] PDF/UA export failed with uncaught exception")
         raise HTTPException(status_code=500, detail=str(e))

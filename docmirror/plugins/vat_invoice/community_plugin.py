@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from docmirror.plugins import DomainPlugin
+from docmirror.plugins._runtime.plugin_registry import DomainPlugin
 
 
 class VATInvoicePlugin(DomainPlugin):

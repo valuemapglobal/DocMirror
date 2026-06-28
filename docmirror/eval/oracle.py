@@ -46,7 +46,7 @@ def pdfplumber_full_page_sample_oracle(
     Matches the design-doc ``oracle_mode=pdfplumber_full_page_sample`` approach:
     sample N continuation-heavy pages, average data rows, extrapolate to ``num_pages``.
     """
-    from docmirror.core.extract.best_candidate import count_data_rows
+    from docmirror.structure.tables.best_candidate import count_data_rows
 
     path = Path(pdf_path)
     if not path.is_file():

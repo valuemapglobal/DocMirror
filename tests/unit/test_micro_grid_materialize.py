@@ -1,8 +1,8 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.core.ocr.micro_grid.materialize import extract_micro_grid_structures
-from docmirror.core.ocr.page_canvas.evidence_bundles import (
+from docmirror.structure.ocr.micro_grid.materialize import extract_micro_grid_structures
+from docmirror.structure.ocr.page_canvas.evidence_bundles import (
     domain_specific_with_page_bundles,
     materialize_micro_grids_from_bundles,
     micro_grid_structures_from_bundles,

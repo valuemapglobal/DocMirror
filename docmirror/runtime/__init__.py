@@ -42,6 +42,12 @@ from docmirror.runtime.metrics import (
     RuntimeMetrics,
     estimate_tokens,
 )
+from docmirror.runtime.progress_bus import (
+    ProgressBus,
+    ProgressCallback,
+    ProgressSignal,
+    PhaseWeight,
+)
 from docmirror.runtime.profiles import (
     COMPACT_PROFILE,
     FULL_PROFILE,
@@ -98,6 +104,11 @@ __all__ = [
     "MetricsCollector",
     "RuntimeMetrics",
     "estimate_tokens",
+    # progress_bus
+    "ProgressBus",
+    "ProgressCallback",
+    "ProgressSignal",
+    "PhaseWeight",
     # profiles
     "COMPACT_PROFILE",
     "FULL_PROFILE",

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.table.row_kind import (
+from docmirror.structure.tables.row_kind import (
     RowKind,
     classify_pipe_cells,
     classify_pipe_line,

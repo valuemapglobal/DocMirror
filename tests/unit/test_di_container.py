@@ -10,14 +10,14 @@ Tests for Dependency Injection Container
 
 import pytest
 
-from docmirror.di import (
+from docmirror.framework.di import (
     container,
     get_dispatcher,
     get_orchestrator,
     get_settings,
     reset_container,
 )
-from docmirror.di.container import DocMirrorContainer
+from docmirror.framework.di.container import DocMirrorContainer
 
 
 class TestDIContainer:
@@ -97,7 +97,7 @@ class TestDIContainer:
 
     def test_perception_factory_shares_dispatcher(self):
         """PerceptionFactory must delegate to the same dispatcher singleton."""
-        from docmirror.core.entry.factory import PerceptionFactory
+        from docmirror.input.entry.factory import PerceptionFactory
 
         assert PerceptionFactory.get_dispatcher() is get_dispatcher()
 

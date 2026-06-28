@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.core.ocr.local_structure import extract_local_structure_evidence
-from docmirror.core.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
+from docmirror.structure.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, TextBlock, TextLevel
 from docmirror.models.mirror.legacy_project import fold_legacy_mirror_document
 from docmirror.models.mirror.page_access import iter_page_regions
@@ -54,8 +54,8 @@ def test_fold_full_page_fixture_produces_field_grid_regions():
         ),
         pages=[PageContent(page_number=4, width=int(fixture["page_width"]), height=int(fixture["page_height"]))],
     )
-    api = pr.to_api_dict(mirror_level="standard")
-    doc = api["data"]["document"]
+    api = pr.to_mirror_json_vnext(mirror_level="standard")
+    doc = api
     regions = list(iter_page_regions(doc, 4))
     assert len(regions) >= 3
     kinds = {r.get("kind") for r in regions}
@@ -82,7 +82,7 @@ def test_api_page_flow_shape():
             )
         ],
     )
-    api = pr.to_api_dict(mirror_level="standard")
-    page = api["data"]["document"]["pages"][0]
+    api = pr.to_mirror_json_vnext(mirror_level="standard")
+    page = api["pages"][0]
     assert page["flow"]["texts"][0]["content"] == "line"
     assert "texts" not in page

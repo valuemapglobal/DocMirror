@@ -20,6 +20,7 @@ from pathlib import Path
 from tempfile import mkdtemp
 from typing import Any
 
+from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.server.task_result import task_result_from_manifest
 
 logger = logging.getLogger(__name__)
@@ -100,7 +101,7 @@ def write_four_files(
 
     written = 0
     try:
-        mirror_data = mirror.to_api_dict() if hasattr(mirror, "to_api_dict") else mirror
+        mirror_data = mirror.to_mirror_json_vnext() if hasattr(mirror, "to_mirror_json_vnext") else mirror
         (file_dir / "mirror.json").write_text(
             json.dumps(mirror_data, indent=2, ensure_ascii=False, default=str), encoding="utf-8"
         )
@@ -122,7 +123,6 @@ async def run_batch_parse_task(
 
     GA 1.0 Step 10: per-file timeout (300s) via asyncio.wait_for.
     """
-    from docmirror.core.entry.factory import perceive_document, PerceiveOptions
     from docmirror.errors.envelope import build_error_envelope
 
     inputs: list[dict] = []

@@ -10,7 +10,7 @@ from docmirror.models.entities.domain_result import DomainExtractionResult, Doma
 from docmirror.models.schemas.loader import validate_dec
 from docmirror.plugins._base.dec_builder import build_dec_kv
 from docmirror.plugins._base.table_dec import build_table_dec, serialize_table_plugin_output
-from docmirror.plugins.runner import _finalize_extract, _kv_community_payload
+from docmirror.plugins._runtime.runner import _finalize_extract, _kv_community_payload
 from docmirror.models.entities.parse_result import ParseResult
 
 

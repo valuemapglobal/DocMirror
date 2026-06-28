@@ -3,15 +3,15 @@
 
 import json
 
-from docmirror.core.ocr.micro_grid.cell_recognition import normalize_allowlist_text
-from docmirror.core.ocr.micro_grid.detect import detect_micro_grid_candidates
-from docmirror.core.ocr.micro_grid.models import OCRToken
+from docmirror.structure.ocr.micro_grid.cell_recognition import normalize_allowlist_text
+from docmirror.structure.ocr.micro_grid.detect import detect_micro_grid_candidates
+from docmirror.structure.ocr.micro_grid.models import OCRToken
 from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 from docmirror.server.edition_outputs import build_all_edition_outputs, write_four_files
 import docmirror.plugins.credit_report.repayment_grid as repayment_mod
 from docmirror.plugins.credit_report.repayment_grid import extract_credit_repayment_records, records_from_micro_grid_dict
-from docmirror.core.ocr.page_canvas.evidence_bundles import (
+from docmirror.structure.ocr.page_canvas.evidence_bundles import (
     domain_specific_with_page_bundles,
     materialize_micro_grids_from_bundles,
     merge_micro_grid_structures_into_bundles,
@@ -149,7 +149,7 @@ def test_credit_enrich_from_micro_grids_only_without_scanned_evidence():
         )
     )
     enriched = enrich_credit_report_output({"data": {}}, parse_result=pr)
-    assert _record_tuples(enriched["data"]["repayment_records"]) == _expected_repayment_tuples()
+    assert _record_tuples(enriched["repayment_records"]) == _expected_repayment_tuples()
 
 
 def test_credit_enrich_skips_smg_rebuild_when_structure_exists(monkeypatch):
@@ -171,7 +171,7 @@ def test_credit_enrich_skips_smg_rebuild_when_structure_exists(monkeypatch):
     )
     enriched = enrich_credit_report_output({"data": {}}, parse_result=pr)
     assert calls == []
-    assert _record_tuples(enriched["data"]["repayment_records"]) == _expected_repayment_tuples()
+    assert _record_tuples(enriched["repayment_records"]) == _expected_repayment_tuples()
 
 
 def test_credit_repayment_micro_grid_from_line_bboxes():
@@ -230,13 +230,13 @@ def test_allowlist_normalization_filters_ocr_noise():
 
 
 def test_repayment_mapper_is_credit_plugin_not_core_export():
-    import docmirror.core.ocr.micro_grid as micro_grid
+    import docmirror.structure.ocr.micro_grid as micro_grid
     import importlib
 
     assert "extract_credit_repayment_records" not in micro_grid.__all__
     assert not hasattr(micro_grid, "extract_credit_repayment_records")
     try:
-        importlib.import_module("docmirror.core.ocr.micro_grid.repayment")
+        importlib.import_module("docmirror.structure.ocr.micro_grid.repayment")
     except ModuleNotFoundError:
         pass
     else:
@@ -297,11 +297,11 @@ def test_forensic_api_exports_micro_grids_without_domain_semantics():
         )
     )
 
-    standard = pr.to_api_dict(mirror_level="standard")
-    forensic = pr.to_api_dict(mirror_level="forensic")
+    standard = pr.to_mirror_json_vnext(mirror_level="standard")
+    forensic = pr.to_mirror_json_vnext(mirror_level="forensic")
 
-    assert "repayment_records" not in standard["data"]["document"]
-    standard_grid = _micro_grid_structure_from_document(standard["data"]["document"])
+    assert "repayment_records" not in standard
+    standard_grid = _micro_grid_structure_from_document(standard)
     standard_cell = next(
         cell
         for row in standard_grid["cells"]
@@ -313,7 +313,7 @@ def test_forensic_api_exports_micro_grids_without_domain_semantics():
     assert standard_cell["bbox"]
     assert "token_ids" not in standard_cell
     assert "audit" not in standard_grid
-    forensic_grid = _micro_grid_structure_from_document(forensic["data"]["document"])
+    forensic_grid = _micro_grid_structure_from_document(forensic)
     assert forensic_grid["grid_type_hint"] == "credit_repayment_record"
 
 
@@ -330,7 +330,7 @@ def test_credit_plugin_maps_generic_scanned_micro_grid_evidence():
 
     assert [
         (r["year"], r["month"], r["status"], r["overdue_amount"])
-        for r in enriched["data"]["repayment_records"]
+        for r in enriched["repayment_records"]
     ] == [
         (2021, 1, "N", "0"),
         (2021, 2, "C", "0"),
@@ -353,11 +353,11 @@ def test_forensic_api_exports_generic_scanned_micro_grid_evidence_only():
         )
     )
 
-    standard = pr.to_api_dict(mirror_level="standard")
-    forensic = pr.to_api_dict(mirror_level="forensic")
+    standard = pr.to_mirror_json_vnext(mirror_level="standard")
+    forensic = pr.to_mirror_json_vnext(mirror_level="forensic")
 
-    assert "scanned_micro_grid_evidence" not in standard["data"]["document"]
-    forensic_doc = forensic["data"]["document"]
+    assert "scanned_micro_grid_evidence" not in standard
+    forensic_doc = forensic
     assert forensic_doc["scanned_ocr_pages"][0]["page"] == 4
     assert forensic_doc["scanned_ocr_pages"][0]["lines"]
     assert forensic_doc["scanned_ocr_pages"][0]["tokens"]
@@ -378,14 +378,14 @@ def test_four_file_forensic_mirror_includes_plugin_primed_micro_grids_without_se
 
     outputs = build_all_edition_outputs(pr, mirror_level="forensic")
 
-    document = outputs["mirror"]["data"]["document"]
+    document = outputs["mirror"]
     assert "repayment_records" not in document
     grid = _micro_grid_structure_from_document(document)
     assert grid["grid_type_hint"] == "credit_repayment_record"
     assert grid["cells"][0][0]["bbox"]
     page4 = next(p for p in document["pages"] if p.get("page_number") == 4)
     assert any(r.get("kind") == "micro_grid" for r in page4.get("regions") or [])
-    assert outputs["community"]["data"]["repayment_records"][0]["status"] == "N"
+    assert outputs["community"]["repayment_records"][0]["status"] == "N"
 
 
 def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
@@ -398,7 +398,7 @@ def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
 
     outputs = build_all_edition_outputs(pr, mirror_level="standard")
 
-    document = outputs["mirror"]["data"]["document"]
+    document = outputs["mirror"]
     grid = _micro_grid_structure_from_document(document)
     status_cell = next(
         cell
@@ -415,7 +415,7 @@ def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
     assert status_cell["text"] == "N"
     assert status_cell["bbox"]
     assert "token_ids" not in status_cell
-    assert outputs["community"]["data"]["repayment_records"][0]["status"] == "N"
+    assert outputs["community"]["repayment_records"][0]["status"] == "N"
 
 
 def test_write_four_files_forensic_mirror_includes_plugin_primed_micro_grids(tmp_path):
@@ -434,7 +434,7 @@ def test_write_four_files_forensic_mirror_includes_plugin_primed_micro_grids(tmp
     )
 
     mirror = json.loads(written["mirror"].read_text(encoding="utf-8"))
-    document = mirror["data"]["document"]
+    document = mirror
     assert "repayment_records" not in document
     grid = _micro_grid_structure_from_document(document)
     assert grid["grid_type_hint"] == "credit_repayment_record"

@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for compact bank ledger parsing (银座银行 layout)."""
+"""Unit tests for compact bank ledger parsing (bank layout)."""
 
 from __future__ import annotations
 

@@ -29,8 +29,8 @@ import filetype
 
 from docmirror.configs.format.models import UNKNOWN_CAPABILITY, FormatCapability
 from docmirror.configs.format.resolver import detect_transport, get_capability_by_transport, resolve_capability
-from docmirror.core.entry.options import ParseControl, normalize_parse_control
-from docmirror.core.pipeline.context import ParseContext
+from docmirror.input.entry.options import ParseControl, normalize_parse_control
+from docmirror.input.pipeline.context import ParseContext
 from docmirror.framework.base import BaseParser
 from docmirror.framework.execution_fingerprint import build_execution_fingerprint
 from docmirror.framework.extraction_runner import (
@@ -161,7 +161,7 @@ class ParserDispatcher:
         fallback: bool = True,
         document_type=None,
         skip_cache: bool = False,
-        on_progress=None,  # noqa: ARG002 — progress hook reserved
+        on_progress=None,  # Callable[[str, float, str], None] — progress hook (e.g. ProgressBus.emit)
         **kwargs,
     ) -> ParseResult:
         _t0 = time.time()
@@ -243,6 +243,7 @@ class ParserDispatcher:
         perceive_ctx["doc_type_hint_strength"] = (
             parse_control.doc_type_hint.strength if parse_control.doc_type_hint else None
         )
+        perceive_ctx["on_progress"] = on_progress
 
         # ── Cache Lookup ──
         cache_policy = parse_control.cache_policy

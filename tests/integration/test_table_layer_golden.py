@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.core.table.compose.composer import TableComposer
+from docmirror.structure.tables.compose.composer import TableComposer
 from docmirror.models.entities.domain import Block, PageLayout
 
 
@@ -66,27 +66,27 @@ class TestTableLayerAlipayFixture:
     def mirror_json(self):
         import asyncio
 
-        from docmirror.core.entry.factory import PerceiveOptions, perceive_document
+        from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 
         result = asyncio.run(
             perceive_document(ALIPAY_PDF, PerceiveOptions(skip_cache=True))
         )
-        return result.to_api_dict(mirror_level="standard")
+        return result.to_mirror_json_vnext(mirror_level="standard")
 
     def test_alipay_logical_table_row_count(self, mirror_json):
-        lt = mirror_json["data"]["document"].get("logical_tables", [])
+        lt = mirror_json.get("logical_tables", [])
         assert len(lt) >= 1
         assert lt[0]["row_count"] >= 1400
 
     def test_alipay_physical_tables_per_page(self, mirror_json):
         meta = mirror_json["meta"]
-        pages = mirror_json["data"]["document"]["pages"]
+        pages = mirror_json["pages"]
         assert meta["physical_table_count"] >= 40
         assert len(pages) >= 40
         pages_with_tables = sum(1 for p in pages if p.get("tables"))
         assert pages_with_tables >= 40
 
     def test_alipay_source_page_provenance(self, mirror_json):
-        lt = mirror_json["data"]["document"]["logical_tables"][0]
+        lt = mirror_json["logical_tables"][0]
         src_pages = {r["source_page"] for r in lt["rows"]}
         assert len(src_pages) >= 30

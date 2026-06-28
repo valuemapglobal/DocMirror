@@ -4,12 +4,12 @@
 import json
 from pathlib import Path
 
-from docmirror.core.ocr.page_canvas.build import (
+from docmirror.structure.ocr.page_canvas.build import (
     build_page_regions_for_page,
     region_from_micro_grid,
 )
-from docmirror.core.ocr.page_canvas.evidence_bundles import merge_micro_grid_structures_into_bundles
-from docmirror.core.ocr.page_canvas.models import PageCanvas, PageFlow, PageRegion
+from docmirror.structure.ocr.page_canvas.evidence_bundles import merge_micro_grid_structures_into_bundles
+from docmirror.structure.ocr.page_canvas.models import PageCanvas, PageFlow, PageRegion
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, TextBlock, TextLevel
 from docmirror.models.mirror.legacy_project import enrich_api_page_with_canvas, fold_legacy_mirror_document
 from docmirror.models.mirror.page_access import (
@@ -107,8 +107,8 @@ def test_parse_result_api_includes_page_regions():
         ),
     )
     pr.pages = [PageContent(page_number=4, width=100, height=200)]
-    api = pr.to_api_dict(mirror_level="standard")
-    doc = api["data"]["document"]
+    api = pr.to_mirror_json_vnext()
+    doc = api
     page = get_page_canvas(doc, 4)
     assert page is not None
     regions = list(iter_page_regions(doc, 4))
@@ -149,12 +149,12 @@ def test_pcm_mirror_omits_legacy_document_fields():
             domain_specific=ds,
         ),
     )
-    api = pr.to_api_dict(mirror_level="standard")
-    doc = api["data"]["document"]
+    api = pr.to_mirror_json_vnext()
+    doc = api
     assert "micro_grids" not in doc
     assert "_deprecated" not in doc
     assert list(iter_page_regions(doc, 4))
-    assert "pcm_legacy_shim" not in api["meta"]
+    assert "pcm_legacy_shim" not in api
     page = get_page_canvas(doc, 4)
     assert page is not None
     assert page.get("flow", {}).get("texts")
@@ -162,7 +162,7 @@ def test_pcm_mirror_omits_legacy_document_fields():
 
 
 def test_domain_access_prefers_bundles_for_local_structure_evidence():
-    from docmirror.core.ocr.page_canvas.evidence_bundles import (
+    from docmirror.structure.ocr.page_canvas.evidence_bundles import (
         domain_specific_with_page_bundles,
         merge_micro_grid_structures_into_bundles,
         page_evidence_bundle,

@@ -24,7 +24,7 @@ from typing import Any, Literal
 from ..configs.middleware.catalog import get_middleware_class, get_middleware_stage
 from ..configs.middleware.resolver import resolve_pipeline
 from ..configs.runtime.settings import DocMirrorSettings
-from ..middlewares import BaseMiddleware, MiddlewarePipeline
+from .middlewares import BaseMiddleware, MiddlewarePipeline
 from ..models.entities.parse_result import ParseResult, ResultStatus
 
 logger = logging.getLogger(__name__)
@@ -55,9 +55,18 @@ class Orchestrator:
         enhance_mode: Literal["raw", "standard", "full"] = "standard",
         file_type: str = "unknown",
         content_model: str = "",
+        on_progress: Callable[[str, float, str], None] | None = None,
         **_kwargs,
     ) -> ParseResult:
         t0 = time.time()
+        _on_progress = on_progress
+
+        # Emit middleware_pipeline at 0% — middleware phase begins
+        if _on_progress:
+            _on_progress(
+                "middleware_pipeline", 0.0,
+                "Running validation & enrichment middlewares...",
+            )
 
         logger.info(
             f"[Orchestrator] Pipeline ▶ mode={enhance_mode} | file_type={file_type} | "
@@ -82,7 +91,7 @@ class Orchestrator:
 
         if result.mutations:
             try:
-                from ..middlewares import MutationAnalyzer
+                from .middlewares import MutationAnalyzer
 
                 analyzer = MutationAnalyzer()
                 analysis = analyzer.analyze(result.mutations)
@@ -98,6 +107,13 @@ class Orchestrator:
             f"mutations={result.mutation_count} | "
             f"elapsed={elapsed:.0f}ms"
         )
+
+        # Emit middleware_pipeline at 100% — middleware phase complete
+        if _on_progress:
+            _on_progress(
+                "middleware_pipeline", 100.0,
+                "Middleware pipeline complete",
+            )
 
         return result
 

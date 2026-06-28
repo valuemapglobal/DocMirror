@@ -1,0 +1,63 @@
+name: Publish Benchmarks
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[all]"
+          pip install "unstructured[pdf]"
+          pip install opendataloader-pdf 2>/dev/null || echo "OpenDataLoader install skipped"
+
+      - name: Run OpenDataLoader baseline
+        run: |
+          python scripts/run_opendataloader_baseline.py \
+            --matrix docs/benchmarks/golden-matrix.json \
+            --output docs/benchmarks/competitors/
+
+      - name: Run benchmark matrix
+        run: |
+          python -m docmirror.eval.benchmark_runner \
+            --matrix docs/benchmarks/golden-matrix.json \
+            --output docs/benchmarks/results/
+
+      - name: Generate comparison table
+        run: |
+          python scripts/generate_benchmark_table.py \
+            --manifest docs/benchmarks/results/latest.json \
+            --competitors docs/benchmarks/competitors/ \
+            --release-tag ${GITHUB_REF_NAME} \
+            --output docs/benchmarks/BENCHMARKS.md
+
+      - name: Run competitor baselines
+        run: |
+          python scripts/benchmark_competitors.py \
+            --matrix docs/benchmarks/golden-matrix.json \
+            --output docs/benchmarks/competitors/
+
+      - name: Regenerate comparison table with baselines
+        run: |
+          python scripts/generate_benchmark_table.py \
+            --manifest docs/benchmarks/results/latest.json \
+            --competitors docs/benchmarks/competitors/ \
+            --release-tag ${GITHUB_REF_NAME} \
+            --output docs/benchmarks/BENCHMARKS.md
+
+      - name: Extract overall F1 for README badge
+        run: |
+          F1=$(python scripts/extract_overall_f1.py docs/benchmarks/results/latest.json)
+          echo "OVERALL_F1=${F1}" >> $GITHUB_ENV
+
+      - name: Deploy benchmark page
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          publish_dir: docs/benchmarks/
+          destination_dir: benchmarks/
+          keep_files: false

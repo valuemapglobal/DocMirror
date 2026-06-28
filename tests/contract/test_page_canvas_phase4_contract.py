@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 
-from docmirror.core.ocr.page_canvas.evidence_bundles import (
+from docmirror.structure.ocr.page_canvas.evidence_bundles import (
     domain_specific_with_page_bundles,
     merge_micro_grid_structures_into_bundles,
     page_evidence_bundle,
@@ -62,8 +62,8 @@ def test_phase4_standard_mirror_shape():
             domain_specific=ds,
         ),
     )
-    api = pr.to_api_dict(mirror_level="standard")
-    doc = api["data"]["document"]
+    api = pr.to_mirror_json_vnext(mirror_level="standard")
+    doc = api
 
     assert "micro_grids" not in doc
     assert "_deprecated" not in doc
@@ -84,8 +84,8 @@ def test_phase4_forensic_strips_duplicate_evidence_structures():
             domain_specific=_structure_bundle_domain(),
         ),
     )
-    api = pr.to_api_dict(mirror_level="forensic", include_text=False)
-    doc = api["data"]["document"]
+    api = pr.to_mirror_json_vnext(mirror_level="forensic", include_text=False)
+    doc = api
     evidence = (doc.get("scanned_local_structure_evidence") or [])[0]
     assert evidence.get("structures_in_regions") is True
     assert "structures" not in evidence

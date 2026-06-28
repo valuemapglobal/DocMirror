@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 
-from docmirror.core.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+from docmirror.structure.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult
 
 
@@ -39,9 +39,9 @@ def test_forensic_mirror_strips_inline_ocr_from_evidence():
             domain_specific=domain_specific_with_page_bundles(_large_bundle()),
         ),
     )
-    api = pr.to_api_dict(mirror_level="forensic", include_text=False)
+    api = pr.to_mirror_json_vnext(mirror_level="forensic", include_text=False)
     payload = json.dumps(api, ensure_ascii=False)
-    doc = api["data"]["document"]
+    doc = api
     smg = doc.get("scanned_micro_grid_evidence") or []
     assert smg and "lines" not in smg[0] and "tokens" not in smg[0]
     assert doc.get("scanned_ocr_pages")

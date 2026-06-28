@@ -1,8 +1,8 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.core.ocr.local_structure.utils import line_items
-from docmirror.core.ocr.page_canvas.page_segment import (
+from docmirror.structure.ocr.local_structure.utils import line_items
+from docmirror.structure.ocr.page_canvas.page_segment import (
     _first_grid_boundary_y,
     detect_pre_grid_field_supplements,
     grid_anchor_top_from_lines,

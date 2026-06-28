@@ -2,10 +2,11 @@
 
 """Unit tests for TableComposer and cross-page merge group planning."""
 
-from docmirror.core.table.compose.composer import TableComposer
-from docmirror.core.table.merge.merger import collect_cross_page_merge_groups
 from docmirror.models.entities.domain import Block, PageLayout
 from docmirror.models.entities.layout_profile import LayoutProfile
+from docmirror.models.entities.parse_result import CellValue, PageContent, TableBlock, TableRow
+from docmirror.structure.fusion import collect_cross_page_merge_groups
+from docmirror.structure.tables.compose.composer import TableComposer
 
 
 def _page(page_number: int, rows: list[list[str]]) -> PageLayout:
@@ -73,6 +74,21 @@ class TestTableComposer:
         assert logical[0].rows[1].source_physical_id == "pt_2_0"
         assert logical[0].merge_method == "cross_page_continuation"
 
+    def test_page_content_merge_audit_uses_stable_column_boundaries(self):
+        pages = [
+            _content_page(1, shift=0.0),
+            _content_page(2, shift=2.0),
+        ]
+        logical = TableComposer().compose(pages)
+        assert len(logical) == 1
+        assert logical[0].merge_method == "cross_page_continuation"
+        assert logical[0].merge_audit
+        assert any(
+            "Column boundaries stable" in reason
+            for item in logical[0].merge_audit
+            for reason in item["reasons"]
+        )
+
     def test_preserves_quarantined_merge_group_as_standalone_logical(self):
         header = ["A", "B", "C", "D", "E", "F", "G", "H"]
         pages = [
@@ -85,3 +101,27 @@ class TestTableComposer:
         assert logical[1].merge_method == "quarantine_standalone"
         assert logical[1].quality_passed is False
         assert logical[1].source_pages == [2]
+
+
+def _content_page(page_number: int, *, shift: float) -> PageContent:
+    headers = ["交易日期", "摘要", "借方发生额"]
+    cells = []
+    for index, text in enumerate(["2026-01-01", "转账", "100.00"]):
+        x0 = shift + index * 60.0
+        cells.append(
+            CellValue(
+                text=text,
+                row_index=0,
+                col_index=index,
+                bbox=[x0, 0.0, x0 + 50.0, 10.0],
+            )
+        )
+    return PageContent(
+        page_number=page_number,
+        tables=[
+            TableBlock(
+                headers=headers,
+                rows=[TableRow(cells=cells, source_page=page_number)],
+            )
+        ],
+    )

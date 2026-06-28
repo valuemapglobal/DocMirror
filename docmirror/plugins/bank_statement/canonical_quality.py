@@ -33,9 +33,9 @@ def canonical_expected_from_parse_result(parse_result: Any) -> int:
     """Expected canonical rows — LTQG sum(passed) SSOT when enabled."""
     if parse_result is None:
         return 0
-    from docmirror.core.analyze.spe_consumer import read_ltqg_summary, read_structure_spe
-    from docmirror.core.table.access import get_logical_tables
-    from docmirror.core.table.compose.ledger_quality import sum_passed_data_row_estimates
+    from docmirror.structure.analysis.spe_consumer import read_ltqg_summary, read_structure_spe
+    from docmirror.structure.tables.access import get_logical_tables
+    from docmirror.structure.tables.compose.ledger_quality import sum_passed_data_row_estimates
 
     spe = read_structure_spe(parse_result)
     summary = read_ltqg_summary(spe, parse_result)
@@ -46,7 +46,7 @@ def canonical_expected_from_parse_result(parse_result: Any) -> int:
     if logical_tables:
         return sum_passed_data_row_estimates(logical_tables)
 
-    from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows
+    from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows
 
     return mirror_expected_primary_rows(parse_result, spe)
 

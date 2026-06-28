@@ -18,7 +18,7 @@ source .venv/bin/activate  # Linux/macOS
 pip install -e ".[dev,all]"
 
 # Verify setup
-pytest tests/ -v
+pytest tests/smoke/ -v    # Quick smoke tests (no fixtures needed)
 ```
 
 ## Development Workflow
@@ -34,9 +34,14 @@ pytest tests/ -v
    ```bash
    ruff check docmirror/          # Lint
    ruff format docmirror/         # Format
-   pytest tests/ -v               # Tests (1090+ test cases, 298 test files)
+   pytest tests/smoke/ -v         # Quick smoke tests (no fixtures needed)
+   pytest tests/unit/ -q -m "not tier_slow"  # Unit tests (most require no fixtures)
    python scripts/run_quality_gate.py --profile standard  # Quality gates
    ```
+
+   > **Note on test fixtures**: `tests/fixtures/` and `tests/golden/` are gitignored
+   > (private/sensitive real-world documents). If you need the full test suite,
+   > contact the DocMirror team to request access. See `tests/README.md` for details.
 
 4. **Commit** with [Conventional Commits](https://www.conventionalcommits.org/):
    ```

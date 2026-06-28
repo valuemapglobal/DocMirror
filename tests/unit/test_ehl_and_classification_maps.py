@@ -11,7 +11,7 @@ from docmirror.configs.classification.rules_loader import (
     categories_with_scene_maps,
     get_maps_to_scenes,
 )
-from docmirror.core.scene.evidence_engine import Evidence
+from docmirror.structure.scene.evidence_engine import Evidence
 from docmirror.models.ehl import attach_classification_annex, evidence_items_to_hypotheses
 from docmirror.models.entities.parse_result import ParseResult
 

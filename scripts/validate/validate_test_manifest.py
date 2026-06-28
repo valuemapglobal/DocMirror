@@ -100,6 +100,11 @@ def validate_manifest_file(path: Path) -> list[str]:
                 or oracle.get("pcm_finance")
                 or oracle.get("bank_statement")
                 or oracle.get("mode")
+                or oracle.get("reading_order")
+                or oracle.get("section_tree")
+                or oracle.get("cross_page")
+                or oracle.get("artifacts")
+                or oracle.get("quality")
             )
         )
         if (

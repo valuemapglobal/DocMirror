@@ -9,25 +9,25 @@ orphan_modules:
   - docmirror.plugins.post_extract.hooks.credit_sections
   - docmirror.plugins.post_extract.hooks.trust_projection
   - docmirror.plugins.post_extract.hooks.mirror_table_rebuild
-  # MEP shim (catalog points at core.scene.evidence_engine)
-  - docmirror.middlewares.classification.evidence_engine
+  # MEP shim (catalog points at structure.scene.evidence_engine)
+  - docmirror.framework.middlewares.classification.evidence_engine
   # Reserved / stub modules — keep until wired or removed in a dedicated PR
-  - docmirror.adapters.pdf.security_gate
-  - docmirror.core.extract.extraction_hint
-  - docmirror.core.extraction.provenance_stamps
-  - docmirror.core.ocr.vision.seal_detector
-  - docmirror.core.output.markdown_exporter
-  - docmirror.core.output.visualizer
-  - docmirror.core.utils.image_preprocessor
-  - docmirror.core.utils.quality_assessor
-  - docmirror.core.utils.re_certificate_preprocessor
+  - docmirror.input.adapters.pdf.security_gate
+  - docmirror.structure.tables.extraction_hint
+  - docmirror.input.extraction.provenance_stamps
+  - docmirror.structure.ocr.vision.seal_detector
+  - docmirror.output.internal.markdown_exporter
+  - docmirror.output.internal.visualizer
+  - docmirror.structure.utils.image_preprocessor
+  - docmirror.structure.utils.quality_assessor
+  - docmirror.structure.utils.re_certificate_preprocessor
   - docmirror.exporters.sql_orm
   - docmirror.server.classify_service
   # Ledger table utilities referenced in design docs / future hooks
-  - docmirror.core.table.column_anchor
-  - docmirror.core.table.projection
-  - docmirror.core.table.table_splitter
-  - docmirror.core.table.wrap_recovery
+  - docmirror.structure.tables.column_anchor
+  - docmirror.structure.tables.projection
+  - docmirror.structure.tables.table_splitter
+  - docmirror.structure.tables.wrap_recovery
 
 vulture:
   # Protocol / framework callbacks invoked dynamically

@@ -4,7 +4,7 @@
 """
 Physical layout model re-export shim.
 
-Canonical implementations live in ``docmirror.core.physical.models``. This
+Canonical implementations live in ``docmirror.models.entities.physical``. This
 module re-exports them at the models layer boundary so callers following
 design 09 §4.6 import physical types from ``docmirror.models.entities.domain``
 without depending on the core package path directly.
@@ -12,7 +12,7 @@ without depending on the core package path directly.
 Exports: ``Style``, ``TextSpan``, ``Block``, ``PageLayout``, ``BaseResult``.
 """
 
-from docmirror.core.physical.models import (
+from docmirror.models.entities.physical import (
     BaseResult,
     Block,
     PageLayout,

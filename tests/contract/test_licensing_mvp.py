@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from docmirror.plugins.licensing.entitlements import demo_features
+from docmirror.plugins._runtime.licensing.entitlements import demo_features
 
 
 def test_demo_features_match_premium_pattern_or_literals():

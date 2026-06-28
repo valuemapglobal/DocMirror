@@ -20,6 +20,7 @@ Usage::
     docmirror plugins community         # Show community 6+1 plugin set
     docmirror plugins enable <name>     # Enable a plugin
     docmirror plugins license show      # Display license status
+    docmirror mcp [--transport stdio|sse]  # Start MCP server
 """
 
 from __future__ import annotations
@@ -27,12 +28,14 @@ from __future__ import annotations
 import asyncio
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 
 import click
+from dotenv import load_dotenv
 
 from docmirror.cli.benchmark import benchmark
 from docmirror.cli.classify import classify
+from docmirror.cli.mcp import mcp
+from docmirror.cli.pdfua import pdfua
 from docmirror.cli.plugins import plugins
 
 # Load .env from project root
@@ -41,7 +44,7 @@ load_dotenv(_env_root / '.env', override=False)
 
 @click.group()
 
-@click.version_option(version="0.4.0", prog_name="DocMirror")
+@click.version_option(version="1.0.0", prog_name="DocMirror")
 def main():
     """DocMirror - Universal Document Parsing Engine.
 
@@ -54,6 +57,8 @@ def main():
 main.add_command(plugins)
 main.add_command(classify)
 main.add_command(benchmark)
+main.add_command(mcp)
+main.add_command(pdfua)
 
 
 @main.command()
@@ -112,8 +117,8 @@ main.add_command(benchmark)
 @click.option(
     "--mirror-level",
     default=None,
-    type=click.Choice(["standard", "forensic"]),
-    help="Mirror output level: standard/forensic",
+    type=click.Choice(["standard", "compact", "forensic"]),
+    help="Mirror output level: standard/compact/forensic",
 )
 @click.option(
     "--geometry",
@@ -134,7 +139,7 @@ main.add_command(benchmark)
 )
 @click.option("--overwrite", is_flag=True, help="Allow overwriting an explicit --run-id output directory")
 @click.option("--run-id", default=None, help="Explicit run/task id for output directory")
-@click.option("--slm", is_flag=True, help="Enable SLM extraction")
+# --slm removed in v1.1 — superseded by LlmDocumentRestorer
 def parse(
     file,
     output_dir,
@@ -160,14 +165,11 @@ def parse(
     log_level,
     overwrite,
     run_id,
-    slm,
 ):
     """Parse a document and save results."""
     import logging
 
     logging.basicConfig(level=getattr(logging, log_level.upper(), logging.INFO))
-    if slm:
-        os.environ["DOCMIRROR_ENABLE_SLM"] = "1"
     resolved_skip_cache = cache_policy in {"refresh", "off"}
 
     from docmirror.__main__ import discover_inputs, parse_document
@@ -207,7 +209,6 @@ def parse(
                 include_geometry=None,
                 run_id=run_id,
                 overwrite=overwrite,
-                slm=slm,
             )
         )
         return
@@ -241,7 +242,6 @@ def parse(
                 geometry=geometry,
                 include_geometry=None,
                 overwrite=overwrite,
-                slm=slm,
             )
 
     asyncio.run(_parse_many())

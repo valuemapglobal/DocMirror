@@ -9,7 +9,7 @@ import importlib
 
 import pytest
 
-from docmirror.plugins.community import (
+from docmirror.plugins._runtime.community import (
     community_plugin_module,
     find_premium_community_plugin,
     get_community_premium_domains,

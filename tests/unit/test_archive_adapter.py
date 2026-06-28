@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from docmirror.adapters.archive.archive import (
+from docmirror.input.adapters.archive.archive import (
     ArchivePasswordProtectedError,
     _collect_document_paths,
     _extract_archive,
@@ -39,7 +39,7 @@ def test_extract_password_protected_zip(tmp_path: Path):
     dest.mkdir()
 
     with patch(
-        "docmirror.adapters.archive.archive.zip_requires_password",
+        "docmirror.input.adapters.archive.archive.zip_requires_password",
         return_value=True,
     ):
         with pytest.raises(ArchivePasswordProtectedError):
@@ -58,7 +58,7 @@ def test_extract_runtime_password_error(tmp_path: Path):
         raise RuntimeError("File is encrypted, password required for extraction")
 
     with patch(
-        "docmirror.adapters.archive.archive._safe_extract_zip",
+        "docmirror.input.adapters.archive.archive._safe_extract_zip",
         side_effect=_raise_encrypted,
     ):
         with pytest.raises(ArchivePasswordProtectedError):

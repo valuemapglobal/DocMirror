@@ -64,9 +64,29 @@ docmirror_finance/
 ## Local-only test inputs & golden expected outputs
 tests/fixtures/
 tests/golden/
+!tests/golden/
+tests/golden/*
+!tests/golden/udtr/
+tests/golden/udtr/*
+!tests/golden/udtr/manifest.example.json
+
+## Internal design documents (not part of public OSS)
+docs/design/
 
 ## Additional privacy guards
 *.log
 credentials/
 secrets/
 tests/fixtures-private/
+.deepseek/
+
+## Node.js
+node_modules/
+
+## Java
+target/
+.gradle/
+build/
+*.class
+*.jar
+*.war

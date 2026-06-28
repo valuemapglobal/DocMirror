@@ -1,9 +1,9 @@
-"""Tests for cross-page table predictor (道法自然 · 第十六重境界)."""
+"""Tests for cross-page table predictor."""
 from __future__ import annotations
 
 import pytest
 
-from docmirror.core.table.cross_page_predictor import (
+from docmirror.structure.tables.cross_page_predictor import (
     CrossPageTablePredictor,
     NextPagePrediction,
     TruncationInfo,
@@ -100,7 +100,7 @@ class TestCrossPageTablePredictor:
 
         assert validation.is_valid is True
         assert validation.score >= 0.8
-        assert "列数完全匹配" in validation.reasons
+        assert "Column count exact match" in validation.reasons
 
     def test_validate_merge_col_mismatch(self):
         """Test validation with column mismatch."""
@@ -116,7 +116,7 @@ class TestCrossPageTablePredictor:
         validation = predictor.validate_merge(truncation, next_result)
 
         assert validation.is_valid is False  # 列数差异过大
-        assert any("列数差异" in r for r in validation.reasons)
+        assert any("Column count diff too large" in r for r in validation.reasons)
 
     def test_validate_merge_partial_match(self):
         """Test validation with partial match."""
@@ -133,14 +133,37 @@ class TestCrossPageTablePredictor:
 
         # Should have warning about column difference
         assert validation.score >= 0.3  # 降低阈值
-        assert any("差异1" in w for w in validation.warnings)
+        assert any("Column count diff of 1" in w for w in validation.warnings)
+
+    def test_validate_table_row_boundary_merge_stable(self):
+        """Median boundary verification passes when cross-page geometry is stable."""
+        predictor = CrossPageTablePredictor()
+        prev_rows = [_bbox_row(["A", "B", "C"], 0)]
+        next_rows = [_bbox_row(["1", "2", "3"], 2)]
+
+        validation = predictor.validate_table_row_boundary_merge(prev_rows, next_rows)
+
+        assert validation.is_valid is True
+        assert validation.score >= 0.85
+        assert any("Column boundaries stable" in reason for reason in validation.reasons)
+
+    def test_validate_table_row_boundary_merge_flags_drift(self):
+        """Median boundary verification flags pages whose columns drift too far."""
+        predictor = CrossPageTablePredictor()
+        prev_rows = [_bbox_row(["A", "B", "C"], 0)]
+        next_rows = [_bbox_row(["1", "2", "3"], 20)]
+
+        validation = predictor.validate_table_row_boundary_merge(prev_rows, next_rows)
+
+        assert validation.is_valid is False
+        assert any("Column boundary deviation too large" in warning for warning in validation.warnings)
 
     def test_reset(self):
         """Test reset functionality."""
         predictor = CrossPageTablePredictor()
         truncation = TruncationInfo(col_count=5)
-        # 不record_truncation，直接predict
-        prediction = predictor.predict_next_page(truncation)
+        # Don't record truncation, predict directly
+        predictor.predict_next_page(truncation)
 
         predictor.reset()
 
@@ -153,8 +176,8 @@ class TestCrossPageTablePredictor:
 
         for i in range(3):
             truncation = TruncationInfo(col_count=5, page_idx=i)
-            # 不record_truncation，直接predict
-            prediction = predictor.predict_next_page(truncation)
+            # Don't record truncation, predict directly
+            predictor.predict_next_page(truncation)
 
         history = predictor.get_prediction_history()
         assert len(history) == 3
@@ -254,3 +277,20 @@ def mock_extraction_result():
             self.structured_data = [MockTable()]
 
     return MockResult()
+
+
+def _bbox_row(values: list[str], shift: float):
+    from docmirror.models.entities.parse_result import CellValue, TableRow
+
+    cells = []
+    for index, value in enumerate(values):
+        x0 = shift + index * 50.0
+        cells.append(
+            CellValue(
+                text=value,
+                row_index=0,
+                col_index=index,
+                bbox=[x0, 0.0, x0 + 40.0, 10.0],
+            )
+        )
+    return TableRow(cells=cells)

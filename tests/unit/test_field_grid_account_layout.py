@@ -4,7 +4,7 @@
 import json
 from pathlib import Path
 
-from docmirror.core.ocr.local_structure import extract_local_structure_evidence
+from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
 from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
 
 _FIXTURE = Path("tests/fixtures/scanned/account_card_page4_layout.json")
@@ -59,7 +59,7 @@ def test_field_grid_account_mapper_improves_key_fields():
 
 
 def test_field_grid_disabled_falls_back_to_label_value_graph(monkeypatch):
-    import docmirror.core.ocr.local_structure.build as build_mod
+    import docmirror.structure.ocr.local_structure.build as build_mod
 
     monkeypatch.setattr(build_mod, "ENABLE_FIELD_GRID", False)
     fixture = _load_fixture()

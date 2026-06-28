@@ -47,7 +47,7 @@ class TypedSpan:
     @classmethod
     def of(cls, field_key: str, field_value: str) -> TypedSpan:
         """Build TypedSpan by calling type_gate.infer_types on the value."""
-        from docmirror.core.ocr.field_grid.type_gate import infer_types
+        from docmirror.structure.ocr.field_grid.type_gate import infer_types
 
         inferred = infer_types(field_value)
         if not field_value or not field_value.strip():

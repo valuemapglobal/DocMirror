@@ -12,9 +12,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from docmirror.adapters.archive.archive import ArchiveAdapter
-from docmirror.adapters.image.image import ImageAdapter
-from docmirror.adapters.pdf.pdf import PDFAdapter
+from docmirror.input.adapters.archive.archive import ArchiveAdapter
+from docmirror.input.adapters.image.image import ImageAdapter
+from docmirror.input.adapters.pdf.pdf import PDFAdapter
 from docmirror.configs.format.resolver import _extension_candidates, resolve_capability
 from docmirror.framework.dispatcher import ParserDispatcher
 from docmirror.framework.extraction_runner import run_extraction_chain

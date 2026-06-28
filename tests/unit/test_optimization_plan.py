@@ -15,11 +15,11 @@ def test_mirror_quality_metric_layering():
 
     pr = ParseResult(status=ResultStatus.SUCCESS, confidence=0.82)
     pr.trust = TrustResult(trust_score=0.91, validation_passed=True, forgery_reasons=[])
-    api = pr.to_api_dict()
-    quality = api["data"]["quality"]
-    assert quality["classification"]["confidence"] == 0.82
-    assert quality["mirror_fidelity"]["score"] == 0.91
-    assert quality["trust_score"] == 0.91
+    api = pr.to_mirror_json_vnext()
+    quality = api["quality"]
+    assert quality["overall"]["score"] == 1.0
+    assert quality["overall"]["status"] == "pass"
+    assert "data" not in api
 
 
 def test_semantic_worker_budget_boosts_heavy_documents():
@@ -69,16 +69,3 @@ def test_projection_schema_runtime_validation():
 
     assert valid.valid is True
     assert invalid.valid is False
-
-
-def test_reasoning_layer_noop_report_is_read_only():
-    from docmirror.core.reasoning import NoOpReasoner
-    from docmirror.models.entities.parse_result import ParseResult, ResultStatus
-
-    mirror = ParseResult(status=ResultStatus.SUCCESS)
-    before = mirror.model_dump_json()
-
-    report = NoOpReasoner().explain(mirror, {"community": {"edition": "community"}})
-
-    assert report.to_dict()["summary"] == ""
-    assert mirror.model_dump_json() == before

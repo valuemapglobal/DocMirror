@@ -13,8 +13,8 @@ import pytest
 
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus
 from docmirror.models.entities.parse_result import TextBlock
-from docmirror.plugins.post_extract.hooks.credit_sections import CreditReportSectionsHook
-from docmirror.plugins.runner import run_plugin_extract_sync
+from docmirror.plugins._runtime.post_extract.hooks.credit_sections import CreditReportSectionsHook
+from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
 pytest.importorskip("docmirror_enterprise")
 
@@ -73,7 +73,7 @@ def test_credit_report_sections_hook_attaches_sections_to_edition():
 
 
 def test_bank_table_rebuild_hook_with_transactions():
-    from docmirror.plugins.post_extract.hooks.mirror_table_rebuild import MirrorTableRebuildHook
+    from docmirror.plugins._runtime.post_extract.hooks.mirror_table_rebuild import MirrorTableRebuildHook
     from docmirror.models.entities.parse_result import TableBlock, TableRow, CellValue, RowType
 
     page = PageContent(

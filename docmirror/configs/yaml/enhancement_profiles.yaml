@@ -9,7 +9,7 @@ profiles:
     raw: []
     standard:
       stages:
-        ENRICH: [EntityExtractor]
+        ENRICH: [EntityExtractor, GeometricReconstructor, LlmDocumentRestorer]
         CLASSIFY: [EvidenceEngine]
         CONTEXT: [InstitutionDetector]
         VALIDATE: [Validator]

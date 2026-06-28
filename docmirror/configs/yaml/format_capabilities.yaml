@@ -34,7 +34,7 @@ capabilities:
     content_model: fixed_layout_rasterizable
     extensions: [.pdf]
     binding:
-      adapter: docmirror.adapters.PDFAdapter
+      adapter: docmirror.input.adapters.PDFAdapter
     status: supported
 
   - id: xps_fixed_layout
@@ -43,7 +43,7 @@ capabilities:
     extensions: [.xps]
     binding:
       transcode: { tool: libreoffice, target: pdf }
-      adapter: docmirror.adapters.PDFAdapter
+      adapter: docmirror.input.adapters.PDFAdapter
     status: supported
 
   - id: image_raster
@@ -52,9 +52,9 @@ capabilities:
     extensions: [.png, .jpg, .jpeg, .tiff, .tif, .bmp]
     mime_prefix: image/
     binding:
-      adapter: docmirror.adapters.PDFAdapter
+      adapter: docmirror.input.adapters.PDFAdapter
       fallback:
-        adapter: docmirror.adapters.ImageAdapter
+        adapter: docmirror.input.adapters.ImageAdapter
         when: primary_empty
     status: supported
 
@@ -63,7 +63,7 @@ capabilities:
     content_model: fixed_layout_rasterizable
     extensions: [.ofd]
     binding:
-      adapter: docmirror.adapters.OFDAdapter
+      adapter: docmirror.input.adapters.OFDAdapter
     status: supported
 
   # ── P0: office ──
@@ -72,7 +72,7 @@ capabilities:
     content_model: markup_narrative
     extensions: [.docx]
     binding:
-      adapter: docmirror.adapters.WordAdapter
+      adapter: docmirror.input.adapters.WordAdapter
     status: supported
 
   - id: word_legacy_doc
@@ -81,7 +81,7 @@ capabilities:
     extensions: [.doc]
     binding:
       transcode: { tool: libreoffice, target: pdf, on_missing: FORMAT_REQUIRES_CONVERTER }
-      adapter: docmirror.adapters.PDFAdapter
+      adapter: docmirror.input.adapters.PDFAdapter
     status: supported
 
   - id: word_rtf
@@ -90,7 +90,7 @@ capabilities:
     extensions: [.rtf]
     binding:
       transcode: { tool: libreoffice, target: docx, on_missing: FORMAT_REQUIRES_CONVERTER }
-      adapter: docmirror.adapters.WordAdapter
+      adapter: docmirror.input.adapters.WordAdapter
     status: supported
 
   - id: wps_word
@@ -104,7 +104,7 @@ capabilities:
     content_model: tabular_native
     extensions: [.xlsx]
     binding:
-      adapter: docmirror.adapters.ExcelAdapter
+      adapter: docmirror.input.adapters.ExcelAdapter
     status: supported
 
   - id: excel_xls
@@ -113,7 +113,7 @@ capabilities:
     extensions: [.xls]
     binding:
       transcode: { tool: libreoffice, target: xlsx, on_missing: FORMAT_REQUIRES_CONVERTER }
-      adapter: docmirror.adapters.ExcelAdapter
+      adapter: docmirror.input.adapters.ExcelAdapter
     status: supported
 
   - id: excel_csv
@@ -121,7 +121,7 @@ capabilities:
     content_model: tabular_native
     extensions: [.csv]
     binding:
-      adapter: docmirror.adapters.ExcelAdapter
+      adapter: docmirror.input.adapters.ExcelAdapter
     status: supported
 
   - id: wps_excel
@@ -135,7 +135,7 @@ capabilities:
     content_model: markup_narrative
     extensions: [.pptx]
     binding:
-      adapter: docmirror.adapters.PPTAdapter
+      adapter: docmirror.input.adapters.PPTAdapter
     status: supported
 
   - id: ppt_legacy
@@ -144,7 +144,7 @@ capabilities:
     extensions: [.ppt]
     binding:
       transcode: { tool: libreoffice, target: pdf, on_missing: FORMAT_REQUIRES_CONVERTER }
-      adapter: docmirror.adapters.PDFAdapter
+      adapter: docmirror.input.adapters.PDFAdapter
     status: supported
 
   - id: wps_ppt
@@ -159,7 +159,7 @@ capabilities:
     content_model: markup_narrative
     extensions: [.eml]
     binding:
-      adapter: docmirror.adapters.EmailAdapter
+      adapter: docmirror.input.adapters.EmailAdapter
     status: supported
 
   - id: email_msg
@@ -168,7 +168,7 @@ capabilities:
     extensions: [.msg]
     binding:
       transcode: { tool: extract_msg, target: eml, on_missing: FORMAT_REQUIRES_CONVERTER }
-      adapter: docmirror.adapters.EmailAdapter
+      adapter: docmirror.input.adapters.EmailAdapter
     status: supported
 
   - id: web_html
@@ -176,7 +176,7 @@ capabilities:
     content_model: markup_narrative
     extensions: [.html, .htm]
     binding:
-      adapter: docmirror.adapters.WebAdapter
+      adapter: docmirror.input.adapters.WebAdapter
     status: supported
 
   - id: web_mhtml
@@ -185,7 +185,7 @@ capabilities:
     extensions: [.mhtml]
     binding:
       transcode: { tool: internal, target: html }
-      adapter: docmirror.adapters.WebAdapter
+      adapter: docmirror.input.adapters.WebAdapter
     status: supported
 
   - id: structured_json
@@ -193,7 +193,7 @@ capabilities:
     content_model: interchange_structured
     extensions: [.json]
     binding:
-      adapter: docmirror.adapters.StructuredAdapter
+      adapter: docmirror.input.adapters.StructuredAdapter
     status: supported
 
   - id: structured_xml
@@ -201,7 +201,7 @@ capabilities:
     content_model: interchange_structured
     extensions: [.xml]
     binding:
-      adapter: docmirror.adapters.StructuredAdapter
+      adapter: docmirror.input.adapters.StructuredAdapter
       deserializer: xml
     status: supported
 
@@ -210,7 +210,7 @@ capabilities:
     content_model: interchange_structured
     extensions: [.txt]
     binding:
-      adapter: docmirror.adapters.StructuredAdapter
+      adapter: docmirror.input.adapters.StructuredAdapter
       deserializer: txt
     status: supported
 
@@ -220,5 +220,5 @@ capabilities:
     content_model: container
     extensions: [.zip, .rar]
     binding:
-      adapter: docmirror.adapters.ArchiveAdapter
+      adapter: docmirror.input.adapters.ArchiveAdapter
     status: supported

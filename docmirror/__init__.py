@@ -20,7 +20,7 @@ Directory structure:
 Single public entry point: perceive_document()
 """
 
-__version__ = "2.0.0"
+__version__ = "1.0.0"
 __author__ = "Adam Lin <adamlin@valuemapglobal.com>"
 __copyright__ = "Copyright 2026, ValueMap Global"
 __license__ = "Apache 2.0"
@@ -38,36 +38,21 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-_EXPORTS = {
-    "perceive_document": ("docmirror.core.entry.factory", "perceive_document"),
-    "PerceiveResult": ("docmirror.core.entry.perceive_result", "PerceiveResult"),
-    "PerceptionFactory": ("docmirror.core.entry.factory", "PerceptionFactory"),
-    "ParseResult": ("docmirror.models.entities.parse_result", "ParseResult"),
-    "ParseResultBridge": ("docmirror.models.construction.parse_result_bridge", "ParseResultBridge"),
-    "DomainExtractionResult": ("docmirror.models.entities.domain_result", "DomainExtractionResult"),
-    "ParserDispatcher": ("docmirror.framework.dispatcher", "ParserDispatcher"),
-    "Orchestrator": ("docmirror.framework.orchestrator", "Orchestrator"),
-}
+# ── Light deps: static import (always loaded, statically traceable) ──
+from docmirror.models.entities.parse_result import ParseResult  # noqa: E402
+from docmirror.models.entities.domain_result import DomainExtractionResult  # noqa: E402
 
+async def perceive_document(*args, **kwargs):
+    """Parse a document -> PerceiveResult.
 
-def __getattr__(name: str):
-    if name not in _EXPORTS:
-        raise AttributeError(name)
-    module_name, attr_name = _EXPORTS[name]
-    from importlib import import_module
-
-    value = getattr(import_module(module_name), attr_name)
-    globals()[name] = value
-    return value
-
+    Deferred wrapper around ``docmirror.input.pipeline.perceive_document``.
+    All positional/keyword arguments are forwarded as-is.
+    """
+    from docmirror.input.pipeline import perceive_document as _pd
+    return await _pd(*args, **kwargs)
 
 __all__ = [
     "perceive_document",
-    "PerceiveResult",
-    "PerceptionFactory",
     "ParseResult",
-    "ParseResultBridge",
     "DomainExtractionResult",
-    "ParserDispatcher",
-    "Orchestrator",
 ]

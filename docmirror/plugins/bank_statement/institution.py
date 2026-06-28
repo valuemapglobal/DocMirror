@@ -26,7 +26,7 @@ from typing import Any
 import yaml
 
 from docmirror.configs.models.layout_profile import InstitutionVariant, LayoutProfile
-from docmirror.core.profile.registry import (
+from docmirror.structure.profile.registry import (
     get_profile,
     load_profiles,
     match_institution_variant,

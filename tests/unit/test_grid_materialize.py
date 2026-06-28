@@ -1,12 +1,12 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.core.ocr.grid_materialize import (
+from docmirror.structure.ocr.grid_materialize import (
     coalesce_tokens_prefer_native,
     exclusive_assign_tokens_to_grid,
     materialize_grid_cell,
 )
-from docmirror.core.ocr.micro_grid.models import OCRToken
+from docmirror.structure.ocr.micro_grid.models import OCRToken
 
 
 def _token(token_id: str, text: str, bbox: tuple[float, float, float, float], *, source: str = "native") -> OCRToken:

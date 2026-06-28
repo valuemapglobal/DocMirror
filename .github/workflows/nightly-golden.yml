@@ -60,6 +60,20 @@ jobs:
           pytest tests/regression/test_tqg_edition.py -v --tb=short \
             -m "tier_regression or tier_contract"
 
+  udtr-metadata-golden:
+    name: UDTR metadata-only golden
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate UDTR metadata-only manifest
+        run: python3 scripts/validate/validate_udtr_golden.py tests/golden/udtr/manifest.example.json
+      - name: Validate UDTR real cross-format matrix manifest
+        run: python3 scripts/validate/run_udtr_cross_format_matrix.py tests/golden/udtr/cross_format_real_manifest.example.json
+
   dti-validate:
     name: DTI SSOT validation
     runs-on: ubuntu-latest

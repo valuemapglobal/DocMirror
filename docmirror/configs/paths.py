@@ -50,6 +50,9 @@ TIERS_YAML = LICENSING_DIR / "tiers.yaml"
 LICENSE_FILE_SCHEMA = LICENSING_DIR / "license_file.schema.json"
 POST_EXTRACT_YAML = YAML_DIR / "post_extract.yaml"
 MEP_GOLDEN_PROFILES_YAML = YAML_DIR / "golden" / "mep_profiles.yaml"
+PIPELINE_WEIGHTS_YAML = YAML_DIR / "pipeline_weights.yaml"
+GA_READINESS_YAML = YAML_DIR / "ga_readiness.yaml"
+SUPPORT_MATRIX_YAML = YAML_DIR / "support_matrix.yaml"
 
 # Legacy aliases (flat subdirs removed)
 CLASSIFICATION_DIR = YAML_DIR

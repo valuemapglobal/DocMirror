@@ -5,12 +5,13 @@
 
 from __future__ import annotations
 
-from docmirror.core.analyze.mirror_ltqg import attach_mirror_ltqg
-from docmirror.core.table.compose.ledger_quality import (
+from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, RowType, TableRow
+from docmirror.structure.analysis.mirror_ltqg import attach_mirror_ltqg
+from docmirror.structure.analysis.spe_consumer import mirror_api_meta_fields
+from docmirror.structure.tables.compose.ledger_quality import (
     apply_ltqg,
     finalize_logical_tables_for_export,
 )
-from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, RowType, TableRow
 
 
 def _bank_profile():
@@ -90,5 +91,7 @@ def test_attach_mirror_ltqg_quarantine_counts():
     assert spe.get("quarantined_physical_count") == 2
     assert pr.entities.domain_specific.get("mirror_quarantined_physical_count") == 2
 
-    api = pr.to_api_dict()
-    assert api["meta"].get("quarantined_physical_count") == 2
+    api = pr.to_mirror_json_vnext()
+    assert "meta" not in api
+    assert api["source"]["provenance"]["parser_info"]["structure"]["quarantined_physical_count"] == 2
+    assert mirror_api_meta_fields(pr).get("quarantined_physical_count") == 2

@@ -4,7 +4,7 @@
 """
 ParseResultBridge re-export shim — legacy-to-MOC construction bridge.
 
-Canonical implementation lives in ``docmirror.core.bridge.parse_result_bridge``.
+Canonical implementation lives in ``docmirror.input.bridge.parse_result_bridge``.
 This module re-exports ``ParseResultBridge`` and internal helpers at the models
 layer boundary per design 09 §4.6 / Appendix C.
 
@@ -13,7 +13,7 @@ layer boundary per design 09 §4.6 / Appendix C.
 cell values from physical evidence.
 """
 
-from docmirror.core.bridge.parse_result_bridge import (
+from docmirror.input.bridge.parse_result_bridge import (
     ParseResultBridge,
     _blocks_to_pages,
     _compose_logical_tables,

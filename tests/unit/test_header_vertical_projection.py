@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.table.header_reconstruction import _group_chars_by_column_gaps
+from docmirror.structure.tables.header_reconstruction import _group_chars_by_column_gaps
 
 
 def test_group_chars_by_column_gaps():

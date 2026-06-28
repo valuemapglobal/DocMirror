@@ -37,7 +37,7 @@ class TestDecValidation:
 
     def test_runner_finalize_calls_normalize(self):
         from docmirror.models.entities.parse_result import ParseResult
-        from docmirror.plugins.runner import _finalize_extract
+        from docmirror.plugins._runtime.runner import _finalize_extract
 
         pr = ParseResult()
         payload = {

@@ -87,10 +87,9 @@ def route_document(
     confidence: float = 0.0,
 ) -> DocumentRoute:
     """Map document type to enhance mode and plugin hints (6 premium + generic fallback)."""
-    from docmirror.plugins.community import (
+    from docmirror.plugins._runtime.community import (
         get_community_premium_domains,
         is_community_premium,
-        is_enterprise_only,
     )
 
     doc_type = document_type or "generic"
@@ -102,9 +101,6 @@ def route_document(
         if is_community_premium(doc_type):
             plugins = [doc_type]
             community_tier = "premium"
-        elif is_enterprise_only(doc_type):
-            plugins = [doc_type]
-            community_tier = "enterprise_only"
         elif doc_type not in ("generic", "unknown", ""):
             plugins = ["generic"]
             community_tier = "generic"
@@ -112,8 +108,6 @@ def route_document(
     if not community_tier:
         if is_community_premium(doc_type):
             community_tier = "premium"
-        elif is_enterprise_only(doc_type):
-            community_tier = "enterprise_only"
         elif doc_type in get_community_premium_domains():
             community_tier = "premium"
         elif doc_type not in ("generic", "unknown", ""):

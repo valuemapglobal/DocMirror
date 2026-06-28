@@ -7,16 +7,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from docmirror.core.ocr.page_canvas.block_index import build_page_blocks, pcm_blocks_enabled
-from docmirror.core.ocr.page_canvas.build import (
+from docmirror.structure.ocr.page_canvas.block_index import build_page_blocks, pcm_blocks_enabled
+from docmirror.structure.ocr.page_canvas.build import (
     build_page_regions_for_page,
     compact_region_structure,
     reading_order_for_page,
     region_from_local_structure,
     region_from_micro_grid,
 )
-from docmirror.core.ocr.page_canvas.flow_filter import filter_flow_texts_not_in_regions
-from docmirror.core.ocr.page_canvas.models import PageFlow, PageRegion
+from docmirror.structure.ocr.page_canvas.flow_filter import filter_flow_texts_not_in_regions
+from docmirror.structure.ocr.page_canvas.models import PageFlow, PageRegion
 
 
 def _ocr_ref_for_page(document: dict[str, Any], page: int) -> str | None:
@@ -143,7 +143,7 @@ def enrich_api_page_with_canvas(
             page["blocks"] = [b.to_dict() for b in built_blocks]
             page["morphology_summary"] = built_summary
             page["reading_order"] = list(reading_order or built_order)
-            from docmirror.core.ocr.page_canvas.block_index import reading_order_v1_from_blocks
+            from docmirror.structure.ocr.page_canvas.block_index import reading_order_v1_from_blocks
 
             page["reading_order_v1"] = list(reading_order_v1 or reading_order_v1_from_blocks(built_blocks))
         else:

@@ -15,7 +15,7 @@ import logging
 from dataclasses import dataclass, replace
 from typing import Any
 
-from docmirror.core.table.access import get_logical_tables
+from docmirror.structure.tables.access import get_logical_tables
 from docmirror.models.entities.parse_result import LogicalTable
 from docmirror.plugins.bank_statement.canonical import dedupe_transaction_rows
 from docmirror.plugins.bank_statement.context import StyleContext

@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 from docmirror.configs.paths import LICENSE_FILE_SCHEMA, TIERS_YAML
-from docmirror.plugins.licensing.contract import premium_feature
-from docmirror.plugins.licensing.tiers_loader import (
+from docmirror.plugins._runtime.licensing.contract import premium_feature
+from docmirror.plugins._runtime.licensing.tiers_loader import (
     community_free_domains,
     feature_suffix,
     load_tiers,

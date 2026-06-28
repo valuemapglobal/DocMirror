@@ -4,7 +4,7 @@
 import json
 from pathlib import Path
 
-from docmirror.core.ocr.local_structure import extract_local_structure_evidence
+from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
 from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
 
 _FIXTURE = Path("tests/fixtures/scanned/account_card_page4_full_layout.json")

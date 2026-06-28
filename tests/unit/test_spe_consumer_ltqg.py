@@ -5,13 +5,13 @@
 
 from __future__ import annotations
 
-from docmirror.core.analyze.spe_consumer import (
+from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, ParserInfo, RowType, TableRow
+from docmirror.structure.analysis.spe_consumer import (
     mirror_expected_primary_rows,
     read_ltqg_summary,
     spe_ltqg_warnings,
 )
-from docmirror.core.table.compose.ledger_quality import apply_ltqg
-from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParserInfo, ParseResult, RowType, TableRow
+from docmirror.structure.tables.compose.ledger_quality import apply_ltqg
 
 
 def _bank_profile():
@@ -95,6 +95,8 @@ def test_apply_ltqg_legacy_max_in_spe_warnings():
 
 
 def test_parse_result_meta_ltqg_from_spe():
+    from docmirror.structure.analysis.spe_consumer import mirror_api_meta_fields
+
     pr = ParseResult()
     pr.parser_info = ParserInfo(
         structure={
@@ -105,6 +107,8 @@ def test_parse_result_meta_ltqg_from_spe():
             "physical_table_count": 5,
         }
     )
-    meta = pr.to_api_dict()["meta"]
+    mirror = pr.to_mirror_json_vnext()
+    assert "meta" not in mirror
+    meta = mirror_api_meta_fields(pr)
     assert meta["physical_table_count"] == 5
     assert meta["ltqg"]["expected_data_rows"] == 10

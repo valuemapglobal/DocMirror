@@ -19,10 +19,12 @@ from docmirror.models.mirror.page_access import (
 
 
 def _doc(mirror_or_api: Any) -> dict[str, Any]:
-    if hasattr(mirror_or_api, "to_api_dict"):
-        api = mirror_or_api.to_api_dict(mirror_level="forensic", include_text=True)
-        return ((api.get("data") or {}).get("document") or {}) if isinstance(api, dict) else {}
+    if hasattr(mirror_or_api, "to_mirror_json_vnext"):
+        api = mirror_or_api.to_mirror_json_vnext()
+        return (api.get("document") or {}) if isinstance(api, dict) else {}
     if isinstance(mirror_or_api, dict):
+        if isinstance(mirror_or_api.get("document"), dict):
+            return mirror_or_api["document"]
         return (mirror_or_api.get("data") or {}).get("document") or {}
     return {}
 

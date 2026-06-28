@@ -26,8 +26,12 @@ Dependencies: ``plugin_registry`` (registry singleton), ``manager`` (enable/disa
 
 from __future__ import annotations
 
-from docmirror.plugins.core_extensions import register_core_extensions
-from docmirror.plugins.plugin_registry import DomainPlugin, PluginRegistry, registry
+from docmirror.plugins._runtime.core_extensions import register_core_extensions
+from docmirror.plugins._runtime.plugin_registry import DomainPlugin, PluginRegistry, registry
+
+# Optional pluggy-based plugin system (GA1.0-EC-01)
+from docmirror.plugins._runtime import hooks  # noqa: F401
+from docmirror.plugins._runtime import discovery  # noqa: F401
 
 register_core_extensions()
 
@@ -38,7 +42,7 @@ _plugin_manager = None
 def _get_license_manager():
     global _license_manager
     if _license_manager is None:
-        from docmirror.plugins.licensing.online import license_manager as _lm
+        from docmirror.plugins._runtime.licensing.online import license_manager as _lm
 
         _license_manager = _lm
     return _license_manager
@@ -47,7 +51,7 @@ def _get_license_manager():
 def _get_plugin_manager():
     global _plugin_manager
     if _plugin_manager is None:
-        from docmirror.plugins.manager import plugin_manager as _pm
+        from docmirror.plugins._runtime.manager import plugin_manager as _pm
 
         _plugin_manager = _pm
     return _plugin_manager
@@ -67,4 +71,7 @@ __all__ = [
     "registry",
     "license_manager",
     "plugin_manager",
+    # Optional pluggy-based plugin system (GA1.0-EC-01)
+    "hooks",
+    "discovery",
 ]

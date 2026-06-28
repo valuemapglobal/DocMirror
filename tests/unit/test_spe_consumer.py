@@ -5,14 +5,14 @@
 
 from __future__ import annotations
 
-from docmirror.core.analyze.spe_consumer import (
+from docmirror.structure.analysis.spe_consumer import (
     read_structure_spe,
     should_block_pipe_ltro,
     should_force_ltro,
     spe_ltro_warnings,
 )
-from docmirror.core.analyze.structure_provenance import apply_logical_tables_spe
-from docmirror.core.table.structure_detect import count_primary_pipe_rows, detect_pipe_grid_in_text
+from docmirror.structure.analysis.structure_provenance import apply_logical_tables_spe
+from docmirror.structure.tables.structure_detect import count_primary_pipe_rows, detect_pipe_grid_in_text
 from docmirror.models.entities.parse_result import ParserInfo, ParseResult
 from docmirror.plugins.bank_statement.ltro import reconstruct_tables
 from docmirror.plugins.bank_statement.pipe_text_table_builder import build_tables_from_pipe_text

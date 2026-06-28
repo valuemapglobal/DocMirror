@@ -3,7 +3,7 @@
 
 import docmirror.plugins.credit_report.structure_projectors  # noqa: F401 — register projectors
 
-from docmirror.core.ocr.structure_project import (
+from docmirror.structure.ocr.structure_project import (
     completeness_level,
     finalize_partial_record,
     infer_schema_hint,

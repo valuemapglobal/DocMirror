@@ -4,8 +4,8 @@
 import json
 from pathlib import Path
 
-from docmirror.core.ocr.local_structure import extract_local_structure_evidence
-from docmirror.core.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
+from docmirror.structure.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 from docmirror.models.mirror.domain_access import local_structure_evidence_pages_from_domain_specific
 from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output

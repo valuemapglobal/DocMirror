@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
-from docmirror.core.bridge.parse_result_bridge import ParseResultBridge
-from docmirror.core.table.compose.composer import TableComposer
-from docmirror.core.table.compose.export_pipeline import page_content_to_layouts
+from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
+from docmirror.structure.tables.compose.composer import TableComposer
+from docmirror.structure.tables.compose.export_pipeline import page_content_to_layouts
 from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 

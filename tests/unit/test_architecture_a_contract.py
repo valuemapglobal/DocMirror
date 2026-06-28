@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.plugins.composition import CompositionReason
-from docmirror.plugins.post_extract.runner import run_post_extract_hooks
+from docmirror.plugins._runtime.composition import CompositionReason
+from docmirror.plugins._runtime.post_extract.runner import run_post_extract_hooks
 from docmirror.server.output_builder import build_all_projections
 
 
@@ -23,11 +24,13 @@ def test_mirror_snapshot_before_editions():
         order.append(ed)
         return {"edition": ed}
 
-    with patch.object(ParseResult, "to_api_dict", side_effect=lambda **_kw: order.append("mirror") or {"data": {}}):
+    with patch(
+        "docmirror.output.mirror.MirrorCoreVNext.process",
+        side_effect=lambda *_a, **_kw: order.append("mirror") or SimpleNamespace(to_dict=lambda: {"mirror": {}}),
+    ):
         with patch("docmirror.server.output_builder.build_community_output", side_effect=lambda *_a, **_k: order.append("community") or {"edition": "community"}):
             with patch("docmirror.server.output_builder.build_extended_output", side_effect=_extended):
-                with patch("docmirror.server.output_builder._edition_package_available", return_value=True):
-                    build_all_projections(result)
+                build_all_projections(result, mirror_schema="vnext")
 
     assert order[0] == "mirror"
     assert order[1] == "community"
@@ -43,7 +46,7 @@ def test_post_extract_does_not_require_mirror_mutation():
     hook.apply = MagicMock()
 
     with patch(
-        "docmirror.plugins.post_extract.runner.resolve_post_extract_hooks",
+        "docmirror.plugins._runtime.post_extract.runner.resolve_post_extract_hooks",
         return_value=[],
     ):
         run_post_extract_hooks(
@@ -57,7 +60,7 @@ def test_post_extract_does_not_require_mirror_mutation():
 
 
 def test_composition_reason_on_license_degrade():
-    from docmirror.plugins.composition import apply_license_degrade
+    from docmirror.plugins._runtime.composition import apply_license_degrade
 
     plugin = MagicMock(domain_name="bank_statement")
     out = apply_license_degrade({"edition": "community", "status": {"warnings": []}}, edition="enterprise", plugin=plugin)
@@ -74,8 +77,7 @@ def test_extended_projection_has_composition_reason():
             "docmirror.server.output_builder.build_extended_output",
             return_value={"edition": "enterprise", "metadata": {}, "status": {"warnings": []}},
         ):
-            with patch("docmirror.server.output_builder._edition_package_available", return_value=True):
-                outputs = build_all_projections(result, editions=("enterprise",))
+            outputs = build_all_projections(result, editions=("enterprise",))
 
     assert outputs["enterprise"] is not None
     assert outputs["enterprise"]["composition"]["reason"] == CompositionReason.INDEPENDENT_EXTRACT.value

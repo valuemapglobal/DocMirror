@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.exporters.dispatch import export_parse_result
+from docmirror.output.exporters.dispatch import export_parse_result
 from docmirror.models.entities.parse_result import (
     CellValue,
     PageContent,

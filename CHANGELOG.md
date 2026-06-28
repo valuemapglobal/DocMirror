@@ -152,7 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - RESTful API v1.0 overhaul with modern FastAPI patterns and ParseResult model
-- Chinese README with language switcher (English | 简体中文)
+- Chinese README with language switcher (English | Chinese)
 - Multi-provider OCR support infrastructure
 
 ### Changed
@@ -179,7 +179,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Middleware pipeline simplified: removed ColumnMapper and Repairer
 - Entity extraction reads from `enhanced.enhanced_data` (was incorrectly using `base_result.metadata`)
-- `to_api_dict()` uses persisted `self.scene` instead of transient `_enhanced` attribute
+- vNext mirror output uses persisted scene metadata instead of transient enhancement attributes
 - Block output cleaned: removed internal `markdown`/`bbox` fields from table blocks
 - Empty image blocks (logos/stamps) filtered from API output
 
@@ -203,7 +203,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Formula recognition via LaTeX-OCR
 - PDF forgery & tamper detection (ELA + metadata analysis)
 - VLM integration via Ollama HTTP API
-- Middleware pipeline: SceneDetector, EntityExtractor, InstitutionDetector, Validator
+- Middleware pipeline: classification, extraction, institution detection, validation
 - Redis-based parse result caching
 - `pyproject.toml` with modular optional dependencies
 - Test suite with pytest

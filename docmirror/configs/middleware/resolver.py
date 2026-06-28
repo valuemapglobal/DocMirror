@@ -43,7 +43,7 @@ GLOBAL_STAGE_ORDER: tuple[str, ...] = (
     "VALIDATE",
 )
 
-_RUNTIME_OPTIONAL = frozenset({"SLMEntityExtractor", "AnomalyDetector"})
+_RUNTIME_OPTIONAL = frozenset({"AnomalyDetector"})
 
 
 def _anomaly_detector_enabled() -> bool:
@@ -133,7 +133,7 @@ def resolve_pipeline(
     """
     Resolve ordered middleware names for content_model × enhance_mode.
 
-    Applies catalog ``enabled``, ``when`` guards, dependency ordering, and SLM append.
+    Applies catalog ``enabled``, ``when`` guards, and dependency ordering.
     """
     model = content_model or transport_to_content_model(file_type)
     names = _profile_names(model, enhance_mode)
@@ -158,10 +158,7 @@ def resolve_pipeline(
             continue
         filtered.append(name)
 
-    if os.environ.get("DOCMIRROR_ENABLE_SLM") == "1":
-        slm = "SLMEntityExtractor"
-        if slm in catalog and slm not in filtered:
-            filtered.append(slm)
+    # SLMEntityExtractor runtime removal in v1.1 — superseded by LlmDocumentRestorer
 
     resolved = _sort_by_depends(filtered, catalog)
 

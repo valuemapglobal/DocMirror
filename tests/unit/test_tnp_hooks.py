@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.core.table.pipeline import TableNormalizeContext, normalize_table, resolve_hook_names
+from docmirror.structure.tables.pipeline import TableNormalizeContext, normalize_table, resolve_hook_names
 
 
 def test_tnp_generic_hook():

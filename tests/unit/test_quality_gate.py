@@ -12,7 +12,9 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.audit_core_imports import audit_failures, run_audit
+# Add scripts/validate to sys.path so audit_core_imports can be imported
+
+from scripts.validate.audit_core_imports import audit_failures, run_audit
 from scripts.release_gate.config import PROFILES, steps_for_profile
 from scripts.release_gate.models import GateReport, StepResult
 from scripts.release_gate.report import format_markdown

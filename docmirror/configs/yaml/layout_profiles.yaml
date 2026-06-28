@@ -12,7 +12,7 @@ profiles:
   credit_report_section_dominant:
     inherits: generic
     document_type_hint: credit_report
-    # Routing: PreAnalyzer SSO → content_type=section_dominant (not this YAML key)
+    # Routing: SSO/layout profile selection → section-dominant document shape
     mirror_skip_cross_page_merge: true
     match:
       text_any:
@@ -85,7 +85,11 @@ profiles:
     normalize_intracellular_newlines: true
     collapse_duplicate_spaces: true
     skip_pid_resample: true
-    enable_grid_template: false
+    enable_grid_template: true
+    use_tnp_staged: true
+    merge_quarantine_on_col_mismatch: true
+    table_normalize_hooks:
+      - ledger_borderless
     disabled_table_methods:
       - pymupdf_native
     preferred_table_methods:
@@ -93,6 +97,13 @@ profiles:
       - char_strategy
       - pipe_delimited
       - lines
+    expected_header_columns:
+      - 交易日期
+      - 摘要
+      - 借方发生额
+      - 贷方发生额
+      - 余额
+      - 对方户名
     match:
       text_any:
         - 个人客户交易明细
@@ -172,3 +183,138 @@ profiles:
         keywords: ["平安银行"]
         date_format: "YYYY-MM-DD HH:MM:SS"
         amount_sign_rule: standard
+      - id: jsb
+        display_name: 江苏银行
+        keywords: ["江苏银行"]
+        column_map:
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+          对方户名: 对方账号与户名
+        amount_sign_rule: split
+      - id: spdb
+        display_name: 浦发银行
+        keywords: ["浦发银行", "上海浦东发展银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          交易金额（收入）: 交易金额
+          交易金额（支出）: 交易金额
+          余额: 账户余额
+          对方户名: 对方账号与户名
+        amount_sign_rule: split
+      - id: comm
+        display_name: 交通银行
+        keywords: ["交通银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+          对方户名: 对方账号与户名
+        amount_sign_rule: split
+      - id: ceb
+        display_name: 光大银行
+        keywords: ["光大银行", "中国光大银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          借方金额: 交易金额
+          贷方金额: 交易金额
+          余额: 账户余额
+          对方户名: 对方账号与户名
+        amount_sign_rule: split
+      - id: cmbc
+        display_name: 民生银行
+        keywords: ["民生银行", "中国民生银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+          对方户名: 对方账号与户名
+        amount_sign_rule: split
+      - id: hxb
+        display_name: 华夏银行
+        keywords: ["华夏银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+          对方户名: 对方账号与户名
+        amount_sign_rule: split
+      - id: cib
+        display_name: 兴业银行
+        keywords: ["兴业银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+          对方户名: 对方账号与户名
+        amount_sign_rule: split
+      - id: cgb
+        display_name: 广发银行
+        keywords: ["广发银行", "广东发展银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+        amount_sign_rule: split
+      - id: czb
+        display_name: 浙商银行
+        keywords: ["浙商银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+        amount_sign_rule: split
+      - id: bos
+        display_name: 上海银行
+        keywords: ["上海银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+        amount_sign_rule: split
+      - id: bob
+        display_name: 北京银行
+        keywords: ["北京银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+        amount_sign_rule: split
+      - id: hzb
+        display_name: 杭州银行
+        keywords: ["杭州银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+        amount_sign_rule: split
+      - id: cbhb
+        display_name: 渤海银行
+        keywords: ["渤海银行"]
+        column_map:
+          交易日期: 交易时间
+          摘要: 摘要
+          借方发生额: 交易金额
+          贷方发生额: 交易金额
+          余额: 账户余额
+        amount_sign_rule: split

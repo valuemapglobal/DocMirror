@@ -87,7 +87,7 @@ def enrich_identity_fields(
 
 def collect_extract_warnings(ctx: StyleContext, style_meta: StyleMeta) -> list[str]:
     """LTRO / coverage warnings shared across editions."""
-    from docmirror.core.analyze.spe_consumer import read_structure_spe, spe_ltro_warnings
+    from docmirror.structure.analysis.spe_consumer import read_structure_spe, spe_ltro_warnings
 
     warnings: list[str] = []
     if ctx.reconstruction and ctx.reconstruction.pipe_parse_failed:

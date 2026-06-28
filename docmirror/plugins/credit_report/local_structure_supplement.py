@@ -13,10 +13,10 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
-from docmirror.core.ocr.local_structure.candidate_supplement import register_local_structure_supplement
-from docmirror.core.ocr.local_structure.models import LocalStructureCandidate
-from docmirror.core.ocr.local_structure.utils import union_bbox
-from docmirror.core.ocr.micro_grid.models import OCRToken
+from docmirror.structure.ocr.local_structure.candidate_supplement import register_local_structure_supplement
+from docmirror.structure.ocr.local_structure.models import LocalStructureCandidate
+from docmirror.structure.ocr.local_structure.utils import union_bbox
+from docmirror.structure.ocr.micro_grid.models import OCRToken
 
 _REPAYMENT_ANCHOR_RE = re.compile(r"还款记录")
 _CLOSED_MARKERS = re.compile(r"结[清消]|账户关闭|关闭日期")

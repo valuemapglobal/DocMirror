@@ -1,10 +1,10 @@
-"""Tests for OCR scoring optimization (道法自然 · 第十八重境界)."""
+"""Tests for OCR scoring optimization."""
 from __future__ import annotations
 
 import math
 import pytest
 
-from docmirror.core.table.ocr_scoring import (
+from docmirror.structure.tables.ocr_scoring import (
     compute_decay_factor,
     detect_low_confidence_words,
     compute_ocr_enhanced_confidence,
@@ -51,9 +51,9 @@ class TestDecayFactor:
         decay_3 = compute_decay_factor(10, 3)
         decay_5 = compute_decay_factor(10, 5)
 
-        # 指数衰减应该比线性衰减更快
-        # 线性: 1个=0.9, 3个=0.7, 5个=0.5
-        # 指数: 1个≈0.98, 3个≈0.83, 5个≈0.61
+        # Exponential decay should be faster than linear
+        # Linear: 1=0.9, 3=0.7, 5=0.5
+        # Exponential: 1~0.98, 3~0.83, 5~0.61
         assert decay_1 > 0.95  # 指数衰减更慢
         assert decay_3 < 0.85  # 指数衰减更快
         assert decay_5 < 0.65
@@ -92,14 +92,14 @@ class TestLowConfidenceDetection:
 
     def test_ocr_error_similar_char(self):
         """Test detection with OCR similar character error."""
-        # "交另日期" 中的 "另" 是 "易" 的形近字错误
+        # "另" in "交另日期" is a visually similar character error for "易"
         cells = ["交另日期", "交易金额", "余额"]
         low_conf = detect_low_confidence_words(cells)
         assert low_conf >= 1  # 至少检测到1个形近字错误
 
     def test_rare_characters(self):
         """Test detection with rare characters."""
-        # 包含非常见字符
+        # Contains uncommon characters
         cells = ["交易€期", "交易金额", "余额"]
         low_conf = detect_low_confidence_words(cells)
         assert low_conf >= 1  # 检测到非常见字符
@@ -107,7 +107,7 @@ class TestLowConfidenceDetection:
     def test_ocr_char_confidence(self):
         """Test detection with OCR character confidence."""
         cells = ["交易日期", "交易金额", "余额"]
-        # 第二个词置信度低
+        # Second word has low confidence
         ocr_conf = [0.95, 0.65, 0.92]
         low_conf = detect_low_confidence_words(cells, ocr_conf)
         assert low_conf == 1
@@ -138,7 +138,7 @@ class TestOCREnhancedConfidence:
             base_confidence=0.85,
             header_cells=["交易日期", "交易金额", "余额"],
         )
-        # 无低置信度词，应该接近原始值
+        # No low-confidence words, should be close to original value
         assert 0.83 <= enhanced <= 0.85
 
     def test_decay_with_ocr_errors(self):
@@ -147,7 +147,7 @@ class TestOCREnhancedConfidence:
             base_confidence=0.85,
             header_cells=["交另日期", "交易金颔", "余额"],  # 2个词汇不匹配
         )
-        # 应该有显著衰减 (2/3 = 67%低置信度)
+        # Should have significant decay (2/3 = 67% low confidence)
         assert enhanced < 0.50  # 衰减超过40%
 
     def test_severe_decay_many_errors(self):
@@ -156,7 +156,7 @@ class TestOCREnhancedConfidence:
             base_confidence=0.90,
             header_cells=["交另€期", "交易金颔", "未知€"],  # 全部词汇不匹配
         )
-        # 应该有严重衰减 (3/3 = 100%低置信度)
+        # Should have severe decay (3/3 = 100% low confidence)
         assert enhanced < 0.20  # 衰减超过75%
 
     def test_zero_base_confidence(self):
@@ -178,7 +178,7 @@ class TestOCREnhancedConfidence:
 
     def test_custom_decay_lambda(self):
         """Test with custom decay lambda."""
-        # 使用有多个错误的表头才能看到差异
+        # Use header with multiple errors to see the difference
         header = ["交另日期", "交易金颔", "未知€"]
         enhanced_strong = compute_ocr_enhanced_confidence(
             base_confidence=0.85,
@@ -218,26 +218,26 @@ class TestIntegration:
 
     def test_realistic_scenario_good_ocr(self):
         """Test realistic scenario with good OCR."""
-        # 高质量PDF，OCR准确
+        # High quality PDF, accurate OCR
         base_conf = 0.88
         header = ["交易日期", "交易金额", "交易笔数", "余额"]
         ocr_conf = [0.98, 0.96, 0.95, 0.97]
 
         enhanced = compute_ocr_enhanced_confidence(base_conf, header, ocr_conf)
 
-        # 高质量OCR，衰减很小（但“交易笔数”不在词汇表中，会有1/4=25%低置信度）
+        # High quality OCR, small decay (but 1/4=25% low confidence for OOV term)
         assert enhanced >= 0.75  # 衰减不超过15%
 
     def test_realistic_scenario_poor_ocr(self):
         """Test realistic scenario with poor OCR."""
-        # 低质量扫描，OCR错误多
+        # Low quality scan, many OCR errors
         base_conf = 0.82
         header = ["交另€期", "交易金颔", "交易笔€", "余额"]
         ocr_conf = [0.65, 0.72, 0.68, 0.88]
 
         enhanced = compute_ocr_enhanced_confidence(base_conf, header, ocr_conf)
 
-        # 低质量OCR，衰减明显
+        # Low quality OCR, significant decay
         assert enhanced < 0.70
 
     def test_decay_ratio_curve(self):
@@ -247,11 +247,11 @@ class TestIntegration:
             decay = compute_decay_factor(10, low_conf_count)
             ratios.append(decay)
 
-        # 验证指数衰减曲线
+        # Verify exponential decay curve
         assert ratios[0] == 1.0  # 0% → 1.0
         assert ratios[5] < 0.65  # 50% → <0.65
         assert ratios[10] < 0.15  # 100% → <0.15
 
-        # 验证单调递减
+        # Verify monotonic decreasing
         for i in range(len(ratios) - 1):
             assert ratios[i] >= ratios[i + 1]

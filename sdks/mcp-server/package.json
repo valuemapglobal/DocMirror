@@ -1,0 +1,54 @@
+{
+  "name": "@docmirror/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP (Model Context Protocol) server for DocMirror — universal document parsing as LLM-callable tools (Claude Desktop, Cursor, Codex)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "bin": {
+    "docmirror-mcp": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "tsx watch src/cli.ts",
+    "prepublishOnly": "npm run build",
+    "test": "jest"
+  },
+  "keywords": [
+    "docmirror",
+    "mcp",
+    "model-context-protocol",
+    "document-parsing",
+    "pdf",
+    "llm",
+    "claude",
+    "cursor",
+    "codex"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/valuemapglobal/docmirror.git",
+    "directory": "sdks/mcp-server"
+  },
+  "homepage": "https://docmirror.dev",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.0",
+    "tsx": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -145,3 +145,62 @@ def _case_from_entry(root: Path, entry: dict) -> GoldenCase | None:
         expected=expected,
         tags=entry.get("tags", []),
     )
+
+
+def load_golden_matrix_from_file(
+    matrix_path: str | Path,
+    *,
+    base_dir: str | Path | None = None,
+) -> list[GoldenCase]:
+    """Load golden cases from a JSON matrix file.
+
+    The matrix file follows the format defined in
+    ``docs/benchmarks/golden-matrix.json``:
+
+    .. code-block:: json
+
+        {"matrix_version": "1.0", "cases": [{"id": "...", "document_type": "...", "source_path": "..."}]}
+
+    Args:
+        matrix_path: Path to a JSON golden-matrix file.
+        base_dir: Optional base directory for resolving relative
+            ``source_path`` values. Defaults to the matrix file's parent.
+
+    Returns:
+        List of GoldenCase objects.
+    """
+    matrix_path = Path(matrix_path)
+    if not matrix_path.exists():
+        raise FileNotFoundError(f"Golden matrix file not found: {matrix_path}")
+
+    base = Path(base_dir) if base_dir else matrix_path.resolve().parent
+
+    with open(matrix_path) as f:
+        data = json.load(f)
+
+    cases: list[GoldenCase] = []
+    for entry in data.get("cases", []):
+        case_id = entry.get("id", "unknown")
+        doc_type = entry.get("document_type", "generic")
+        source_path = entry.get("source_path") or entry.get("source_fixture", "")
+
+        file_path = None
+        if source_path:
+            candidate = base / source_path
+            if candidate.exists():
+                file_path = candidate
+            else:
+                from_project = Path(source_path)
+                if from_project.exists():
+                    file_path = from_project
+
+        case = GoldenCase(
+            id=case_id,
+            file_path=file_path,
+            document_type=doc_type,
+            expected={},
+            tags=entry.get("tags", []),
+        )
+        cases.append(case)
+
+    return cases

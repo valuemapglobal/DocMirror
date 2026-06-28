@@ -77,6 +77,6 @@ async def test_bank_synthetic_extracts_transactions():
     records, _ = BankStyleParserRegistry().run(detection, ctx, plugin)
     assert len(records) >= 3
 
-    api = pr.to_api_dict()
-    doc = api["data"]["document"]
+    api = pr.to_mirror_json_vnext()
+    doc = api
     assert len(doc.get("pages") or []) >= 1

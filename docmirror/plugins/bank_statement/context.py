@@ -26,7 +26,7 @@ from docmirror.plugins.bank_statement.ltro import ReconstructionMeta, reconstruc
 
 
 def _structure_spe_from_parse_result(parse_result: Any) -> dict | None:
-    from docmirror.core.analyze.spe_consumer import read_structure_spe
+    from docmirror.structure.analysis.spe_consumer import read_structure_spe
 
     return read_structure_spe(parse_result)
 
@@ -62,7 +62,44 @@ def collect_tables_from_parse_result(parse_result: Any) -> list[list[list[str]]]
         def standard_fields(self):
             return []
 
-    return _Collector()._collect_tables(parse_result)
+    tables = _Collector()._collect_tables(parse_result)
+    if tables:
+        return tables
+    return _collect_tables_from_vnext_mirror(getattr(parse_result, "mirror", None))
+
+
+def _collect_tables_from_vnext_mirror(mirror: Any) -> list[list[list[str]]]:
+    if mirror is None:
+        return []
+    if hasattr(mirror, "model_dump"):
+        payload = mirror.model_dump(by_alias=True, exclude_none=True)
+    elif isinstance(mirror, dict):
+        payload = mirror
+    else:
+        return []
+
+    tables: list[list[list[str]]] = []
+    for block in payload.get("blocks") or []:
+        if block.get("type") != "table":
+            continue
+        grid = (block.get("content") or {}).get("grid") or {}
+        cells = grid.get("cells") or []
+        if not cells:
+            continue
+        max_row = max((int(cell.get("row", 0) or 0) for cell in cells), default=-1)
+        max_col = max((int(cell.get("col", 0) or 0) for cell in cells), default=-1)
+        if max_row < 0 or max_col < 0:
+            continue
+        rows = [["" for _ in range(max_col + 1)] for _ in range(max_row + 1)]
+        for cell in cells:
+            row_idx = int(cell.get("row", 0) or 0)
+            col_idx = int(cell.get("col", 0) or 0)
+            if row_idx > max_row or col_idx > max_col:
+                continue
+            rows[row_idx][col_idx] = str(cell.get("text") or "")
+        if rows and any(any(value.strip() for value in row) for row in rows):
+            tables.append(rows)
+    return tables
 
 
 def build_style_context(parse_result: Any, full_text: str = "") -> StyleContext:

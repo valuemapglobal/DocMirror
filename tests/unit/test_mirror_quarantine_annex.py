@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.analyze.spe_consumer import mirror_quarantine_annex_fields
+from docmirror.structure.analysis.spe_consumer import mirror_quarantine_annex_fields
 from docmirror.models.entities.parse_result import ParserInfo, ParseResult
 
 

@@ -102,7 +102,7 @@ def build_style_meta(
     if canonical_expected > 0:
         expected = canonical_expected
     elif parse_result is not None and source in ("mirror_table", ""):
-        from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows
+        from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows
 
         mirror_expected = mirror_expected_primary_rows(parse_result)
         if mirror_expected > 0:

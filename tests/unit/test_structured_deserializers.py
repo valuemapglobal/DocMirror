@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.adapters.data.structured import StructuredAdapter
+from docmirror.input.adapters.data.structured import StructuredAdapter
 
 
 @pytest.mark.asyncio

@@ -47,8 +47,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from docmirror.core.ocr.page_canvas.models import PageCanvas
 from docmirror.models.tracking.mutation import Mutation
+from docmirror.structure.ocr.page_canvas.models import PageCanvas
 
 if TYPE_CHECKING:
     from docmirror.models.entities.evidence import EvidenceSummary
@@ -458,6 +458,9 @@ class PageContent(BaseModel):
     texts: list[TextBlock] = Field(default_factory=list)
     key_values: list[KeyValuePair] = Field(default_factory=list)
     page_confidence: float = 1.0
+    page_mode: str | None = Field(default=None, description="Page content mode (native_text, scanned, mixed)")
+    pcs: str | None = Field(default=None, description="Page complexity score")
+    routing_confidence: float | None = Field(default=None, description="Routing confidence score")
     width: int | None = None
     height: int | None = None
     page_canvas: PageCanvas | None = Field(
@@ -663,7 +666,7 @@ class ErrorDetail(BaseModel):
 
 
 class MirrorAnnex(BaseModel):
-    """Optional Evidence & Hypothesis Layer — not serialized in to_api_dict()."""
+    """Optional Evidence & Hypothesis Layer — serialized through vNext mirror output."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -752,7 +755,7 @@ class ParseResult(BaseModel):
     # ── EHL annex (debug/eval only) ──
     annex: MirrorAnnex | None = Field(default=None, exclude=True)
 
-    # ── Section tree (populated by SectionDrivenStrategy) ──
+    # ── Section tree (populated by UDTR section analysis) ──
     sections: list[DocumentSection] = Field(default_factory=list, exclude=True)
 
     @field_validator("sections", mode="before")
@@ -818,7 +821,7 @@ class ParseResult(BaseModel):
 
     @property
     def kv_entities(self) -> dict[str, str]:
-        """Key-value entities from all pages (for SceneDetector/EntityExtractor)."""
+        """Key-value entities from all pages for semantic extraction."""
         return self.all_key_values()
 
     @property
@@ -888,328 +891,47 @@ class ParseResult(BaseModel):
                     result[kv.key] = kv.value
         return result
 
-    # ── API output ──
-
-    def to_api_dict(
+    def to_mirror_json_vnext(
         self,
         *,
-        include_text: bool = False,
-        request_id: str = "",
-        mirror_level: str = "standard",
+        source_filename: str = "",
+        mirror_level: str | None = None,
+        include_text: bool | None = None,
+        **_: Any,
     ) -> dict[str, Any]:
-        """Serialize to RESTful API dict per ``parser_interface.md`` v1.0.
+        """Produce vNext MirrorJson via MirrorCoreVNext.
+
+        This is the canonical output path for DocMirror 3.x.  The result
+        is a document digital twin containing evidence, topology, blocks,
+        graph, quality gates, and semantic facts.
 
         Args:
-            include_text: If True, include ``data.document.text``.
-            request_id: Optional request ID for traceability.
-            mirror_level: ``standard`` (physical + logical) or ``forensic`` (physical audit).
+            source_filename: Optional source identifier for provenance.
+            mirror_level: Deprecated compatibility alias for the vNext
+                profile. It does not re-enable legacy output fields.
+            include_text: Deprecated compatibility flag. vNext always emits
+                content through blocks/evidence instead of a legacy top-level
+                text field.
+
+        Returns:
+            vNext MirrorJson dict (top-level keys: mirror, source,
+            document, pages, evidence, regions, blocks, graph, quality,
+            semantics).
         """
-        from datetime import datetime, timezone
+        from docmirror.output.mirror import MirrorCoreVNext, MirrorOptions, MirrorResult
 
-        # ── data.document ──
-        # properties: flat dict from entities (exclude document_type + domain_specific)
-        _internal_keys = {"extracted_entities", "step_timings", "mutation_analysis"}
-        _debug_only_keys = {"evidence_log"}
-        properties: dict[str, Any] = {}
-        if self.entities.organization:
-            properties["organization"] = self.entities.organization
-        if self.entities.subject_name:
-            properties["subject_name"] = self.entities.subject_name
-        if self.entities.subject_id:
-            properties["subject_id"] = self.entities.subject_id
-        if self.entities.document_date:
-            properties["document_date"] = self.entities.document_date
-        if self.entities.period_start and self.entities.period_end:
-            properties["period"] = f"{self.entities.period_start} ~ {self.entities.period_end}"
-        elif self.entities.period_start:
-            properties["period"] = self.entities.period_start
-        # Merge mirror_metadata whitelist into properties (ADR-M08)
-        for k, v in self.entities.domain_specific.items():
-            if k in _internal_keys:
-                continue
-            if k in _debug_only_keys and not _is_debug_mode():
-                continue
-            if k not in MIRROR_METADATA_KEYS:
-                continue
-            properties[k] = v
-        from docmirror.models.mirror.serialization_contract import filter_identity_properties
-
-        properties = filter_identity_properties(properties)
-
-        # Physical pages (filter empty pages with no content)
-        api_pages = self._build_api_pages(forensic=mirror_level == "forensic")
-        from docmirror.models.mirror.domain_access import (
-            local_structure_evidence_pages_from_domain_specific,
-            micro_grid_evidence_pages_from_domain_specific,
-            raw_local_structure_evidence_from_domain_specific,
-            raw_micro_grid_evidence_from_domain_specific,
+        _ = include_text
+        options = MirrorOptions(
+            source_filename=source_filename or "",
+            profile=_vnext_profile_from_mirror_level(mirror_level),
         )
-
-        domain_specific = self.entities.domain_specific
-        scanned_micro_grid_evidence = micro_grid_evidence_pages_from_domain_specific(domain_specific) or None
-        scanned_local_structure_evidence = local_structure_evidence_pages_from_domain_specific(domain_specific) or None
-        scanned_ocr_pages: list[dict[str, Any]] | None = None
-        scanned_ocr_refs: dict[tuple[Any, Any], str] = {}
-        if mirror_level == "forensic":
-            scanned_ocr_pages, scanned_ocr_refs = _build_scanned_ocr_page_pool(
-                raw_micro_grid_evidence_from_domain_specific(domain_specific),
-                raw_local_structure_evidence_from_domain_specific(domain_specific),
-            )
-
-        self.sync_page_canvases(scanned_ocr_pages=scanned_ocr_pages)
-
-        from docmirror.models.mirror.page_canvas_export import enrich_api_pages_with_page_canvas
-
-        api_pages = enrich_api_pages_with_page_canvas(
-            api_pages,
-            domain_specific=self.entities.domain_specific,
-            mirror_level=mirror_level,
-            scanned_ocr_pages=scanned_ocr_pages,
-            source_pages=self.pages,
-        )
-
-        non_empty_pages = [
-            p
-            for p in api_pages
-            if p.get("tables")
-            or p.get("texts")
-            or p.get("key_values")
-            or p.get("regions")
-            or p.get("blocks")
-            or ((p.get("flow") or {}).get("texts"))
-            or ((p.get("flow") or {}).get("key_values"))
-        ]
-
-        document: dict[str, Any] = {
-            "type": self.entities.document_type,
-            "properties": properties,
-        }
-        from docmirror.models.mirror.serialization_contract import (
-            annex_pages_from_logical_tables,
-            enrich_document_pages,
-        )
-
-        annex_pages = annex_pages_from_logical_tables(self.logical_tables or [])
-        page_source = non_empty_pages if non_empty_pages else api_pages
-        document["pages"] = enrich_document_pages(page_source, annex_pages=annex_pages)
-        from docmirror.core.ocr.page_canvas.block_index import document_morphology_stats
-
-        morph_stats = document_morphology_stats(document.get("pages") or [])
-        if morph_stats:
-            document["morphology_stats"] = morph_stats
-
-        # Logical tables (composed cross-page tables)
-        if mirror_level != "forensic" and self.logical_tables:
-            from docmirror.models.mirror.serialization_contract import serialize_logical_table_dict
-
-            document["logical_tables"] = [
-                serialize_logical_table_dict(
-                    lt,
-                    row_serializer=lambda c: self._serialize_cell(c, forensic=mirror_level == "forensic"),
-                    include_debug=_is_debug_mode() or mirror_level == "forensic",
-                )
-                for lt in self.logical_tables
-            ]
-
-        # Section tree (populated by SectionDrivenStrategy for section_dominant docs)
-        if self.sections:
-            from docmirror.models.mirror.page_canvas_export import attach_region_refs_to_sections
-
-            document["sections"] = attach_region_refs_to_sections(
-                self.sections,
-                document.get("pages") or [],
-            )
-
-        if mirror_level == "forensic":
-            if scanned_ocr_pages:
-                document["scanned_ocr_pages"] = scanned_ocr_pages
-            from docmirror.core.ocr.page_canvas.hypothesis_annex import build_document_hypothesis_annex
-
-            hypothesis_annex = build_document_hypothesis_annex(
-                domain_specific,
-                page_regions=[
-                    region
-                    for page in (document.get("pages") or [])
-                    if isinstance(page, dict)
-                    for region in (page.get("regions") or [])
-                    if isinstance(region, dict)
-                ],
-            )
-            if hypothesis_annex:
-                document["hypothesis_annex"] = hypothesis_annex
-            if scanned_micro_grid_evidence:
-                document["scanned_micro_grid_evidence"] = _strip_scanned_ocr_payload_from_evidence(
-                    scanned_micro_grid_evidence,
-                    scanned_ocr_refs,
-                )
-            if scanned_local_structure_evidence:
-                stripped = _strip_scanned_ocr_payload_from_evidence(
-                    scanned_local_structure_evidence,
-                    scanned_ocr_refs,
-                )
-                document["scanned_local_structure_evidence"] = _strip_structure_payload_from_local_structure_evidence(
-                    stripped,
-                    document.get("pages") or [],
-                )
-
-        if include_text:
-            document["text"] = self._build_full_text()
-            document["text_format"] = "markdown"
-            if mirror_level == "forensic" and self.raw_text:
-                document["raw_text"] = self.raw_text
-                document["raw_text_format"] = "plain"
-
-        # ── data.quality ──
-        quality: dict[str, Any] = {
-            "confidence": self.confidence,
-            "classification": {
-                "confidence": self.confidence,
-                "document_type": self.entities.document_type,
-            },
-        }
-        if self.trust:
-            quality["trust_score"] = self.trust.trust_score
-            quality["validation_passed"] = self.trust.validation_passed
-            quality["issues"] = self.trust.forgery_reasons or []
-            quality["mirror_fidelity"] = {
-                "score": self.trust.trust_score,
-                "validation_passed": self.trust.validation_passed,
-                "issues": self.trust.forgery_reasons or [],
-            }
-        else:
-            quality["trust_score"] = 1.0
-            quality["validation_passed"] = True
-            quality["issues"] = []
-            quality["mirror_fidelity"] = {
-                "score": 1.0,
-                "validation_passed": True,
-                "issues": [],
-            }
-
-        # ── meta ──
-        meta: dict[str, Any] = {
-            "parser": self.parser_info.parser_name or "DocMirror",
-            "version": self.parser_info.parser_version,
-            "elapsed_ms": round(self.parser_info.elapsed_ms, 1),
-            "extraction_method": self.parser_info.extraction_method.value,
-            "page_count": self.parser_info.page_count or self.page_count,
-            "table_count": self.total_tables,
-            "row_count": self.total_rows,
-            "physical_table_count": self.total_tables,
-            "logical_table_count": len(self.logical_tables),
-        }
-        if self.parser_info.options:
-            meta["options"] = self.parser_info.options
-        ds_meta = getattr(self.entities, "domain_specific", None) or {}
-        if isinstance(ds_meta, dict) and ds_meta.get("classification_provenance"):
-            meta["classification_provenance"] = ds_meta.get("classification_provenance")
-        from docmirror.core.analyze.conservation import mirror_conservation_summary
-        from docmirror.core.analyze.spe_consumer import mirror_api_meta_fields, mirror_quarantine_annex_fields
-
-        meta.update(mirror_api_meta_fields(self))
-        meta.update(mirror_quarantine_annex_fields(self, mirror_level=mirror_level))
-        from docmirror.models.mirror.legacy_access import log_legacy_access_summary
-
-        log_legacy_access_summary()
-        meta["conservation"] = mirror_conservation_summary(self)
-        if mirror_level == "forensic" or _is_debug_mode():
-            from docmirror.models.ehl import ensure_mirror_annex
-
-            ensure_mirror_annex(self)
-            if self.annex:
-                ehl: dict[str, Any] = {}
-                if self.annex.evidence_summary:
-                    ehl["evidence_summary"] = self.annex.evidence_summary.model_dump()
-                if self.annex.hypotheses:
-                    ehl["hypotheses"] = [
-                        h.model_dump(exclude_none=True) if hasattr(h, "model_dump") else h
-                        for h in self.annex.hypotheses[:100]
-                    ]
-                if self.annex.quarantine:
-                    ehl["quarantine"] = self.annex.quarantine
-                if ehl:
-                    meta["ehl"] = ehl
-        if self.parser_info.table_engine:
-            meta["table_engine"] = self.parser_info.table_engine
-        if self.parser_info.ocr_engine:
-            meta["ocr_engine"] = self.parser_info.ocr_engine
-
-        from docmirror.models.mirror.serialization_contract import (
-            apply_meta_count_aliases,
-            build_document_identity,
-            build_information_architecture,
-            build_mirror_counts,
-            build_mirror_profile,
-            build_quarantine_index,
-            finalize_structure_spe,
-        )
-
-        spe_raw = dict(self.parser_info.structure) if self.parser_info.structure else {}
-        counts = build_mirror_counts(
-            physical_table_count=int(meta.get("physical_table_count") or self.total_tables),
-            physical_data_rows=int(meta.get("row_count") or self.total_rows),
-            logical_tables=self.logical_tables or [],
-            pages=document.get("pages") or [],
-        )
-        quarantine_index = build_quarantine_index(self.logical_tables or [], spe_raw)
-        document["identity"] = build_document_identity(
-            document_type=self.entities.document_type,
-            spe=spe_raw,
-            properties=properties,
-        )
-        document["information_architecture"] = build_information_architecture(
-            document=document,
-            spe=spe_raw,
-        )
-        meta["counts"] = counts
-        apply_meta_count_aliases(meta, counts)
-        meta["structure"] = finalize_structure_spe(
-            spe_raw,
-            pages=document.get("pages") or [],
-            document=document,
-            counts=counts,
-            quarantine_index=quarantine_index,
-            domain_specific=self.entities.domain_specific,
-        )
-        meta.pop("quarantine", None)
-        if self.provenance:
-            meta["provenance"] = self.provenance.model_dump(exclude_none=True)
-
-        mirror_profile = build_mirror_profile(mirror_level=mirror_level)
-
-        # ── Standard RESTful envelope ──
-        from docmirror.models.serialization import to_json_safe
-
-        if self.success:
-            payload = {
-                "code": 200,
-                "message": "success",
-                "api_version": "1.0",
-                "request_id": request_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "mirror_profile": mirror_profile,
-                "data": {
-                    "document": document,
-                    "quality": quality,
-                },
-                "meta": meta,
-            }
-        else:
-            error_msg = self.error.message if self.error else "parse failed"
-            payload = {
-                "code": 422,
-                "message": "error",
-                "api_version": "1.0",
-                "request_id": request_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "mirror_profile": mirror_profile,
-                "error": {
-                    "type": self.status.value,
-                    "detail": error_msg,
-                },
-                "meta": meta,
-            }
-        return to_json_safe(payload)
+        core = MirrorCoreVNext()
+        result = core.process(self, options=options)
+        if isinstance(result, MirrorResult):
+            return result.to_dict()
+        if isinstance(result, dict):
+            return result
+        return {"error": f"unexpected result type: {type(result).__name__}"}
 
     # ── Legacy bridge ──
 
@@ -1327,7 +1049,7 @@ class ParseResult(BaseModel):
         scanned_ocr_pages: list[dict[str, Any]] | None = None,
     ) -> None:
         """Materialize PageCanvas on each page from domain_specific evidence."""
-        from docmirror.core.ocr.page_canvas.sync import sync_parse_result_page_canvases
+        from docmirror.structure.ocr.page_canvas.sync import sync_parse_result_page_canvases
 
         sync_parse_result_page_canvases(self, scanned_ocr_pages=scanned_ocr_pages)
 
@@ -1483,6 +1205,15 @@ def _rebuild_parse_result_models() -> None:
         }
     )
     ParseResult.model_rebuild()
+
+
+def _vnext_profile_from_mirror_level(mirror_level: str | None) -> str:
+    level = str(mirror_level or "").strip().lower()
+    if level in {"forensic", "ga_full", "full"}:
+        return "forensic"
+    if level in {"compact", "canonical_compact"}:
+        return "canonical_compact"
+    return "canonical_full"
 
 
 _rebuild_parse_result_models()

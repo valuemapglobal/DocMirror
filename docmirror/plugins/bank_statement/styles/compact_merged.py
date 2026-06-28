@@ -33,7 +33,7 @@ STYLE_ID = "compact_merged_ledger"
 
 
 def is_compact_ledger_header(headers: list[str]) -> bool:
-    """True when a single header cell merges 日期+支出+收入+余额 (银座等 compact layout)."""
+    """True when a single header cell merges date+expense+income+balance (Yinzuo et al. compact layout)."""
     for header in headers:
         text = str(header or "").replace(" ", "").replace("\n", "")
         if not text:

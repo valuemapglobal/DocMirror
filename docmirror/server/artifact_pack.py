@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from docmirror.configs.output_profile import OutputProfile, default_profile
-from docmirror.models.serialization import dumps_json
+from docmirror.output.serialization import dumps_json
 
 _TPL_DIR = Path(__file__).resolve().parent.parent / "evidence" / "templates"
 
@@ -183,7 +183,7 @@ def ensure_quickstart_artifact_pack(
     # Page images (W2-03) and layout overlay PDF (W2-05)
     if pdf_path and Path(pdf_path).exists():
         try:
-            from docmirror.core.output.page_image_renderer import render_page_images as _render_images
+            from docmirror.output.internal.page_image_renderer import render_page_images as _render_images
             page_img_dir = task_dir / "page_images"
             _render_images(pdf_path, page_img_dir, dpi=150)
             artifacts["page_images"] = str(page_img_dir)

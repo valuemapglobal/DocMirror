@@ -9,7 +9,9 @@ Settings configuration tests.
 """
 
 import os
+
 import pytest
+
 from docmirror.configs.runtime.settings import DocMirrorSettings
 
 pytestmark = [pytest.mark.tier_smoke]
@@ -45,8 +47,21 @@ class TestDocMirrorSettings:
         settings = DocMirrorSettings()
         d = settings.to_dict()
         assert "enhance_mode" in d
-        assert "SceneDetector" in d
+        assert "EvidenceEngine" in d
         assert "Validator" in d
+        assert d["MirrorCore"]["schema"] == "vnext"
+
+    def test_mirror_core_settings_env_override(self, monkeypatch):
+        """MirrorCore env vars should override YAML defaults except removed schemas."""
+        monkeypatch.setenv("DOCMIRROR_MIRROR_SCHEMA", "unsupported_schema")
+        monkeypatch.setenv("DOCMIRROR_MIRROR_CORE_PROFILE", "test_profile")
+        monkeypatch.setenv("DOCMIRROR_MIRROR_CORE_ENGINE_VERSION", "9.9.9")
+
+        settings = DocMirrorSettings.from_env()
+
+        assert settings.mirror_core_schema == "vnext"
+        assert settings.mirror_core_profile == "test_profile"
+        assert settings.mirror_core_engine_version == "9.9.9"
 
     def test_model_paths_default_none(self):
         """Model paths should default to None."""

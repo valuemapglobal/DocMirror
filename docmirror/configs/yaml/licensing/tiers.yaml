@@ -1,4 +1,4 @@
-# DocMirror Licensing SSOT — community 6+1 + enterprise tiers
+# DocMirror Licensing SSOT — community + enterprise + finance tiers
 # See docs/design/13_commercial_launch_mvp_execution_plan.md
 
 version: 1
@@ -14,11 +14,6 @@ community_free_domains:
   - credit_report
 
 tiers:
-  professional:
-    features:
-      - bank_statement_premium
-      - audit_report_premium
-      - credit_report_premium
   enterprise:
     features:
       - bank_statement_premium
@@ -33,13 +28,11 @@ tiers:
       - batch_processing
       - priority_support
   finance:
+    include_all_enterprise_domains: true
     include_all_finance_domains: true
     features:
       - batch_processing
-  ultimate:
-    features:
-      - "*"
-
+      - priority_support
 demo:
   tier: enterprise
   include_all_enterprise_domains: true
@@ -52,5 +45,4 @@ lifecycle:
   warn_on_parse: true
   warn_in_edition_json: true
 
-dev:
-  allow_simplified_signature: true
+# dev section removed in v1.1 — signature bypass not available in open-source build

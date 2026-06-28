@@ -9,7 +9,7 @@
 # Matching priority:
 #   1. identification_keywords — exact keyword match (highest priority)
 #   2. name + aliases — full-text match, sorted by name length (descending)
-#      to prefer more specific matches (e.g., "中国建设银行" before "中国银行")
+#      to prefer more specific matches (e.g., "China Construction Bank" before "Bank of China")
 #
 # Each institution entry contains:
 #   name            — Official Chinese name

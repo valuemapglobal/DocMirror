@@ -1,12 +1,15 @@
+import pytest
+
 from docmirror.configs.runtime.performance import resolve_worker_budget
-from docmirror.core.entry.options import (
+from docmirror.input.entry.options import (
+    OutputControl,
+    ParseControl,
     normalize_parse_control,
     parse_editions,
     parse_output_formats,
     parse_page_selection,
 )
-from docmirror.exporters.dispatch import EXPORTER_REGISTRY
-import pytest
+from docmirror.output.exporters.dispatch import EXPORTER_REGISTRY
 
 
 def test_page_selection_resolves_ranges_and_max_pages():
@@ -112,6 +115,12 @@ def test_explicit_standard_mirror_level_is_respected_in_forensic_mode():
     assert control.output.mirror_level == "standard"
 
 
+def test_compact_mirror_level_is_supported():
+    control = normalize_parse_control(mirror_level="compact")
+
+    assert control.output.mirror_level == "compact"
+
+
 def test_worker_budget_splits_batch_budget():
     budget = resolve_worker_budget(8, file_count=4, page_count=20, cpu_count=8)
 
@@ -124,3 +133,12 @@ def test_worker_budget_splits_batch_budget():
 def test_slim_mirror_level_rejected():
     with pytest.raises(ValueError, match="unsupported mirror level: slim"):
         normalize_parse_control(mirror_level="slim")
+
+
+def test_output_control_default_editions_is_license_aware():
+    """GA1.0: OutputControl() must resolve editions from license, not hardcode paid tiers."""
+    oc = OutputControl()
+    assert oc.editions[:2] == ("mirror", "community")
+
+    pc = ParseControl()
+    assert pc.output.editions == oc.editions

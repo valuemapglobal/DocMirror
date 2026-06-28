@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from docmirror.core.table.access import primary_export_logical_table
+from docmirror.structure.tables.access import primary_export_logical_table
 from docmirror.eval.tqg.report import GateReport
 
 
@@ -40,8 +40,8 @@ def run_column_fidelity_oracle(
         report.passed = False
         report.failures.append(f"headers {len(headers)} < {min_cols}: {headers!r}")
 
-    trade_header = spec.get("trade_no_header") or "交易单号"
-    time_header = spec.get("time_header") or "交易时间"
+    trade_header = spec.get("trade_no_header") or "trade_no"
+    time_header = spec.get("time_header") or "trade_time"
 
     def _header_index(name: str) -> int | None:
         for i, h in enumerate(headers):

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.ocr.field_grid.type_gate import types_compatible_with_hint
+from docmirror.structure.ocr.field_grid.type_gate import types_compatible_with_hint
 
 CREDIT_FIELD_TYPES: dict[str, tuple[str, ...]] = {
     "management_institution": ("text",),

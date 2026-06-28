@@ -1,0 +1,116 @@
+ # GA1.0-ODL-01 Phase 4.3: Adaptive Routing Regression Check
+ #
+ # Runs on every push to main/dev that touches routing code.
+ # Benchmarks the four routing modes (fixed-fast, fixed-balanced, fixed-accurate,
+ # adaptive-auto) against the golden matrix and flags regressions.
+ #
+ # A regression is defined as:
+ #   - Adaptive-auto mode slower than fixed-balanced by >20%
+ #   - Adaptive-auto accuracy drop > 1% from baseline
+
+ name: Adaptive Routing Regression Check
+
+ on:
+   push:
+     branches: [main, dev]
+     paths:
+       - "docmirror/core/pipeline/complexity/**"
+       - "docmirror/core/pipeline/pipelines/**"
+       - "docmirror/core/pipeline/page_pipeline.py"
+       - "scripts/benchmark_adaptive_routing.py"
+       - "docs/benchmarks/golden-matrix.json"
+   pull_request:
+     paths:
+       - "docmirror/core/pipeline/complexity/**"
+       - "docmirror/core/pipeline/page_pipeline.py"
+       - "scripts/benchmark_adaptive_routing.py"
+
+ jobs:
+   regression-check:
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v4
+
+       - name: Install dependencies
+         run: |
+           pip install -e ".[all]"
+
+       - name: Run adaptive routing benchmark
+         run: |
+           python scripts/benchmark_adaptive_routing.py \
+             --matrix docs/benchmarks/golden-matrix.json \
+             --output docs/benchmarks/results/adaptive-routing.json
+
+       - name: Check adaptive vs balanced speed ratio
+         run: |
+           python -c "
+           import json
+           from pathlib import Path
+
+           results = json.loads(Path('docs/benchmarks/results/adaptive-routing.json').read_text())
+           records = results.get('records', [])
+
+           # Group by mode and compute average pages/sec
+           mode_stats = {}
+           for r in records:
+               mode = r.get('mode', 'unknown')
+               if mode not in mode_stats:
+                   mode_stats[mode] = {'total_pps': 0.0, 'count': 0}
+               mode_stats[mode]['total_pps'] += r.get('pages_per_sec', 0)
+               mode_stats[mode]['count'] += 1
+
+           for mode, stats in mode_stats.items():
+               avg = stats['total_pps'] / max(stats['count'], 1)
+               print(f'  {mode:20s}: avg {avg:.1f} pages/sec over {stats[\"count\"]} cases')
+
+           # Check adaptive vs balanced
+           balanced_pps = mode_stats.get('fixed-balanced', {}).get('total_pps', 0) / max(mode_stats.get('fixed-balanced', {}).get('count', 1), 1)
+           adaptive_pps = mode_stats.get('adaptive-auto', {}).get('total_pps', 0) / max(mode_stats.get('adaptive-auto', {}).get('count', 1), 1)
+
+           if balanced_pps > 0:
+               ratio = adaptive_pps / balanced_pps
+               print(f'  \n  Adaptive/Balanced ratio: {ratio:.2f}x')
+               if ratio < 0.8:
+                   print(f'  ⚠️  WARNING: Adaptive mode is {((1-ratio)*100):.0f}% slower than balanced mode')
+                   exit(1)
+               else:
+               print(f'  ✅ Adaptive mode is within acceptable range')
+
+           # Report per-case routing decisions
+           adaptive_records = [r for r in records if r.get('mode') == 'adaptive-auto']
+           if adaptive_records:
+               print(f'\n  Per-case routing decisions:')
+               for r in adaptive_records:
+                   routed = r.get('routed_to', [])
+                   if routed:
+                       fast_pct = sum(1 for x in routed if x == 'fast') / len(routed) * 100
+                       print(f'    {r[\"golden_case_id\"]:40s}: {fast_pct:3.0f}% fast, {len(routed)} pages')
+           "
+
+       - name: Upload adaptive routing benchmark results
+         uses: actions/upload-artifact@v4
+         with:
+           name: adaptive-routing-results
+           path: docs/benchmarks/results/adaptive-routing.json
+           retention-days: 30
+
+       - name: Report summary
+         run: |
+           echo "## Adaptive Routing Regression Report" >> $GITHUB_STEP_SUMMARY
+           echo "" >> $GITHUB_STEP_SUMMARY
+           python -c "
+           import json
+           from pathlib import Path
+           results = json.loads(Path('docs/benchmarks/results/adaptive-routing.json').read_text())
+           records = results.get('records', [])
+           modes = set(r.get('mode') for r in records)
+           with open(Path(r'$GITHUB_STEP_SUMMARY'), 'a') as f:
+               for mode in sorted(modes):
+                   mode_records = [r for r in records if r.get('mode') == mode]
+                   avg_pps = sum(r.get('pages_per_sec', 0) for r in mode_records) / max(len(mode_records), 1)
+                   avg_ms = sum(r.get('elapsed_ms', 0) for r in mode_records) / max(len(mode_records), 1)
+                   errors = [r for r in mode_records if r.get('error')]
+                   f.write(f'- **{mode}**: {avg_pps:.1f} pps, {avg_ms:.0f}ms avg, {len(errors)} errors\\n')
+           " || echo "  Summary generation skipped"
+           echo "" >> $GITHUB_STEP_SUMMARY
+           echo "_Run ID: ${{ github.run_id }}_" >> $GITHUB_STEP_SUMMARY

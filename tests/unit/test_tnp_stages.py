@@ -3,8 +3,8 @@
 
 
 def test_tnp_stage_modules_expose_symbols():
-    from docmirror.core.table.pipeline import stage_domain, stage_header, stage_preamble, stage_structure
-    from docmirror.core.table.postprocess import post_process_table
+    from docmirror.structure.tables.pipeline import stage_domain, stage_header, stage_preamble, stage_structure
+    from docmirror.structure.tables.postprocess import post_process_table
 
     assert callable(post_process_table)
     assert callable(stage_header.run)
@@ -17,9 +17,9 @@ def test_tnp_stage_modules_expose_symbols():
 
 
 def test_tnp_staged_matches_monolith_on_sample():
-    from docmirror.core.table.pipeline import TableNormalizeContext
-    from docmirror.core.table.pipeline.stage_domain import run_stages
-    from docmirror.core.table.postprocess import post_process_table
+    from docmirror.structure.tables.pipeline import TableNormalizeContext
+    from docmirror.structure.tables.pipeline.stage_domain import run_stages
+    from docmirror.structure.tables.postprocess import post_process_table
     from docmirror.configs.models.extraction_profile import ExtractionProfile
 
     rows = [
@@ -36,7 +36,7 @@ def test_tnp_staged_matches_monolith_on_sample():
 
 
 def test_tnp_hooks_package():
-    from docmirror.core.table.pipeline.hooks import run_generic_hook, run_ledger_borderless_hook
+    from docmirror.structure.tables.pipeline.hooks import run_generic_hook, run_ledger_borderless_hook
 
     assert callable(run_generic_hook)
     assert callable(run_ledger_borderless_hook)

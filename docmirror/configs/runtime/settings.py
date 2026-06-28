@@ -165,6 +165,15 @@ class DocMirrorSettings:
     table_rapid_min_confidence_threshold: float = 0.3
     external_ocr_quality_threshold: int = 80
     external_ocr_provider: str | None = None
+    mirror_core_schema: str = "vnext"
+    mirror_core_profile: str = "canonical_full"
+    mirror_core_engine_version: str = "0.1.0"
+    udtr_topology_profile: str = "conservative"
+    udtr_min_confidence_regions: float = 0.5
+    udtr_enable_occupancy_tracking: bool = True
+    udtr_detect_seals: bool = False
+    udtr_suppress_header_footer: bool = True
+    udtr_use_table_method_registry: bool = True
     vlm: VLMSettings = field(default_factory=VLMSettings)
 
     @classmethod
@@ -181,6 +190,12 @@ class DocMirrorSettings:
             vlm_cfg = {}
         layout_cfg = _yaml_get("layout", {}) or {}
         logging_cfg = _yaml_get("logging", {}) or {}
+        mirror_core_cfg = _yaml_get("mirror_core", {}) or {}
+        if not isinstance(mirror_core_cfg, dict):
+            mirror_core_cfg = {}
+        _udtr_cfg = mirror_core_cfg.get("udtr_features", {}) or {}
+        if not isinstance(_udtr_cfg, dict):
+            _udtr_cfg = {}
 
         from docmirror.configs.runtime.performance import resolve_max_page_concurrency
 
@@ -214,6 +229,46 @@ class DocMirrorSettings:
                 os.getenv("DOCMIRROR_EXTERNAL_OCR_PROVIDER", "").strip()
                 or _env_optional_str("DOCMIRROR_OCR_EXTERNAL_PROVIDER", external_ocr_cfg.get("provider"))
             ),
+            mirror_core_schema=_env_str(
+                "DOCMIRROR_MIRROR_SCHEMA",
+                str(mirror_core_cfg.get("schema", "vnext")),
+            ),
+            mirror_core_profile=_env_str(
+                "DOCMIRROR_MIRROR_CORE_PROFILE",
+                str(mirror_core_cfg.get("profile", "canonical_full")),
+            ),
+            mirror_core_engine_version=_env_str(
+                "DOCMIRROR_MIRROR_CORE_ENGINE_VERSION",
+                str(mirror_core_cfg.get("engine_version", "0.1.0")),
+            ),
+            udtr_topology_profile=_env_str(
+                "DOCMIRROR_UDTR_TOPOLOGY_PROFILE",
+                str(_udtr_cfg.get("topology_profile", "conservative")),
+            ),
+            udtr_min_confidence_regions=_env_float(
+                "DOCMIRROR_UDTR_MIN_CONFIDENCE_REGIONS",
+                float(_udtr_cfg.get("min_confidence_regions", 0.5)),
+            ),
+            udtr_enable_occupancy_tracking=(
+                os.getenv("DOCMIRROR_UDTR_ENABLE_OCCUPANCY_TRACKING", "").lower() not in ("0", "false", "no", "off")
+                if os.getenv("DOCMIRROR_UDTR_ENABLE_OCCUPANCY_TRACKING", "").strip()
+                else bool(_udtr_cfg.get("enable_occupancy_tracking", True))
+            ),
+            udtr_detect_seals=(
+                os.getenv("DOCMIRROR_UDTR_DETECT_SEALS", "").lower() in ("1", "true", "yes", "on")
+                if os.getenv("DOCMIRROR_UDTR_DETECT_SEALS", "").strip()
+                else bool(_udtr_cfg.get("detect_seals", False))
+            ),
+            udtr_suppress_header_footer=(
+                os.getenv("DOCMIRROR_UDTR_SUPPRESS_HEADER_FOOTER", "").lower() not in ("0", "false", "no", "off")
+                if os.getenv("DOCMIRROR_UDTR_SUPPRESS_HEADER_FOOTER", "").strip()
+                else bool(_udtr_cfg.get("suppress_header_footer_from_flow", True))
+            ),
+            udtr_use_table_method_registry=(
+                os.getenv("DOCMIRROR_UDTR_USE_TABLE_METHOD_REGISTRY", "").lower() in ("1", "true", "yes", "on")
+                if os.getenv("DOCMIRROR_UDTR_USE_TABLE_METHOD_REGISTRY", "").strip()
+                else bool(_udtr_cfg.get("use_table_method_registry", True))
+            ),
             vlm=VLMSettings(
                 provider=_env_str("DOCMIRROR_VLM_PROVIDER", str(vlm_cfg.get("provider", "openai"))),
                 model=_env_str("DOCMIRROR_VLM_MODEL", str(vlm_cfg.get("model", "gpt-4o"))),
@@ -240,6 +295,9 @@ class DocMirrorSettings:
         if physics.get("ocr_upscale_threshold"):
             instance.ocr_params.upscale_threshold_low = int(physics["ocr_upscale_threshold"])
 
+        if instance.mirror_core_schema.strip().lower() != "vnext":
+            instance.mirror_core_schema = "vnext"
+
         logger.info(
             "[Config] Initialized global settings: enhance_mode='%s', "
             "max_concurrency=%d, fail_strategy='%s' (yaml+env)",
@@ -252,8 +310,13 @@ class DocMirrorSettings:
     def to_dict(self) -> dict[str, Any]:
         return {
             "enhance_mode": self.default_enhance_mode,
-            "SceneDetector": {},
+            "EvidenceEngine": {},
             "Validator": {"pass_threshold": self.validator_pass_threshold},
+            "MirrorCore": {
+                "schema": self.mirror_core_schema,
+                "profile": self.mirror_core_profile,
+                "engine_version": self.mirror_core_engine_version,
+            },
             "VLM": {
                 "provider": self.vlm.provider,
                 "model": self.vlm.model,
@@ -266,3 +329,8 @@ class DocMirrorSettings:
 
 
 default_settings = DocMirrorSettings.from_env()
+
+
+def get_settings() -> DocMirrorSettings:
+    """Return process-wide runtime settings."""
+    return default_settings

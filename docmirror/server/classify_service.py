@@ -49,8 +49,8 @@ def _sample_text(path: Path, *, max_chars: int = 8000) -> tuple[str, int]:
 
 def classify_document_path(path: Path) -> dict[str, Any]:
     """Classify document type from sampled text + resolver."""
-    from docmirror.core.resolution.document_type_candidates import collect_document_type_candidates
-    from docmirror.core.resolution.document_type_resolver import DocumentTypeResolver
+    from docmirror.structure.resolution.document_type_candidates import collect_document_type_candidates
+    from docmirror.structure.resolution.document_type_resolver import DocumentTypeResolver
     from docmirror.models.entities.parse_result import PageContent, ParseResult
 
     text, page_count = _sample_text(path)

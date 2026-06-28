@@ -28,15 +28,15 @@ logger = logging.getLogger(__name__)
 
 def generate_report(results: ClassificationResults, output_dir: Path, format: str = "markdown") -> Path:
     """
-    生成分类报告
+    Generate classification report
 
     Args:
-        results: 分类结果
-        output_dir: 输出目录
-        format: 报告格式(markdown, json, csv)
+        results: Classification results
+        output_dir: output directory
+        format: report format (markdown, json, csv)
 
     Returns:
-        报告文件路径
+        Report file path
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -58,14 +58,14 @@ def generate_report(results: ClassificationResults, output_dir: Path, format: st
 
 def generate_pending_report(results: ClassificationResults, output_dir: Path) -> Path:
     """
-    生成待处理文件报告
+    Generate pending file report
 
     Args:
-        results: 分类结果
-        output_dir: 输出目录
+        results: Classification results
+        output_dir: output directory
 
     Returns:
-        待处理报告文件路径
+        Pending report file path
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "pending_review.json"
@@ -103,27 +103,27 @@ def generate_pending_report(results: ClassificationResults, output_dir: Path) ->
 
 
 def _generate_markdown_report(results: ClassificationResults, report_path: Path) -> None:
-    """生成Markdown格式报告"""
+    """Generate Markdown format report."""
 
-    # 计算统计数据
+    # Compute statistics
     category_stats = results.get_results_by_category()
 
-    # 生成报告内容
-    report = f"""# 智能文件分类报告
+    # Generate report content
+    report = f"""# Intelligent File Classification Report
 
-## 分类概览
+## Classification Overview
 
-- **总文件数**: {results.total_files}
-- **成功分类**: {results.success_count}
-- **分类失败**: {results.failed_count}
-- **未匹配文件**: {results.unmatched_count}
-- **待处理文件**: {results.pending_count}
-- **平均置信度**: {results.avg_confidence:.2%}
-- **处理时间**: {_format_duration(results.start_time, results.end_time)}
+- **Total files**: {results.total_files}
+- **Successfully classified**: {results.success_count}
+- **Failed**: {results.failed_count}
+- **Unmatched files**: {results.unmatched_count}
+- **Pending files**: {results.pending_count}
+- **Average confidence**: {results.avg_confidence:.2%}
+- **Processing time**: {_format_duration(results.start_time, results.end_time)}
 
-## 按类别统计
+## By Category
 
-| 类别 | 文件数 | 占比 |
+| Category | Files | Percentage |
 |------|--------|------|
 """
 
@@ -133,60 +133,60 @@ def _generate_markdown_report(results: ClassificationResults, report_path: Path)
         report += f"| {category} | {count} | {percentage:.1f}% |\n"
 
     report += """
-## 成功分类文件
+## Successfully Classified Files
 
-| 序号 | 文件名 | 分类 | 目标路径 | 置信度 |
+| # | File | Category | Target Path | Confidence |
 |------|--------|------|----------|--------|
 """
 
     for i, result in enumerate([r for r in results.results if r.success], 1):
         report += f"| {i} | {result.source_path.name} | {result.category or 'N/A'} | {result.target_path or 'N/A'} | {result.confidence:.2%} |\n"
 
-    # 待处理文件
+    # Pending files
     pending_results = [r for r in results.results if r.is_pending]
     if pending_results:
         report += """
-## 待处理文件(需要人工审核)
+## Pending Files (Manual Review Required)
 
-| 序号 | 文件名 | 推荐分类 | 置信度 | 匹配数 |
+| # | File | Recommended Category | Confidence | Matches |
 |------|--------|----------|--------|--------|
 """
 
         for i, result in enumerate(pending_results, 1):
             report += f"| {i} | {result.source_path.name} | {result.category or 'N/A'} | {result.confidence:.2%} | {len(result.matches)} |\n"
 
-    # 错误文件
+    # Error files
     if results.errors:
         report += """
-## 异常文件
+## Error Files
 
-| 序号 | 文件名 | 错误信息 |
+| # | File | Error Message |
 |------|--------|----------|
 """
 
         for i, (file_path, error) in enumerate(results.errors, 1):
             report += f"| {i} | {file_path.name} | {error} |\n"
 
-    # 未匹配文件
+    # Unmatched files
     unmatched_results = [r for r in results.results if not r.success and not r.error]
     if unmatched_results:
         report += """
-## 未匹配文件
+## Unmatched Files
 
-| 序号 | 文件名 | 路径 |
+| # | File | Path |
 |------|--------|------|
 """
 
         for i, result in enumerate(unmatched_results, 1):
             report += f"| {i} | {result.source_path.name} | {result.source_path} |\n"
 
-    # 写入文件
+    # Write to file
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report)
 
 
 def _generate_json_report(results: ClassificationResults, report_path: Path) -> None:
-    """生成JSON格式报告"""
+    """Generate JSON format report."""
 
     report_data = {
         "summary": {
@@ -205,7 +205,7 @@ def _generate_json_report(results: ClassificationResults, report_path: Path) -> 
         "unmatched": [],
     }
 
-    # 类别统计
+    # Category statistics
     category_stats = results.get_results_by_category()
     for category, cat_results in category_stats.items():
         report_data["category_stats"][category] = {
@@ -213,7 +213,7 @@ def _generate_json_report(results: ClassificationResults, report_path: Path) -> 
             "files": [str(r.source_path.name) for r in cat_results],
         }
 
-    # 文件详情
+    # File details
     for result in results.results:
         if result.success:
             report_data["files"].append(
@@ -236,7 +236,7 @@ def _generate_json_report(results: ClassificationResults, report_path: Path) -> 
         elif not result.error:
             report_data["unmatched"].append(str(result.source_path))
 
-    # 错误信息
+    # Error information
     for file_path, error in results.errors:
         report_data["errors"].append({"file_path": str(file_path), "error": error})
 
@@ -245,17 +245,17 @@ def _generate_json_report(results: ClassificationResults, report_path: Path) -> 
 
 
 def _generate_csv_report(results: ClassificationResults, report_path: Path) -> None:
-    """生成CSV格式报告"""
+    """Generate CSV format report."""
 
     with open(report_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
 
-        # 写入表头
-        writer.writerow(["序号", "文件名", "源路径", "目标路径", "分类", "置信度", "状态", "错误信息", "匹配数"])
+        # Write header
+        writer.writerow(["#", "File", "Source Path", "Target Path", "Category", "Confidence", "Status", "Error", "Matches"])
 
-        # 写入数据
+        # Write data
         for i, result in enumerate(results.results, 1):
-            status = "成功" if result.success else ("失败" if result.error else "未匹配")
+            status = "Success" if result.success else ("Failed" if result.error else "Unmatched")
             writer.writerow(
                 [
                     i,
@@ -270,13 +270,13 @@ def _generate_csv_report(results: ClassificationResults, report_path: Path) -> N
                 ]
             )
 
-        # 写入错误记录
+        # Write error records
         for i, (file_path, error) in enumerate(results.errors, len(results.results) + 1):
-            writer.writerow([i, file_path.name, str(file_path), "", "", "", "错误", error, 0])
+            writer.writerow([i, file_path.name, str(file_path), "", "", "", "Error", error, 0])
 
 
 def _format_duration(start_time, end_time) -> str:
-    """格式化时间间隔"""
+    """Format a time duration."""
     if not start_time or not end_time:
         return "N/A"
 
@@ -284,23 +284,23 @@ def _format_duration(start_time, end_time) -> str:
     total_seconds = int(duration.total_seconds())
 
     if total_seconds < 60:
-        return f"{total_seconds}秒"
+        return f"{total_seconds} sec"
     elif total_seconds < 3600:
         minutes = total_seconds // 60
         seconds = total_seconds % 60
-        return f"{minutes}分{seconds}秒"
+        return f"{minutes} min {seconds} sec"
     else:
         hours = total_seconds // 3600
         minutes = (total_seconds % 3600) // 60
-        return f"{hours}小时{minutes}分"
+        return f"{hours} hr {minutes} min"
 
 
 def print_summary(results: ClassificationResults) -> None:
     """
-    打印分类摘要到控制台
+    Print classification summary to console.
 
     Args:
-        results: 分类结果
+        results: Classification results
     """
     from rich.console import Console
     from rich.table import Table
@@ -308,27 +308,27 @@ def print_summary(results: ClassificationResults) -> None:
     console = Console()
 
     console.print("\n" + "=" * 80)
-    console.print("[bold cyan]智能文件分类完成[/bold cyan]")
+    console.print("[bold cyan]File Classification Complete[/bold cyan]")
     console.print("=" * 80)
 
-    # 概览统计
-    console.print(f"\n[bold]总文件数:[/bold] {results.total_files}")
-    console.print(f"[bold green]成功分类:[/bold green] {results.success_count}")
-    console.print(f"[bold red]分类失败:[/bold red] {results.failed_count}")
-    console.print(f"[bold yellow]未匹配文件:[/bold yellow] {results.unmatched_count}")
-    console.print(f"[bold magenta]待处理文件:[/bold magenta] {results.pending_count}")
-    console.print(f"[bold]平均置信度:[/bold] {results.avg_confidence:.2%}")
-    console.print(f"[bold]处理时间:[/bold] {_format_duration(results.start_time, results.end_time)}")
+    # Summary statistics
+    console.print(f"\n[bold]Total files:[/bold] {results.total_files}")
+    console.print(f"[bold green]Successfully classified:[/bold green] {results.success_count}")
+    console.print(f"[bold red]Failed:[/bold red] {results.failed_count}")
+    console.print(f"[bold yellow]Unmatched files:[/bold yellow] {results.unmatched_count}")
+    console.print(f"[bold magenta]Pending files:[/bold magenta] {results.pending_count}")
+    console.print(f"[bold]Average confidence:[/bold] {results.avg_confidence:.2%}")
+    console.print(f"[bold]Processing time:[/bold] {_format_duration(results.start_time, results.end_time)}")
 
-    # 类别统计
+    # Category statistics
     category_stats = results.get_results_by_category()
     if category_stats:
-        console.print("\n[bold]按类别统计:[/bold]")
+        console.print("\n[bold]By Category:[/bold]")
 
         table = Table(show_header=True, header_style="bold cyan")
-        table.add_column("类别", style="cyan")
-        table.add_column("文件数", justify="right")
-        table.add_column("占比", justify="right")
+        table.add_column("Category", style="cyan")
+        table.add_column("Files", justify="right")
+        table.add_column("Percentage", justify="right")
 
         for category, cat_results in sorted(category_stats.items()):
             count = len(cat_results)
@@ -337,12 +337,12 @@ def print_summary(results: ClassificationResults) -> None:
 
         console.print(table)
 
-    # 待处理文件提示
+    # Pending files prompt
     if results.pending_count > 0:
-        console.print(f"\n[yellow]⚠ 有 {results.pending_count} 个文件需要人工审核,请查看 pending_review.json[/yellow]")
+        console.print(f"\n[yellow]⚠ {results.pending_count} file(s) require manual review. See pending_review.json[/yellow]")
 
-    # 错误提示
+    # Error notice
     if results.failed_count > 0:
-        console.print(f"\n[red]✖ 有 {results.failed_count} 个文件分类失败,请查看报告详情[/red]")
+        console.print(f"\n[red]✖ {results.failed_count} file(s) failed classification. See report for details.[/red]")
 
     console.print()

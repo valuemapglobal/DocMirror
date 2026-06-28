@@ -13,13 +13,12 @@ from docmirror.models.entities.parse_result import (
     DocumentEntities,
     LogicalTable,
     PageContent,
-    ParserInfo,
     ParseResult,
+    ParserInfo,
     RowType,
     TableBlock,
     TableRow,
 )
-from docmirror.models.schemas.registry import validate_projection_payload
 from docmirror.models.mirror.serialization_contract import (
     MIRROR_CONTRACT_VERSION,
     build_count_reconciliation,
@@ -28,6 +27,8 @@ from docmirror.models.mirror.serialization_contract import (
     link_blocks_to_tables,
     logical_table_role,
 )
+from docmirror.models.schemas.registry import validate_projection_payload
+from docmirror.structure.analysis.spe_consumer import mirror_api_meta_fields
 
 
 def _schema_path() -> Path:
@@ -39,7 +40,8 @@ def test_mirror_schema_file_exists():
     assert path.is_file()
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data["title"] == "DocMirror Mirror JSON"
-    assert "mirror_profile" in data["properties"]
+    assert "mirror" in data["properties"]
+    assert "data" not in data["properties"]
 
 
 def test_enrich_physical_table_ssot_fields():
@@ -121,7 +123,7 @@ def test_logical_table_role_annex():
     assert logical_table_role(lt) == "annex"
 
 
-def test_to_api_dict_design21_contract_fields():
+def test_to_mirror_json_vnext_design21_contract_fields():
     page_table = TableBlock(
         table_id="p1_t0",
         headers=["A", "B"],
@@ -161,51 +163,33 @@ def test_to_api_dict_design21_contract_fields():
             }
         ),
     )
-    api = pr.to_api_dict(mirror_level="standard")
-    assert api["mirror_profile"]["contract_version"] == MIRROR_CONTRACT_VERSION
-    assert api["mirror_profile"]["level"] == "standard"
+    api = pr.to_mirror_json_vnext(mirror_level="standard")
     assert MIRROR_CONTRACT_VERSION == "1.1"
-    counts = api["meta"]["counts"]
-    assert counts["logical_tables_total"] == 2
-    assert counts["logical_tables_export"] == 1
-    assert counts["logical_tables_annex"] == 1
-    assert api["meta"]["logical_table_count"] == counts["logical_tables_export"]
-    assert "reconciliation" in counts
-    assert "cross_page_merge_adjustment" in counts["reconciliation"]
-    identity = api["data"]["document"]["identity"]
-    assert identity["scene_hint"] == "bank_reconciliation"
-    assert identity["layout_profile_id"] == "borderless_ledger_bank"
-    assert identity["plugin_domain_hint"] == "bank_statement"
-    assert "layout_profile_id" not in api["data"]["document"]["properties"]
-    structure = api["meta"]["structure"]
-    assert structure["quarantine"]["logical_annex_count"] == 1
-    assert structure.get("morphology_aggregate_ref") == "document.morphology_stats"
-    assert "page_morphology_stats" not in structure
-    lts = api["data"]["document"]["logical_tables"]
-    assert lts[0]["role"] == "primary"
-    assert lts[1]["role"] == "annex"
-    assert lts[1]["composition"]["topology"] == "annex"
-    pages = api["data"]["document"]["pages"]
-    assert pages[0]["tables"][0]["ssot"] == "raw_rows"
-    assert pages[0]["tables"][0]["navigation_ref"] == "table:p1_t0"
+    assert "mirror_profile" not in api
+    assert "meta" not in api
+    assert "identity" not in api
+    assert "properties" not in api
+    provenance = api["source"]["provenance"]
+    assert provenance["entities"]["document_type"] == "bank_reconciliation"
+    assert provenance["entities"]["domain_specific"]["layout_profile_id"] == "borderless_ledger_bank"
+    assert len(provenance["logical_tables"]) == 2
+    assert provenance["logical_tables"][0]["table_id"] == "main"
+    assert provenance["logical_tables"][1]["quality_skip_reason"] == "col_count_mismatch"
+    assert provenance["parser_info"]["structure"]["quarantined_physical_count"] == 1
+    assert any(block["type"] == "table" for block in api["blocks"])
 
 
-def test_to_api_dict_always_exports_structure_ssot():
+def test_to_mirror_json_vnext_always_exports_structure_ssot():
     pr = ParseResult()
-    api = pr.to_api_dict(mirror_level="standard")
+    api = pr.to_mirror_json_vnext()
 
-    assert "counts" in api["meta"]
-    assert "structure" in api["meta"]
-    assert api["meta"]["structure"]["counts"] == api["meta"]["counts"]
-    assert api["meta"]["structure"]["quarantine"] == {
-        "physical_count": 0,
-        "logical_annex_count": 0,
-        "annex_logical_tables": [],
-    }
+    assert api["mirror"]["schema"] == "docmirror.mirror_json"
+    assert "data" not in api
+    assert "code" not in api
     assert validate_projection_payload("mirror", api).valid is True
 
 
-def test_to_api_dict_quarantine_ssot_is_meta_structure():
+def test_to_mirror_json_vnext_quarantine_ssot_is_meta_structure():
     pr = ParseResult(
         entities=DocumentEntities(document_type="bank_statement"),
         parser_info=ParserInfo(
@@ -215,10 +199,11 @@ def test_to_api_dict_quarantine_ssot_is_meta_structure():
             }
         ),
     )
-    api = pr.to_api_dict(mirror_level="standard")
+    api = pr.to_mirror_json_vnext(mirror_level="standard")
 
-    assert "quarantine" not in api["meta"]
-    assert api["meta"]["structure"]["quarantine"]["physical_count"] == 2
+    assert "meta" not in api
+    assert api["source"]["provenance"]["parser_info"]["structure"]["quarantined_physical_count"] == 2
+    assert mirror_api_meta_fields(pr)["quarantine"]["physical_count"] == 2
 
 
 def test_cell_standard_audit_fields():

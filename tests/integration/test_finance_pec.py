@@ -13,7 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.plugins.runner import run_plugin_extract_sync
+from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 from tests.contract.test_edition_schema_conformance import check_finance
 
 pytest.importorskip("docmirror_finance")
@@ -45,7 +45,7 @@ def test_finance_alipay_fixture_quality_metrics():
     if not ALIPAY_FIXTURE.is_file():
         pytest.skip(f"missing fixture {ALIPAY_FIXTURE}")
 
-    from docmirror.core.entry.factory import PerceiveOptions, perceive_document
+    from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 
     mirror = asyncio.run(
         perceive_document(ALIPAY_FIXTURE, PerceiveOptions(enhance_mode="standard"))

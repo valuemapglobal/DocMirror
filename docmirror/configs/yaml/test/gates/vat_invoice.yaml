@@ -16,10 +16,7 @@ cases:
     options:
       enhance_mode: standard
     gates:
-      required_fields_present:
-        - invoice_code
-        - invoice_number
-        - total_amount
+      required_fields_present: {contains: [invoice_code, invoice_number, total_amount]}
     tags: [invoice, vat, community]
 
   - id: vat_invoice_amount_consistency

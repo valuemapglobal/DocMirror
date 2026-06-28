@@ -17,11 +17,11 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from docmirror.core.entry.factory import PerceiveOptions, perceive_document
-from docmirror.core.entry.options import normalize_parse_control
-from docmirror.integration.request import ParseRequest
-from docmirror.integration.errors import ErrorEnvelope
-from docmirror.integration.observability import ObservabilityContext, build_observability_context
+from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.input.entry.options import normalize_parse_control
+from docmirror.sdk.integration.request import ParseRequest
+from docmirror.sdk.integration.errors import ErrorEnvelope
+from docmirror.sdk.integration.observability import ObservabilityContext, build_observability_context
 from docmirror.server.edition_outputs import write_four_files
 from docmirror.server.task_result import TaskResult, task_result_from_manifest
 

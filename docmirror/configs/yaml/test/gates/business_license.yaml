@@ -14,10 +14,7 @@ cases:
       enhance_mode: standard
     gates:
       dec_validation: { max_issues: 0 }
-      required_fields_present:
-        - company_name
-        - unified_social_credit_code
-        - legal_representative
+      required_fields_present: {contains: [company_name, unified_social_credit_code, legal_representative]}
     tags: [identity, license, community]
 
   - id: business_license_uscc_quality
@@ -29,5 +26,5 @@ cases:
     options:
       enhance_mode: standard
     gates:
-      uscc_valid_or_warning: true
+      uscc_valid_or_warning: {equals: true}
     tags: [identity, license, uscc, community]

@@ -15,7 +15,7 @@ pytestmark = [pytest.mark.tier_smoke]
 
 from docmirror.plugins import PluginRegistry
 from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
-from docmirror.plugins.community import get_community_premium_domains
+from docmirror.plugins._runtime.community import get_community_premium_domains
 from docmirror.plugins.generic.community_plugin import GenericCommunityPlugin
 from docmirror_enterprise.plugins.bank_statement import BankStatementPlugin, plugin as bank_statement_plugin
 from docmirror_enterprise.plugins.bank_statement.plugin import plugin as bank_statement_module_plugin

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from docmirror.core.bridge.parse_result_bridge import ParseResultBridge
+from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
 from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 
@@ -28,7 +28,7 @@ class TestParseResultBridge:
         assert pr.pages[0].tables[0].rows
 
     def test_bridge_lives_in_core_bridge(self):
-        import docmirror.core.bridge.parse_result_bridge as bridge_mod
+        import docmirror.input.bridge.parse_result_bridge as bridge_mod
 
         assert hasattr(bridge_mod, "ParseResultBridge")
 
@@ -114,7 +114,7 @@ class TestParseResultBridge:
     async def test_extract_parse_result_delegates_to_bridge(self, tmp_path):
         from unittest.mock import AsyncMock, patch
 
-        from docmirror.core.extraction.extractor import CoreExtractor
+        from docmirror.input.extraction.extractor import CoreExtractor
         from docmirror.models.entities.parse_result import ParseResult
 
         pdf = tmp_path / "empty.pdf"
@@ -133,7 +133,7 @@ class TestParseResultBridge:
                 assert result is mock_pr
 
 
-def test_to_api_dict_serializes_document_sections():
+def test_to_mirror_json_vnext_serializes_document_sections():
     import json
 
     from docmirror.models.entities.parse_result import DocumentSection, ParseResult
@@ -144,8 +144,9 @@ def test_to_api_dict_serializes_document_sections():
         ],
     )
     pr.entities.document_type = "bank_statement"
-    api = pr.to_api_dict()
+    api = pr.to_mirror_json_vnext()
     json.dumps(api, ensure_ascii=False)
-    sections = api["data"]["document"]["sections"]
+    assert "sections" not in api
+    sections = api["source"]["provenance"]["sections"]
     assert sections[0]["title"] == "Account summary"
     assert sections[0]["level"] == 1

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.debug.artifact import build_debug_artifact
+from docmirror.output.debug.artifact import build_debug_artifact
 from docmirror.models.entities.domain_result import normalize_domain_result
 from docmirror.models.entities.evidence import EvidenceSpan
 from docmirror.models.entities.hypothesis import ParseHypothesis
@@ -44,7 +44,7 @@ class TestEditionV2DecNormalization:
         assert any("missing_identity_field" in i for i in dec.quality.issues)
 
     def test_finalize_extract_accepts_v2(self):
-        from docmirror.plugins.runner import _finalize_extract
+        from docmirror.plugins._runtime.runner import _finalize_extract
 
         pr = ParseResult()
         payload = _sample_v2_payload()

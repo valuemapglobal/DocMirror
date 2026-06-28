@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from docmirror.framework.cache import ParseCache
-from docmirror.core.entry.options import normalize_parse_control
+from docmirror.input.entry.options import normalize_parse_control
 from docmirror.models.entities.parse_result import ParseResult
 
 
@@ -45,7 +45,7 @@ async def test_dispatcher_uses_execution_fingerprint_for_cache():
     dispatcher = ParserDispatcher()
     control = normalize_parse_control(skip_cache=False)
     import os
-    from docmirror.core.entry.options import normalize_parse_control as _norm
+    from docmirror.input.entry.options import normalize_parse_control as _norm
 
     expected_control = _norm(
         control,

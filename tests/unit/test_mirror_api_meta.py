@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from docmirror.core.analyze.spe_consumer import mirror_api_meta_fields
-from docmirror.models.entities.parse_result import DocumentEntities, ParserInfo, ParseResult
+from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ParserInfo
+from docmirror.structure.analysis.spe_consumer import mirror_api_meta_fields
 
 
 def test_mirror_api_meta_fields_ltqg_and_quarantine():
@@ -40,7 +40,7 @@ def test_mirror_api_meta_fields_ltqg_and_quarantine():
     assert meta["quarantine"]["physical_count"] == 2
 
 
-def test_to_api_dict_includes_mirror_meta_ssot():
+def test_to_mirror_json_vnext_includes_mirror_meta_ssot():
     pr = ParseResult(
         entities=DocumentEntities(document_type="bank_statement"),
         parser_info=ParserInfo(
@@ -54,8 +54,11 @@ def test_to_api_dict_includes_mirror_meta_ssot():
             }
         ),
     )
-    api = pr.to_api_dict()
-    assert api["meta"]["physical_table_count"] == 5
-    assert api["meta"]["dual_view"] is True
-    assert api["meta"]["ltqg"]["expected_data_rows"] == 10
-    assert api["meta"]["mirror_expected_data_rows"] == 10
+    api = pr.to_mirror_json_vnext()
+    assert "meta" not in api
+    assert api["source"]["provenance"]["parser_info"]["structure"]["physical_table_count"] == 5
+    meta = mirror_api_meta_fields(pr)
+    assert meta["physical_table_count"] == 5
+    assert meta["dual_view"] is True
+    assert meta["ltqg"]["expected_data_rows"] == 10
+    assert meta["mirror_expected_data_rows"] == 10

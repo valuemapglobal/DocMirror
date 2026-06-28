@@ -11,8 +11,7 @@ from enum import Enum
 
 import pytest
 
-from docmirror.core.bridge.parse_result_bridge import ParseResultBridge
-from docmirror.core.debug.artifact import build_debug_artifact, write_debug_artifact
+from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
 from docmirror.models.entities.domain import BaseResult
 from docmirror.models.entities.parse_result import (
     DocumentSection,
@@ -20,7 +19,8 @@ from docmirror.models.entities.parse_result import (
     ResultStatus,
     TableOperation,
 )
-from docmirror.models.serialization import assert_json_serializable, dumps_json, to_json_safe
+from docmirror.output.debug.artifact import build_debug_artifact, write_debug_artifact
+from docmirror.output.serialization import assert_json_serializable, dumps_json, to_json_safe
 
 
 class _SampleEnum(str, Enum):
@@ -41,7 +41,7 @@ def test_to_json_safe_coerces_pydantic_enum_and_datetime():
     assert safe["nested"][0]["op"]["logical_id"] == "lt_1"
 
 
-def test_to_api_dict_always_json_serializable():
+def test_to_mirror_json_vnext_always_json_serializable():
     pr = ParseResult(
         sections=[
             DocumentSection(id="1", title="Account", page_start=1, level=1, line_count=8),
@@ -53,12 +53,14 @@ def test_to_api_dict_always_json_serializable():
     pr.entities.document_type = "bank_statement"
     pr.entities.domain_specific = {"currency": "CNY", "institution": "中国银行"}
 
-    api = pr.to_api_dict()
+    api = pr.to_mirror_json_vnext()
     assert_json_serializable(api)
-    assert api["data"]["document"]["sections"][0]["level"] == 1
+    assert "sections" not in api
+    assert "meta" not in api
+    assert api["source"]["provenance"]["sections"][0]["level"] == 1
 
 
-def test_bridge_section_metadata_survives_to_api_dict():
+def test_bridge_section_metadata_survives_to_mirror_json_vnext():
     base = BaseResult(
         pages=(),
         metadata={
@@ -68,7 +70,7 @@ def test_bridge_section_metadata_survives_to_api_dict():
         },
     )
     pr = ParseResultBridge.from_base_result(base)
-    api = pr.to_api_dict()
+    api = pr.to_mirror_json_vnext()
     dumps_json(api)
 
 
@@ -89,7 +91,7 @@ def test_debug_artifact_serializes_sections_and_table_operations(tmp_path):
     assert loaded["table_operations"][0]["logical_id"] == "lt_x"
 
 
-def test_failed_parse_result_to_api_dict_is_json_safe():
+def test_failed_parse_result_to_mirror_json_vnext_is_json_safe():
     from docmirror.models.entities.parse_result import ErrorDetail
 
     pr = ParseResult(
@@ -97,5 +99,5 @@ def test_failed_parse_result_to_api_dict_is_json_safe():
         error=ErrorDetail(code="parse_error", message="boom"),
         sections=[DocumentSection(id="1", title="orphan", page_start=1)],
     )
-    api = pr.to_api_dict()
+    api = pr.to_mirror_json_vnext()
     dumps_json(api)

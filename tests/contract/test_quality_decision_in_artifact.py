@@ -21,7 +21,7 @@ class TestBuildQualityDecisionBlock:
 
     def test_returns_dict_with_decision(self):
         from docmirror.evidence.quality_decision import QualityDecisionReport
-        from docmirror.output.projection_resolver import build_quality_decision_block
+        from docmirror.output.projection.resolver import build_quality_decision_block
 
         # Create minimal inputs — build_quality_decision_block is a thin wrapper
         report = QualityDecisionReport(
@@ -125,7 +125,7 @@ class TestBuildQualityDecisionBlock:
 
     def test_build_quality_decision_block_from_projection_resolver(self):
         """build_quality_decision_block() is available in projection_resolver __all__."""
-        from docmirror.output.projection_resolver import build_quality_decision_block
+        from docmirror.output.projection.resolver import build_quality_decision_block
         assert callable(build_quality_decision_block), (
             "G15: build_quality_decision_block must be importable and callable"
         )

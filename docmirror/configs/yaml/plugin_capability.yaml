@@ -15,14 +15,5 @@ community_premium_domains:
 # When true, classified non-premium non-enterprise types use generic_community fallback
 community_generic_enabled: true
 
-# Explicit enterprise-only types (mirror_only envelope on community edition; no generic)
-enterprise_only:
-  - audit_report
-  - balance_sheet
-  - income_statement
-  - cash_flow_statement
-  - aml_report
-  - court_judgment
-  - fund_contract
-  - wealth_management_contract
-  - guarantee_contract
+# enterprise_only list removed in v2 — all types use generic community fallback
+# with upgrade hints instead of mirror_only empty envelopes.

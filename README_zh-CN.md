@@ -61,21 +61,19 @@ from docmirror import perceive_document
 
 async def main():
     result = await perceive_document("bank_statement.pdf")
-    api = result.to_api_dict(include_text=True)
+    mirror = result.to_mirror_json_vnext()
 
-    # 标准 RESTful 输出
-    print(api["code"])      # 200
-    print(api["message"])   # "success"
+    # Canonical vNext mirror 输出
+    print(mirror["mirror"]["schema_version"])  # "3.0.0"
+    print(mirror["source"]["filename"])
 
     # 遍历结构化表格
-    for page in api["data"]["document"]["pages"]:
-        for table in page.get("tables", []):
-            for row in table["rows"]:
-                record = {
-                    table["headers"][i]: cell["text"]
-                    for i, cell in enumerate(row["cells"])
-                }
-                print(record)
+    for block in mirror["blocks"]:
+        if block["type"] != "table":
+            continue
+        headers = block["content"].get("headers", [])
+        for row in block["content"].get("rows", []):
+            print(dict(zip(headers, row, strict=False)))
 
 asyncio.run(main())
 ```
@@ -152,54 +150,46 @@ graph TD
 
 ## 📦 API 输出
 
-DocMirror 产出标准化的 RESTful JSON 响应信封：
+DocMirror 直接返回 vNext mirror JSON：
 
 ```json
 {
-  "code": 200,
-  "message": "success",
-  "api_version": "1.0",
-  "request_id": "req_abc123",
-  "timestamp": "2026-03-18T10:22:17+00:00",
-  "data": {
-    "document": {
-      "type": "bank_statement",
-      "properties": {
-        "organization": "Demo Bank",
-        "subject_name": "Acme Corporation Ltd.",
-        "subject_id": "6225********7890"
-      },
-      "pages": [
-        {
-          "page_number": 1,
-          "tables": [{"headers": ["日期", "摘要", "金额"], "rows": ["..."]}],
-          "texts": [{"content": "账户交易明细表", "level": "h1"}],
-          "key_values": [{"key": "户名", "value": "Acme Corporation Ltd."}]
-        }
-      ]
-    },
-    "quality": {
-      "confidence": 1.0,
-      "trust_score": 1.0,
-      "validation_passed": true
-    }
+  "mirror": {
+    "schema": "docmirror.mirror_json",
+    "schema_version": "3.0.0"
   },
-  "meta": {
-    "parser": "DocMirror",
-    "version": "0.4.0",
-    "elapsed_ms": 50.4,
-    "page_count": 4,
-    "table_count": 1,
-    "row_count": 34
-  }
+  "source": {"filename": "bank_statement.pdf"},
+  "document": {
+    "document_type": "bank_statement",
+    "document_type_candidates": [{"type": "bank_statement", "confidence": 0.98}]
+  },
+  "pages": [{"id": "page:0001", "page_number": 1}],
+  "evidence": {"text_atoms": []},
+  "regions": [],
+  "blocks": [
+    {
+      "type": "table",
+      "content": {
+        "grid": {
+          "columns": [{"header": "日期"}, {"header": "摘要"}, {"header": "金额"}],
+          "cells": []
+        }
+      }
+    }
+  ],
+  "graph": {},
+  "semantics": {"facts": [], "entities": [], "views": {}},
+  "quality": {"overall": {"status": "pass", "score": 1.0}},
+  "diagnostics": {},
+  "assets": {}
 }
 ```
 
-**单元格类型精简** — 仅 `text` + `data_type`（非默认时）:
+**表格单元格会携带规范化值**：
 ```json
-{"text": "2,970.00", "data_type": "currency"}
-{"text": "2025-03-27", "data_type": "date"}
-{"text": "Demo Bank"}
+{"text": "2,970.00", "value": {"raw": "2,970.00", "normalized": 2970.0, "type": "number"}}
+{"text": "2025-03-27", "value": {"raw": "2025-03-27", "normalized": "2025-03-27", "type": "date"}}
+{"text": "Demo Bank", "value": {"raw": "Demo Bank", "normalized": "Demo Bank", "type": "string"}}
 ```
 
 ## 📋 支持格式
@@ -218,7 +208,7 @@ DocMirror 产出标准化的 RESTful JSON 响应信封：
 
 ## 🗺️ 路线图
 
-- [x] RESTful API v1.0 信封 + 类型化单元格
+- [x] vNext mirror JSON API 输出 + 规范化单元格
 - [x] 防伪造像素 ELA 检测
 - [x] Redis 缓存层
 - [x] CLI `--include-text` 参数

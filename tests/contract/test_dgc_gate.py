@@ -18,17 +18,17 @@ class TestResolveDgcStatus:
     """Test resolve_dgc_status() function from plugin_registry."""
 
     def test_ga_domain_returns_ga(self):
-        from docmirror.plugins.plugin_registry import resolve_dgc_status
+        from docmirror.plugins._runtime.plugin_registry import resolve_dgc_status
         result = resolve_dgc_status("bank_statement")
         assert result == "ga", f"bank_statement should be ga, got {result}"
 
     def test_candidate_domain_returns_candidate(self):
-        from docmirror.plugins.plugin_registry import resolve_dgc_status
+        from docmirror.plugins._runtime.plugin_registry import resolve_dgc_status
         result = resolve_dgc_status("vat_invoice")
         assert result == "candidate", f"vat_invoice should be candidate, got {result}"
 
     def test_mirror_only_domain_returns_mirror_only(self):
-        from docmirror.plugins.plugin_registry import resolve_dgc_status
+        from docmirror.plugins._runtime.plugin_registry import resolve_dgc_status
         result = resolve_dgc_status("unknown_domain_xyz")
         # unknown domains should return 'mirror_only' or 'unknown'
         assert result in ("mirror_only", "unknown"), (
@@ -36,7 +36,7 @@ class TestResolveDgcStatus:
         )
 
     def test_returns_string_for_all_cases(self):
-        from docmirror.plugins.plugin_registry import resolve_dgc_status
+        from docmirror.plugins._runtime.plugin_registry import resolve_dgc_status
         for domain in ("bank_statement", "vat_invoice", "business_license",
                        "personal_credit_report", "alipay_bill", "wechat_bill",
                        "nonexistent_domain", ""):
@@ -91,7 +91,7 @@ class TestDgcStatusInProjectionLineage:
     """Test that DGC status appears in projection lineage from edition payloads."""
 
     def test_lineage_includes_dgc_status_for_ga_domain(self):
-        from docmirror.output.projection_resolver import build_projection_lineage
+        from docmirror.output.projection.resolver import build_projection_lineage
 
         payload = {
             "edition": "community",
@@ -120,7 +120,7 @@ class TestDgcStatusInProjectionLineage:
             assert field["dgc_status"] == "ga"
 
     def test_lineage_includes_dgc_status_for_candidate_domain(self):
-        from docmirror.output.projection_resolver import build_projection_lineage
+        from docmirror.output.projection.resolver import build_projection_lineage
 
         payload = {
             "edition": "community",
@@ -146,7 +146,7 @@ class TestDgcStatusInProjectionLineage:
 
     def test_lineage_dgc_status_from_metadata(self):
         """When dgc_status is explicitly set in metadata, it should be used."""
-        from docmirror.output.projection_resolver import build_projection_lineage
+        from docmirror.output.projection.resolver import build_projection_lineage
 
         payload = {
             "edition": "enterprise",
@@ -170,7 +170,7 @@ class TestDgcStatusInProjectionLineage:
 
     def test_lineage_dgc_status_unresolved_fallback(self):
         """When domain is unrecognized, dgc_status falls back to 'unresolved'."""
-        from docmirror.output.projection_resolver import build_projection_lineage
+        from docmirror.output.projection.resolver import build_projection_lineage
 
         payload = {
             "edition": "community",

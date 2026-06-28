@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.core.ocr.page_canvas.evidence_bundles import (
+from docmirror.structure.ocr.page_canvas.evidence_bundles import (
     domain_specific_with_page_bundles,
     merge_micro_grid_structures_into_bundles,
     page_evidence_bundle,
@@ -90,7 +90,7 @@ def test_sync_page_canvas_includes_tables_and_mixed_reading_order():
     assert len(canvas.reading_order) == len(canvas.blocks)
 
 
-def test_to_api_dict_uses_synced_page_canvas():
+def test_to_mirror_json_vnext_uses_synced_page_canvas():
     grid = {
         "grid_id": "mg_p4_repayment_0",
         "page": 4,
@@ -105,7 +105,7 @@ def test_to_api_dict_uses_synced_page_canvas():
         pages=[PageContent(page_number=4, width=100, height=200)],
         entities=DocumentEntities(document_type="credit_report", domain_specific=ds),
     )
-    api = pr.to_api_dict(mirror_level="standard")
+    api = pr.to_mirror_json_vnext(mirror_level="standard")
     assert pr.pages[0].page_canvas is not None
-    page = api["data"]["document"]["pages"][0]
+    page = api["pages"][0]
     assert page["regions"][0]["kind"] == "micro_grid"

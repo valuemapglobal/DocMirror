@@ -1,6 +1,6 @@
 import pytest
 
-from docmirror.core.entry.options import parse_page_selection
+from docmirror.input.entry.options import parse_page_selection
 
 
 def test_synthetic_large_pdf_layout_honors_selected_pages(tmp_path):
@@ -14,7 +14,7 @@ def test_synthetic_large_pdf_layout_honors_selected_pages(tmp_path):
     doc.save(pdf_path)
     doc.close()
 
-    from docmirror.core.segment.layout_analysis import analyze_document_layout
+    from docmirror.structure.segment.layout_analysis import analyze_document_layout
 
     opened = fitz.open(pdf_path)
     try:

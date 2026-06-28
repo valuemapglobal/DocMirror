@@ -5,7 +5,7 @@ version: 1
 
 middlewares:
   LanguageDetector:
-    module: docmirror.middlewares.detection.language_detector
+    module: docmirror.framework.middlewares.detection.language_detector
     class: LanguageDetector
     stage: NORMALIZE
     provides: [language]
@@ -13,7 +13,7 @@ middlewares:
     enabled: true
 
   HeaderInferrer:
-    module: docmirror.middlewares.extraction.header_inferrer
+    module: docmirror.framework.middlewares.extraction.header_inferrer
     class: HeaderInferrerMiddleware
     stage: STRUCTURE
     provides: [table_headers]
@@ -22,7 +22,7 @@ middlewares:
     enabled: true
 
   HeaderAlignment:
-    module: docmirror.middlewares.alignment.header_alignment_middleware
+    module: docmirror.framework.middlewares.alignment.header_alignment_middleware
     class: HeaderAlignmentMiddleware
     stage: STRUCTURE
     provides: [header_alignment]
@@ -31,7 +31,7 @@ middlewares:
     enabled: true
 
   EntityExtractor:
-    module: docmirror.middlewares.extraction.entity_extractor
+    module: docmirror.framework.middlewares.extraction.entity_extractor
     class: EntityExtractor
     stage: ENRICH
     provides: [entities, metadata]
@@ -39,7 +39,7 @@ middlewares:
     enabled: true
 
   GenericEntityExtractor:
-    module: docmirror.middlewares.extraction.generic_entity_extractor
+    module: docmirror.framework.middlewares.extraction.generic_entity_extractor
     class: GenericEntityExtractor
     stage: ENRICH
     provides: [entities]
@@ -47,15 +47,31 @@ middlewares:
     enabled: true
 
   EvidenceEngine:
-    module: docmirror.core.scene.evidence_engine
+    module: docmirror.structure.scene.evidence_engine
     class: EvidenceEngine
     stage: CLASSIFY
     provides: [document_type, classification_evidence]
     depends_on: [EntityExtractor, GenericEntityExtractor]
     enabled: true
 
+  GeometricReconstructor:
+    module: docmirror.framework.middlewares.extraction.geometric_reconstructor
+    class: GeometricReconstructor
+    stage: ENRICH
+    provides: [tables]
+    depends_on: []
+    enabled: true
+
+  LlmDocumentRestorer:
+    module: docmirror.framework.middlewares.extraction.llm_document_restorer
+    class: LlmDocumentRestorer
+    stage: ENRICH
+    provides: [tables, key_values]
+    depends_on: [EvidenceEngine]
+    enabled: true
+
   InstitutionDetector:
-    module: docmirror.middlewares.detection.institution_detector
+    module: docmirror.framework.middlewares.detection.institution_detector
     class: InstitutionDetector
     stage: CONTEXT
     provides: [institution]
@@ -63,7 +79,7 @@ middlewares:
     enabled: true
 
   Validator:
-    module: docmirror.middlewares.validation.validator
+    module: docmirror.framework.middlewares.validation.validator
     class: Validator
     stage: VALIDATE
     provides: [quality_score]
@@ -71,7 +87,7 @@ middlewares:
     enabled: true
 
   AnomalyDetector:
-    module: docmirror.middlewares.validation.anomaly_detector
+    module: docmirror.framework.middlewares.validation.anomaly_detector
     class: AnomalyDetectorMiddleware
     stage: VALIDATE
     provides: [structural_anomaly_report]
@@ -79,10 +95,4 @@ middlewares:
     when: "enhance_mode == 'full'"
     enabled: false
 
-  SLMEntityExtractor:
-    module: docmirror.middlewares.extraction.slm_entity_extractor
-    class: SLMEntityExtractor
-    stage: ENRICH
-    provides: [entities]
-    depends_on: []
-    enabled: false
+  # SLMEntityExtractor removed in v1.1 — superseded by LlmDocumentRestorer

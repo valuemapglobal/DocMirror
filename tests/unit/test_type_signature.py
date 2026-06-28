@@ -17,7 +17,7 @@
 
 import pytest
 from datetime import datetime
-from docmirror.core.table.signature import (
+from docmirror.structure.tables.signature import (
     TypeSignature,
     TypeSignatureLibrary,
     ColumnSignatureProfile,
@@ -25,10 +25,10 @@ from docmirror.core.table.signature import (
 
 
 class TestTypeSignatureDataStructures:
-    """测试数据结构"""
+    """Test data structure"""
     
     def test_type_signature_creation(self):
-        """测试 TypeSignature 创建"""
+        """Test TypeSignature creation"""
         sig = TypeSignature(
             type_name="date",
             confidence=0.95,
@@ -43,7 +43,7 @@ class TestTypeSignatureDataStructures:
         assert sig.total_values == 20
     
     def test_type_signature_to_dict(self):
-        """测试 TypeSignature 序列化"""
+        """Test TypeSignature serialization"""
         sig = TypeSignature(type_name="amount", confidence=0.88)
         d = sig.to_dict()
         assert isinstance(d, dict)
@@ -51,7 +51,7 @@ class TestTypeSignatureDataStructures:
         assert d["confidence"] == 0.88
     
     def test_column_signature_profile_creation(self):
-        """测试 ColumnSignatureProfile 创建"""
+        """Test ColumnSignatureProfile creation"""
         sigs = [
             TypeSignature("date", 1.0),
             TypeSignature("text", 0.9),
@@ -69,112 +69,112 @@ class TestTypeSignatureDataStructures:
 
 
 class TestDateDetection:
-    """测试日期检测"""
+    """Test date detection"""
     
     def test_standard_date_format(self):
-        """测试标准日期格式 YYYY-MM-DD"""
+        """Test standard date format YYYY-MM-DD"""
         assert TypeSignatureLibrary.test_date("2024-01-15") is not None
         assert TypeSignatureLibrary.test_date("2024-12-31") is not None
     
     def test_slash_date_format(self):
-        """测试斜杠日期格式 YYYY/MM/DD"""
+        """Test slash date format YYYY/MM/DD"""
         assert TypeSignatureLibrary.test_date("2024/01/15") is not None
     
     def test_chinese_date_format(self):
-        """测试中文日期格式"""
+        """Test Chinese date format"""
         assert TypeSignatureLibrary.test_date("2024年01月15日") is not None
-        # 注意："2024年1月15号" 会被标准化为 "2024-1-15"，但strptime需要 "2024-01-15"
-        # 所以这个测试可能失败，取决于实现
+        # Note: "2024年1月15号" normalizes to "2024-1-15" but strptime needs "2024-01-15"
+        # So this test may fail depending on implementation
     
     def test_dot_date_format(self):
-        """测试点号日期格式 YYYY.MM.DD"""
+        """Test dot-date format YYYY.MM.DD"""
         assert TypeSignatureLibrary.test_date("2024.01.15") is not None
     
     def test_short_date_format(self):
-        """测试短日期格式 MM-DD"""
+        """Test short date format MM-DD"""
         assert TypeSignatureLibrary.test_date("01-15") is not None
         assert TypeSignatureLibrary.test_date("1-15") is not None
     
     def test_invalid_dates(self):
-        """测试无效日期"""
+        """Test invalid date"""
         assert TypeSignatureLibrary.test_date("not-a-date") is None
         assert TypeSignatureLibrary.test_date("2024-13-45") is None
         assert TypeSignatureLibrary.test_date("") is None
 
 
 class TestAmountDetection:
-    """测试金额检测"""
+    """Test amount detection"""
     
     def test_plain_amount(self):
-        """测试纯数字金额"""
+        """Test plain-number amount"""
         assert TypeSignatureLibrary.test_amount("15000.00") == 15000.0
         assert TypeSignatureLibrary.test_amount("123.45") == 123.45
     
     def test_amount_with_thousands_separator(self):
-        """测试带千分位的金额"""
+        """Test amounts with thousands separator"""
         assert TypeSignatureLibrary.test_amount("15,000.00") == 15000.0
         assert TypeSignatureLibrary.test_amount("1,234,567.89") == 1234567.89
     
     def test_amount_with_currency_symbol(self):
-        """测试带货币符号的金额"""
+        """Test amounts with currency symbols"""
         assert TypeSignatureLibrary.test_amount("￥15000") == 15000.0
         assert TypeSignatureLibrary.test_amount("$1,234.56") == 1234.56
         assert TypeSignatureLibrary.test_amount("€100") == 100.0
     
     def test_negative_amount(self):
-        """测试负数金额"""
+        """Test negative amounts"""
         assert TypeSignatureLibrary.test_amount("-500.00") == -500.0
         assert TypeSignatureLibrary.test_amount("-￥1,000") == -1000.0
     
     def test_amount_with_percentage(self):
-        """测试带百分比的金额"""
+        """Test amount with percentage"""
         assert TypeSignatureLibrary.test_amount("15.5%") == 15.5
     
     def test_invalid_amounts(self):
-        """测试无效金额"""
+        """Test invalid amount"""
         assert TypeSignatureLibrary.test_amount("not-amount") is None
         assert TypeSignatureLibrary.test_amount("") is None
 
 
 class TestOtherTypeDetection:
-    """测试其他类型检测"""
+    """Test other type detection"""
     
     def test_percentage_detection(self):
-        """测试百分比检测"""
+        """Test percentage detection"""
         assert TypeSignatureLibrary.test_percentage("15.5%") == 15.5
         assert TypeSignatureLibrary.test_percentage("100%") == 100.0
         assert TypeSignatureLibrary.test_percentage("not-percent") is None
     
     def test_account_detection(self):
-        """测试银行账号检测"""
+        """Test bank account detection"""
         assert TypeSignatureLibrary.test_account("6222021234567890") is not None
         assert TypeSignatureLibrary.test_account("6222 0212 3456 7890") is not None
         assert TypeSignatureLibrary.test_account("123") is None  # 太短
     
     def test_phone_detection(self):
-        """测试手机号检测"""
+        """Test phone number detection"""
         assert TypeSignatureLibrary.test_phone("13812345678") is not None
         assert TypeSignatureLibrary.test_phone("18912345678") is not None
         assert TypeSignatureLibrary.test_phone("12345678901") is None  # 不在13-19范围
     
     def test_id_number_detection(self):
-        """测试身份证号检测"""
+        """Test Chinese ID number detection"""
         assert TypeSignatureLibrary.test_id_number("110101199001011234") is not None
         assert TypeSignatureLibrary.test_id_number("11010119900101123X") is not None
         assert TypeSignatureLibrary.test_id_number("123") is None
     
     def test_number_detection(self):
-        """测试普通数字检测"""
+        """Test plain number detection"""
         assert TypeSignatureLibrary.test_number("123.45") == 123.45
         assert TypeSignatureLibrary.test_number("-67") == -67.0
         assert TypeSignatureLibrary.test_number("not-number") is None
 
 
 class TestSignatureInference:
-    """测试列签名推断"""
+    """Test column signature inference"""
     
     def test_infer_date_signature(self):
-        """测试日期列签名推断"""
+        """Test date column signature inference"""
         values = ["2024-01-15", "2024-01-16", "2024-01-17", "2024-01-18"]
         sig = TypeSignatureLibrary.infer_signature(values)
         assert sig.type_name == "date"
@@ -182,21 +182,21 @@ class TestSignatureInference:
         assert len(sig.pattern_examples) > 0
     
     def test_infer_amount_signature(self):
-        """测试金额列签名推断"""
+        """Test amount column signature inference"""
         values = ["15,000.00", "3,000.00", "200.00", "1,500.50"]
         sig = TypeSignatureLibrary.infer_signature(values)
         assert sig.type_name == "amount"
         assert sig.confidence == 1.0
     
     def test_infer_text_signature(self):
-        """测试文本列签名推断"""
+        """Test text column signature inference"""
         values = ["工资收入", "转账支出", "消费", "利息"]
         sig = TypeSignatureLibrary.infer_signature(values)
         assert sig.type_name == "text"
         assert sig.confidence == 1.0
     
     def test_infer_mixed_signature_with_nulls(self):
-        """测试混合数据（含空值）的签名推断"""
+        """Test signature inference with mixed data (including nulls)"""
         values = ["2024-01-15", "", "2024-01-17", "", "2024-01-18"]
         sig = TypeSignatureLibrary.infer_signature(values)
         assert sig.type_name == "date"
@@ -204,26 +204,26 @@ class TestSignatureInference:
         assert sig.nullable_count == 2
     
     def test_infer_empty_values(self):
-        """测试空值列表"""
+        """Test null value list"""
         sig = TypeSignatureLibrary.infer_signature([])
         assert sig.type_name == "unknown"
         assert sig.confidence == 0.0
     
     def test_infer_low_confidence(self):
-        """测试低置信度场景"""
+        """Test low-confidence scenario"""
         values = ["2024-01-15", "not-a-date", "12345", "abc"]
         sig = TypeSignatureLibrary.infer_signature(values)
-        # text 有 2 个匹配 ("not-a-date", "abc")
+        # text has 2 matches ("not-a-date", "abc")
         assert sig.type_name == "text"
         assert sig.confidence == 0.5
 
 
 class TestTableSignatureProfile:
-    """测试表格签名画像"""
+    """Test table signature profiling"""
     
     def test_infer_bank_statement_signature(self):
-        """测试银行流水表格签名"""
-        # 提供更有规律的数据行（减少空值）
+        """Test bank statement table signature"""
+        # Provide more regular data rows (reduce nulls)
         data_rows = [
             ["2024-01-15", "工资收入", "0.00", "15,000.00", "25,000.00"],
             ["2024-01-16", "转账支出", "3,000.00", "0.00", "22,000.00"],
@@ -236,16 +236,16 @@ class TestTableSignatureProfile:
         assert profile.overall_consistency > 0.7
         assert len(profile.signatures) == 5
         
-        # 验证各列类型
+        # Verify each column type
         assert profile.signatures[0].type_name == "date"
         assert profile.signatures[1].type_name == "text"
-        # 第2、3、4列都应该是 amount
+        # Columns 2, 3, 4 should all be amount
         assert profile.signatures[2].type_name == "amount"
         assert profile.signatures[3].type_name == "amount"
         assert profile.signatures[4].type_name == "amount"
     
     def test_infer_insufficient_rows(self):
-        """测试行数不足的情况"""
+        """Test insufficient-row scenario"""
         rows = [
             ["日期", "金额"],
             ["2024-01-15", "1000"],
@@ -254,8 +254,8 @@ class TestTableSignatureProfile:
         assert profile is None  # 数据行不足3行
     
     def test_consistency_threshold(self):
-        """测试一致性阈值"""
-        # 高质量数据
+        """Test consistency threshold"""
+        # High quality data
         high_quality_rows = [
             ["2024-01-15", "15,000.00"],
             ["2024-01-16", "3,000.00"],
@@ -268,7 +268,7 @@ class TestTableSignatureProfile:
         assert profile is not None
         assert profile.is_likely_header is True
         
-        # 低质量数据（混合类型）
+        # Low quality data (mixed types)
         low_quality_rows = [
             ["2024-01-15", "some-text"],
             ["random", "12345"],
@@ -278,16 +278,16 @@ class TestTableSignatureProfile:
             low_quality_rows,
             consistency_threshold=0.7
         )
-        # 应该能生成profile，但一致性较低
+        # Should generate profile but with lower consistency
         assert profile is not None
         assert profile.overall_consistency < 0.7
 
 
 class TestEdgeCases:
-    """测试边界情况"""
+    """Test edge cases"""
     
     def test_single_column_table(self):
-        """测试单列表格"""
+        """Test single-column table"""
         rows = [
             ["2024-01-15"],
             ["2024-01-16"],
@@ -300,7 +300,7 @@ class TestEdgeCases:
         assert profile.is_likely_header is True
     
     def test_very_wide_table(self):
-        """测试宽表格（20列）"""
+        """Test wide table (20 columns)"""
         rows = []
         for i in range(5):
             row = [f"2024-01-{15+i}"] + [f"value_{j}" for j in range(19)]
@@ -310,7 +310,7 @@ class TestEdgeCases:
         assert len(profile.signatures) == 20
     
     def test_all_empty_cells(self):
-        """测试全空单元格"""
+        """Test all-empty cells"""
         rows = [
             ["", "", ""],
             ["", "", ""],
@@ -318,10 +318,10 @@ class TestEdgeCases:
         ]
         profile = TypeSignatureLibrary.infer_table_signature(rows)
         assert profile is not None
-        # 所有列都应该是 empty 类型
+        # All columns should be empty type
         for sig in profile.signatures:
             assert sig.type_name == "empty"
-        # 全空不应该被认为是表头
+        # All empty should not be considered a header
         assert profile.is_likely_header is False
 
 

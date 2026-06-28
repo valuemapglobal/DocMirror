@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.table.structure_detect import (
+from docmirror.structure.tables.structure_detect import (
     detect_pipe_grid_in_text,
     extract_header_zone,
 )

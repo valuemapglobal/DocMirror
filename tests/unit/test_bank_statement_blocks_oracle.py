@@ -38,7 +38,7 @@ def test_bank_statement_page_has_s2_block_no_regions():
     assert s2_blocks
     assert s2_blocks[0].ref == "table:pt_1_0"
 
-    api = pr.to_api_dict(mirror_level="standard")
-    page = api["data"]["document"]["pages"][0]
+    api = pr.to_mirror_json_vnext(mirror_level="standard")
+    page = api["pages"][0]
     assert page.get("regions") == []
     assert any(b.get("morphology") == "S2" for b in page.get("blocks") or [])

@@ -13,7 +13,7 @@ from docmirror.configs.middleware.catalog import (
     load_catalog,
     validate_catalog,
 )
-from docmirror.middlewares.base import BaseMiddleware
+from docmirror.framework.middlewares.base import BaseMiddleware
 
 
 def test_catalog_loads_all_production_middlewares():
@@ -29,7 +29,7 @@ def test_catalog_loads_all_production_middlewares():
         "InstitutionDetector",
         "Validator",
         "AnomalyDetector",
-        "SLMEntityExtractor",
+        # "SLMEntityExtractor",  # removed in v1.1
     }
     assert expected <= set(catalog.keys())
 

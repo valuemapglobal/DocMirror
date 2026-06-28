@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.entry.options import ParseControl
+from docmirror.input.entry.options import ParseControl
 from docmirror.framework.execution_fingerprint import (
     build_execution_fingerprint,
     invalidate_pipeline_fingerprint_cache,

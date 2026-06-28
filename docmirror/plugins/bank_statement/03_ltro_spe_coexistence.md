@@ -1,29 +1,29 @@
-# ADR-M13-04 — LTRO 与 SSO/SPE 共存
+# ADR-M13-04 — LTRO Coexistence with SSO/SPE
 
-**状态：** 已采纳  
-**关联：** [Mirror 层方案](../../../docs/design/13_mirror_layer_first_principles_redesign.md) · ADR-BS-04
+**Status:** Adopted
+**Related:** [Mirror Layer Design](../../../docs/design/13_mirror_layer_first_principles_redesign.md) · ADR-BS-04
 
-## 决策
+## Decision
 
-银行流水 Plugin 保留 **Logical Table Reconstruction Orchestrator (LTRO)**，与 Mirror **SSO/SPE** 并行审计，不互相替代。
+The bank statement Plugin retains the **Logical Table Reconstruction Orchestrator (LTRO)**, running in parallel with the Mirror **SSO/SPE** for auditing purposes. They do not replace each other.
 
-## 路由顺序
+## Routing Order
 
-1. Mirror 若已产出物理表 → `reconstruction_source=mirror_table`（优先）。
-2. Mirror `tables=[]` 且 SPE 指示 pipe ledger（`should_force_ltro`）→ LTRO `pipe_text`。
-3. SPE 明确 `section_led` + `route_section_dominant` 且 `H_pipe_grid` 低于 veto 阈值 → **禁止** pipe LTRO（`should_block_pipe_ltro`）。
-4. 其余 → `spaced_ocr` 或 `none`。
+1. Mirror has produced a physical table → `reconstruction_source=mirror_table` (preferred).
+2. Mirror `tables=[]` and SPE indicates pipe ledger (`should_force_ltro`) → LTRO `pipe_text`.
+3. SPE explicitly states `section_led` + `route_section_dominant` and `H_pipe_grid` is below the veto threshold → **block** pipe LTRO (`should_block_pipe_ltro`).
+4. Otherwise → `spaced_ocr` or `none`.
 
-## 审计字段
+## Audit Fields
 
-- Mirror：`parser_info.structure`（SPE）
-- Plugin：`ReconstructionMeta.spe_primary` / `spe_table_extraction` / `reconstruction_source`
-- 交叉告警：`spe_ltro_warnings()`（如 `spe:mismatch_section_route_with_pipe_grid`）
+- Mirror: `parser_info.structure` (SPE)
+- Plugin: `ReconstructionMeta.spe_primary` / `spe_table_extraction` / `reconstruction_source`
+- Cross-warning: `spe_ltro_warnings()` (e.g. `spe:mismatch_section_route_with_pipe_grid`)
 
-## 实现入口
+## Implementation Entry Points
 
-| 模块 | 职责 |
-|------|------|
-| `core/analyze/spe_consumer.py` | SPE 读取与 LTRO 门控 |
-| `plugins/bank_statement/ltro.py` | LTRO 策略链 |
-| `plugins/bank_statement/context.py` | 注入 SPE 到 StyleContext |
+| Module | Responsibility |
+|--------|---------------|
+| `core/analyze/spe_consumer.py` | SPE reading and LTRO gating |
+| `plugins/bank_statement/ltro.py` | LTRO strategy chain |
+| `plugins/bank_statement/context.py` | Inject SPE into StyleContext |

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.entry.perceive_result import PerceiveResult
+from docmirror.input.entry.perceive_result import PerceiveResult
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
 
 

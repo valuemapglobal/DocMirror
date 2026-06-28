@@ -20,13 +20,13 @@ from dataclasses import dataclass
 
 @dataclass
 class ColumnMapping:
-    """单列映射定义。
+    """Single column mapping definition.
 
-    :param field: 标准化后的字段名（如 amount、trade_no）
-    :param enum_map: 枚举值映射（如 {"收入": "income", "支出": "expense"}）
-    :param unit: 单位（如 CNY）
-    :param format_hint: 格式提示（如 datetime）
-    :param aliases: 额外的列名变体（自动注册）
+    :param field: normalized field name (e.g. amount, trade_no)
+    :param enum_map: enum value mapping (e.g. {"收入": "income", "支出": "expense"})
+    :param unit: unit (e.g. CNY)
+    :param format_hint: format hint (e.g. datetime)
+    :param aliases: additional column name variants (auto-registered)
     """
 
     field: str
@@ -37,35 +37,35 @@ class ColumnMapping:
 
 
 class ColumnMatcher:
-    """自适应列匹配器：对表头行进行模糊匹配，返回 {标准字段名: 列索引}。
+    """Adaptive column matcher: performs fuzzy matching on header rows, returns {standard_field: column_index}.
 
-    支持：
-    - 精确匹配
-    - 子串匹配（"金额(元)" 包含 "金额"）
-    - 去除空格/换行后的匹配
-    - 注册的列名变体匹配
+    Supports:
+    - Exact match
+    - Substring match ("金额(元)" contains "金额")
+    - Match after removing spaces/newlines
+    - Registered column name variant matching
     """
 
     def __init__(self, registry: dict[str, ColumnMapping]):
         self._registry = registry
-        # 构建变体索引：{ 变体名: 标准字段名 }
+        # Build variant index: {variant_name: standard_field}
         self._variant_index: dict[str, str] = {}
         for canonical_name, mapping in registry.items():
-            # 注册规范名
+            # Register canonical name
             clean = self._clean(canonical_name)
             self._variant_index[clean] = mapping.field
-            # 注册别名
+            # Register alias
             if mapping.aliases:
                 for alias in mapping.aliases:
                     self._variant_index[self._clean(alias)] = mapping.field
 
     @staticmethod
     def _clean(text: str) -> str:
-        """去除空格、换行、全角半角差异。"""
+        """Remove spaces, newlines, fullwidth/halfwidth differences."""
         return re.sub(r"[\s\n\r\t\u3000]", "", text).replace("\u00a0", "")
 
     def match(self, header_cells: list[str]) -> dict[str, int]:
-        """对表头行逐列匹配，返回 {标准字段名: 列索引}。
+        """Match columns in header row, return {standard_field: column_index}.
 
         策略：
         1. 精确匹配（规范名、别名）
@@ -80,7 +80,7 @@ class ColumnMatcher:
             if not cell_clean:
                 continue
 
-            # 策略1：精确匹配变体索引
+            # Strategy 1: exact match against variant index
             if cell_clean in self._variant_index:
                 field_name = self._variant_index[cell_clean]
                 if field_name not in used_fields:
@@ -88,7 +88,7 @@ class ColumnMatcher:
                     used_fields.add(field_name)
                 continue
 
-            # 策略2：子串匹配
+            # Strategy 2: substring match
             for canonical_name, mapping in self._registry.items():
                 if mapping.field in used_fields:
                     continue
@@ -101,7 +101,7 @@ class ColumnMatcher:
         return col_map
 
     def match_headers(self, rows: list[list[str]], max_lookahead: int = 8) -> dict[str, int] | None:
-        """遍历表的前 N 行查找表头，返回 {标准字段名: 列索引}。
+        """Scan the first N rows of the table to find the header, return {standard_field: column_index}.
 
         找到 >= 3 列匹配即认为找到表头。
         返回 None 表示未找到。

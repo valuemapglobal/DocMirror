@@ -23,13 +23,13 @@ from typing import Any
 
 
 def normalize_amount(raw: str) -> float | None:
-    """金额标准化。
+    """Normalize amount.
 
-    - 去除 ¥ ￥ , 空格
-    - 去除前导 +
-    - 返回 float 或 None
+    - Remove \u00a5 \uffe5 , space
+    - Remove leading +
+    - Return float or None
     """
-    cleaned = re.sub(r"[¥￥,，\s元圆]", "", raw.strip())
+    cleaned = re.sub(r"[¥￥$€£₤₩,，\s元圆]", "", raw.strip())
     if not cleaned:
         return None
     cleaned = cleaned.lstrip("+")
@@ -40,7 +40,7 @@ def normalize_amount(raw: str) -> float | None:
 
 
 def normalize_timestamp(raw: str) -> str:
-    """时间标准化。
+    """Normalize time format.
 
     支持格式：
     - 2022-01-01 10:30:39
@@ -54,11 +54,11 @@ def normalize_timestamp(raw: str) -> str:
     if not raw:
         return ""
 
-    # 如果已是 ISO8601（含 T），直接返回
+    # If already ISO8601 (contains T), return directly
     if re.match(r"^\d{4}-\d{2}-\d{2}T", raw):
         return raw
 
-    # 统一分隔符
+    # Normalize separators
     cleaned = raw.replace("/", "-").replace("年", "-").replace("月", "-").replace("日", " ").strip()
 
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
@@ -67,7 +67,7 @@ def normalize_timestamp(raw: str) -> str:
         except ValueError:
             continue
 
-    # 支付宝/OCR：日期与时间之间缺空格，如 2022-09-2810:30:39
+    # Alipay/OCR: missing space between date and time, e.g. 2022-09-2810:30:39
     m = re.match(r"^(\d{4}-\d{2}-\d{2})(\d{1,2}:\d{2}(?::\d{2})?)$", cleaned)
     if m:
         date_part, time_part = m.group(1), m.group(2)
@@ -77,7 +77,7 @@ def normalize_timestamp(raw: str) -> str:
             except ValueError:
                 continue
 
-    # 紧凑日期：20220505
+    # Compact date: 20220505
     m = re.match(r"^(\d{4})(\d{2})(\d{2})$", cleaned)
     if m:
         try:
@@ -94,7 +94,7 @@ def normalize_timestamp(raw: str) -> str:
             if 2010 <= year <= 2035:
                 return datetime(year, mo, da).date().isoformat()
 
-    # 紧凑格式：20220928 103039
+    # Compact format: 20220928 103039
     m = re.match(r"(\d{4})(\d{2})(\d{2})\s*(\d{2})(\d{2})(\d{2})", cleaned)
     if m:
         return f"{m.group(1)}-{m.group(2)}-{m.group(3)}T{m.group(4)}:{m.group(5)}:{m.group(6)}"
@@ -103,11 +103,11 @@ def normalize_timestamp(raw: str) -> str:
 
 
 def normalize_enum(raw: str, enum_map: dict[str, str]) -> str:
-    """枚举标准化。
+    """Normalize enum.
 
-    :param raw: 原始中文值
-    :param enum_map: 映射表，如 {"收入": "income", "支出": "expense"}
-    :returns: 标准化后的英文值，未匹配则保留原始值
+    :param raw: raw Chinese value
+    :param enum_map: mapping table, e.g. {"收入": "income", "支出": "expense"}
+    :returns: normalized English value, returns raw if unmatched
     """
     if not raw:
         return ""
@@ -120,53 +120,53 @@ def normalize_record(
     column_registry: dict,
     standard_fields: list[str],
 ) -> dict[str, Any]:
-    """对单条交易记录进行标准化。
+    """Normalize a single transaction record.
 
-    :param raw_txn: 原始行数据，key 为表头列名
-    :param col_map: {标准字段名: 列索引} 或 {标准字段名: 表头原列名}
-    :param column_registry: 列映射注册表
-    :param standard_fields: 标准化字段顺序
-    :returns: 标准化后的 dict
+    :param raw_txn: raw row data, keys are header column names
+    :param col_map: {standard_field: column_index} or {standard_field: original_header_name}
+    :param column_registry: column mapping registry
+    :param standard_fields: standardized field order
+    :returns: normalized dict
     """
     normalized: dict[str, Any] = {}
     raw_by_field: dict[str, str] = {}
 
-    # 将 col_map 转换为 {标准字段名: 原始值}
+    # Convert col_map to {standard_field: raw_value}
     for field_name, col_ref in col_map.items():
         if isinstance(col_ref, int):
-            # col_map 是 {field: index} 格式
-            # 需要从 raw_txn 中找到对应列
+            # col_map is {field: index} format
+            # Need to find the matching column in raw_txn
             pass
         else:
-            # col_ref 是原始列名
+            # col_ref is the original column name
             raw_by_field[field_name] = raw_txn.get(col_ref, "")
 
-    # 如果 col_map 是 {field: index} 格式，用 raw_txn 的 key 匹配
+    # If col_map is {field: index}, match using raw_txn keys
     if not raw_by_field:
         for raw_key, raw_val in raw_txn.items():
             for field_name, col_ref in col_map.items():
                 if isinstance(col_ref, int):
-                    # 通过索引无法反推列名，已经错过了
+                    # Cannot reverse column name from index, already missed
                     pass
 
-    # 更通用的方式：col_map 是 {标准字段名: 原始列索引}
-    # 而 raw_txn 的 key 是表头列名（原始列名）
-    # 我们需要建立 原始列名 ↔ 标准字段名 的双向映射
-    # 通过 column_registry 来建立
+    # More general: col_map is {standard_field: original_column_index}
+    # While raw_txn keys are header column names (original names)
+    # Need to establish bidirectional mapping: original_name <-> standard_field
+    # Establish through column_registry
 
-    # 方法：先找到每个标准字段对应的原始值
+    # Approach: first find the raw value for each standard field
     keys_to_fields: dict[str, str] = {}
     for canonical_name, mapping in column_registry.items():
         keys_to_fields[canonical_name] = mapping.field
 
     for raw_key, raw_val in raw_txn.items():
-        # 尝试匹配 canonical_name
+        # Try matching canonical_name
         matched_field = None
         for canonical_name, mapping in column_registry.items():
             if raw_key == canonical_name or (mapping.aliases and raw_key in mapping.aliases):
                 matched_field = mapping.field
                 break
-        # 子串匹配
+        # Substring match
         if matched_field is None:
             for canonical_name, mapping in column_registry.items():
                 if canonical_name in raw_key or raw_key in canonical_name:
@@ -187,10 +187,10 @@ def normalize_record(
             else:
                 normalized[matched_field] = raw_val
         else:
-            # 无法匹配的字段，按原样保留
+            # Unmatched fields, preserve as-is
             normalized[f"raw_{raw_key}"] = raw_val
 
-    # 确保所有 standard_fields 都有值
+    # Ensure all standard_fields have values
     for field in standard_fields:
         if field not in normalized:
             normalized[field] = "" if field != "amount" else None
@@ -199,7 +199,7 @@ def normalize_record(
 
 
 def extract_period(text: str) -> str:
-    """从全文文本中提取查询时间段。"""
+    """Extract query time period from full text."""
     m = re.search(
         r"(\d{4}[-./年]\d{1,2}[-./月]\d{1,2}日?\s*[~\-至]\s*\d{4}[-./年]\d{1,2}[-./月]\d{1,2}日?)",
         text,

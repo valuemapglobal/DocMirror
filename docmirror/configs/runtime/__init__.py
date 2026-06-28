@@ -27,7 +27,7 @@ from docmirror.configs.runtime.performance import (
     resolve_semantic_worker_budget,
     resolve_worker_budget,
 )
-from docmirror.configs.runtime.settings import DocMirrorSettings, default_settings
+from docmirror.configs.runtime.settings import DocMirrorSettings, default_settings, get_settings
 from docmirror.configs.runtime.yaml_loader import YamlConfigLoader, config_loader, get_config
 
 __all__ = [
@@ -40,6 +40,7 @@ __all__ = [
     "default_settings",
     "effective_page_workers",
     "get_config",
+    "get_settings",
     "page_level_parallel_active",
     "page_level_parallel_context",
     "resolve_max_page_concurrency",

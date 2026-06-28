@@ -96,7 +96,7 @@ WECHAT_IDENTITY_FIELDS: Sequence[tuple[str, Sequence[str]]] = (
 
 
 class WeChatPaymentPlugin(BaseTableParser):
-    """社区版 v2.0：微信支付流水插件。"""
+    """Community v2.0: WeChat Pay statement plugin."""
 
     @property
     def domain_name(self) -> str:

@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Date derivation from timestamp for 交易时间-led ledgers (PSBC etc.)."""
+"""Date derivation from timestamp for transaction-time ledgers (PSBC etc.)."""
 
 from __future__ import annotations
 

@@ -67,7 +67,7 @@ def reconstruct_tables(
             spe_table_extraction=spe_mode,
         )
 
-    from docmirror.core.analyze.spe_consumer import should_block_pipe_ltro, should_force_ltro
+    from docmirror.structure.analysis.spe_consumer import should_block_pipe_ltro, should_force_ltro
 
     blocked = should_block_pipe_ltro(structure_spe)
     if blocked:
@@ -127,11 +127,11 @@ def _mirror_table_expected_rows(
 ) -> int:
     """Mirror SSOT for coverage denominator (ADR-BS-07); legacy max fallback."""
     if parse_result is not None:
-        from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows
+        from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows
 
         expected = mirror_expected_primary_rows(parse_result, structure_spe)
         if expected > 0:
             return expected
     if mirror_tables:
-        return max(len(tbl) - 1 for tbl in mirror_tables if tbl)
+        return sum(max(len(tbl) - 1, 0) for tbl in mirror_tables if tbl)
     return 0

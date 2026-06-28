@@ -18,15 +18,15 @@ from unittest.mock import MagicMock, patch
 
 from docmirror.eval.tqg.manifest import TQGCase
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.plugins.licensing.contract import premium_feature
-from docmirror.plugins.licensing.entitlements import is_entitled
-from docmirror.plugins.licensing.lifecycle import (
+from docmirror.plugins._runtime.licensing.contract import premium_feature
+from docmirror.plugins._runtime.licensing.entitlements import is_entitled
+from docmirror.plugins._runtime.licensing.lifecycle import (
     LicenseLifecycleState,
     entitlement_warnings,
     inject_edition_lifecycle_warnings,
     resolve_entitlement_lifecycle,
 )
-from docmirror.plugins.runner import run_plugin_extract_sync
+from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
 
 def _mock_license(*, features: list[str], days_until_expiry: int = 365, in_grace: bool = False, expired: bool = False):

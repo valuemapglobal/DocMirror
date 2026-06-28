@@ -1,4 +1,4 @@
-"""Tests for semantic table understanding (道法自然 · 第十九重境界)."""
+"""Tests for semantic table understanding."""
 from __future__ import annotations
 
 import pytest
@@ -30,8 +30,8 @@ class TestTableTypeIdentification:
 
     def test_financial_balance_sheet(self):
         """Test balance sheet detection."""
-        # 注意：由于"余额"和"合计"也出现在银行流水中，
-        # 财务报表的识别需要更多特定关键词（如"资产"、"负债"、"所有者权益"）
+        # Note: since "余额" and "合计" also appear in bank statements,
+        # financial statement identification needs more specific keywords (asset, liability, equity)
         table = [
             ["资产项目", "期末余额", "期初余额"],
             ["流动资产合计", "1000000", "900000"],
@@ -44,7 +44,7 @@ class TestTableTypeIdentification:
 
         semantics = understand_table_semantics(table)
 
-        # 验证能识别到一些语义信息（不严格要求类型正确）
+        # Verify some semantic info is detected (not strict on type correctness)
         assert semantics.table_type_confidence > 0.0
         assert len(semantics.header) == 3
 

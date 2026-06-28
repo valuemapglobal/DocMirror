@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Integration test: bank statement community plugin on 银座银行 fixture."""
+"""Integration test: bank statement community plugin on Yinzuo Bank fixture."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.core.entry.factory import PerceiveOptions, perceive_document
-from docmirror.plugins.runner import run_plugin_extract_sync
+from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
 YINZUO_FIXTURE = Path("tests/fixtures/bank_statement/重庆恒腾科技有限公司_银行流水_银座银行_20251229.pdf")
 

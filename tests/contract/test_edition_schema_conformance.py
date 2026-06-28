@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # ──────────────────────────────────────────────
-# 社区版 v2 合规检查
+# Community edition v2 conformance check
 # ──────────────────────────────────────────────
 
 COMMUNITY_REQUIRED_BLOCKS = {
@@ -88,7 +88,7 @@ COMMUNITY_METADATA_KEYS = {
     "parser_version": str,
 }
 
-# 社区版记录格式
+# Community edition record format
 COMMUNITY_RECORD_KEYS = {
     "row_index": (int, float),
     "raw": dict,
@@ -97,10 +97,10 @@ COMMUNITY_RECORD_KEYS = {
 
 
 def check_community(schema: dict, path_hint: str = "") -> list[str]:
-    """验证社区版输出是否符合 v2 设计规范。返回错误列表，空列表表示通过。"""
+    """Validate community edition output conforms to v2 design spec. Returns a list of errors; empty means pass."""
     errors = []
 
-    # 1. 顶级块检查
+    # 1. Top-level block check
     for key, expected_type in COMMUNITY_REQUIRED_BLOCKS.items():
         if key not in schema:
             errors.append(f"[C01] 缺少顶级块: {key}")
@@ -109,7 +109,7 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
         if not isinstance(val, expected_type):
             errors.append(f"[C02] 顶级块 {key} 类型错误: 期望 {expected_type.__name__}, 实际 {type(val).__name__}")
 
-    # 2. edition 必须为 community
+    # 2. edition must be community
     if schema.get("edition") != "community":
         errors.append(f"[C03] edition 应为 'community', 实际为 {schema.get('edition')}")
 
@@ -118,7 +118,7 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
     if not re.match(r"^\d+\.\d+$", str(sv)):
         errors.append(f"[C04] schema_version 格式错误: {sv}")
 
-    # 4. document 块
+    # 4. document block
     doc = schema.get("document", {})
     for key, expected_type in COMMUNITY_DOCUMENT_KEYS.items():
         if key not in doc:
@@ -139,7 +139,7 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
     ):
         errors.append(f"[C07] document.archetype 不在允许形态中: {doc.get('archetype')}")
 
-    # 5. classification 块
+    # 5. classification block
     cls = schema.get("classification", {})
     for key, expected_type in COMMUNITY_CLASSIFICATION_KEYS.items():
         if key not in cls:
@@ -147,13 +147,13 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
     if cls.get("matched") and not cls.get("matched_document_type"):
         errors.append("[C09] classification.matched=true 但 matched_document_type 为空")
 
-    # 6. status 块
+    # 6. status block
     st = schema.get("status", {})
     for key, expected_type in COMMUNITY_STATUS_KEYS.items():
         if key not in st:
             errors.append(f"[C10] status 缺少字段: {key}")
 
-    # 7. plugin 块
+    # 7. plugin block
     pl = schema.get("plugin", {})
     for key, expected_type in COMMUNITY_PLUGIN_KEYS.items():
         if key not in pl:
@@ -161,13 +161,13 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
     if pl.get("support_level") not in ("L1", "L2", "L3", "generic"):
         errors.append(f"[C12] plugin.support_level 应为 L1/L2/L3/generic, 实际为 {pl.get('support_level')}")
 
-    # 8. data 块
+    # 8. data block
     dt = schema.get("data", {})
     for key, expected_type in COMMUNITY_DATA_KEYS.items():
         if key not in dt:
             errors.append(f"[C13] data 缺少字段: {key}")
 
-    # 9. 记录格式检查
+    # 9. Record format check
     records = dt.get("records", [])
     for i, rec in enumerate(records[:5]):  # 检查前 5 条
         for rk, rt in COMMUNITY_RECORD_KEYS.items():
@@ -176,23 +176,23 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
                 continue
             if not isinstance(rec[rk], rt):
                 errors.append(f"[C15] records[{i}].{rk} 类型错误: 期望 {rt}, 实际 {type(rec[rk]).__name__}")
-        # raw 和 normalized 不应完全相同
+        # raw and normalized should not be identical
         raw = rec.get("raw", {})
         norm = rec.get("normalized", {})
         if raw and norm and raw == norm:
             errors.append(f"[C16] records[{i}].raw 与 normalized 完全相同, 社区版应差异化")
 
-    # 10. metadata 块
+    # 10. metadata block
     meta = schema.get("metadata", {})
     for key, expected_type in COMMUNITY_METADATA_KEYS.items():
         if key not in meta:
             errors.append(f"[C17] metadata 缺少字段: {key}")
 
-    # 11. document_name 不应为空
+    # 11. document_name must not be empty
     if not doc.get("document_name"):
         errors.append("[C18] document.document_name 不应为空")
 
-    # 12. plugins 块存在 (兼容旧格式)
+    # 12. plugins block exists (backward compat)
     plugins = schema.get("plugins", {})
     matched_type = cls.get("matched_document_type", "")
     if matched_type and matched_type not in plugins:
@@ -202,7 +202,7 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
 
 
 # ──────────────────────────────────────────────
-# 企业版 v2 合规检查
+# Enterprise v2 compliance check
 # ──────────────────────────────────────────────
 
 ENTERPRISE_REQUIRED_BLOCKS = {
@@ -295,10 +295,10 @@ ENTERPRISE_METADATA_KEYS = {
 
 
 def check_enterprise(schema: dict, path_hint: str = "") -> list[str]:
-    """验证企业版输出是否符合 v2 设计规范。返回错误列表，空列表表示通过。"""
+    """Verify enterprise edition output conforms to v2 design spec. Returns a list of errors; empty list means pass."""
     errors = []
 
-    # 1. 顶级块检查
+    # 1. Top-level block check
     for key, expected_type in ENTERPRISE_REQUIRED_BLOCKS.items():
         if key not in schema:
             errors.append(f"[E01] 缺少顶级块: {key}")
@@ -324,7 +324,7 @@ def check_enterprise(schema: dict, path_hint: str = "") -> list[str]:
     if not src.get("file_name"):
         errors.append("[E06] source.file_name 不应为空")
 
-    # 5. processing 时序一致性
+    # 5. processing timing consistency
     proc = schema.get("processing", {})
     for key, expected_type in ENTERPRISE_PROCESSING_KEYS.items():
         if key not in proc:
@@ -400,7 +400,7 @@ def check_enterprise(schema: dict, path_hint: str = "") -> list[str]:
     if not meta.get("task_id"):
         errors.append("[E24] metadata.task_id 不应为空")
 
-    # 13. plugins 块至少有 matched 插件
+    # 13. plugins block has at least matched plugin
     plugins = schema.get("plugins", {})
     cls = schema.get("classification", {})
     matched_type = cls.get("matched_document_type", "")
@@ -410,7 +410,7 @@ def check_enterprise(schema: dict, path_hint: str = "") -> list[str]:
     if api_plugin.get("support_level") not in ("E1", "E2", "E3"):
         errors.append(f"[E26] plugins.{matched_type}.support_level 应为 E1/E2/E3: {api_plugin.get('support_level')}")
 
-    # 14. extraction/normalization 至少有一个非空
+    # 14. extraction/normalization at least one non-empty
     ext = schema.get("extraction", {})
     norm = schema.get("normalization", {})
     if not ext.get("records") and not ext.get("fields") and not ext.get("tables"):
@@ -424,7 +424,7 @@ def check_enterprise(schema: dict, path_hint: str = "") -> list[str]:
 
 
 # ──────────────────────────────────────────────
-# 金融版 v3 合规检查
+# Finance v3 compliance check
 # ──────────────────────────────────────────────
 
 FINANCE_REQUIRED_BLOCKS = {
@@ -511,10 +511,10 @@ FINANCE_CROSS_VALIDATION_KEYS = {
 
 
 def check_finance(schema: dict, path_hint: str = "") -> list[str]:
-    """验证金融版输出是否符合 v3 设计规范。返回错误列表，空列表表示通过。"""
+    """Verify finance edition output conforms to v3 design spec. Returns a list of errors; empty list means pass."""
     errors = []
 
-    # 1. 顶级块检查
+    # 1. Top-level block check
     for key, expected_type in FINANCE_REQUIRED_BLOCKS.items():
         if key not in schema:
             errors.append(f"[F01] 缺少顶级块: {key}")
@@ -546,7 +546,7 @@ def check_finance(schema: dict, path_hint: str = "") -> list[str]:
     if not sbj.get("subject_name"):
         errors.append("[F07] subject.subject_name 不应为空")
 
-    # 6. quality_gate → assessment → recommendation 一致性 (P0)
+    # 6. quality_gate -> assessment -> recommendation consistency (P0)
     qg = schema.get("quality_gate", {})
     assess = schema.get("assessment", {})
     rec = schema.get("recommendation", {})
@@ -563,7 +563,7 @@ def check_finance(schema: dict, path_hint: str = "") -> list[str]:
     if assess_manual != rec_manual:
         errors.append("[F11] assessment.manual_review_required 与 recommendation.manual_review_required 不一致")
 
-    # 7. quality — 结构与 coverage/confidence 一致性
+    # 7. quality - structure & coverage/confidence consistency
     qual = schema.get("quality", {})
     for key, expected_type in FINANCE_QUALITY_KEYS.items():
         if key not in qual:
@@ -597,7 +597,7 @@ def check_finance(schema: dict, path_hint: str = "") -> list[str]:
             f"[F36] page_quality 仅 {len(pq)} 页，document/source.page_count={page_count}"
         )
 
-    # 8. validation — 规则完整性 + TIME_ORDER / FORMAT 与 quality 一致
+    # 8. validation - rule completeness + TIME_ORDER/FORMAT consistent with quality
     val = schema.get("validation", {})
     for key, expected_type in FINANCE_VALIDATION_KEYS.items():
         if key not in val:
@@ -645,7 +645,7 @@ def check_finance(schema: dict, path_hint: str = "") -> list[str]:
         if key not in rec:
             errors.append(f"[F14] recommendation 缺少字段: {key}")
 
-    # 9. risk_signals 格式
+    # 9. risk_signals format
     rss = schema.get("risk_signals", [])
     for i, rs in enumerate(rss):
         for key, expected_type in FINANCE_RISK_SIGNAL_KEYS.items():
@@ -676,12 +676,12 @@ def check_finance(schema: dict, path_hint: str = "") -> list[str]:
     if "subjects" not in eg or "accounts" not in eg:
         errors.append("[F21] entity_graph 缺少 subjects/accounts")
 
-    # 13. security (继承企业版)
+    # 13. security (inherited from enterprise)
     sec = schema.get("security", {})
     if sec.get("masking_required") and not sec.get("masking_rules_applied"):
         errors.append("[F22] masking_required=true 但 masking_rules_applied 为空")
 
-    # 14. review (继承企业版)
+    # 14. review (inherited from enterprise)
     rv = schema.get("review", {})
     if rv.get("required") and not rv.get("review_items"):
         errors.append("[F23] review.required=true 但 review_items 为空")
@@ -696,7 +696,7 @@ def check_finance(schema: dict, path_hint: str = "") -> list[str]:
     if not fi.get("cashflow") and not fi.get("income") and not fi.get("expense"):
         errors.append("[F25] financial_indicators.cashflow/income/expense 全为空")
 
-    # 17. source/processing 生产字段
+    # 17. source/processing production fields
     src = schema.get("source", {})
     if not src.get("file_name"):
         errors.append("[F26] source.file_name 不应为空")
@@ -706,7 +706,7 @@ def check_finance(schema: dict, path_hint: str = "") -> list[str]:
     if proc.get("started_at") and proc.get("finished_at") and proc["started_at"] == proc["finished_at"]:
         errors.append("[F28] processing.started_at 与 finished_at 相同")
 
-    # 18. audit 完整
+    # 18. audit completeness
     aud = schema.get("audit", {})
     if not aud.get("operation_logs"):
         errors.append("[F29] audit.operation_logs 不应为空")
@@ -717,11 +717,11 @@ def check_finance(schema: dict, path_hint: str = "") -> list[str]:
 
 
 # ──────────────────────────────────────────────
-# 通用辅助方法
+# General helper methods
 # ──────────────────────────────────────────────
 
 def check_edition(schema: dict, path_hint: str = "") -> tuple[str, list[str]]:
-    """自动检测 edition 并执行对应检查。返回 (edition, errors)。"""
+    """Auto-detect edition and run corresponding checks. Returns (edition, errors)."""
     edition = schema.get("edition", "unknown")
     if edition == "community":
         return edition, check_community(schema, path_hint)
@@ -734,14 +734,14 @@ def check_edition(schema: dict, path_hint: str = "") -> tuple[str, list[str]]:
 
 
 def check_file(file_path: str) -> dict:
-    """检查单个 JSON 文件。返回 {'file': str, 'edition': str, 'errors': list, 'passed': bool}。"""
+    """Check a single JSON file. Returns {'file': str, 'edition': str, 'errors': list, 'passed': bool}."""
     try:
         with open(file_path, encoding="utf-8") as f:
             schema = json.load(f)
     except Exception as e:
         return {"file": file_path, "edition": "error", "errors": [f"读取失败: {e}"], "passed": False}
 
-    # 跳过 mirror 文件（不属于三版 schema）
+    # Skip mirror files (not part of three-edition schema)
     fname = Path(file_path).name
     if "_mirror." in fname or fname.endswith("_mirror.json") or "mirror" in fname.lower():
         return {"file": file_path, "edition": "mirror", "errors": [], "passed": True}
@@ -756,11 +756,11 @@ def check_file(file_path: str) -> dict:
 
 
 # ──────────────────────────────────────────────
-# 主入口：CLI 模式
+# Main entry: CLI mode
 # ──────────────────────────────────────────────
 
 def main():
-    """检查指定 JSON 文件或 output 目录中的所有 edition 文件。"""
+    """Check specified JSON file or all edition files under the output directory."""
     import argparse
 
     parser = argparse.ArgumentParser(description="三版 Schema 合规检查")
@@ -773,7 +773,7 @@ def main():
     files_to_check = []
     skip_patterns = ("_mirror.json", "_MIRROR.json")
 
-    # 收集路径 (跳过 mirror 文件)
+    # Collect paths (skip mirror files)
     for p in args.paths:
         pobj = Path(p)
         if pobj.is_dir():
@@ -802,7 +802,7 @@ def main():
 
     results = [check_file(str(f)) for f in files_to_check]
 
-    # 输出
+    # Output
     if not args.summary_only:
         for r in results:
             status = "✅" if r["passed"] else "❌"
@@ -811,7 +811,7 @@ def main():
                 for e in r["errors"]:
                     print(f"   {e}")
 
-    # 摘要
+    # Summary
     total = len(results)
     passed = sum(1 for r in results if r["passed"])
     by_edition = {}
@@ -835,7 +835,7 @@ def main():
 
 
 # ──────────────────────────────────────────────
-# pytest 模式
+# pytest mode
 # ──────────────────────────────────────────────
 
 def _collect_results(paths: list[str]) -> list[dict]:
@@ -850,7 +850,7 @@ def _collect_results(paths: list[str]) -> list[dict]:
     return results
 
 
-# pytest 测试用例
+# pytest test case
 import pytest
 
 pytestmark = [pytest.mark.tier_contract]
@@ -858,8 +858,8 @@ pytestmark = [pytest.mark.tier_contract]
 
 @pytest.fixture(scope="session")
 def latest_output_dir():
-    """自动查找最新的 output 或 /tmp/test_fix_v8 子目录。"""
-    # 优先使用固定测试目录
+    """Auto-discover the latest output or /tmp/test_fix_v8 sub-directory."""
+    # Prefer fixed test directory
     for test_dir in [Path("/tmp/test_fix_v8"), Path("output")]:
         if test_dir.is_dir():
             dirs = sorted(test_dir.iterdir(), key=lambda d: d.name, reverse=True)
@@ -869,7 +869,7 @@ def latest_output_dir():
 
 
 def test_community_schema(latest_output_dir):
-    """测试社区版输出符合 v2 规范。"""
+    """Test that community edition output conforms to v2 spec."""
     if not latest_output_dir:
         pytest.skip("output 目录不存在")
     files = list(Path(latest_output_dir).glob("*_community.json"))
@@ -883,7 +883,7 @@ def test_community_schema(latest_output_dir):
 
 
 def test_enterprise_schema(latest_output_dir):
-    """测试企业版输出符合 v2 规范。"""
+    """Test that enterprise edition output conforms to v2 spec."""
     if not latest_output_dir:
         pytest.skip("output 目录不存在")
     files = list(Path(latest_output_dir).glob("*_enterprise.json"))
@@ -897,7 +897,7 @@ def test_enterprise_schema(latest_output_dir):
 
 
 def test_finance_schema(latest_output_dir):
-    """测试金融版输出符合 v3 规范。"""
+    """Test that finance edition output conforms to v3 spec."""
     if not latest_output_dir:
         pytest.skip("output 目录不存在")
     files = list(Path(latest_output_dir).glob("*_finance.json"))
@@ -911,7 +911,7 @@ def test_finance_schema(latest_output_dir):
 
 
 def test_cross_edition_file_naming(latest_output_dir):
-    """验证同一任务目录下的三版文件命名一致性。"""
+    """Verify naming consistency of the three editions under the same task directory."""
     if not latest_output_dir:
         pytest.skip("output 目录不存在")
     d = Path(latest_output_dir)

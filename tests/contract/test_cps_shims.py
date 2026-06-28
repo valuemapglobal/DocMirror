@@ -6,7 +6,7 @@ from __future__ import annotations
 
 
 def test_segment_zones_exports_layout_entrypoints():
-    from docmirror.core.segment.zones import (
+    from docmirror.structure.segment.zones import (
         Zone,
         analyze_document_layout,
         segment_page_into_zones,
@@ -18,16 +18,16 @@ def test_segment_zones_exports_layout_entrypoints():
 
 
 def test_segment_exports_layout_helpers():
-    from docmirror.core.segment.graph_router import GraphRouter
-    from docmirror.core.segment.layout_model import LayoutDetector
+    from docmirror.structure.segment.graph_router import GraphRouter
+    from docmirror.structure.segment.layout_model import LayoutDetector
 
     assert GraphRouter is not None
     assert LayoutDetector is not None
 
 
 def test_physical_models_reexport_via_domain_shim():
-    from docmirror.core.physical.models import Block as CanonBlock
-    from docmirror.core.physical.models import PageLayout as CanonPage
+    from docmirror.models.entities.physical import Block as CanonBlock
+    from docmirror.models.entities.physical import PageLayout as CanonPage
     from docmirror.models.entities.domain import Block, PageLayout
 
     assert Block is CanonBlock
@@ -35,10 +35,10 @@ def test_physical_models_reexport_via_domain_shim():
 
 
 def test_ocr_uop_subpackages_reexport_pipeline_symbols():
-    from docmirror.core.ocr.postprocess.generic import postprocess_ocr_text
-    from docmirror.core.ocr.preprocess import preprocess_image_for_ocr
-    from docmirror.core.ocr.recognize import get_ocr_engine
-    from docmirror.core.ocr.reconstruct import reconstruct_table_grid_2d
+    from docmirror.structure.ocr.postprocess.generic import postprocess_ocr_text
+    from docmirror.structure.ocr.preprocess import preprocess_image_for_ocr
+    from docmirror.structure.ocr.recognize import get_ocr_engine
+    from docmirror.structure.ocr.reconstruct import reconstruct_table_grid_2d
 
     assert callable(preprocess_image_for_ocr)
     assert callable(get_ocr_engine)

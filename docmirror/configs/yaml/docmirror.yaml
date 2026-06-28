@@ -103,6 +103,29 @@ parse:
       slm: optional
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# MirrorCore / Mirror JSON
+# Canonical output defaults + UDTR feature flags.
+# Env overrides:
+#   DOCMIRROR_MIRROR_SCHEMA=vnext
+#   DOCMIRROR_MIRROR_CORE_PROFILE=canonical_full
+#   DOCMIRROR_UDTR_TOPOLOGY_PROFILE=conservative|balanced|aggressive
+#   DOCMIRROR_UDTR_DETECT_SEALS=true|false
+# ═══════════════════════════════════════════════════════════════════════════════
+
+mirror_core:
+  schema: vnext
+  profile: canonical_full
+  engine_version: "0.1.0"
+
+  udtr_features:
+    topology_profile: conservative
+    min_confidence_regions: 0.5
+    enable_occupancy_tracking: true
+    detect_seals: false
+    suppress_header_footer_from_flow: true
+    use_table_method_registry: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Performance Parameters (Auto-tuned, can be manually overridden)
 # These parameters affect performance and resource usage.
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -150,7 +173,7 @@ ocr:
   external:
     # Provider name or module path.
     # Keep null to preserve the default local OCR path.
-    # Set to "docmirror.core.ocr.vlm_gateway:vlm_ocr_provider" to enable VLM OCR fallback.
+    # Set to "docmirror.structure.ocr.vlm_gateway:vlm_ocr_provider" to enable VLM OCR fallback.
     provider: null
     
     # API credentials (use environment variables for security)
@@ -162,22 +185,6 @@ ocr:
     
     # Timeout (seconds)
     timeout: 30
-
-    # Optional Vision-Language-Model OCR gateway configuration.
-    # Supported providers: openai | gemini | anthropic | dashscope | azure | qwen | claude
-    vlm:
-      provider: openai
-      model: gpt-4o
-      api_key: ${DOCMIRROR_VLM_API_KEY}
-      api_base: ${DOCMIRROR_VLM_API_BASE}
-      timeout: 60
-      temperature: 0.0
-      max_tokens: 4096
-      prompt: |
-        You are a professional document analysis assistant.
-        Identify and transcribe all printed text, handwritten notes, tables, and stamps in the image.
-        Format tables as standard Markdown tables and print structural text in order.
-        Do not add any preamble, prefix, or conversational wrapper. Just output clean Markdown.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Layout Detection

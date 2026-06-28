@@ -6,10 +6,6 @@ build-backend = "hatchling.build"
 packages = [
     "docmirror",
 ]
-exclude = [
-    "docmirror/plugins/_archive",
-    "docmirror/tools",
-]
 
 [tool.hatch.build.targets.wheel.enterprise]
 packages = [
@@ -33,7 +29,7 @@ keywords = [
     "document-ai",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
@@ -53,6 +49,16 @@ dependencies = [
     "rich>=13.0.0",
 ]
 
+[project.scripts]
+docmirror = "docmirror.cli.main:main"
+
+[project.urls]
+Homepage = "https://docmirror.dev"
+Documentation = "https://valuemapglobal.github.io/docmirror/"
+Repository = "https://github.com/valuemapglobal/docmirror"
+Issues = "https://github.com/valuemapglobal/docmirror/issues"
+Changelog = "https://github.com/valuemapglobal/docmirror/blob/main/CHANGELOG.md"
+
 [project.optional-dependencies]
 enterprise = ["docmirror-enterprise>=0.4.0"]
 pdf = ["PyMuPDF>=1.23", "pdfplumber>=0.10"]
@@ -65,9 +71,25 @@ security = ["pikepdf>=8.0"]
 cache = ["redis>=5.0"]
 langdetect = ["fast-langdetect>=0.2"]
 server = ["fastapi>=0.100", "uvicorn>=0.23.0", "python-multipart>=0.0.9"]
+langchain = ["langchain-core>=0.2"]
+llamaindex = ["llama-index>=0.10"]
+haystack = ["haystack-ai>=2.0"]
+projection = ["PyYAML>=6.0"]
+mcp = ["mcp>=1.0"]
 archive = ["rarfile>=4.0"]
+plugins = ["pluggy>=1.5"]
+ai = ["openai>=1.0", "google-generativeai>=0.8"]
+ocr-tesseract = ["pytesseract>=0.3"]
 all = [
     "docmirror[pdf,ocr,layout,table,formula,office,security,cache,langdetect,server,archive,enterprise]",
+    "docmirror[langchain]",
+    "docmirror[llamaindex]",
+    "docmirror[haystack]",
+    "docmirror[projection]",
+    "docmirror[mcp]",
+    "docmirror[plugins]",
+    "docmirror[ai]",
+    "docmirror[ocr-tesseract]",
 ]
 dev = [
     "pytest>=8.0",
@@ -108,10 +130,9 @@ max-complexity = 25
 "**/__init__.py" = ["F401", "F811"]
 
 [tool.vulture]
-exclude = [
-    "docmirror/plugins/_archive/",
-    "tests/",
-    ".venv/",
+ exclude = [
+     "tests/",
+     ".venv/",
 ]
 ignore_decorators = [
     "@app.on_event",
@@ -136,6 +157,7 @@ markers = [
     "tier_e2e: Tier E2E — CLI/API/full perceive smoke flows",
     "tier_slow: Tier REGRESSION full document — nightly only",
     "tier_benchmark: opt-in benchmark tier",
+    "tier_unit: Tier UNIT — fine-grained unit tests (single class/function level)",
     "track_extract: table/core extract gates",
     "track_classify: DTI / document_type gates",
     "track_mirror: MEP mirror quality gates",
@@ -181,12 +203,12 @@ exclude_lines = [
 root_package = "docmirror"
 
 [[tool.importlinter.contracts]]
-name = "CCP — plugins must not import core internals"
+name = "CCP — plugins must not import internal engines"
 type = "forbidden"
 source_modules = ["docmirror.plugins"]
 forbidden_modules = [
-    "docmirror.core.extraction.extractor",
-    "docmirror.core.segment.zones",
-    "docmirror.core.extract.engine",
-    "docmirror.core.ocr.fallback",
+    "docmirror.input.extraction.extractor",
+    "docmirror.structure.segment.zones",
+    "docmirror.structure.tables.engine",
+    "docmirror.structure.ocr.fallback",
 ]

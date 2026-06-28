@@ -38,7 +38,7 @@ def _builtin_specs() -> dict[str, ProjectionSchemaSpec]:
             name="mirror",
             path=_SCHEMAS_DIR / "mirror.schema.json",
             version="1.1",
-            description="Core Mirror JSON (ParseResult.to_api_dict)",
+            description="Core Mirror JSON vNext",
         ),
         ProjectionSchemaSpec(
             name="community",

@@ -13,7 +13,7 @@ Result Fusion Engine 单元测试
 """
 
 import pytest
-from docmirror.core.table.fusion import ResultFusionEngine
+from docmirror.structure.tables.fusion import ResultFusionEngine
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -21,17 +21,17 @@ from docmirror.core.table.fusion import ResultFusionEngine
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestResultFusion:
-    """测试结果融合"""
+    """Test result fusion"""
     
     def test_fuse_empty_results(self):
-        """测试空结果融合"""
+        """Test empty result fusion"""
         result = ResultFusionEngine.fuse([])
         
         assert result['tables'] == []
         assert result['confidence'] == 0.0
     
     def test_fuse_single_result(self):
-        """测试单一结果（无需融合）"""
+        """Test single result (no fusion needed)"""
         result = {
             'tables': [{'header': ['A', 'B'], 'rows': []}],
             'confidence': 0.85,
@@ -43,7 +43,7 @@ class TestResultFusion:
         assert fused == result
     
     def test_fuse_multiple_results(self):
-        """测试多结果融合"""
+        """Test multi-result fusion"""
         results = [
             {'tables': [{'header': ['A', 'B'], 'rows': []}], 'confidence': 0.80, 'metadata': {}},
             {'tables': [{'header': ['A', 'B'], 'rows': []}], 'confidence': 0.75, 'metadata': {}},
@@ -56,7 +56,7 @@ class TestResultFusion:
         assert 'fusion' in fused['metadata']
     
     def test_fuse_metadata(self):
-        """测试融合元数据"""
+        """Test fusion metadata"""
         results = [
             {'tables': [{'header': ['A', 'B']}], 'confidence': 0.80},
             {'tables': [{'header': ['A', 'B']}], 'confidence': 0.85},
@@ -68,7 +68,7 @@ class TestResultFusion:
         assert fused['metadata']['fusion']['layer_count'] == 2
     
     def test_fuse_fallback_on_error(self):
-        """测试异常时降级到最佳结果"""
+        """Test fallback to best result on exception"""
         results = [
             {'tables': [], 'confidence': 0.50},
             {'tables': [{'header': ['A']}], 'confidence': 0.80},
@@ -76,7 +76,7 @@ class TestResultFusion:
         
         fused = ResultFusionEngine.fuse(results)
         
-        # 降级时应该返回置信度最高的结果（接近0.80）
+        # On downgrade, should return highest confidence result (close to 0.80)
         assert fused['confidence'] >= 0.70  # 允许融合计算导致的差异
 
 
@@ -85,10 +85,10 @@ class TestResultFusion:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestHeaderVoting:
-    """测试表头投票"""
+    """Test header voting"""
     
     def test_vote_unanimous(self):
-        """测试一致投票（所有层都识别同一行）"""
+        """Test unanimous voting (all layers identify same row)"""
         results = [
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}], 'confidence': 0.80},
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}], 'confidence': 0.85},
@@ -101,7 +101,7 @@ class TestHeaderVoting:
         assert header['votes'] == 3
     
     def test_vote_majority(self):
-        """测试多数投票"""
+        """Test majority voting"""
         results = [
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}], 'confidence': 0.80},
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}], 'confidence': 0.85},
@@ -114,7 +114,7 @@ class TestHeaderVoting:
         assert header['votes'] == 2
     
     def test_vote_no_headers(self):
-        """测试无表头识别"""
+        """Test no header identification"""
         results = [
             {'tables': [], 'confidence': 0.80},
             {'tables': [], 'confidence': 0.85},
@@ -126,7 +126,7 @@ class TestHeaderVoting:
         assert header['votes'] == 0
     
     def test_vote_with_confidence(self):
-        """测试考虑置信度的投票"""
+        """Test confidence-weighted voting"""
         results = [
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}], 'confidence': 0.60},
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 1}}}], 'confidence': 0.90},
@@ -134,7 +134,7 @@ class TestHeaderVoting:
         
         header = ResultFusionEngine._vote_header(results)
         
-        # 虽然各1票，但row 1置信度更高
+        # Both have 1 vote, but row 1 has higher confidence
         assert header['row_index'] == 1
 
 
@@ -143,10 +143,10 @@ class TestHeaderVoting:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestColumnMerging:
-    """测试列边界合并"""
+    """Test column boundary merging"""
     
     def test_merge_same_columns(self):
-        """测试相同列数合并"""
+        """Test same-column-count merging"""
         results = [
             {
                 'tables': [{'metadata': {'column_boundaries': [100.0, 200.0, 300.0]}}],
@@ -165,7 +165,7 @@ class TestColumnMerging:
         assert 200.0 <= fused[1] <= 205.0
     
     def test_merge_different_columns(self):
-        """测试不同列数合并"""
+        """Test different-column-count merging"""
         results = [
             {
                 'tables': [{'metadata': {'column_boundaries': [100.0, 200.0]}}],
@@ -179,11 +179,11 @@ class TestColumnMerging:
         
         fused = ResultFusionEngine._merge_column_boundaries(results)
         
-        # 应该取最大列数
+        # Should take the maximum column count
         assert len(fused) == 3
     
     def test_merge_no_boundaries(self):
-        """测试无列边界"""
+        """Test no column boundaries"""
         results = [
             {'tables': [{'metadata': {}}], 'confidence': 0.80},
             {'tables': [{'metadata': {}}], 'confidence': 0.85},
@@ -199,10 +199,10 @@ class TestColumnMerging:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestConfidenceCalibration:
-    """测试置信度校准"""
+    """Test confidence calibration"""
     
     def test_calibrate_unanimous(self):
-        """测试完全一致时的置信度提升"""
+        """Test confidence boost on perfect match"""
         results = [
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}], 'confidence': 0.80},
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}], 'confidence': 0.85},
@@ -216,7 +216,7 @@ class TestConfidenceCalibration:
         assert fused_conf <= 1.0
     
     def test_calibrate_divergent(self):
-        """测试结果分歧时的置信度"""
+        """Test confidence on result divergence"""
         results = [
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}], 'confidence': 0.80},
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 1}}}], 'confidence': 0.85},
@@ -225,11 +225,11 @@ class TestConfidenceCalibration:
         
         fused_conf = ResultFusionEngine._calibrate_confidence(results)
         
-        # 分歧时不应该有额外奖励
+        # Should not have extra bonus for disagreement
         assert fused_conf <= 0.85 + 0.05  # 不超过best + bonus
     
     def test_calibrate_single_result(self):
-        """测试单一结果"""
+        """Test single result"""
         results = [{'tables': [], 'confidence': 0.75}]
         
         fused_conf = ResultFusionEngine._calibrate_confidence(results)
@@ -237,7 +237,7 @@ class TestConfidenceCalibration:
         assert fused_conf == 0.75
     
     def test_calibrate_bounds(self):
-        """测试置信度边界"""
+        """Test confidence boundaries"""
         results = [
             {'tables': [], 'confidence': 0.99},
             {'tables': [], 'confidence': 0.98},
@@ -253,10 +253,10 @@ class TestConfidenceCalibration:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestAgreementScore:
-    """测试一致性得分"""
+    """Test consistency score"""
     
     def test_agreement_unanimous(self):
-        """测试完全一致"""
+        """Test full consistency"""
         results = [
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}]},
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}]},
@@ -268,7 +268,7 @@ class TestAgreementScore:
         assert score == 1.0
     
     def test_agreement_majority(self):
-        """测试多数一致"""
+        """Test majority consistency"""
         results = [
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}]},
             {'tables': [{'metadata': {'header_inference': {'header_row_index': 0}}}]},
@@ -280,7 +280,7 @@ class TestAgreementScore:
         assert score == pytest.approx(2/3, abs=0.01)
     
     def test_agreement_single(self):
-        """测试单一结果"""
+        """Test single result"""
         results = [{'tables': []}]
         
         score = ResultFusionEngine._calculate_agreement_score(results)

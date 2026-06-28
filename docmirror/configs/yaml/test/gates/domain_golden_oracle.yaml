@@ -1,4 +1,4 @@
-++ # Domain Golden Oracle — per-domain expected output characteristics
+# Domain Golden Oracle — per-domain expected output characteristics
 # Read by nightly regression and drift report tools (W4-04, W4-05, DOM-17).
 # Defines expected fields, record counts, section coverage, and evidence references
 # for each domain's key fixture(s).  Used as regression baselines.

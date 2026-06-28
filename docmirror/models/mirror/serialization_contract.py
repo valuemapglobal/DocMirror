@@ -5,7 +5,7 @@
 Mirror JSON serialization contract (Design 21).
 
 Centralizes counts, roles, physical-table SSOT, quarantine index, and document
-identity so ``ParseResult.to_api_dict`` stays unambiguous.
+identity so vNext mirror serialization stays unambiguous.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ def infer_header_source(headers: list[str], raw_rows: list[list[str]]) -> str:
         return "none"
     if is_prose_disclaimer_table(headers, raw_rows):
         return "prose_block"
-    from docmirror.core.utils.vocabulary import _is_header_row, _score_header_by_vocabulary
+    from docmirror.structure.utils.vocabulary import _is_header_row, _score_header_by_vocabulary
 
     categories = ["BANK_STATEMENT", "WECHAT_PAYMENT"]
     score = _score_header_by_vocabulary(first, categories=categories)
@@ -261,7 +261,7 @@ def logical_table_composition(lt: Any) -> dict[str, Any]:
 
 
 def serialize_logical_table_dict(lt: Any, *, row_serializer, include_debug: bool = False) -> dict[str, Any]:
-    from docmirror.core.table.compose.ledger_quality import exported_data_row_estimate
+    from docmirror.structure.tables.compose.ledger_quality import exported_data_row_estimate
 
     role = logical_table_role(lt)
     payload: dict[str, Any] = {
@@ -487,7 +487,7 @@ def finalize_structure_spe(
     quarantine_index: dict[str, Any],
     domain_specific: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    from docmirror.core.analyze.structure_provenance import apply_page_morphology_spe
+    from docmirror.structure.analysis.structure_provenance import apply_page_morphology_spe
 
     out = apply_page_morphology_spe(
         dict(spe),

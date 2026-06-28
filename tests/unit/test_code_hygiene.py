@@ -19,8 +19,8 @@ from scripts.code_hygiene.report import format_markdown
 
 
 def test_module_name():
-    path = ROOT / "docmirror" / "core" / "entry" / "factory.py"
-    assert module_name(path) == "docmirror.core.entry.factory"
+    path = ROOT / "docmirror" / "input" / "entry" / "factory.py"
+    assert module_name(path) == "docmirror.input.entry.factory"
 
 
 def test_imports_in_file_finds_docmirror():
@@ -32,14 +32,14 @@ def test_imports_in_file_finds_docmirror():
 def test_resolved_relative_import_from_extract_engine():
     from scripts.code_hygiene.graph import resolved_imports_in_file
 
-    path = ROOT / "docmirror" / "core" / "extract" / "engine.py"
+    path = ROOT / "docmirror" / "structure" / "tables" / "engine.py"
     imports = resolved_imports_in_file(path)
-    assert "docmirror.core.extract.char_strategy" in imports
+    assert "docmirror.structure.tables.char_strategy" in imports
 
 
 def test_module_name_strips_init():
-    path = ROOT / "docmirror" / "adapters" / "__init__.py"
-    assert module_name(path) == "docmirror.adapters"
+    path = ROOT / "docmirror" / "input" / "adapters" / "__init__.py"
+    assert module_name(path) == "docmirror.input.adapters"
 
 def test_allowlist_loads():
     data = load_allowlist()

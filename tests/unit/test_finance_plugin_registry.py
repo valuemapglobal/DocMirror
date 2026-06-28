@@ -9,7 +9,7 @@ import pytest
 
 pytest.importorskip("docmirror_finance")
 
-from docmirror.plugins import registry
+from docmirror.plugins._runtime import registry
 from docmirror_finance.plugins._baseline import FinanceBaselinePlugin
 
 

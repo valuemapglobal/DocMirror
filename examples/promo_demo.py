@@ -1,7 +1,8 @@
 import asyncio
-import time
-import sys
 import shutil
+import sys
+import threading
+import time
 from pathlib import Path
 
 # Terminal Colors
@@ -27,9 +28,21 @@ def print_header(title: str):
     print(f"{CYAN}{BOLD}{title.center(term_width)}{RESET}")
     print(f"{CYAN}{'=' * term_width}{RESET}\n")
 
+
+def _document_properties(mirror: dict) -> dict:
+    views = mirror.get("semantics", {}).get("views", {})
+    if isinstance(views, dict):
+        for view in views.values():
+            if isinstance(view, dict):
+                props = view.get("properties") or view.get("metadata") or {}
+                if isinstance(props, dict):
+                    return props
+    return {}
+
+
 async def run_cinematic_demo():
     print_header("DocMirror - Universal Parsing Engine Initialization")
-    
+
     # 1. Booting sequence
     print_typewriter(f"{MAGENTA}[SYSTEM]{RESET} Booting L0 Dispatcher...", 0.02)
     time.sleep(0.3)
@@ -52,17 +65,16 @@ async def run_cinematic_demo():
 
     # 3. Execution (The actual real parsing using the docmirror package)
     print_header("Exec: [docmirror.perceive_document]")
-    
-    # Create an active spinning loader while it extracts text
+
+    # Create an active spinner while the vNext topology is built.
     from docmirror import perceive_document
-    import threading
 
     loading = True
     def spinner():
         spinner_chars = "|/-\\"
         i = 0
         while loading:
-            sys.stdout.write(f"\r{CYAN}[Engine]{RESET} Extracting Core Topology & Applying Middlewares... {spinner_chars[i % 4]}")
+            sys.stdout.write(f"\r{CYAN}[Engine]{RESET} Extracting Evidence Plane & vNext Topology... {spinner_chars[i % 4]}")
             sys.stdout.flush()
             time.sleep(0.1)
             i += 1
@@ -86,53 +98,57 @@ async def run_cinematic_demo():
     sys.stdout.write(f"\r{GREEN}[Engine]{RESET} Parsing Complete in {elapsed:.2f}s!{' ' * 20}\n\n")
     time.sleep(0.5)
 
-    # 4. Reveal Results — use to_api_dict() for consistent output
-    api = result.to_api_dict(include_text=True)
+    # 4. Reveal Results — use canonical vNext mirror output
+    mirror = result.to_mirror_json_vnext()
 
     print_header("ParseResult -> [Document & Identity]")
     time.sleep(0.5)
-    doc = api["data"]["document"]
-    print_typewriter(f" {BOLD}Document Type{RESET}:  {CYAN}{doc['type']}{RESET}")
-    print_typewriter(f" {BOLD}Confidence   {RESET}:  {GREEN}{(api['data']['quality']['confidence'] * 100):.1f}%{RESET}")
+    doc = mirror["document"]
+    candidates = doc.get("document_type_candidates", [])
+    document_type = candidates[0]["type"] if candidates else "unknown"
+    confidence = candidates[0].get("confidence", 0.0) if candidates else 0.0
+    print_typewriter(f" {BOLD}Document Type{RESET}:  {CYAN}{document_type}{RESET}")
+    print_typewriter(f" {BOLD}Confidence   {RESET}:  {GREEN}{(confidence * 100):.1f}%{RESET}")
     print_typewriter(f" {BOLD}Properties   {RESET}:", 0.01)
-    
-    for k, v in doc.get("properties", {}).items():
+
+    for k, v in _document_properties(mirror).items():
         print_typewriter(f"    - {k}: {YELLOW}{v}{RESET}", 0.01)
         time.sleep(0.1)
-        
+
     print("")
     time.sleep(1)
 
     # 5. Quality Check
     print_header("Quality & Validation Check")
-    quality = api["data"]["quality"]
-    print_typewriter(f" Trust Score    :  {MAGENTA}{quality['trust_score']}{RESET}")
-    if quality["validation_passed"]:
+    quality = mirror["quality"]
+    overall = quality.get("overall", {})
+    print_typewriter(f" Trust Score    :  {MAGENTA}{overall.get('score', 0.0):.3f}{RESET}")
+    if overall.get("status") == "pass":
         print_typewriter(f" Validation     :  {GREEN}PASSED{RESET}")
     else:
         print_typewriter(f" Validation     :  {RED}FAILED{RESET}")
-        for issue in quality.get("issues", []):
+        for issue in quality.get("events", []):
             print(f"    -> {RED}{issue}{RESET}")
-        
+
     print("")
     time.sleep(1)
 
     # 6. Extracted Data Structure Highlight
     print_header("Data Topology Overview")
-    pages = doc.get("pages", [])
-    tables = [t for p in pages for t in p.get("tables", [])]
-    texts = [t for p in pages for t in p.get("texts", [])]
-    
+    pages = mirror.get("pages", [])
+    tables = [b for b in mirror.get("blocks", []) if b.get("type") == "table"]
+    texts = [b for b in mirror.get("blocks", []) if b.get("type") in {"paragraph", "heading"}]
+
     print_typewriter(f" 📄 Parsed {CYAN}{len(pages)}{RESET} Pages")
     print_typewriter(f" 📊 Parsed {CYAN}{len(tables)}{RESET} Tables")
     print_typewriter(f" 📝 Parsed {CYAN}{len(texts)}{RESET} Text Blocks")
-    
+
     if tables:
         print_typewriter(f"\n {BOLD}Sample Table Header{RESET}:", 0.01)
-        print(f" {YELLOW}{tables[0].get('headers', [])}{RESET}")
-        total_rows = sum(len(t.get("rows", [])) for t in tables)
+        print(f" {YELLOW}{tables[0].get('content', {}).get('headers', [])}{RESET}")
+        total_rows = sum(len(t.get("content", {}).get("rows", [])) for t in tables)
         print_typewriter(f" Total Rows: {CYAN}{total_rows}{RESET}")
-        
+
     print("\n")
     print_typewriter(f"{GREEN}=========================================={RESET}", 0.01)
     print_typewriter(f"{GREEN}    [DEMO COMPLETED SUCCESSFULLY]{RESET}", 0.03)

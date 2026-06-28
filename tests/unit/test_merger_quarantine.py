@@ -3,8 +3,8 @@
 
 """Unit tests for merger quarantine collection."""
 
-from docmirror.core.table.merge.merger import collect_quarantined_tables
 from docmirror.models.entities.domain import Block, PageLayout
+from docmirror.structure.fusion import collect_quarantined_tables
 
 
 def _page(num: int, rows: list[list[str]]) -> PageLayout:
@@ -60,3 +60,11 @@ def test_collect_quarantined_tables_header_mismatch_with_profile():
     assert len(quarantined) == 1
     assert quarantined[0]["page"] == 2
     assert quarantined[0]["reason"] == "col_count_mismatch"
+
+
+def test_collect_quarantined_tables_keeps_97_stable_jsb_like_rows():
+    rows = [["交易日期", "摘要", "借方发生额", "贷方发生额", "余额", "对方户名", "渠道", "流水号"]]
+    rows.extend([["2026-01-01", "转账", "100.00", "", "900.00", "张三", "柜面", str(i)] for i in range(97)])
+    pages = [_page(1, rows)]
+
+    assert collect_quarantined_tables(pages) == []

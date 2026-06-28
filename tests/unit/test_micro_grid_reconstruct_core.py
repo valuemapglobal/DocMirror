@@ -1,5 +1,5 @@
-from docmirror.core.ocr.micro_grid.models import OCRToken
-from docmirror.core.ocr.micro_grid.reconstruct import (
+from docmirror.structure.ocr.micro_grid.models import OCRToken
+from docmirror.structure.ocr.micro_grid.reconstruct import (
     assign_tokens,
     assign_tokens_to_col_bands,
     build_cell,

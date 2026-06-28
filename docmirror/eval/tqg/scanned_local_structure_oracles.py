@@ -12,13 +12,15 @@ from docmirror.models.mirror.page_access import field_grid_structures_from_docum
 
 
 def _doc_and_domain(mirror_or_api: Any) -> tuple[dict[str, Any], dict[str, Any]]:
-    if hasattr(mirror_or_api, "to_api_dict"):
-        api = mirror_or_api.to_api_dict(mirror_level="forensic", include_text=True)
-        doc = ((api.get("data") or {}).get("document") or {}) if isinstance(api, dict) else {}
+    if hasattr(mirror_or_api, "to_mirror_json_vnext"):
+        api = mirror_or_api.to_mirror_json_vnext()
+        doc = (api.get("document") or {}) if isinstance(api, dict) else {}
         entities = getattr(mirror_or_api, "entities", None)
         domain_specific = getattr(entities, "domain_specific", None) if entities is not None else None
         return doc, domain_specific if isinstance(domain_specific, dict) else {}
     if isinstance(mirror_or_api, dict):
+        if isinstance(mirror_or_api.get("document"), dict):
+            return mirror_or_api["document"], {}
         doc = ((mirror_or_api.get("data") or {}).get("document") or {}) if isinstance(mirror_or_api, dict) else {}
         domain = ((mirror_or_api.get("data") or {}).get("properties") or {}) if isinstance(mirror_or_api, dict) else {}
         return doc, domain if isinstance(domain, dict) else {}

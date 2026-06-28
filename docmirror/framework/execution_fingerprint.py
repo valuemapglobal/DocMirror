@@ -24,7 +24,7 @@ from docmirror.configs.paths import (
 )
 
 if TYPE_CHECKING:
-    from docmirror.core.entry.options import ParseControl
+    from docmirror.input.entry.options import ParseControl
 
 logger = logging.getLogger(__name__)
 

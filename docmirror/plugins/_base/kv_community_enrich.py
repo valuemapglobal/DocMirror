@@ -93,8 +93,8 @@ def validate_uscc(code: str) -> bool:
 def enrich_business_license_output(
     output: dict[str, Any],
     *,
-    _parse_result: Any,
-    _full_text: str = "",
+    parse_result: Any,
+    full_text: str = "",
 ) -> dict[str, Any]:
     """USCC checksum + business_scope section block."""
     data = output.setdefault("data", {})
@@ -311,7 +311,7 @@ def _ensure_credit_repayment_records(parse_result: Any) -> list[dict[str, Any]]:
                 records.extend(projected)
 
     if not records:
-        from docmirror.core.ocr.page_canvas.evidence_bundles import micro_grid_structures_from_bundles
+        from docmirror.structure.ocr.page_canvas.evidence_bundles import micro_grid_structures_from_bundles
 
         for grid in micro_grid_structures_from_bundles(domain_specific):
             projected = records_from_micro_grid_dict(grid)

@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from docmirror.core.bridge.parse_result_bridge import ParseResultBridge
+from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
 from docmirror.eval.tqg.geometry_oracles import run_mirror_geometry_oracle
 from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
@@ -48,8 +48,8 @@ def test_bridge_projects_table_geometry_attrs_to_forensic_cells():
     base = BaseResult(pages=(PageLayout(page_number=1, width=100, height=40, blocks=(block,)),))
 
     result = ParseResultBridge.from_base_result(base)
-    api = result.to_api_dict(mirror_level="forensic")
-    table = api["data"]["document"]["pages"][0]["tables"][0]
+    api = result.to_mirror_json_vnext(mirror_level="forensic")
+    table = api["pages"][0]["tables"][0]
     cell = table["rows"][0]["cells"][0]
 
     assert cell["bbox"] == [0, 20, 50, 40]
@@ -304,7 +304,7 @@ def test_mirror_geometry_oracle_rejects_duplicate_cell_token_ownership():
 
 
 def test_table_geometry_aggregates_char_refs_and_confidence():
-    from docmirror.core.geometry.table_geometry import build_table_geometry
+    from docmirror.structure.geometry.table_geometry import build_table_geometry
 
     geometry = build_table_geometry(
         [["AB"]],
@@ -325,7 +325,7 @@ def test_table_geometry_aggregates_char_refs_and_confidence():
 
 
 def test_table_geometry_prefers_native_exact_cell_bboxes():
-    from docmirror.core.geometry.table_geometry import build_table_geometry
+    from docmirror.structure.geometry.table_geometry import build_table_geometry
 
     geometry = build_table_geometry(
         [["A", "B"]],
@@ -348,7 +348,7 @@ def test_table_geometry_prefers_native_exact_cell_bboxes():
 
 
 def test_pdfplumber_native_cell_bboxes_for_table_shape_match():
-    from docmirror.core.geometry.pdfplumber_native import native_cell_bboxes_for_table
+    from docmirror.structure.geometry.pdfplumber_native import native_cell_bboxes_for_table
 
     class FakeRow:
         def __init__(self, cells):

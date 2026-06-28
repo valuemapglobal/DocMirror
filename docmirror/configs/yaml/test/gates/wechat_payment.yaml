@@ -28,5 +28,5 @@ cases:
     options:
       enhance_mode: standard
     gates:
-      quarantine_pages_preserved: true
+      quarantine_pages_preserved: {equals: true}
     tags: [cashflow, wechat, quarantine, community]

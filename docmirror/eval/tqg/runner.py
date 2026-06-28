@@ -22,10 +22,6 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from docmirror.core.analyze.spe_consumer import mirror_expected_primary_rows
-from docmirror.core.entry.factory import PerceiveOptions, perceive_document
-from docmirror.core.extraction.extractor import CoreExtractor
-from docmirror.core.table.access import get_logical_tables
 from docmirror.eval.gates import (
     GATE_PROFILES,
     FailureClass,
@@ -36,8 +32,12 @@ from docmirror.eval.oracle import pdfplumber_full_page_sample_oracle
 from docmirror.eval.tqg.gates_eval import eval_gate, resolve_dot_path
 from docmirror.eval.tqg.manifest import TQGCase
 from docmirror.eval.tqg.report import GateReport
+from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.input.extraction.extractor import CoreExtractor
 from docmirror.models.construction.parse_result_bridge import ParseResultBridge
-from docmirror.plugins.community import community_plugin_import_path
+from docmirror.plugins._runtime.community import community_plugin_import_path
+from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows
+from docmirror.structure.tables.access import get_logical_tables
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,10 @@ def _local_structure_bundle_domain(
     evidence: dict[str, Any],
     **extra: Any,
 ) -> dict[str, Any]:
-    from docmirror.core.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+    from docmirror.structure.ocr.page_canvas.evidence_bundles import (
+        domain_specific_with_page_bundles,
+        page_evidence_bundle,
+    )
 
     return domain_specific_with_page_bundles(
         page_evidence_bundle(
@@ -116,8 +119,8 @@ async def _execute_extract_only(case: TQGCase) -> tuple[Any, dict[str, Any]]:
 
 async def _execute_classify_text(case: TQGCase) -> tuple[Any, dict[str, Any]]:
     """Run EvidenceEngine on a keyword-rich text fixture (no full extraction)."""
-    from docmirror.core.scene.evidence_engine import EvidenceEngine
     from docmirror.models.entities.parse_result import PageContent, ParseResult, TextBlock, TextLevel
+    from docmirror.structure.scene.evidence_engine import EvidenceEngine
 
     text = case.fixture.read_text(encoding="utf-8")
     result = ParseResult(
@@ -188,7 +191,7 @@ async def _execute_edition(case: TQGCase) -> tuple[dict[str, Any], dict[str, Any
         edition_payload = perceive_result.editions.get(edition_name)
     if edition_payload is None:
         if edition_name == "community":
-            from docmirror.plugins.runner import _plugin_document_type, _run_community_extract
+            from docmirror.plugins._runtime.runner import _plugin_document_type, _run_community_extract
 
             doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
             edition_payload = _run_community_extract(
@@ -197,7 +200,7 @@ async def _execute_edition(case: TQGCase) -> tuple[dict[str, Any], dict[str, Any
                 getattr(mirror, "full_text", "") or "",
             )
             if edition_payload is None:
-                from docmirror.plugins.runner import run_plugin_extract_sync
+                from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
                 edition_payload = run_plugin_extract_sync(
                     mirror,
@@ -300,7 +303,7 @@ async def _execute_e2e_four_file(case: TQGCase) -> tuple[dict[str, Any], dict[st
 
 
 async def _execute_e2e_contract(case: TQGCase) -> tuple[dict[str, Any], dict[str, Any]]:
-    from docmirror.core.entry.perceive_result import PerceiveResult
+    from docmirror.input.entry.perceive_result import PerceiveResult
     from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
     from docmirror.server.edition_outputs import build_all_edition_outputs
 
@@ -507,11 +510,6 @@ async def _execute_mirror_geometry_contract(_case: TQGCase) -> tuple[Any, dict[s
 
 
 async def _execute_scanned_micro_grid_contract(case: TQGCase) -> tuple[Any, dict[str, Any]]:
-    from docmirror.core.ocr.page_canvas.evidence_bundles import (
-        domain_specific_with_page_bundles,
-        materialize_micro_grids_from_bundles,
-        page_evidence_bundle,
-    )
     from docmirror.models.entities.parse_result import (
         DocumentEntities,
         PageContent,
@@ -520,6 +518,11 @@ async def _execute_scanned_micro_grid_contract(case: TQGCase) -> tuple[Any, dict
         TextBlock,
     )
     from docmirror.plugins.credit_report.repayment_grid import records_from_micro_grid_dict
+    from docmirror.structure.ocr.page_canvas.evidence_bundles import (
+        domain_specific_with_page_bundles,
+        materialize_micro_grids_from_bundles,
+        page_evidence_bundle,
+    )
 
     if "negative" in case.id:
         lines = [
@@ -568,7 +571,6 @@ async def _execute_scanned_micro_grid_contract(case: TQGCase) -> tuple[Any, dict
 
 
 async def _execute_scanned_local_structure_contract(case: TQGCase) -> tuple[Any, dict[str, Any]]:
-    from docmirror.core.ocr.local_structure import extract_local_structure_evidence
     from docmirror.models.entities.parse_result import (
         DocumentEntities,
         PageContent,
@@ -577,6 +579,7 @@ async def _execute_scanned_local_structure_contract(case: TQGCase) -> tuple[Any,
         TextBlock,
     )
     from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
+    from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
 
     if "negative" in case.id:
         lines = [
@@ -634,7 +637,6 @@ async def _execute_scanned_local_structure_realistic_fixture(_case: TQGCase) -> 
     import json
     from pathlib import Path
 
-    from docmirror.core.ocr.local_structure import extract_local_structure_evidence
     from docmirror.models.entities.parse_result import (
         DocumentEntities,
         PageContent,
@@ -643,6 +645,7 @@ async def _execute_scanned_local_structure_realistic_fixture(_case: TQGCase) -> 
         TextBlock,
     )
     from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
+    from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
 
     fixture_path = Path("tests/fixtures/scanned/account_card_page4_layout.json")
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -692,7 +695,6 @@ async def _execute_scanned_local_structure_full_page_fixture(_case: TQGCase) -> 
     import json
     from pathlib import Path
 
-    from docmirror.core.ocr.local_structure import extract_local_structure_evidence
     from docmirror.models.entities.parse_result import (
         DocumentEntities,
         PageContent,
@@ -701,6 +703,7 @@ async def _execute_scanned_local_structure_full_page_fixture(_case: TQGCase) -> 
         TextBlock,
     )
     from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
+    from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
 
     fixture_path = Path("tests/fixtures/scanned/account_card_page4_full_layout.json")
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -858,8 +861,8 @@ def _resolve_gate_actual(gate_name: str, result: Any, meta: dict[str, Any]) -> A
     if gate_name == "plugin_document_type":
         mirror = result.get("mirror") if isinstance(result, dict) else result
         if mirror is not None:
-            api = mirror.to_api_dict() if hasattr(mirror, "to_api_dict") else {}
-            meta_block = api.get("meta") or {}
+            api = mirror.to_mirror_json_vnext() if hasattr(mirror, "to_mirror_json_vnext") else {}
+            meta_block = ((api.get("semantics") or {}).get("views") or {}).get("meta") or {}
             if meta_block.get("plugin_document_type"):
                 return meta_block.get("plugin_document_type")
             entities = getattr(mirror, "entities", None)

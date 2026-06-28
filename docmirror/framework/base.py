@@ -15,7 +15,7 @@ First-principles design:
        ``perceive()`` no longer re-reads the file just to compute a hash.
 
     2. ``perceive()`` — extraction + middleware enrichment via the shared
-       ``Orchestrator`` singleton (``docmirror.di.get_orchestrator()``).
+       ``Orchestrator`` singleton (``docmirror.framework.di.get_orchestrator()``).
 """
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ class BaseParser(ABC):
             pr.parser_info.parser_version = getattr(_dm, "__version__", "0.4.0")
 
         # ── Middleware enrichment ──
-        from docmirror.di.container import get_orchestrator
+        from docmirror.framework.di.container import get_orchestrator
 
         orchestrator = get_orchestrator()
         file_type = (
@@ -117,4 +117,5 @@ class BaseParser(ABC):
             enhance_mode=enhance_mode,
             file_type=file_type,
             content_model=content_model,
+            on_progress=context.get("on_progress"),
         )

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.extraction.extractor import CoreExtractor
+from docmirror.input.extraction.extractor import CoreExtractor
 from docmirror.models.entities.domain import Block, PageLayout
 
 

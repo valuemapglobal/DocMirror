@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.core.entry.factory import PerceiveOptions, perceive_document
+from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
 from docmirror.server.edition_outputs import write_four_files
 

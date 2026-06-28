@@ -1,0 +1,75 @@
+name: Validate Projection Templates
+
+on:
+  pull_request:
+    paths:
+      - "docmirror/output/projection/templates/*.yaml"
+      - "docmirror/output/projection/engine.py"
+  push:
+    branches: [main, dev]
+    paths:
+      - "docmirror/output/projection/templates/*.yaml"
+      - "docmirror/output/projection/engine.py"
+
+jobs:
+  validate-templates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[projection]"
+
+      - name: Validate all templates
+        run: |
+          python -c "
+          from docmirror.output.projection.engine import ProjectionEngine
+          engine = ProjectionEngine()
+          templates = engine.templates_available()
+          assert len(templates) > 0, 'No templates found'
+          print(f'Found {len(templates)} templates: {templates}')
+
+          for tmpl in templates:
+              t = engine.load_template(tmpl)
+              assert 'framework' in t, f'{tmpl}: missing framework field'
+              assert 'mapping' in t, f'{tmpl}: missing mapping field'
+              assert 'output' in t, f'{tmpl}: missing output field'
+              print(f'  {tmpl}: {t[\"framework\"]} validated')
+
+          print('All templates validated successfully')
+          "
+
+      - name: Test projection round-trip with a minimal DMIR
+        run: |
+          python -c "
+          from docmirror.output.projection.engine import ProjectionEngine
+          engine = ProjectionEngine()
+
+          dmir = {
+              'dmir_version': '1.0',
+              'document': {
+                  'type': 'test',
+                  'properties': {},
+                  'pages': [],
+                  'full_text': 'Hello world',
+              },
+              'quality': {'confidence': 0.95, 'trust_score': 0.92, 'validation_passed': True, 'warnings': []},
+              'evidence': {'ledger': {}},
+              'meta': {'parser': 'test', 'version': '1.0', 'elapsed_ms': 10.0, 'page_count': 1, 'table_count': 0, 'row_count': 0, 'dmir_version': '1.0'},
+          }
+
+          for tmpl in engine.templates_available():
+              result = engine.project_to_dict(dmir, tmpl)
+              assert result, f'{tmpl}: empty result'
+              print(f'  {tmpl} projection OK: {list(result.keys())}')
+
+          print('All projections validated')
+          "
+
+      - name: Template YAML linting
+        run: |
+          python -m yamllint docmirror/output/projection/templates/*.yaml
+        continue-on-error: true
+        id: yamllint

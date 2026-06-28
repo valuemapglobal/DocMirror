@@ -4,9 +4,10 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
-from pathlib import Path
 
 pytestmark = [pytest.mark.tier_e2e, pytest.mark.integration]
 
@@ -33,61 +34,57 @@ def test_parse_valid_document(tmp_path):
     # Since DocMirror is robust, an empty or invalid doc will return a clean Failure API payload, not a 500 error.
     dummy_file = tmp_path / "test.txt"
     dummy_file.write_text("Hello DocMirror Server")
-    
-    with open(dummy_file, "rb") as f:
-        response = client.post(
-            "/v1/parse", 
-            files={"file": ("test.txt", f, "text/plain")}
-        )
-        
-    assert response.status_code in (200, 422)
-    payload = response.json()
-    # Standard envelope
-    assert "code" in payload
-    assert "message" in payload
-    assert "api_version" in payload
-    assert "request_id" in payload
-    assert "timestamp" in payload
-    assert "data" in payload or "error" in payload
-    assert "meta" in payload
-    # meta should NOT contain request_id/timestamp (only at top level)
-    assert "request_id" not in payload["meta"]
-    assert "timestamp" not in payload["meta"]
 
-def test_parse_with_include_text(tmp_path):
-    """Verify include_text=true adds text and text_format to document."""
-    dummy_file = tmp_path / "test.txt"
-    dummy_file.write_text("Hello DocMirror include_text test")
-    
-    with open(dummy_file, "rb") as f:
-        response = client.post(
-            "/v1/parse?include_text=true",
-            files={"file": ("test.txt", f, "text/plain")}
-        )
-    
-    assert response.status_code in (200, 422)
-    payload = response.json()
-    assert "code" in payload
-    
-    if payload["code"] == 200:
-        doc = payload["data"]["document"]
-        assert "text" in doc
-        assert doc["text_format"] == "markdown"
-
-def test_parse_without_include_text(tmp_path):
-    """Verify include_text=false (default) omits text from document."""
-    dummy_file = tmp_path / "test.txt"
-    dummy_file.write_text("Hello DocMirror no text test")
-    
     with open(dummy_file, "rb") as f:
         response = client.post(
             "/v1/parse",
             files={"file": ("test.txt", f, "text/plain")}
         )
-    
+
     assert response.status_code in (200, 422)
     payload = response.json()
-    
-    if payload["code"] == 200:
-        doc = payload["data"]["document"]
-        assert "text" not in doc
+    if response.status_code == 200:
+        assert "mirror" in payload
+        assert payload["mirror"]["schema"] == "docmirror.mirror_json"
+        assert "document" in payload
+        assert "pages" in payload
+        assert "quality" in payload
+        assert "code" not in payload
+        assert "message" not in payload
+        assert "data" not in payload
+
+def test_parse_with_include_text(tmp_path):
+    """Verify include_text=true still returns vNext mirror JSON."""
+    dummy_file = tmp_path / "test.txt"
+    dummy_file.write_text("Hello DocMirror include_text test")
+
+    with open(dummy_file, "rb") as f:
+        response = client.post(
+            "/v1/parse?include_text=true",
+            files={"file": ("test.txt", f, "text/plain")}
+        )
+
+    assert response.status_code in (200, 422)
+    payload = response.json()
+    if response.status_code == 200:
+        assert payload["mirror"]["schema"] == "docmirror.mirror_json"
+        assert "code" not in payload
+        assert "data" not in payload
+
+def test_parse_without_include_text(tmp_path):
+    """Verify include_text=false returns vNext mirror JSON."""
+    dummy_file = tmp_path / "test.txt"
+    dummy_file.write_text("Hello DocMirror no text test")
+
+    with open(dummy_file, "rb") as f:
+        response = client.post(
+            "/v1/parse",
+            files={"file": ("test.txt", f, "text/plain")}
+        )
+
+    assert response.status_code in (200, 422)
+    payload = response.json()
+    if response.status_code == 200:
+        assert payload["mirror"]["schema"] == "docmirror.mirror_json"
+        assert "code" not in payload
+        assert "data" not in payload

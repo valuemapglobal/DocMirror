@@ -1,0 +1,110 @@
+{
+  "manifest_version": "1.0",
+  "description": "Metadata-only UDTR golden manifest example. Private source files are not committed.",
+  "cases": [
+    {
+      "case_id": "audit_report_landscape_financial_statement_private",
+      "document_type": "audit_report",
+      "private_source": true,
+      "skip_if_missing": true,
+      "mirror_output": "../../../output/real_audit_validation/huaying_xintang_audit_2024_udtr_crop_ocr_revalidated/001_mirror.json",
+      "expectations": {
+        "canonical_shape": true,
+        "page_count": 84,
+        "min_table_count": 39,
+        "max_residual_ratio": 0.05,
+        "required_page_rotations": {
+          "10": 90,
+          "11": 90,
+          "16": 90,
+          "17": 90
+        },
+        "required_gates": {
+          "gate:page_normalization_confidence": "pass",
+          "gate:coordinate_transform_invertible": "pass",
+          "gate:region_candidate_resolution": "pass",
+          "gate:ownership_explainability": "pass",
+          "gate:overlay_relationship_consistency": "pass",
+          "gate:financial_statement_formula": "pass",
+          "gate:visual_artifact_coverage": "pass",
+          "gate:cross_format_projection_consistency": "pass",
+          "gate:verification_crop_ocr": "pass"
+        },
+        "required_relation_kinds": {
+          "seal_overlays": 1,
+          "statement_part_of": 1,
+          "derived_from_region_candidate": 1
+        },
+        "required_statement_structures": [
+          {
+            "page_number": 10,
+            "statement_type": "owners_equity_changes",
+            "min_rule_count": 1,
+            "rule_validation_status": [
+              "pass",
+              "not_evaluated"
+            ],
+            "min_account_rows": 30,
+            "requires_review": false
+          },
+          {
+            "page_number": 11,
+            "statement_type": "owners_equity_changes",
+            "min_rule_count": 1,
+            "rule_validation_status": [
+              "pass",
+              "not_evaluated"
+            ],
+            "min_account_rows": 25
+          },
+          {
+            "page_number": 16,
+            "statement_type": "owners_equity_changes",
+            "min_rule_count": 1,
+            "rule_validation_status": [
+              "pass",
+              "not_evaluated"
+            ],
+            "min_account_rows": 25
+          },
+          {
+            "page_number": 17,
+            "statement_type": "owners_equity_changes",
+            "min_rule_count": 1,
+            "rule_validation_status": [
+              "pass",
+              "not_evaluated"
+            ],
+            "min_account_rows": 25
+          }
+        ],
+        "required_text_probes": [
+          "所有者权益变动表"
+        ],
+        "verification": {
+          "min_unit_count": 200,
+          "min_applicable_unit_count": 200,
+          "min_verified_unit_ratio": 1.0,
+          "max_conflict_ratio": 0.0,
+          "required_unit_type_counts": {
+            "table_cell": 1,
+            "text_span": 1
+          },
+          "required_candidate_source_counts": {
+            "table_grid_cell": 1,
+            "evidence_atom_text": 1
+          },
+          "required_claim_type_counts": {
+            "candidate_vote": 1
+          },
+          "crop_ocr": {
+            "status": "ok",
+            "min_processed_count": 47,
+            "min_agreement_count": 42,
+            "max_conflict_count": 0
+          }
+        }
+      }
+    }
+  ]
+}

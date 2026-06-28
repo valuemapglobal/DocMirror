@@ -517,15 +517,6 @@ scene_keywords:
     - 初领日期
     - 有效期限
     - 机动车驾驶
-  electronic_medical_record:
-    include:
-    - 电子病历
-    - Medical Record
-    - 就诊记录
-    - 出院小结
-    - 入院记录
-    - 病程记录
-    - 检查报告
   equator_principles_assessment:
     include:
     - 赤道原则
@@ -762,11 +753,15 @@ scene_keywords:
     - 保险公司签章
     - 保险起期
     - 保险止期
+    - 交强险
+    - 电子保单
+    - 机动车交通事故责任强制保险
+    - 国家金融监督管理总局
+    - 确认码
+    - 保单验真码
     exclude:
     - 机动车行驶证
-    - 号牌号码
     - 品牌型号
-    - 车辆识别代号
   intangible_asset_appraisal:
     include:
     - 无形资产
@@ -839,23 +834,6 @@ scene_keywords:
     - 土地出让
     - 土地价格
     - 地价评估
-  legacy_scan_doc:
-    include:
-    - 历史档案
-    - Legacy Document
-    - 扫描文件
-    - 历史文件
-    - 文档扫描
-    - 纸质存档
-    - 历史记录
-    - 道路运输证
-    - 中华人民共和国道路运输证
-    - 车辆类型
-    - 车辆号牌
-    - 车辆尺寸
-    - 业户名称
-    - 危险货物运输
-    - 重型半挂
   letter_of_credit:
     include:
     - Letter of Credit
@@ -884,29 +862,6 @@ scene_keywords:
     - 还款计划
     - 抵押贷款
     - 信用贷款
-  market_trend_report:
-    include:
-    - 市场趋势
-    - 趋势分析
-    - Market Trend
-    - 市场分析
-    - 走势分析
-    - 行情分析
-    - 市场调研
-  medical_diagnosis_report:
-    include:
-    - 诊断证明
-    - 诊断报告
-    - Medical Report
-    - CT检查
-    - 检查报告
-    - 超声报告
-  medication_detail:
-    include:
-    - 药品费用
-    - 用药明细
-    - 药品清单
-    - 用药记录
   military_id:
     include:
     - Military ID
@@ -957,15 +912,6 @@ scene_keywords:
     - 应发工资
     - 实发工资
     - 工资明细
-  performance_evaluation_report:
-    include:
-    - 业绩评估
-    - 投资业绩
-    - Performance
-    - 评估报告
-    - 业绩报告
-    - 绩效评估
-    - 考核结果
   police_id:
     include:
     - Police ID
@@ -1281,3 +1227,300 @@ scene_keywords:
     - 银行流水
     - 活期交易明细
     - 支付宝（中国）网络技术有限公司
+  accounts_receivable_aging:
+    include:
+    - 应收账款账龄
+    - 应收账龄
+    - Accounts Receivable Aging
+    - 应收款
+    - 账龄分析
+    - 应收账款明细
+    - 回款情况
+    - 应收余额
+  airway_bill:
+    include:
+    - 空运提单
+    - Air Waybill
+    - 航空运单
+    - 空运单
+    - 主运单
+    - 分运单
+    - Airway Bill
+    - Master Air Waybill
+  bill_of_exchange:
+    include:
+    - 汇票
+    - Bill of Exchange
+    - 银行汇票
+    - 商业汇票
+    - 银行承兑汇票
+    - 商业承兑汇票
+    - Draft
+    - 付款期限
+  collateral_list:
+    include:
+    - 抵押物清单
+    - 质押物清单
+    - 抵押清单
+    - 抵质押物
+    - 担保物
+    - Collateral List
+    - 抵押财产
+    - 质押财产
+    - 抵押物明细
+  commercial_contract:
+    include:
+    - 商业合同
+    - Commercial Contract
+    - 买卖合同
+    - 购销合同
+    - 供货合同
+    - 采购合同
+    - 供应合同
+    - 服务合同
+  credit_approval:
+    include:
+    - 授信审批
+    - 授信批复
+    - 授信审批书
+    - 授信通知
+    - 授信额度
+    - Credit Approval
+    - 授信决定
+    - 审批意见
+  delivery_order:
+    include:
+    - 送货单
+    - 发货单
+    - 出库单
+    - Delivery Order
+    - 配送单
+    - 发货通知
+    - 交货单
+    - 送货清单
+  electronic_bank_receipt:
+    include:
+    - 电子回单
+    - 电子回执
+    - 银行电子回单
+    - Electronic Receipt
+    - 网上银行回单
+    - 电子凭证
+    - 交易回单
+    - 电子汇兑
+  employee_certificate:
+    include:
+    - 在职证明
+    - 收入证明
+    - 工作证明
+    - Employment Certificate
+    - 雇员证明
+    - 任职证明
+    - 薪资证明
+    - 任职单位
+  employment_contract:
+    include:
+    - 劳动合同
+    - Employment Contract
+    - 聘用合同
+    - 劳务合同
+    - 雇佣合同
+    - 员工合同
+    - 聘用协议
+  environmental_permit:
+    include:
+    - 环境影响评价
+    - 环评报告
+    - 环保验收
+    - Environmental Impact Assessment
+    - 环评批复
+    - EIA Report
+    - 环保审批
+    - 环境影响报告
+  expense_report:
+    include:
+    - 费用报销单
+    - 报销单
+    - Expense Report
+    - 报销申请
+    - 费用报销
+    - 差旅报销
+    - 报销明细
+  goods_receipt_note:
+    include:
+    - 收货单
+    - Goods Receipt Note
+    - 入库单
+    - 验收单
+    - 货物验收
+    - 入库凭证
+    - 收料单
+  government_permit:
+    include:
+    - 经营许可证
+    - 食品经营许可证
+    - 增值电信业务经营许可证
+    - 网络文化经营许可证
+    - Operating Permit
+    - 行政许可
+    - 特种行业许可证
+    - 卫生许可证
+  import_export_license:
+    include:
+    - 进出口许可证
+    - Import License
+    - Export License
+    - 对外贸易经营者备案
+    - 海关报关单位注册登记证书
+    - 进出口企业代码
+    - 进出口经营权
+  inspection_certificate:
+    include:
+    - 检验证书
+    - Inspection Certificate
+    - 商检证书
+    - 品质检验证书
+    - 质量检验
+    - 检验报告
+    - Certificate of Inspection
+  insurance_adjuster_report:
+    include:
+    - 公估报告
+    - 定损报告
+    - 保险公估
+    - 损失评估
+    - 理算报告
+    - Adjuster Report
+    - 查勘报告
+    - 定损单
+  intellectual_property_certificate:
+    include:
+    - 专利证书
+    - 商标注册证
+    - 著作权登记证书
+    - Patent Certificate
+    - 发明专利
+    - 实用新型
+    - 外观设计
+    - 软件著作权
+  investment_agreement:
+    include:
+    - 投资协议
+    - Investment Agreement
+    - 股权投资协议
+    - 增资协议
+    - 股权转让协议
+    - 投资合同
+    - Share Purchase Agreement
+  lease_agreement:
+    include:
+    - 租赁合同
+    - Lease Agreement
+    - 房屋租赁合同
+    - 设备租赁合同
+    - 租约
+    - 租赁协议
+    - 出租合同
+  legal_opinion:
+    include:
+    - 法律意见书
+    - Legal Opinion
+    - 法律意见
+    - 律师意见
+    - 法律尽职调查报告
+    - 法律意见函
+  loan_settlement:
+    include:
+    - 贷款结清证明
+    - 结清证明
+    - Loan Settlement
+    - 贷款结清
+    - 还款结清
+    - 贷款清偿
+  non_disclosure_agreement:
+    include:
+    - 保密协议
+    - Non-Disclosure Agreement
+    - 保密合同
+    - 商业秘密保密协议
+    - 保密承诺书
+    - NDA
+    - 保密条款
+  packing_list:
+    include:
+    - 装箱单
+    - Packing List
+    - 包装清单
+    - 货物装箱单
+    - 装箱明细
+    - 包装明细
+  power_of_attorney:
+    include:
+    - 授权委托书
+    - Power of Attorney
+    - 法定代表人授权书
+    - 委托授权书
+    - 授权书
+    - 法人授权委托书
+    - 授权代表
+  procurement_document:
+    include:
+    - 招标文件
+    - 投标文件
+    - 招标书
+    - 投标书
+    - RFP
+    - Request for Proposal
+    - 中标通知书
+    - 评标报告
+  purchase_order:
+    include:
+    - 采购订单
+    - Purchase Order
+    - PO
+    - 订购单
+    - 采购单
+    - 订货单
+    - 订单确认
+  quotation:
+    include:
+    - 报价单
+    - Quotation
+    - 报价函
+    - 价格表
+    - 报价明细
+    - 报价书
+  shipping_instruction:
+    include:
+    - 托运单
+    - 订舱单
+    - Shipping Instruction
+    - Booking Note
+    - 货运委托书
+    - 托运委托书
+    - 订舱委托书
+  tax_clearance_certificate:
+    include:
+    - 清税证明
+    - 税务清税
+    - 注销税务登记
+    - Tax Clearance
+    - 税务注销
+    - 清税文书
+  termination_letter:
+    include:
+    - 离职证明
+    - 解除劳动合同证明
+    - Termination Letter
+    - 辞职证明
+    - 离职通知
+    - 解除劳动关系证明
+  wire_transfer_receipt:
+    include:
+    - 汇款回单
+    - 电汇凭证
+    - 汇款凭证
+    - Wire Transfer Receipt
+    - 汇款单
+    - 转账回单
+    - 电汇回单

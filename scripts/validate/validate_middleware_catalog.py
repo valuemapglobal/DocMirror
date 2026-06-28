@@ -13,7 +13,7 @@ from docmirror.configs.middleware.catalog import validate_catalog
 
 def main() -> int:
     errors = validate_catalog()
-    from docmirror.plugins.post_extract.catalog import validate_post_extract_catalog
+    from docmirror.plugins._runtime.post_extract.catalog import validate_post_extract_catalog
 
     errors.extend(validate_post_extract_catalog())
     if errors:

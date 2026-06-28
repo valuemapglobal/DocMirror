@@ -12,8 +12,8 @@ import pytest
 
 pytestmark = [pytest.mark.tier_contract]
 
-from docmirror.core.bridge.parse_result_bridge import ParseResultBridge
-from docmirror.core.extraction.extractor import CoreExtractor
+from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
+from docmirror.input.extraction.extractor import CoreExtractor
 
 BOC = Path("tests/fixtures/bank_statement/中国银行-南京创沃电气设备有限公司_1.pdf")
 CREDIT = Path("tests/fixtures/synthetic/credit_report_section_smoke.pdf")
@@ -73,5 +73,5 @@ def test_api_meta_exports_structure():
         pytest.skip("missing BOC fixture")
     base = asyncio.run(CoreExtractor(max_page_concurrency=1).extract(BOC))
     pr = ParseResultBridge.from_base_result(base)
-    api = pr.to_api_dict()
+    api = pr.to_mirror_json_vnext()
     assert "structure" in api.get("meta", {})

@@ -110,10 +110,9 @@ def _extract_split_grid_records(
 
 def extract_transactions(ctx: StyleContext, plugin: Any) -> list[dict[str, str]]:
     variant = match_institution(ctx.full_text, ctx.institution)
-    tables = normalize_table_headers(ctx.tables, variant=variant)
 
     split_txns: list[dict[str, str]] = []
-    for tbl in tables:
+    for tbl in ctx.tables:
         if not tbl:
             continue
         for row_idx, row in enumerate(tbl[:15]):
@@ -123,6 +122,8 @@ def extract_transactions(ctx: StyleContext, plugin: Any) -> list[dict[str, str]]
                 break
     if split_txns:
         return split_txns
+
+    tables = normalize_table_headers(ctx.tables, variant=variant)
 
     batch = extract_all_tables(
         tables,

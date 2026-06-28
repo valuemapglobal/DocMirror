@@ -11,8 +11,8 @@ from unittest.mock import patch
 
 import pytest
 
-from docmirror.core.entry.factory import PerceiveOptions, perceive_document
-from docmirror.plugins.runner import run_plugin_extract_sync
+from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 from tests.contract.test_edition_schema_conformance import check_enterprise, check_finance
 
 pytest.importorskip("docmirror_enterprise")

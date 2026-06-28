@@ -13,7 +13,7 @@ import pytest
 pytestmark = [pytest.mark.tier_contract]
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.plugins.runner import run_plugin_extract_sync
+from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
 
 class FakeEnterprisePlugin:

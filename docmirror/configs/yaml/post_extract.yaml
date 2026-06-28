@@ -9,21 +9,21 @@ version: 1
 
 hooks:
   mirror_table_rebuild:
-    module: docmirror.plugins.post_extract.hooks.mirror_table_rebuild
+    module: docmirror.plugins._runtime.post_extract.hooks.mirror_table_rebuild
     class: MirrorTableRebuildHook
     when: "document_type == 'bank_statement'"
     mutates_mirror: false
     provides: [enrichment.bank_table_rebuild]
 
   credit_report_sections:
-    module: docmirror.plugins.post_extract.hooks.credit_sections
+    module: docmirror.plugins._runtime.post_extract.hooks.credit_sections
     class: CreditReportSectionsHook
     when: "document_type == 'credit_report'"
     mutates_mirror: false
     provides: [data.sections]
 
   plugin_trust_projection:
-    module: docmirror.plugins.post_extract.hooks.trust_projection
+    module: docmirror.plugins._runtime.post_extract.hooks.trust_projection
     class: PluginTrustProjectionHook
     when: "extracted.get('quality', {}).get('trust_score') or extracted.get('validation', {}).get('trust_score')"
     mutates_mirror: false

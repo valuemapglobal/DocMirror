@@ -35,60 +35,60 @@ console = Console()
 @click.command()
 @click.argument("source_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.option(
-    "--output-dir", "-o", type=click.Path(path_type=Path), default=None, help="分类输出目录 (默认: ./classified_output)"
+    "--output-dir", "-o", type=click.Path(path_type=Path), default=None, help="Classification output directory (default: ./classified_output)"
 )
 @click.option(
-    "--rules", "-r", type=click.Path(exists=True, path_type=Path), default=None, help="分类规则文件路径 (YAML格式)"
+    "--rules", "-r", type=click.Path(exists=True, path_type=Path), default=None, help="Classification rules file path (YAML format)"
 )
-@click.option("--dry-run", is_flag=True, default=False, help="仅预览分类结果,不移动文件")
+@click.option("--dry-run", is_flag=True, default=False, help="Preview classification results, do not move files")
 @click.option(
     "--report-format",
     type=click.Choice(["markdown", "json", "csv"]),
     default="markdown",
-    help="报告格式 (默认: markdown)",
+    help="Report format (default: markdown)",
 )
 def classify(source_dir, output_dir, rules, dry_run, report_format):
     """
-    智能分类目录中的金融文件
+    Intelligently classify financial files in a directory.
 
-    遍历SOURCE_DIR中的所有文件,自动解析内容并分类到对应目录。
-    基于DocMirror插件系统和规则引擎实现精准分类。
+    Walks through all files in SOURCE_DIR, automatically parses content, and classifies them into corresponding directories.
+    Leverages DocMirror plugin system and rule engine for accurate classification.
 
     \b
-    示例:
-      # 基本使用
+    Examples:
+      # Basic usage
       docmirror classify /path/to/documents
 
-      # 指定输出目录
+      # Specify output directory
       docmirror classify /path/to/documents -o /path/to/output
 
-      # 预览模式(不移动文件)
+      # Preview mode (no file moving)
       docmirror classify /path/to/documents --dry-run
 
-      # 使用自定义规则
+      # Use custom rules
       docmirror classify /path/to/documents -r custom_rules.yaml
 
-      # 生成JSON报告
+      # Generate JSON report
       docmirror classify /path/to/documents --report-format json
     """
 
-    # 设置输出目录
+    # Set output directory
     output_dir = output_dir or Path.cwd() / "classified_output"
 
     console.print("\n" + "=" * 80)
-    console.print("[bold cyan]🚀 智能文件分类系统[/bold cyan]")
+    console.print("[bold cyan]Smart File Classification System[/bold cyan]")
     console.print("=" * 80)
 
-    console.print(f"\n[bold]源目录:[/bold] {source_dir}")
-    console.print(f"[bold]输出目录:[/bold] {output_dir}")
-    console.print(f"[bold]规则文件:[/bold] {rules or '默认'}")
-    console.print(f"[bold]模式:[/bold] {'预览(不移动文件)' if dry_run else '正式分类'}")
-    console.print(f"[bold]报告格式:[/bold] {report_format}\n")
+    console.print(f"\n[bold]Source directory:[/bold] {source_dir}")
+    console.print(f"[bold]Output directory:[/bold] {output_dir}")
+    console.print(f"[bold]Rules file:[/bold] {rules or 'default'}")
+    console.print(f"[bold]Mode:[/bold] {'Preview (no file moving)' if dry_run else 'Active classification'}")
+    console.print(f"[bold]Report format:[/bold] {report_format}\n")
 
     if dry_run:
-        console.print("[yellow]⚠ 预览模式: 文件不会被实际移动[/yellow]\n")
+        console.print("[yellow]⚠ Preview mode: files will not be moved[/yellow]\n")
 
-    # 运行分类
+    # Run classification
     try:
         from docmirror.cli.classify_engine import FileClassifier
         from docmirror.cli.classify_report import (
@@ -99,30 +99,30 @@ def classify(source_dir, output_dir, rules, dry_run, report_format):
 
         classifier = FileClassifier(rules_path=rules, output_dir=output_dir, dry_run=dry_run)
 
-        # 执行分类
+        # Execute classification
         results = asyncio.run(classifier.classify_directory(source_dir))
 
-        # 打印摘要
+        # Print summary
         print_summary(results)
 
-        # 生成报告
+        # Generate report
         if results.total_files > 0:
             report_path = generate_report(results, output_dir, report_format)
-            console.print(f"[bold green]✓[/bold green] 分类报告: {report_path}")
+            console.print(f"[bold green]✓[/bold green] Report: {report_path}")
 
-            # 如果有待处理文件,生成待处理报告
+            # If there are pending files, generate pending report
             if results.pending_count > 0:
                 pending_path = generate_pending_report(results, output_dir)
-                console.print(f"[bold yellow]⚠[/bold yellow] 待处理报告: {pending_path}")
+                console.print(f"[bold yellow]⚠[/bold yellow] Pending report: {pending_path}")
 
-        # 返回状态码
+        # Return status code
         if results.failed_count > 0:
             raise SystemExit(1)
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]⚠ 分类被用户中断[/yellow]")
+        console.print("\n[yellow]⚠ Classification interrupted by user[/yellow]")
         raise SystemExit(130)
     except Exception as e:
-        console.print(f"\n[bold red]✖ 分类失败:[/bold red] {e}")
+        console.print(f"\n[bold red]✖ Classification failed:[/bold red] {e}")
         logger.exception("Classification failed")
         raise SystemExit(1)

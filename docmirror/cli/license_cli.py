@@ -39,7 +39,7 @@ def license_group():
 @license_group.command()
 def show():
     """Show current license information (offline + online)."""
-    from docmirror.plugins.licensing.snapshot import resolve_license_snapshot
+    from docmirror.plugins._runtime.licensing.snapshot import resolve_license_snapshot
 
     snapshot = resolve_license_snapshot()
     offline = snapshot.get("offline")
@@ -74,6 +74,12 @@ def show():
     if offline:
         table.add_row("Offline Tier", str(offline.get("tier", "N/A")).upper())
         table.add_row("Offline Valid", "✅" if offline.get("is_valid") else "❌")
+        cust = offline.get("customer", {})
+        if isinstance(cust, dict):
+            for ckey in ("company", "contact", "name"):
+                cval = cust.get(ckey)
+                if cval:
+                    table.add_row(f"Customer {ckey.title()}", str(cval))
         table.add_row("Offline Expires", str(offline.get("expires_at", "N/A")))
         table.add_row("Grace (days)", str(offline.get("grace_period_days", "N/A")))
         table.add_row("Effective Expiry", str(offline.get("effective_expiry", "N/A")))
@@ -95,9 +101,9 @@ def show():
 @license_group.command("check-expiring")
 def check_expiring():
     """List licenses expiring within the configured threshold (default 90 days)."""
-    from docmirror.plugins.licensing.offline import offline_license_manager
-    from docmirror.plugins.licensing.online import license_manager
-    from docmirror.plugins.licensing.tiers_loader import load_tiers
+    from docmirror.plugins._runtime.licensing.offline import offline_license_manager
+    from docmirror.plugins._runtime.licensing.online import license_manager
+    from docmirror.plugins._runtime.licensing.tiers_loader import load_tiers
 
     threshold = int((load_tiers().get("lifecycle") or {}).get("expiring_soon_days") or 90)
     rows: list[tuple[str, str, str, str]] = []
@@ -181,7 +187,7 @@ def activate(key: str):
 @click.argument("license_file", type=click.Path(exists=True))
 def load(license_file: str):
     """Load offline license file (.lic)."""
-    from docmirror.plugins.licensing.offline import offline_license_manager
+    from docmirror.plugins._runtime.licensing.offline import offline_license_manager
 
     console.print(f"[cyan]Loading offline license: {license_file}[/cyan]")
 

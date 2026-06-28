@@ -39,7 +39,7 @@ console = Console()
 
 # Import managers
 from docmirror.plugins import license_manager, plugin_manager
-from docmirror.plugins.licensing.offline import offline_license_manager
+from docmirror.plugins._runtime.licensing.offline import offline_license_manager
 
 
 @click.group()
@@ -96,8 +96,8 @@ def list(enabled: bool, disabled: bool, show_all: bool, fmt: str):
 @plugins.command()
 def community():
     """List community edition plugins (6 premium + 1 generic)."""
-    from docmirror.plugins import registry
-    from docmirror.plugins.community import community_plugin_module, get_community_premium_domains
+    from docmirror.plugins._runtime import registry
+    from docmirror.plugins._runtime.community import community_plugin_module, get_community_premium_domains
 
     registry._ensure_discovered()
     premium = get_community_premium_domains()
@@ -237,7 +237,7 @@ def license():
 @license.command()
 def show():
     """Show current license information (offline + online)."""
-    from docmirror.plugins.licensing.snapshot import resolve_license_snapshot
+    from docmirror.plugins._runtime.licensing.snapshot import resolve_license_snapshot
 
     snapshot = resolve_license_snapshot()
     offline = snapshot.get("offline")
@@ -272,6 +272,12 @@ def show():
     if offline:
         table.add_row("Offline Tier", str(offline.get("tier", "N/A")).upper())
         table.add_row("Offline Valid", "✅" if offline.get("is_valid") else "❌")
+        cust = offline.get("customer", {})
+        if isinstance(cust, dict):
+            for ckey in ("company", "contact", "name"):
+                cval = cust.get(ckey)
+                if cval:
+                    table.add_row(f"Customer {ckey.title()}", str(cval))
         table.add_row("Offline Expires", str(offline.get("expires_at", "N/A")))
         table.add_row("Grace (days)", str(offline.get("grace_period_days", "N/A")))
         table.add_row("Effective Expiry", str(offline.get("effective_expiry", "N/A")))
@@ -293,9 +299,9 @@ def show():
 @license.command("check-expiring")
 def check_expiring():
     """List licenses expiring within the configured threshold (default 90 days)."""
-    from docmirror.plugins.licensing.offline import offline_license_manager
-    from docmirror.plugins.licensing.online import license_manager
-    from docmirror.plugins.licensing.tiers_loader import load_tiers
+    from docmirror.plugins._runtime.licensing.offline import offline_license_manager
+    from docmirror.plugins._runtime.licensing.online import license_manager
+    from docmirror.plugins._runtime.licensing.tiers_loader import load_tiers
 
     threshold = int((load_tiers().get("lifecycle") or {}).get("expiring_soon_days") or 90)
     rows: list[tuple[str, str, str, str]] = []
@@ -481,78 +487,9 @@ def stats(show_all: bool):
         console.print(table)
 
 
-@license.command()
-def generate_demo():
-    """Generate a demo license file for development/testing."""
-    import hashlib
-    import json
-    import os
-    from datetime import datetime, timedelta
-    from pathlib import Path
-
-    if os.getenv("DOCMIRROR_LICENSE_DEV_MODE") != "1":
-        console.print(
-            Panel(
-                "[yellow]Demo license generation is disabled in production mode.[/yellow]\n\n"
-                "Set [cyan]DOCMIRROR_LICENSE_DEV_MODE=1[/cyan] and retry.",
-                title="Dev Mode Required",
-                border_style="yellow",
-            )
-        )
-        sys.exit(1)
-
-    lic_dir = Path.home() / ".docmirror" / "licenses"
-    lic_dir.mkdir(parents=True, exist_ok=True)
-
-    for stale in lic_dir.glob("DEMO-*.lic"):
-        stale.unlink(missing_ok=True)
-
-    from docmirror.plugins.licensing.entitlements import demo_features
-    from docmirror.plugins.licensing.offline import offline_license_manager
-
-    feature_list = demo_features()
-
-    license_info = {
-        "license_id": "DEMO-CURRENT",
-        "tier": "enterprise",
-        "type": "demo",
-        "customer": {"name": "Development Environment", "company": "DocMirror Dev", "email": "dev@docmirror.local"},
-        "validity": {
-            "issued_at": datetime.now().isoformat(),
-            "expires_at": (datetime.now() + timedelta(days=365)).isoformat(),
-            "grace_period_days": 30,
-        },
-        "features": feature_list,
-    }
-    content_str = json.dumps(license_info, sort_keys=True)
-    signature = hashlib.sha256(content_str.encode()).hexdigest()
-    license_data = {
-        "license_info": license_info,
-        "security": {
-            "algorithm": "simplified",
-            "signature": f"simplified:{signature}",
-        },
-    }
-
-    lic_path = lic_dir / "demo.lic"
-    with open(lic_path, "w") as f:
-        json.dump(license_data, f, indent=2, ensure_ascii=False)
-
-    offline_license_manager._licenses.clear()
-    offline_license_manager._load_all_licenses()
-
-    console.print(
-        Panel(
-            f"[green]Demo license generated[/green]\n\n"
-            f"  License ID: [cyan]{license_data['license_info']['license_id']}[/cyan]\n"
-            f"  Tier: [cyan]enterprise (demo)[/cyan]\n"
-            f"  Expires: [cyan]{license_data['license_info']['validity']['expires_at']}[/cyan]\n"
-            f"  Features: [cyan]{len(feature_list)} entitlement features[/cyan]\n\n"
-            f"  Saved to: [yellow]{lic_path}[/yellow]",
-            title="Demo License",
-            border_style="green",
-        )
-    )
+# generate_demo command removed in v1.1
+# License signing requires RSA private key — not available in open-source build.
+# Use official .lic files from docmirror.dev/license instead.
 
 
 # Export for integration

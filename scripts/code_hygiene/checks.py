@@ -287,7 +287,7 @@ def check_commented_blocks(allowlist: dict | None = None, *, min_lines: int = 4)
         body = line.strip().lstrip("#").strip()
         if not body:
             return False
-        # Skip CJK-heavy documentation comments (e.g. "# 计算置信度")
+        # Skip CJK-heavy documentation comments (e.g. "# Compute confidence")
         ascii_chars = sum(1 for ch in body if ord(ch) < 128)
         if ascii_chars / max(len(body), 1) < 0.5:
             return False

@@ -117,3 +117,64 @@ def extract_kv_community_output(
         parser_label="docmirror-community",
     )
     return edition_serializer(dec, context=ctx)
+
+
+def _enforce_dgc_boundary(domain: str, support_level: str) -> dict:
+    """Enforce DGC (domain governance category) boundary rules for Edition output.
+
+    GA 1.0 SS4.12 N2/N5: DGC status gates Edition output:
+
+      - **"ga"** domain (e.g., bank_statement, credit_report):
+        Keeps the provided support_level. No output restriction.
+      - **"candidate"** domain (e.g., vat_invoice, business_license):
+        Downgraded to L1 (generic fallback fields only).
+        Edition output is NOT blocked — only restricted to L1.
+      - **"mirror_only"** / **"unknown"** domain:
+        Edition output is blocked entirely. Only mirror output is available.
+
+    Args:
+        domain: Document domain name (e.g. "bank_statement", "vat_invoice").
+        support_level: Requested support level ("L1", "L2", etc.).
+
+    Returns:
+        A gate dict with keys:
+          - effective_support_level: The support level after applying rules.
+          - dgc_status: The resolved DGC status for the domain.
+          - block_edition: Whether edition output should be suppressed.
+          - dgc_annotation: Human-readable explanation for the gating decision.
+    """
+    from docmirror.plugins._runtime.plugin_registry import resolve_dgc_status
+
+    if not domain:
+        return {
+            "effective_support_level": "mirror_only",
+            "dgc_status": "mirror_only",
+            "block_edition": True,
+            "dgc_annotation": "DGC gate: empty domain — edition output suppressed (GA 1.0 N2)",
+        }
+
+    dgc_status = resolve_dgc_status(domain)
+
+    if dgc_status == "ga":
+        return {
+            "effective_support_level": support_level,
+            "dgc_status": dgc_status,
+            "block_edition": False,
+            "dgc_annotation": f"DGC gate: {domain!r} is GA domain — support_level={support_level}",
+        }
+
+    if dgc_status == "candidate":
+        return {
+            "effective_support_level": "L1",
+            "dgc_status": dgc_status,
+            "block_edition": False,
+            "dgc_annotation": f"DGC gate: {domain!r} is candidate domain — downgraded to L1 generic fallback (GA 1.0 N5)",
+        }
+
+    # mirror_only / unknown → block edition output
+    return {
+        "effective_support_level": "mirror_only",
+        "dgc_status": dgc_status,
+        "block_edition": True,
+        "dgc_annotation": f"DGC gate: {domain!r} is mirror_only domain — edition output suppressed (GA 1.0 N2)",
+    }

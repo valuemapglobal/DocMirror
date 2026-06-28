@@ -12,9 +12,9 @@ from docmirror.models.mirror.page_access import micro_grids_from_document
 
 
 def _doc(mirror_or_api: Any) -> dict[str, Any]:
-    if hasattr(mirror_or_api, "to_api_dict"):
-        api = mirror_or_api.to_api_dict(mirror_level="forensic", include_text=True)
-        doc = ((api.get("data") or {}).get("document") or {}) if isinstance(api, dict) else {}
+    if hasattr(mirror_or_api, "to_mirror_json_vnext"):
+        api = mirror_or_api.to_mirror_json_vnext()
+        doc = (api.get("document") or {}) if isinstance(api, dict) else {}
         entities = getattr(mirror_or_api, "entities", None)
         domain_specific = getattr(entities, "domain_specific", None) if entities is not None else None
         if isinstance(domain_specific, dict) and domain_specific.get("credit_repayment_records"):
@@ -25,6 +25,8 @@ def _doc(mirror_or_api: Any) -> dict[str, Any]:
         api = mirror_or_api
     else:
         api = {}
+    if isinstance(api.get("document"), dict):
+        return api["document"]
     return ((api.get("data") or {}).get("document") or {}) if isinstance(api, dict) else {}
 
 

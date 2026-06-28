@@ -1,0 +1,50 @@
+{
+  "name": "@docmirror/sdk",
+  "version": "0.2.0",
+  "description": "TypeScript SDK for DocMirror Universal Parsing API — typed client for document parsing, batch processing, and health checks",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "scripts": {
+    "generate": "openapi-typescript ../../docs/openapi/openapi.json -o src/generated.ts",
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "docmirror",
+    "document",
+    "parsing",
+    "pdf",
+    "ocr",
+    "llm",
+    "rag",
+    "document-ai"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/valuemapglobal/docmirror.git",
+    "directory": "sdks/typescript"
+  },
+  "homepage": "https://docmirror.dev",
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "openapi-typescript": "^7.4.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

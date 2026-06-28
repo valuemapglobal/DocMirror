@@ -23,7 +23,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from docmirror.plugins import DomainPlugin
+from docmirror.plugins._runtime.plugin_registry import DomainPlugin
 from docmirror.plugins._base.generic_mirror_adapter import build_generic_community_output
 
 

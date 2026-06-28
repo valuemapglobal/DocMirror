@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.core.ocr.page_canvas.evidence_bundles import merge_micro_grid_structures_into_bundles
+from docmirror.structure.ocr.page_canvas.evidence_bundles import merge_micro_grid_structures_into_bundles
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult
 from docmirror.models.mirror.page_access import (
     get_page_canvas,
@@ -75,8 +75,8 @@ def test_get_page_canvas_blocks_present_after_api_dict():
         pages=[PageContent(page_number=4, width=100, height=200)],
         entities=DocumentEntities(document_type="credit_report", domain_specific=ds),
     )
-    api = pr.to_api_dict(mirror_level="standard")
-    doc = api["data"]["document"]
+    api = pr.to_mirror_json_vnext(mirror_level="standard")
+    doc = api
     page = get_page_canvas(doc, 4)
     assert page is not None
     assert "blocks" in page
