@@ -25,7 +25,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from docmirror.structure.utils.vocabulary import _is_header_cell, _score_header_by_vocabulary
+from docmirror.layout.vocabulary import _is_header_cell, _score_header_by_vocabulary
 
 if TYPE_CHECKING:
     from docmirror.models.entities.extraction_profile import ExtractionProfile
@@ -213,7 +213,10 @@ def pick_best_candidate(
     for s, c in scored[:6]:
         logger.info(
             "[BCS-DBG] layer=%s rows=%d cols=%d score=%.4f",
-            c.layer, c.row_count, getattr(c, 'col_count', 0), s,
+            c.layer,
+            c.row_count,
+            getattr(c, "col_count", 0),
+            s,
         )
     logger.debug(
         "[BCS] picked layer=%s rows=%d score=%.3f (from %d candidates)",

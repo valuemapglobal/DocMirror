@@ -38,8 +38,6 @@ def orientation_comparison_signals(metadata: dict[str, Any]) -> dict[str, Any]:
         signals.update(metadata["comparison_signals"])
     if "orientation_candidates" in metadata and isinstance(metadata["orientation_candidates"], list):
         signals["orientation_candidates"] = [
-            candidate
-            for candidate in metadata["orientation_candidates"]
-            if isinstance(candidate, dict)
+            candidate for candidate in metadata["orientation_candidates"] if isinstance(candidate, dict)
         ]
     return signals

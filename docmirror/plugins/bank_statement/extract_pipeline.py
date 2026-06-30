@@ -22,9 +22,13 @@ from typing import Any
 from docmirror.plugins.bank_statement.blo import BankLedgerOrchestrator
 from docmirror.plugins.bank_statement.canonical import StyleMeta, build_style_meta
 from docmirror.plugins.bank_statement.context import StyleContext, build_style_context
-from docmirror.plugins.bank_statement.institution_authority import extract_identity_from_header
+from docmirror.plugins.bank_statement.institution_authority import (
+    extract_identity_from_header,
+    resolve_institution_from_context,
+)
 from docmirror.plugins.bank_statement.style_detector import BankStyleDetector, StyleDetectionResult
 from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
+from docmirror.plugins.bank_statement.wide_table_recovery import audit_bank_statement_invariants
 
 
 @dataclass
@@ -41,17 +45,28 @@ def enrich_identity_fields(
     identity_fields: dict[str, dict],
     full_text: str,
     parse_result: Any = None,
+    institution: str | None = None,
 ) -> dict[str, dict]:
     """Merge header KV identity into registry identity fields (EIP)."""
     fields = dict(identity_fields)
     for field_name, value in extract_identity_from_header(full_text).items():
-        if value and field_name not in fields:
-            fields[field_name] = {
-                "raw_name": field_name,
-                "raw_value": value,
-                "normalized_value": value,
-                "data_type": "string",
-            }
+        if not value:
+            continue
+        fields[field_name] = {
+            "raw_name": field_name,
+            "raw_value": value,
+            "normalized_value": value,
+            "data_type": "string",
+            "source": "header.kv",
+        }
+    if "currency" not in fields:
+        fields["currency"] = {
+            "raw_name": "currency",
+            "raw_value": "CNY",
+            "normalized_value": "CNY",
+            "data_type": "string",
+            "source": "bank_statement.default",
+        }
 
     if parse_result is not None:
         entities = getattr(parse_result, "entities", None)
@@ -71,6 +86,7 @@ def enrich_identity_fields(
                         "raw_value": str(value),
                         "normalized_value": str(value),
                         "data_type": "string",
+                        "source": "metadata",
                     }
         if entities is not None:
             for field_name in ("account_holder", "account_number", "bank_name"):
@@ -81,13 +97,41 @@ def enrich_identity_fields(
                         "raw_value": str(value),
                         "normalized_value": str(value),
                         "data_type": "string",
+                        "source": "entities",
                     }
+            subject_id = getattr(entities, "subject_id", None)
+            if subject_id and "account_number" not in fields:
+                fields["account_number"] = {
+                    "raw_name": "subject_id",
+                    "raw_value": str(subject_id),
+                    "normalized_value": str(subject_id),
+                    "data_type": "string",
+                    "source": "entities.subject_id",
+                }
+        if institution and "bank_name" not in fields:
+            fields["bank_name"] = {
+                "raw_name": "bank_name",
+                "raw_value": institution,
+                "normalized_value": institution,
+                "data_type": "string",
+                "source": "institution_argument",
+            }
+        if "bank_name" not in fields:
+            institution, authority = resolve_institution_from_context(parse_result, full_text)
+            if institution:
+                fields["bank_name"] = {
+                    "raw_name": "bank_name",
+                    "raw_value": institution,
+                    "normalized_value": institution,
+                    "data_type": "string",
+                    "source": authority or "institution_authority",
+                }
     return fields
 
 
 def collect_extract_warnings(ctx: StyleContext, style_meta: StyleMeta) -> list[str]:
     """LTRO / coverage warnings shared across editions."""
-    from docmirror.structure.analysis.spe_consumer import read_structure_spe, spe_ltro_warnings
+    from docmirror.evidence.spe_consumer import read_structure_spe, spe_ltro_warnings
 
     warnings: list[str] = []
     if ctx.reconstruction and ctx.reconstruction.pipe_parse_failed:
@@ -131,6 +175,10 @@ def run_bank_statement_extract(
         blo_meta=blo_meta,
     )
     warnings = collect_extract_warnings(ctx, style_meta)
+    invariant_failures = audit_bank_statement_invariants(records, ctx.full_text)
+    if invariant_failures:
+        style_meta.extract_status = "degraded"
+        warnings.extend(invariant_failures)
     return BankExtractResult(
         ctx=ctx,
         detection=detection,

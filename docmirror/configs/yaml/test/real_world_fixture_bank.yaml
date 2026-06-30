@@ -38,6 +38,7 @@ fixtures:
     quality_bucket: hard
     domain: bank_statement
     support_level: L2
+    private: true
     path: tests/fixtures/bank_statement/ZHAO YA_银行流水_20251104.pdf
     expected_outputs: [mirror, community, evidence]
 
@@ -50,12 +51,12 @@ fixtures:
     path: private/customer_regression/low_quality_scan.pdf
     expected_outputs: [mirror, evidence]
 
-  - id: golden_benchmark_pcm_finance
+  - id: golden_benchmark_vnext_finance
     source_type: golden_benchmark
     quality_bucket: edge_case
     domain: bank_statement
     support_level: L2
-    path: tests/fixtures/golden/pcm_l3_credit_finance.json
+    path: tests/fixtures/golden/vnext_l3_credit_finance.json
     expected_outputs: [mirror, finance, quality]
 
   - id: adversarial_broken_pdf_contract

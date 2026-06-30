@@ -5,19 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] — 2026-06-22
+## [1.0.0] — 2026-06-30
 
 ### Added
 - **Formula Recognition GA**: Complete F1–F12 formula type coverage with full test golden gates
+- **vNext 1.0 Mainline Readiness**: added release gates for removed legacy references, vNext mirror volume, UDTR golden metadata, and cross-format readiness
+- **PageProjection Topology Gates**: promoted the page-centric topology track from PCM/page-canvas naming to vNext PageProjection contracts
 - **Privacy Guard Patterns**: `.gitignore` hardened — `!docs/design/` negation bug fixed; credential, fixture, and private-path patterns added
 - **OSS Release Gate**: `validate-release` now checks public metadata, pure imports, release manifest requirements, and built archive boundaries
 - **Public Trust Quickstart**: synthetic dependency-light artifact and example demonstrate field evidence, bbox, confidence, source refs, and review status
-- **Public Mini Benchmark**: reproducible `--public-mini` benchmark path for evidence/trust contract coverage without private fixtures
 
 ### Changed
 - Public positioning now consistently uses **Commercial Document Trust Layer** and **Parse. Prove. Trust.**
+- CI now runs the active vNext removed-reference and mirror-volume gates instead of deleted PCM-era validators
+- Release-blocking `make lint` now covers ruff, formatting, and clean-architecture gates; full mypy remains available as `make typecheck` for non-blocking type-debt audits
+- Optional extras smoke validation now prints per-extra progress and uses quieter, non-interactive pip installs
 - `docmirror`, `docmirror --help`, `docmirror --version`, `docmirror version`, and `docmirror doctor` are dependency-light first-run surfaces
 - `docmirror[all]` is limited to public OSS extras; commercial/enterprise packages remain separate
+
+### Fixed
+- TQG regression compatibility for vNext mirror payloads, conservation-oracle payload synthesis, scanned micro-grid column expectations, and schema fixture directory discovery
+- Classification keyword coverage for newly promoted document scenes used by the release regression track
 
 ### Security
 - Final OSS boundary pass: `docs/design/` and all private fixture references removed from git tracking

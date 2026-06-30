@@ -7,7 +7,7 @@ v2 changes (W0-01, W0-03):
 - Distinguishes targets from observed (not_measured cannot pass strict mode).
 - Adds strict release validator that blocks on unobserved / below-threshold / bucket-fail metrics.
 - Report shape includes buckets, failures, release_gate, and run metadata.
-- Backward-compatible: v1 reports still pass lenient validator.
+- Stable: v1 reports still pass lenient validator.
 """
 
 from __future__ import annotations
@@ -208,9 +208,7 @@ def validate_ga_metrics_report_strict(report: dict[str, Any]) -> list[str]:
             status = item.get("status")
             target_val = item.get("target", "unknown")
             if status == "fail":
-                errors.append(
-                    f"strict: {section}.{name} observed={observed_val} fails target={target_val}"
-                )
+                errors.append(f"strict: {section}.{name} observed={observed_val} fails target={target_val}")
             elif status == "not_measured":
                 errors.append(
                     f"strict: {section}.{name} has observed={observed_val} but status=not_measured — inconsistent"
@@ -229,4 +227,3 @@ def validate_ga_metrics_report_strict(report: dict[str, Any]) -> list[str]:
         errors.append("strict: aggregation_policy.average_must_not_hide_bucket_failure must be true")
 
     return errors
-

@@ -17,7 +17,6 @@ Design (GA1.0-EC-01 §Component 4.4):
 from __future__ import annotations
 
 import json
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -122,8 +121,7 @@ def run_baselines(
 
     import importlib.util
 
-    from docmirror.eval.golden_loader import load_golden_matrix
-    from docmirror.eval.golden_loader import load_golden_matrix_from_file
+    from docmirror.eval.golden_loader import load_golden_matrix, load_golden_matrix_from_file
 
     matrix_path = Path(golden_matrix_path)
     if matrix_path.is_file() and matrix_path.suffix == ".json":
@@ -148,11 +146,13 @@ def run_baselines(
         if importlib.util.find_spec("fitz"):
             try:
                 metrics = run_pymupdf_baseline(file_path)
-                results["pymupdf"].append({
-                    "golden_case_id": case_id,
-                    "document_type": case.document_type or "unknown",
-                    "metrics": metrics,
-                })
+                results["pymupdf"].append(
+                    {
+                        "golden_case_id": case_id,
+                        "document_type": case.document_type or "unknown",
+                        "metrics": metrics,
+                    }
+                )
                 print(f"  ✓ pymupdf  {case_id}")
             except Exception as e:
                 print(f"  ✗ pymupdf  {case_id}: {e}")
@@ -163,11 +163,13 @@ def run_baselines(
         if importlib.util.find_spec("unstructured"):
             try:
                 metrics = run_unstructured_baseline(file_path)
-                results["unstructured"].append({
-                    "golden_case_id": case_id,
-                    "document_type": case.document_type or "unknown",
-                    "metrics": metrics,
-                })
+                results["unstructured"].append(
+                    {
+                        "golden_case_id": case_id,
+                        "document_type": case.document_type or "unknown",
+                        "metrics": metrics,
+                    }
+                )
                 print(f"  ✓ unstructured  {case_id}")
             except Exception as e:
                 print(f"  ✗ unstructured  {case_id}: {e}")

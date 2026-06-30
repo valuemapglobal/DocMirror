@@ -14,7 +14,7 @@ output to edition JSON serialization.
 Architecture layers (see ``docs/design/09_models_layer_first_principles_redesign.md``)::
 
     entities/       Core MOC types: ``ParseResult``, physical blocks, DEC output
-    construction/   Builders bridging legacy parser output to ``ParseResult``
+    construction/   Builders converting adapter output to ``ParseResult``
     schemas/        DEC validation schemas per document type
     tracking/       Data lineage via ``Mutation`` records
     edition_serializer   DEC → community/enterprise JSON v2.0

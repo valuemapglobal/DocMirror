@@ -76,5 +76,5 @@ def test_import_linter_contract() -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_legacy_input_pipeline_removed() -> None:
-    assert not (ROOT / "docmirror" / "input" / "pipeline" / "legacy").exists()
+def test_removed_input_pipeline_is_unavailable() -> None:
+    assert not (ROOT / "docmirror" / "input" / "pipeline" / "raw").exists()

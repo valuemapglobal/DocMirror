@@ -251,7 +251,9 @@ def _generate_csv_report(results: ClassificationResults, report_path: Path) -> N
         writer = csv.writer(f)
 
         # Write header
-        writer.writerow(["#", "File", "Source Path", "Target Path", "Category", "Confidence", "Status", "Error", "Matches"])
+        writer.writerow(
+            ["#", "File", "Source Path", "Target Path", "Category", "Confidence", "Status", "Error", "Matches"]
+        )
 
         # Write data
         for i, result in enumerate(results.results, 1):
@@ -339,7 +341,9 @@ def print_summary(results: ClassificationResults) -> None:
 
     # Pending files prompt
     if results.pending_count > 0:
-        console.print(f"\n[yellow]⚠ {results.pending_count} file(s) require manual review. See pending_review.json[/yellow]")
+        console.print(
+            f"\n[yellow]⚠ {results.pending_count} file(s) require manual review. See pending_review.json[/yellow]"
+        )
 
     # Error notice
     if results.failed_count > 0:

@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.structure.ocr import pipeline as uop
+from docmirror.ocr import pipeline as uop
 
 
 def test_uop_exports_run_scanned_page():

@@ -22,6 +22,7 @@ Rules:
     3. ``fact_id`` may change across major schema versions (recorded in schema_versions).
     4. Facts without bbox still receive a ``fact_id`` (evidence completeness reflects missing bbox).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -97,11 +98,11 @@ def collect_mirror_fact_ids(result: Any) -> dict[str, list[str]]:
 
         for table_idx, table in enumerate(list(getattr(page, "tables", []) or [])):
             by_category["table"].append(fact_id_for_table(page_idx, table_idx))
-            for row_idx, row in enumerate(list(getattr(table, "rows", []) or list(getattr(table, "data_rows", []) or []))):
+            for row_idx, row in enumerate(
+                list(getattr(table, "rows", []) or list(getattr(table, "data_rows", []) or []))
+            ):
                 for col_idx, _cell in enumerate(list(getattr(row, "cells", []) or [])):
-                    by_category["cell"].append(
-                        fact_id_for_cell(page_idx, table_idx, row_idx, col_idx)
-                    )
+                    by_category["cell"].append(fact_id_for_cell(page_idx, table_idx, row_idx, col_idx))
 
     # Sections from result.sections
     sections = list(getattr(result, "sections", []) or [])

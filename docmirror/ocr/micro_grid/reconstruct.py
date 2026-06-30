@@ -4,7 +4,7 @@
 """Generic geometry helpers for local scanned micro-grid reconstruction.
 
 Implementation lives in ``docmirror.ocr.field_grid``; this module re-exports
-for backward compatibility with SMG callers.
+the stable scanned micro-grid helper surface.
 """
 
 from __future__ import annotations

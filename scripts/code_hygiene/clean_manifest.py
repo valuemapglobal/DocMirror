@@ -68,4 +68,3 @@ def is_manifest_live_module(module: str, manifest: CleanManifest | None = None) 
     manifest = manifest or load_clean_manifest()
     live = manifest.live_modules
     return module in live or any(module.startswith(prefix + ".") for prefix in live)
-

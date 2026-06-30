@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from docmirror.structure.tables.table_column_utils import effective_table_column_count
+from docmirror.tables.table_column_utils import effective_table_column_count
 from docmirror.models.entities.parse_result import CellValue, TableBlock, TableRow
 
 

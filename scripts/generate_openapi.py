@@ -38,17 +38,18 @@ def generate_openapi(output_path: str | None = None) -> dict:
     openapi_spec.setdefault("info", {})
     openapi_spec["info"].setdefault("title", "DocMirror Universal Parsing API")
     openapi_spec["info"].setdefault("version", app.version or "0.0.0")
-    openapi_spec.setdefault("servers", [
-        {"url": "http://localhost:8000", "description": "Local development"},
-        {"url": "https://api.docmirror.dev", "description": "Production"},
-    ])
+    openapi_spec.setdefault(
+        "servers",
+        [
+            {"url": "http://localhost:8000", "description": "Local development"},
+            {"url": "https://api.docmirror.dev", "description": "Production"},
+        ],
+    )
 
     if output_path:
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(
-            json.dumps(openapi_spec, indent=2, ensure_ascii=False, default=str)
-        )
+        output.write_text(json.dumps(openapi_spec, indent=2, ensure_ascii=False, default=str))
         print(f"OpenAPI spec written to {output.resolve()}")
 
     return openapi_spec

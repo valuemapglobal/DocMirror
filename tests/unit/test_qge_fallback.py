@@ -38,10 +38,9 @@ class TestQgeAssessQuality:
         pages = [
             PageLayout(
                 page_number=1,
-                width=100, height=100,
-                blocks=(
-                    Block(block_id="t1", block_type="text", raw_content="hello"),
-                ),
+                width=100,
+                height=100,
+                blocks=(Block(block_id="t1", block_type="text", raw_content="hello"),),
             )
         ]
         quality = CoreExtractor._qge_assess_quality(pages, "hello")
@@ -50,27 +49,16 @@ class TestQgeAssessQuality:
 
     def test_high_quality_rich_text(self):
         """Plenty of text blocks -> score >= 0.3, no fallback needed."""
-        blocks = tuple(
-            Block(block_id=f"t{i}", block_type="text", raw_content="A" * 100)
-            for i in range(10)
-        )
-        pages = [
-            PageLayout(page_number=1, width=100, height=100, blocks=blocks)
-        ]
+        blocks = tuple(Block(block_id=f"t{i}", block_type="text", raw_content="A" * 100) for i in range(10))
+        pages = [PageLayout(page_number=1, width=100, height=100, blocks=blocks)]
         quality = CoreExtractor._qge_assess_quality(pages, "A" * 1000)
         assert quality.score >= 0.3
         assert quality.reason is None
 
     def test_text_blob_penalty(self):
         """Text crammed into very few blocks -> blob penalty lowers score."""
-        blocks = tuple(
-            Block(block_id=f"t{i}", block_type="text",
-                  raw_content="A" * 800)
-            for i in range(2)
-        )
-        pages = [
-            PageLayout(page_number=1, width=100, height=100, blocks=blocks)
-        ]
+        blocks = tuple(Block(block_id=f"t{i}", block_type="text", raw_content="A" * 800) for i in range(2))
+        pages = [PageLayout(page_number=1, width=100, height=100, blocks=blocks)]
         quality = CoreExtractor._qge_assess_quality(pages, "A" * 1600)
         # 1600 chars in 2 blocks = 800 chars/block -> blob penalty applied
         # reason is "no_structure" (few blocks + penalized text_score)
@@ -82,11 +70,9 @@ class TestQgeAssessQuality:
         pages = [
             PageLayout(
                 page_number=1,
-                width=100, height=100,
-                blocks=(
-                    Block(block_id="t1", block_type="table",
-                          raw_content=[["h1", "h2"], ["v1", "v2"]]),
-                ),
+                width=100,
+                height=100,
+                blocks=(Block(block_id="t1", block_type="table", raw_content=[["h1", "h2"], ["v1", "v2"]]),),
             )
         ]
         quality = CoreExtractor._qge_assess_quality(pages, "")
@@ -95,13 +81,8 @@ class TestQgeAssessQuality:
 
     def test_boundary_text_under_100_chars(self):
         """Under 100 chars with no structure -> text_too_sparse."""
-        blocks = tuple(
-            Block(block_id=f"b{i}", block_type="text", raw_content="short")
-            for i in range(2)
-        )
-        pages = [
-            PageLayout(page_number=1, width=100, height=100, blocks=blocks)
-        ]
+        blocks = tuple(Block(block_id=f"b{i}", block_type="text", raw_content="short") for i in range(2))
+        pages = [PageLayout(page_number=1, width=100, height=100, blocks=blocks)]
         quality = CoreExtractor._qge_assess_quality(pages, "short")
         assert quality.reason == "text_too_sparse"
 
@@ -114,27 +95,19 @@ class TestQgeMergeResults:
 
     def test_empty_ocr_blocks_noop(self):
         """Passing empty OCR blocks -> no change."""
-        pages = [
-            PageLayout(page_number=1, width=100, height=100, blocks=())
-        ]
-        result_pages, result_text, tc, tb = CoreExtractor._qge_merge_results(
-            pages, "", []
-        )
+        pages = [PageLayout(page_number=1, width=100, height=100, blocks=())]
+        result_pages, result_text, tc, tb = CoreExtractor._qge_merge_results(pages, "", [])
         assert len(result_pages[0].blocks) == 0
         assert result_text == ""
 
     def test_merge_into_empty_page(self):
         """OCR blocks merged into a page with no blocks."""
-        pages = [
-            PageLayout(page_number=1, width=100, height=100, blocks=())
-        ]
+        pages = [PageLayout(page_number=1, width=100, height=100, blocks=())]
         ocr_blocks = [
             Block(block_id="qge_0", block_type="text", raw_content="line1"),
             Block(block_id="qge_1", block_type="text", raw_content="line2"),
         ]
-        result_pages, result_text, tc, tb = CoreExtractor._qge_merge_results(
-            pages, "", ocr_blocks
-        )
+        result_pages, result_text, tc, tb = CoreExtractor._qge_merge_results(pages, "", ocr_blocks)
         assert len(result_pages[0].blocks) == 2
         assert "line1" in result_text
         assert "line2" in result_text
@@ -144,10 +117,10 @@ class TestQgeMergeResults:
         pages = [
             PageLayout(
                 page_number=1,
-                width=100, height=100,
+                width=100,
+                height=100,
                 blocks=(
-                    Block(block_id="tb1", block_type="table",
-                          raw_content=[["header"]]),
+                    Block(block_id="tb1", block_type="table", raw_content=[["header"]]),
                     Block(block_id="tx1", block_type="text", raw_content="old"),
                 ),
             )
@@ -155,9 +128,7 @@ class TestQgeMergeResults:
         ocr_blocks = [
             Block(block_id="qge_0", block_type="text", raw_content="new text"),
         ]
-        result_pages, result_text, tc, tb = CoreExtractor._qge_merge_results(
-            pages, "", ocr_blocks
-        )
+        result_pages, result_text, tc, tb = CoreExtractor._qge_merge_results(pages, "", ocr_blocks)
         blocks = result_pages[0].blocks
         table_blocks = [b for b in blocks if b.block_type == "table"]
         text_blocks = [b for b in blocks if b.block_type == "text"]
@@ -170,34 +141,25 @@ class TestQgeMergeResults:
         pages = [
             PageLayout(
                 page_number=1,
-                width=100, height=100,
-                blocks=tuple(
-                    Block(block_id=f"t{i}", block_type="text",
-                          raw_content=f"text{i}")
-                    for i in range(3)
-                ),
+                width=100,
+                height=100,
+                blocks=tuple(Block(block_id=f"t{i}", block_type="text", raw_content=f"text{i}") for i in range(3)),
             )
         ]
         ocr_blocks = [
             Block(block_id="qge_0", block_type="text", raw_content="new"),
         ]
-        result_pages, result_text, tc, tb = CoreExtractor._qge_merge_results(
-            pages, "existing text", ocr_blocks
-        )
+        result_pages, result_text, tc, tb = CoreExtractor._qge_merge_results(pages, "existing text", ocr_blocks)
         assert "new" not in result_text
         assert tc == 0 and tb == 0
 
     def test_full_text_rebuilt(self):
         """full_text is rebuilt to include OCR text."""
-        pages = [
-            PageLayout(page_number=1, width=100, height=100, blocks=())
-        ]
+        pages = [PageLayout(page_number=1, width=100, height=100, blocks=())]
         ocr_blocks = [
             Block(block_id="qge_0", block_type="text", raw_content="ocr result"),
         ]
-        _, result_text, _, _ = CoreExtractor._qge_merge_results(
-            pages, "original", ocr_blocks
-        )
+        _, result_text, _, _ = CoreExtractor._qge_merge_results(pages, "original", ocr_blocks)
         assert "original" in result_text
         assert "ocr result" in result_text
 
@@ -215,30 +177,32 @@ class TestQgePlainOcrFallback:
     def test_non_image_path_returns_empty(self):
         """Calling with a non-image path (.py) -> empty list."""
         import pathlib
-        blocks = CoreExtractor._qge_plain_ocr_fallback(
-            pathlib.Path("dummy.txt")
-        )
+
+        blocks, tokens = CoreExtractor._qge_plain_ocr_fallback(pathlib.Path("dummy.txt"))
         assert blocks == []
+        assert tokens == []
 
-    def test_fallback_on_actual_image(self):
-        """Run fallback on a real JPG — at least some text blocks found.
+    def test_fallback_on_image_uses_ocr_words(self, tmp_path, monkeypatch):
+        """Image fallback converts OCR words into text blocks and token evidence."""
 
-        Uses the user's bank statement screenshot as the test fixture.
-        Skips if fixture is not available.
-        """
-        import pathlib
-        fixture = pathlib.Path(
-            "/Users/adamlin/Work/1. VM/7. DocMirror/中国/Temp/"
-            "bank_statement/户名_银行流水_20161205.jpg"
-        )
-        if not fixture.exists():
-            pytest.skip("Test fixture not available")
+        class _FakeOcrEngine:
+            def detect_image_words(self, _img):
+                return [
+                    (10, 10, 60, 22, "银行", 0.96),
+                    (70, 10, 130, 22, "余额", 0.95),
+                    (10, 40, 80, 52, "汇款", 0.94),
+                ]
 
-        blocks = CoreExtractor._qge_plain_ocr_fallback(fixture)
+        fixture = tmp_path / "scan.png"
+        fixture.write_bytes(b"synthetic")
+        monkeypatch.setattr("cv2.imread", lambda _path: object())
+        monkeypatch.setattr(CoreExtractor, "_preprocess_ocr_image", staticmethod(lambda img: img))
+        monkeypatch.setattr("docmirror.ocr.vision.rapidocr_engine.get_ocr_engine", lambda: _FakeOcrEngine())
+
+        blocks, tokens = CoreExtractor._qge_plain_ocr_fallback(fixture)
 
         assert len(blocks) > 0
-        all_text = " ".join(
-            b.raw_content for b in blocks if isinstance(b.raw_content, str)
-        )
-        assert "借记卡" in all_text or "银行" in all_text or "明细" in all_text, \
-            f"Expected bank statement keywords, got: {all_text[:200]}"
+        assert len(tokens) > 0
+        all_text = " ".join(b.raw_content for b in blocks if isinstance(b.raw_content, str))
+        assert "银行" in all_text
+        assert tokens[0]["source"] == "qge_fallback"

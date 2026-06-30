@@ -66,6 +66,7 @@ class EvidenceEngine(BaseMiddleware):
             # Cover letter / title block often holds issuer keywords omitted from table cells.
             classification_text = f"{cover_text}\n{classification_text}"
         all_evidence.extend(self._keyword_evidence(classification_text))
+        all_evidence.extend(self._bank_statement_frame_evidence(classification_text))
         all_evidence.extend(self._header_evidence(result.all_tables()))
         all_evidence.extend(self._user_hint_evidence(result))
         all_evidence.extend(self._extractor_scene_evidence(result))
@@ -218,6 +219,43 @@ class EvidenceEngine(BaseMiddleware):
                 weight=0.45,
                 direction=1,
                 detail=f"user doc_type_hint={hint}",
+            )
+        ]
+
+    def _bank_statement_frame_evidence(self, text: str) -> list[Evidence]:
+        """Detect the document-level frame of a bank statement ledger.
+
+        Payment ledgers often contain many Alipay/WeChat transaction names.
+        A bank statement, however, has a stronger wrapper: bank name, account
+        metadata, statement period, balance, counterparty, and transaction
+        detail fields.  Use that frame only when several independent signals
+        co-occur, so ordinary payment screenshots are not over-classified.
+        """
+        compact = (text or "").replace(" ", "")
+        if not compact:
+            return []
+        signals = {
+            "bank_name": (
+                "银行" in compact and ("农村商业银行" in compact or "商业银行" in compact or "开户行" in compact)
+            ),
+            "account": ("账号" in compact or "卡号" in compact),
+            "period": ("起止日期" in compact or "起始日期" in compact or "申请时间" in compact),
+            "ledger_header": ("交易明细" in compact or "交易明细详情" in compact),
+            "balance": "余额" in compact,
+            "counterparty": ("对方户名" in compact or "对方开户行" in compact),
+            "amount": "收入/支出金额" in compact or ("收入" in compact and "支出" in compact),
+        }
+        score = sum(1 for value in signals.values() if value)
+        if score < 5:
+            return []
+        weight = 0.8 if score >= 6 else 0.55
+        return [
+            Evidence(
+                source="document_frame",
+                category="bank_statement",
+                weight=weight,
+                direction=1,
+                detail=f"bank_statement_frame_signals={sorted(k for k, v in signals.items() if v)}",
             )
         ]
 

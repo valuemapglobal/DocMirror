@@ -78,11 +78,7 @@ def _unit_evidence_assignment_rules(block: BlockInfo, units: list[VerifiedUnit])
     applicable = [unit for unit in units if unit.status != "not_applicable"]
     if not applicable:
         return []
-    missing = [
-        unit.unit_id
-        for unit in applicable
-        if not unit.evidence_ids or not unit.page_ids or not unit.bbox
-    ]
+    missing = [unit.unit_id for unit in applicable if not unit.evidence_ids or not unit.page_ids or not unit.bbox]
     score = (len(applicable) - len(missing)) / len(applicable)
     return [
         VerificationRule(

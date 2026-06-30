@@ -155,18 +155,21 @@ def _with_spatial_evidence(
         candidate_value = " ".join(text_fragments[:8])
     else:
         candidate_value = f"{len(evidence_ids)} spatial evidence atom(s)"
-    candidate = VerificationCandidate(
-        source=candidate_source,
-        value=candidate_value,
-        confidence=_mean_atom_confidence(matched),
-        evidence_ids=evidence_ids,
-        metadata={"matched_atom_count": len(matched)},
-    )
+    candidates = unit.candidates
+    if candidate_source != "spatial_evidence_backfill":
+        candidate = VerificationCandidate(
+            source=candidate_source,
+            value=candidate_value,
+            confidence=_mean_atom_confidence(matched),
+            evidence_ids=evidence_ids,
+            metadata={"matched_atom_count": len(matched)},
+        )
+        candidates = _append_candidate(unit.candidates, candidate)
     return replace(
         unit,
         evidence_ids=_unique([*unit.evidence_ids, *evidence_ids]),
         source_refs=_unique([*unit.source_refs, candidate_source]),
-        candidates=_append_candidate(unit.candidates, candidate),
+        candidates=candidates,
     )
 
 
@@ -471,6 +474,8 @@ def _unit_status(unit: VerifiedUnit, claims: list[VerificationClaim]) -> tuple[s
         return "verified", sum(scores) / len(scores), []
     reasons = [reason for claim in required for reason in claim.reasons]
     return "not_evaluated", 0.0, reasons
+
+
 def _cell_value(cell: dict[str, Any]) -> str:
     value = cell.get("value") if isinstance(cell.get("value"), dict) else {}
     selected = value.get("normalized") if value.get("normalized") is not None else cell.get("text", "")

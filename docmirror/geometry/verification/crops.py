@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 _DEFAULT_MAX_CROPS = 200
 _SUPPORTED_UNIT_TYPES = {"table_cell", "kv_field"}
@@ -214,7 +215,7 @@ def _verification_unit_by_id(mirror: dict[str, Any]) -> dict[str, dict[str, Any]
 
 
 def _verification_crop_assets(mirror: dict[str, Any]) -> list[dict[str, Any]]:
-    assets = ((mirror.get("assets") or {}).get("items") or [])
+    assets = (mirror.get("assets") or {}).get("items") or []
     return [asset for asset in assets if isinstance(asset, dict) and asset.get("kind") == "verification_unit_crop"]
 
 
@@ -497,11 +498,7 @@ def _bbox(value: Any) -> list[float] | None:
 
 
 def _is_matrix(value: Any) -> bool:
-    return (
-        isinstance(value, list)
-        and len(value) == 3
-        and all(isinstance(row, list) and len(row) == 3 for row in value)
-    )
+    return isinstance(value, list) and len(value) == 3 and all(isinstance(row, list) and len(row) == 3 for row in value)
 
 
 def _apply_matrix(matrix: list[list[float]], x: float, y: float) -> tuple[float, float]:

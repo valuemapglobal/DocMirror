@@ -17,11 +17,10 @@ Detects common prompt-injection patterns in extracted document text:
 
 from __future__ import annotations
 
-import re
-from dataclasses import dataclass, field
 import math
+import re
 from collections import Counter
-
+from dataclasses import dataclass, field
 
 # ── Entropy-based detection ─────────────────────────────────────────────
 
@@ -63,27 +62,31 @@ def scan_high_entropy(text: str) -> list[dict]:
     # Check the whole text
     overall = shannon_entropy(text[:MAX_ENTROPY_CHUNK_SIZE])
     if overall >= HIGH_ENTROPY_THRESHOLD:
-        results.append({
-            "start": 0,
-            "end": min(len(text), MAX_ENTROPY_CHUNK_SIZE),
-            "entropy": round(overall, 2),
-            "snippet": text[:min(80, len(text))],
-        })
+        results.append(
+            {
+                "start": 0,
+                "end": min(len(text), MAX_ENTROPY_CHUNK_SIZE),
+                "entropy": round(overall, 2),
+                "snippet": text[: min(80, len(text))],
+            }
+        )
         return results  # Whole text is high-entropy, no need for sliding window
 
     # Sliding-window check every 64 chars
     step = 64
     window = 128
     for start in range(0, len(text) - window + 1, step):
-        chunk = text[start:start + window]
+        chunk = text[start : start + window]
         ent = shannon_entropy(chunk)
         if ent >= HIGH_ENTROPY_THRESHOLD:
-            results.append({
-                "start": start,
-                "end": start + window,
-                "entropy": round(ent, 2),
-                "snippet": chunk[:80],
-            })
+            results.append(
+                {
+                    "start": start,
+                    "end": start + window,
+                    "entropy": round(ent, 2),
+                    "snippet": chunk[:80],
+                }
+            )
     return results
 
 
@@ -268,8 +271,7 @@ class InjectionDetector:
         """Optionally override the default pattern catalog."""
         self._patterns = patterns or INJECTION_PATTERNS
         self._compiled: list[tuple[re.Pattern[str], str]] = [
-            (re.compile(pat, re.IGNORECASE), name)
-            for pat, name in self._patterns
+            (re.compile(pat, re.IGNORECASE), name) for pat, name in self._patterns
         ]
         # Context window around the match (chars)
         self.context_window: int = 60
@@ -330,9 +332,7 @@ class InjectionDetector:
             text_snippet=first_snippet,
         )
 
-    def evaluate_blocks(
-        self, text_blocks: list[dict[str, Any]]
-    ) -> list[InjectionResult]:
+    def evaluate_blocks(self, text_blocks: list[dict[str, Any]]) -> list[InjectionResult]:
         """Evaluate each text block independently.
 
         Useful for per-block injection risk analysis.
@@ -343,16 +343,14 @@ class InjectionDetector:
         Returns:
             List of ``InjectionResult``, one per block.
         """
-        from typing import Any
+
         results: list[InjectionResult] = []
         for block in text_blocks:
             content = block.get("content", "")
             results.append(self.evaluate(content))
         return results
 
-    def evaluate_pdf_metadata(
-        self, metadata: dict[str, str]
-    ) -> InjectionResult:
+    def evaluate_pdf_metadata(self, metadata: dict[str, str]) -> InjectionResult:
         """Evaluate PDF metadata fields for injection.
 
         Scans standard PDF Info dict fields (Title, Author, Subject, etc.)
@@ -379,7 +377,6 @@ class InjectionDetector:
 
 __all__ = [
     "INJECTION_PATTERNS",
-    "INJECTION_PATTERNS_EXTENDED",
     "PDF_INJECTION_MARKERS",
     "HIGH_ENTROPY_THRESHOLD",
     "shannon_entropy",

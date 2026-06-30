@@ -3,21 +3,24 @@
 
 import json
 
-from docmirror.structure.ocr.micro_grid.cell_recognition import normalize_allowlist_text
-from docmirror.structure.ocr.micro_grid.detect import detect_micro_grid_candidates
-from docmirror.structure.ocr.micro_grid.models import OCRToken
-from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
-from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
-from docmirror.server.edition_outputs import build_all_edition_outputs, write_four_files
 import docmirror.plugins.credit_report.repayment_grid as repayment_mod
-from docmirror.plugins.credit_report.repayment_grid import extract_credit_repayment_records, records_from_micro_grid_dict
-from docmirror.structure.ocr.page_canvas.evidence_bundles import (
+from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
+from docmirror.models.mirror.page_evidence_bundles import (
     domain_specific_with_page_bundles,
     materialize_micro_grids_from_bundles,
     merge_micro_grid_structures_into_bundles,
     micro_grid_structures_from_bundles,
     page_evidence_bundle,
 )
+from docmirror.ocr.micro_grid.cell_recognition import normalize_allowlist_text
+from docmirror.ocr.micro_grid.detect import detect_micro_grid_candidates
+from docmirror.ocr.micro_grid.models import OCRToken
+from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
+from docmirror.plugins.credit_report.repayment_grid import (
+    extract_credit_repayment_records,
+    records_from_micro_grid_dict,
+)
+from docmirror.server.edition_outputs import build_all_projections, write_four_files
 
 
 def _micro_grid_bundle_domain(
@@ -124,9 +127,9 @@ def _expected_repayment_tuples():
 
 
 def _micro_grid_structure_from_document(document: dict, *, page: int = 4) -> dict:
-    from docmirror.models.mirror.page_access import micro_grids_from_document
+    from docmirror.models.mirror.page_access import micro_grid_structures_from_document
 
-    for grid in micro_grids_from_document(document):
+    for grid in micro_grid_structures_from_document(document):
         if int(grid.get("page") or 0) == page:
             return grid
     return {}
@@ -230,13 +233,14 @@ def test_allowlist_normalization_filters_ocr_noise():
 
 
 def test_repayment_mapper_is_credit_plugin_not_core_export():
-    import docmirror.structure.ocr.micro_grid as micro_grid
     import importlib
+
+    import docmirror.ocr.micro_grid as micro_grid
 
     assert "extract_credit_repayment_records" not in micro_grid.__all__
     assert not hasattr(micro_grid, "extract_credit_repayment_records")
     try:
-        importlib.import_module("docmirror.structure.ocr.micro_grid.repayment")
+        importlib.import_module("docmirror.ocr.micro_grid.repayment")
     except ModuleNotFoundError:
         pass
     else:
@@ -359,8 +363,9 @@ def test_forensic_api_exports_generic_scanned_micro_grid_evidence_only():
     assert "scanned_micro_grid_evidence" not in standard
     forensic_doc = forensic
     assert forensic_doc["scanned_ocr_pages"][0]["page"] == 4
-    assert forensic_doc["scanned_ocr_pages"][0]["lines"]
-    assert forensic_doc["scanned_ocr_pages"][0]["tokens"]
+    assert forensic_doc["scanned_ocr_pages"][0]["line_count"] > 0
+    assert forensic_doc["scanned_ocr_pages"][0]["token_count"] > 0
+    assert forensic_doc["scanned_ocr_pages"][0]["payload"] == "external_evidence_bundle"
     evidence = forensic_doc["scanned_micro_grid_evidence"][0]
     assert evidence["page"] == 4
     assert evidence["ocr_page_ref"] == forensic_doc["scanned_ocr_pages"][0]["ocr_page_id"]
@@ -376,7 +381,7 @@ def test_four_file_forensic_mirror_includes_plugin_primed_micro_grids_without_se
         )
     )
 
-    outputs = build_all_edition_outputs(pr, mirror_level="forensic")
+    outputs = build_all_projections(pr, mirror_level="forensic")
 
     document = outputs["mirror"]
     assert "repayment_records" not in document
@@ -396,7 +401,7 @@ def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
         )
     )
 
-    outputs = build_all_edition_outputs(pr, mirror_level="standard")
+    outputs = build_all_projections(pr, mirror_level="standard")
 
     document = outputs["mirror"]
     grid = _micro_grid_structure_from_document(document)

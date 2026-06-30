@@ -21,11 +21,11 @@ async def perceive_document(path: str | Path, options: Any = None) -> PerceiveRe
     """Parse a document and return a vNext mirror envelope plus ParseResult SSOT."""
     path = Path(path)
     try:
-        from docmirror.framework.di.container import get_dispatcher
+        from docmirror.input.entry.factory import PerceptionFactory
         from docmirror.models.mirror.core import MirrorCoreVNext
 
         control = options.normalized_control() if hasattr(options, "normalized_control") else None
-        dispatcher = get_dispatcher()
+        dispatcher = PerceptionFactory.get_dispatcher()
         parse_result = await dispatcher.process(
             path,
             skip_cache=getattr(options, "skip_cache", False),

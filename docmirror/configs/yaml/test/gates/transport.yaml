@@ -71,7 +71,7 @@ cases:
     tier: smoke
     pipeline: transport_dispatch
     options:
-      path_hint: legacy.doc
+      path_hint: raw.doc
       bytes_hex: d0cf11e0
       mock_soffice_missing: true
     gates:

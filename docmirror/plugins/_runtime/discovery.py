@@ -36,7 +36,6 @@ from typing import Any
 import pluggy
 
 from docmirror.plugins._runtime import hooks
-from docmirror.plugins._runtime.hooks import hookimpl
 
 logger = logging.getLogger(__name__)
 

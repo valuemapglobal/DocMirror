@@ -4,7 +4,7 @@
 """
 Geometric pipe-delimited table extraction from pdfplumber pages (SDU SSOT).
 
-Mirrors legacy ``pipe_strategy`` grid-consistency algorithm; used by ``extract.engine``
+Mirrors raw ``pipe_strategy`` grid-consistency algorithm; used by ``extract.engine``
 Layer 0.5 when G1–G4 gates pass.
 """
 
@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 
-from docmirror.structure.utils.vocabulary import _ALL_BORDER_CHARS, PIPE_CHARS
+from docmirror.layout.vocabulary import _ALL_BORDER_CHARS, PIPE_CHARS
 from docmirror.tables.pipe_row_merge import merge_pipe_continuation_rows
 from docmirror.tables.row_kind import filter_pipe_table_rows
 from docmirror.tables.structure_detect.pipe_grid import page_has_no_drawing_primitives

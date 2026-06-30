@@ -67,7 +67,9 @@ class ProjectionEngine:
             "confidence": dmir.get("quality", {}).get("confidence"),
             **(document.get("properties") or {}),
         }
-        tables_markdown = _transform_table_to_markdown(document.get("pages", [{}])[0].get("tables", []) if document.get("pages") else document.get("tables"))
+        tables_markdown = _transform_table_to_markdown(
+            document.get("pages", [{}])[0].get("tables", []) if document.get("pages") else document.get("tables")
+        )
         if tables_markdown:
             meta["tables_markdown"] = tables_markdown
         content = document.get("full_text", "")

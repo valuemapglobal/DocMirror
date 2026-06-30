@@ -3,14 +3,14 @@
 
 
 def test_segment_graph_router_importable():
-    from docmirror.structure.segment.graph_router import GraphRouter
+    from docmirror.layout.segment.graph_router import GraphRouter
 
     router = GraphRouter(page_width=595, page_height=842)
     assert router is not None
 
 
 def test_segment_layout_detector_importable():
-    from docmirror.structure.segment.layout_model import LayoutDetector
+    from docmirror.layout.segment.layout_model import LayoutDetector
 
     assert LayoutDetector is not None
 

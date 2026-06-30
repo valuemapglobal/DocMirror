@@ -106,7 +106,8 @@ def fixtures_dir():
 @pytest.fixture(scope="session")
 def tqg_report_dir():
     """TQG GateReport JSON output directory (shared by regression + integration shims)."""
-    path = Path(os.environ.get("TQG_REPORT_DIR", PROJECT_ROOT + "/artifacts/tqg"))
+    default_report_dir = PROJECT_ROOT / "artifacts" / "tqg"
+    path = Path(os.environ.get("TQG_REPORT_DIR", str(default_report_dir)))
     path.mkdir(parents=True, exist_ok=True)
     return path
 

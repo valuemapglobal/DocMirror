@@ -23,8 +23,8 @@ Key paths::
     MIDDLEWARE_CATALOG_YAML     Middleware Execution Platform (MEP) catalog
     INSTITUTION_REGISTRY_YAML   Financial institution metadata
 
-Legacy directory aliases (``CLASSIFICATION_DIR``, ``DOMAINS_DIR``, etc.) point at
-``YAML_DIR`` for backward compatibility after the flat-subdir layout was removed.
+Directory aliases (``CLASSIFICATION_DIR``, ``DOMAINS_DIR``, etc.) point at
+``YAML_DIR`` after the flat-subdir layout was removed.
 """
 
 from __future__ import annotations
@@ -53,8 +53,10 @@ MEP_GOLDEN_PROFILES_YAML = YAML_DIR / "golden" / "mep_profiles.yaml"
 PIPELINE_WEIGHTS_YAML = YAML_DIR / "pipeline_weights.yaml"
 GA_READINESS_YAML = YAML_DIR / "ga_readiness.yaml"
 SUPPORT_MATRIX_YAML = YAML_DIR / "support_matrix.yaml"
+GA_DEMO_MANIFEST_YAML = YAML_DIR / "ga_demo_manifest.yaml"
+REAL_WORLD_FIXTURE_BANK_YAML = YAML_DIR / "test" / "real_world_fixture_bank.yaml"
 
-# Legacy aliases (flat subdirs removed)
+# Directory aliases (flat subdirs removed)
 CLASSIFICATION_DIR = YAML_DIR
 DOMAINS_DIR = YAML_DIR
 INSTITUTIONS_DIR = YAML_DIR

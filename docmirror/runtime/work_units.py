@@ -22,10 +22,8 @@ from __future__ import annotations
 
 import hashlib
 import time
-import uuid
 from dataclasses import dataclass, field
 from typing import Any, Literal
-
 
 UnitType = Literal[
     "input_intake",
@@ -90,12 +88,14 @@ class WorkUnit:
 
     def mark_failed(self, exc: Exception, retryable: bool = True) -> None:
         self.status = "failed_retryable" if retryable else "failed_final"
-        self.errors.append({
-            "message": str(exc),
-            "type": type(exc).__name__,
-            "attempt": self.attempt,
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        })
+        self.errors.append(
+            {
+                "message": str(exc),
+                "type": type(exc).__name__,
+                "attempt": self.attempt,
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            }
+        )
 
     def mark_skipped(self, reason: str = "") -> None:
         self.status = "skipped"
@@ -137,8 +137,7 @@ class BatchJobLedger:
     def pending_file_ids(self) -> set[str]:
         return {f.file_id for f in self.files if f.status == "pending"}
 
-
-    def add_entry(self, entry: "BatchJobEntry") -> None:
+    def add_entry(self, entry: BatchJobEntry) -> None:
         """Add a file entry to the batch ledger."""
         for existing in self.files:
             if existing.file_id == entry.file_id:
@@ -147,7 +146,7 @@ class BatchJobLedger:
                 return
         self.files.append(entry)
 
-    def get_entry(self, file_id: str) -> "BatchJobEntry | None":
+    def get_entry(self, file_id: str) -> BatchJobEntry | None:
         """Get a file entry by file_id."""
         for entry in self.files:
             if entry.file_id == file_id:
@@ -375,6 +374,7 @@ def compute_input_digest(file_path: str | None = None, content: bytes | None = N
         return hashlib.sha256(content).hexdigest()
     if file_path:
         import os
+
         if os.path.isfile(file_path):
             with open(file_path, "rb") as f:
                 return hashlib.sha256(f.read()).hexdigest()

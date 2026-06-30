@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 
-from docmirror.structure.utils.vocabulary import _score_header_by_vocabulary
+from docmirror.layout.vocabulary import _score_header_by_vocabulary
 from docmirror.tables.char.vocab_boundary import _adjust_boundaries_by_vocab
 from docmirror.tables.utils import _adaptive_row_tolerance
 

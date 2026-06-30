@@ -1,6 +1,6 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 
-"""Bank statement canonical style path tests (replaces legacy scan-fallback detector tests)."""
+"""Bank statement canonical style path tests (replaces raw scan-fallback detector tests)."""
 
 from __future__ import annotations
 

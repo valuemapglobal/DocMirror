@@ -119,7 +119,7 @@ class WeChatPaymentPlugin(BaseTableParser):
         return WECHAT_IDENTITY_FIELDS
 
     def build_domain_data(self, _metadata, entities):
-        """Legacy KV fallback — prefer ``extract_from_mirror()`` for full v2.0 output."""
+        """Lightweight KV projection used when mirror-native extraction is unavailable."""
         from docmirror.plugins._base.dec_builder import build_dec_kv
 
         account_holder = str(entities.get("account_holder", metadata.get("Account holder", "")))

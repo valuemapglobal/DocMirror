@@ -11,7 +11,7 @@ enhancement profiles from ``enhancement_profiles.yaml``.
 Public API::
 
     resolve_capability()        Path + MIME → ``FormatCapability`` dataclass
-    detect_transport()          Backward-compatible transport string lookup
+    detect_transport()          Transport string lookup
     resolve_enhancement_profile()  Content model × mode → middleware name list
     transport_to_content_model()   Transport → content model via profile fallback
     invalidate_format_cache()   Clear LRU caches after YAML edits

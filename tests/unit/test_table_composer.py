@@ -5,8 +5,8 @@
 from docmirror.models.entities.domain import Block, PageLayout
 from docmirror.models.entities.layout_profile import LayoutProfile
 from docmirror.models.entities.parse_result import CellValue, PageContent, TableBlock, TableRow
-from docmirror.structure.fusion import collect_cross_page_merge_groups
-from docmirror.structure.tables.compose.composer import TableComposer
+from docmirror.tables.cross_page_fusion import collect_cross_page_merge_groups
+from docmirror.tables.compose.composer import TableComposer
 
 
 def _page(page_number: int, rows: list[list[str]]) -> PageLayout:

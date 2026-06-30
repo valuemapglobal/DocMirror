@@ -304,7 +304,7 @@ def test_mirror_geometry_oracle_rejects_duplicate_cell_token_ownership():
 
 
 def test_table_geometry_aggregates_char_refs_and_confidence():
-    from docmirror.structure.geometry.table_geometry import build_table_geometry
+    from docmirror.geometry.table_geometry import build_table_geometry
 
     geometry = build_table_geometry(
         [["AB"]],
@@ -325,7 +325,7 @@ def test_table_geometry_aggregates_char_refs_and_confidence():
 
 
 def test_table_geometry_prefers_native_exact_cell_bboxes():
-    from docmirror.structure.geometry.table_geometry import build_table_geometry
+    from docmirror.geometry.table_geometry import build_table_geometry
 
     geometry = build_table_geometry(
         [["A", "B"]],
@@ -348,7 +348,7 @@ def test_table_geometry_prefers_native_exact_cell_bboxes():
 
 
 def test_pdfplumber_native_cell_bboxes_for_table_shape_match():
-    from docmirror.structure.geometry.pdfplumber_native import native_cell_bboxes_for_table
+    from docmirror.geometry.pdfplumber_native import native_cell_bboxes_for_table
 
     class FakeRow:
         def __init__(self, cells):

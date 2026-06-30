@@ -430,8 +430,8 @@ def union_cell_bbox(boxes: list[BBox]) -> BBox:
     return union_bbox(boxes)
 
 
- # ── Re-export enrich_col_bands_with_context for API ergonomics ──
- # The implementation lives in ocr_postprocess.py alongside infer_column_type
- # and ColumnContext. This re-export lets callers do:
- #   from docmirror.ocr.field_grid.bands import enrich_col_bands_with_context
+# ── Re-export enrich_col_bands_with_context for API ergonomics ──
+# The implementation lives in ocr_postprocess.py alongside infer_column_type
+# and ColumnContext. This re-export lets callers do:
+#   from docmirror.ocr.field_grid.bands import enrich_col_bands_with_context
 from docmirror.ocr.ocr_postprocess import enrich_col_bands_with_context  # noqa: F401

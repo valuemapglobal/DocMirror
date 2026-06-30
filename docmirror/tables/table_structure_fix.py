@@ -374,7 +374,7 @@ _DIGIT_SPACE_RE = re.compile(r"^[\d\s]+$")
 def merge_digit_spaces(table: list[list[str]]) -> list[list[str]]:
     """Remove spaces inside pure-digit cells.
 
-    Pattern: "6216911304 963684" \u2192 "6216911304963684"
+    Pattern: "1234 5678" \u2192 "12345678"
     Rule: only applies to cells containing digits and spaces only;
     cells with letters or CJK are not affected.
 

@@ -5,12 +5,12 @@
 
 from docmirror.input.acceptance import check_input_acceptance
 from docmirror.input.models import (
+    CapabilityReport,
     InputAcceptanceReport,
+    InputDecisionReport,
+    InputProbeReport,
     ResourceGateReport,
     SafetyGateReport,
-    CapabilityReport,
-    InputProbeReport,
-    InputDecisionReport,
 )
 
 __all__ = [

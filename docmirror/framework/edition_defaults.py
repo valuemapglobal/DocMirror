@@ -1,12 +1,21 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Edition defaults resolved outside the core compatibility entry layer."""
+"""Edition defaults resolved outside the core entry layer."""
 
 from __future__ import annotations
 
 from typing import Literal
 
 Edition = Literal["mirror", "community", "enterprise", "finance"]
+
+
+def _normalize_tier(raw: object) -> str:
+    value = str(raw or "").strip().lower().replace("-", "_")
+    if "finance" in value or "ultimate" in value:
+        return "finance"
+    if "enterprise" in value:
+        return "enterprise"
+    return "community"
 
 
 def default_editions() -> tuple[Edition, ...]:
@@ -23,7 +32,9 @@ def _resolve_edition_tier() -> str:
     try:
         from docmirror.plugins._runtime.licensing.entitlements import resolve_edition_tier
 
-        return str(resolve_edition_tier())
+        tier = _normalize_tier(resolve_edition_tier())
+        if tier != "community":
+            return tier
     except Exception:
         pass
     try:
@@ -31,7 +42,7 @@ def _resolve_edition_tier() -> str:
 
         lic_info = offline_license_manager.get_license_info()
         if lic_info:
-            return str(lic_info.get("tier") or "")
+            return _normalize_tier(lic_info.get("tier") or lic_info.get("edition"))
     except Exception:
         pass
     return "community"

@@ -19,19 +19,7 @@ forbidden_modules =
     docmirror.sdk
 allow_indirect_imports = True
 
-[importlinter:manifest_forbidden_2_structure]
-name = Clean manifest forbidden imports for structure
-type = forbidden
-source_modules =
-    docmirror.structure
-forbidden_modules =
-    docmirror.server
-    docmirror.cli
-    docmirror.sdk
-    docmirror.plugins
-allow_indirect_imports = True
-
-[importlinter:manifest_forbidden_3_output]
+[importlinter:manifest_forbidden_2_output]
 name = Clean manifest forbidden imports for output
 type = forbidden
 source_modules =
@@ -42,7 +30,7 @@ forbidden_modules =
     docmirror.sdk
 allow_indirect_imports = True
 
-[importlinter:manifest_forbidden_4_plugins]
+[importlinter:manifest_forbidden_3_plugins]
 name = Clean manifest forbidden imports for plugins
 type = forbidden
 source_modules =
@@ -56,30 +44,20 @@ forbidden_modules =
     docmirror.cli
 allow_indirect_imports = True
 
-[importlinter:manifest_forbidden_5_models]
+[importlinter:manifest_forbidden_4_models]
 name = Clean manifest forbidden imports for models
 type = forbidden
 source_modules =
     docmirror.models
 forbidden_modules =
     docmirror.input
-    docmirror.structure
     docmirror.output
     docmirror.server
     docmirror.cli
     docmirror.plugins
 allow_indirect_imports = True
 ignore_imports =
-    docmirror.models.construction.parse_result_bridge -> docmirror.input.bridge.parse_result_bridge
     docmirror.models.entities.parse_result -> docmirror.models.mirror.core
-    docmirror.models.entities.parse_result -> docmirror.ocr.page_canvas.models
-    docmirror.models.entities.parse_result -> docmirror.ocr.page_canvas.sync
-    docmirror.models.mirror.domain_access -> docmirror.ocr.page_canvas.evidence_bundles
-    docmirror.models.mirror.legacy_project -> docmirror.ocr.page_canvas.block_index
-    docmirror.models.mirror.legacy_project -> docmirror.ocr.page_canvas.build
-    docmirror.models.mirror.legacy_project -> docmirror.ocr.page_canvas.flow_filter
-    docmirror.models.mirror.legacy_project -> docmirror.ocr.page_canvas.models
-    docmirror.models.mirror.page_canvas_export -> docmirror.ocr.page_canvas.build
-    docmirror.models.mirror.serialization_contract -> docmirror.structure.analysis.structure_provenance
+    docmirror.models.mirror.serialization_contract -> docmirror.evidence.structure_provenance
     docmirror.models.mirror.serialization_contract -> docmirror.tables.compose.ledger_quality
-    docmirror.models.mirror.serialization_contract -> docmirror.structure.utils.vocabulary
+    docmirror.models.mirror.serialization_contract -> docmirror.layout.vocabulary

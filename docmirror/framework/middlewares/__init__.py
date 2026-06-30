@@ -18,6 +18,7 @@ from .detection.institution_detector import InstitutionDetector
 from .detection.language_detector import LanguageDetector
 from .extraction.entity_extractor import EntityExtractor
 from .extraction.generic_entity_extractor import GenericEntityExtractor
+
 # SLMEntityExtractor removed in v1.1 — superseded by LlmDocumentRestorer
 from .validation.mutation_analyzer import MutationAnalyzer
 from .validation.validator import Validator

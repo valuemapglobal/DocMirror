@@ -40,16 +40,10 @@ def compute_source_fact_ids(parse_result: Any) -> list[str]:
         # Tables and cells
         for table_idx, table in enumerate(getattr(page, "tables", []) or []):
             fact_ids.add(fact_id_for_table(page_idx, table_idx))
-            data_rows = list(
-                getattr(table, "data_rows", [])
-                or getattr(table, "rows", [])
-                or []
-            )
+            data_rows = list(getattr(table, "data_rows", []) or getattr(table, "rows", []) or [])
             for row_idx, row in enumerate(data_rows):
                 for col_idx, _cell in enumerate(getattr(row, "cells", []) or []):
-                    fact_ids.add(
-                        fact_id_for_cell(page_idx, table_idx, row_idx, col_idx)
-                    )
+                    fact_ids.add(fact_id_for_cell(page_idx, table_idx, row_idx, col_idx))
 
     return sorted(fact_ids)
 

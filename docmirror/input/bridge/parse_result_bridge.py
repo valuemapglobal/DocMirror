@@ -8,13 +8,13 @@
 ParseResult bridge — maps frozen BaseResult to public ParseResult entities.
 
 Purpose: Assembles pages, blocks, tables, and metadata from the internal
-``BaseResult`` representation into the framework ``ParseResult`` model,
+physical extraction representation into the framework ``ParseResult`` model,
 including logical-table composition hooks.
 
 Main components: ``ParseResultBridge``, ``_blocks_to_pages``,
 ``_compose_logical_tables``.
 
-Upstream: ``extraction.extractor`` (``BaseResult``), ``table.compose``,
+Upstream: ``extraction.extractor`` (physical extraction result), ``table.compose``,
 ``table.merge``.
 
 Downstream: ``entry.factory``, ``output`` exporters, plugins.
@@ -35,11 +35,11 @@ from docmirror.input.bridge.parse_result_bridge_pages import (
 
 
 class ParseResultBridge:
-    """Unified converter between ParseResult and Core-internal BaseResult.
+    """Official converter at the physical-extraction → ParseResult boundary.
 
     Primary methods:
-        - ``from_base_result(base)`` → BaseResult → ParseResult (Core boundary)
-        - ``to_base_result(pr)``     → ParseResult → BaseResult (legacy Excel fallback)
+        - ``from_base_result(base)`` → physical extraction result → ParseResult
+        - ``to_base_result(pr)``     → ParseResult → physical extraction result
     """
 
     # ══════════════════════════════════════════════════════════════════════
@@ -96,26 +96,22 @@ class ParseResultBridge:
         ):
             ds = dict(getattr(pr.entities, "domain_specific", None) or {})
             if meta.get("micro_grids"):
-                from docmirror.ocr.page_canvas.evidence_bundles import merge_micro_grid_structures_into_bundles
+                from docmirror.models.mirror.page_evidence_bundles import merge_micro_grid_structures_into_bundles
 
                 merge_micro_grid_structures_into_bundles(ds, list(meta.get("micro_grids") or []))
             if meta.get("page_evidence_bundles"):
                 ds["_page_evidence_bundles"] = list(meta.get("page_evidence_bundles") or [])
             else:
                 if meta.get("scanned_micro_grid_evidence") or meta.get("scanned_local_structure_evidence"):
-                    from docmirror.ocr.page_canvas.evidence_bundles import bundles_from_legacy_extractor_meta
+                    from docmirror.models.mirror.page_evidence_bundles import bundles_from_extractor_meta
 
-                    bundles = bundles_from_legacy_extractor_meta(
+                    bundles = bundles_from_extractor_meta(
                         scanned_micro_grid_evidence=list(meta.get("scanned_micro_grid_evidence") or []),
                         scanned_local_structure_evidence=list(meta.get("scanned_local_structure_evidence") or []),
                     )
                     if bundles:
                         ds["_page_evidence_bundles"] = bundles
             pr.entities.domain_specific = ds
-            from docmirror.ocr.page_canvas.sync import sync_parse_result_page_canvases
-
-            sync_parse_result_page_canvases(pr)
-
         # ── Compose logical tables (from extractor metadata or physical pages) ──
         _compose_logical_tables(pr, base_metadata=meta, page_layouts=list(base.pages))
         doc_type_hint = meta.get("doc_type_hint")
@@ -383,7 +379,7 @@ def _compose_logical_tables(
         if all_logical:
             pr.logical_tables = all_logical
             pr.table_operations = build_table_operations(export_logical or all_logical)
-            from docmirror.structure.analysis.mirror_ltqg import attach_mirror_ltqg
+            from docmirror.quality.mirror_ltqg import attach_mirror_ltqg
 
             attach_mirror_ltqg(pr, base_metadata)
             return
@@ -420,7 +416,7 @@ def _compose_logical_tables(
 
         if export_result.ltqg_summary is not None and export_result.ltqg_summary.enabled:
             pr.parser_info.structure = dict(pr.parser_info.structure or {})
-            from docmirror.structure.analysis.structure_provenance import apply_logical_tables_spe
+            from docmirror.evidence.structure_provenance import apply_logical_tables_spe
 
             pr.parser_info.structure = apply_logical_tables_spe(
                 pr.parser_info.structure,
@@ -436,7 +432,7 @@ def _compose_logical_tables(
             pr.logical_tables = plugin_logical
             pr.table_operations = build_table_operations(export_result.export_logical or plugin_logical)
 
-        from docmirror.structure.analysis.mirror_ltqg import attach_mirror_ltqg
+        from docmirror.quality.mirror_ltqg import attach_mirror_ltqg
 
         attach_mirror_ltqg(pr, meta)
     except Exception as exc:

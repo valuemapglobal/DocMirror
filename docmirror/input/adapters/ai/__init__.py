@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docmirror.input.adapters.ai.config import AIConfig, AIBackendType, get_ai_config
+from docmirror.input.adapters.ai.config import AIBackendType, AIConfig, get_ai_config
 
 if TYPE_CHECKING:
     from docmirror.input.adapters.ai.protocol import AIBackend
@@ -62,6 +62,7 @@ def _try_create_backend(module_path: str, class_name: str, config: AIConfig) -> 
     """Try to import and instantiate a backend. Returns None on failure."""
     try:
         import importlib
+
         mod = importlib.import_module(module_path)
         cls = getattr(mod, class_name)
         backend = cls(config)

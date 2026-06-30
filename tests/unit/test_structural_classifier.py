@@ -5,11 +5,11 @@
 
 from __future__ import annotations
 
-from docmirror.structure.analysis.structural_classifier import (
+from docmirror.layout.structural_classifier import (
     classify_structure,
     content_type_from_verdict,
 )
-from docmirror.structure.analysis.structure_signals import apply_scene_hint_prior
+from docmirror.layout.structure_signals import apply_scene_hint_prior
 from tests.unit.test_pipe_text_table_builder import _synthetic_boc_text
 
 
@@ -70,7 +70,7 @@ def test_credit_report_stays_section_led():
 
 
 def test_scene_hint_weak_prior_bounded():
-    from docmirror.structure.analysis.sso_config import scene_hint_prior_delta
+    from docmirror.configs.structure_policy import scene_hint_prior_delta
 
     delta = scene_hint_prior_delta()
     base = {"H_pipe_grid": 0.5, "H_section": 0.5, "H_table_pdf": 0.0}

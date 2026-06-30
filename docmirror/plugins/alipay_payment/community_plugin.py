@@ -193,7 +193,7 @@ class AlipayPaymentPlugin(BaseTableParser):
         return transactions
 
     def build_domain_data(self, _metadata, entities):
-        """Legacy KV fallback — prefer ``extract_from_mirror()`` for full v2.0 output."""
+        """Lightweight KV projection used when mirror-native extraction is unavailable."""
         from docmirror.plugins._base.dec_builder import build_dec_kv
 
         transactions = entities.get("transactions", metadata.get("transactions", []))

@@ -74,6 +74,7 @@ def table_has_signed_amount_cells(tables: list[list[list[str]]]) -> bool:
                     if any(s in text for s in _SPLIT_HEADER_NEEDLES):
                         # Check if this is a merged header (both income + expense in one cell)
                         from docmirror.plugins.bank_statement.header_resolve import has_merged_amount_header
+
                         if has_merged_amount_header([tbl]):
                             # Merged column like 收入/支出金额 → don't short-circuit,
                             # let the signed-amount path run.

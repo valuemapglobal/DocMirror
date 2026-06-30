@@ -17,6 +17,7 @@ CORE_IMPORT = f"{DM}.core"
 EXPECTED_TOP_LEVEL_DIRS = {
     "cli",
     "configs",
+    "domains",
     "errors",
     "eval",
     "evidence",
@@ -34,7 +35,6 @@ EXPECTED_TOP_LEVEL_DIRS = {
     "sdk",
     "security",
     "server",
-    "structure",
     "tables",
     "topology",
 }
@@ -45,20 +45,22 @@ REQUIRED_DIRS = [
     DOCMIRROR / "input" / "bridge",
     DOCMIRROR / "input" / "extraction",
     DOCMIRROR / "input" / "pipeline",
-    DOCMIRROR / "structure",
-    DOCMIRROR / "structure" / "analysis",
-    DOCMIRROR / "structure" / "geometry",
-    DOCMIRROR / "structure" / "ocr",
-    DOCMIRROR / "structure" / "scene",
-    DOCMIRROR / "structure" / "segment",
-    DOCMIRROR / "structure" / "tables",
-    DOCMIRROR / "structure" / "utils",
     DOCMIRROR / "geometry",
+    DOCMIRROR / "geometry" / "verification",
     DOCMIRROR / "layout",
+    DOCMIRROR / "layout" / "normalization",
+    DOCMIRROR / "layout" / "profile",
+    DOCMIRROR / "layout" / "scene",
     DOCMIRROR / "layout" / "segment",
     DOCMIRROR / "ocr",
+    DOCMIRROR / "ocr" / "local_structure",
+    DOCMIRROR / "ocr" / "micro_grid",
+    DOCMIRROR / "domains",
     DOCMIRROR / "tables",
     DOCMIRROR / "topology",
+    DOCMIRROR / "topology" / "region_graph",
+    DOCMIRROR / "topology" / "relations",
+    DOCMIRROR / "topology" / "resolution",
     DOCMIRROR / "output",
     DOCMIRROR / "output" / "debug",
     DOCMIRROR / "runtime",
@@ -77,16 +79,14 @@ REQUIRED_FILES = [
     DOCMIRROR / "input" / "pipeline" / "__init__.py",
     DOCMIRROR / "input" / "bridge" / "parse_result_bridge.py",
     DOCMIRROR / "input" / "extraction" / "extractor.py",
-    DOCMIRROR / "structure" / "evidence_plane.py",
-    DOCMIRROR / "structure" / "page_topology.py",
-    DOCMIRROR / "structure" / "fusion.py",
-    DOCMIRROR / "structure" / "tables" / "__init__.py",
-    DOCMIRROR / "structure" / "ocr" / "__init__.py",
     DOCMIRROR / "tables" / "engine.py",
+    DOCMIRROR / "tables" / "cross_page_fusion.py",
     DOCMIRROR / "ocr" / "pipeline.py",
     DOCMIRROR / "evidence" / "plane.py",
     DOCMIRROR / "topology" / "page.py",
-    DOCMIRROR / "output" / "mirror.py",
+    DOCMIRROR / "topology" / "reconstructors.py",
+    DOCMIRROR / "output" / "dmir.py",
+    DOCMIRROR / "output" / "mirror_vnext_projection.py",
     DOCMIRROR / "runtime" / "progress_bus.py",
     DOCMIRROR / "runtime" / "control.py",
     DOCMIRROR / "framework" / "extension_points.py",
@@ -104,7 +104,8 @@ REMOVED_PATHS = [
     DOCMIRROR / "rag",
     DOCMIRROR / "sdk.py",
     DOCMIRROR / "edition_facade.py",
-    DOCMIRROR / "input" / "pipeline" / "legacy",
+    DOCMIRROR / "input" / "pipeline" / "raw",
+    DOCMIRROR / "structure",
     DOCMIRROR / "structure" / "tables" / "merge",
     DOCMIRROR / "core" / "analyze",
     DOCMIRROR / "core" / "bridge",
@@ -137,6 +138,7 @@ FORBIDDEN_IMPORT_PREFIXES = (
     f"{DM}.middlewares",
     f"{DM}.integration",
     f"{DM}.rag",
+    f"{DM}.structure",
     CORE_IMPORT,
     f"{CORE_IMPORT}.analyze",
     f"{CORE_IMPORT}.bridge",
@@ -181,11 +183,7 @@ def _imports_in_file(path: Path) -> list[str]:
 
 def main() -> int:
     errors: list[str] = []
-    actual_top_level_dirs = {
-        p.name
-        for p in DOCMIRROR.iterdir()
-        if p.is_dir() and p.name != "__pycache__"
-    }
+    actual_top_level_dirs = {p.name for p in DOCMIRROR.iterdir() if p.is_dir() and p.name != "__pycache__"}
     unexpected = sorted(actual_top_level_dirs - EXPECTED_TOP_LEVEL_DIRS)
     missing = sorted(EXPECTED_TOP_LEVEL_DIRS - actual_top_level_dirs)
     for name in unexpected:

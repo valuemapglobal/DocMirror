@@ -82,7 +82,7 @@ class EntityExtractor(BaseMiddleware):
         if entities.get("Currency"):
             result.entities.domain_specific["currency"] = entities["Currency"]
 
-        # Store all extracted entities in domain_specific for backward compat
+        # Store extracted entities in the stable domain_specific contract.
         result.entities.domain_specific["extracted_entities"] = entities
 
         logger.info(f"[EntityExtractor] keys: {list(entities.keys())}")

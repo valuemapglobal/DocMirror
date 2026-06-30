@@ -4,7 +4,40 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build]
 exclude = [
+    "/.github",
+    "/.github/**",
+    "/.dockerignore",
+    "/.env.example",
+    "/.gitattributes",
+    "/.import_linter_cache",
+    "/.import_linter_cache/**",
+    "/.importlinter",
+    "/.pre-commit-config.yaml",
+    "/.pytest_cache",
+    "/.ruff_cache",
+    "/artifacts",
+    "/artifacts/**",
+    "/dist",
+    "/docker-compose.yml",
+    "/Dockerfile",
+    "/docs",
+    "/docs/**",
     "/docmirror/plugins/.plugin_state.json",
+    "/docmirror_enterprise",
+    "/docmirror_enterprise/**",
+    "/docmirror_finance",
+    "/docmirror_finance/**",
+    "/examples",
+    "/examples/**",
+    "/mkdocs.yml",
+    "/reports",
+    "/reports/**",
+    "/scripts",
+    "/scripts/**",
+    "/sdks",
+    "/sdks/**",
+    "/tests",
+    "/tests/**",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -156,6 +189,9 @@ sort_by_size = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
+    "contract: legacy contract marker",
+    "smoke: legacy smoke marker",
+    "unit: legacy unit marker",
     "integration: integration tests requiring fixtures",
     "slow: slow tests (full-document extract)",
     "benchmark: timing benchmark tests (opt-in via DOCMIRROR_RUN_BENCHMARK=1)",
@@ -174,7 +210,7 @@ markers = [
     "track_mirror_geometry: Mirror geometry conservation gates",
     "track_scanned_micro_grid: Scanned micro-grid reconstruction gates",
     "track_scanned_local_structure: Scanned local structure restoration gates",
-    "track_page_canvas: Page-centric mirror (PCM) region gates",
+    "track_vnext_page_topology: Page-centric mirror (PageProjection) region gates",
     "track_dual_view: dual-view consistency gates",
     "track_bank_statement: bank statement plugin CQF/BLO gates",
     "track_edition: PEC / DEC edition gates",

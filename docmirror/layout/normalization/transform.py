@@ -97,9 +97,8 @@ def build_normalization_trace(
         scale=float(scale or 1.0),
         matrix=matrix,
         inverse_matrix=inverse,
-        candidates=candidates or [
-            NormalizationCandidate(rotation=rotation, deskew_angle=deskew_angle, score=float(confidence or 0.0))
-        ],
+        candidates=candidates
+        or [NormalizationCandidate(rotation=rotation, deskew_angle=deskew_angle, score=float(confidence or 0.0))],
         selected_reason=selected_reason,
         confidence=float(confidence if confidence is not None else 1.0),
     )

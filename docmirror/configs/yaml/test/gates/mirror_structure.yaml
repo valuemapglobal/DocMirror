@@ -27,7 +27,7 @@ cases:
         ltqg:
           require_enabled: true
           min_expected_data_rows: 40
-          require_expected_below_legacy: true
+          require_expected_below_raw: true
           min_export_logical_tables: 1
           max_export_logical_tables: 1
     tags: [mirror, ltqg, bank, grid]
@@ -49,7 +49,7 @@ cases:
   - id: wechat_table_led_spe
     tier: regression
     pipeline: extract_only
-    fixture: fixtures/wechat_payment/DemoUser+微信流水.pdf
+    fixture: fixtures/wechat_payment/synthetic_easy_standard.pdf
     skip_if_fixture_missing: true
     options:
       max_pages: 5

@@ -35,25 +35,27 @@ logger = logging.getLogger(__name__)
 # AST node types
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class ASTNodeType(Enum):
     """Enumeration of structural node types in a formula AST."""
-    ROOT = "root"              # top-level formula container
-    FRAC = "frac"              # \frac{num}{den}
-    SQRT = "sqrt"              # \sqrt{content}, \sqrt[degree]{content}
-    SUP = "sup"                # ^{content}
-    SUB = "sub"                # _{content}
-    SUBSUP = "subsup"          # _{sub}^{sup}
-    LOP = "lop"                # large operator: \sum, \prod, \int, \oint
-    BINARY = "binary"          # binary operator: +, -, \times, \div, =, <, >, \leq, \geq
-    SYMBOL = "symbol"          # atomic symbol: variable, Greek letter, \infty, \partial
-    NUMBER = "number"          # numeric literal: 123, 3.14
-    TEXT = "text"              # \text{...}, \mathrm{...}, \mathit{...}
-    MATRIX = "matrix"          # \begin{matrix} ... \end{matrix}
-    GROUP = "group"            # explicit { ... } grouping
-    FUNC = "func"              # named function: \sin, \cos, \log, \lim
-    ACCENT = "accent"          # accent: \bar{x}, \hat{x}, \tilde{x}
+
+    ROOT = "root"  # top-level formula container
+    FRAC = "frac"  # \frac{num}{den}
+    SQRT = "sqrt"  # \sqrt{content}, \sqrt[degree]{content}
+    SUP = "sup"  # ^{content}
+    SUB = "sub"  # _{content}
+    SUBSUP = "subsup"  # _{sub}^{sup}
+    LOP = "lop"  # large operator: \sum, \prod, \int, \oint
+    BINARY = "binary"  # binary operator: +, -, \times, \div, =, <, >, \leq, \geq
+    SYMBOL = "symbol"  # atomic symbol: variable, Greek letter, \infty, \partial
+    NUMBER = "number"  # numeric literal: 123, 3.14
+    TEXT = "text"  # \text{...}, \mathrm{...}, \mathit{...}
+    MATRIX = "matrix"  # \begin{matrix} ... \end{matrix}
+    GROUP = "group"  # explicit { ... } grouping
+    FUNC = "func"  # named function: \sin, \cos, \log, \lim
+    ACCENT = "accent"  # accent: \bar{x}, \hat{x}, \tilde{x}
     LEFT_RIGHT = "left_right"  # \left ... \right
-    SPACE = "space"            # explicit spacing: \, \; \quad \qquad
+    SPACE = "space"  # explicit spacing: \, \; \quad \qquad
 
 
 @dataclass
@@ -68,6 +70,7 @@ class ASTNode:
         confidence: Token-level confidence (set by evidence layer downstream).
         attrs: Extra metadata (e.g., degree for SQRT, fence_type for LEFT_RIGHT).
     """
+
     node_type: ASTNodeType
     value: str = ""
     children: list[ASTNode] = field(default_factory=list)
@@ -160,22 +163,54 @@ def tokenize_latex(latex: str) -> list[dict[str, str | int]]:
 
 # Commands that produce binary operator nodes
 _BINARY_CMDS: set[str] = {
-    r"\pm", r"\mp", r"\times", r"\div", r"\cdot", r"\circ",
-    r"\oplus", r"\otimes", r"\odot", r"\ominus",
-    r"\cup", r"\cap", r"\setminus",
-    r"\wedge", r"\vee",
+    r"\pm",
+    r"\mp",
+    r"\times",
+    r"\div",
+    r"\cdot",
+    r"\circ",
+    r"\oplus",
+    r"\otimes",
+    r"\odot",
+    r"\ominus",
+    r"\cup",
+    r"\cap",
+    r"\setminus",
+    r"\wedge",
+    r"\vee",
 }
 
 # Commands that produce relation nodes (also binary)
 _RELATION_CMDS: set[str] = {
-    r"\leq", r"\geq", r"\neq", r"\approx", r"\equiv",
-    r"\sim", r"\simeq", r"\cong", r"\propto",
-    r"\subset", r"\supset", r"\subseteq", r"\supseteq",
-    r"\in", r"\notin", r"\ni",
-    r"\prec", r"\succ", r"\preceq", r"\succeq",
-    r"\ll", r"\gg",
-    r"\perp", r"\parallel",
-    r"\to", r"\rightarrow", r"\leftarrow", r"\Rightarrow", r"\Leftarrow",
+    r"\leq",
+    r"\geq",
+    r"\neq",
+    r"\approx",
+    r"\equiv",
+    r"\sim",
+    r"\simeq",
+    r"\cong",
+    r"\propto",
+    r"\subset",
+    r"\supset",
+    r"\subseteq",
+    r"\supseteq",
+    r"\in",
+    r"\notin",
+    r"\ni",
+    r"\prec",
+    r"\succ",
+    r"\preceq",
+    r"\succeq",
+    r"\ll",
+    r"\gg",
+    r"\perp",
+    r"\parallel",
+    r"\to",
+    r"\rightarrow",
+    r"\leftarrow",
+    r"\Rightarrow",
+    r"\Leftarrow",
     r"\mapsto",
 }
 
@@ -185,53 +220,154 @@ _ALL_BINARY = _BINARY_CMDS | _RELATION_CMDS
 # Commands that are single symbols (leaf nodes)
 _SYMBOL_CMDS: set[str] = {
     # Greek lowercase
-    r"\alpha", r"\beta", r"\gamma", r"\delta", r"\epsilon", r"\varepsilon",
-    r"\zeta", r"\eta", r"\theta", r"\vartheta", r"\iota", r"\kappa",
-    r"\lambda", r"\mu", r"\nu", r"\xi", r"\pi", r"\varpi",
-    r"\rho", r"\varrho", r"\sigma", r"\varsigma", r"\tau",
-    r"\upsilon", r"\phi", r"\varphi", r"\chi", r"\psi", r"\omega",
+    r"\alpha",
+    r"\beta",
+    r"\gamma",
+    r"\delta",
+    r"\epsilon",
+    r"\varepsilon",
+    r"\zeta",
+    r"\eta",
+    r"\theta",
+    r"\vartheta",
+    r"\iota",
+    r"\kappa",
+    r"\lambda",
+    r"\mu",
+    r"\nu",
+    r"\xi",
+    r"\pi",
+    r"\varpi",
+    r"\rho",
+    r"\varrho",
+    r"\sigma",
+    r"\varsigma",
+    r"\tau",
+    r"\upsilon",
+    r"\phi",
+    r"\varphi",
+    r"\chi",
+    r"\psi",
+    r"\omega",
     # Greek uppercase
-    r"\Gamma", r"\Delta", r"\Theta", r"\Lambda", r"\Xi",
-    r"\Pi", r"\Sigma", r"\Upsilon", r"\Phi", r"\Psi", r"\Omega",
+    r"\Gamma",
+    r"\Delta",
+    r"\Theta",
+    r"\Lambda",
+    r"\Xi",
+    r"\Pi",
+    r"\Sigma",
+    r"\Upsilon",
+    r"\Phi",
+    r"\Psi",
+    r"\Omega",
     # Miscellaneous
-    r"\infty", r"\partial", r"\nabla", r"\emptyset",
-    r"\forall", r"\exists", r"\neg",
-    r"\angle", r"\triangle", r"\square", r"\diamond",
-    r"\sharp", r"\flat", r"\natural",
-    r"\ell", r"\wp", r"\Re", r"\Im", r"\aleph", r"\hbar",
-    r"\dagger", r"\ddagger",
-    r"\ldots", r"\cdots", r"\vdots", r"\ddots",
+    r"\infty",
+    r"\partial",
+    r"\nabla",
+    r"\emptyset",
+    r"\forall",
+    r"\exists",
+    r"\neg",
+    r"\angle",
+    r"\triangle",
+    r"\square",
+    r"\diamond",
+    r"\sharp",
+    r"\flat",
+    r"\natural",
+    r"\ell",
+    r"\wp",
+    r"\Re",
+    r"\Im",
+    r"\aleph",
+    r"\hbar",
+    r"\dagger",
+    r"\ddagger",
+    r"\ldots",
+    r"\cdots",
+    r"\vdots",
+    r"\ddots",
     # Arrows (non-relation)
-    r"\uparrow", r"\downarrow", r"\nearrow", r"\searrow",
-    r"\leftrightarrow", r"\Leftrightarrow",
+    r"\uparrow",
+    r"\downarrow",
+    r"\nearrow",
+    r"\searrow",
+    r"\leftrightarrow",
+    r"\Leftrightarrow",
     # Brackets (used inside \left\right or standalone)
-    r"\langle", r"\rangle", r"\lceil", r"\rceil", r"\lfloor", r"\rfloor",
+    r"\langle",
+    r"\rangle",
+    r"\lceil",
+    r"\rceil",
+    r"\lfloor",
+    r"\rfloor",
 }
 
 # Commands that are named functions
 _FUNC_CMDS: set[str] = {
-    r"\sin", r"\cos", r"\tan", r"\csc", r"\sec", r"\cot",
-    r"\arcsin", r"\arccos", r"\arctan",
-    r"\sinh", r"\cosh", r"\tanh",
-    r"\log", r"\ln", r"\lg",
+    r"\sin",
+    r"\cos",
+    r"\tan",
+    r"\csc",
+    r"\sec",
+    r"\cot",
+    r"\arcsin",
+    r"\arccos",
+    r"\arctan",
+    r"\sinh",
+    r"\cosh",
+    r"\tanh",
+    r"\log",
+    r"\ln",
+    r"\lg",
     r"\exp",
-    r"\lim", r"\limsup", r"\liminf",
-    r"\max", r"\min", r"\sup", r"\inf",
-    r"\gcd", r"\det", r"\dim", r"\hom", r"\ker",
-    r"\Pr", r"\arg",
+    r"\lim",
+    r"\limsup",
+    r"\liminf",
+    r"\max",
+    r"\min",
+    r"\sup",
+    r"\inf",
+    r"\gcd",
+    r"\det",
+    r"\dim",
+    r"\hom",
+    r"\ker",
+    r"\Pr",
+    r"\arg",
 }
 
 # Commands for large operators
 _LOP_CMDS: set[str] = {
-    r"\sum", r"\prod", r"\int", r"\oint", r"\iint", r"\iiint",
-    r"\bigcup", r"\bigcap", r"\bigsqcup",
-    r"\bigvee", r"\bigwedge", r"\bigoplus", r"\bigotimes", r"\bigodot",
+    r"\sum",
+    r"\prod",
+    r"\int",
+    r"\oint",
+    r"\iint",
+    r"\iiint",
+    r"\bigcup",
+    r"\bigcap",
+    r"\bigsqcup",
+    r"\bigvee",
+    r"\bigwedge",
+    r"\bigoplus",
+    r"\bigotimes",
+    r"\bigodot",
 }
 
 # Accent commands
 _ACCENT_CMDS: set[str] = {
-    r"\bar", r"\hat", r"\tilde", r"\dot", r"\ddot",
-    r"\vec", r"\widehat", r"\widetilde", r"\overline", r"\underline",
+    r"\bar",
+    r"\hat",
+    r"\tilde",
+    r"\dot",
+    r"\ddot",
+    r"\vec",
+    r"\widehat",
+    r"\widetilde",
+    r"\overline",
+    r"\underline",
 }
 
 # Inline-text commands (non-math text content)
@@ -241,6 +377,7 @@ _TEXT_CMDS: set[str] = {r"\text", r"\mathrm", r"\mathit", r"\mathbf", r"\mathsf"
 # ═══════════════════════════════════════════════════════════════════════════════
 # Parser
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class ParseError(Exception):
     """Raised when LaTeX parsing encounters an unrecoverable error."""
@@ -364,6 +501,7 @@ class _Parser:
             else:
                 break
         return left
+
     # ── Term level: base atom with optional postfix superscript / subscript ─────────
 
     def _parse_term(self) -> ASTNode | None:
@@ -416,12 +554,13 @@ class _Parser:
             return ASTNode(node_type=ASTNodeType.SUB, children=[base, sub_node])
 
         return base
+
     # ── Atom level ───────────────────────────────────────────────────────
 
     def _parse_atom(self) -> ASTNode | None:
         """atom ::= char | number | symbol_cmd | func_cmd
-                   | frac | sqrt | lop | group | accent | left_right
-                   | matrix | text_cmd"""
+        | frac | sqrt | lop | group | accent | left_right
+        | matrix | text_cmd"""
         tok = self._current
         if tok is None:
             return None
@@ -490,8 +629,16 @@ class _Parser:
             self._expect("lbrace")
             den_children = self._parse_formula()
             self._expect("rbrace")
-            num = ASTNode(node_type=ASTNodeType.ROOT, children=num_children) if num_children else ASTNode(node_type=ASTNodeType.ROOT)
-            den = ASTNode(node_type=ASTNodeType.ROOT, children=den_children) if den_children else ASTNode(node_type=ASTNodeType.ROOT)
+            num = (
+                ASTNode(node_type=ASTNodeType.ROOT, children=num_children)
+                if num_children
+                else ASTNode(node_type=ASTNodeType.ROOT)
+            )
+            den = (
+                ASTNode(node_type=ASTNodeType.ROOT, children=den_children)
+                if den_children
+                else ASTNode(node_type=ASTNodeType.ROOT)
+            )
             return ASTNode(node_type=ASTNodeType.FRAC, children=[num, den])
 
         # — \sqrt{content} or \sqrt[degree]{content} —
@@ -501,7 +648,11 @@ class _Parser:
                 self._advance()
                 content_children = self._parse_formula()
                 self._expect("rbrace")
-                content = ASTNode(node_type=ASTNodeType.ROOT, children=content_children) if content_children else ASTNode(node_type=ASTNodeType.ROOT)
+                content = (
+                    ASTNode(node_type=ASTNodeType.ROOT, children=content_children)
+                    if content_children
+                    else ASTNode(node_type=ASTNodeType.ROOT)
+                )
                 children = [content]
                 if degree_node:
                     children.insert(0, degree_node)
@@ -557,7 +708,11 @@ class _Parser:
                 self._advance()
                 if self._current:
                     self._advance()  # right fence
-            inner = ASTNode(node_type=ASTNodeType.ROOT, children=inner_children) if inner_children else ASTNode(node_type=ASTNodeType.ROOT)
+            inner = (
+                ASTNode(node_type=ASTNodeType.ROOT, children=inner_children)
+                if inner_children
+                else ASTNode(node_type=ASTNodeType.ROOT)
+            )
             return ASTNode(node_type=ASTNodeType.LEFT_RIGHT, value=fence_val, children=[inner])
 
         # — \begin{matrix} ... \end{matrix} —
@@ -566,9 +721,11 @@ class _Parser:
             if env_match:
                 env_name = env_match.group(1)
                 rows = self._parse_matrix_content(env_name)
-                return ASTNode(node_type=ASTNodeType.MATRIX, value=env_name, children=[
-                    ASTNode(node_type=ASTNodeType.ROOT, children=row) for row in rows
-                ])
+                return ASTNode(
+                    node_type=ASTNodeType.MATRIX,
+                    value=env_name,
+                    children=[ASTNode(node_type=ASTNodeType.ROOT, children=row) for row in rows],
+                )
 
         # Fallback: unknown command → treat as generic symbol
         return ASTNode(node_type=ASTNodeType.SYMBOL, value=cmd)
@@ -577,8 +734,6 @@ class _Parser:
         """Parse content inside \\begin{env} ... \\end{env} into rows of cells."""
         rows: list[list[ASTNode]] = []
         current_row: list[ASTNode] = []
-
-        end_cmd = r"\end{" + env_name + "}"
 
         while self._current is not None:
             tok = self._current
@@ -621,6 +776,7 @@ class _Parser:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Public API: LaTeXSymbolTree
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class LaTeXSymbolTree:
     """Static utility class for formula AST operations.
@@ -672,7 +828,7 @@ class LaTeXSymbolTree:
         For use by exporters/mathml.py.
         """
         inner = _serialize_to_mathml(root)
-        return '<math xmlns="http://www.w3.org/1998/Math/MathML">' + inner + '</math>'
+        return '<math xmlns="http://www.w3.org/1998/Math/MathML">' + inner + "</math>"
 
     @staticmethod
     def to_spoken(root: ASTNode, lang: str = "en") -> str:
@@ -733,6 +889,7 @@ class LaTeXSymbolTree:
 # Serialization helpers
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _serialize_to_latex(node: ASTNode) -> str:
     """Recursively serialize an AST node to LaTeX."""
     nt = node.node_type
@@ -751,7 +908,9 @@ def _serialize_to_latex(node: ASTNode) -> str:
 
     if nt == ASTNodeType.BINARY:
         if len(node.children) >= 2:
-            return _serialize_to_latex(node.children[0]) + " " + node.value + " " + _serialize_to_latex(node.children[1])
+            return (
+                _serialize_to_latex(node.children[0]) + " " + node.value + " " + _serialize_to_latex(node.children[1])
+            )
         return node.value
 
     if nt == ASTNodeType.FUNC:
@@ -851,7 +1010,15 @@ def _serialize_to_mathml(node: ASTNode) -> str:
 
     if nt == ASTNodeType.BINARY:
         if len(node.children) >= 2:
-            return "<mrow>" + _serialize_to_mathml(node.children[0]) + "<mo>" + _escape_xml(node.value) + "</mo>" + _serialize_to_mathml(node.children[1]) + "</mrow>"
+            return (
+                "<mrow>"
+                + _serialize_to_mathml(node.children[0])
+                + "<mo>"
+                + _escape_xml(node.value)
+                + "</mo>"
+                + _serialize_to_mathml(node.children[1])
+                + "</mrow>"
+            )
         return "<mo>" + _escape_xml(node.value) + "</mo>"
 
     if nt == ASTNodeType.FUNC:
@@ -906,17 +1073,17 @@ def _serialize_to_mathml(node: ASTNode) -> str:
 
     if nt == ASTNodeType.ACCENT:
         inner = _serialize_to_mathml(node.children[0]) if node.children else ""
-        return "<mover accent=\"true\">" + inner + "<mo>" + node.value[1:] + "</mo></mover>"
+        return '<mover accent="true">' + inner + "<mo>" + node.value[1:] + "</mo></mover>"
 
     if nt == ASTNodeType.SPACE:
-        return "<mspace width=\"0.2em\"/>"
+        return '<mspace width="0.2em"/>'
 
     return "<mrow/>"
 
 
 def _escape_xml(s: str) -> str:
     """Escape special XML characters."""
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -956,7 +1123,15 @@ def _normalize_node(node: ASTNode) -> ASTNode:
 
     # GA F6: Multi-letter variable merge — consecutive single-letter SYMBOL
     # children (e.g., 'm','a','x' in subscript) are merged into one SYMBOL.
-    if nt in (ASTNodeType.GROUP, ASTNodeType.SUB, ASTNodeType.SUP, ASTNodeType.SUBSUP, ASTNodeType.FRAC, ASTNodeType.SQRT, ASTNodeType.ROOT):
+    if nt in (
+        ASTNodeType.GROUP,
+        ASTNodeType.SUB,
+        ASTNodeType.SUP,
+        ASTNodeType.SUBSUP,
+        ASTNodeType.FRAC,
+        ASTNodeType.SQRT,
+        ASTNodeType.ROOT,
+    ):
         norm_children = _merge_consecutive_symbols(norm_children)
 
     # Greek variant normalization
@@ -1001,6 +1176,7 @@ def _normalize_node(node: ASTNode) -> ASTNode:
 # Structural equality and diff
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _structural_equals(a: ASTNode, b: ASTNode) -> bool:
     """Recursive structural equality check."""
     if a.node_type != b.node_type:
@@ -1024,36 +1200,40 @@ def _structural_equals(a: ASTNode, b: ASTNode) -> bool:
     return True
 
 
-def _compute_diff(
-    a: ASTNode, b: ASTNode, path: str, diffs: list[dict[str, Any]]
-) -> None:
+def _compute_diff(a: ASTNode, b: ASTNode, path: str, diffs: list[dict[str, Any]]) -> None:
     """Compute structural differences between two AST subtrees."""
     if a.node_type != b.node_type:
-        diffs.append({
-            "type": "changed_type",
-            "path": path,
-            "detail": f"Node type: {a.node_type.value} → {b.node_type.value}",
-        })
+        diffs.append(
+            {
+                "type": "changed_type",
+                "path": path,
+                "detail": f"Node type: {a.node_type.value} → {b.node_type.value}",
+            }
+        )
         return
 
     if a.node_type in (ASTNodeType.SYMBOL, ASTNodeType.NUMBER, ASTNodeType.FUNC, ASTNodeType.TEXT, ASTNodeType.BINARY):
         if a.value != b.value:
-            diffs.append({
-                "type": "changed_value",
-                "path": path,
-                "detail": f"Value: '{a.value}' → '{b.value}'",
-            })
+            diffs.append(
+                {
+                    "type": "changed_value",
+                    "path": path,
+                    "detail": f"Value: '{a.value}' → '{b.value}'",
+                }
+            )
         return
 
     if a.node_type == ASTNodeType.SPACE:
         return
 
     if len(a.children) != len(b.children):
-        diffs.append({
-            "type": "child_count",
-            "path": path,
-            "detail": f"Child count: {len(a.children)} → {len(b.children)}",
-        })
+        diffs.append(
+            {
+                "type": "child_count",
+                "path": path,
+                "detail": f"Child count: {len(a.children)} → {len(b.children)}",
+            }
+        )
         return
 
     for i, (ca, cb) in enumerate(zip(a.children, b.children)):
@@ -1065,6 +1245,7 @@ def _compute_diff(
 # ═══════════════════════════════════════════════════════════════════════════════
 # GA F6: Advanced normalizations — multi-letter variable merge, frac normalization
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _merge_consecutive_symbols(children: list[ASTNode]) -> list[ASTNode]:
     """Merge consecutive single-letter SYMBOL nodes into one multi-letter SYMBOL.
@@ -1087,41 +1268,47 @@ def _merge_consecutive_symbols(children: list[ASTNode]) -> list[ASTNode]:
     buf_conf = 1.0
 
     for child in children:
-        if (child.node_type == ASTNodeType.SYMBOL
-                and len(child.value) == 1
-                and child.value.isalpha()):
+        if child.node_type == ASTNodeType.SYMBOL and len(child.value) == 1 and child.value.isalpha():
             buf.append(child.value)
             buf_conf = min(buf_conf, child.confidence)
         else:
             if len(buf) >= 2:
-                merged.append(ASTNode(
-                    node_type=ASTNodeType.SYMBOL,
-                    value="".join(buf),
-                    confidence=buf_conf,
-                ))
+                merged.append(
+                    ASTNode(
+                        node_type=ASTNodeType.SYMBOL,
+                        value="".join(buf),
+                        confidence=buf_conf,
+                    )
+                )
             elif buf:
-                merged.append(ASTNode(
-                    node_type=ASTNodeType.SYMBOL,
-                    value=buf[0],
-                    confidence=buf_conf,
-                ))
+                merged.append(
+                    ASTNode(
+                        node_type=ASTNodeType.SYMBOL,
+                        value=buf[0],
+                        confidence=buf_conf,
+                    )
+                )
             buf = []
             buf_conf = 1.0
             merged.append(child)
 
     # Flush remaining buffer
     if len(buf) >= 2:
-        merged.append(ASTNode(
-            node_type=ASTNodeType.SYMBOL,
-            value="".join(buf),
-            confidence=buf_conf,
-        ))
+        merged.append(
+            ASTNode(
+                node_type=ASTNodeType.SYMBOL,
+                value="".join(buf),
+                confidence=buf_conf,
+            )
+        )
     elif buf:
-        merged.append(ASTNode(
-            node_type=ASTNodeType.SYMBOL,
-            value=buf[0],
-            confidence=buf_conf,
-        ))
+        merged.append(
+            ASTNode(
+                node_type=ASTNodeType.SYMBOL,
+                value=buf[0],
+                confidence=buf_conf,
+            )
+        )
 
     return merged
 
@@ -1145,19 +1332,19 @@ def _normalize_frac_children(children: list[ASTNode]) -> list[ASTNode]:
     # Normalize: if numerator is a negated SYMBOL (e.g., -\alpha),
     # mark the fraction for CDM comparison awareness.
     # We preserve the AST structure; CDM diff handles the comparison.
-    if (num.node_type == ASTNodeType.BINARY
-            and num.value in ("-",)
-            and len(num.children) >= 2):
+    if num.node_type == ASTNodeType.BINARY and num.value in ("-",) and len(num.children) >= 2:
         # Unary minus detection: check if first child is empty/missing left operand
-        left_empty = (num.children[0].value == "" if hasattr(num.children[0], "value") else False)
+        left_empty = num.children[0].value == "" if hasattr(num.children[0], "value") else False
         if left_empty and len(num.children) >= 2:
             # Mark attrs for CDM comparison: -frac{a}{b} ≡ frac{-a}{b}
             pass  # Structural preservation; normalization handled at CDM level
 
     return [num, den]
 
+
 # Spoken text generation
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _serialize_to_spoken_en(node: ASTNode) -> str:
     """Serialize AST to English spoken text."""
@@ -1179,7 +1366,13 @@ def _serialize_to_spoken_en(node: ASTNode) -> str:
 
     if nt == ASTNodeType.BINARY:
         if len(node.children) >= 2:
-            return _serialize_to_spoken_en(node.children[0]) + " " + _op_spoken(node.value) + " " + _serialize_to_spoken_en(node.children[1])
+            return (
+                _serialize_to_spoken_en(node.children[0])
+                + " "
+                + _op_spoken(node.value)
+                + " "
+                + _serialize_to_spoken_en(node.children[1])
+            )
         return node.value
 
     if nt == ASTNodeType.FUNC:
@@ -1361,15 +1554,32 @@ def _serialize_to_spoken_zh(node: ASTNode) -> str:
 def _zh_symbol_name(cmd: str) -> str:
     """Map LaTeX Greek letter command to Chinese name."""
     _map: dict[str, str] = {
-        r"\alpha": "阿尔法", r"\beta": "贝塔", r"\gamma": "伽马",
-        r"\delta": "德尔塔", r"\epsilon": "伊普西龙", r"\varepsilon": "伊普西龙",
-        r"\zeta": "泽塔", r"\eta": "伊塔", r"\theta": "西塔",
-        r"\lambda": "兰姆达", r"\mu": "缪", r"\nu": "纽",
-        r"\xi": "克西", r"\pi": "派", r"\rho": "柔",
-        r"\sigma": "西格玛", r"\tau": "陶", r"\phi": "斐",
-        r"\varphi": "斐", r"\psi": "普西", r"\omega": "欧米伽",
-        r"\infty": "无穷", r"\partial": "偏导", r"\nabla": "梯度",
-        r"\forall": "对于所有", r"\exists": "存在",
+        r"\alpha": "阿尔法",
+        r"\beta": "贝塔",
+        r"\gamma": "伽马",
+        r"\delta": "德尔塔",
+        r"\epsilon": "伊普西龙",
+        r"\varepsilon": "伊普西龙",
+        r"\zeta": "泽塔",
+        r"\eta": "伊塔",
+        r"\theta": "西塔",
+        r"\lambda": "兰姆达",
+        r"\mu": "缪",
+        r"\nu": "纽",
+        r"\xi": "克西",
+        r"\pi": "派",
+        r"\rho": "柔",
+        r"\sigma": "西格玛",
+        r"\tau": "陶",
+        r"\phi": "斐",
+        r"\varphi": "斐",
+        r"\psi": "普西",
+        r"\omega": "欧米伽",
+        r"\infty": "无穷",
+        r"\partial": "偏导",
+        r"\nabla": "梯度",
+        r"\forall": "对于所有",
+        r"\exists": "存在",
     }
     return _map.get(cmd, cmd.lstrip("\\"))
 
@@ -1377,12 +1587,23 @@ def _zh_symbol_name(cmd: str) -> str:
 def _zh_op_name(cmd: str) -> str:
     """Map LaTeX operator command to Chinese name."""
     _map: dict[str, str] = {
-        "+": "加", "-": "减", r"\times": "乘", r"\div": "除以",
-        "=": "等于", r"\leq": "小于等于", r"\geq": "大于等于",
-        r"\neq": "不等于", r"\approx": "约等于",
-        r"\sum": "求和", r"\prod": "求积", r"\int": "积分",
-        r"\to": "到", r"\rightarrow": "右箭头", r"\leftarrow": "左箭头",
-        r"\Rightarrow": "推出", r"\mapsto": "映射到",
+        "+": "加",
+        "-": "减",
+        r"\times": "乘",
+        r"\div": "除以",
+        "=": "等于",
+        r"\leq": "小于等于",
+        r"\geq": "大于等于",
+        r"\neq": "不等于",
+        r"\approx": "约等于",
+        r"\sum": "求和",
+        r"\prod": "求积",
+        r"\int": "积分",
+        r"\to": "到",
+        r"\rightarrow": "右箭头",
+        r"\leftarrow": "左箭头",
+        r"\Rightarrow": "推出",
+        r"\mapsto": "映射到",
     }
     return _map.get(cmd, cmd.lstrip("\\"))
 
@@ -1390,8 +1611,13 @@ def _zh_op_name(cmd: str) -> str:
 def _zh_func_name(cmd: str) -> str:
     """Map LaTeX function command to Chinese name."""
     _map: dict[str, str] = {
-        r"\sin": "正弦", r"\cos": "余弦", r"\tan": "正切",
-        r"\log": "对数", r"\ln": "自然对数", r"\lim": "极限",
-        r"\max": "最大值", r"\min": "最小值",
+        r"\sin": "正弦",
+        r"\cos": "余弦",
+        r"\tan": "正切",
+        r"\log": "对数",
+        r"\ln": "自然对数",
+        r"\lim": "极限",
+        r"\max": "最大值",
+        r"\min": "最小值",
     }
     return _map.get(cmd, cmd.lstrip("\\"))

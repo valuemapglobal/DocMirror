@@ -15,7 +15,7 @@ PDFs and other document formats.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -42,9 +42,7 @@ class HiddenTextDetector:
     MIN_OPACITY_THRESHOLD: float = 0.01
     MIN_FONT_SIZE_THRESHOLD: float = 0.5
 
-    def detect(
-        self, text_blocks: list[dict[str, Any]]
-    ) -> list[HiddenTextFlag]:
+    def detect(self, text_blocks: list[dict[str, Any]]) -> list[HiddenTextFlag]:
         """Scan *text_blocks* for invisible/hidden content.
 
         Args:
@@ -73,9 +71,7 @@ class HiddenTextDetector:
                 )
         return flags
 
-    def sanitize(
-        self, text_blocks: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def sanitize(self, text_blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Remove invisible text blocks from the list.
 
         Args:
@@ -84,9 +80,7 @@ class HiddenTextDetector:
         Returns:
             Filtered list with only visible blocks.
         """
-        return [
-            b for b in text_blocks if not self._check_invisible(b)
-        ]
+        return [b for b in text_blocks if not self._check_invisible(b)]
 
     def _check_invisible(self, block: dict[str, Any]) -> str | None:
         """Check if a text block is invisible.
@@ -108,10 +102,7 @@ class HiddenTextDetector:
 
         # 3. Near-zero font size
         font_size = block.get("font_size", 12.0)
-        if (
-            isinstance(font_size, (int, float))
-            and font_size < self.MIN_FONT_SIZE_THRESHOLD
-        ):
+        if isinstance(font_size, (int, float)) and font_size < self.MIN_FONT_SIZE_THRESHOLD:
             return "zero_font_size"
 
         return None

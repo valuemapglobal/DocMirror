@@ -29,11 +29,13 @@ class ErrorEnvelope:
     message: str = "An unexpected error occurred."
     recoverable: bool = False
     suggestion: str = ""
-    support: dict[str, Any] = field(default_factory=lambda: {
-        "docs": "",
-        "capability_id": "",
-        "support_status": "",
-    })
+    support: dict[str, Any] = field(
+        default_factory=lambda: {
+            "docs": "",
+            "capability_id": "",
+            "support_status": "",
+        }
+    )
     artifact_path: str = ""
     meta: dict[str, Any] = field(default_factory=dict)
 

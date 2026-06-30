@@ -1,12 +1,14 @@
-.PHONY: help install lint format validate-clean validate-release smoke-extras test test-smoke test-contract test-regression test-golden test-udtr-golden test-udtr-cross-format-matrix coverage clean
+.PHONY: help install lint typecheck format validate-clean validate-release validate-vnext-1-0 smoke-extras test test-smoke test-contract test-regression test-golden test-udtr-golden test-udtr-cross-format-matrix coverage clean
 
 help:
 	@echo "Available commands:"
 	@echo "  make install   - Install dependencies for development"
 	@echo "  make format    - Format code using ruff"
-	@echo "  make lint      - Run static analysis using ruff and mypy"
+	@echo "  make lint      - Run release-blocking lint and architecture gates"
+	@echo "  make typecheck - Run full mypy type checking (non-release debt audit)"
 	@echo "  make validate-clean - Validate clean architecture manifest and stale path refs"
 	@echo "  make validate-release - Validate OSS 1.0 release readiness"
+	@echo "  make validate-vnext-1-0 - Validate vNext 1.0 mainline readiness"
 	@echo "  make smoke-extras - Smoke lightweight public optional extras from built wheel"
 	@echo "  make test      - Run tests with pytest (PR tier matrix)"
 	@echo "  make test-smoke     - Tier SMOKE only"
@@ -27,14 +29,18 @@ format:
 	ruff check --fix .
 
 lint:
-	ruff check .
-	mypy docmirror/
+	ruff check docmirror/
+	ruff format --check docmirror/
 	$(MAKE) validate-clean
+
+typecheck:
+	mypy docmirror/
 
 validate-clean:
 	python3 scripts/validate/generate_import_linter.py --check
 	python3 scripts/validate/validate_clean_manifest.py
 	python3 scripts/validate/validate_domain_decomposition.py --strict-new-imports
+	python3 scripts/validate/validate_structure_shims.py
 	python3 scripts/validate/report_clean_quarantine.py --fail-overdue
 	python3 scripts/validate/report_architecture_hotspots.py --json reports/architecture_hotspots.json
 	lint-imports --config .importlinter
@@ -42,6 +48,10 @@ validate-clean:
 validate-release:
 	python3 scripts/validate/validate_import_purity.py
 	python3 scripts/validate/validate_oss_release.py
+	python3 scripts/validate/validate_vnext_1_0_readiness.py
+
+validate-vnext-1-0:
+	python3 scripts/validate/validate_vnext_1_0_readiness.py
 
 smoke-extras:
 	python3 scripts/validate/smoke_optional_extras.py

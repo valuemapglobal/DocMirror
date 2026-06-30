@@ -93,7 +93,7 @@ def project_structure(
 
 
 def infer_schema_hint(structure: StructureDict) -> str | None:
-    """Legacy infer — credit-biased when document_type unknown (Design 19 compat)."""
+    """Infer a schema hint when document type is unknown."""
     kind = str(structure.get("structure_kind") or "")
     if kind == "field_grid":
         return SCHEMA_CREDIT_FIELD_GRID

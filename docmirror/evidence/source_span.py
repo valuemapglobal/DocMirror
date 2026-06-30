@@ -140,10 +140,9 @@ class SourceSpanLedger:
 
     @property
     def needs_review_count(self) -> int:
-        return sum(
-            1 for s in self.field_spans
-            if s.review in ("needs_review", "needs_evidence")
-        ) + len(self.unresolved_fields)
+        return sum(1 for s in self.field_spans if s.review in ("needs_review", "needs_evidence")) + len(
+            self.unresolved_fields
+        )
 
     @property
     def coverage_ratio(self) -> float:
@@ -244,25 +243,29 @@ def build_source_span_ledger(
                     review = "auto_accepted"
 
                 if has_evidence:
-                    ledger.add_span(SourceSpanEntry(
-                        field_path=field_path,
-                        source_refs=source_fact_ids,
-                        page=int(source_page) if source_page else 0,
-                        bbox=list(source_bbox) if source_bbox else None,
-                        raw=rendered,
-                        normalized=rendered,
-                        confidence=conf,
-                        review=review,
-                        edition=edition,
-                        kind="edition_field",
-                        metadata={"fallback_reason": fallback_reason} if fallback_reason else {},
-                    ))
+                    ledger.add_span(
+                        SourceSpanEntry(
+                            field_path=field_path,
+                            source_refs=source_fact_ids,
+                            page=int(source_page) if source_page else 0,
+                            bbox=list(source_bbox) if source_bbox else None,
+                            raw=rendered,
+                            normalized=rendered,
+                            confidence=conf,
+                            review=review,
+                            edition=edition,
+                            kind="edition_field",
+                            metadata={"fallback_reason": fallback_reason} if fallback_reason else {},
+                        )
+                    )
                 else:
-                    ledger.add_unresolved(UnresolvedField(
-                        field_path=field_path,
-                        reason="no_source_ref" if not source_fact_ids else "no_page_or_bbox",
-                        review="needs_evidence",
-                    ))
+                    ledger.add_unresolved(
+                        UnresolvedField(
+                            field_path=field_path,
+                            reason="no_source_ref" if not source_fact_ids else "no_page_or_bbox",
+                            review="needs_evidence",
+                        )
+                    )
 
         # Record-level spans
         records = (payload.get("data") or {}).get("records") or []
@@ -272,15 +275,17 @@ def build_source_span_ledger(
             rec_source_fact_ids = record.get("source_fact_ids", [])
             rec_conf = float(record.get("confidence", conf) or 0.0)
             if rec_source_fact_ids:
-                ledger.add_span(SourceSpanEntry(
-                    field_path=f"{edition}.data.records[{rec_idx}]",
-                    source_refs=rec_source_fact_ids,
-                    page=int(source_page) if source_page else 0,
-                    confidence=rec_conf,
-                    review="auto_accepted" if rec_conf >= 0.8 else "needs_review",
-                    edition=edition,
-                    kind="record",
-                ))
+                ledger.add_span(
+                    SourceSpanEntry(
+                        field_path=f"{edition}.data.records[{rec_idx}]",
+                        source_refs=rec_source_fact_ids,
+                        page=int(source_page) if source_page else 0,
+                        confidence=rec_conf,
+                        review="auto_accepted" if rec_conf >= 0.8 else "needs_review",
+                        edition=edition,
+                        kind="record",
+                    )
+                )
 
     # ── Collect from Mirror pages (cell evidence) ──
     for page in getattr(result, "pages", []) or []:
@@ -296,17 +301,19 @@ def build_source_span_ledger(
             bbox = getattr(text, "bbox", None)
 
             if src_refs or bbox:
-                ledger.add_span(SourceSpanEntry(
-                    field_path=f"mirror.pages[{page_no - 1}].texts[{text_idx}]",
-                    source_refs=src_refs,
-                    page=page_no,
-                    bbox=list(bbox) if bbox else None,
-                    raw=content[:200],
-                    normalized=content[:200],
-                    confidence=conf,
-                    review="auto_accepted" if conf >= 0.8 else "needs_review",
-                    kind="text",
-                ))
+                ledger.add_span(
+                    SourceSpanEntry(
+                        field_path=f"mirror.pages[{page_no - 1}].texts[{text_idx}]",
+                        source_refs=src_refs,
+                        page=page_no,
+                        bbox=list(bbox) if bbox else None,
+                        raw=content[:200],
+                        normalized=content[:200],
+                        confidence=conf,
+                        review="auto_accepted" if conf >= 0.8 else "needs_review",
+                        kind="text",
+                    )
+                )
 
         # Table cell spans
         for table_idx, table in enumerate(getattr(page, "tables", []) or []):
@@ -316,29 +323,26 @@ def build_source_span_ledger(
                     value = str(getattr(cell, "cleaned", None) or getattr(cell, "text", "") or "")
                     if not value:
                         continue
-                    src_refs = list(
-                        getattr(cell, "source_cell_refs", [])
-                        or getattr(cell, "evidence_ids", [])
-                        or []
-                    )
+                    src_refs = list(getattr(cell, "source_cell_refs", []) or getattr(cell, "evidence_ids", []) or [])
                     conf = float(getattr(cell, "confidence", 1.0) or 0.0)
                     bbox = getattr(cell, "bbox", None) or getattr(cell, "bbox_norm", None)
 
                     if src_refs or bbox:
-                        ledger.add_span(SourceSpanEntry(
-                            field_path=(
-                                f"mirror.pages[{page_no - 1}].tables[{table_idx}]"
-                                f".rows[{row_idx}].cells[{col_idx}]"
-                            ),
-                            source_refs=src_refs,
-                            page=page_no,
-                            bbox=list(bbox) if bbox else None,
-                            raw=str(getattr(cell, "text", "") or ""),
-                            normalized=value,
-                            confidence=conf,
-                            review="auto_accepted" if conf >= 0.8 else "needs_review",
-                            kind="cell",
-                        ))
+                        ledger.add_span(
+                            SourceSpanEntry(
+                                field_path=(
+                                    f"mirror.pages[{page_no - 1}].tables[{table_idx}].rows[{row_idx}].cells[{col_idx}]"
+                                ),
+                                source_refs=src_refs,
+                                page=page_no,
+                                bbox=list(bbox) if bbox else None,
+                                raw=str(getattr(cell, "text", "") or ""),
+                                normalized=value,
+                                confidence=conf,
+                                review="auto_accepted" if conf >= 0.8 else "needs_review",
+                                kind="cell",
+                            )
+                        )
 
         # Key-value spans
         for kv_idx, kv in enumerate(getattr(page, "key_values", []) or []):
@@ -351,17 +355,19 @@ def build_source_span_ledger(
             bbox = getattr(kv, "bbox", None)
 
             if src_refs or bbox:
-                ledger.add_span(SourceSpanEntry(
-                    field_path=f"mirror.pages[{page_no - 1}].key_values[{kv_idx}]",
-                    source_refs=src_refs,
-                    page=page_no,
-                    bbox=list(bbox) if bbox else None,
-                    raw=f"{key}: {val}",
-                    normalized=f"{key}: {val}",
-                    confidence=conf,
-                    review="auto_accepted" if conf >= 0.8 else "needs_review",
-                    kind="key_value",
-                ))
+                ledger.add_span(
+                    SourceSpanEntry(
+                        field_path=f"mirror.pages[{page_no - 1}].key_values[{kv_idx}]",
+                        source_refs=src_refs,
+                        page=page_no,
+                        bbox=list(bbox) if bbox else None,
+                        raw=f"{key}: {val}",
+                        normalized=f"{key}: {val}",
+                        confidence=conf,
+                        review="auto_accepted" if conf >= 0.8 else "needs_review",
+                        kind="key_value",
+                    )
+                )
 
     return ledger
 

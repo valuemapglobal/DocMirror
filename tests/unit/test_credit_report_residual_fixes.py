@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.structure.ocr.local_structure.build import extract_local_structure_evidence
+from docmirror.ocr.local_structure.build import extract_local_structure_evidence
 from docmirror.plugins.credit_report.account_structure import _collapse_ocr_stutter
 from docmirror.plugins.credit_report.repayment_grid import dedupe_repayment_records, extract_credit_repayment_records
 from tests.unit.test_scanned_micro_grid_repayment import _credit_page4_lines, _credit_page4_tokens

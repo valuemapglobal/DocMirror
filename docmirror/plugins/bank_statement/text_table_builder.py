@@ -11,7 +11,8 @@ Pipeline role: fallback path inside ``bank_statement.community_plugin`` when
 ``StyleContext.tables`` is empty; feeds reconstructed grids into style detection.
 
 Key exports: ``looks_like_bank_ocr_text``, ``build_tables_from_spaced_ocr_text``,
-``build_tables_from_ocr_text`` (alias).
+``build_tables_from_stacked_bank_text`` for native PDFs that expose ledger
+fields as vertical text runs, and ``build_tables_from_ocr_text`` (alias).
 
 Dependencies: stdlib ``re`` only; consumed by ``context`` / ``community_plugin``.
 """
@@ -24,8 +25,14 @@ _HEADER_MARKERS = ("交易日期", "交易金额", "账户余额", "摘要", "�
 _BANK_MARKERS = (
     "交易明细",
     "银行流水",
+    "账号",
+    "开户行",
+    "起止日期",
     "客户账号",
     "账户余额",
+    "余额",
+    "对方户名",
+    "对方开户行",
     "借方发生额",
     "贷方发生额",
     "活期账户",
@@ -42,6 +49,11 @@ _TXN_SPACED_RE = re.compile(r"(?<!\d)(\d{8})(收入|支出)\s*([+-]?\d+\.\d{2})\
 _TXN_GLUED_RE = re.compile(r"(?<!\d)(\d{8})(收入|支出)([+-]?\d+\.\d{2})(\d+\.\d{2})")
 # ISO date variants
 _TXN_ISO_RE = re.compile(r"(\d{4}-\d{2}-\d{2})\s*(收入|支出)?\s*([+-]?\d+\.\d{2})\s*(\d+\.\d{2})")
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_TIME_RE = re.compile(r"^\d{1,2}:\d{2}:\d{2}$")
+_TIME_AMOUNT_RE = re.compile(r"^(\d{1,2}:\d{2}:\d{2})(?:\s+([+-]?\d+(?:,\d{3})*(?:\.\d{2})))?(?:\s+(.*))?$")
+_AMOUNT_RE = re.compile(r"^[+-]?\d+(?:,\d{3})*(?:\.\d{2})$")
+_SIGNED_AMOUNT_RE = re.compile(r"^[+-]\d+(?:,\d{3})*(?:\.\d{2})$")
 
 
 def looks_like_bank_ocr_text(text: str) -> bool:
@@ -72,6 +84,23 @@ def _signed_amount(amount: str, direction: str) -> str:
     if direction == "expense":
         return f"-{val}"
     return f"+{val}"
+
+
+def _looks_like_stacked_amount(lines: list[str], idx: int) -> bool:
+    value = lines[idx].replace(",", "")
+    if _SIGNED_AMOUNT_RE.match(value):
+        return True
+    return bool(_AMOUNT_RE.match(value))
+
+
+def _normalize_stacked_amount(lines: list[str], idx: int) -> str:
+    amount = lines[idx].replace(",", "")
+    if amount.startswith(("+", "-")):
+        return amount
+    nearby = "".join(lines[max(0, idx - 2) : idx])
+    if any(hint in nearby for hint in (*_INCOME_HINTS, "转入", "贷款")):
+        return f"+{amount}"
+    return f"+{amount}"
 
 
 def _valid_yyyymmdd_dates(line: str) -> list[str]:
@@ -170,6 +199,102 @@ def build_tables_from_spaced_ocr_text(text: str) -> list[list[list[str]]]:
     return [rows]
 
 
+def build_tables_from_stacked_bank_text(text: str) -> list[list[list[str]]]:
+    """Parse vertical field-run bank statements into a signed-amount table.
+
+    Some native bank PDFs emit each logical transaction as a stack of text
+    lines rather than one horizontal row, for example:
+
+    counterparty / remark / balance / "/" / date / time / summary / amount.
+
+    This fallback reconstructs only when the whole document frame clearly
+    looks like a bank statement and at least two date-time-amount groups are
+    found.
+    """
+    if not looks_like_bank_ocr_text(text):
+        return []
+
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    headers = ["交易日期", "交易时间", "摘要", "交易金额", "余额", "对方户名", "备注"]
+    rows: list[list[str]] = [headers]
+    seen: set[tuple[str, str, str, str]] = set()
+
+    last_boundary = 0
+    idx = 0
+    while idx < len(lines):
+        date = lines[idx]
+        if not _DATE_RE.match(date):
+            idx += 1
+            continue
+        if idx + 1 >= len(lines):
+            idx += 1
+            continue
+        time_match = _TIME_AMOUNT_RE.match(lines[idx + 1])
+        if not time_match:
+            idx += 1
+            continue
+
+        amount_idx = None
+        inline_time, inline_amount, inline_summary = time_match.groups()
+        if inline_amount:
+            amount_idx = idx + 1
+        else:
+            for probe in range(idx + 2, min(idx + 7, len(lines))):
+                if _looks_like_stacked_amount(lines, probe):
+                    amount_idx = probe
+                    break
+        if amount_idx is None:
+            idx += 1
+            continue
+
+        segment = lines[last_boundary:idx]
+        balance = ""
+        balance_pos = -1
+        for pos in range(len(segment) - 1, -1, -1):
+            candidate = segment[pos].replace(",", "")
+            if _AMOUNT_RE.match(candidate) and not candidate.startswith(("+", "-")):
+                balance = candidate
+                balance_pos = pos
+                break
+
+        party = ""
+        remark_parts: list[str] = []
+        if balance_pos >= 0:
+            before_balance = [item for item in segment[:balance_pos] if item != "/"]
+            for marker in ("摘要", "交易时间", "对方开户行", "对方户名", "备注", "余额", "收入/支出金额"):
+                if marker in before_balance:
+                    before_balance = before_balance[before_balance.index(marker) + 1 :]
+            if before_balance:
+                party = before_balance[0]
+                remark_parts = before_balance[1:]
+        else:
+            before_date = [item for item in segment if item != "/"]
+            if before_date:
+                party = before_date[0]
+                remark_parts = before_date[1:]
+
+        summary = (inline_summary or "").strip() if inline_amount else ""
+        if not summary:
+            summary = lines[idx + 2] if idx + 2 < amount_idx else ""
+        if not summary:
+            summary = " ".join(remark_parts[:2])
+        amount = inline_amount.replace(",", "") if inline_amount else _normalize_stacked_amount(lines, amount_idx)
+        if amount and not amount.startswith(("+", "-")):
+            amount = f"+{amount}"
+        remark = " ".join(remark_parts).strip()
+        key = (date, inline_time, amount, balance)
+        if key not in seen:
+            seen.add(key)
+            rows.append([date, inline_time, summary, amount, balance, party, remark])
+
+        last_boundary = amount_idx + 1
+        idx = amount_idx + 1
+
+    if len(rows) < 3:
+        return []
+    return [rows]
+
+
 def build_tables_from_ocr_text(text: str) -> list[list[list[str]]]:
-    """Backward-compatible alias for ``build_tables_from_spaced_ocr_text``."""
-    return build_tables_from_spaced_ocr_text(text)
+    """Build bank statement tables from spaced or stacked OCR text."""
+    return build_tables_from_spaced_ocr_text(text) or build_tables_from_stacked_bank_text(text)

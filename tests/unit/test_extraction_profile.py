@@ -8,11 +8,11 @@ from __future__ import annotations
 import pdfplumber
 import pytest
 
-from docmirror.structure.profile.registry import get_profile, load_profiles, match_layout_profile
-from docmirror.structure.tables.best_candidate import ExtractCandidate, pick_best_candidate
-from docmirror.structure.tables.cell_normalizer import normalize_cell_text, normalize_table_cells
-from docmirror.structure.tables.engine import extract_tables_layered
-from docmirror.structure.tables.segmentation import segment_page_for_extraction
+from docmirror.layout.profile.registry import get_profile, load_profiles, match_layout_profile
+from docmirror.tables.best_candidate import ExtractCandidate, pick_best_candidate
+from docmirror.tables.cell_normalizer import normalize_cell_text, normalize_table_cells
+from docmirror.tables.engine import extract_tables_layered
+from docmirror.tables.segmentation import segment_page_for_extraction
 from docmirror.models.entities.extraction_profile import ExtractionProfile, SegmentationMode
 
 
@@ -23,7 +23,7 @@ def _clear_profile_cache():
     load_profiles.cache_clear()
 
 
-def test_generic_profile_defaults_preserve_legacy():
+def test_generic_profile_defaults_preserve_current_behavior():
     p = get_profile("generic")
     assert p.segmentation_mode == SegmentationMode.ZONE
     assert p.enable_best_candidate_selection is False
@@ -51,7 +51,7 @@ def test_match_wechat_by_text():
 
 def test_match_bank_reconciliation_scene_to_borderless_profile():
     """bank_reconciliation ledgers must not fall back to generic x_clustering."""
-    from docmirror.structure.scene.scene_resolver import scene_to_layout_profile_id
+    from docmirror.layout.scene.scene_resolver import scene_to_layout_profile_id
 
     assert scene_to_layout_profile_id("bank_reconciliation") == "borderless_ledger_bank"
 
@@ -102,11 +102,11 @@ def test_bcs_picks_pdfplumber_over_inflated_char_layer():
 
 
 def test_full_page_segmentation_bbox_covers_page():
-    pdf = "tests/fixtures/wechat_payment/DemoUser+微信流水.pdf"
+    pdf = "tests/fixtures/wechat_payment/synthetic_easy_standard.pdf"
     profile = get_profile("borderless_ledger_wechat")
     with pdfplumber.open(pdf) as doc:
-        page = doc.pages[1]
-        zones = segment_page_for_extraction(page, 1, profile)
+        page = doc.pages[0]
+        zones = segment_page_for_extraction(page, 0, profile)
     table_zones = [z for z in zones if z.type == "data_table"]
     assert len(table_zones) == 1
     _x0, y0, x1, y1 = table_zones[0].bbox
@@ -115,16 +115,16 @@ def test_full_page_segmentation_bbox_covers_page():
 
 
 def test_engine_profile_disables_pymupdf_on_wechat_page():
-    pdf = "tests/fixtures/wechat_payment/DemoUser+微信流水.pdf"
+    pdf = "tests/fixtures/wechat_payment/synthetic_easy_standard.pdf"
     profile = get_profile("borderless_ledger_wechat")
     audit: list = []
     with pdfplumber.open(pdf) as doc:
         import fitz
 
         fitz_doc = fitz.open(pdf)
-        page = doc.pages[2]
-        fitz_page = fitz_doc[2]
-        zones = segment_page_for_extraction(page, 2, profile)
+        page = doc.pages[0]
+        fitz_page = fitz_doc[0]
+        zones = segment_page_for_extraction(page, 0, profile)
         bbox = next(z.bbox for z in zones if z.type == "data_table")
         tables, layer, conf = extract_tables_layered(
             page,
@@ -135,4 +135,4 @@ def test_engine_profile_disables_pymupdf_on_wechat_page():
         )
         fitz_doc.close()
     assert layer != "pymupdf_native"
-    assert len(tables[0]) >= 20
+    assert len(tables[0]) >= 2

@@ -12,7 +12,7 @@ engines are insufficient or configured as provider.
 
 Main components: ``call_aistudio_layout_ocr``, ``_encode_image_bgr_to_base64``.
 
-Upstream: ``ocr.preprocess.legacy_fallback`` provider resolution.
+Upstream: ``ocr.preprocess.pipeline`` provider resolution.
 
 Downstream: Layout boxes and text for ``ocr.scanned`` paths.
 """

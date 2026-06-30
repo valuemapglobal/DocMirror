@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
+from docmirror.ocr.local_structure import extract_local_structure_evidence
 from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
 from tests._scanned_ocr_helpers import ocr_page_as_pdf_points
 

@@ -67,9 +67,7 @@ def main() -> int:
                 if name in _KNOWN_OPTIONAL:
                     continue
                 if name not in catalog:
-                    errors.append(
-                        f"enhancement_profiles {model}.{mode}: unknown middleware {name!r}"
-                    )
+                    errors.append(f"enhancement_profiles {model}.{mode}: unknown middleware {name!r}")
                 elif not catalog[name].enabled and name not in _KNOWN_OPTIONAL:
                     pass
 

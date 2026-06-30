@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from docmirror.structure.tables.signal_fusion import (
+from docmirror.tables.signal_fusion import (
     fuse_column_signals,
     should_use_fusion,
     SIGNAL_WEIGHTS,

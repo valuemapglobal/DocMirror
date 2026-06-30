@@ -17,13 +17,13 @@ from __future__ import annotations
 
 import logging
 
-from docmirror.structure.utils.text_utils import normalize_table
+from docmirror.layout.text_utils import normalize_table
 from docmirror.tables.pipeline import kv_summary, stage_header, stage_preamble, stage_structure
 from docmirror.tables.pipeline.vocab_match import _find_vocab_words_in_string
 
 logger = logging.getLogger(__name__)
 
-# Re-exports (backward compat)
+# Re-exports for the stable table postprocess helper surface.
 _extract_preamble_kv = stage_preamble._extract_preamble_kv
 _strip_preamble = stage_preamble._strip_preamble
 _fix_header_by_vocabulary = stage_header._fix_header_by_vocabulary

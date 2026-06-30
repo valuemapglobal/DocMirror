@@ -6,7 +6,7 @@ OCR recognize subpackage — text recognition runners.
 Purpose: Hosts recognition orchestration that merges multi-scale OCR runs into
 unified word lists.
 
-Main components: ``runner_legacy._run_ocr`` (primary legacy runner).
+Main components: ``runner._run_ocr`` (primary OCR runner).
 
 Upstream: Preprocessed page images.
 

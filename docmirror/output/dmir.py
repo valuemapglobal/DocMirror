@@ -22,7 +22,7 @@ def serialize_dmir(result: Any) -> dict[str, Any]:
     logical_tables = to_json_safe(_value(result, "logical_tables", []) or [])
     sections = to_json_safe(_value(result, "sections", []) or [])
 
-    return {
+    payload = {
         "dmir_version": DMIR_VERSION,
         "document": {
             "type": _value(entities, "document_type", "unknown") if entities is not None else "unknown",
@@ -55,9 +55,13 @@ def serialize_dmir(result: Any) -> dict[str, Any]:
             "version": _value(parser_info, "parser_version", "1.0"),
             "elapsed_ms": _value(parser_info, "elapsed_ms", 0),
             "page_count": _value(parser_info, "page_count", len(pages)),
-            "table_count": _value(result, "total_tables", len(logical_tables) if isinstance(logical_tables, list) else 0),
+            "table_count": _value(
+                result, "total_tables", len(logical_tables) if isinstance(logical_tables, list) else 0
+            ),
             "row_count": _value(result, "total_rows", 0),
-            "extraction_method": _value(_value(parser_info, "extraction_method", ""), "value", _value(parser_info, "extraction_method", "")),
+            "extraction_method": _value(
+                _value(parser_info, "extraction_method", ""), "value", _value(parser_info, "extraction_method", "")
+            ),
             "ocr_engine": _value(parser_info, "ocr_engine", ""),
             "table_engine": _value(parser_info, "table_engine", ""),
             "overall_confidence": _value(parser_info, "overall_confidence", _value(result, "confidence", 0.0)),
@@ -65,6 +69,11 @@ def serialize_dmir(result: Any) -> dict[str, Any]:
             "dmir_version": DMIR_VERSION,
         },
     }
+    safety_report = getattr(result, "_safety_report", None)
+    if safety_report is not None:
+        to_dict = getattr(safety_report, "to_dict", None)
+        payload["safety"] = to_json_safe(to_dict() if callable(to_dict) else safety_report)
+    return payload
 
 
 def serialize_dmir_json(result: Any, **kwargs: Any) -> str:

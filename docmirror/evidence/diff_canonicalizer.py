@@ -9,8 +9,6 @@ directory so that two parse runs can be compared deterministically.
 
 from __future__ import annotations
 
-import json as _json
-from pathlib import Path
 from typing import Any
 
 
@@ -49,8 +47,7 @@ def canonicalize_visual_graph(graph: Any) -> dict[str, Any]:
 
     # Sort edges by (from_node, to_node)
     edges = sorted(
-        data.get("edges", []),
-        key=lambda e: (e.get("from", e.get("from_node", "")), e.get("to", e.get("to_node", "")))
+        data.get("edges", []), key=lambda e: (e.get("from", e.get("from_node", "")), e.get("to", e.get("to_node", "")))
     )
 
     return {

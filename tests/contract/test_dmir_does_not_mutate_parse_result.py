@@ -32,7 +32,6 @@ from docmirror.models.entities.parse_result import (
 )
 from docmirror.output.dmir import serialize_dmir
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────
 
 
@@ -234,20 +233,5 @@ class TestDmirDoesNotMutate:
         assert "evidence" in dmir
         assert "meta" in dmir
         assert dmir["meta"]["dmir_version"] == "1.0"
-
-    @pytest.mark.skip(reason="Schema has pre-existing gap: evidence bbox can be None but schema expects array")
-    def test_dmir_schema_conformance_strict(self, sample_result: ParseResult):
-        """Strict JSON Schema conformance (skipped due to known gaps)."""
-        import json
-        from pathlib import Path
-        import jsonschema
-        schema_path = Path("docs/schemas/dmir/v1.0.schema.json")
-        if not schema_path.exists():
-            pytest.skip("DMIR schema not found")
-        with open(schema_path) as f:
-            schema = json.load(f)
-        dmir = serialize_dmir(sample_result)
-        # This will fail on evidence.ledger[*].bbox: None vs array — pre-existing
-        jsonschema.validate(instance=dmir, schema=schema)
 
 

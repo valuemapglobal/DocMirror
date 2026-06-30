@@ -17,7 +17,6 @@ import os
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +60,9 @@ def probe_archive(
     suffix = path.suffix.lower()
     if suffix == ".zip":
         result.format = "zip"
-        return _probe_zip(path, result, max_entries, max_depth, max_member_size, max_total_uncompressed, max_compression_ratio)
+        return _probe_zip(
+            path, result, max_entries, max_depth, max_member_size, max_total_uncompressed, max_compression_ratio
+        )
     elif suffix in (".rar",):
         result.format = "rar"
         result.status = "ok"
@@ -125,7 +126,9 @@ def _probe_zip(
                     if ratio > result.max_compression_ratio:
                         result.max_compression_ratio = ratio
                     if ratio > max_compression_ratio:
-                        violations.append(f"member {info.filename} compression ratio {ratio:.1f}x > max {max_compression_ratio}x")
+                        violations.append(
+                            f"member {info.filename} compression ratio {ratio:.1f}x > max {max_compression_ratio}x"
+                        )
 
                 if member_uc > result.max_member_size:
                     result.max_member_size = member_uc

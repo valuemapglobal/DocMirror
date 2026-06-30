@@ -69,7 +69,7 @@ def infer_header_source(headers: list[str], raw_rows: list[list[str]]) -> str:
         return "none"
     if is_prose_disclaimer_table(headers, raw_rows):
         return "prose_block"
-    from docmirror.structure.utils.vocabulary import _is_header_row, _score_header_by_vocabulary
+    from docmirror.layout.vocabulary import _is_header_row, _score_header_by_vocabulary
 
     categories = ["BANK_STATEMENT", "WECHAT_PAYMENT"]
     score = _score_header_by_vocabulary(first, categories=categories)
@@ -256,7 +256,7 @@ def logical_table_composition(lt: Any) -> dict[str, Any]:
         "topology": topology,
         "merge_policy": merge_policy,
         "quarantine_reason": quarantine_reason,
-        "legacy_merge_method": merge,
+        "source_merge_method": merge,
     }
 
 
@@ -437,8 +437,8 @@ def enrich_api_page_contract(
     out["blocks"] = blocks
     if out.get("reading_order"):
         out["reading_order_canonical"] = "reading_order"
-    if out.get("reading_order_v1") is not None:
-        out["reading_order_v1_deprecated"] = True
+    if out.get("reading_order_refs") is not None:
+        out["reading_order_ref_status"] = "page_local_projection"
     slots = build_morphology_slots(out)
     if slots:
         out["morphology_slots"] = slots
@@ -471,7 +471,7 @@ def build_mirror_profile(*, mirror_level: str) -> dict[str, Any]:
 
 
 def apply_meta_count_aliases(meta: dict[str, Any], counts: dict[str, Any]) -> None:
-    """Backward-compatible top-level count aliases (deprecated)."""
+    """Populate concise top-level count aliases for mirror metadata."""
     meta["table_count"] = counts["physical_tables"]
     meta["physical_table_count"] = counts["physical_tables"]
     meta["logical_table_count"] = counts["logical_tables_export"]
@@ -487,7 +487,7 @@ def finalize_structure_spe(
     quarantine_index: dict[str, Any],
     domain_specific: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    from docmirror.structure.analysis.structure_provenance import apply_page_morphology_spe
+    from docmirror.evidence.structure_provenance import apply_page_morphology_spe
 
     out = apply_page_morphology_spe(
         dict(spe),

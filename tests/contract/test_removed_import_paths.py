@@ -10,6 +10,7 @@ import importlib.util
 def test_removed_pre_refactor_import_paths_do_not_resolve():
     removed = [
         "docmirror.core",
+        "docmirror.structure",
         "docmirror.adapters",
         "docmirror.middlewares",
         "docmirror.exporters",
@@ -27,7 +28,7 @@ def test_removed_pre_refactor_import_paths_do_not_resolve():
 
 def test_canonical_replacements_resolve():
     replacements = [
-        "docmirror.structure",
+        "docmirror.layout",
         "docmirror.input.adapters",
         "docmirror.framework.middlewares",
         "docmirror.output.exporters",
@@ -40,4 +41,3 @@ def test_canonical_replacements_resolve():
 
     for module in replacements:
         assert importlib.util.find_spec(module) is not None, module
-

@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 
-from docmirror.structure.utils.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE, _is_header_cell, _score_header_by_vocabulary
+from docmirror.layout.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE, _is_header_cell, _score_header_by_vocabulary
 
 logger = logging.getLogger(__name__)
 

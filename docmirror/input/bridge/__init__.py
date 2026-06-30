@@ -4,11 +4,11 @@
 """
 Bridge package — converts internal extraction models to public ParseResult.
 
-Purpose: Package marker for the BaseResult → ParseResult translation layer.
+Purpose: Package marker for the physical extraction → ParseResult translation layer.
 
 Main components: Re-exports from ``parse_result_bridge`` (when used).
 
-Upstream: ``physical.models`` (``BaseResult``).
+Upstream: physical extraction models.
 
 Downstream: ``entry.factory``, API output, plugins.
 """

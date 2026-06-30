@@ -1,9 +1,9 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.structure.ocr.page_canvas.flow_filter import filter_flow_texts_not_in_regions
-from docmirror.structure.ocr.page_canvas.models import PageRegion
-from docmirror.structure.ocr.page_canvas.page_token_ownership import (
+from docmirror.topology.page_projection.flow_filter import filter_flow_texts_not_in_regions
+from docmirror.topology.page_projection.models import PageRegion
+from docmirror.topology.page_projection.page_token_ownership import (
     assert_no_flow_structure_dual_assign,
     assign_line_ownership,
     flow_texts_complement,

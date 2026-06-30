@@ -16,7 +16,7 @@ Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md §6
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
@@ -29,9 +29,10 @@ class FieldDetail:
     these details. The `raw` value is the authoritative extracted text;
     `normalized` is the business-logic transformation result.
     """
+
     raw: str = ""
     normalized: Any = None  # Can be float, str, dict, None
-    normalizer: str = ""    # e.g., "amount.cn.v1", "date.iso8601.v1"
+    normalizer: str = ""  # e.g., "amount.cn.v1", "date.iso8601.v1"
     confidence: float = 0.0
     source_refs: list[str] = field(default_factory=list)
     review: str = "needs_evidence"  # auto_accepted | manual_optional | needs_review | needs_evidence
@@ -42,9 +43,10 @@ class FieldDetailCollection:
     """Collection of field details for a document or record.
 
     Supports the `data.field_details` contract in Edition JSON:
-    - data.fields.{key} = plain value (backward-compatible)
+    - data.fields.{key} = plain value (stable public shape)
     - data.field_details.{key} = FieldDetail with raw/normalized/evidence
     """
+
     fields: dict[str, FieldDetail] = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> FieldDetail:
@@ -112,9 +114,10 @@ def normalize_amount_cny(raw: str) -> tuple[float | None, dict[str, Any]]:
     Returns (normalized_value, metadata) or (None, metadata) on failure.
     """
     import re
+
     cleaned = raw.strip().replace("￥", "").replace("¥", "").replace(",", "").replace("，", "")
     # Try to extract a numeric value
-    match = re.search(r'-?[\d.,]+\.?\d*', cleaned)
+    match = re.search(r"-?[\d.,]+\.?\d*", cleaned)
     if not match:
         return None, {"error": "no_numeric_value", "raw": raw}
 
@@ -142,13 +145,14 @@ def normalize_date_iso(raw: str) -> tuple[str | None, dict[str, Any]]:
     Returns (iso_string, metadata) or (None, metadata) on failure.
     """
     import re
+
     cleaned = raw.strip()
 
     patterns = [
-        (r'(\d{4})年(\d{1,2})月(\d{1,2})日', lambda m: f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"),
-        (r'(\d{4})/(\d{1,2})/(\d{1,2})', lambda m: f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"),
-        (r'(\d{4})-(\d{1,2})-(\d{1,2})', lambda m: f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"),
-        (r'(\d{1,2})/(\d{1,2})/(\d{4})', lambda m: f"{m.group(3)}-{int(m.group(1)):02d}-{int(m.group(2)):02d}"),
+        (r"(\d{4})年(\d{1,2})月(\d{1,2})日", lambda m: f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"),
+        (r"(\d{4})/(\d{1,2})/(\d{1,2})", lambda m: f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"),
+        (r"(\d{4})-(\d{1,2})-(\d{1,2})", lambda m: f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"),
+        (r"(\d{1,2})/(\d{1,2})/(\d{4})", lambda m: f"{m.group(3)}-{int(m.group(1)):02d}-{int(m.group(2)):02d}"),
     ]
 
     for pattern, formatter in patterns:

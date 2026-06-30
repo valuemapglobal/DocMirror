@@ -10,10 +10,10 @@ single-source-of-truth for cross-surface integration, not a facade over
 divergent internal representations.
 """
 
-from docmirror.sdk.integration.request import InputRef, ParseRequest
+from docmirror.sdk.integration.artifacts import ArtifactManifest, load_artifact_manifest, load_chunks_from_manifest
 from docmirror.sdk.integration.errors import ErrorEnvelope
 from docmirror.sdk.integration.observability import ObservabilityContext, build_observability_context
-from docmirror.sdk.integration.artifacts import ArtifactManifest, load_artifact_manifest, load_chunks_from_manifest
+from docmirror.sdk.integration.request import InputRef, ParseRequest
 
 __all__ = [
     "InputRef",

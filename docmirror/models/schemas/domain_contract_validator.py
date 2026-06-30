@@ -37,9 +37,7 @@ class DomainContractValidationReport:
     warnings: list[str] = field(default_factory=list)
 
 
-_CONTRACTS_PATH = (
-    Path(__file__).resolve().parents[2] / "configs" / "yaml" / "domain_contracts" / "community_core.yaml"
-)
+_CONTRACTS_PATH = Path(__file__).resolve().parents[2] / "configs" / "yaml" / "domain_contracts" / "community_core.yaml"
 
 
 def _load_contracts() -> dict[str, Any]:
@@ -81,7 +79,6 @@ def validate_domain_schema(
     data = payload.get("data") or {}
     fields = data.get("fields") or {}
     records = data.get("records") or []
-    sections = data.get("sections") or []
 
     # ── Fields validation ──
     field_commitments = p0.get("fields") or {}
@@ -108,11 +105,7 @@ def validate_domain_schema(
             missing_recs = list(required_records)
         else:
             for field_name in required_records:
-                if not all(
-                    _record_has_field(rec, field_name)
-                    for rec in records
-                    if isinstance(rec, dict)
-                ):
+                if not all(_record_has_field(rec, field_name) for rec in records if isinstance(rec, dict)):
                     missing_recs.append(field_name)
 
     report.missing_records = missing_recs

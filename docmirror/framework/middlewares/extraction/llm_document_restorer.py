@@ -40,6 +40,7 @@ from docmirror.models.entities.parse_result import (
     TableBlock,
     TableRow,
 )
+
 from ..base import BaseMiddleware
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,7 @@ USER_MESSAGE_TEMPLATE = "Extract structured information from the following OCR t
 
 # ── LLM call ──
 
+
 def _call_llm(full_text: str) -> dict | None:
     """Call the LLM and return parsed JSON, or None on failure."""
     api_key = os.environ.get("DOCMIRROR_LLM_API_KEY")
@@ -147,6 +149,7 @@ def _call_llm(full_text: str) -> dict | None:
 
 
 # ── Injection helpers ──
+
 
 def _inject_tables(result: ParseResult, tables: list) -> int:
     """Inject LLM-extracted tables into ParseResult as TableBlock objects."""

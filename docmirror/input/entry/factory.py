@@ -28,9 +28,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+from docmirror.framework.dispatcher import ParserDispatcher
 from docmirror.input.entry.options import ParseControl, normalize_parse_control
 from docmirror.input.entry.perceive_result import PerceiveResult
-from docmirror.framework.dispatcher import ParserDispatcher
 
 if TYPE_CHECKING:
     pass
@@ -73,7 +73,7 @@ class PerceiveOptions:
 
     # ── Cache ──
     skip_cache: bool = False
-    """No-op (parse cache removed from the default pipeline). Kept for API compat."""
+    """No-op retained for public API stability; parse cache is not in the default pipeline."""
 
     # ── Callbacks ──
     # ── Callbacks ──
@@ -89,7 +89,7 @@ class PerceiveOptions:
 
     # ── Unified parse control (new contract) ──
     control: ParseControl | None = None
-    """Unified request-scoped parse control. Legacy fields above are shims."""
+    """Unified request-scoped parse control. Explicit values override convenience fields."""
 
     def normalized_control(self) -> ParseControl:
         """Return the effective ParseControl for this request."""
@@ -108,7 +108,7 @@ class PerceiveOptions:
 
 class PerceptionFactory:
     """
-    Backward-compatible accessor for the shared ``ParserDispatcher``.
+    Accessor for the shared ``ParserDispatcher``.
 
     ``get_dispatcher()`` delegates to ``docmirror.framework.di.get_dispatcher()`` —
     there is only one process-wide singleton.  Prefer ``perceive_document()``
@@ -140,7 +140,7 @@ async def perceive_document(
     file_path: str | Path,
     control: PerceiveOptions | None = None,
 ) -> PerceiveResult:
-    """Backward-compatible entry point delegated to ``docmirror.input.pipeline``."""
+    """Public entry point delegated to ``docmirror.input.pipeline``."""
     from docmirror.input.pipeline import perceive_document as _new
 
     return await _new(file_path, control)

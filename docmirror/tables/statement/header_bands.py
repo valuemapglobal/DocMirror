@@ -17,11 +17,7 @@ def build_header_bands(
     bands: list[dict[str, Any]] = []
     for level, row in enumerate(header_rows):
         row_index = int(row.get("index", 0) or 0)
-        row_cells = [
-            cell
-            for cell in cells
-            if _cell_row(cell) == row_index and str(cell.get("text") or "").strip()
-        ]
+        row_cells = [cell for cell in cells if _cell_row(cell) == row_index and str(cell.get("text") or "").strip()]
         if not row_cells:
             continue
         bands.append(

@@ -14,7 +14,7 @@ Main components: ``RapidOCREngine``, ``get_ocr_engine``.
 
 Upstream: ``ocr.image_preprocessing`` prepared images.
 
-Downstream: ``ocr.recognize.runner_legacy``, ``ocr.ocr_postprocess``.
+Downstream: ``ocr.recognize.runner``, ``ocr.ocr_postprocess``.
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ def _np() -> Any:
 
 def _cv2() -> Any:
     return require_optional_module("cv2", feature="RapidOCR multi-scale detection", extra="ocr")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OCR Post-processing: split RapidOCR "line-level" output into "word-level" units

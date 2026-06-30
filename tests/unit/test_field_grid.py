@@ -1,11 +1,11 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.structure.ocr.field_grid.assign import assign_tokens_to_col_bands, cell_bbox
-from docmirror.structure.ocr.field_grid.models import FieldCell
-from docmirror.structure.ocr.field_grid.type_gate import apply_type_gate, infer_types, quarantine_reason_for_types
-from docmirror.structure.ocr.micro_grid.models import OCRToken
-from docmirror.structure.ocr.micro_grid.reconstruct import dedupe_visual_tokens
+from docmirror.ocr.field_grid.assign import assign_tokens_to_col_bands, cell_bbox
+from docmirror.ocr.field_grid.models import FieldCell
+from docmirror.ocr.field_grid.type_gate import apply_type_gate, infer_types, quarantine_reason_for_types
+from docmirror.ocr.micro_grid.models import OCRToken
+from docmirror.ocr.micro_grid.reconstruct import dedupe_visual_tokens
 
 
 def test_field_grid_type_gate_quarantines_page_footer():
@@ -47,14 +47,14 @@ def test_field_grid_assign_tokens_exclusive():
 
 
 def test_field_grid_reconstruct_exports_from_micro_grid():
-    from docmirror.structure.ocr import field_grid
+    from docmirror.ocr import field_grid
 
     assert hasattr(field_grid, "assign_tokens_to_col_bands")
     assert dedupe_visual_tokens is not None
 
 
 def test_field_grid_semantic_spans_split_mixed_ocr_line():
-    from docmirror.structure.ocr.field_grid.assemble import _extract_semantic_spans, line_has_mixed_semantics
+    from docmirror.ocr.field_grid.assemble import _extract_semantic_spans, line_has_mixed_semantics
 
     text = "2018.08.31（原：重庆市蚂蚁 人民币元20180831J10101172,000"
     assert line_has_mixed_semantics(text)
@@ -66,7 +66,7 @@ def test_field_grid_semantic_spans_split_mixed_ocr_line():
 
 
 def test_field_grid_parse_as_of_date():
-    from docmirror.structure.ocr.field_grid.assemble import parse_as_of_date
+    from docmirror.ocr.field_grid.assemble import parse_as_of_date
 
     assert parse_as_of_date("截至2019年06月21日") == "2019.06.21"
 

@@ -88,7 +88,9 @@ def compute_decay_factor(
     # Clamp to range
     decay = max(DECAY_CONFIG["min_decay"], min(DECAY_CONFIG["max_decay"], decay))
 
-    logger.debug(f"📉 Exponential decay: {low_confidence_words}/{total_words} low-confidence words, ratio={ratio:.2f}, decay={decay:.3f}")
+    logger.debug(
+        f"📉 Exponential decay: {low_confidence_words}/{total_words} low-confidence words, ratio={ratio:.2f}, decay={decay:.3f}"
+    )
 
     return decay
 
@@ -115,7 +117,7 @@ def detect_low_confidence_words(
 
     # Load vocabulary
     if vocabulary is None:
-        from docmirror.structure.utils.vocabulary import KNOWN_HEADER_WORDS
+        from docmirror.layout.vocabulary import KNOWN_HEADER_WORDS
 
         vocabulary = KNOWN_HEADER_WORDS
 
@@ -201,7 +203,7 @@ def _is_low_confidence_word(
                 return True
 
     # 2. Check vocabulary match
-    from docmirror.structure.utils.vocabulary import _normalize_for_vocab
+    from docmirror.layout.vocabulary import _normalize_for_vocab
 
     normalized = _normalize_for_vocab(cell)
     if normalized not in vocabulary:
@@ -217,7 +219,7 @@ def _has_similar_char_error(cell: str, vocabulary: set[str]) -> bool:
         if wrong in cell:
             # Check if in vocabulary after substitution
             corrected = cell.replace(wrong, correct)
-            from docmirror.structure.utils.vocabulary import _normalize_for_vocab
+            from docmirror.layout.vocabulary import _normalize_for_vocab
 
             if _normalize_for_vocab(corrected) in vocabulary:
                 return True

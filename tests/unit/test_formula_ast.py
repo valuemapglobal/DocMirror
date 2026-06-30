@@ -12,7 +12,7 @@ GA F1-F6, F10 coverage:
 from __future__ import annotations
 
 import pytest
-from docmirror.structure.ocr.formula_ast import (
+from docmirror.ocr.formula_ast import (
     ASTNode,
     ASTNodeType,
     LaTeXSymbolTree,

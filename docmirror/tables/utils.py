@@ -23,8 +23,6 @@ from __future__ import annotations
 import bisect
 import logging
 
-from docmirror.structure.utils.text_utils import _is_cjk_char, _smart_join
-
 logger = logging.getLogger(__name__)
 
 
@@ -60,6 +58,7 @@ def _adaptive_row_tolerance(chars: list[dict]) -> float:
 
 def _refine_dense_rows(table, col_boundaries=None, raw_chars=None):
     import re as _re
+
     DATE = _re.compile(r"\d{4}-\d{2}-\d{2}")
     AMT = _re.compile(r"[\d,]+\.\d{2}")
     mod = False
@@ -114,7 +113,6 @@ def _refine_dense_rows(table, col_boundaries=None, raw_chars=None):
                 mod = True
             continue
 
-
         if not col_boundaries or not raw_chars:
             continue
         # Per-column fusion fix (original logic)
@@ -131,14 +129,16 @@ def _refine_dense_rows(table, col_boundaries=None, raw_chars=None):
             tmp = cell
             for dv in reversed(dates):
                 t = tc + sc
-                if t >= len(row): break
+                if t >= len(row):
+                    break
                 if not row[t].strip() and dv in tmp:
                     row[t] = dv
                     tmp = tmp.replace(dv, "", 1)
                     sc += 1
             for av in reversed(amts):
                 t = tc + sc
-                if t >= len(row): break
+                if t >= len(row):
+                    break
                 if not row[t].strip() and av in tmp:
                     row[t] = av
                     tmp = tmp.replace(av, "", 1)

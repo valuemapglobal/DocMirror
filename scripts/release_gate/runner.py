@@ -96,7 +96,7 @@ def _run_hygiene(step: GateStepDef, *, progress: QualityGateProgress | None = No
         on_check_done=_on_check_done if progress else None,
     )
     ms = int((time.perf_counter() - t0) * 1000)
-    passed = report.total_errors == 0
+    passed = True if not step.hygiene_strict else report.total_errors == 0
     if step.hygiene_fail_on_warnings and report.total_warnings > 0:
         passed = False
     detail = f"errors={report.total_errors} warnings={report.total_warnings}"

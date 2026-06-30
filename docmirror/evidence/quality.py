@@ -46,9 +46,7 @@ def build_quality_summary_v2(
 
     # ── Layout fidelity v2 ─────────────────────────────────────────────────
     layout_metrics = obs.get("layout", {})
-    layout_score = layout_metrics.get("score", (
-        1.0 if completeness.get("bbox") in ("block", "token") else 0.5
-    ))
+    layout_score = layout_metrics.get("score", (1.0 if completeness.get("bbox") in ("block", "token") else 0.5))
     layout_status = layout_metrics.get("status", "pass" if layout_score >= 0.90 else "not_measured")
 
     # ── Business fidelity v2 ───────────────────────────────────────────────
@@ -85,7 +83,7 @@ def build_quality_summary_v2(
 
         structure_readiness = {
             "version": document_structure.get("version", 1),
-            "profile": document_structure.get("profile", "legacy"),
+            "profile": document_structure.get("profile", "raw"),
             "node_count": len(nodes),
             "node_types": node_types,
             "edge_count": len(edges),
@@ -167,7 +165,7 @@ def build_quality_summary(
 
         structure_readiness = {
             "version": document_structure.get("version", 1),
-            "profile": document_structure.get("profile", "legacy"),
+            "profile": document_structure.get("profile", "raw"),
             "node_count": len(nodes),
             "node_types": node_types,
             "edge_count": len(edges),

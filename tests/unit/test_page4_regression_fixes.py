@@ -1,17 +1,17 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.structure.ocr.local_structure.utils import line_items
-from docmirror.structure.ocr.page_canvas.page_segment import (
+from docmirror.layout.segment.page_blocks import (
     _first_grid_boundary_y,
     detect_pre_grid_field_supplements,
     grid_anchor_top_from_lines,
     segment_page_blocks,
 )
+from docmirror.ocr.local_structure.utils import line_items
 from docmirror.plugins.credit_report.account_structure import (
+    _account_from_field_grid,
     _find_cell_for_field,
     _index_cells_by_label,
-    _account_from_field_grid,
 )
 
 

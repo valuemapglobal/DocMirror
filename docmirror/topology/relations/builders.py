@@ -33,14 +33,10 @@ def _add_visual_overlay_reference_edges(
 ) -> None:
     overlay_blocks = [block for block in blocks if block.bbox and block.role in {"seal", "signature"}]
     target_blocks = [
-        block
-        for block in blocks
-        if block.bbox and block.type not in {"artifact", "header", "footer", "residual"}
+        block for block in blocks if block.bbox and block.type not in {"artifact", "header", "footer", "residual"}
     ]
     existing = {
-        (edge.from_, edge.to, edge.metadata.get("relation_kind"))
-        for edge in edges
-        if isinstance(edge.metadata, dict)
+        (edge.from_, edge.to, edge.metadata.get("relation_kind")) for edge in edges if isinstance(edge.metadata, dict)
     }
     for overlay in overlay_blocks:
         for target in target_blocks:
@@ -84,15 +80,10 @@ def _add_financial_statement_relation_edges(
         block
         for block in blocks
         if block.type == "table"
-        and (
-            block.role == "financial_statement"
-            or (block.content or {}).get("statement_structure")
-        )
+        and (block.role == "financial_statement" or (block.content or {}).get("statement_structure"))
     ]
     existing = {
-        (edge.from_, edge.to, edge.metadata.get("relation_kind"))
-        for edge in edges
-        if isinstance(edge.metadata, dict)
+        (edge.from_, edge.to, edge.metadata.get("relation_kind")) for edge in edges if isinstance(edge.metadata, dict)
     }
     for table in financial_tables:
         heading = _nearest_prior_heading(table, headings)
@@ -110,7 +101,9 @@ def _add_financial_statement_relation_edges(
                         metadata={
                             "source": "udtr_relation_builder",
                             "relation_kind": "statement_part_of",
-                            "statement_type": ((table.content or {}).get("statement_structure") or {}).get("statement_type", ""),
+                            "statement_type": ((table.content or {}).get("statement_structure") or {}).get(
+                                "statement_type", ""
+                            ),
                         },
                     )
                 )
@@ -125,9 +118,7 @@ def _add_candidate_derivation_edges(
     next_edge: Any,
 ) -> None:
     existing = {
-        (edge.from_, edge.to, edge.metadata.get("relation_kind"))
-        for edge in edges
-        if isinstance(edge.metadata, dict)
+        (edge.from_, edge.to, edge.metadata.get("relation_kind")) for edge in edges if isinstance(edge.metadata, dict)
     }
     for block in blocks:
         candidate_ids = _selected_candidate_ids(block)

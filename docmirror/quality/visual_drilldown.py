@@ -13,17 +13,16 @@ Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md W5-
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Any
 
 from docmirror.quality.observation import (
-    QualityObservationEvent,
-    PageOutcome,
     FidelityLayer,
+    QualityObservationEvent,
 )
 
-
 # ── Drilldown Target ────────────────────────────────────────────────────────
+
 
 @dataclass
 class DrilldownTarget:
@@ -32,23 +31,25 @@ class DrilldownTarget:
     Each target represents a specific page / field / bbox that can be
     visually highlighted in visual_debug.html or a debug viewer.
     """
+
     observation_id: str = ""
     fixture_id: str = ""
     domain: str = ""
-    metric_name: str = ""           # e.g. "amount_accuracy", "reading_order_accuracy"
-    metric_layer: str = ""          # text | layout | business | audit
+    metric_name: str = ""  # e.g. "amount_accuracy", "reading_order_accuracy"
+    metric_layer: str = ""  # text | layout | business | audit
     page_number: int | None = None
-    field_path: str = ""            # e.g. "account_number", "total_amount"
+    field_path: str = ""  # e.g. "account_number", "total_amount"
     bbox: list[float] | None = None  # [x0, y0, x1, y1] in page_pixels
     current_value: float = 0.0
     target_value: float = 0.0
     confidence: float = 0.0
-    severity: str = "warning"       # info | warning | error | critical
+    severity: str = "warning"  # info | warning | error | critical
     evidence_refs: list[str] = field(default_factory=list)
     suggestion: str = ""
 
 
 # ── Drilldown Engine ─────────────────────────────────────────────────────────
+
 
 @dataclass
 class DrilldownSession:
@@ -57,6 +58,7 @@ class DrilldownSession:
     Each observation can produce multiple drilldown targets — one per
     failing metric, mapping to the specific page/field/bbox evidence.
     """
+
     targets: list[DrilldownTarget] = field(default_factory=list)
 
     def add_from_observation(self, event: QualityObservationEvent) -> None:
@@ -86,36 +88,40 @@ class DrilldownSession:
                 bbox = _extract_bbox(layer)
                 field_path = _extract_field_path(metric_name)
 
-                self.targets.append(DrilldownTarget(
-                    observation_id=event.observation_id,
-                    fixture_id=event.input.fixture_id,
-                    domain=event.input.domain,
-                    metric_name=metric_name,
-                    metric_layer=layer_name,
-                    page_number=page_num,
-                    field_path=field_path,
-                    bbox=bbox,
-                    current_value=observed_val,
-                    target_value=target_val,
-                    confidence=observed_val / target_val if target_val > 0 else 0.0,
-                    severity=_severity_from_gap(observed_val, target_val),
-                    evidence_refs=list(layer.evidence_refs),
-                    suggestion=_suggest_remediation(metric_name, layer_name),
-                ))
+                self.targets.append(
+                    DrilldownTarget(
+                        observation_id=event.observation_id,
+                        fixture_id=event.input.fixture_id,
+                        domain=event.input.domain,
+                        metric_name=metric_name,
+                        metric_layer=layer_name,
+                        page_number=page_num,
+                        field_path=field_path,
+                        bbox=bbox,
+                        current_value=observed_val,
+                        target_value=target_val,
+                        confidence=observed_val / target_val if target_val > 0 else 0.0,
+                        severity=_severity_from_gap(observed_val, target_val),
+                        evidence_refs=list(layer.evidence_refs),
+                        suggestion=_suggest_remediation(metric_name, layer_name),
+                    )
+                )
 
         # Also add page-level drilldown for failures
         for page_outcome in event.failure.partial_pages:
             if page_outcome.status != "success":
-                self.targets.append(DrilldownTarget(
-                    observation_id=event.observation_id,
-                    fixture_id=event.input.fixture_id,
-                    domain=event.input.domain,
-                    metric_name="page_outcome",
-                    metric_layer="layout",
-                    page_number=page_outcome.page,
-                    severity="error" if page_outcome.status == "failure" else "warning",
-                    suggestion=f"Page {page_outcome.page}: {page_outcome.error_code or 'unknown error'}",
-                ))
+                self.targets.append(
+                    DrilldownTarget(
+                        observation_id=event.observation_id,
+                        fixture_id=event.input.fixture_id,
+                        domain=event.input.domain,
+                        metric_name="page_outcome",
+                        metric_layer="layout",
+                        page_number=page_outcome.page,
+                        severity="error" if page_outcome.status == "failure" else "warning",
+                        suggestion=f"Page {page_outcome.page}: {page_outcome.error_code or 'unknown error'}",
+                    )
+                )
 
     def by_page(self, page_number: int) -> list[DrilldownTarget]:
         """Return all drilldown targets for a specific page."""
@@ -148,27 +154,26 @@ class DrilldownSession:
                 continue
             if target.page_number not in overlays_by_page:
                 overlays_by_page[target.page_number] = []
-            overlays_by_page[target.page_number].append({
-                "metric": target.metric_name,
-                "layer": target.metric_layer,
-                "field_path": target.field_path,
-                "bbox": target.bbox,
-                "current_value": target.current_value,
-                "target_value": target.target_value,
-                "severity": target.severity,
-                "suggestion": target.suggestion,
-                "evidence_refs": target.evidence_refs,
-            })
+            overlays_by_page[target.page_number].append(
+                {
+                    "metric": target.metric_name,
+                    "layer": target.metric_layer,
+                    "field_path": target.field_path,
+                    "bbox": target.bbox,
+                    "current_value": target.current_value,
+                    "target_value": target.target_value,
+                    "severity": target.severity,
+                    "suggestion": target.suggestion,
+                    "evidence_refs": target.evidence_refs,
+                }
+            )
 
         return {
             "drilldown_version": 1,
             "total_targets": len(self.targets),
             "pages_with_issues": sorted(self.pages_with_issues()),
             "by_page": {str(k): v for k, v in sorted(overlays_by_page.items())},
-            "by_layer": {
-                layer: len(self.by_layer(layer))
-                for layer in ("text", "layout", "business", "audit")
-            },
+            "by_layer": {layer: len(self.by_layer(layer)) for layer in ("text", "layout", "business", "audit")},
         }
 
     def to_summary_dict(self) -> dict[str, Any]:
@@ -176,13 +181,9 @@ class DrilldownSession:
         return {
             "total_drilldown_targets": len(self.targets),
             "pages_with_issues": sorted(self.pages_with_issues()),
-            "targets_by_layer": {
-                layer: len(self.by_layer(layer))
-                for layer in ("text", "layout", "business", "audit")
-            },
+            "targets_by_layer": {layer: len(self.by_layer(layer)) for layer in ("text", "layout", "business", "audit")},
             "targets_by_severity": {
-                sev: len(self.by_severity(sev))
-                for sev in ("info", "warning", "error", "critical")
+                sev: len(self.by_severity(sev)) for sev in ("info", "warning", "error", "critical")
             },
             "top_failing_metrics": _top_failing_metrics(self.targets, limit=10),
         }
@@ -216,7 +217,7 @@ _METRIC_TARGETS: dict[str, float] = {
     "date_field_accuracy": 0.98,
     "account_or_serial_evidence_coverage": 0.95,
     "needs_review_recall_for_low_confidence_fields": 0.95,
-    "cer": 0.05,       # max direction
+    "cer": 0.05,  # max direction
     "char_preservation_rate": 0.95,
     "garbled_ratio": 0.01,  # max direction
     "ocr_confidence_avg": 0.85,
@@ -347,11 +348,8 @@ def _suggest_remediation(metric_name: str, layer: str) -> str:
     return f"Review {layer} fidelity layer configuration"
 
 
-def _top_failing_metrics(
-    targets: list[DrilldownTarget], limit: int = 10
-) -> list[dict[str, Any]]:
+def _top_failing_metrics(targets: list[DrilldownTarget], limit: int = 10) -> list[dict[str, Any]]:
     """Return the top failing metrics sorted by severity."""
-    from collections import Counter
 
     severity_order = {"critical": 0, "error": 1, "warning": 2, "info": 3}
     sorted_targets = sorted(
@@ -369,17 +367,19 @@ def _top_failing_metrics(
         key = f"{t.metric_name}:{t.domain}"
         if key not in seen:
             seen.add(key)
-            top.append({
-                "metric": t.metric_name,
-                "domain": t.domain,
-                "fixture_id": t.fixture_id,
-                "page": t.page_number,
-                "current": t.current_value,
-                "target": t.target_value,
-                "gap": t.target_value - t.current_value,
-                "severity": t.severity,
-                "suggestion": t.suggestion,
-            })
+            top.append(
+                {
+                    "metric": t.metric_name,
+                    "domain": t.domain,
+                    "fixture_id": t.fixture_id,
+                    "page": t.page_number,
+                    "current": t.current_value,
+                    "target": t.target_value,
+                    "gap": t.target_value - t.current_value,
+                    "severity": t.severity,
+                    "suggestion": t.suggestion,
+                }
+            )
             if len(top) >= limit:
                 break
     return top

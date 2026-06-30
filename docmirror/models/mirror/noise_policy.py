@@ -49,26 +49,32 @@ def detect_repeated_noise(
                 continue
 
             if role == "header":
-                header_texts.setdefault(content, []).append({
-                    "page": page_no,
-                    "text": content,
-                    "bbox": text.get("bbox"),
-                    "evidence_ids": text.get("evidence_ids") or [],
-                })
+                header_texts.setdefault(content, []).append(
+                    {
+                        "page": page_no,
+                        "text": content,
+                        "bbox": text.get("bbox"),
+                        "evidence_ids": text.get("evidence_ids") or [],
+                    }
+                )
             elif role == "footer":
-                footer_texts.setdefault(content, []).append({
-                    "page": page_no,
-                    "text": content,
-                    "bbox": text.get("bbox"),
-                    "evidence_ids": text.get("evidence_ids") or [],
-                })
+                footer_texts.setdefault(content, []).append(
+                    {
+                        "page": page_no,
+                        "text": content,
+                        "bbox": text.get("bbox"),
+                        "evidence_ids": text.get("evidence_ids") or [],
+                    }
+                )
             elif role == "watermark":
-                watermark_texts.setdefault(content, []).append({
-                    "page": page_no,
-                    "text": content,
-                    "bbox": text.get("bbox"),
-                    "evidence_ids": text.get("evidence_ids") or [],
-                })
+                watermark_texts.setdefault(content, []).append(
+                    {
+                        "page": page_no,
+                        "text": content,
+                        "bbox": text.get("bbox"),
+                        "evidence_ids": text.get("evidence_ids") or [],
+                    }
+                )
 
     # Repeated noise: same content on multiple pages
     for noise_type, noise_dict in [
@@ -81,16 +87,16 @@ def detect_repeated_noise(
             if len(pages_list) >= 2 or noise_type == "watermark":
                 # Repeated or watermark — suppress in human/rag profiles
                 policy = "excluded_from_markdown"
-                noise_entries.append({
-                    "type": noise_type,
-                    "pages": pages_list,
-                    "policy": policy,
-                    "evidence_refs": list(set(
-                        eid for o in occurrences for eid in o.get("evidence_ids", [])
-                    )),
-                    "text_sample": text_content[:200],
-                    "occurrence_count": len(occurrences),
-                })
+                noise_entries.append(
+                    {
+                        "type": noise_type,
+                        "pages": pages_list,
+                        "policy": policy,
+                        "evidence_refs": list(set(eid for o in occurrences for eid in o.get("evidence_ids", []))),
+                        "text_sample": text_content[:200],
+                        "occurrence_count": len(occurrences),
+                    }
+                )
 
     # Single-occurrence header/footer: only suppress if at page boundary
     for noise_type, noise_dict in [
@@ -104,23 +110,27 @@ def detect_repeated_noise(
                 bbox = occ.get("bbox")
                 # Check if near page top (header) or page bottom (footer)
                 if noise_type == "header" and _is_near_page_top(bbox):
-                    noise_entries.append({
-                        "type": "header",
-                        "pages": pages_list,
-                        "policy": "excluded_from_markdown",
-                        "evidence_refs": occ.get("evidence_ids", []),
-                        "text_sample": text_content[:200],
-                        "occurrence_count": 1,
-                    })
+                    noise_entries.append(
+                        {
+                            "type": "header",
+                            "pages": pages_list,
+                            "policy": "excluded_from_markdown",
+                            "evidence_refs": occ.get("evidence_ids", []),
+                            "text_sample": text_content[:200],
+                            "occurrence_count": 1,
+                        }
+                    )
                 elif noise_type == "footer" and _is_near_page_bottom(bbox):
-                    noise_entries.append({
-                        "type": "footer",
-                        "pages": pages_list,
-                        "policy": "excluded_from_markdown",
-                        "evidence_refs": occ.get("evidence_ids", []),
-                        "text_sample": text_content[:200],
-                        "occurrence_count": 1,
-                    })
+                    noise_entries.append(
+                        {
+                            "type": "footer",
+                            "pages": pages_list,
+                            "policy": "excluded_from_markdown",
+                            "evidence_refs": occ.get("evidence_ids", []),
+                            "text_sample": text_content[:200],
+                            "occurrence_count": 1,
+                        }
+                    )
 
     return noise_entries
 
@@ -149,13 +159,15 @@ def _collect_all_noise(pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             role = str(text.get("mirror_role") or text.get("level") or "").lower()
             if role in ("header", "footer", "watermark"):
-                entries.append({
-                    "type": role,
-                    "pages": [page_no],
-                    "policy": "preserved_for_debug",
-                    "text_sample": str(text.get("content") or "")[:200],
-                    "reason": f"role={role}",
-                })
+                entries.append(
+                    {
+                        "type": role,
+                        "pages": [page_no],
+                        "policy": "preserved_for_debug",
+                        "text_sample": str(text.get("content") or "")[:200],
+                        "reason": f"role={role}",
+                    }
+                )
     return entries
 
 

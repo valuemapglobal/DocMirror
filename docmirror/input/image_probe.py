@@ -12,7 +12,7 @@ invalid images early.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -57,6 +57,7 @@ def probe_image(path: Path, quality_threshold: float = 0.3) -> ImageProbeResult:
         # Try with PIL as fallback
         try:
             from PIL import Image
+
             pil_img = Image.open(path)
             pil_img.verify()
             result.format_name = pil_img.format or ""
@@ -65,6 +66,7 @@ def probe_image(path: Path, quality_threshold: float = 0.3) -> ImageProbeResult:
             pil_img = Image.open(path)
             img_rgb = pil_img.convert("RGB")
             import numpy as np
+
             img = np.array(img_rgb)
             result.channels = 3
         except Exception as e:
@@ -105,6 +107,10 @@ def probe_image(path: Path, quality_threshold: float = 0.3) -> ImageProbeResult:
 
     logger.info(
         "[ImageProbe] %s → status=%s | %dx%d | quality=%.2f",
-        path.name, result.status, result.width, result.height, result.quality_score
+        path.name,
+        result.status,
+        result.width,
+        result.height,
+        result.quality_score,
     )
     return result

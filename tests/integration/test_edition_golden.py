@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Legacy dual-run shim — edition track delegates to TQG edition.yaml."""
+"""Edition regression track delegates to TQG edition.yaml."""
 
 from __future__ import annotations
 

@@ -37,8 +37,8 @@ def handle_diff(
     candidate_dir = Path(candidate_dir)
 
     from docmirror.evidence.diff_canonicalizer import (
-        canonicalize_visual_graph,
         canonicalize_quality_decision,
+        canonicalize_visual_graph,
     )
     from docmirror.evidence.diff_engine import diff_graphs
 
@@ -62,7 +62,8 @@ def handle_diff(
     cand_graph["quality_decision"] = load_quality(candidate_dir)
 
     report = diff_graphs(
-        base_graph, cand_graph,
+        base_graph,
+        cand_graph,
         base_run=str(base_dir.name),
         candidate_run=str(candidate_dir.name),
     )
@@ -106,11 +107,10 @@ def handle_debug_visual(
 
     manifest = _json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    from docmirror.evidence.visual_graph import build_visual_evidence_graph
     from docmirror.evidence.overlay_manifest import build_overlay_manifest
-    from docmirror.evidence.source_span import build_source_span_ledger
     from docmirror.evidence.quality_decision import build_quality_decision
-    from docmirror.server.artifact_pack import _build_visual_debug_html_v3
+    from docmirror.evidence.source_span import build_source_span_ledger
+    from docmirror.evidence.visual_graph import build_visual_evidence_graph
 
     # Rebuild from mirror if available
     mirror_path = task_dir / "001_mirror.json"
@@ -124,13 +124,13 @@ def handle_debug_visual(
         if ep.is_file():
             editions[edition_name] = _json.loads(ep.read_text(encoding="utf-8"))
 
-    graph = build_visual_evidence_graph(result, editions=editions,
-                                         document_id=manifest.get("document_id", ""),
-                                         task_id=manifest.get("task_id", ""))
+    graph = build_visual_evidence_graph(
+        result, editions=editions, document_id=manifest.get("document_id", ""), task_id=manifest.get("task_id", "")
+    )
     overlay = build_overlay_manifest(graph)
-    ledger = build_source_span_ledger(result, editions=editions,
-                                       document_id=manifest.get("document_id", ""),
-                                       task_id=manifest.get("task_id", ""))
+    ledger = build_source_span_ledger(
+        result, editions=editions, document_id=manifest.get("document_id", ""), task_id=manifest.get("task_id", "")
+    )
     quality_dec = build_quality_decision(
         visual_graph=graph,
         source_span_ledger=ledger,
@@ -140,8 +140,10 @@ def handle_debug_visual(
     )
 
     from docmirror.server.artifact_pack import ensure_quickstart_artifact_pack
+
     ensure_quickstart_artifact_pack(
-        task_dir, manifest,
+        task_dir,
+        manifest,
         result=result,
         visual_graph=graph,
         overlay_manifest=overlay,
@@ -180,21 +182,27 @@ def handle_debug_support_bundle(
 
     manifest = _json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    include_sensitive = (profile == "forensic_internal")
     output = Path(output) if output else task_dir / "support_bundle.zip"
 
     with zipfile.ZipFile(str(output), "w", zipfile.ZIP_DEFLATED) as zf:
         # manifest
-        zf.writestr("support_bundle_manifest.json", _json.dumps({
-            "version": 1,
-            "profile": profile,
-            "redaction_safe": profile != "forensic_internal",
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "task_id": manifest.get("task_id", ""),
-            "document_id": manifest.get("document_id", ""),
-            "includes": _build_includes_list(profile),
-            "excludes": _build_excludes_list(profile),
-        }, ensure_ascii=False, indent=2))
+        zf.writestr(
+            "support_bundle_manifest.json",
+            _json.dumps(
+                {
+                    "version": 1,
+                    "profile": profile,
+                    "redaction_safe": profile != "forensic_internal",
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "task_id": manifest.get("task_id", ""),
+                    "document_id": manifest.get("document_id", ""),
+                    "includes": _build_includes_list(profile),
+                    "excludes": _build_excludes_list(profile),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+        )
 
         # Always include: manifest.json, quality_report.json
         for name in ("manifest.json", "quality_report.json", "quality_decision.json"):
@@ -226,11 +234,15 @@ def _add_if_exists(zf: zipfile.ZipFile, task_dir: Path, filename: str) -> None:
 def _build_includes_list(profile: str) -> list[str]:
     base = ["manifest.json", "support_bundle_manifest.json", "quality_report.json"]
     if profile in ("redacted", "evidence_only", "forensic_internal"):
-        base.extend([
-            "visual_evidence_graph.json", "overlay_manifest.json",
-            "source_span_ledger.json", "outcome_ledger.json",
-            "schema_validation.json",
-        ])
+        base.extend(
+            [
+                "visual_evidence_graph.json",
+                "overlay_manifest.json",
+                "source_span_ledger.json",
+                "outcome_ledger.json",
+                "schema_validation.json",
+            ]
+        )
     if profile == "forensic_internal":
         base.extend(["001_mirror.json", "output.md"])
     return base
@@ -275,8 +287,8 @@ td {{ padding: 6px 12px; border-bottom: 1px solid #21262d; font-size: 13px; }}
 <h1>DocMirror Diff Report</h1>
 <p>{base_name} vs {cand_name}</p>
 <div class="summary">
-  <div class="summary-item"><div>Status</div><div class="summary-value status-{report.get("status","")}">{report.get("status","")}</div></div>
-  <div class="summary-item"><div>Total Changes</div><div class="summary-value">{report.get("summary",{}).get("total_changes",0)}</div></div>
+  <div class="summary-item"><div>Status</div><div class="summary-value status-{report.get("status", "")}">{report.get("status", "")}</div></div>
+  <div class="summary-item"><div>Total Changes</div><div class="summary-value">{report.get("summary", {}).get("total_changes", 0)}</div></div>
 </div>
 <table>
 <tr><th>Severity</th><th>Kind</th><th>Node</th><th>Before</th><th>After</th><th>Message</th></tr>

@@ -7,7 +7,7 @@ shape so callers can handle errors with a single code path.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
@@ -23,7 +23,7 @@ class ErrorEnvelope:
         * ``details`` is an open bag for surface-specific metadata.
     """
 
-    code: str                                    # e.g. UNSUPPORTED_FORMAT
+    code: str  # e.g. UNSUPPORTED_FORMAT
     message: str = ""
     recoverable: bool = False
     suggestion: str = ""

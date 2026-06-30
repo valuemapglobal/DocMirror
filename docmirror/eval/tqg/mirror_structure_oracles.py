@@ -129,16 +129,16 @@ def run_mirror_structure_oracle(
                 report.passed = False
                 report.failures.append(f"ltqg_skipped_tables {skipped} < {min_skipped}")
 
-        require_expected_below_legacy = ltqg_spec.get("require_expected_below_legacy")
-        if require_expected_below_legacy:
+        require_expected_below_raw = ltqg_spec.get("require_expected_below_raw")
+        if require_expected_below_raw:
             expected_rows = int(structure.get("ltqg_expected_data_rows") or 0)
-            legacy_max = int(structure.get("ltqg_legacy_max_rows") or 0)
-            ok = legacy_max > 0 and expected_rows < legacy_max
-            report.checks["ltqg_expected_below_legacy"] = ok
-            report.metrics["ltqg_legacy_max_rows"] = legacy_max
+            raw_max = int(structure.get("ltqg_raw_max_rows") or 0)
+            ok = raw_max > 0 and expected_rows < raw_max
+            report.checks["ltqg_expected_below_raw"] = ok
+            report.metrics["ltqg_raw_max_rows"] = raw_max
             if not ok:
                 report.passed = False
-                report.failures.append(f"ltqg expected {expected_rows} not below legacy_max {legacy_max}")
+                report.failures.append(f"ltqg expected {expected_rows} not below raw_max {raw_max}")
 
         min_export = ltqg_spec.get("min_export_logical_tables")
         if min_export is not None:

@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any
 
 from docmirror.input.adapters.parsers.protocol import (
-    ParserBackend,
     ParserCapability,
     RawImage,
     RawKeyValue,
@@ -44,6 +43,7 @@ class PyMuPDFBackend:
     def version(self) -> str:
         try:
             import fitz
+
             return fitz.version[0] if hasattr(fitz, "version") else "unknown"
         except ImportError:
             return "not_installed"
@@ -162,9 +162,7 @@ class PyMuPDFBackend:
                     order += 1
         return texts
 
-    def _extract_tables(
-        self, text_dict: dict[str, Any], page_num: int
-    ) -> list[RawTable]:
+    def _extract_tables(self, text_dict: dict[str, Any], page_num: int) -> list[RawTable]:
         """Attempt to extract tables (placeholder — full extraction via RapidTable)."""
         return []
 

@@ -24,12 +24,17 @@ def test_orchestrator_standard_fixed_layout_chain():
     orch = Orchestrator()
     mws = orch._build_middlewares("standard", "pdf", "fixed_layout_rasterizable", _minimal_result())
     names = [type(m).__name__ for m in mws]
-    assert names == [
+    for required in [
         "EntityExtractor",
+        "GeometricReconstructor",
         "EvidenceEngine",
         "InstitutionDetector",
         "Validator",
-    ]
+        "LlmDocumentRestorer",
+    ]:
+        assert required in names
+    assert names.index("EntityExtractor") < names.index("EvidenceEngine")
+    assert names.index("EvidenceEngine") < names.index("Validator")
 
 
 def test_orchestrator_full_skips_tuh_without_tables(monkeypatch):

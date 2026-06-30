@@ -8,8 +8,7 @@ Parses layouts where date, expense, income, and balance share one or few merged
 header/cells (common in certain regional bank exports). Uses ``row_pair_merge`` for
 multiline continuation rows.
 
-Pipeline role: registered as ``compact_merged`` in ``style_registry``; also re-exported
-via deprecated ``_base.bank_compact_parser`` shim.
+Pipeline role: registered as ``compact_merged`` in ``style_registry``.
 
 Key exports: ``PARSER_ID``, ``STYLE_ID``, ``is_compact_ledger_header``,
 ``parse_compact_ledger_cell``, ``table_has_compact_ledger``, ``extract_transactions``.

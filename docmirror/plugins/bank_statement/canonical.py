@@ -30,6 +30,7 @@ CANONICAL_FIELDS = (
     "balance",
     "counter_party",
     "counter_account",
+    "counterparty_status",
     "reference",
 )
 
@@ -99,10 +100,12 @@ def build_style_meta(
     )
 
     canonical_expected = canonical_expected_from_parse_result(parse_result)
-    if canonical_expected > 0:
+    if source in ("stacked_text", "native_wide_table", "ocr_implicit_table") and record_count > 0:
+        expected = record_count
+    elif canonical_expected > 0:
         expected = canonical_expected
     elif parse_result is not None and source in ("mirror_table", ""):
-        from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows
+        from docmirror.evidence.spe_consumer import mirror_expected_primary_rows
 
         mirror_expected = mirror_expected_primary_rows(parse_result)
         if mirror_expected > 0:
@@ -183,6 +186,10 @@ def ensure_canonical_normalized(normalized: dict[str, Any], standard_fields: lis
         out["amount_cny"] = out.get("amount")
     if "direction" not in out:
         out["direction"] = "other"
+    if not str(out.get("counterparty_status") or "").strip():
+        counter_party = str(out.get("counter_party") or "").strip()
+        counter_account = str(out.get("counter_account") or "").strip()
+        out["counterparty_status"] = "present" if counter_party or counter_account else "source_null"
     return out
 
 
@@ -192,6 +199,8 @@ def records_from_raw_transactions(
     normalize_fn,
     style_id: str,
 ) -> list[dict[str, Any]]:
+    from docmirror.plugins._base.base_table_parser import public_record_raw
+
     records: list[dict[str, Any]] = []
     for idx, raw_txn in enumerate(transactions, start=1):
         raw = dict(raw_txn)
@@ -200,7 +209,7 @@ def records_from_raw_transactions(
         records.append(
             {
                 "row_index": idx,
-                "raw": raw,
+                "raw": public_record_raw(raw),
                 "normalized": normalized,
             }
         )

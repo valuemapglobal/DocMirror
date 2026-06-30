@@ -13,15 +13,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import uuid
 from pathlib import Path
 from typing import Any
 
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.input.entry.options import normalize_parse_control
-from docmirror.sdk.integration.request import ParseRequest
 from docmirror.sdk.integration.errors import ErrorEnvelope
-from docmirror.sdk.integration.observability import ObservabilityContext, build_observability_context
+from docmirror.sdk.integration.observability import build_observability_context
 from docmirror.server.edition_outputs import write_four_files
 from docmirror.server.task_result import TaskResult, task_result_from_manifest
 
@@ -43,9 +41,8 @@ def _run_async(coro):
     return loop.run_until_complete(coro)
 
 
+# ── Async task helper ──
 
-
-# ── Backward-compatible parse_to_task helper ──
 
 async def parse_to_task(
     file_path: str | Path,
@@ -54,10 +51,7 @@ async def parse_to_task(
     options: PerceiveOptions | None = None,
     editions: tuple[str, ...] | None = None,
 ) -> TaskResult:
-    """Legacy helper — prefer ``DocMirrorClient.parse()``.
-    
-    One-shot async parse that writes artifacts and returns a TaskResult.
-    """
+    """One-shot async parse that writes artifacts and returns a ``TaskResult``."""
     result = await perceive_document(file_path, options or PerceiveOptions())
     mirror = result.mirror if hasattr(result, "mirror") else result
     task_id, _written = write_four_files(
@@ -110,16 +104,18 @@ class DocMirrorClient:
         Returns:
             TaskResult with task_id, status, artifacts, errors, and observability.
         """
-        return _run_async(self._parse_async(
-            file_path,
-            profile=profile,
-            mode=mode,
-            formats=formats,
-            editions=editions,
-            pages=pages,
-            doc_type=doc_type,
-            raise_on_error=raise_on_error,
-        ))
+        return _run_async(
+            self._parse_async(
+                file_path,
+                profile=profile,
+                mode=mode,
+                formats=formats,
+                editions=editions,
+                pages=pages,
+                doc_type=doc_type,
+                raise_on_error=raise_on_error,
+            )
+        )
 
     async def _parse_async(
         self,

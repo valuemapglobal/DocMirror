@@ -26,6 +26,7 @@ mime_map:
   application/x-rar: archive_zip
   application/ofd: ofd_native
   application/vnd.ofd: ofd_native
+  image/webp: image_raster
 
 capabilities:
   # ── P0: fixed layout ──
@@ -49,13 +50,10 @@ capabilities:
   - id: image_raster
     transport: image
     content_model: fixed_layout_rasterizable
-    extensions: [.png, .jpg, .jpeg, .tiff, .tif, .bmp]
+    extensions: [.png, .jpg, .jpeg, .tiff, .tif, .bmp, .webp]
     mime_prefix: image/
     binding:
-      adapter: docmirror.input.adapters.PDFAdapter
-      fallback:
-        adapter: docmirror.input.adapters.ImageAdapter
-        when: primary_empty
+      adapter: docmirror.input.adapters.ImageAdapter
     status: supported
 
   - id: ofd_native
@@ -75,7 +73,7 @@ capabilities:
       adapter: docmirror.input.adapters.WordAdapter
     status: supported
 
-  - id: word_legacy_doc
+  - id: word_doc_binary
     transport: word
     content_model: markup_narrative
     extensions: [.doc]
@@ -138,7 +136,7 @@ capabilities:
       adapter: docmirror.input.adapters.PPTAdapter
     status: supported
 
-  - id: ppt_legacy
+  - id: ppt_binary
     transport: ppt
     content_model: markup_narrative
     extensions: [.ppt]

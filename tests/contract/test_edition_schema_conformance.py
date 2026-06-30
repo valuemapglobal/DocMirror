@@ -192,7 +192,7 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
     if not doc.get("document_name"):
         errors.append("[C18] document.document_name 不应为空")
 
-    # 12. plugins block exists (backward compat)
+    # 12. plugins block exists (edition contract stability)
     plugins = schema.get("plugins", {})
     matched_type = cls.get("matched_document_type", "")
     if matched_type and matched_type not in plugins:
@@ -849,7 +849,6 @@ def _collect_results(paths: list[str]) -> list[dict]:
             results.append(check_file(str(p)))
     return results
 
-
 # pytest test case
 import pytest
 
@@ -858,13 +857,10 @@ pytestmark = [pytest.mark.tier_contract]
 
 @pytest.fixture(scope="session")
 def latest_output_dir():
-    """Auto-discover the latest output or /tmp/test_fix_v8 sub-directory."""
-    # Prefer fixed test directory
-    for test_dir in [Path("/tmp/test_fix_v8"), Path("output")]:
-        if test_dir.is_dir():
-            dirs = sorted(test_dir.iterdir(), key=lambda d: d.name, reverse=True)
-            if dirs:
-                return str(dirs[0])
+    """Return an explicitly requested edition output directory."""
+    output_dir = os.environ.get("DOCMIRROR_EDITION_OUTPUT_DIR")
+    if output_dir and Path(output_dir).is_dir():
+        return output_dir
     return None
 
 

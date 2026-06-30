@@ -43,7 +43,7 @@ class LayoutProfileMatchRules(BaseModel):
 
 
 class InstitutionVariant(BaseModel):
-    """Per-bank template overrides (migrated from legacy hints.yaml)."""
+    """Per-bank template overrides (migrated from raw hints.yaml)."""
 
     id: str
     display_name: str = ""
@@ -60,7 +60,7 @@ class LayoutProfile(BaseModel):
     inherits: str | None = None
     strategy: str | None = Field(
         default=None,
-        description="Deprecated informational hint only; SSO/profile binding is the routing authority.",
+        description="Informational hint only; SSO/profile binding is the routing authority.",
     )
 
     sidebar_x_ratio: float | None = None

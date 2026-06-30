@@ -29,7 +29,7 @@ class PerceiveResult:
     ``mirror`` is the frozen Mirror ``ParseResult`` (safe for ``001_mirror.json``).
     ``editions`` holds optional PEC outputs keyed by edition name.
 
-    Attribute access delegates to ``mirror`` for backward compatibility
+    Attribute access delegates to ``mirror`` for public result API stability
     (``result.full_text``, ``result.page_count``, etc.).
     """
 

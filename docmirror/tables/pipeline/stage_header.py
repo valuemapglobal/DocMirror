@@ -19,8 +19,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from docmirror.structure.utils.text_utils import normalize_table as normalize_table_rows
-from docmirror.structure.utils.vocabulary import (
+from docmirror.layout.text_utils import normalize_table as normalize_table_rows
+from docmirror.layout.vocabulary import (
     _is_data_row,
     _is_header_row,
     _score_header_by_vocabulary,

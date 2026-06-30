@@ -61,7 +61,7 @@ def test_fallback_event_schema():
 
 def test_vlm_gateway_tracks_fallback():
     """DRC-W5-01: VLM gateway tracks fallback events for manifest."""
-    from docmirror.structure.ocr.vlm_gateway import _gateway
+    from docmirror.ocr.vlm_gateway import _gateway
 
     assert hasattr(_gateway, "collect_fallbacks")
     assert hasattr(_gateway, "_track_fallback")

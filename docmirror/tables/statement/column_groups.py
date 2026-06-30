@@ -110,10 +110,7 @@ def _single_column_equity_groups(columns: list[dict[str, Any]]) -> list[dict[str
 
 
 def _column_ids(columns: list[dict[str, Any]], start: int, end: int) -> list[str]:
-    return [
-        str(columns[idx].get("id") or f"col:{idx}")
-        for idx in range(max(start, 0), min(end + 1, len(columns)))
-    ]
+    return [str(columns[idx].get("id") or f"col:{idx}") for idx in range(max(start, 0), min(end + 1, len(columns)))]
 
 
 def _dedupe_groups(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:

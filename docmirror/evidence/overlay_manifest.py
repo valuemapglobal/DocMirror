@@ -20,8 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from docmirror.models.visual_evidence import VisualEvidenceGraph, VisualNode
-
+from docmirror.models.visual_evidence import VisualEvidenceGraph
 
 # ── Layer taxonomy ───────────────────────────────────────────────────
 
@@ -122,21 +121,23 @@ def build_overlay_manifest(graph: VisualEvidenceGraph) -> dict[str, Any]:
         if node.edition:
             tooltip_parts.append(f"edition={node.edition}")
 
-        overlays.append({
-            "node_id": node_id,
-            "layer": layer,
-            "page": node.page,
-            "bbox": node.bbox,
-            "page_width": page_dims.get(node.page, (595.0, 842.0))[0],
-            "page_height": page_dims.get(node.page, (595.0, 842.0))[1],
-            "style": style,
-            "label": node.label[:60] if node.label else "",
-            "tooltip": " ".join(tooltip_parts),
-            "confidence": node.confidence,
-            "review": node.review,
-            "kind": node.kind,
-            "field_path": node.field_path,
-        })
+        overlays.append(
+            {
+                "node_id": node_id,
+                "layer": layer,
+                "page": node.page,
+                "bbox": node.bbox,
+                "page_width": page_dims.get(node.page, (595.0, 842.0))[0],
+                "page_height": page_dims.get(node.page, (595.0, 842.0))[1],
+                "style": style,
+                "label": node.label[:60] if node.label else "",
+                "tooltip": " ".join(tooltip_parts),
+                "confidence": node.confidence,
+                "review": node.review,
+                "kind": node.kind,
+                "field_path": node.field_path,
+            }
+        )
 
     # ── Group by page and layer for the summary ──
     by_layer: dict[str, int] = {}

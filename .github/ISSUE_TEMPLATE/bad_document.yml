@@ -1,0 +1,115 @@
+name: Redacted Bad Document / Diagnostic Bundle
+description: Share a parsing failure, redacted sample, or diagnostic artifact so DocMirror can improve visibly
+title: "[Bad Document]: "
+labels: ["bad-document", "triage", "fixture-candidate"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve DocMirror's trust layer.
+
+        Please do not upload sensitive, private, regulated, or customer-owned documents unless you have the right to share them. Prefer a redacted sample, synthetic reproduction, or diagnostic bundle generated from non-sensitive data.
+
+  - type: input
+    id: version
+    attributes:
+      label: DocMirror version
+      description: Run `docmirror --version` or describe the branch/commit.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: document_type
+    attributes:
+      label: Document type
+      description: Which commercial document class is affected?
+      options:
+        - Bank statement
+        - Invoice / receipt
+        - Payment record
+        - Business license / identity proof
+        - Tax form
+        - Contract / obligation document
+        - Credit report
+        - Office document
+        - Other / unknown
+    validations:
+      required: true
+
+  - type: dropdown
+    id: input_format
+    attributes:
+      label: Input format
+      options:
+        - Digital PDF
+        - Scanned PDF
+        - Image
+        - DOCX
+        - XLSX
+        - PPTX
+        - Email / web archive
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or API call
+      description: Include the exact command, options, or minimal Python snippet.
+      render: shell
+      placeholder: |
+        docmirror parse sample.pdf --format json,markdown,chunks --debug-artifact --output-dir ./output
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: What went wrong?
+      description: Be specific about missing fields, wrong bbox, table structure, reading order, confidence, or review status.
+      placeholder: "The total_amount field was extracted from the wrong column and was not marked needs_review."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected trusted output
+      description: What should DocMirror have extracted or flagged?
+      placeholder: "Expected total_amount=12842.50 with a source_ref on page 1 and needs_review=true."
+    validations:
+      required: true
+
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Artifacts you can share
+      description: Attach redacted files, a synthetic reproduction, or selected artifact snippets.
+      placeholder: |
+        - Redacted sample PDF:
+        - 001_mirror.json:
+        - 005_evidence_bundle.json:
+        - quality_report.json:
+        - visual_debug.html screenshot:
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy and sharing confirmation
+      options:
+        - label: I have removed or masked personal, customer, financial-account, credential, and regulated data from shared artifacts.
+          required: true
+        - label: I have permission to share the attached sample or artifact snippets in this issue.
+          required: true
+        - label: The issue can be used as a fixture candidate if the maintainers further sanitize it.
+          required: false
+
+  - type: checkboxes
+    id: conduct
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct.
+          required: true

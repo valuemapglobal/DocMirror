@@ -23,8 +23,9 @@ def test_resolve_pdf_capability():
 def test_resolve_image_capability():
     cap = resolve_capability(Path("scan.png"))
     assert cap.transport == "image"
+    assert cap.status == "supported"
     assert cap.binding is not None
-    assert cap.binding.fallback is not None
+    assert cap.binding.adapter == "docmirror.input.adapters.ImageAdapter"
 
 
 def test_wps_unsupported():
@@ -67,7 +68,7 @@ async def test_dispatcher_rejects_wps(tmp_path):
 
 @pytest.mark.asyncio
 async def test_dispatcher_doc_without_soffice_returns_converter_error(tmp_path):
-    doc = tmp_path / "legacy.doc"
+    doc = tmp_path / "raw.doc"
     doc.write_bytes(b"\xd0\xcf\x11\xe0")
     from unittest.mock import patch
 

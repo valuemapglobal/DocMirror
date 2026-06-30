@@ -18,6 +18,7 @@ Key exports: ``LicenseFile``, ``OfflineLicenseManager``, ``offline_license_manag
 
 Dependencies: stdlib crypto helpers (hash/base64), local filesystem for ``.lic`` paths.
 """
+
 from __future__ import annotations
 
 import base64
@@ -327,7 +328,8 @@ class OfflineLicenseManager:
 
     # Embedded RSA public key — issued by ValueMap Global.
     # Do not replace this key; licenses signed with a different key will fail verification.
-    _PUBLIC_KEY_PEM = """-----BEGIN PUBLIC KEY-----
+    _PUBLIC_KEY_PEM = (
+        """-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvVg39rHLs+iCwx7D7yCf
 Y4+kFNWQYEBOq6OwyD8VVloyhCSSJlDgfv8/QzO5beyBkaPZXn6DApoGr49JehOj
 8yOBCwlSqUUIe2mIU8MnStwsQ62MTP8TBmXcE8YSbY4P7/uwMgcTYr9sHu8jignu
@@ -335,7 +337,9 @@ ORITKoFw6T5Vu6U9/aQ4ehdloHW2D79taNHYtnP0Z7vOsp+832XTHDSq1wietRnY
 CAHs5hoipKG7xdK5rxYEbQnZxvBkG/Qj66NPbvL9n3FsssAFw2yDnsTN23Z6glKo
 /QIh1d14m9GHlz5/82yFSzKU+4k0bV2aLRiX7fu+qw3/0VO3vpLa0FikSqVSvras
 /QIDAQAB
------END PUBLIC KEY-----"""""
+-----END PUBLIC KEY-----"""
+        ""
+    )
 
     def _verify_signature(self, data: dict[str, Any]) -> bool:
         """Verify license file signature using RSA-SHA256.
@@ -397,7 +401,6 @@ CAHs5hoipKG7xdK5rxYEbQnZxvBkG/Qj66NPbvL9n3FsssAFw2yDnsTN23Z6glKo
 
         return community_free_domains()
 
-
     def _online_check(self, server_url: str) -> bool | None:
         """Optional online license verification.
 
@@ -421,20 +424,17 @@ CAHs5hoipKG7xdK5rxYEbQnZxvBkG/Qj66NPbvL9n3FsssAFw2yDnsTN23Z6glKo
                 pass
 
         # ── Build request ──
-        license_ids = [
-            lic.license_info.get("license_id", "")
-            for lic in self._licenses
-        ]
+        license_ids = [lic.license_info.get("license_id", "") for lic in self._licenses]
         request = {
             "license_ids": license_ids,
-            "machine_id": (self._licenses[0]._get_current_machine_id()
-                           if self._licenses else ""),
+            "machine_id": (self._licenses[0]._get_current_machine_id() if self._licenses else ""),
             "client_version": self._get_own_version(),
         }
 
         # ── Call server (3s timeout, non-blocking) ──
         try:
             import requests as _req
+
             resp = _req.post(
                 server_url.rstrip("/") + "/v1/license/check",
                 json=request,
@@ -475,6 +475,7 @@ CAHs5hoipKG7xdK5rxYEbQnZxvBkG/Qj66NPbvL9n3FsssAFw2yDnsTN23Z6glKo
     def _get_own_version() -> str:
         try:
             from docmirror import __version__
+
             return __version__
         except ImportError:
             return "unknown"

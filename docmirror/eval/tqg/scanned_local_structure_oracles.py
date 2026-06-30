@@ -8,23 +8,32 @@ from __future__ import annotations
 from typing import Any
 
 from docmirror.eval.tqg.report import GateReport
-from docmirror.models.mirror.page_access import field_grid_structures_from_document, iter_all_regions
+from docmirror.models.mirror.vnext_access import iter_regions, iter_structures
 
 
 def _doc_and_domain(mirror_or_api: Any) -> tuple[dict[str, Any], dict[str, Any]]:
     if hasattr(mirror_or_api, "to_mirror_json_vnext"):
         api = mirror_or_api.to_mirror_json_vnext()
-        doc = (api.get("document") or {}) if isinstance(api, dict) else {}
+        doc = api if isinstance(api, dict) else {}
         entities = getattr(mirror_or_api, "entities", None)
         domain_specific = getattr(entities, "domain_specific", None) if entities is not None else None
         return doc, domain_specific if isinstance(domain_specific, dict) else {}
     if isinstance(mirror_or_api, dict):
-        if isinstance(mirror_or_api.get("document"), dict):
+        if mirror_or_api.get("pages"):
+            return mirror_or_api, {}
+        if isinstance(mirror_or_api.get("document"), dict) and mirror_or_api["document"].get("pages"):
             return mirror_or_api["document"], {}
         doc = ((mirror_or_api.get("data") or {}).get("document") or {}) if isinstance(mirror_or_api, dict) else {}
         domain = ((mirror_or_api.get("data") or {}).get("properties") or {}) if isinstance(mirror_or_api, dict) else {}
         return doc, domain if isinstance(domain, dict) else {}
     return {}, {}
+
+
+def _field_grid_structures(doc: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        *iter_structures(doc, kind="field_grid"),
+        *iter_structures(doc, kind="label_value_graph"),
+    ]
 
 
 def run_scanned_local_structure_oracle(
@@ -41,7 +50,7 @@ def run_scanned_local_structure_oracle(
 
     min_structures = int(spec.get("min_local_structures", 0) or 0)
     if min_structures:
-        count = len(field_grid_structures_from_document(doc))
+        count = len(_field_grid_structures(doc))
         ok = count >= min_structures
         report.checks["scanned_local_structure_min_structures"] = ok
         report.metrics["local_structure_count"] = count
@@ -89,10 +98,10 @@ def run_scanned_local_structure_oracle(
     prefer_kind = spec.get("prefer_structure_kind")
     if prefer_kind:
         kinds: set[str] = set()
-        for structure in field_grid_structures_from_document(doc):
+        for structure in _field_grid_structures(doc):
             if isinstance(structure, dict) and structure.get("structure_kind"):
                 kinds.add(str(structure.get("structure_kind")))
-        for region in iter_all_regions(doc):
+        for region in iter_regions(doc):
             structure = region.get("structure") or {}
             if isinstance(structure, dict) and structure.get("structure_kind"):
                 kinds.add(str(structure.get("structure_kind")))

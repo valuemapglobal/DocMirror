@@ -28,9 +28,7 @@ from pathlib import Path
 import filetype
 
 from docmirror.configs.format.models import UNKNOWN_CAPABILITY, FormatCapability
-from docmirror.configs.format.resolver import detect_transport, get_capability_by_transport, resolve_capability
-from docmirror.input.entry.options import ParseControl, normalize_parse_control
-from docmirror.input.pipeline.context import ParseContext
+from docmirror.configs.format.resolver import get_capability_by_transport, resolve_capability
 from docmirror.framework.base import BaseParser
 from docmirror.framework.execution_fingerprint import build_execution_fingerprint
 from docmirror.framework.extraction_runner import (
@@ -38,6 +36,8 @@ from docmirror.framework.extraction_runner import (
     instantiate_adapter,
     run_extraction_chain,
 )
+from docmirror.input.entry.options import ParseControl, normalize_parse_control
+from docmirror.input.pipeline.context import ParseContext
 from docmirror.models.entities.parse_result import ParseResult
 
 logger = logging.getLogger(__name__)
@@ -92,11 +92,6 @@ def get_parser(file_type: str, enhance_mode: str = "standard") -> BaseParser | N
         enhance_mode=enhance_mode,
         transport=file_type,
     )
-
-
-def detect_file_type(path: Path, known_mime: str = "") -> str:
-    """Backward-compatible alias — returns transport string."""
-    return detect_transport(path, known_mime)
 
 
 def compute_checksum(path: Path) -> str:
@@ -243,6 +238,7 @@ class ParserDispatcher:
         perceive_ctx["doc_type_hint_strength"] = (
             parse_control.doc_type_hint.strength if parse_control.doc_type_hint else None
         )
+        perceive_ctx["document_type"] = document_type
         perceive_ctx["on_progress"] = on_progress
 
         # ── Cache Lookup ──

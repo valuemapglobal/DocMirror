@@ -15,11 +15,10 @@ import pytest
 
 from docmirror.configs.format.loader import load_format_registry
 from docmirror.configs.format.resolver import resolve_capability
-from docmirror.models.errors import DocMirrorErrorCode, get_error_meta
 from docmirror.input.acceptance import check_input_acceptance
-from docmirror.input.pdf_probe import probe_pdf
 from docmirror.input.image_probe import probe_image
-
+from docmirror.input.pdf_probe import probe_pdf
+from docmirror.models.errors import DocMirrorErrorCode, get_error_meta
 
 # ── INP-01: WebP FCR / Support Matrix ──
 
@@ -33,6 +32,8 @@ def test_webp_resolver():
     cap = resolve_capability(Path("scan.webp"), "image/webp")
     assert cap.id == "image_raster", f"WebP should resolve to image_raster, got {cap.id}"
     assert cap.status == "supported", f"WebP should be supported, got {cap.status}"
+    assert cap.binding is not None
+    assert cap.binding.adapter == "docmirror.input.adapters.ImageAdapter"
 
 
 # ── INP-02: PDF encrypted/damaged ──

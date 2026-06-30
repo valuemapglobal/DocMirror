@@ -70,9 +70,7 @@ class FailureCodeRegistry:
 
         yaml_path = Path(__file__).resolve().parent / "yaml" / "failure_codes.yaml"
         if not yaml_path.exists():
-            raise FileNotFoundError(
-                f"Failure code registry YAML not found: {yaml_path}"
-            )
+            raise FileNotFoundError(f"Failure code registry YAML not found: {yaml_path}")
 
         raw: dict[str, dict[str, Any]] = yaml.safe_load(yaml_path.read_text("utf-8")) or {}
 
@@ -155,6 +153,7 @@ registry = FailureCodeRegistry()
 
 
 # ── convenience helpers ───────────────────────────────────────────
+
 
 def get_error_entry(code: str) -> FailureCodeEntry | None:
     """Convenience: look up a code with auto-load."""

@@ -54,9 +54,13 @@ class KindFilteredRegionCandidateProducer:
 
 def default_region_candidate_producers() -> list[RegionCandidateProducer]:
     return [
-        KindFilteredRegionCandidateProducer("text_region_candidate_producer", frozenset({"text", "heading", "header", "footer", "footnote"})),
+        KindFilteredRegionCandidateProducer(
+            "text_region_candidate_producer", frozenset({"text", "heading", "header", "footer", "footnote"})
+        ),
         KindFilteredRegionCandidateProducer("table_region_candidate_producer", frozenset({"table_like"})),
-        KindFilteredRegionCandidateProducer("visual_region_candidate_producer", frozenset({"figure", "image", "seal", "signature"})),
+        KindFilteredRegionCandidateProducer(
+            "visual_region_candidate_producer", frozenset({"figure", "image", "seal", "signature"})
+        ),
         KindFilteredRegionCandidateProducer("residual_region_candidate_producer", frozenset({"residual", "unknown"})),
     ]
 
@@ -156,7 +160,9 @@ def merge_equivalent_candidates(
             {
                 "candidate_id": loser.candidate_id,
                 "candidate_region_id": loser.selected_region_id,
-                "source_region_ids": list(loser.source_region_ids or ([loser.selected_region_id] if loser.selected_region_id else [])),
+                "source_region_ids": list(
+                    loser.source_region_ids or ([loser.selected_region_id] if loser.selected_region_id else [])
+                ),
                 "reason": "merged_duplicate_candidate",
                 "winner_candidate_id": winner.candidate_id,
                 "winner_region_id": winner.selected_region_id,
@@ -164,12 +170,16 @@ def merge_equivalent_candidates(
             }
         )
 
-    return kept, rejected, {
-        "merged_candidate_count": merge_count,
-        "candidate_count_before_merge": len(candidate_list),
-        "candidate_count_after_merge": len(kept),
-        "candidate_merge_iou_threshold": iou_threshold,
-    }
+    return (
+        kept,
+        rejected,
+        {
+            "merged_candidate_count": merge_count,
+            "candidate_count_before_merge": len(candidate_list),
+            "candidate_count_after_merge": len(kept),
+            "candidate_merge_iou_threshold": iou_threshold,
+        },
+    )
 
 
 def _find_merge_target(
@@ -204,23 +214,29 @@ def _merge_pair(
             *([loser.selected_region_id] if loser.selected_region_id else []),
         ]
     )
-    merged_ids = _unique([
-        *winner.merged_candidate_ids,
-        *loser.merged_candidate_ids,
-        loser.candidate_id,
-    ])
-    detectors = _unique([
-        *(str(value) for value in winner.features.get("merged_detector_ids", []) if value),
-        *(str(value) for value in loser.features.get("merged_detector_ids", []) if value),
-        winner.detector,
-        loser.detector,
-    ])
-    producer_ids = _unique([
-        *(str(value) for value in winner.features.get("merged_producer_ids", []) if value),
-        *(str(value) for value in loser.features.get("merged_producer_ids", []) if value),
-        str(winner.features.get("producer_id") or ""),
-        str(loser.features.get("producer_id") or ""),
-    ])
+    merged_ids = _unique(
+        [
+            *winner.merged_candidate_ids,
+            *loser.merged_candidate_ids,
+            loser.candidate_id,
+        ]
+    )
+    detectors = _unique(
+        [
+            *(str(value) for value in winner.features.get("merged_detector_ids", []) if value),
+            *(str(value) for value in loser.features.get("merged_detector_ids", []) if value),
+            winner.detector,
+            loser.detector,
+        ]
+    )
+    producer_ids = _unique(
+        [
+            *(str(value) for value in winner.features.get("merged_producer_ids", []) if value),
+            *(str(value) for value in loser.features.get("merged_producer_ids", []) if value),
+            str(winner.features.get("producer_id") or ""),
+            str(loser.features.get("producer_id") or ""),
+        ]
+    )
     return replace(
         winner,
         bbox=_union_bbox([winner.bbox, loser.bbox]),

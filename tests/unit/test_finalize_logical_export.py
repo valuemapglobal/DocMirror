@@ -1,14 +1,14 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""LTQG finalize export path and legacy_max with physical quarantine."""
+"""LTQG finalize export path and raw_max with physical quarantine."""
 
 from __future__ import annotations
 
 from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, RowType, TableRow
-from docmirror.structure.analysis.mirror_ltqg import attach_mirror_ltqg
-from docmirror.structure.analysis.spe_consumer import mirror_api_meta_fields
-from docmirror.structure.tables.compose.ledger_quality import (
+from docmirror.quality.mirror_ltqg import attach_mirror_ltqg
+from docmirror.evidence.spe_consumer import mirror_api_meta_fields
+from docmirror.tables.compose.ledger_quality import (
     apply_ltqg,
     finalize_logical_tables_for_export,
 )
@@ -25,7 +25,7 @@ def _bank_profile():
     return _Profile()
 
 
-def test_legacy_max_includes_quarantined_physical_rows():
+def test_raw_max_includes_quarantined_physical_rows():
     good = LogicalTable(
         headers=["交易日期", "摘要", "余额"],
         rows=[TableRow(cells=[CellValue(text="2024-01-01")], row_type=RowType.DATA)],
@@ -37,7 +37,7 @@ def test_legacy_max_includes_quarantined_physical_rows():
         profile=_bank_profile(),
         quarantined_tables=[{"page": 4, "row_count": 120, "reason": "col_count_mismatch"}],
     )
-    assert summary.legacy_max_rows == 120
+    assert summary.raw_max_rows == 120
 
 
 def test_finalize_export_partitions_failed_tables():

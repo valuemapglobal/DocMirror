@@ -20,14 +20,14 @@ import logging
 import re
 from typing import Any
 
-from docmirror.structure.utils.text_utils import (
+from docmirror.layout.text_utils import (
     _RE_DATE_COMPACT,
     _RE_DATE_HYPHEN,
     _RE_ONLY_CJK,
     _RE_TIME,
     parse_amount,
 )
-from docmirror.structure.utils.vocabulary import (
+from docmirror.layout.vocabulary import (
     _is_junk_row,
     _normalize_for_vocab,
 )

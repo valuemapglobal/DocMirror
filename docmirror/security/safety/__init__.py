@@ -21,10 +21,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from docmirror.security.safety.hidden_text import HiddenTextDetector, HiddenTextFlag
-from docmirror.security.safety.zero_width import ZeroWidthDetector, ZeroWidthFlag
-from docmirror.security.safety.injection import InjectionDetector, InjectionResult
 from docmirror.security.safety.aggregator import SafetyAggregator, SafetyReport, SafetyStrictness
+from docmirror.security.safety.hidden_text import HiddenTextDetector, HiddenTextFlag
+from docmirror.security.safety.injection import InjectionDetector, InjectionResult
+from docmirror.security.safety.zero_width import ZeroWidthDetector, ZeroWidthFlag
 
 _aggregator: SafetyAggregator | None = None
 

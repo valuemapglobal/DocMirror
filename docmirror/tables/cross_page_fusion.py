@@ -114,7 +114,9 @@ def collect_cross_page_merge_groups(
                 else:
                     log_entry: dict[str, Any] = {"action": "start", "page": page_no, "rows": len(curr_rows)}
                     if _profile_quarantines_standalone(profile):
-                        log_entry = _quarantine_col_mismatch_log(page_no, len(curr_rows), prev_col_count, curr_col_count)
+                        log_entry = _quarantine_col_mismatch_log(
+                            page_no, len(curr_rows), prev_col_count, curr_col_count
+                        )
                     merged_table_data.append(
                         {
                             "rows": list(curr_rows),
@@ -151,7 +153,9 @@ def collect_cross_page_merge_groups(
                     prev["rows"].extend(stripped)
                     prev["row_pages"].extend([page_no] * len(stripped))
                     prev["pages"].append(page_no)
-                    prev["merge_log"].append({"action": "merge_continuation", "page": page_no, "rows_added": len(stripped)})
+                    prev["merge_log"].append(
+                        {"action": "merge_continuation", "page": page_no, "rows_added": len(stripped)}
+                    )
             else:
                 merged_table_data.append(_new_group(block, curr_rows, page_no, profile))
 
@@ -324,8 +328,25 @@ def _is_header_row(row: Any) -> bool:
 
 def _header_score(cells: list[str]) -> int:
     keywords = {
-        "date", "time", "summary", "description", "amount", "balance", "debit", "credit",
-        "交易", "日期", "时间", "摘要", "借方", "贷方", "余额", "账户", "户名", "凭证", "序号",
+        "date",
+        "time",
+        "summary",
+        "description",
+        "amount",
+        "balance",
+        "debit",
+        "credit",
+        "交易",
+        "日期",
+        "时间",
+        "摘要",
+        "借方",
+        "贷方",
+        "余额",
+        "账户",
+        "户名",
+        "凭证",
+        "序号",
     }
     score = 0
     for cell in cells:
@@ -430,19 +451,27 @@ def _cross_page_prose_edges(blocks: list[Any]) -> list[dict[str, Any]]:
         page = getattr(block, "page_number", None) or getattr(block, "page", None)
         prev_page = getattr(previous, "page_number", None) or getattr(previous, "page", None) if previous else None
         if previous is not None and page is not None and prev_page is not None and page == prev_page + 1:
-            edges.append({"from": getattr(previous, "id", ""), "to": getattr(block, "id", ""), "type": "cross_page_prose"})
+            edges.append(
+                {"from": getattr(previous, "id", ""), "to": getattr(block, "id", ""), "type": "cross_page_prose"}
+            )
         previous = block
     return edges
 
 
 def _section_ranges(blocks: list[Any], page_count: int) -> list[dict[str, Any]]:
-    headings = [b for b in blocks if str(getattr(b, "type", "") or getattr(b, "block_type", "")) in {"heading", "title"}]
+    headings = [
+        b for b in blocks if str(getattr(b, "type", "") or getattr(b, "block_type", "")) in {"heading", "title"}
+    ]
     sections: list[dict[str, Any]] = []
     for index, heading in enumerate(headings):
         start_page = int(getattr(heading, "page_number", None) or getattr(heading, "page", 1) or 1)
         end_page = page_count
         if index + 1 < len(headings):
-            next_page = int(getattr(headings[index + 1], "page_number", None) or getattr(headings[index + 1], "page", start_page) or start_page)
+            next_page = int(
+                getattr(headings[index + 1], "page_number", None)
+                or getattr(headings[index + 1], "page", start_page)
+                or start_page
+            )
             end_page = max(start_page, next_page - 1)
         sections.append(
             {

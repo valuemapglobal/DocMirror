@@ -157,10 +157,7 @@ class CheckpointManager:
 
     def has_page_fragment(self, file_id: str, page_number: int) -> bool:
         """Check whether a specific page fragment exists."""
-        frag_path = (
-            self._checkpoints_dir / "pages" / file_id /
-            f"page_{page_number:04d}.mirror_fragment.json"
-        )
+        frag_path = self._checkpoints_dir / "pages" / file_id / f"page_{page_number:04d}.mirror_fragment.json"
         return frag_path.is_file()
 
     # ── Chunk checkpoint ───────────────────────────────────────────

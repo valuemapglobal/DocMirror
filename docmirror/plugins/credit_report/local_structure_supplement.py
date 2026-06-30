@@ -1,10 +1,10 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Credit-report supplemental local structure detection (legacy — P4).
+"""Credit-report supplemental local structure detection (raw — P4).
 
 Prefer ``page_segment.detect_pre_grid_field_supplements`` (registered by default).
-Enable this module only with ``DOCMIRROR_PCM_LEGACY_SUPPLEMENT=1``.
+Enable this module only with ``DOCMIRROR_VNEXT_LEGACY_SUPPLEMENT=1``.
 """
 
 from __future__ import annotations

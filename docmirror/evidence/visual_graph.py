@@ -58,15 +58,19 @@ def build_visual_evidence_graph(
         page_width = float(getattr(page, "width", 595.0) or 595.0)
         page_height = float(getattr(page, "height", 842.0) or 842.0)
 
-        graph.add_page(page_no, width=page_width, height=page_height,
-                       image_ref=f"page_images/page_{page_no:03d}.png")
+        graph.add_page(page_no, width=page_width, height=page_height, image_ref=f"page_images/page_{page_no:03d}.png")
 
         pid = f"page:p{page_no}"
-        graph.add_node(VisualNode(
-            id=pid, kind="page", label=f"Page {page_no}",
-            page=page_no, bbox=[0, 0, page_width, page_height],
-            confidence=float(getattr(page, "confidence", 1.0) or 1.0),
-        ))
+        graph.add_node(
+            VisualNode(
+                id=pid,
+                kind="page",
+                label=f"Page {page_no}",
+                page=page_no,
+                bbox=[0, 0, page_width, page_height],
+                confidence=float(getattr(page, "confidence", 1.0) or 1.0),
+            )
+        )
 
         # Text block nodes
         for text_idx, text in enumerate(getattr(page, "texts", []) or []):
@@ -78,24 +82,33 @@ def build_visual_evidence_graph(
             bbox = getattr(text, "bbox", None)
             src_refs = list(getattr(text, "source_refs", []) or [])
 
-            graph.add_node(VisualNode(
-                id=nid, kind="block", label=f"Text #{text_idx}",
-                value_preview=content[:200],
-                page=page_no, bbox=list(bbox) if bbox else None,
-                confidence=conf,
-                review=_review_for_confidence(conf),
-                source_refs=src_refs,
-                metadata={
-                    "role": getattr(text, "mirror_role", "") or "",
-                    "level": getattr(text, "level", "") or "",
-                },
-            ))
-            graph.add_edge(VisualEdge(
-                id=f"edge:page_contains_block:{nid}",
-                type="contains", from_node=pid, to_node=nid,
-                confidence=1.0,
-                provenance={"plane": "Parse Plane", "component": "text_extract"},
-            ))
+            graph.add_node(
+                VisualNode(
+                    id=nid,
+                    kind="block",
+                    label=f"Text #{text_idx}",
+                    value_preview=content[:200],
+                    page=page_no,
+                    bbox=list(bbox) if bbox else None,
+                    confidence=conf,
+                    review=_review_for_confidence(conf),
+                    source_refs=src_refs,
+                    metadata={
+                        "role": getattr(text, "mirror_role", "") or "",
+                        "level": getattr(text, "level", "") or "",
+                    },
+                )
+            )
+            graph.add_edge(
+                VisualEdge(
+                    id=f"edge:page_contains_block:{nid}",
+                    type="contains",
+                    from_node=pid,
+                    to_node=nid,
+                    confidence=1.0,
+                    provenance={"plane": "Parse Plane", "component": "text_extract"},
+                )
+            )
 
         # Table and cell nodes
         for table_idx, table in enumerate(getattr(page, "tables", []) or []):
@@ -103,21 +116,31 @@ def build_visual_evidence_graph(
             tbbox = getattr(table, "bbox", None)
             tconf = float(getattr(table, "confidence", 1.0) or 1.0)
 
-            graph.add_node(VisualNode(
-                id=tid, kind="table", label=f"Table #{table_idx}",
-                page=page_no, bbox=list(tbbox) if tbbox else None,
-                confidence=tconf, review="auto_accepted",
-                metadata={
-                    "header_columns": list(getattr(table, "headers", []) or []),
-                    "table_id": str(getattr(table, "table_id", "") or ""),
-                },
-            ))
-            graph.add_edge(VisualEdge(
-                id=f"edge:page_contains_table:{tid}",
-                type="contains", from_node=pid, to_node=tid,
-                confidence=1.0,
-                provenance={"plane": "Parse Plane", "component": "table_detect"},
-            ))
+            graph.add_node(
+                VisualNode(
+                    id=tid,
+                    kind="table",
+                    label=f"Table #{table_idx}",
+                    page=page_no,
+                    bbox=list(tbbox) if tbbox else None,
+                    confidence=tconf,
+                    review="auto_accepted",
+                    metadata={
+                        "header_columns": list(getattr(table, "headers", []) or []),
+                        "table_id": str(getattr(table, "table_id", "") or ""),
+                    },
+                )
+            )
+            graph.add_edge(
+                VisualEdge(
+                    id=f"edge:page_contains_table:{tid}",
+                    type="contains",
+                    from_node=pid,
+                    to_node=tid,
+                    confidence=1.0,
+                    provenance={"plane": "Parse Plane", "component": "table_detect"},
+                )
+            )
 
             data_rows = list(getattr(table, "data_rows", []) or getattr(table, "rows", []) or [])
             for row_idx, row in enumerate(data_rows):
@@ -128,31 +151,37 @@ def build_visual_evidence_graph(
                     cid = f"cell:p{page_no}:t{table_idx}:r{row_idx}:c{col_idx}"
                     cconf = float(getattr(cell, "confidence", 1.0) or 0.0)
                     cbbox = getattr(cell, "bbox", None) or getattr(cell, "bbox_norm", None)
-                    csrc = list(
-                        getattr(cell, "source_cell_refs", [])
-                        or getattr(cell, "evidence_ids", [])
-                        or []
-                    )
+                    csrc = list(getattr(cell, "source_cell_refs", []) or getattr(cell, "evidence_ids", []) or [])
 
-                    graph.add_node(VisualNode(
-                        id=cid, kind="cell",
-                        label=f"Cell r{row_idx}c{col_idx}",
-                        value_preview=value[:200],
-                        raw_preview=str(getattr(cell, "text", "") or ""),
-                        page=page_no, bbox=list(cbbox) if cbbox else None,
-                        confidence=cconf, review=_review_for_confidence(cconf),
-                        source_refs=csrc,
-                        metadata={
-                            "row_index": row_idx, "col_index": col_idx,
-                            "table_id": str(getattr(table, "table_id", "") or ""),
-                        },
-                    ))
-                    graph.add_edge(VisualEdge(
-                        id=f"edge:table_contains_cell:{cid}",
-                        type="contains", from_node=tid, to_node=cid,
-                        confidence=1.0,
-                        provenance={"plane": "Parse Plane", "component": "table_detect"},
-                    ))
+                    graph.add_node(
+                        VisualNode(
+                            id=cid,
+                            kind="cell",
+                            label=f"Cell r{row_idx}c{col_idx}",
+                            value_preview=value[:200],
+                            raw_preview=str(getattr(cell, "text", "") or ""),
+                            page=page_no,
+                            bbox=list(cbbox) if cbbox else None,
+                            confidence=cconf,
+                            review=_review_for_confidence(cconf),
+                            source_refs=csrc,
+                            metadata={
+                                "row_index": row_idx,
+                                "col_index": col_idx,
+                                "table_id": str(getattr(table, "table_id", "") or ""),
+                            },
+                        )
+                    )
+                    graph.add_edge(
+                        VisualEdge(
+                            id=f"edge:table_contains_cell:{cid}",
+                            type="contains",
+                            from_node=tid,
+                            to_node=cid,
+                            confidence=1.0,
+                            provenance={"plane": "Parse Plane", "component": "table_detect"},
+                        )
+                    )
 
         # Key-value nodes
         for kv_idx, kv in enumerate(getattr(page, "key_values", []) or []):
@@ -164,19 +193,29 @@ def build_visual_evidence_graph(
             kconf = float(getattr(kv, "confidence", 1.0) or 1.0)
             kbbox = getattr(kv, "bbox", None)
 
-            graph.add_node(VisualNode(
-                id=kvid, kind="key_value",
-                label=key, value_preview=val[:200],
-                page=page_no, bbox=list(kbbox) if kbbox else None,
-                confidence=kconf, review=_review_for_confidence(kconf),
-                source_refs=list(getattr(kv, "source_refs", []) or []),
-            ))
-            graph.add_edge(VisualEdge(
-                id=f"edge:page_contains_kv:{kvid}",
-                type="contains", from_node=pid, to_node=kvid,
-                confidence=1.0,
-                provenance={"plane": "Parse Plane", "component": "kv_extract"},
-            ))
+            graph.add_node(
+                VisualNode(
+                    id=kvid,
+                    kind="key_value",
+                    label=key,
+                    value_preview=val[:200],
+                    page=page_no,
+                    bbox=list(kbbox) if kbbox else None,
+                    confidence=kconf,
+                    review=_review_for_confidence(kconf),
+                    source_refs=list(getattr(kv, "source_refs", []) or []),
+                )
+            )
+            graph.add_edge(
+                VisualEdge(
+                    id=f"edge:page_contains_kv:{kvid}",
+                    type="contains",
+                    from_node=pid,
+                    to_node=kvid,
+                    confidence=1.0,
+                    provenance={"plane": "Parse Plane", "component": "kv_extract"},
+                )
+            )
 
     # Edition field nodes (W1-02)
     if editions:
@@ -206,18 +245,24 @@ def _build_edition_nodes(
         plugin_name = str(plugin.get("name") or edition)
 
         eid = f"edition:{edition}"
-        graph.add_node(VisualNode(
-            id=eid, kind="record", label=f"Edition: {edition}",
-            page=int(source_page) if source_page else 0,
-            confidence=conf, review="auto_accepted" if conf >= 0.8 else "needs_review",
-            edition=edition, support_level=support_level,
-            metadata={
-                "source_fact_ids": meta.get("source_fact_ids", []),
-                "evidence_ids": meta.get("evidence_ids", []),
-                "fallback_reason": meta.get("fallback_reason"),
-                "plugin": plugin_name,
-            },
-        ))
+        graph.add_node(
+            VisualNode(
+                id=eid,
+                kind="record",
+                label=f"Edition: {edition}",
+                page=int(source_page) if source_page else 0,
+                confidence=conf,
+                review="auto_accepted" if conf >= 0.8 else "needs_review",
+                edition=edition,
+                support_level=support_level,
+                metadata={
+                    "source_fact_ids": meta.get("source_fact_ids", []),
+                    "evidence_ids": meta.get("evidence_ids", []),
+                    "fallback_reason": meta.get("fallback_reason"),
+                    "plugin": plugin_name,
+                },
+            )
+        )
 
         fields = (payload.get("data") or {}).get("fields") or {}
         if isinstance(fields, dict):
@@ -228,30 +273,40 @@ def _build_edition_nodes(
                 src_ids = meta.get("source_fact_ids", [])
                 has_evidence = bool(source_page or meta.get("source_bbox") or src_ids)
 
-                graph.add_node(VisualNode(
-                    id=fid, kind="field", label=key,
-                    value_preview=rendered[:200],
-                    field_path=field_path,
-                    page=int(source_page) if source_page else 0,
-                    bbox=list(meta.get("source_bbox")) if meta.get("source_bbox") else None,
-                    confidence=conf,
-                    review="auto_accepted" if (has_evidence and conf >= 0.8)
-                    else "needs_review" if has_evidence else "needs_evidence",
-                    source_refs=src_ids,
-                    edition=edition,
-                    support_level=support_level,
-                    metadata={
-                        "fallback_reason": meta.get("fallback_reason"),
-                        "plugin": plugin_name,
-                    },
-                ))
-                graph.add_edge(VisualEdge(
-                    id=f"edge:edition_has_field:{fid}",
-                    type="contains", from_node=eid, to_node=fid,
-                    confidence=conf,
-                    provenance={"plane": "Edition Projection Plane",
-                                "component": plugin_name},
-                ))
+                graph.add_node(
+                    VisualNode(
+                        id=fid,
+                        kind="field",
+                        label=key,
+                        value_preview=rendered[:200],
+                        field_path=field_path,
+                        page=int(source_page) if source_page else 0,
+                        bbox=list(meta.get("source_bbox")) if meta.get("source_bbox") else None,
+                        confidence=conf,
+                        review="auto_accepted"
+                        if (has_evidence and conf >= 0.8)
+                        else "needs_review"
+                        if has_evidence
+                        else "needs_evidence",
+                        source_refs=src_ids,
+                        edition=edition,
+                        support_level=support_level,
+                        metadata={
+                            "fallback_reason": meta.get("fallback_reason"),
+                            "plugin": plugin_name,
+                        },
+                    )
+                )
+                graph.add_edge(
+                    VisualEdge(
+                        id=f"edge:edition_has_field:{fid}",
+                        type="contains",
+                        from_node=eid,
+                        to_node=fid,
+                        confidence=conf,
+                        provenance={"plane": "Edition Projection Plane", "component": plugin_name},
+                    )
+                )
 
                 for src_ref in src_ids:
                     _link_field_to_source(graph, fid, src_ref, conf, plugin_name)
@@ -263,22 +318,28 @@ def _build_edition_nodes(
             rid = f"record:{edition}.records[{rec_idx}]"
             rec_src = record.get("source_fact_ids", [])
 
-            graph.add_node(VisualNode(
-                id=rid, kind="record",
-                label=f"Record #{rec_idx}",
-                page=int(source_page) if source_page else 0,
-                confidence=float(record.get("confidence", conf) or 0.0),
-                review="auto_accepted",
-                edition=edition,
-                source_refs=rec_src,
-            ))
-            graph.add_edge(VisualEdge(
-                id=f"edge:edition_has_record:{rid}",
-                type="contains", from_node=eid, to_node=rid,
-                confidence=1.0,
-                provenance={"plane": "Edition Projection Plane",
-                            "component": plugin_name},
-            ))
+            graph.add_node(
+                VisualNode(
+                    id=rid,
+                    kind="record",
+                    label=f"Record #{rec_idx}",
+                    page=int(source_page) if source_page else 0,
+                    confidence=float(record.get("confidence", conf) or 0.0),
+                    review="auto_accepted",
+                    edition=edition,
+                    source_refs=rec_src,
+                )
+            )
+            graph.add_edge(
+                VisualEdge(
+                    id=f"edge:edition_has_record:{rid}",
+                    type="contains",
+                    from_node=eid,
+                    to_node=rid,
+                    confidence=1.0,
+                    provenance={"plane": "Edition Projection Plane", "component": plugin_name},
+                )
+            )
 
 
 def _link_field_to_source(
@@ -290,15 +351,17 @@ def _link_field_to_source(
 ) -> None:
     for node_id, node in graph.nodes.items():
         if src_ref in node.source_refs or src_ref == node.id:
-            graph.add_edge(VisualEdge(
-                id=f"edge:field_to_source:{field_id}_to_{node_id}",
-                type="derived_from",
-                from_node=field_id, to_node=node_id,
-                method=plugin_name,
-                confidence=confidence,
-                provenance={"plane": "Edition Projection Plane",
-                            "component": plugin_name},
-            ))
+            graph.add_edge(
+                VisualEdge(
+                    id=f"edge:field_to_source:{field_id}_to_{node_id}",
+                    type="derived_from",
+                    from_node=field_id,
+                    to_node=node_id,
+                    method=plugin_name,
+                    confidence=confidence,
+                    provenance={"plane": "Edition Projection Plane", "component": plugin_name},
+                )
+            )
             return
 
 
@@ -314,27 +377,34 @@ def _build_quality_nodes(
 
         if status in ("failure", "partial", "degraded") or severity in ("error", "fatal"):
             qid = f"quality:{ev_dict.get('event_id', 'unknown')}"
-            graph.add_node(VisualNode(
-                id=qid, kind="quality_issue",
-                label=ev_dict.get("code", ""),
-                value_preview=ev_dict.get("message", "")[:200],
-                confidence=0.0,
-                review="needs_review",
-                metadata={
-                    "category": ev_dict.get("category", ""),
-                    "severity": ev_dict.get("severity", ""),
-                    "scope": ev_dict.get("scope", {}),
-                },
-            ))
+            graph.add_node(
+                VisualNode(
+                    id=qid,
+                    kind="quality_issue",
+                    label=ev_dict.get("code", ""),
+                    value_preview=ev_dict.get("message", "")[:200],
+                    confidence=0.0,
+                    review="needs_review",
+                    metadata={
+                        "category": ev_dict.get("category", ""),
+                        "severity": ev_dict.get("severity", ""),
+                        "scope": ev_dict.get("scope", {}),
+                    },
+                )
+            )
             scope = ev_dict.get("scope", {})
             for p in scope.get("pages", []):
                 pid = f"page:p{p}"
                 if pid in graph.nodes:
-                    graph.add_edge(VisualEdge(
-                        id=f"edge:quality_affects_page:{qid}_to_{pid}",
-                        type="references", from_node=qid, to_node=pid,
-                        confidence=1.0,
-                    ))
+                    graph.add_edge(
+                        VisualEdge(
+                            id=f"edge:quality_affects_page:{qid}_to_{pid}",
+                            type="references",
+                            from_node=qid,
+                            to_node=pid,
+                            confidence=1.0,
+                        )
+                    )
 
 
 def _review_for_confidence(confidence: float) -> str:
@@ -357,11 +427,7 @@ def _infer_document_id(result: Any) -> str:
 
 
 def _infer_task_id(result: Any) -> str:
-    return str(
-        getattr(getattr(result, "source", None), "task_id", "")
-        or getattr(result, "task_id", "")
-        or ""
-    )
+    return str(getattr(getattr(result, "source", None), "task_id", "") or getattr(result, "task_id", "") or "")
 
 
 __all__ = ["build_visual_evidence_graph"]

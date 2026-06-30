@@ -183,7 +183,7 @@ def audit_failures(data: dict) -> list[str]:
     if data.get("efmp_boundary_violations"):
         failures.append(f"efmp_boundary_violations: {data['efmp_boundary_violations']}")
     if data.get("lazy_hub_present"):
-        failures.append("lazy_hub_present: segment/zones.py still exposes deprecated re-exports")
+        failures.append("lazy_hub_present: segment/zones.py still exposes removed re-exports")
     return failures
 
 

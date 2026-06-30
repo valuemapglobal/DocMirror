@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from docmirror.structure.scene.evidence_engine import EvidenceEngine
+from docmirror.layout.scene.evidence_engine import EvidenceEngine
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 
 

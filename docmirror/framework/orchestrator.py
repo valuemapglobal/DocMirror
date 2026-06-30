@@ -24,8 +24,8 @@ from typing import Any, Literal
 from ..configs.middleware.catalog import get_middleware_class, get_middleware_stage
 from ..configs.middleware.resolver import resolve_pipeline
 from ..configs.runtime.settings import DocMirrorSettings
-from .middlewares import BaseMiddleware, MiddlewarePipeline
 from ..models.entities.parse_result import ParseResult, ResultStatus
+from .middlewares import BaseMiddleware, MiddlewarePipeline
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class Orchestrator:
         settings: DocMirrorSettings | None = None,
         config: dict[str, Any] | None = None,
         fail_strategy: str | None = None,
-        seal_detector_fn: Callable | None = None,  # noqa: ARG002 — legacy hook reserved
+        seal_detector_fn: Callable | None = None,  # noqa: ARG002 — raw hook reserved
     ):
         self.settings = settings or DocMirrorSettings.from_env()
         self.config = config or self.settings.to_dict()
@@ -64,7 +64,8 @@ class Orchestrator:
         # Emit middleware_pipeline at 0% — middleware phase begins
         if _on_progress:
             _on_progress(
-                "middleware_pipeline", 0.0,
+                "middleware_pipeline",
+                0.0,
                 "Running validation & enrichment middlewares...",
             )
 
@@ -111,7 +112,8 @@ class Orchestrator:
         # Emit middleware_pipeline at 100% — middleware phase complete
         if _on_progress:
             _on_progress(
-                "middleware_pipeline", 100.0,
+                "middleware_pipeline",
+                100.0,
                 "Middleware pipeline complete",
             )
 

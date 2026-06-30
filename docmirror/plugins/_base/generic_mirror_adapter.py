@@ -60,16 +60,21 @@ def _type_detect_column(values: list[str]) -> tuple[ColumnType, float]:
     if not values:
         return ("text", 0.0)
 
-    sample = [v.strip() for v in values[:50] if v and v.strip()
-              and v not in ("-", "—")]
+    sample = [v.strip() for v in values[:50] if v and v.strip() and v not in ("-", "—")]
 
     if not sample:
         return ("text", 0.0)
 
     counts: dict[str, int] = {
-        "datetime": 0, "date": 0, "time": 0,
-        "amount": 0, "percentage": 0,
-        "phone": 0, "id_number": 0, "account": 0, "email": 0,
+        "datetime": 0,
+        "date": 0,
+        "time": 0,
+        "amount": 0,
+        "percentage": 0,
+        "phone": 0,
+        "id_number": 0,
+        "account": 0,
+        "email": 0,
         "text": 0,
     }
 
@@ -126,6 +131,8 @@ def _standardize_value(raw: str, col_type: str) -> str | dict[str, Any]:
     if col_type in ("date", "datetime"):
         normalized = normalize_timestamp(cleaned)
         if normalized:
+            if col_type == "date":
+                return {"value": normalized.split("T", 1)[0]}
             return {"value": normalized}
         return cleaned
 
@@ -193,18 +200,32 @@ def _build_normalized_record(
 # ── Identity extraction ─────────────────────────────────────────────────────
 
 _IDENTITY_KEY_MAP: list[tuple[str, list[str]]] = [
-    ("name", ["姓名", "名称", "户名", "name", "Name", "客户", "customer",
-              "申请人", "借款人", "被保证人", "甲方", "乙方", "丙方"]),
-    ("id_number", ["身份证", "证件号", "ID", "证件号码", "统一社会信用代码",
-                   "信用代码", "税号", "纳税人识别号", "营业执照号"]),
-    ("phone", ["电话", "手机", "phone", "Phone", "联系电话", "Tel",
-               "移动电话", "mobile", "Mobile"]),
-    ("account", ["账号", "账户", "卡号", "account", "Account", "银行账号",
-                 "银行卡号", "开户行账号"]),
-    ("address", ["地址", "Address", "address", "住所", "住址", "通讯地址",
-                 "注册地址", "办公地址"]),
-    ("amount_total", ["合计", "总计", "total", "Total", "金额合计", "Sum",
-                      "总额", "总金额", "小计"]),
+    (
+        "name",
+        [
+            "姓名",
+            "名称",
+            "户名",
+            "name",
+            "Name",
+            "客户",
+            "customer",
+            "申请人",
+            "借款人",
+            "被保证人",
+            "甲方",
+            "乙方",
+            "丙方",
+        ],
+    ),
+    (
+        "id_number",
+        ["身份证", "证件号", "ID", "证件号码", "统一社会信用代码", "信用代码", "税号", "纳税人识别号", "营业执照号"],
+    ),
+    ("phone", ["电话", "手机", "phone", "Phone", "联系电话", "Tel", "移动电话", "mobile", "Mobile"]),
+    ("account", ["账号", "账户", "卡号", "account", "Account", "银行账号", "银行卡号", "开户行账号"]),
+    ("address", ["地址", "Address", "address", "住所", "住址", "通讯地址", "注册地址", "办公地址"]),
+    ("amount_total", ["合计", "总计", "total", "Total", "金额合计", "Sum", "总额", "总金额", "小计"]),
 ]
 
 _IDENTITY_VALUE_PATTERNS: list[tuple[str, re.Pattern]] = [
@@ -231,7 +252,9 @@ def _extract_identities(fields: dict[str, Any]) -> dict[str, dict[str, Any]]:
             for kw in keywords:
                 if kw.lower() in key_lower:
                     identities[id_type] = {
-                        "key": key, "value": str(value), "confidence": 0.85,
+                        "key": key,
+                        "value": str(value),
+                        "confidence": 0.85,
                     }
                     break
             if id_type in identities:
@@ -245,7 +268,9 @@ def _extract_identities(fields: dict[str, Any]) -> dict[str, dict[str, Any]]:
             str_val = str(value).strip()
             if regex.match(str_val):
                 identities[id_type] = {
-                    "key": key, "value": str_val, "confidence": 0.70,
+                    "key": key,
+                    "value": str_val,
+                    "confidence": 0.70,
                 }
                 break
 
@@ -281,8 +306,12 @@ def _collect_entity_fields(parse_result: Any) -> dict[str, Any]:
 
     # Priority 3: common structured attributes
     for attr in (
-        "document_type", "period_start", "period_end",
-        "institution", "account_number", "account_holder",
+        "document_type",
+        "period_start",
+        "period_end",
+        "institution",
+        "account_number",
+        "account_holder",
     ):
         val = getattr(entities, attr, None)
         if val is not None and val != "" and attr not in fields:
@@ -330,38 +359,47 @@ def _collect_table_records(parse_result: Any) -> list[dict[str, Any]]:
 
 def _collect_structure_projected_records(parse_result: Any) -> list[dict[str, Any]]:
     """Project L1 regions via structure_project registry."""
+    from docmirror.models.mirror.vnext_access import pages as vnext_pages
+    from docmirror.models.mirror.vnext_access import resolve_ref
     from docmirror.ocr.structure_project import project_structure
     from docmirror.ocr.structure_projectors import core as _core  # noqa: F401
 
-    if hasattr(parse_result, "sync_page_canvases"):
-        parse_result.sync_page_canvases()
-
     projected: list[dict[str, Any]] = []
-    for page in getattr(parse_result, "pages", []) or []:
-        canvas = getattr(page, "page_canvas", None)
-        if canvas is None or not canvas.blocks:
+    if not hasattr(parse_result, "to_mirror_json_vnext"):
+        return projected
+    mirror = parse_result.to_mirror_json_vnext()
+    if not isinstance(mirror, dict):
+        return projected
+
+    for page in vnext_pages(mirror):
+        if not isinstance(page, dict):
             continue
-        page_num = int(getattr(page, "page_number", 0) or 0)
-        region_by_id = {r.region_id: r for r in canvas.regions}
-        for block in canvas.blocks:
-            ref = str(block.ref or "")
+        page_num = int(page.get("page_number") or 0)
+        for block in page.get("blocks") or []:
+            if not isinstance(block, dict):
+                continue
+            ref = str(block.get("ref") or "")
             if not ref.startswith("region:"):
                 continue
-            region_id = ref.split(":", 1)[1]
-            region = region_by_id.get(region_id)
-            if region is None:
+            region = resolve_ref(mirror, page_num, ref)
+            if not isinstance(region, dict):
                 continue
-            hint = block.schema_hint or "core.field_grid.kv_block"
-            result = project_structure(region.structure, page=page_num, schema_hint=hint)
+            structure = region.get("structure")
+            if not isinstance(structure, dict):
+                continue
+            hint = str(block.get("schema_hint") or region.get("schema_hint") or "core.field_grid.kv_block")
+            result = project_structure(structure, page=page_num, schema_hint=hint)
             if result.rejected or result.record is None:
                 continue
-            projected.append({
-                **result.record,
-                "block_id": block.block_id,
-                "schema_hint": hint,
-                "projection_completeness": result.completeness,
-                "missing_fields": list(result.missing_fields),
-            })
+            projected.append(
+                {
+                    **result.record,
+                    "block_id": block.get("block_id") or block.get("id"),
+                    "schema_hint": hint,
+                    "projection_completeness": result.completeness,
+                    "missing_fields": list(result.missing_fields),
+                }
+            )
     return projected
 
 
@@ -415,7 +453,9 @@ def build_generic_community_output(
         "records": records,
         "structure_projected_records": structure_records,
         "summary": summary,
-        "sections": [], "tables": [], "line_items": [],
+        "sections": [],
+        "tables": [],
+        "line_items": [],
     }
     if col_types:
         structured_data["columns"] = col_types

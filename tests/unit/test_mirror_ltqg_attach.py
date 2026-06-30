@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.structure.analysis.mirror_ltqg import attach_mirror_ltqg
+from docmirror.quality.mirror_ltqg import attach_mirror_ltqg
 from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParserInfo, ParseResult, RowType, TableRow
 
 
@@ -41,7 +41,7 @@ def test_attach_mirror_ltqg_writes_domain_specific():
 
 
 def test_exported_data_row_estimate_zero_when_failed():
-    from docmirror.structure.tables.compose.ledger_quality import exported_data_row_estimate
+    from docmirror.tables.compose.ledger_quality import exported_data_row_estimate
 
     lt = LogicalTable(row_count=127, quality_passed=False, data_row_estimate=0)
     assert exported_data_row_estimate(lt) == 0

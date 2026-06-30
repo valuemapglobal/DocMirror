@@ -31,6 +31,18 @@ from docmirror.plugins.bank_statement.extract_pipeline import run_bank_statement
 BANK_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
     "交易日期": ColumnMapping(field="date", format_hint="date", aliases=["日期", "记账日期", "记账日", "Date"]),
     "交易时间": ColumnMapping(field="timestamp", format_hint="datetime", aliases=["时间", "Time"]),
+    "收/支": ColumnMapping(
+        field="direction",
+        enum_map={
+            "收入": "income",
+            "收人": "income",
+            "支出": "expense",
+            "支山": "expense",
+            "支鼎": "expense",
+            "攴出": "expense",
+        },
+        aliases=["收支", "方向", "交易方向", "月收/支", "月收支"],
+    ),
     "摘要": ColumnMapping(field="summary", aliases=["交易摘要", "Description", "Memo"]),
     "交易金额": ColumnMapping(
         field="amount",
@@ -56,15 +68,17 @@ BANK_STANDARD_FIELDS = [
     "date",
     "timestamp",
     "summary",
+    "direction",
     "amount",
     "balance",
     "counter_party",
     "counter_account",
+    "counterparty_status",
 ]
 
 BANK_IDENTITY_FIELDS: Sequence[tuple[str, Sequence[str]]] = (
     ("account_holder", ("Account holder", "Account name", "Card holder", "Customer name", "户名", "账户名")),
-    ("account_number", ("Account number", "Card number", "Customer account number", "账号", "卡号")),
+    ("account_number", ("Account number", "Card number", "Customer account number", "账号", "账户号", "卡号")),
     ("bank_name", ("Bank name", "Bank branch", "银行名称")),
     ("query_period", ("Query period", "From/to date", "Period", "查询时间段")),
     ("currency", ("Currency", "币种")),

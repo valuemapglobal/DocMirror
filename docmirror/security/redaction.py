@@ -14,19 +14,18 @@ import hashlib
 import re
 from typing import Any
 
-
 # Patterns for automatic detection
 _SECRET_PATTERNS = [
-    (re.compile(r'(?:api[_-]?key|apikey|secret|token|password|auth)\s*[:=]\s*\S+', re.IGNORECASE), "[SECRET_REDACTED]"),
-    (re.compile(r'Bearer\s+\S+', re.IGNORECASE), "Bearer [REDACTED]"),
-    (re.compile(r'sk-[A-Za-z0-9]{20,}'), "sk-[REDACTED]"),
+    (re.compile(r"(?:api[_-]?key|apikey|secret|token|password|auth)\s*[:=]\s*\S+", re.IGNORECASE), "[SECRET_REDACTED]"),
+    (re.compile(r"Bearer\s+\S+", re.IGNORECASE), "Bearer [REDACTED]"),
+    (re.compile(r"sk-[A-Za-z0-9]{20,}"), "sk-[REDACTED]"),
 ]
 
 _PII_PATTERNS = [
-    (re.compile(r'\b\d{17}[\dXx]\b'), "ID_MASKED"),  # Chinese ID: 18 digits
-    (re.compile(r'\b1[3-9]\d{9}\b'), "PHONE_MASKED"),  # Chinese mobile
-    (re.compile(r'\b\d{16,19}\b'), "CARD_MASKED"),  # Bank card
-    (re.compile(r'\b[1-9]\d{5}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{4}\b'), "ID_TAIL_MASKED"),
+    (re.compile(r"\b\d{17}[\dXx]\b"), "ID_MASKED"),  # Chinese ID: 18 digits
+    (re.compile(r"\b1[3-9]\d{9}\b"), "PHONE_MASKED"),  # Chinese mobile
+    (re.compile(r"\b\d{16,19}\b"), "CARD_MASKED"),  # Bank card
+    (re.compile(r"\b[1-9]\d{5}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{4}\b"), "ID_TAIL_MASKED"),
 ]
 
 
@@ -44,11 +43,13 @@ def redact_pii(text: str) -> str:
     Preserves the last 4 digits where safe.
     """
     for pattern, replacement in _PII_PATTERNS:
+
         def _replacer(m: re.Match) -> str:
             matched = m.group(0)
             if len(matched) >= 6:
                 return f"{replacement}(...{matched[-4:]})"
             return replacement
+
         text = pattern.sub(_replacer, text)
     return text
 
@@ -82,8 +83,16 @@ def redact_text(text: str, *, mask_pii: bool = True, mask_secrets: bool = True) 
 def redact_dict(data: dict[str, Any], *, secret_keys: set[str] | None = None) -> dict[str, Any]:
     """Recursively redact a dictionary, masking values under secret keys."""
     secret_keys = secret_keys or {
-        "api_key", "apikey", "secret", "token", "password", "auth",
-        "license_key", "private_key", "signing_key", "access_key",
+        "api_key",
+        "apikey",
+        "secret",
+        "token",
+        "password",
+        "auth",
+        "license_key",
+        "private_key",
+        "signing_key",
+        "access_key",
     }
     result: dict[str, Any] = {}
     for key, value in data.items():
@@ -93,10 +102,7 @@ def redact_dict(data: dict[str, Any], *, secret_keys: set[str] | None = None) ->
         elif isinstance(value, dict):
             result[key] = redact_dict(value, secret_keys=secret_keys)
         elif isinstance(value, list):
-            result[key] = [
-                redact_dict(v, secret_keys=secret_keys) if isinstance(v, dict) else v
-                for v in value
-            ]
+            result[key] = [redact_dict(v, secret_keys=secret_keys) if isinstance(v, dict) else v for v in value]
         elif isinstance(value, str):
             result[key] = redact_text(value)
         else:

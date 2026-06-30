@@ -18,7 +18,9 @@ def _api(mirror_or_api: Any, *, mirror_level: str = "forensic") -> dict[str, Any
 
 
 def _doc(api: dict[str, Any]) -> dict[str, Any]:
-    if isinstance(api.get("document"), dict):
+    if isinstance(api.get("pages"), list):
+        return api
+    if isinstance(api.get("document"), dict) and isinstance(api["document"].get("pages"), list):
         return api["document"]
     data = api.get("data") or {}
     doc = data.get("document") or {}

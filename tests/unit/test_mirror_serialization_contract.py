@@ -28,7 +28,7 @@ from docmirror.models.mirror.serialization_contract import (
     logical_table_role,
 )
 from docmirror.models.schemas.registry import validate_projection_payload
-from docmirror.structure.analysis.spe_consumer import mirror_api_meta_fields
+from docmirror.evidence.spe_consumer import mirror_api_meta_fields
 
 
 def _schema_path() -> Path:

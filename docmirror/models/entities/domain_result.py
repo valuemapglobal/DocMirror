@@ -8,7 +8,7 @@
 Domain Extraction Contract (DEC) — formal domain plugin output protocol (L5).
 
 Defines the typed contract that all domain plugins must produce, plus helpers
-for normalizing legacy and edition-specific plugin payloads into ``DEC`` form.
+for normalizing raw and edition-specific plugin payloads into ``DEC`` form.
 
 Core types::
 
@@ -241,7 +241,7 @@ def _coerce_field_coverage(value: Any) -> float:
 
 
 def normalize_domain_result(raw: Any) -> DomainExtractionResult:
-    """Normalize legacy plugin returns into DomainExtractionResult.
+    """Normalize raw plugin returns into DomainExtractionResult.
 
     Accepts:
         - DomainExtractionResult (passthrough)

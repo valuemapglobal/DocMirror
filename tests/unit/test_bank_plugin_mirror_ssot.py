@@ -5,12 +5,12 @@
 
 from __future__ import annotations
 
+from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, ParserInfo, RowType, TableRow
 from docmirror.plugins.bank_statement.canonical import build_style_meta
 from docmirror.plugins.bank_statement.context import StyleContext
 from docmirror.plugins.bank_statement.ltro import ReconstructionMeta
 from docmirror.plugins.bank_statement.style_detector import StyleDetectionResult
 from docmirror.plugins.bank_statement.style_registry import _expected_rows
-from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParserInfo, ParseResult, RowType, TableRow
 
 
 def _detection() -> StyleDetectionResult:
@@ -74,3 +74,22 @@ def test_style_registry_expected_rows_from_parse_result():
     )
     expected = _expected_rows(ctx)
     assert expected == 47
+
+
+def test_style_registry_expected_rows_prefers_cached_ocr_recovery_over_weak_mirror_count():
+    pr = _parse_result_with_ltqg(2)
+    pr.entities.domain_specific["_bank_ocr_implicit_recovery"] = {
+        "status": "ready",
+        "row_count": 128,
+        "tables": [[["交易日期", "收/支"], *[["2024-01-01", "收入"] for _ in range(128)]]],
+    }
+    ctx = StyleContext(
+        tables=[[["交易日期", "摘要"], ["2024-01-01", "x"]]],
+        full_text="",
+        institution="ccb",
+        page_count=1,
+        parse_result=pr,
+        reconstruction=ReconstructionMeta(source="mirror_table", expected_primary_rows=2),
+    )
+
+    assert _expected_rows(ctx) == 128

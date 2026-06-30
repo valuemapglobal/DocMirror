@@ -68,12 +68,14 @@ class QualityDecisionReport:
     decision_reason: str = ""
     confidence_policy: str = "ga_default_v1"
 
-    summary: dict[str, str] = field(default_factory=lambda: {
-        "text_fidelity": "not_measured",
-        "layout_fidelity": "not_measured",
-        "business_fidelity": "not_measured",
-        "audit_fidelity": "not_measured",
-    })
+    summary: dict[str, str] = field(
+        default_factory=lambda: {
+            "text_fidelity": "not_measured",
+            "layout_fidelity": "not_measured",
+            "business_fidelity": "not_measured",
+            "audit_fidelity": "not_measured",
+        }
+    )
 
     blocking_issues: list[dict[str, Any]] = field(default_factory=list)
     needs_review: list[ReviewItem] = field(default_factory=list)
@@ -110,15 +112,17 @@ class QualityDecisionReport:
             links=data.get("links", {}),
         )
         for item in data.get("needs_review", []):
-            report.needs_review.append(ReviewItem(
-                scope=item.get("scope", "field"),
-                field_path=item.get("field_path", ""),
-                node_id=item.get("node_id", ""),
-                reason=item.get("reason", ""),
-                confidence=float(item.get("confidence", 0.0) or 0.0),
-                page=int(item.get("page", 0) or 0),
-                bbox=item.get("bbox"),
-            ))
+            report.needs_review.append(
+                ReviewItem(
+                    scope=item.get("scope", "field"),
+                    field_path=item.get("field_path", ""),
+                    node_id=item.get("node_id", ""),
+                    reason=item.get("reason", ""),
+                    confidence=float(item.get("confidence", 0.0) or 0.0),
+                    page=int(item.get("page", 0) or 0),
+                    bbox=item.get("bbox"),
+                )
+            )
         return report
 
 
@@ -175,11 +179,13 @@ def build_quality_decision(
             ev_dict = ev.to_dict() if hasattr(ev, "to_dict") else ev
             if ev_dict.get("category") == "schema" and ev_dict.get("status") in ("failure", "fatal"):
                 schema_pass = False
-                blocking.append({
-                    "scope": "schema",
-                    "reason": ev_dict.get("message", "schema validation failed"),
-                    "event_id": ev_dict.get("event_id", ""),
-                })
+                blocking.append(
+                    {
+                        "scope": "schema",
+                        "reason": ev_dict.get("message", "schema validation failed"),
+                        "event_id": ev_dict.get("event_id", ""),
+                    }
+                )
     # Check edition availability for schema failures
     for ed_name, payload in (editions or {}).items():
         if isinstance(payload, dict):
@@ -187,10 +193,12 @@ def build_quality_decision(
             status_str = str(status_info.get("status", status_info.get("state", "")))
             if status_str in ("schema_fail", "invalid"):
                 schema_pass = False
-                blocking.append({
-                    "scope": f"edition:{ed_name}",
-                    "reason": f"Schema validation failed for {ed_name}",
-                })
+                blocking.append(
+                    {
+                        "scope": f"edition:{ed_name}",
+                        "reason": f"Schema validation failed for {ed_name}",
+                    }
+                )
 
     # ── 2. Outcome ledger evaluation ──
     silent_failure_count = 0
@@ -203,12 +211,14 @@ def build_quality_decision(
             severity = ev_dict.get("severity", "")
             if status in ("failure", "fatal") or severity in ("error", "fatal"):
                 fatal_outcome_count += 1
-                blocking.append({
-                    "scope": "outcome",
-                    "reason": ev_dict.get("message", f"outcome event: {ev_dict.get('code', '')}"),
-                    "event_id": ev_dict.get("event_id", ""),
-                    "category": ev_dict.get("category", ""),
-                })
+                blocking.append(
+                    {
+                        "scope": "outcome",
+                        "reason": ev_dict.get("message", f"outcome event: {ev_dict.get('code', '')}"),
+                        "event_id": ev_dict.get("event_id", ""),
+                        "category": ev_dict.get("category", ""),
+                    }
+                )
             if status in ("silent_failure",) and severity not in ("error", "fatal"):
                 silent_failure_count += 1
     observed["fatal_outcome_count"] = fatal_outcome_count
@@ -222,51 +232,72 @@ def build_quality_decision(
         span_coverage = getattr(source_span_ledger, "coverage_ratio", 0.0) or 0.0
         for span in getattr(source_span_ledger, "field_spans", []) or []:
             if span.review == "needs_evidence":
-                needs_evidence_fields.append(ReviewItem(
-                    scope="field", field_path=span.field_path,
-                    node_id=f"field:{span.field_path}",
-                    reason="no_evidence",
-                    confidence=span.confidence,
-                    page=span.page, bbox=span.bbox,
-                ))
+                needs_evidence_fields.append(
+                    ReviewItem(
+                        scope="field",
+                        field_path=span.field_path,
+                        node_id=f"field:{span.field_path}",
+                        reason="no_evidence",
+                        confidence=span.confidence,
+                        page=span.page,
+                        bbox=span.bbox,
+                    )
+                )
             elif span.review == "needs_review":
-                low_confidence_fields.append(ReviewItem(
-                    scope="field", field_path=span.field_path,
-                    node_id=f"field:{span.field_path}",
-                    reason="low_confidence",
-                    confidence=span.confidence,
-                    page=span.page, bbox=span.bbox,
-                ))
+                low_confidence_fields.append(
+                    ReviewItem(
+                        scope="field",
+                        field_path=span.field_path,
+                        node_id=f"field:{span.field_path}",
+                        reason="low_confidence",
+                        confidence=span.confidence,
+                        page=span.page,
+                        bbox=span.bbox,
+                    )
+                )
         for uf in getattr(source_span_ledger, "unresolved_fields", []) or []:
-            needs_evidence_fields.append(ReviewItem(
-                scope="unresolved_field", field_path=uf.field_path,
-                reason=uf.reason,
-                confidence=0.0,
-            ))
+            needs_evidence_fields.append(
+                ReviewItem(
+                    scope="unresolved_field",
+                    field_path=uf.field_path,
+                    reason=uf.reason,
+                    confidence=0.0,
+                )
+            )
     observed["span_coverage"] = round(span_coverage, 4)
     observed["needs_evidence_count"] = len(needs_evidence_fields)
     observed["low_confidence_count"] = len(low_confidence_fields)
 
     # ── 4. Visual graph quality evaluation ──
     if visual_graph is not None:
-        needs_review_nodes = visual_graph.nodes_needing_review() if hasattr(visual_graph, "nodes_needing_review") else []
+        needs_review_nodes = (
+            visual_graph.nodes_needing_review() if hasattr(visual_graph, "nodes_needing_review") else []
+        )
         for node in needs_review_nodes:
             if node.review == "needs_evidence":
-                review_items.append(ReviewItem(
-                    scope="visual_node", field_path=node.field_path,
-                    node_id=node.id,
-                    reason="no_evidence_in_visual_graph",
-                    confidence=node.confidence,
-                    page=node.page, bbox=node.bbox,
-                ))
+                review_items.append(
+                    ReviewItem(
+                        scope="visual_node",
+                        field_path=node.field_path,
+                        node_id=node.id,
+                        reason="no_evidence_in_visual_graph",
+                        confidence=node.confidence,
+                        page=node.page,
+                        bbox=node.bbox,
+                    )
+                )
             elif node.confidence < threshold_needs_review:
-                review_items.append(ReviewItem(
-                    scope="visual_node", field_path=node.field_path,
-                    node_id=node.id,
-                    reason="low_confidence_in_visual_graph",
-                    confidence=node.confidence,
-                    page=node.page, bbox=node.bbox,
-                ))
+                review_items.append(
+                    ReviewItem(
+                        scope="visual_node",
+                        field_path=node.field_path,
+                        node_id=node.id,
+                        reason="low_confidence_in_visual_graph",
+                        confidence=node.confidence,
+                        page=node.page,
+                        bbox=node.bbox,
+                    )
+                )
 
     # ── 5. Edition confidence evaluation ──
     for ed_name, payload in (editions or {}).items():
@@ -277,19 +308,25 @@ def build_quality_decision(
         meta = payload.get("metadata") or {}
         fallback = meta.get("fallback_reason")
         if conf < threshold_needs_review:
-            review_items.append(ReviewItem(
-                scope="edition", field_path=f"{ed_name}.data",
-                node_id=f"edition:{ed_name}",
-                reason="low_edition_confidence",
-                confidence=conf,
-            ))
+            review_items.append(
+                ReviewItem(
+                    scope="edition",
+                    field_path=f"{ed_name}.data",
+                    node_id=f"edition:{ed_name}",
+                    reason="low_edition_confidence",
+                    confidence=conf,
+                )
+            )
         if fallback:
-            review_items.append(ReviewItem(
-                scope="edition", field_path=f"{ed_name}.data",
-                node_id=f"edition:{ed_name}",
-                reason=f"fallback: {fallback}",
-                confidence=conf,
-            ))
+            review_items.append(
+                ReviewItem(
+                    scope="edition",
+                    field_path=f"{ed_name}.data",
+                    node_id=f"edition:{ed_name}",
+                    reason=f"fallback: {fallback}",
+                    confidence=conf,
+                )
+            )
 
     # ── 6. Compute decision ──
     review_items.extend(needs_evidence_fields)
@@ -311,21 +348,22 @@ def build_quality_decision(
     elif low_confidence_fields or review_items:
         report.decision = "needs_review"
         report.decision_reason = (
-            f"{len(low_confidence_fields)} low-confidence field(s) + "
-            f"{len(review_items)} visual node(s) needing review"
+            f"{len(low_confidence_fields)} low-confidence field(s) + {len(review_items)} visual node(s) needing review"
         )
     else:
         report.decision = "auto_ingest"
-        report.decision_reason = (
-            "key_fields_have_evidence_and_confidence_above_threshold"
-        )
+        report.decision_reason = "key_fields_have_evidence_and_confidence_above_threshold"
 
     # ── Fidelity summary ──
     report.summary = {
         "text_fidelity": "pass" if span_coverage >= 0.95 else "warning" if span_coverage >= 0.80 else "fail",
         "layout_fidelity": "pass" if (visual_graph is not None and len(visual_graph.nodes) > 0) else "not_measured",
         "business_fidelity": "pass" if not (needs_evidence_fields or low_confidence_fields) else "warning",
-        "audit_fidelity": "pass" if span_coverage >= 0.95 and not needs_evidence_fields else "warning" if span_coverage >= 0.80 else "fail",
+        "audit_fidelity": "pass"
+        if span_coverage >= 0.95 and not needs_evidence_fields
+        else "warning"
+        if span_coverage >= 0.80
+        else "fail",
     }
 
     report.blocking_issues = blocking

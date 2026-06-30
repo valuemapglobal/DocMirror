@@ -26,7 +26,9 @@ import yaml
 
 _PRIVACY_POLICY_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-    "configs", "yaml", "privacy_policy.yaml",
+    "configs",
+    "yaml",
+    "privacy_policy.yaml",
 )
 
 DEFAULT_PRIVACY_MODE = "local"
@@ -42,6 +44,7 @@ class PrivacyMode(Enum):
 @dataclass
 class PrivacyPolicy:
     """Resolved privacy policy for the current process / task."""
+
     mode: str = DEFAULT_PRIVACY_MODE
     allow_network: bool = False
     allow_external_ocr: bool = False
@@ -70,7 +73,7 @@ class PrivacyPolicy:
 def _load_privacy_policy_yaml() -> dict[str, Any]:
     """Load the privacy policy YAML file."""
     try:
-        with open(_PRIVACY_POLICY_PATH, "r") as f:
+        with open(_PRIVACY_POLICY_PATH) as f:
             return yaml.safe_load(f) or {}
     except Exception:
         return {}
@@ -104,9 +107,7 @@ def resolve_privacy_policy() -> PrivacyPolicy:
         allow_network=allow_network,
         allow_external_ocr=mode_config.get("allow_external_ocr", False),
         allow_vlm=mode_config.get("allow_vlm", False),
-        allow_online_license_verify_during_parse=mode_config.get(
-            "allow_online_license_verify_during_parse", False
-        ),
+        allow_online_license_verify_during_parse=mode_config.get("allow_online_license_verify_during_parse", False),
         require_provider_allowlist=mode_config.get("require_provider_allowlist", True),
         require_consent=mode_config.get("require_consent", False),
         require_egress_audit=mode_config.get("require_egress_audit", False),

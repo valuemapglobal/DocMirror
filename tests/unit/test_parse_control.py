@@ -50,7 +50,7 @@ def test_auto_mode_records_resolution_decision():
     assert control.mode_decision["resolved_profile"] == "balanced"
 
 
-def test_output_formats_accept_legacy_aliases_and_all():
+def test_output_formats_accept_public_aliases_and_all():
     assert parse_output_formats("text,rag") == ("markdown", "chunks")
     assert parse_output_formats("all") == ("json", "markdown", "csv", "chunks", "html", "parquet")
 

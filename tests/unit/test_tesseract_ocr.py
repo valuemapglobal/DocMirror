@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from docmirror.structure.ocr.backends.tesseract import (
+from docmirror.ocr.backends.tesseract import (
     TesseractBackend,
     TesseractOCRResult,
     TesseractPageResult,

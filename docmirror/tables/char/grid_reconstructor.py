@@ -20,9 +20,9 @@ import logging
 import re
 from dataclasses import dataclass
 
-from docmirror.structure.utils.text_utils import _is_cjk_char
-from docmirror.structure.utils.vocabulary import _score_header_by_vocabulary
-from docmirror.structure.utils.watermark import is_watermark_char
+from docmirror.layout.text_utils import _is_cjk_char
+from docmirror.layout.vocabulary import _score_header_by_vocabulary
+from docmirror.layout.watermark import is_watermark_char
 from docmirror.tables.utils import _group_chars_into_rows
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,7 @@ _ANCHOR_HEADER_RE = re.compile(
 @dataclass
 class TableGrid:
     """Reconstructed grid: column and row dividers (x and y coordinates)."""
+
     col_dividers: list[float]
     row_dividers: list[float]
 
@@ -86,12 +87,12 @@ def _cluster_gaps(gaps: list[tuple[float, float]], multiplier: float = 2.0) -> l
 
 def detect_column_grid(chars: list[dict], min_cols: int = 3) -> list[float]:
     """Find column dividers from x-projection gap clustering."""
-    xs = sorted(set(round(c["x0"], 1) for c in chars if c.get("text","") and not is_watermark_char(c)))
+    xs = sorted(set(round(c["x0"], 1) for c in chars if c.get("text", "") and not is_watermark_char(c)))
     if len(xs) < min_cols * 2:
         return []
     dividers = _cluster_gaps(_find_gaps(xs))
-    all_x0 = [c["x0"] for c in chars if c.get("text","")]
-    all_x1 = [c["x1"] for c in chars if c.get("text","")]
+    all_x0 = [c["x0"] for c in chars if c.get("text", "")]
+    all_x1 = [c["x1"] for c in chars if c.get("text", "")]
     if not all_x0:
         return []
     dividers = [d for d in dividers if min(all_x0) < d < max(all_x1)]
@@ -102,13 +103,13 @@ def detect_column_grid(chars: list[dict], min_cols: int = 3) -> list[float]:
 
 def detect_row_grid(chars: list[dict], min_rows: int = 2) -> list[float]:
     """Find row dividers from y-proximity clustering."""
-    tc = [c for c in chars if c.get("text","") and not is_watermark_char(c)]
+    tc = [c for c in chars if c.get("text", "") and not is_watermark_char(c)]
     if len(tc) < 10:
         return []
     by_y = sorted(tc, key=lambda c: c["top"])
     rows, cur, cur_top = [], [by_y[0]], by_y[0]["top"]
     heights = [c["bottom"] - c["top"] for c in tc if c["bottom"] - c["top"] > 0]
-    y_tol = max(2, (sorted(heights)[len(heights)//2] if heights else 10) * 0.5)
+    y_tol = max(2, (sorted(heights)[len(heights) // 2] if heights else 10) * 0.5)
     for c in by_y[1:]:
         if c["top"] - cur_top <= y_tol:
             cur.append(c)
@@ -120,7 +121,7 @@ def detect_row_grid(chars: list[dict], min_rows: int = 2) -> list[float]:
     centers = [(min(c["top"] for c in r) + max(c["bottom"] for c in r)) / 2 for r in rows]
     if len(centers) < min_rows:
         return []
-    divs = [(centers[i] + centers[i+1]) / 2 for i in range(len(centers) - 1)]
+    divs = [(centers[i] + centers[i + 1]) / 2 for i in range(len(centers) - 1)]
     min_y = min(c["top"] for c in tc)
     max_y = max(c["bottom"] for c in tc)
     return [min_y] + divs + [max_y]
@@ -128,8 +129,11 @@ def detect_row_grid(chars: list[dict], min_rows: int = 2) -> list[float]:
 
 def assign_cell(chars: list[dict], col_d: list[float], row_d: list[float], col: int, row: int) -> str:
     """Extract text from a grid cell defined by column and row dividers."""
-    cc = [c for c in chars if col_d[col] <= c["x0"] <= col_d[col+1]
-          and row_d[row] <= (c["top"] + c["bottom"]) / 2 <= row_d[row+1]]
+    cc = [
+        c
+        for c in chars
+        if col_d[col] <= c["x0"] <= col_d[col + 1] and row_d[row] <= (c["top"] + c["bottom"]) / 2 <= row_d[row + 1]
+    ]
     cc.sort(key=lambda c: c["x0"])
     return "".join(c.get("text", "") for c in cc).strip()
 
@@ -362,7 +366,9 @@ def _detect_table_via_header_grid(page_plum, chars: list[dict]) -> list[list[str
     table = [headers] + logical_rows
     # Relax density check for continuation pages (saved dividers with no header)
     if headers and any(headers):
-        data_density = sum(1 for row in logical_rows if sum(1 for c in row if c.strip()) >= 2) / max(len(logical_rows), 1)
+        data_density = sum(1 for row in logical_rows if sum(1 for c in row if c.strip()) >= 2) / max(
+            len(logical_rows), 1
+        )
         if data_density < 0.8:
             return None
     else:

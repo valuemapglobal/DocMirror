@@ -104,18 +104,18 @@ def _dedupe_golden_cases(cases: list[GoldenCase]) -> list[GoldenCase]:
 
 
 def _discover_real_credit_cases(golden_root: Path) -> list[GoldenCase]:
-    """Optional real credit PDFs: tests/fixtures/credit_reports/{id}.pdf + legacy JSON."""
+    """Optional real credit PDFs: tests/fixtures/credit_reports/{id}.pdf + raw JSON."""
     repo_root = golden_root.parent.parent if golden_root.name == "golden" else golden_root.parent
     fixture_dir = repo_root / "tests" / "fixtures" / "credit_reports"
-    legacy_dir = golden_root / "credit_report" / "legacy_outputs"
-    if not fixture_dir.is_dir() or not legacy_dir.is_dir():
+    baseline_dir = golden_root / "credit_report" / "baseline_outputs"
+    if not fixture_dir.is_dir() or not baseline_dir.is_dir():
         return []
     cases: list[GoldenCase] = []
     for pdf in sorted(fixture_dir.glob("*.pdf")):
-        legacy = legacy_dir / f"{pdf.stem}.json"
-        if not legacy.exists():
+        raw = baseline_dir / f"{pdf.stem}.json"
+        if not raw.exists():
             continue
-        expected = json.loads(legacy.read_text(encoding="utf-8"))
+        expected = json.loads(raw.read_text(encoding="utf-8"))
         cases.append(
             GoldenCase(
                 id=f"real_{pdf.stem}",

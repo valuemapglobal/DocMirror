@@ -26,12 +26,13 @@ Dependencies: ``plugin_registry`` (registry singleton), ``manager`` (enable/disa
 
 from __future__ import annotations
 
+# Optional pluggy-based plugin system (GA1.0-EC-01)
+from docmirror.plugins._runtime import (
+    discovery,  # noqa: F401
+    hooks,  # noqa: F401
+)
 from docmirror.plugins._runtime.core_extensions import register_core_extensions
 from docmirror.plugins._runtime.plugin_registry import DomainPlugin, PluginRegistry, registry
-
-# Optional pluggy-based plugin system (GA1.0-EC-01)
-from docmirror.plugins._runtime import hooks  # noqa: F401
-from docmirror.plugins._runtime import discovery  # noqa: F401
 
 register_core_extensions()
 

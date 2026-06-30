@@ -90,7 +90,7 @@ class TestParseResultBridge:
         assert table.extraction_layer == "word_anchors"
         assert table.extraction_confidence == 0.9
 
-    def test_legacy_scanned_meta_converts_to_page_evidence_bundles(self):
+    def test_scanned_meta_converts_to_page_evidence_bundles(self):
         base = BaseResult(
             pages=(),
             full_text="",

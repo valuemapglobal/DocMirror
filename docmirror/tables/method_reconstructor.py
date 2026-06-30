@@ -9,7 +9,7 @@ Migrates the hardcoded layered pipeline in ``engine.py`` to a pluggable
 - Independent registration of extraction methods
 - Parallel dispatch with consistent error handling
 - Seamless integration with ``RegionReconstructorRegistry``
-- Feature-flag controlled rollout with a legacy engine fallback
+- Feature-flag controlled rollout with a raw engine fallback
 
 Protocol: ``TableMethodReconstructor``
     - ``id``: unique method identifier (e.g. "header_guided").
@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────────────────────
 # Protocol
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class TableMethodContext:
@@ -77,12 +78,14 @@ class TableMethodReconstructor:
 # Wrapper: PDF Native Methods (L0.x)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class PipeDelimitedReconstructor(TableMethodReconstructor):
     id = "pipe_delimited"
     supported_layers = {"native"}
 
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.engine import _extract_by_pipe_delimited
+
         return _extract_by_pipe_delimited(page_plum)
 
 
@@ -111,7 +114,10 @@ class PyMuPDFNativeReconstructor(TableMethodReconstructor):
 class PdfPlumberDefaultReconstructor(TableMethodReconstructor):
     id = "pdfplumber_default"
     supported_layers = {"native"}
-    def score(self, page_plum, profile=None, context=None): return 1.0
+
+    def score(self, page_plum, profile=None, context=None):
+        return 1.0
+
     def reconstruct(self, page_plum, profile=None, context=None):
         tables = page_plum.extract_tables() or []
         return tables[0] if tables else None
@@ -120,7 +126,10 @@ class PdfPlumberDefaultReconstructor(TableMethodReconstructor):
 class LinesReconstructor(TableMethodReconstructor):
     id = "lines"
     supported_layers = {"line"}
-    def score(self, page_plum, profile=None, context=None): return 0.80
+
+    def score(self, page_plum, profile=None, context=None):
+        return 0.80
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.classifier import TABLE_SETTINGS_LINES
 
@@ -132,7 +141,10 @@ class LinesReconstructor(TableMethodReconstructor):
 class TextReconstructor(TableMethodReconstructor):
     id = "text"
     supported_layers = {"text"}
-    def score(self, page_plum, profile=None, context=None): return 0.85
+
+    def score(self, page_plum, profile=None, context=None):
+        return 0.85
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.classifier import TABLE_SETTINGS
 
@@ -143,7 +155,10 @@ class TextReconstructor(TableMethodReconstructor):
 class TextFallbackReconstructor(TableMethodReconstructor):
     id = "text_fallback"
     supported_layers = {"native", "text"}
-    def score(self, page_plum, profile=None, context=None): return 0.70
+
+    def score(self, page_plum, profile=None, context=None):
+        return 0.70
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.classifier import TABLE_SETTINGS
 
@@ -155,19 +170,24 @@ class TextFallbackReconstructor(TableMethodReconstructor):
 # Wrapper: Line/Rect Methods (L1.x)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class HlineColumnsReconstructor(TableMethodReconstructor):
     id = "hline_columns"
     supported_layers = {"line"}
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.char.hline import _extract_by_hline_columns
+
         return _extract_by_hline_columns(page_plum)
 
 
 class RectColumnsReconstructor(TableMethodReconstructor):
     id = "rect_columns"
     supported_layers = {"line"}
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.char.rect import _extract_by_rect_columns
+
         return _extract_by_rect_columns(page_plum)
 
 
@@ -175,53 +195,70 @@ class RectColumnsReconstructor(TableMethodReconstructor):
 # Wrapper: Char-Level Methods (L2.x) — 6 methods
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class HeaderAnchorsReconstructor(TableMethodReconstructor):
     id = "header_anchors"
     supported_layers = {"char"}
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.char.header_anchors import detect_columns_by_header_anchors
+
         return detect_columns_by_header_anchors(page_plum)
 
 
 class HeaderGuidedReconstructor(TableMethodReconstructor):
     id = "header_guided"
     supported_layers = {"char"}
-    def score(self, page_plum, profile=None, context=None): return 0.65
+
+    def score(self, page_plum, profile=None, context=None):
+        return 0.65
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.char.header_column_finder import detect_columns_by_header_guided
+
         return detect_columns_by_header_guided(page_plum)
 
 
 class GridReconstructorWrapper(TableMethodReconstructor):
     id = "grid_reconstructor"
     supported_layers = {"char"}
-    def score(self, page_plum, profile=None, context=None): return 0.80
+
+    def score(self, page_plum, profile=None, context=None):
+        return 0.80
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.char.grid_reconstructor import detect_table_via_grid
+
         return detect_table_via_grid(page_plum)
 
 
 class WordAnchorsReconstructor(TableMethodReconstructor):
     id = "word_anchors"
     supported_layers = {"char"}
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.char.word_anchors import detect_columns_by_word_anchors
+
         return detect_columns_by_word_anchors(page_plum)
 
 
 class DataVotingReconstructor(TableMethodReconstructor):
     id = "data_voting"
     supported_layers = {"char"}
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.char.data_voting import detect_columns_by_data_voting
+
         return detect_columns_by_data_voting(page_plum)
 
 
 class WhitespaceProjectionReconstructor(TableMethodReconstructor):
     id = "whitespace_projection"
     supported_layers = {"char"}
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.char.projection import detect_columns_by_whitespace_projection
+
         return detect_columns_by_whitespace_projection(page_plum)
 
 
@@ -229,11 +266,14 @@ class WhitespaceProjectionReconstructor(TableMethodReconstructor):
 # Wrapper: Clustering (L3)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class ClusteringReconstructor(TableMethodReconstructor):
     id = "x_clustering"
     supported_layers = {"clustering"}
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.char.clustering import detect_columns_by_clustering
+
         return detect_columns_by_clustering(page_plum)
 
 
@@ -241,10 +281,14 @@ class ClusteringReconstructor(TableMethodReconstructor):
 # Wrapper: Others
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class SignalProcessorReconstructor(TableMethodReconstructor):
     id = "signal_processor"
     supported_layers = {"char"}
-    def score(self, page_plum, profile=None, context=None): return 0.70
+
+    def score(self, page_plum, profile=None, context=None):
+        return 0.70
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.signal_processor import extract_table_by_signal
 
@@ -254,16 +298,23 @@ class SignalProcessorReconstructor(TableMethodReconstructor):
 class RapidTableReconstructor(TableMethodReconstructor):
     id = "rapid_table"
     supported_layers = {"vision"}
-    def score(self, page_plum, profile=None, context=None): return 0.12
+
+    def score(self, page_plum, profile=None, context=None):
+        return 0.12
+
     def reconstruct(self, page_plum, profile=None, context=None):
         from docmirror.tables.engine import _extract_by_rapid_table
+
         return _extract_by_rapid_table(page_plum)
 
 
 class TemplateInjectionReconstructor(TableMethodReconstructor):
     id = "template_injection"
     supported_layers = {"template"}
-    def score(self, page_plum, profile=None, context=None): return 0.99
+
+    def score(self, page_plum, profile=None, context=None):
+        return 0.99
+
     def reconstruct(self, page_plum, profile=None, context=None):
         if context is None or context.table_template is None:
             return None
@@ -275,6 +326,7 @@ class TemplateInjectionReconstructor(TableMethodReconstructor):
 # ──────────────────────────────────────────────────────────────────────────────
 # Registry
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TableMethodRegistry:
     """Parallel dispatch of table extraction methods."""
@@ -326,7 +378,8 @@ class TableMethodRegistry:
         """Run all matching methods in parallel, return (layer, rows, score)."""
         allowed = set(method_ids or [])
         target = [
-            m for m in self._methods
+            m
+            for m in self._methods
             if (not allowed or m.id in allowed) and (layers is None or bool(m.supported_layers & layers))
         ]
         if not target:

@@ -32,17 +32,17 @@ class OCRToken:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-           "token_id": self.token_id,
-           "text": self.text,
-           "bbox": list(self.bbox),
-           "confidence": self.confidence,
-           "page": self.page,
-           "source": self.source,
-           "coordinate_system": self.coordinate_system,
-           **({"raw_bbox": list(self.raw_bbox)} if self.raw_bbox else {}),
-           "raw_coordinate_system": self.raw_coordinate_system,
-           **({"source_token_id": self.source_token_id} if self.source_token_id else {}),
-       }
+            "token_id": self.token_id,
+            "text": self.text,
+            "bbox": list(self.bbox),
+            "confidence": self.confidence,
+            "page": self.page,
+            "source": self.source,
+            "coordinate_system": self.coordinate_system,
+            **({"raw_bbox": list(self.raw_bbox)} if self.raw_bbox else {}),
+            "raw_coordinate_system": self.raw_coordinate_system,
+            **({"source_token_id": self.source_token_id} if self.source_token_id else {}),
+        }
 
     @property
     def confidence_tier(self) -> Literal["high", "medium", "low"]:
@@ -63,11 +63,11 @@ class OCRToken:
         page: int = 1,
         source: str = "rapidocr",
         idx: int = 0,
-    ) -> "OCRToken":
+    ) -> OCRToken:
         """Convert a RapidOCR word tuple to an OCRToken.
 
         Expected word tuple format: (x0, y0, x1, y1, text, confidence)
-        Compatible with output from runner_legacy._run_ocr() and
+        Compatible with output from runner._run_ocr() and
         rapidocr_engine.RapidOCREngine.detect_image_words().
         """
         if len(word) < 5:
@@ -109,6 +109,7 @@ class OCRToken:
             raw_coordinate_system="image_pixels",
         )
 
+
 @dataclass(frozen=True)
 class MicroGridCandidate:
     candidate_id: str
@@ -128,7 +129,7 @@ class MicroGridCandidate:
             "reason_codes": list(self.reason_codes),
             "score": self.score,
             "coordinate_system": self.coordinate_system,
-       }
+        }
 
 
 @dataclass(frozen=True)
@@ -138,9 +139,10 @@ class TieredTokenCollection:
     Each tier is independently accessible. Consumers call ``filter_by_threshold()``
     with their own tolerance rather than relying on a single binary gate.
     """
-    high: list[OCRToken] = field(default_factory=list)      # confidence >= 0.7
-    medium: list[OCRToken] = field(default_factory=list)    # 0.3 <= confidence < 0.7
-    low: list[OCRToken] = field(default_factory=list)       # confidence < 0.3
+
+    high: list[OCRToken] = field(default_factory=list)  # confidence >= 0.7
+    medium: list[OCRToken] = field(default_factory=list)  # 0.3 <= confidence < 0.7
+    low: list[OCRToken] = field(default_factory=list)  # confidence < 0.3
 
     @property
     def all(self) -> list[OCRToken]:
@@ -151,7 +153,7 @@ class TieredTokenCollection:
         return [t for t in self.all if t.confidence >= threshold]
 
     @classmethod
-    def from_tokens(cls, tokens: list[OCRToken]) -> "TieredTokenCollection":
+    def from_tokens(cls, tokens: list[OCRToken]) -> TieredTokenCollection:
         """Partition a flat token list into three confidence tiers."""
         high: list[OCRToken] = []
         medium: list[OCRToken] = []

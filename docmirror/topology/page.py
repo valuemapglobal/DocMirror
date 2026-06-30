@@ -64,10 +64,20 @@ class DocumentTopology:
             "table_like_regions": sum(1 for region in regions if region.kind == "table_like"),
             "key_value_regions": sum(1 for region in regions if region.role == "document_metadata"),
             "residual_regions": sum(1 for region in regions if region.kind == "residual"),
-            "bundle_regions": sum(1 for region in regions if str(region.diagnostics.get("grouping", "")).startswith("page_evidence_bundle")),
-            "page_canvas_regions": sum(1 for region in regions if region.diagnostics.get("grouping") == "page_canvas_region"),
-            "segment_regions": sum(1 for region in regions if region.diagnostics.get("grouping") == "segment_page_blocks"),
-            "implicit_grid_regions": sum(1 for region in regions if region.diagnostics.get("grouping") == "implicit_grid_text_atoms"),
+            "bundle_regions": sum(
+                1
+                for region in regions
+                if str(region.diagnostics.get("grouping", "")).startswith("page_evidence_bundle")
+            ),
+            "projection_regions": sum(
+                1 for region in regions if region.diagnostics.get("grouping") == "projection_region"
+            ),
+            "segment_regions": sum(
+                1 for region in regions if region.diagnostics.get("grouping") == "segment_page_blocks"
+            ),
+            "implicit_grid_regions": sum(
+                1 for region in regions if region.diagnostics.get("grouping") == "implicit_grid_text_atoms"
+            ),
             "overlap_warnings": sum(
                 1
                 for page in self.pages
@@ -116,7 +126,7 @@ class PageTopologyBuilder:
         visual_atom_ids = {atom.id for atom in evidence_plane.evidence.visual_atoms}
         image_atom_ids = {atom.id for atom in evidence_plane.evidence.image_atoms}
         vector_atom_ids = {atom.id for atom in evidence_plane.evidence.vector_atoms}
-        page_canvas_by_number = _page_canvas_by_number(evidence_plane.source.provenance)
+        projection_by_number = _projection_by_number(evidence_plane.source.provenance)
         page_bundle_by_number = _page_bundle_by_number(evidence_plane.source.provenance)
         topologies: list[PageTopology] = []
         diagnostics: list[dict[str, Any]] = []
@@ -129,9 +139,7 @@ class PageTopologyBuilder:
             )
             page_atoms = [atom_by_id[atom_id] for atom_id in page.evidence_ids if atom_id in atom_by_id]
             table_atoms = [
-                atom
-                for atom in page_atoms
-                if atom.id in text_atom_ids and atom.text and atom.metadata.get("block_type") == "table"
+                atom for atom in page_atoms if atom.id in text_atom_ids and atom.metadata.get("block_type") == "table"
             ]
             key_value_atoms = [
                 atom
@@ -188,20 +196,24 @@ class PageTopologyBuilder:
             if bundle_evidence_ids:
                 text_atoms = [atom for atom in text_atoms if atom.id not in bundle_evidence_ids]
 
-            page_canvas_regions = self._page_canvas_regions(
+            projection_regions = self._projection_regions(
                 page,
-                page_canvas_by_number.get(page.page_number),
+                projection_by_number.get(page.page_number),
                 text_atoms,
                 skip_table_candidates=bool(table_regions),
             )
-            page_canvas_evidence_ids = {evidence_id for region in page_canvas_regions for evidence_id in region.evidence_ids}
-            for region in page_canvas_regions:
+            projection_evidence_ids = {
+                evidence_id for region in projection_regions for evidence_id in region.evidence_ids
+            }
+            for region in projection_regions:
                 owned.update(region.evidence_ids)
-            page_topology.regions.extend(page_canvas_regions)
-            if page_canvas_evidence_ids:
-                text_atoms = [atom for atom in text_atoms if atom.id not in page_canvas_evidence_ids]
+            page_topology.regions.extend(projection_regions)
+            if projection_evidence_ids:
+                text_atoms = [atom for atom in text_atoms if atom.id not in projection_evidence_ids]
 
-            segment_regions = self._segment_page_block_regions(page, text_atoms, skip_table_candidates=bool(table_regions))
+            segment_regions = self._segment_page_block_regions(
+                page, text_atoms, skip_table_candidates=bool(table_regions)
+            )
             segment_evidence_ids = {evidence_id for region in segment_regions for evidence_id in region.evidence_ids}
             for region in segment_regions:
                 owned.update(region.evidence_ids)
@@ -210,7 +222,9 @@ class PageTopologyBuilder:
                 text_atoms = [atom for atom in text_atoms if atom.id not in segment_evidence_ids]
 
             implicit_table_regions = self._implicit_table_regions(page, text_atoms) if not table_regions else []
-            implicit_table_evidence_ids = {evidence_id for region in implicit_table_regions for evidence_id in region.evidence_ids}
+            implicit_table_evidence_ids = {
+                evidence_id for region in implicit_table_regions for evidence_id in region.evidence_ids
+            }
             for region in implicit_table_regions:
                 owned.update(region.evidence_ids)
             page_topology.regions.extend(implicit_table_regions)
@@ -224,7 +238,9 @@ class PageTopologyBuilder:
 
             residual_atoms = [atom for atom in page_atoms if atom.id not in owned]
             if residual_atoms or not page_topology.regions:
-                residual_region = self._residual_region(page, residual_atoms, reading_order=len(page_topology.regions) + 1)
+                residual_region = self._residual_region(
+                    page, residual_atoms, reading_order=len(page_topology.regions) + 1
+                )
                 page_topology.regions.append(residual_region)
                 page_topology.residual_region_ids.append(residual_region.id)
 
@@ -349,7 +365,9 @@ class PageTopologyBuilder:
 
         regions: list[TopologyRegion] = []
         for idx, (table_id, table_atoms) in enumerate(table_ids.items(), start=1):
-            bbox = _metadata_bbox(table_atoms, "table_bbox") or _union_bbox([atom.bbox for atom in table_atoms if atom.bbox])
+            bbox = _metadata_bbox(table_atoms, "table_bbox") or _union_bbox(
+                [atom.bbox for atom in table_atoms if atom.bbox]
+            )
             table_provenance = _table_region_provenance(table_atoms)
             regions.append(
                 TopologyRegion(
@@ -394,7 +412,9 @@ class PageTopologyBuilder:
                 )
             ]
 
-        sorted_atoms = sorted(with_bbox, key=lambda atom: ((atom.bbox or [0, 0, 0, 0])[1], (atom.bbox or [0, 0, 0, 0])[0]))
+        sorted_atoms = sorted(
+            with_bbox, key=lambda atom: ((atom.bbox or [0, 0, 0, 0])[1], (atom.bbox or [0, 0, 0, 0])[0])
+        )
         lines: list[list[EvidenceAtom]] = []
         current: list[EvidenceAtom] = []
         current_y: float | None = None
@@ -447,7 +467,9 @@ class PageTopologyBuilder:
                 bbox = _bbox(grid.get("bbox"))
                 if not bbox:
                     continue
-                region_atoms = [atom for atom in atoms if atom.id not in claimed_ids and _atom_center_in_bbox(atom, bbox)]
+                region_atoms = [
+                    atom for atom in atoms if atom.id not in claimed_ids and _atom_center_in_bbox(atom, bbox)
+                ]
                 if not region_atoms:
                     continue
                 claimed_ids.update(atom.id for atom in region_atoms)
@@ -481,7 +503,9 @@ class PageTopologyBuilder:
                 bbox = _bbox(structure.get("bbox"))
                 if not bbox:
                     continue
-                region_atoms = [atom for atom in atoms if atom.id not in claimed_ids and _atom_center_in_bbox(atom, bbox)]
+                region_atoms = [
+                    atom for atom in atoms if atom.id not in claimed_ids and _atom_center_in_bbox(atom, bbox)
+                ]
                 if not region_atoms:
                     continue
                 claimed_ids.update(atom.id for atom in region_atoms)
@@ -504,17 +528,17 @@ class PageTopologyBuilder:
                 )
         return regions
 
-    def _page_canvas_regions(
+    def _projection_regions(
         self,
         page: EvidencePage,
-        page_canvas: dict[str, Any] | None,
+        projection: dict[str, Any] | None,
         atoms: list[EvidenceAtom],
         *,
         skip_table_candidates: bool,
     ) -> list[TopologyRegion]:
-        if not isinstance(page_canvas, dict):
+        if not isinstance(projection, dict):
             return []
-        raw_regions = page_canvas.get("regions")
+        raw_regions = projection.get("regions")
         if not isinstance(raw_regions, list):
             return []
         regions: list[TopologyRegion] = []
@@ -525,27 +549,23 @@ class PageTopologyBuilder:
             bbox = _bbox(raw_region.get("bbox"))
             if not bbox:
                 continue
-            kind, role = _page_canvas_region_kind_role(raw_region)
+            kind, role = _projection_region_kind_role(raw_region)
             if kind == "table_like" and skip_table_candidates:
                 continue
-            region_atoms = [
-                atom
-                for atom in atoms
-                if atom.id not in claimed_ids and _atom_center_in_bbox(atom, bbox)
-            ]
+            region_atoms = [atom for atom in atoms if atom.id not in claimed_ids and _atom_center_in_bbox(atom, bbox)]
             if not region_atoms:
                 continue
             claimed_ids.update(atom.id for atom in region_atoms)
             diagnostics: dict[str, Any] = {
-                "grouping": "page_canvas_region",
-                "page_canvas_region_id": raw_region.get("region_id", ""),
-                "page_canvas_kind": raw_region.get("kind", ""),
-                "page_canvas_morphology": raw_region.get("morphology", ""),
+                "grouping": "projection_region",
+                "projection_region_id": raw_region.get("region_id", ""),
+                "projection_kind": raw_region.get("kind", ""),
+                "projection_morphology": raw_region.get("morphology", ""),
                 "anchor_text": raw_region.get("anchor_text", ""),
             }
             regions.append(
                 TopologyRegion(
-                    id=f"reg:{page.page_number:04d}:canvas:{idx:04d}",
+                    id=f"reg:{page.page_number:04d}:projection:{idx:04d}",
                     page_id=page.page_id,
                     kind=kind,
                     role=role,
@@ -569,7 +589,7 @@ class PageTopologyBuilder:
         if len(line_groups) < 3:
             return []
         try:
-            from docmirror.ocr.page_canvas.page_segment import segment_page_blocks
+            from docmirror.layout.segment.page_blocks import segment_page_blocks
         except Exception:
             return []
 
@@ -623,7 +643,7 @@ class PageTopologyBuilder:
                 grid = _table_grid_from_tokens(tokens, block.bbox, page_height=page.height)
                 if grid:
                     diagnostics["implicit_table_grid"] = grid
-                    diagnostics["implicit_table_source"] = "segment_page_blocks+grid_legacy_tokens"
+                    diagnostics["implicit_table_source"] = "segment_page_blocks+grid_tokens"
             regions.append(
                 TopologyRegion(
                     id=f"reg:{page.page_number:04d}:segment:{idx:04d}",
@@ -689,7 +709,11 @@ class PageTopologyBuilder:
         if is_empty:
             if page.content_mode in ("scanned_ocr", "unknown"):
                 role = "scanned_blank_page"
-                reason = "scanned_page_no_text_content" if page.content_mode == "scanned_ocr" else "no_evidence_atoms_unknown_source"
+                reason = (
+                    "scanned_page_no_text_content"
+                    if page.content_mode == "scanned_ocr"
+                    else "no_evidence_atoms_unknown_source"
+                )
             else:
                 role = "empty_page"
                 reason = "no_evidence_atoms"
@@ -754,7 +778,11 @@ class PageTopologyBuilder:
                 continue
             loose_band = float(page.height) * 0.18
             for region in page_topology.regions:
-                if region.kind not in {"text", "header", "footer"} or region.role not in {"body", "page_header", "page_footer"}:
+                if region.kind not in {"text", "header", "footer"} or region.role not in {
+                    "body",
+                    "page_header",
+                    "page_footer",
+                }:
                     continue
                 if not region.bbox:
                     continue
@@ -836,8 +864,7 @@ class PageTopologyBuilder:
             if _is_table_summary_text(text) and region.diagnostics.get("surrounding_table_region_id"):
                 kv = _extract_summary_kv(text)
                 if kv:
-                    region.diagnostics = {**region.diagnostics, "classification": "table_summary",
-                                          "summary_fields": kv}
+                    region.diagnostics = {**region.diagnostics, "classification": "table_summary", "summary_fields": kv}
                 region.role = "table_summary"
                 continue
             if _is_footnote_text(text):
@@ -853,10 +880,20 @@ class PageTopologyBuilder:
                 region.diagnostics = {**region.diagnostics, "classification": "legal_notice"}
 
     _REGION_CONFLICT_PRIORITY: dict[str, int] = {
-        "table_like": 10, "seal": 9, "signature": 8, "heading": 7,
-        "figure": 6, "image": 5, "text": 4, "document_metadata": 3,
-        "header": 2, "footer": 2, "footnote": 2, "toc": 1,
-        "residual": 0, "unknown": 0,
+        "table_like": 10,
+        "seal": 9,
+        "signature": 8,
+        "heading": 7,
+        "figure": 6,
+        "image": 5,
+        "text": 4,
+        "document_metadata": 3,
+        "header": 2,
+        "footer": 2,
+        "footnote": 2,
+        "toc": 1,
+        "residual": 0,
+        "unknown": 0,
     }
 
     def _annotate_region_overlaps(self, page_topology: PageTopology) -> None:
@@ -876,17 +913,25 @@ class PageTopologyBuilder:
                 overlap_evidence = {eid for eid in loser.evidence_ids if eid in winner.evidence_ids}
                 if overlap_evidence:
                     loser.evidence_ids = [eid for eid in loser.evidence_ids if eid not in overlap_evidence]
+                structural_overlap = "table_like" in {left.kind, right.kind}
+                should_warn = bool(overlap_evidence) or structural_overlap
+                severity = "warning" if should_warn else "info"
                 warning = {
                     "type": "region_overlap",
-                    "severity": "warning",
+                    "severity": severity,
                     "message": f"overlap resolved: {loser.kind} → {winner.kind}",
                     "region_ids": [left.id, right.id],
                     "overlap_ratio": round(overlap_ratio, 4),
                     "threshold": self.region_overlap_threshold,
-                    "resolution": {"winner": winner.kind, "loser": loser.kind, "removed_evidence_count": len(overlap_evidence)},
+                    "resolution": {
+                        "winner": winner.kind,
+                        "loser": loser.kind,
+                        "removed_evidence_count": len(overlap_evidence),
+                    },
                 }
-                _append_region_overlap_warning(left, right.id, overlap_ratio, self.region_overlap_threshold)
-                _append_region_overlap_warning(right, left.id, overlap_ratio, self.region_overlap_threshold)
+                if should_warn:
+                    _append_region_overlap_warning(left, right.id, overlap_ratio, self.region_overlap_threshold)
+                    _append_region_overlap_warning(right, left.id, overlap_ratio, self.region_overlap_threshold)
                 page_topology.diagnostics.append(warning)
 
 
@@ -900,8 +945,8 @@ def _atom_index(evidence_plane: EvidencePlane) -> dict[str, EvidenceAtom]:
     return {atom.id: atom for atom in atoms}
 
 
-def _page_canvas_by_number(provenance: dict[str, Any]) -> dict[int, dict[str, Any]]:
-    canvases = provenance.get("page_canvases") if isinstance(provenance, dict) else None
+def _projection_by_number(provenance: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    canvases = provenance.get("page_projections") if isinstance(provenance, dict) else None
     if not isinstance(canvases, list):
         return {}
     out: dict[int, dict[str, Any]] = {}
@@ -942,10 +987,9 @@ def _grid_rows_from_micro_grid(grid: dict[str, Any]) -> list[list[str]]:
     for row in cells:
         if not isinstance(row, list):
             continue
-        rows.append([
-            str(cell.get("text", "") if isinstance(cell, dict) else getattr(cell, "text", ""))
-            for cell in row
-        ])
+        rows.append(
+            [str(cell.get("text", "") if isinstance(cell, dict) else getattr(cell, "text", "")) for cell in row]
+        )
     if len(rows) < 2:
         return []
     column_count = max((len(row) for row in rows), default=0)
@@ -954,7 +998,7 @@ def _grid_rows_from_micro_grid(grid: dict[str, Any]) -> list[list[str]]:
     return [row + [""] * (column_count - len(row)) for row in rows]
 
 
-def _page_canvas_region_kind_role(raw_region: dict[str, Any]) -> tuple[str, str]:
+def _projection_region_kind_role(raw_region: dict[str, Any]) -> tuple[str, str]:
     kind = str(raw_region.get("kind") or "").lower()
     morphology = str(raw_region.get("morphology") or "").lower()
     schema_hint = str(raw_region.get("schema_hint") or "").lower()
@@ -991,7 +1035,9 @@ def _line_groups_from_atoms(atoms: list[EvidenceAtom], *, tolerance: float) -> l
     candidates = [atom for atom in atoms if atom.bbox and atom.text]
     if not candidates:
         return []
-    ordered = sorted(candidates, key=lambda atom: (float((atom.bbox or [0, 0, 0, 0])[1]), float((atom.bbox or [0, 0, 0, 0])[0])))
+    ordered = sorted(
+        candidates, key=lambda atom: (float((atom.bbox or [0, 0, 0, 0])[1]), float((atom.bbox or [0, 0, 0, 0])[0]))
+    )
     groups: list[list[EvidenceAtom]] = []
     current: list[EvidenceAtom] = []
     current_y: float | None = None
@@ -1054,14 +1100,12 @@ def _table_grid_from_tokens(
         return []
     x0, y0, x1, y1 = bbox
     block_tokens = [
-        token
-        for token in tokens
-        if x0 <= token.center[0] <= x1 and y0 - 4.0 <= token.center[1] <= y1 + 4.0
+        token for token in tokens if x0 <= token.center[0] <= x1 and y0 - 4.0 <= token.center[1] <= y1 + 4.0
     ]
     if len(block_tokens) < 6:
         return []
     try:
-        from docmirror.ocr.reconstruct.grid_legacy import reconstruct_table_grid_from_tokens
+        from docmirror.ocr.reconstruct.grid import reconstruct_table_grid_from_tokens
     except Exception:
         return []
     try:
@@ -1195,9 +1239,7 @@ def _apply_region_graph_diagnostics(page_topology: PageTopology, graph_diagnosti
     nested = ownership.get("nested") if isinstance(ownership.get("nested"), dict) else {}
     residual = set(ownership.get("residual") or [])
     candidates = [
-        candidate
-        for candidate in graph_diagnostics.get("candidates", []) or []
-        if isinstance(candidate, dict)
+        candidate for candidate in graph_diagnostics.get("candidates", []) or [] if isinstance(candidate, dict)
     ]
     candidate_by_region: dict[str, dict[str, Any]] = {}
     for candidate in candidates:
@@ -1208,7 +1250,9 @@ def _apply_region_graph_diagnostics(page_topology: PageTopology, graph_diagnosti
         for region_id in region_ids:
             if region_id and region_id not in candidate_by_region:
                 candidate_by_region[region_id] = candidate
-    rejected_candidates = ownership.get("rejected_candidates") if isinstance(ownership.get("rejected_candidates"), list) else []
+    rejected_candidates = (
+        ownership.get("rejected_candidates") if isinstance(ownership.get("rejected_candidates"), list) else []
+    )
     rejected_by_region: dict[str, list[dict[str, Any]]] = {}
     for item in rejected_candidates:
         if not isinstance(item, dict):
@@ -1234,9 +1278,7 @@ def _apply_region_graph_diagnostics(page_topology: PageTopology, graph_diagnosti
         region_rejections = rejected_by_region.get(region.id, [])
         if region_rejections:
             diagnostics["rejected_candidate_ids"] = [
-                str(item.get("candidate_id") or "")
-                for item in region_rejections
-                if item.get("candidate_id")
+                str(item.get("candidate_id") or "") for item in region_rejections if item.get("candidate_id")
             ]
             diagnostics["rejection_reasons"] = [
                 {
@@ -1305,6 +1347,15 @@ def _table_region_provenance(atoms: list[EvidenceAtom]) -> dict[str, Any]:
         "source",
         "page_width",
         "page_height",
+        "row_bands",
+        "col_bands",
+        "merged_cells",
+        "cell_bboxes",
+        "cell_geometry_status",
+        "cell_geometry_loss_reason",
+        "cell_evidence_ids",
+        "cell_token_ids",
+        "cell_confidences",
     )
     out: dict[str, Any] = {}
     for key in keys:
@@ -1318,6 +1369,13 @@ def _average_confidence(atoms: list[EvidenceAtom]) -> float:
     if not atoms:
         return 0.0
     return sum(atom.confidence for atom in atoms) / len(atoms)
+
+
+def _confidence(value: Any, default: float = 0.0) -> float:
+    try:
+        return max(0.0, min(1.0, float(value)))
+    except (TypeError, ValueError):
+        return default
 
 
 def _text_region_kind_role(atoms: list[EvidenceAtom]) -> tuple[str, str]:
@@ -1383,7 +1441,9 @@ def _is_account_identity_text(text: str) -> bool:
 
 
 def _region_text(region: TopologyRegion, atom_by_id: dict[str, EvidenceAtom]) -> str:
-    return " ".join(str(atom_by_id[atom_id].text or "") for atom_id in region.evidence_ids if atom_id in atom_by_id).strip()
+    return " ".join(
+        str(atom_by_id[atom_id].text or "") for atom_id in region.evidence_ids if atom_id in atom_by_id
+    ).strip()
 
 
 def _is_background_region(region: TopologyRegion) -> bool:
@@ -1445,22 +1505,28 @@ def _extract_summary_kv(text: str) -> dict[str, str]:
     if not text:
         return {}
     _LM = {
-        "借方笔数": "debit_count", "贷方笔数": "credit_count",
-        "借方发生笔数": "debit_count", "贷方发生笔数": "credit_count",
-        "借方发生数": "debit_count", "贷方发生数": "credit_count",
-        "借方金额": "debit_amount", "贷方金额": "credit_amount",
-        "借方发生额": "debit_amount", "贷方发生额": "credit_amount",
+        "借方笔数": "debit_count",
+        "贷方笔数": "credit_count",
+        "借方发生笔数": "debit_count",
+        "贷方发生笔数": "credit_count",
+        "借方发生数": "debit_count",
+        "贷方发生数": "credit_count",
+        "借方金额": "debit_amount",
+        "贷方金额": "credit_amount",
+        "借方发生额": "debit_amount",
+        "贷方发生额": "credit_amount",
         "余额": "balance",
-        "出单截至日期": "cutoff_date", "截止日期": "cutoff_date",
+        "出单截至日期": "cutoff_date",
+        "截止日期": "cutoff_date",
         "出单截止日期": "cutoff_date",
     }
     fields: dict[str, str] = {}
-    for line in text.split('\n'):
+    for line in text.split("\n"):
         line = line.strip()
         if not line:
             continue
-        line = re.sub(r'^[─━═\-\*]+|[─━═\-\*]+$', '', line)
-        m = re.match(r'^\s*(.+?)\s*[:：]\s*(.+?)\s*$', line)
+        line = re.sub(r"^[─━═\-\*]+|[─━═\-\*]+$", "", line)
+        m = re.match(r"^\s*(.+?)\s*[:：]\s*(.+?)\s*$", line)
         if not m:
             continue
         label, value = m.group(1).strip(), m.group(2).strip()
@@ -1468,8 +1534,13 @@ def _extract_summary_kv(text: str) -> dict[str, str]:
             continue
         for kw, canonical in _LM.items():
             if kw in label:
-                prefix = "current_" if any(p in label for p in ("当前", "本页")) else \
-                         "period_" if any(p in label for p in ("累计", "本月", "本期")) else ""
+                prefix = (
+                    "current_"
+                    if any(p in label for p in ("当前", "本页"))
+                    else "period_"
+                    if any(p in label for p in ("累计", "本月", "本期"))
+                    else ""
+                )
                 fn = prefix + canonical
                 if fn not in fields:
                     fields[fn] = value
@@ -1484,7 +1555,7 @@ def _clean_notice_text(text: str) -> str:
     """
     if not text:
         return text
-    return re.sub(r'^[─━═\-\*\s]+|[─━═\-\*\s]+$', '', text).strip()
+    return re.sub(r"^[─━═\-\*\s]+|[─━═\-\*\s]+$", "", text).strip()
 
 
 def _is_notice_text(text: str) -> bool:
@@ -1510,7 +1581,9 @@ def _normalize_repeated_text(text: str) -> str:
 
 
 def _visual_artifact_kind(atom: EvidenceAtom) -> str | None:
-    haystack = " ".join([str(atom.kind or ""), atom.source_kind, " ".join(str(v) for v in atom.metadata.values())]).lower()
+    haystack = " ".join(
+        [str(atom.kind or ""), atom.source_kind, " ".join(str(v) for v in atom.metadata.values())]
+    ).lower()
     if "signature" in haystack or "签名" in haystack:
         return "signature"
     if "seal" in haystack or "stamp" in haystack or "印章" in haystack or "公章" in haystack:

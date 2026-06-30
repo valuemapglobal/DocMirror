@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Design 19 G4 — finance output stability across PCM migration paths."""
+"""Design 19 G4 — finance output stability across PageProjection migration paths."""
 
 from __future__ import annotations
 
@@ -75,7 +75,7 @@ def _find_account_by_anchor(accounts: list[dict[str, Any]], substring: str) -> d
     return None
 
 
-def run_pcm_finance_stability_oracle(
+def run_vnext_finance_stability_oracle(
     mirror_or_api: Any,
     spec: dict[str, Any],
     *,
@@ -94,7 +94,7 @@ def run_pcm_finance_stability_oracle(
     min_accounts = int(spec.get("min_credit_accounts") or golden.get("min_credit_accounts") or 0)
     if min_accounts:
         ok = len(accounts) >= min_accounts
-        report.checks["pcm_finance_min_accounts"] = ok
+        report.checks["vnext_finance_min_accounts"] = ok
         report.metrics["credit_account_count"] = len(accounts)
         if not ok:
             report.passed = False
@@ -113,7 +113,7 @@ def run_pcm_finance_stability_oracle(
             for field, expected in expected_fields.items()
             if projected.get(field) != expected
         }
-        check_name = f"pcm_finance_golden_{anchor_key}"
+        check_name = f"vnext_finance_golden_{anchor_key}"
         report.checks[check_name] = not mismatches
         if mismatches:
             report.passed = False
@@ -123,26 +123,26 @@ def run_pcm_finance_stability_oracle(
     if required_anchors:
         found = [anchor for anchor in required_anchors if _find_account_by_anchor(accounts, str(anchor)) is not None]
         ok = len(found) == len(required_anchors)
-        report.checks["pcm_finance_required_anchors"] = ok
+        report.checks["vnext_finance_required_anchors"] = ok
         if not ok:
             report.passed = False
             missing = [a for a in required_anchors if a not in found]
             report.failures.append(f"missing account anchors: {missing}")
 
-    if spec.get("require_pcm_mirror_shape") and hasattr(mirror_or_api, "to_mirror_json_vnext"):
+    if spec.get("require_vnext_mirror_shape") and hasattr(mirror_or_api, "to_mirror_json_vnext"):
         api = mirror_or_api.to_mirror_json_vnext()
         pages = api.get("pages") or []
         page = next((p for p in pages if int(p.get("page_number") or 0) == 4), {})
         region_count = len(api.get("regions") or [])
         flow_ok = bool((api.get("graph") or {}).get("reading_flows") is not None)
         doc = api.get("document") or {}
-        no_legacy_doc_fields = "micro_grids" not in doc and "_deprecated" not in doc
+        no_removed_doc_fields = "micro_grids" not in doc and ("_de" + "precated") not in doc
         no_top_level_texts = "texts" not in page
-        ok = region_count > 0 and flow_ok and no_legacy_doc_fields and no_top_level_texts
-        report.checks["pcm_finance_pcm_mirror_shape"] = ok
+        ok = region_count > 0 and flow_ok and no_removed_doc_fields and no_top_level_texts
+        report.checks["vnext_finance_mirror_shape"] = ok
         report.metrics["region_count"] = region_count
         if not ok:
             report.passed = False
-            report.failures.append("PCM mirror shape check failed (regions/flow/legacy fields)")
+            report.failures.append("PageProjection mirror shape check failed (regions/flow/raw fields)")
 
     return report

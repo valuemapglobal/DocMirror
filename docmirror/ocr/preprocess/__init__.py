@@ -3,14 +3,14 @@
 """
 OCR preprocess subpackage — image preparation before recognition.
 
-Purpose: Package marker for legacy fallback preprocessing (deskew, upscale,
-quality assessment) used on scanned paths.
+Purpose: Package marker for OCR preprocessing (deskew, upscale, quality
+assessment) used on scanned paths.
 
-Main components: Functions from ``legacy_fallback``.
+Main components: Functions from ``pipeline``.
 
 Upstream: Raw rendered page images.
 
-Downstream: ``ocr.recognize.runner_legacy``, ``ocr.scanned.analyze_page``.
+Downstream: ``ocr.recognize.runner``, ``ocr.scanned.analyze_page``.
 """
 
 from docmirror.ocr.image_preprocessing import *  # noqa: F403

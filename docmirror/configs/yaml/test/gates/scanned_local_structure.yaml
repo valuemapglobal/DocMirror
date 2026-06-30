@@ -22,7 +22,7 @@ cases:
           - close_date
         expected_first_account:
           management_institution: 重庆市蚂蚁商诚信息技术有限公司
-          account_identifier: 蚂蚁借呗合并20180831J1010111000648287831
+          account_identifier: 蚂蚁借呗合并SYNTHETIC_ACCOUNT_REF
           open_date: "2018.08.31"
           currency: 人民币
           due_date: "2019.06.21"

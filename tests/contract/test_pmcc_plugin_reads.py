@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
-from docmirror.structure.ocr.page_canvas.evidence_bundles import merge_micro_grid_structures_into_bundles
+from docmirror.models.mirror.page_evidence_bundles import merge_micro_grid_structures_into_bundles
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult
 from docmirror.models.mirror.page_access import (
-    get_page_canvas,
+    get_page_projection,
     iter_page_blocks,
     resolve_block_ref,
 )
@@ -61,7 +61,7 @@ def test_generic_collects_structure_projected_records():
     assert records or struct_recs
 
 
-def test_get_page_canvas_blocks_present_after_api_dict():
+def test_get_page_projection_blocks_present_after_api_dict():
     grid = {
         "grid_id": "mg_p4_0",
         "page": 4,
@@ -77,7 +77,7 @@ def test_get_page_canvas_blocks_present_after_api_dict():
     )
     api = pr.to_mirror_json_vnext(mirror_level="standard")
     doc = api
-    page = get_page_canvas(doc, 4)
+    page = get_page_projection(doc, 4)
     assert page is not None
     assert "blocks" in page
     assert len(page["blocks"]) >= 1

@@ -159,11 +159,10 @@ async def parse_document(
     include_geometry: bool | None = None,
     run_id: str | None = None,
     overwrite: bool = False,
-    export_csv: bool = False,
-    export_chunks: bool = False,
     export_parquet: bool = False,
     split_layers: bool = False,  # noqa: ARG001 — CLI reserved
-    debug_artifact: bool = False,  # noqa: ARG001 — CLI reserved
+    debug_artifact: bool = False,
+    output_profile: str | None = None,
 ) -> None:
     from docmirror.input.entry.factory import PerceiveOptions, perceive_document
     from docmirror.input.entry.options import normalize_parse_control
@@ -180,12 +179,6 @@ async def parse_document(
 
     requested_formats = formats if formats is not None else format_out
     extra_formats = []
-    if export_csv:
-        console.print("[yellow]Deprecated:[/yellow] --export-csv is deprecated; use -f csv or -f json,csv.")
-        extra_formats.append("csv")
-    if export_chunks:
-        console.print("[yellow]Deprecated:[/yellow] --export-chunks is deprecated; use -f chunks or -f json,chunks.")
-        extra_formats.append("chunks")
     if export_parquet:
         extra_formats.append("parquet")
     if extra_formats:
@@ -238,8 +231,8 @@ async def parse_document(
         BarColumn(bar_width=30),
         TaskProgressColumn(),
         TimeElapsedColumn(),
-       console=console,
-   )
+        console=console,
+    )
 
     result = None
     _wall_start = 0.0
@@ -281,6 +274,8 @@ async def parse_document(
                     editions=control.output.editions,
                     task_id=run_id,
                     overwrite=overwrite,
+                    artifact_pack=debug_artifact,
+                    profile=output_profile,
                     on_progress=bus.emit,
                 )
                 saved_path = written.get("mirror")
@@ -355,7 +350,6 @@ async def parse_document(
 
         # Display edition summaries (already written inside progress context)
         if not no_save and saved_path:
-
             console.print(f"[bold blue]\U0001f4be Mirror saved to:[/bold blue] [white]{saved_path}[/white]")
             _write_requested_exports(
                 result,
@@ -380,6 +374,8 @@ def _save_multi_edition(
     editions: tuple[str, ...] | list[str] | None = None,
     task_id: str | None = None,
     overwrite: bool = False,
+    artifact_pack: bool = False,
+    output_profile: str | None = None,
 ) -> str:
     """Save mirror + community + enterprise + finance outputs to a timestamped subdirectory.
 
@@ -398,6 +394,8 @@ def _save_multi_edition(
         include_text=include_text,
         editions=editions,
         overwrite=overwrite,
+        artifact_pack=artifact_pack,
+        profile=output_profile,
     )
     return task_id
 
@@ -413,13 +411,18 @@ def _write_requested_exports(
     parse_control_fingerprint: str,
 ) -> dict[str, str]:
     """Write non-JSON requested exports and a small artifact manifest."""
-    from docmirror.output.serialization import dumps_json
+    from docmirror.runtime.serialization import dumps_json
 
     artifacts: dict[str, str] = {"json": mirror_path.name}
     mirror_vnext: dict | None = None
     for fmt in formats:
         normalized = fmt.lower().strip()
         if normalized == "json":
+            continue
+        if normalized == "evidence":
+            evidence_path = task_dir / "005_evidence_bundle.json"
+            if evidence_path.exists():
+                artifacts[normalized] = evidence_path.name
             continue
         try:
             from docmirror.output.exporters.dispatch import export_parse_result
@@ -444,6 +447,8 @@ def _write_requested_exports(
     # Merge with any existing manifest (written by write_four_files with
     # edition_availability and mirror_completeness) so we never lose info.
     manifest_path = task_dir / "manifest.json"
+    if set(artifacts) == {"json"} and not manifest_path.exists():
+        return artifacts
     existing: dict = {}
     if manifest_path.exists():
         try:
@@ -454,14 +459,14 @@ def _write_requested_exports(
     # while adding/overriding format-specific entries (json, markdown, csv, etc.)
     existing_artifacts = existing.get("artifacts", {})
     merged_artifacts = {**existing_artifacts, **artifacts}
-    manifest = {**existing,
+    manifest = {
+        **existing,
         "file_id": file_id,
         "formats": list(formats),
         "artifacts": merged_artifacts,
         "parse_control": parse_control,
         "parse_control_fingerprint": parse_control_fingerprint,
         "implicit_promotions": parse_control.get("implicit_promotions") or [],
-        "deprecated_mappings": parse_control.get("deprecated_mappings") or [],
     }
     manifest_path.write_text(dumps_json(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     return artifacts
@@ -470,13 +475,21 @@ def _write_requested_exports(
 def main() -> None:
     # ── Subcommand dispatch ──
     import sys as _sys
+
     if len(_sys.argv) > 1 and _sys.argv[1] == "mcp":
         import argparse as _ap
 
         from docmirror.server.mcp import run_sse, run_stdio
-        _p = _ap.ArgumentParser(prog="docmirror mcp", description="Start the DocMirror MCP (Model Context Protocol) server")
-        _p.add_argument("--transport", choices=["stdio", "sse"], default="stdio",
-                        help="Transport protocol (default: stdio). SSE allows HTTP clients.")
+
+        _p = _ap.ArgumentParser(
+            prog="docmirror mcp", description="Start the DocMirror MCP (Model Context Protocol) server"
+        )
+        _p.add_argument(
+            "--transport",
+            choices=["stdio", "sse"],
+            default="stdio",
+            help="Transport protocol (default: stdio). SSE allows HTTP clients.",
+        )
         _p.add_argument("--port", type=int, default=8001, help="Port for SSE transport (default: 8001)")
         _p.add_argument("--host", type=str, default="0.0.0.0", help="Host for SSE transport (default: 0.0.0.0)")
         _args = _p.parse_args(_sys.argv[2:])
@@ -485,7 +498,6 @@ def main() -> None:
         else:
             run_sse(host=_args.host, port=_args.port)
         return
-
 
     parser = argparse.ArgumentParser(
         description="DocMirror - The Trust Layer for Commercial Documents. Parse. Prove. Trust."
@@ -519,9 +531,7 @@ def main() -> None:
         help="Parse mode",
     )
     parser.add_argument("--ocr", default="auto", choices=["auto", "force", "off", "fallback"], help="OCR policy")
-    parser.add_argument(
-        "--editions", default=None, help="Output editions: mirror,community,enterprise,finance,all"
-    )
+    parser.add_argument("--editions", default=None, help="Output editions: mirror,community,enterprise,finance,all")
     parser.add_argument("--doc-type", default=None, help="Manual document type")
     parser.add_argument(
         "--doc-type-policy",
@@ -562,6 +572,17 @@ def main() -> None:
         "--overwrite", action="store_true", help="Allow overwriting an explicit --run-id output directory"
     )
     parser.add_argument("--run-id", default=None, help="Explicit run/task id for output directory")
+    parser.add_argument(
+        "--artifact-pack",
+        action="store_true",
+        help="Write support artifacts: manifest, evidence bundle, output.md, quality report, and visual debug",
+    )
+    parser.add_argument(
+        "--profile",
+        default=None,
+        choices=["default", "editions", "quickstart", "ga_full", "full", "forensic", "compact"],
+        help="Output profile. Profiles with audit/debug artifacts imply --artifact-pack.",
+    )
     # --slm flag removed in v1.1 — superseded by LlmDocumentRestorer
 
     args = parser.parse_args()
@@ -646,16 +667,18 @@ def main() -> None:
                     path = fp.resolve()
                     result = await perceive_document(path)
 
-                    # Handle both MirrorResult (new) and PerceptionResult (legacy fallback)
-                    if hasattr(result, 'to_dict'):
+                    # Handle both MirrorResult (new) and PerceptionResult (raw fallback)
+                    if hasattr(result, "to_dict"):
                         vn_data = result.to_dict()
                         success = len(vn_data.get("pages", [])) > 0
                         doctype = (vn_data.get("document", {}) or {}).get("document_type", "unknown")
                         pages = len(vn_data.get("pages", []))
-                        text_len = sum(len(str(a.get("text", ""))) for a in vn_data.get("evidence", {}).get("text_atoms", []))
+                        text_len = sum(
+                            len(str(a.get("text", ""))) for a in vn_data.get("evidence", {}).get("text_atoms", [])
+                        )
                     else:
                         vn_data = result.to_mirror_json_vnext(source_filename=str(path))
-                        success = result.success if hasattr(result, 'success') else True
+                        success = result.success if hasattr(result, "success") else True
                         doctype = getattr(getattr(result, "entities", None), "document_type", "unknown")
                         pages = getattr(result, "page_count", 0)
                         text_len = len(getattr(result, "full_text", ""))
@@ -676,6 +699,8 @@ def main() -> None:
                             _per_file_control.output.mirror_level,
                             editions=control.output.editions,
                             overwrite=args.overwrite,
+                            artifact_pack=args.artifact_pack,
+                            output_profile=args.profile,
                         )
                 except Exception as e:
                     console.print(f"[bold red][{idx}/{total}][/bold red] ❌ {name}: {e}")
@@ -712,6 +737,8 @@ def main() -> None:
                 include_geometry=None,
                 run_id=args.run_id,
                 overwrite=args.overwrite,
+                debug_artifact=args.artifact_pack,
+                output_profile=args.profile,
             )
         )
 

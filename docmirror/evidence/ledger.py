@@ -130,9 +130,7 @@ def _collect_table_entries(result: Any) -> list[dict[str, Any]]:
                     "quality_flags": [],
                     "review": "auto_accepted",
                     "header_columns": list(getattr(table, "headers", []) or []),
-                    "rows_count": len(
-                        list(getattr(table, "data_rows", []) or getattr(table, "rows", []) or [])
-                    ),
+                    "rows_count": len(list(getattr(table, "data_rows", []) or getattr(table, "rows", []) or [])),
                 }
             )
 
@@ -151,9 +149,7 @@ def _collect_table_entries(result: Any) -> list[dict[str, Any]]:
                             "bbox": getattr(cell, "bbox", None) or getattr(cell, "bbox_norm", None),
                             "bbox_space": "page_pixels",
                             "source_refs": list(
-                                getattr(cell, "source_cell_refs", [])
-                                or getattr(cell, "evidence_ids", [])
-                                or []
+                                getattr(cell, "source_cell_refs", []) or getattr(cell, "evidence_ids", []) or []
                             ),
                             "raw_value": raw,
                             "normalized_value": cleaned,
@@ -212,14 +208,10 @@ def _collect_formula_entries(result: Any) -> list[dict[str, Any]]:
                 "bbox_space": "page_pixels",
                 "source_refs": list(getattr(formula, "source_refs", []) or []),
                 "raw_value": str(getattr(formula, "raw", "") or getattr(formula, "content", "") or ""),
-                "normalized_value": str(
-                    getattr(formula, "latex", "") or getattr(formula, "normalized", "") or ""
-                ),
+                "normalized_value": str(getattr(formula, "latex", "") or getattr(formula, "normalized", "") or ""),
                 "confidence": float(getattr(formula, "confidence", 1.0) or 0.0),
                 "extraction_layer": str(
-                    getattr(formula, "extraction_layer", "")
-                    or getattr(formula, "source", "")
-                    or "formula_extract"
+                    getattr(formula, "extraction_layer", "") or getattr(formula, "source", "") or "formula_extract"
                 ),
                 "quality_flags": [],
                 "review": _review_for_confidence(float(getattr(formula, "confidence", 1.0) or 0.0)),

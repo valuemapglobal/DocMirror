@@ -15,7 +15,7 @@ The TQG (Test Quality Gate Platform) architecture drives manifest-driven test ga
 | `smoke/` | Imports, settings, plugin boot | `tier_smoke` |
 | `regression/` | TQG manifest-driven gates | `tier_regression` |
 | `e2e/` | CLI/API/full pipeline | `tier_e2e` + `tier_regression` |
-| `integration/` | Legacy golden (dual-run with TQG) | `tier_regression` |
+| `integration/` | Frozen golden regression with TQG | `tier_regression` |
 | `fixtures/` | Sample files + `registry.yaml` | — |
 | `golden/` | Expected-output index (`manifest.json`) + per-track subdirs | — |
 

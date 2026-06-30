@@ -8,15 +8,6 @@ layers:
     - docmirror.server
     - docmirror.cli
     - docmirror.sdk
-  structure:
-    paths:
-    - docmirror/structure/**
-    import_linter_allow_indirect: true
-    forbidden_imports:
-    - docmirror.server
-    - docmirror.cli
-    - docmirror.sdk
-    - docmirror.plugins
   output:
     paths:
     - docmirror/output/**
@@ -54,54 +45,17 @@ layers:
     import_linter_allow_indirect: true
     forbidden_imports:
     - docmirror.input
-    - docmirror.structure
     - docmirror.output
     - docmirror.server
     - docmirror.cli
     - docmirror.plugins
     import_linter_ignore_imports:
-    - importer: docmirror.models.construction.parse_result_bridge
-      imported: docmirror.input.bridge.parse_result_bridge
-      reason: Legacy construction shim retained for parser bridge compatibility.
-      review_by: '2026-08-01'
     - importer: docmirror.models.entities.parse_result
       imported: docmirror.models.mirror.core
       reason: ParseResult builds canonical MirrorJson through the model-layer projection core.
       review_by: '2026-08-01'
-    - importer: docmirror.models.entities.parse_result
-      imported: docmirror.ocr.page_canvas.models
-      reason: ParseResult still materializes page canvas model fields.
-      review_by: '2026-08-01'
-    - importer: docmirror.models.entities.parse_result
-      imported: docmirror.ocr.page_canvas.sync
-      reason: ParseResult page canvas sync remains an active compatibility method.
-      review_by: '2026-08-01'
-    - importer: docmirror.models.mirror.domain_access
-      imported: docmirror.ocr.page_canvas.evidence_bundles
-      reason: Mirror access layer still exposes page canvas evidence bundles.
-      review_by: '2026-08-01'
-    - importer: docmirror.models.mirror.legacy_project
-      imported: docmirror.ocr.page_canvas.block_index
-      reason: Legacy mirror bridge still builds block indexes for compatibility.
-      review_by: '2026-08-01'
-    - importer: docmirror.models.mirror.legacy_project
-      imported: docmirror.ocr.page_canvas.build
-      reason: Legacy mirror bridge still constructs page canvas projections.
-      review_by: '2026-08-01'
-    - importer: docmirror.models.mirror.legacy_project
-      imported: docmirror.ocr.page_canvas.flow_filter
-      reason: Legacy mirror bridge still applies page canvas flow filtering.
-      review_by: '2026-08-01'
-    - importer: docmirror.models.mirror.legacy_project
-      imported: docmirror.ocr.page_canvas.models
-      reason: Legacy mirror bridge still consumes page canvas model types.
-      review_by: '2026-08-01'
-    - importer: docmirror.models.mirror.page_canvas_export
-      imported: docmirror.ocr.page_canvas.build
-      reason: Page canvas export still delegates construction to structure layer.
-      review_by: '2026-08-01'
     - importer: docmirror.models.mirror.serialization_contract
-      imported: docmirror.structure.analysis.structure_provenance
+      imported: docmirror.evidence.structure_provenance
       reason: Serialization contract still includes structure provenance snapshot.
       review_by: '2026-08-01'
     - importer: docmirror.models.mirror.serialization_contract
@@ -109,7 +63,7 @@ layers:
       reason: Serialization contract still exports table ledger quality metadata.
       review_by: '2026-08-01'
     - importer: docmirror.models.mirror.serialization_contract
-      imported: docmirror.structure.utils.vocabulary
+      imported: docmirror.layout.vocabulary
       reason: Serialization contract still normalizes vocabulary through structure utilities.
       review_by: '2026-08-01'
 external_modules:
@@ -148,7 +102,9 @@ dynamic_modules:
 compatibility_modules: []
 removed_modules:
 - module: docmirror.core
-  replacement: docmirror.structure
+  replacement: docmirror.layout
+- module: docmirror.structure
+  replacement: docmirror.layout
 - module: docmirror.adapters
   replacement: docmirror.input.adapters
 - module: docmirror.middlewares
@@ -168,31 +124,6 @@ removed_modules:
 - module: docmirror.plugins.post_extract
   replacement: docmirror.plugins._runtime.post_extract
 quarantine_modules:
-- module: docmirror.models.mirror.legacy_project
-  owner: mirror-core
-  reason: Active bridge for legacy mirror projection and page canvas compatibility.
-  exit_criteria: Replace callers with vNext page access helpers.
-  review_by: '2026-08-01'
-- module: docmirror.models.mirror.legacy_access
-  owner: mirror-core
-  reason: Active counters for legacy mirror access auditing.
-  exit_criteria: Remove once legacy projection helpers are deleted.
-  review_by: '2026-08-01'
-- module: docmirror.ocr.recognize.runner_legacy
-  owner: ocr
-  reason: Active fallback OCR runner used by scanned pipeline.
-  exit_criteria: Replacement OCR runner covers scanned fallback paths.
-  review_by: '2026-08-01'
-- module: docmirror.ocr.preprocess.legacy_fallback
-  owner: ocr
-  reason: Active fallback preprocessing used by scanned and OCR fallback paths.
-  exit_criteria: Replacement preprocessing path reaches parity.
-  review_by: '2026-08-01'
-- module: docmirror.ocr.reconstruct.grid_legacy
-  owner: ocr
-  reason: Active grid reconstruction fallback used by page topology and scanned OCR.
-  exit_criteria: GCR replacement covers all callers.
-  review_by: '2026-08-01'
 - module: docmirror.evidence.visual
   owner: evidence
   reason: Visual evidence helper is referenced by tests/docs but not static production

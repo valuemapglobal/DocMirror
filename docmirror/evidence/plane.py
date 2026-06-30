@@ -14,6 +14,7 @@ import csv
 import os
 import xml.etree.ElementTree as ET
 import zipfile
+from collections import Counter
 from dataclasses import dataclass, field
 from email import policy
 from email.parser import BytesParser
@@ -85,9 +86,9 @@ class DocumentSource:
                 pipeline_debug = annex_data.get("pipeline_debug") if isinstance(annex_data, dict) else None
                 if pipeline_debug:
                     metadata["pipeline_debug"] = pipeline_debug
-            page_canvases = _page_canvas_dicts(value)
-            if page_canvases:
-                metadata["page_canvases"] = page_canvases
+            page_projections = _page_projection_dicts(value)
+            if page_projections:
+                metadata["page_projections"] = page_projections
             return cls(
                 value=value,
                 kind="parse_result",
@@ -175,11 +176,7 @@ class EvidencePlane:
             "stage": "evidence_plane_builder",
             "status": "ok" if not any(d.get("severity") == "error" for d in self.diagnostics) else "warn",
             "counts": self.counts,
-            "normalization_decisions": [
-                page.normalization_trace
-                for page in self.pages
-                if page.normalization_trace
-            ],
+            "normalization_decisions": [page.normalization_trace for page in self.pages if page.normalization_trace],
             "diagnostics": self.diagnostics,
         }
 
@@ -257,7 +254,9 @@ class EvidencePlaneBuilder:
                 normalized_rotation=0,
                 coordinate_transform=coordinate_transform,
                 normalization_trace=normalization_trace,
-                content_mode="scanned_ocr" if page_normalization else ("native_text" if _page_has_parse_content(page) else "unknown"),
+                content_mode="scanned_ocr"
+                if page_normalization
+                else ("native_text" if _page_has_parse_content(page) else "unknown"),
             )
 
             for text in getattr(page, "texts", []) or []:
@@ -316,22 +315,51 @@ class EvidencePlaneBuilder:
 
                 for row_index, row in enumerate(getattr(table, "rows", []) or []):
                     for col_index, cell in enumerate(getattr(row, "cells", []) or []):
+                        cell_evidence_ids = list(getattr(cell, "evidence_ids", []) or [])
+                        cell_token_ids = list(getattr(cell, "token_ids", []) or [])
+                        cell_text = str(getattr(cell, "text", "") or "")
+                        cell_bbox = _bbox(getattr(cell, "bbox", None))
+                        cell_geometry_status = str(getattr(cell, "geometry_status", "missing") or "missing")
+                        allow_empty_cell = bool(
+                            not cell_text
+                            and (
+                                cell_bbox
+                                or cell_evidence_ids
+                                or cell_token_ids
+                                or cell_geometry_status != "missing"
+                                or getattr(cell, "source_cell_refs", None)
+                            )
+                        )
                         atom = _text_atom(
                             ids,
                             page_number=page_number,
                             source_kind="parse_result_table_cell",
-                            text=str(getattr(cell, "text", "") or ""),
-                            bbox=_bbox(getattr(cell, "bbox", None)),
-                            confidence=_confidence(getattr(cell, "confidence", 1.0)),
-                            source_refs=list(getattr(cell, "evidence_ids", []) or []),
+                            text=cell_text,
+                            bbox=cell_bbox,
+                            confidence=_confidence(
+                                getattr(cell, "geometry_confidence", None)
+                                if getattr(cell, "geometry_confidence", None) is not None
+                                else getattr(cell, "confidence", 1.0)
+                            ),
+                            source_refs=cell_evidence_ids,
                             metadata={
                                 "block_type": "table",
                                 "table_id": str(getattr(table, "table_id", "") or ""),
                                 "table_bbox": table_bbox,
+                                **table_metadata,
                                 "row_index": row_index,
                                 "col_index": col_index,
-                                **table_metadata,
+                                "source_row_index": getattr(cell, "row_index", None),
+                                "source_col_index": getattr(cell, "col_index", None),
+                                "geometry_status": cell_geometry_status,
+                                "geometry_source": getattr(cell, "geometry_source", ""),
+                                "geometry_confidence": getattr(cell, "geometry_confidence", None),
+                                "geometry_loss_reason": getattr(cell, "geometry_loss_reason", None),
+                                "cell_evidence_ids": cell_evidence_ids,
+                                "token_ids": cell_token_ids,
+                                "source_cell_refs": list(getattr(cell, "source_cell_refs", []) or []),
                             },
+                            allow_empty=allow_empty_cell,
                         )
                         if atom:
                             evidence.text_atoms.append(atom)
@@ -372,6 +400,7 @@ class EvidencePlaneBuilder:
         if _pdf_path:
             try:
                 import fitz
+
                 pdf_path = str(_pdf_path)
                 if Path(pdf_path).exists():
                     doc = fitz.open(pdf_path)
@@ -401,10 +430,12 @@ class EvidencePlaneBuilder:
 
                             import numpy as np
                             from PIL import Image
+
                             pil_img = Image.open(io.BytesIO(img_bytes))
                             rgb = pil_img.convert("RGB")
                             image_bgr = np.asarray(rgb)[:, :, ::-1]
                             from docmirror.ocr.vision.seal_detector import detect_seals_hybrid
+
                             detections = detect_seals_hybrid(image_bgr, enable_texture=True)
                             for det in detections[:5]:  # max 5 per page
                                 bbox = det.get("bbox", [0, 0, 100, 100])
@@ -427,6 +458,7 @@ class EvidencePlaneBuilder:
             except Exception as exc:
                 _diag_msg = f"ParseResult seal detection skipped: {exc}"
                 import logging as _lg
+
                 _lg.getLogger("docmirror.evidence.plane").debug("[EvPlane] %s", _diag_msg)
 
         _finalize_indexes(evidence)
@@ -448,6 +480,7 @@ class EvidencePlaneBuilder:
         # fall back to pypdf if PyMuPDF is not available.
         try:
             import fitz  # noqa: F401
+
             return self._from_pdf_path_pymupdf(source)
         except ImportError:
             return self._from_pdf_path_pypdf(source)
@@ -538,7 +571,9 @@ class EvidencePlaneBuilder:
         diagnostics.append({"severity": "info", "message": "built evidence plane from PDF native text using pypdf"})
         diagnostics.append({"severity": "info", "message": "pypdf backend does not expose bbox/vector/image atoms"})
         return EvidencePlane(
-            source=source.to_source_info(page_count=len(pages), metadata={"pdf_outline": pdf_outline} if pdf_outline else {}),
+            source=source.to_source_info(
+                page_count=len(pages), metadata={"pdf_outline": pdf_outline} if pdf_outline else {}
+            ),
             pages=pages,
             evidence=evidence,
             diagnostics=diagnostics,
@@ -922,7 +957,9 @@ def _evidence_plane_from_text_units(
 def _word_text_units(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     diagnostics: list[dict[str, Any]] = []
     if path.suffix.lower() != ".docx":
-        return [], [{"severity": "warning", "message": "legacy Word intake requires converter; only .docx native XML is supported"}]
+        return [], [
+            {"severity": "warning", "message": "raw Word intake requires converter; only .docx native XML is supported"}
+        ]
     try:
         with zipfile.ZipFile(path) as zf:
             xml_bytes = zf.read("word/document.xml")
@@ -985,16 +1022,25 @@ def _word_text_units(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, A
 def _spreadsheet_text_units(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     diagnostics: list[dict[str, Any]] = []
     if path.suffix.lower() != ".xlsx":
-        return [], [{"severity": "warning", "message": "legacy spreadsheet intake requires converter; only .xlsx native XML is supported"}]
+        return [], [
+            {
+                "severity": "warning",
+                "message": "raw spreadsheet intake requires converter; only .xlsx native XML is supported",
+            }
+        ]
     try:
         with zipfile.ZipFile(path) as zf:
             shared_strings = _xlsx_shared_strings(zf)
-            sheet_names = sorted(name for name in zf.namelist() if name.startswith("xl/worksheets/") and name.endswith(".xml"))
+            sheet_names = sorted(
+                name for name in zf.namelist() if name.startswith("xl/worksheets/") and name.endswith(".xml")
+            )
             units: list[dict[str, Any]] = []
             for sheet_index, sheet_name in enumerate(sheet_names, start=1):
                 sheet_xml = ET.fromstring(zf.read(sheet_name))
                 rows = [row for row in sheet_xml.iter() if _xml_local_name(row.tag) == "row"]
-                max_cols = max((len([cell for cell in list(row) if _xml_local_name(cell.tag) == "c"]) for row in rows), default=1)
+                max_cols = max(
+                    (len([cell for cell in list(row) if _xml_local_name(cell.tag) == "c"]) for row in rows), default=1
+                )
                 table_id = f"xlsx_sheet_{sheet_index}"
                 table_bbox = _synthetic_table_bbox(0, row_count=max(1, len(rows)), col_count=max(1, max_cols))
                 for row_index, row in enumerate(rows):
@@ -1032,7 +1078,9 @@ def _delimited_text_units(path: Path, *, delimiter: str) -> tuple[list[dict[str,
         rows = list(csv.reader(path.read_text(encoding="utf-8-sig").splitlines(), delimiter=delimiter))
     except Exception as exc:
         return [], [{"severity": "error", "message": f"failed to read delimited spreadsheet: {exc}"}]
-    table_bbox = _synthetic_table_bbox(0, row_count=max(1, len(rows)), col_count=max((len(row) for row in rows), default=1))
+    table_bbox = _synthetic_table_bbox(
+        0, row_count=max(1, len(rows)), col_count=max((len(row) for row in rows), default=1)
+    )
     units: list[dict[str, Any]] = []
     for row_index, row in enumerate(rows):
         for col_index, text in enumerate(row):
@@ -1286,8 +1334,9 @@ def _text_atom(
     metadata: dict[str, Any],
     source_bbox: list[float] | None = None,
     coordinate_transform: dict[str, Any] | None = None,
+    allow_empty: bool = False,
 ) -> EvidenceAtom | None:
-    if not text:
+    if not text and not allow_empty:
         return None
     return EvidenceAtom(
         id=ids.next(page_number, "text"),
@@ -1369,7 +1418,20 @@ def _table_atom_metadata(table: Any) -> dict[str, Any]:
     if getattr(table, "extraction_confidence", None) is not None and "extraction_confidence" not in out:
         out["extraction_confidence"] = getattr(table, "extraction_confidence")
 
-    for key in ("geometry_source", "geometry_confidence", "coordinate_system"):
+    for key in (
+        "geometry_source",
+        "geometry_confidence",
+        "coordinate_system",
+        "row_bands",
+        "col_bands",
+        "merged_cells",
+        "cell_bboxes",
+        "cell_geometry_status",
+        "cell_geometry_loss_reason",
+        "cell_evidence_ids",
+        "cell_token_ids",
+        "cell_confidences",
+    ):
         value = geometry.get(key, table_metadata.get(key))
         if value not in (None, "", [], {}):
             out[key] = value
@@ -1415,10 +1477,7 @@ def _page_normalization_metadata(page: Any) -> dict[str, Any]:
         out["normalized_page_height"] = float(selected["normalized_page_height"])
     out["candidate_count"] = len(candidates)
     out["candidate_rotations"] = sorted(
-        {
-            int(metadata.get("ocr_rotation") or metadata.get("selected_rotation") or 0) % 360
-            for metadata in candidates
-        }
+        {int(metadata.get("ocr_rotation") or metadata.get("selected_rotation") or 0) % 360 for metadata in candidates}
     )
     out["comparison_signals"] = orientation_comparison_signals(selected)
     return out
@@ -1445,7 +1504,9 @@ def _normalization_trace_from_page(
 ) -> dict[str, Any]:
     if page_normalization:
         selected_rotation = int(page_normalization.get("selected_rotation") or rotation or 0) % 360
-        confidence = float(page_normalization.get("confidence", page_normalization.get("orientation_score", 1.0)) or 0.0)
+        confidence = float(
+            page_normalization.get("confidence", page_normalization.get("orientation_score", 1.0)) or 0.0
+        )
         trace = build_normalization_trace(
             page_id=page_id,
             source_width=float(width or page_normalization.get("source_width") or 0.0),
@@ -1499,7 +1560,8 @@ def _coordinate_transform_from_trace(trace: dict[str, Any]) -> dict[str, Any]:
         "scale": float(trace.get("scale") or 1.0),
         "source_width": float(trace.get("source_width") or 0.0),
         "source_height": float(trace.get("source_height") or 0.0),
-        "matrix": trace.get("matrix") or rotation_matrix(
+        "matrix": trace.get("matrix")
+        or rotation_matrix(
             float(trace.get("source_width") or 0.0),
             float(trace.get("source_height") or 0.0),
             int(trace.get("selected_content_rotation") or 0),
@@ -1647,11 +1709,13 @@ def _extract_pdf_outline(reader) -> list[dict[str, Any]]:
         for item in outline:
             if isinstance(item, list):
                 result.extend(_extract_pdf_outline_items(item))
-            elif hasattr(item, 'title'):
-                result.append({
-                    "title": str(getattr(item, 'title', '')),
-                    "page_number": int(getattr(item, 'page_number', 0) or 0),
-                })
+            elif hasattr(item, "title"):
+                result.append(
+                    {
+                        "title": str(getattr(item, "title", "")),
+                        "page_number": int(getattr(item, "page_number", 0) or 0),
+                    }
+                )
         return result
     except Exception:
         return []
@@ -1662,11 +1726,13 @@ def _extract_pdf_outline_items(items: list) -> list[dict[str, Any]]:
     for item in items:
         if isinstance(item, list):
             result.extend(_extract_pdf_outline_items(item))
-        elif hasattr(item, 'title'):
-            result.append({
-                "title": str(getattr(item, 'title', '')),
-                "page_number": int(getattr(item, 'page_number', 0) or 0),
-            })
+        elif hasattr(item, "title"):
+            result.append(
+                {
+                    "title": str(getattr(item, "title", "")),
+                    "page_number": int(getattr(item, "page_number", 0) or 0),
+                }
+            )
     return result
 
 
@@ -1765,24 +1831,180 @@ def _pypdf_page_rotation(page: Any) -> int:
         return 0
 
 
-def _page_canvas_dicts(result: Any) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
+def _page_projection_dicts(result: Any) -> list[dict[str, Any]]:
+    out_by_page: dict[int, dict[str, Any]] = {}
     for page in getattr(result, "pages", []) or []:
-        canvas = getattr(page, "page_canvas", None)
-        if canvas is None:
+        page_num = int(getattr(page, "page_number", 0) or 0)
+        if page_num <= 0:
             continue
-        if hasattr(canvas, "to_dict"):
-            try:
-                item = canvas.to_dict()
-            except Exception:
-                item = {}
-        elif isinstance(canvas, dict):
-            item = dict(canvas)
-        else:
-            item = {}
-        if item:
-            out.append(item)
-    return out
+        out_by_page[page_num] = _page_projection_dict_from_parse_page(page, page_num)
+
+    for region in _page_projection_regions_from_domain_specific(result):
+        page_num = int(region.get("page_number") or 0)
+        if page_num <= 0:
+            continue
+        item = out_by_page.setdefault(
+            page_num,
+            {
+                "page_number": page_num,
+                "coordinate_system": "pdf_points_top_left",
+                "flow": {"texts": [], "key_values": []},
+                "tables": [],
+                "regions": [],
+            },
+        )
+        item.setdefault("regions", []).append({key: value for key, value in region.items() if key != "page_number"})
+
+    for item in out_by_page.values():
+        _finalize_page_projection_blocks(item)
+    return [out_by_page[page_num] for page_num in sorted(out_by_page)]
+
+
+def _page_projection_dict_from_parse_page(page: Any, page_num: int) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "page_number": page_num,
+        "coordinate_system": "pdf_points_top_left",
+        "flow": {
+            "texts": [_text_block_flow_item(text) for text in getattr(page, "texts", []) or []],
+            "key_values": [_key_value_flow_item(kv) for kv in getattr(page, "key_values", []) or []],
+        },
+        "tables": [_model_dump(table) for table in getattr(page, "tables", []) or []],
+        "regions": [],
+    }
+    width = _float_or_none(getattr(page, "width", None))
+    height = _float_or_none(getattr(page, "height", None))
+    if width is not None:
+        item["width"] = width
+    if height is not None:
+        item["height"] = height
+    return item
+
+
+def _text_block_flow_item(text: Any) -> dict[str, Any]:
+    item = {
+        "content": str(getattr(text, "content", "") or ""),
+        "bbox": _bbox(getattr(text, "bbox", None)),
+        "confidence": _confidence(getattr(text, "confidence", 1.0)),
+        "evidence_ids": list(getattr(text, "evidence_ids", []) or []),
+    }
+    return {key: value for key, value in item.items() if value not in (None, "", [])}
+
+
+def _key_value_flow_item(kv: Any) -> dict[str, Any]:
+    item = {
+        "key": str(getattr(kv, "key", "") or ""),
+        "value": str(getattr(kv, "value", "") or ""),
+        "bbox": _bbox(getattr(kv, "bbox", None)),
+        "confidence": _confidence(getattr(kv, "confidence", 1.0)),
+        "evidence_ids": list(getattr(kv, "evidence_ids", []) or []),
+    }
+    return {key: value for key, value in item.items() if value not in (None, "", [])}
+
+
+def _page_projection_regions_from_domain_specific(result: Any) -> list[dict[str, Any]]:
+    domain_specific = getattr(getattr(result, "entities", None), "domain_specific", {}) or {}
+    if not isinstance(domain_specific, dict):
+        return []
+    from docmirror.models.mirror.domain_access import (
+        local_structure_evidence_pages_from_domain_specific,
+        micro_grid_structures_from_domain_specific,
+    )
+
+    regions: list[dict[str, Any]] = []
+    micro_index = 0
+    for grid in micro_grid_structures_from_domain_specific(domain_specific):
+        if not isinstance(grid, dict):
+            continue
+        page_num = int(grid.get("page") or 0)
+        if page_num <= 0:
+            continue
+        micro_index += 1
+        region_id = str(grid.get("grid_id") or f"rg_p{page_num}_micro_grid_{micro_index}")
+        regions.append(
+            {
+                "page_number": page_num,
+                "region_id": region_id,
+                "kind": "micro_grid",
+                "morphology": str(grid.get("morphology") or "S3"),
+                "bbox": _bbox(grid.get("bbox")) or [],
+                "anchor_text": str(grid.get("anchor_text") or ""),
+                "structure": dict(grid),
+                "confidence": _confidence(grid.get("confidence", 0.0)),
+                **({"schema_hint": str(grid.get("schema_hint"))} if grid.get("schema_hint") else {}),
+            }
+        )
+
+    local_index = 0
+    for evidence in local_structure_evidence_pages_from_domain_specific(domain_specific):
+        if not isinstance(evidence, dict):
+            continue
+        page_num = int(evidence.get("page") or 0)
+        if page_num <= 0:
+            continue
+        for structure in evidence.get("structures") or []:
+            if not isinstance(structure, dict):
+                continue
+            local_index += 1
+            kind = _structure_region_kind(structure)
+            structure_id = str(structure.get("structure_id") or structure.get("id") or "")
+            region_id = structure_id or f"rg_p{page_num}_{kind}_{local_index}"
+            regions.append(
+                {
+                    "page_number": page_num,
+                    "region_id": region_id,
+                    "kind": kind,
+                    "morphology": str(structure.get("morphology") or "S5"),
+                    "bbox": _bbox(structure.get("bbox")) or [],
+                    "anchor_text": str(structure.get("anchor_text") or structure.get("label") or ""),
+                    "structure": dict(structure),
+                    "confidence": _confidence(structure.get("confidence", 0.0)),
+                    **({"schema_hint": str(structure.get("schema_hint"))} if structure.get("schema_hint") else {}),
+                }
+            )
+    return regions
+
+
+def _structure_region_kind(structure: dict[str, Any]) -> str:
+    raw = str(structure.get("structure_kind") or structure.get("kind") or "").strip()
+    if raw in {"field_grid", "label_value_graph"}:
+        return raw
+    if raw in {"kv", "kv_block", "key_value", "key_value_grid"}:
+        return "label_value_graph"
+    return "field_grid"
+
+
+def _finalize_page_projection_blocks(item: dict[str, Any]) -> None:
+    regions = [region for region in item.get("regions") or [] if isinstance(region, dict)]
+    if not regions:
+        return
+    blocks: list[dict[str, Any]] = []
+    morphology_counts: Counter[str] = Counter()
+    reading_order: list[str] = []
+    for index, region in enumerate(regions):
+        region_id = str(region.get("region_id") or f"region_{index}")
+        morphology = str(region.get("morphology") or "")
+        if morphology:
+            morphology_counts[morphology] += 1
+        block_id = f"blk_{region_id}"
+        blocks.append(
+            {
+                "block_id": block_id,
+                "morphology": morphology,
+                "kind": str(region.get("kind") or ""),
+                "ref": f"region:{region_id}",
+                "bbox": _bbox(region.get("bbox")) or [],
+                "anchor_text": str(region.get("anchor_text") or ""),
+                "confidence": _confidence(region.get("confidence", 0.0)),
+                **({"schema_hint": str(region.get("schema_hint"))} if region.get("schema_hint") else {}),
+            }
+        )
+        reading_order.append(f"region:{region_id}")
+    if blocks:
+        item["blocks"] = blocks
+        item["reading_order"] = reading_order
+        item["reading_order_refs"] = reading_order
+    if morphology_counts:
+        item["morphology_summary"] = dict(morphology_counts)
 
 
 def _ocr_text_evidence_by_page(result: Any) -> dict[int, list[dict[str, Any]]]:
@@ -1810,7 +2032,7 @@ def _ocr_text_evidence_by_page(result: Any) -> dict[int, list[dict[str, Any]]]:
 
 def _page_evidence_bundles(domain_specific: dict[str, Any]) -> list[dict[str, Any]]:
     try:
-        from docmirror.ocr.page_canvas.evidence_bundles import build_page_evidence_bundles
+        from docmirror.models.mirror.page_evidence_bundles import build_page_evidence_bundles
     except Exception:
         bundles = domain_specific.get("_page_evidence_bundles") if isinstance(domain_specific, dict) else []
         return [dict(item) for item in bundles or [] if isinstance(item, dict)]
@@ -1903,7 +2125,11 @@ def _line_confidence(line: Any) -> float:
 
 
 def _line_source_refs(line: Any) -> list[str]:
-    refs = line.get("source_refs", line.get("evidence_ids", [])) if isinstance(line, dict) else getattr(line, "source_refs", getattr(line, "evidence_ids", []))
+    refs = (
+        line.get("source_refs", line.get("evidence_ids", []))
+        if isinstance(line, dict)
+        else getattr(line, "source_refs", getattr(line, "evidence_ids", []))
+    )
     if not isinstance(refs, list | tuple):
         return []
     return [str(ref) for ref in refs]
@@ -2000,7 +2226,11 @@ def _token_confidence(token: Any) -> float:
 
 
 def _token_source_refs(token: Any) -> list[str]:
-    refs = token.get("source_refs", token.get("evidence_ids", [])) if isinstance(token, dict) else getattr(token, "source_refs", getattr(token, "evidence_ids", []))
+    refs = (
+        token.get("source_refs", token.get("evidence_ids", []))
+        if isinstance(token, dict)
+        else getattr(token, "source_refs", getattr(token, "evidence_ids", []))
+    )
     if not isinstance(refs, list | tuple):
         return []
     return [str(ref) for ref in refs]
@@ -2025,6 +2255,7 @@ def _seal_detection_enabled(metadata: dict[str, Any], scene: str = "") -> bool:
     # Users can disable explicitly with detect_seals=false or env var.
     try:
         import cv2  # noqa: F401
+
         return True
     except ImportError:
         pass
@@ -2155,12 +2386,15 @@ def _pypdf_page_size(page: Any) -> tuple[float | None, float | None]:
         return float(box.width), float(box.height)
     except Exception:
         return None, None
+
+
 def _add_page_cache(plane, source):
     """Cache pdfplumber pages for downstream CSP access."""
     path = source.value if source else None
     if isinstance(path, (str)):
         try:
             import pdfplumber
+
             pages = {}
             with pdfplumber.open(str(path)) as pdf:
                 for i, pg in enumerate(pdf.pages):

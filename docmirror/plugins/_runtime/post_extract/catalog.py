@@ -22,7 +22,6 @@ from __future__ import annotations
 import importlib
 import logging
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Any
 
 import yaml
@@ -30,7 +29,7 @@ import yaml
 from docmirror.configs.paths import POST_EXTRACT_YAML
 
 logger = logging.getLogger(__name__)
-_catalog_cache: dict[str, "PostExtractHookSpec"] | None = None
+_catalog_cache: dict[str, PostExtractHookSpec] | None = None
 _catalog_mtime: float = 0.0
 
 
@@ -58,9 +57,7 @@ def load_post_extract_catalog() -> dict[str, PostExtractHookSpec]:
     """
     global _catalog_cache, _catalog_mtime  # noqa: PLW0603
 
-    current_mtime: float = (
-        POST_EXTRACT_YAML.stat().st_mtime if POST_EXTRACT_YAML.is_file() else 0.0
-    )
+    current_mtime: float = POST_EXTRACT_YAML.stat().st_mtime if POST_EXTRACT_YAML.is_file() else 0.0
     if _catalog_cache is not None and current_mtime == _catalog_mtime:
         return _catalog_cache
 
@@ -97,6 +94,7 @@ def load_post_extract_catalog() -> dict[str, PostExtractHookSpec]:
 
     _catalog_cache = catalog
     return catalog
+
 
 def get_hook_class(spec: PostExtractHookSpec) -> type:
     mod = importlib.import_module(spec.module)

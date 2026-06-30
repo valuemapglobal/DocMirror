@@ -8,7 +8,7 @@
 PPT Adapter — .pptx → ParseResult
 ==================================
 
-Extracts slide content via python-pptx. Legacy ``.ppt`` is transcoded upstream
+Extracts slide content via python-pptx. Older ``.ppt`` is transcoded upstream
 by ``TranscodingGate`` (FCR); this adapter only receives ``.pptx``.
 """
 
@@ -39,7 +39,7 @@ class PPTAdapter(BaseParser):
             return build_failure_result(
                 "FORMAT_REQUIRES_CONVERTER",
                 f"PPTAdapter requires .pptx input; got {path.suffix}. "
-                "Legacy .ppt is transcoded by the extraction pipeline.",
+                "Older .ppt is transcoded by the extraction pipeline.",
                 file_path=str(path),
                 file_type="ppt",
             )

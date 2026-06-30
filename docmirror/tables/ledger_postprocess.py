@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from docmirror.structure.utils.vocabulary import (
+from docmirror.layout.vocabulary import (
     _is_header_row,
     _is_junk_row,
     _score_header_by_vocabulary,

@@ -31,9 +31,10 @@ class PluginTrustProjectionHook(PostExtractHook):
         *,
         extracted: dict[str, Any],
         edition: str,
-        _document_type: str,
-        _plugin: Any | None = None,
+        document_type: str,
+        plugin: Any | None = None,
     ) -> None:
+        _ = document_type, plugin
         quality = extracted.get("quality") or extracted.get("validation") or {}
         trust_score = quality.get("trust_score")
         if not trust_score:

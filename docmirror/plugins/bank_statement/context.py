@@ -26,7 +26,7 @@ from docmirror.plugins.bank_statement.ltro import ReconstructionMeta, reconstruc
 
 
 def _structure_spe_from_parse_result(parse_result: Any) -> dict | None:
-    from docmirror.structure.analysis.spe_consumer import read_structure_spe
+    from docmirror.evidence.spe_consumer import read_structure_spe
 
     return read_structure_spe(parse_result)
 

@@ -12,15 +12,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Callable, Coroutine
+from typing import Any
 
-from docmirror.runtime.work_units import WorkUnit, WorkUnitPlanner
 from docmirror.runtime.control import RetryControl, RuntimeControl
-from docmirror.runtime.ledger import EventLedger
 from docmirror.runtime.events import ProgressEvent
+from docmirror.runtime.ledger import EventLedger
+from docmirror.runtime.work_units import WorkUnit
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +132,11 @@ class RuntimeScheduler:
 
                 logger.warning(
                     "Work unit %s failed (attempt %d/%d): %s — retrying in %.1fs",
-                    unit.work_unit_id, attempt, max_attempts, exc, delay,
+                    unit.work_unit_id,
+                    attempt,
+                    max_attempts,
+                    exc,
+                    delay,
                 )
                 await asyncio.sleep(delay)
                 delay *= 2  # exponential backoff
@@ -160,9 +163,9 @@ class RuntimeScheduler:
         while pending:
             # Find units whose dependencies are all satisfied
             ready = [
-                u for u in pending
-                if all(dep in results and results[dep].get("status") == "succeeded"
-                       for dep in u.depends_on)
+                u
+                for u in pending
+                if all(dep in results and results[dep].get("status") == "succeeded" for dep in u.depends_on)
             ]
 
             if not ready:
@@ -192,12 +195,8 @@ class RuntimeScheduler:
                 pending.remove(unit)
 
         # Compute aggregate status
-        all_succeeded = all(
-            r.get("status") == "succeeded" for r in results.values()
-        )
-        any_succeeded = any(
-            r.get("status") == "succeeded" for r in results.values()
-        )
+        all_succeeded = all(r.get("status") == "succeeded" for r in results.values())
+        any_succeeded = any(r.get("status") == "succeeded" for r in results.values())
 
         return {
             "status": "success" if all_succeeded else ("partial" if any_succeeded else "failed"),

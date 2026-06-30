@@ -54,7 +54,9 @@ def _markdown_from_parse_result(result: Any) -> str:
                 lines.append("| " + " | ".join(headers) + " |")
                 lines.append("| " + " | ".join("---" for _ in headers) + " |")
             for row in getattr(table, "rows", []) or []:
-                lines.append("| " + " | ".join(str(getattr(cell, "text", "")) for cell in getattr(row, "cells", []) or []) + " |")
+                lines.append(
+                    "| " + " | ".join(str(getattr(cell, "text", "")) for cell in getattr(row, "cells", []) or []) + " |"
+                )
     return "\n\n".join(lines)
 
 
@@ -71,8 +73,16 @@ def export_parse_result(result: Any, format_name: str = "json", **kwargs: Any) -
             from docmirror.output.mirror_vnext_projection import export_chunks_from_vnext
 
             chunks = export_chunks_from_vnext(mirror_vnext)
-            return dumps_json({"source": "mirror_vnext_reading_flow", "chunk_count": len(chunks), "chunks": chunks}), "application/json", ".chunks.json"
-        return dumps_json({"source": "parse_result", "chunk_count": 0, "chunks": []}), "application/json", ".chunks.json"
+            return (
+                dumps_json({"source": "mirror_vnext_reading_flow", "chunk_count": len(chunks), "chunks": chunks}),
+                "application/json",
+                ".chunks.json",
+            )
+        return (
+            dumps_json({"source": "parse_result", "chunk_count": 0, "chunks": []}),
+            "application/json",
+            ".chunks.json",
+        )
     if format_name in {"csv", "parquet"}:
         from docmirror.output.exporters.tabular import export_parse_result as export_tabular
 

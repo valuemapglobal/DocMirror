@@ -24,6 +24,7 @@ from docmirror.security.data_classification import DataClassification
 @dataclass
 class EgressEvent:
     """A single network outbound event."""
+
     event_id: str
     request_id: str
     provider: str
@@ -63,6 +64,7 @@ class EgressEvent:
 @dataclass
 class ResourceGateDecision:
     """Decision from a resource gate check."""
+
     component: str
     status: str  # pass / blocked / warning
     code: str
@@ -82,6 +84,7 @@ class ResourceGateDecision:
 @dataclass
 class SecurityEvidenceLedger:
     """Per-parse security evidence record."""
+
     version: int = 1
     request_id: str = ""
     privacy_mode: str = "local"
@@ -89,14 +92,18 @@ class SecurityEvidenceLedger:
     egress_events: list[EgressEvent] = field(default_factory=list)
     resource_gate_decisions: list[ResourceGateDecision] = field(default_factory=list)
     redaction_events: list[dict[str, Any]] = field(default_factory=list)
-    license_boundary: dict[str, Any] = field(default_factory=lambda: {
-        "license_state_in_mirror": False,
-        "edition_only": True,
-    })
-    support_bundle: dict[str, Any] = field(default_factory=lambda: {
-        "profile": "redacted",
-        "redaction_safe": True,
-    })
+    license_boundary: dict[str, Any] = field(
+        default_factory=lambda: {
+            "license_state_in_mirror": False,
+            "edition_only": True,
+        }
+    )
+    support_bundle: dict[str, Any] = field(
+        default_factory=lambda: {
+            "profile": "redacted",
+            "redaction_safe": True,
+        }
+    )
 
     def add_egress(self, event: EgressEvent) -> None:
         self.egress_events.append(event)
@@ -136,9 +143,7 @@ def build_security_summary(ledger: SecurityEvidenceLedger) -> dict[str, Any]:
     return {
         "privacy_mode": ledger.privacy_mode,
         "network_egress": "allowed" if ledger.network_egress_allowed else "blocked",
-        "external_providers": list(
-            set(e.provider for e in ledger.egress_events if e.result == "sent")
-        ),
+        "external_providers": list(set(e.provider for e in ledger.egress_events if e.result == "sent")),
         "resource_gate": "pass" if ledger.all_resource_gates_pass else "fail",
         "redaction_profile": ledger.support_bundle.get("profile", "redacted"),
         "support_bundle_redaction_safe": ledger.support_bundle.get("redaction_safe", True),

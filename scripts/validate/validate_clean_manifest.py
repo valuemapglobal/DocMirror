@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import yaml
 
@@ -19,7 +19,6 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.code_hygiene.allowlist import load_allowlist  # noqa: E402
 from scripts.code_hygiene.clean_manifest import load_clean_manifest  # noqa: E402
 
-
 TEXT_SUFFIXES = {".py", ".md", ".yaml", ".yml", ".toml", ".json"}
 SKIP_PARTS = {
     ".git",
@@ -29,6 +28,7 @@ SKIP_PARTS = {
     ".pytest_cache",
     ".ruff_cache",
     ".mypy_cache",
+    ".import_linter_cache",
     "node_modules",
     "docmirror_enterprise",
     "docmirror_finance",
@@ -42,7 +42,10 @@ DESIGN_HISTORY_PARTS = ("docs", "design")
 REMOVED_REFERENCE_ALLOW_FILES = {
     "CHANGELOG.md",
     "docmirror/configs/architecture/clean_manifest.yaml",
+    "docmirror/configs/architecture/domain_decomposition.yaml",
     "scripts/validate/validate_clean_manifest.py",
+    "scripts/validate/validate_domain_decomposition.py",
+    "scripts/validate/validate_structure_shims.py",
     "tests/contract/test_removed_import_paths.py",
 }
 
@@ -170,6 +173,12 @@ def validate_workflow_yaml() -> list[str]:
     return errors
 
 
+def validate_vnext_removed_imports() -> list[str]:
+    from scripts.validate.validate_vnext_removed_imports import check, validate_baseline
+
+    return check() + validate_baseline()
+
+
 def main() -> int:
     errors: list[str] = []
     for check in (
@@ -178,6 +187,7 @@ def main() -> int:
         validate_allowlist_modules,
         validate_removed_references,
         validate_workflow_yaml,
+        validate_vnext_removed_imports,
     ):
         errors.extend(check())
 

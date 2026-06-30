@@ -5,13 +5,13 @@
 
 from __future__ import annotations
 
-from docmirror.output.debug.artifact import build_debug_artifact
+from docmirror.models.ehl import attach_quality_report_annex, attach_spans_annex
 from docmirror.models.entities.domain_result import normalize_domain_result
 from docmirror.models.entities.evidence import EvidenceSpan
 from docmirror.models.entities.hypothesis import ParseHypothesis
 from docmirror.models.entities.parse_result import MirrorAnnex, ParseResult
 from docmirror.models.entities.quality_report import ParseQualityReport
-from docmirror.models.ehl import attach_quality_report_annex, attach_spans_annex
+from docmirror.runtime.debug_artifact import build_debug_artifact
 
 
 def _sample_v2_payload() -> dict:

@@ -74,12 +74,12 @@ def is_community_generic_enabled() -> bool:
 
 
 def is_enterprise_only(document_type: str) -> bool:
-    """Deprecated: always returns False. Enterprise-only routing removed in v2."""
+    """Return whether a document type is restricted to enterprise routing."""
     return False
 
 
 def should_mirror_only(document_type: str, edition: str = "community") -> bool:
-    """Deprecated: always returns False. Mirror-only routing removed in v2."""
+    """Return whether a document type should skip community projection."""
     return False
 
 
@@ -111,7 +111,7 @@ _PLUGIN_TYPE_ALIASES: dict[str, str] = {
 
 
 def normalize_premium_document_type(document_type: str) -> str:
-    """Map legacy mirror document types to premium plugin domain names (M9)."""
+    """Map raw mirror document types to premium plugin domain names (M9)."""
     return _PLUGIN_TYPE_ALIASES.get(document_type, document_type)
 
 
@@ -142,7 +142,7 @@ def get_generic_community_plugin() -> tuple[Any, str]:
 
 
 def find_community_plugin(detected_type: str) -> tuple[Any, str]:
-    """Backward-compatible: premium match only (use runner for generic fallback)."""
+    """Return the premium community plugin for a detected document type."""
     return find_premium_community_plugin(detected_type)
 
 

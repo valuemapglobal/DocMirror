@@ -13,14 +13,16 @@ egress gateway. The gateway enforces:
 
 from __future__ import annotations
 
-from typing import Any, Callable
-from docmirror.security.privacy_mode import PrivacyPolicy, is_provider_allowed
+from typing import Any
+
 from docmirror.security.data_classification import DataClassification
+from docmirror.security.privacy_mode import PrivacyPolicy, is_provider_allowed
 from docmirror.security.security_ledger import EgressEvent
 
 
 class EgressBlockedError(Exception):
     """Raised when an egress attempt is blocked by privacy policy."""
+
     def __init__(self, reason: str, provider: str = "", component: str = ""):
         self.reason = reason
         self.provider = provider

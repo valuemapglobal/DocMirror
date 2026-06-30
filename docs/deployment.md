@@ -1,6 +1,7 @@
 # Deployment Guide
 
-Deploying DocMirror in a production environment.
+Deploy DocMirror as a local HTTP service for API integrations and internal
+evaluation.
 
 ## Docker Deployment
 
@@ -24,11 +25,8 @@ docker run -d \
 | `DOCMIRROR_API_KEY` | — | API key for request authentication |
 | `DOCMIRROR_LOG_LEVEL` | `info` | Logging level |
 | `DOCMIRROR_MAX_PAGES` | `200` | Maximum pages to process per document |
-| `DOCMIRROR_WORKERS` | `4` | Worker pool size |
-| `DOCMIRROR_CACHE_TTL` | `3600` | Cache TTL in seconds (requires Redis) |
-| `DOCMIRROR_REDIS_URL` | — | Redis connection string for caching |
-| `DOCMIRROR_LICENSE` | — | Online license key |
-| `DOCMIRROR_REQUEST_SIZE_MB` | `50` | Max upload file size in MB |
+| `DOCMIRROR_LICENSE` | — | Optional commercial license key |
+| `OMP_NUM_THREADS` | — | Optional native thread limit for OCR/math libraries |
 
 ### Docker Compose
 
@@ -44,6 +42,7 @@ services:
     environment:
       - DOCMIRROR_API_KEY=${DOCMIRROR_API_KEY}
       - DOCMIRROR_LOG_LEVEL=info
+      - OMP_NUM_THREADS=4
     deploy:
       resources:
         limits:
@@ -85,20 +84,11 @@ docmirror.example.com {
 
 ### CPU
 
-- Set `DOCMIRROR_WORKERS` to the number of CPU cores
-- For OCR-heavy workloads, consider 2x CPU cores
+- Set `OMP_NUM_THREADS` to avoid native OCR/math libraries overusing CPU cores.
+- For OCR-heavy workloads, start conservatively and raise the thread limit after measuring latency and memory.
 
 ### Memory
 
 - 2 GB minimum for production
 - 4 GB recommended for documents with OCR
 - 8 GB for documents with 200+ pages
-
-### Cache
-
-Enable Redis caching for repeated document parsing:
-
-```bash
-docker run -d --name redis redis:alpine
-export DOCMIRROR_REDIS_URL=redis://redis:6379/0
-```

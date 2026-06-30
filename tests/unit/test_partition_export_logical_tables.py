@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.structure.tables.compose.ledger_quality import partition_export_logical_tables
+from docmirror.tables.compose.ledger_quality import partition_export_logical_tables
 from docmirror.models.entities.parse_result import CellValue, LogicalTable, RowType, TableRow
 
 

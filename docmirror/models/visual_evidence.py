@@ -36,10 +36,24 @@ class VisualNode:
 
     id: str = ""
     kind: Literal[
-        "page", "block", "span", "token", "table", "cell", "field",
-        "record", "quality_issue", "needs_review", "diff_change",
-        "fallback", "unresolved", "section", "reading_order",
-        "key_value", "image", "formula",
+        "page",
+        "block",
+        "span",
+        "token",
+        "table",
+        "cell",
+        "field",
+        "record",
+        "quality_issue",
+        "needs_review",
+        "diff_change",
+        "fallback",
+        "unresolved",
+        "section",
+        "reading_order",
+        "key_value",
+        "image",
+        "formula",
     ] = "block"
     label: str = ""
     value_preview: str = ""
@@ -131,15 +145,16 @@ class VisualEvidenceGraph:
     outcomes: dict[str, Any] = field(default_factory=dict)
     redaction: dict[str, Any] = field(default_factory=dict)
 
-    def add_page(self, page: int, width: float = 0, height: float = 0,
-                 image_ref: str = "") -> None:
-        self.pages.append({
-            "page": page,
-            "width": width,
-            "height": height,
-            "image_ref": image_ref,
-            "nodes": [],
-        })
+    def add_page(self, page: int, width: float = 0, height: float = 0, image_ref: str = "") -> None:
+        self.pages.append(
+            {
+                "page": page,
+                "width": width,
+                "height": height,
+                "image_ref": image_ref,
+                "nodes": [],
+            }
+        )
 
     def add_node(self, node: VisualNode) -> None:
         self.nodes[node.id] = node
@@ -167,8 +182,7 @@ class VisualEvidenceGraph:
         return [n for n in self.nodes.values() if n.kind == kind]
 
     def nodes_needing_review(self) -> list[VisualNode]:
-        return [n for n in self.nodes.values()
-                if n.review in ("needs_review", "needs_evidence")]
+        return [n for n in self.nodes.values() if n.review in ("needs_review", "needs_evidence")]
 
     def to_dict(self) -> dict[str, Any]:
         return {

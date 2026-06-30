@@ -80,13 +80,16 @@ async def describe_chart_or_image(
         )
         logger.debug(
             "Chart description generated via %s (context=%s, %d chars)",
-            backend.name, context, len(description),
+            backend.name,
+            context,
+            len(description),
         )
         return description
     except Exception as exc:
         logger.error(
             "Chart description failed via %s: %s",
-            backend.name, exc,
+            backend.name,
+            exc,
         )
         return ""
 
@@ -187,7 +190,8 @@ async def enrich_dmir_with_alt_text(
             except Exception as exc:
                 logger.warning(
                     "Failed to generate alt_text for image %s: %s",
-                    img_id, exc,
+                    img_id,
+                    exc,
                 )
 
     return dmir_dict

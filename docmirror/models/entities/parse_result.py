@@ -26,7 +26,7 @@ Design principles::
     - **Confidence penetration**: Cell → Row → Table → Page → Document.
     - **Separation of concerns**: Content / Entities / Meta are independent zones.
     - **Parser-agnostic**: DocMirror, Docling, PaddleOCR all output this structure.
-    - **Backward compatible**: ``from_legacy_parser_output()`` bridges old formats.
+    - **Adapter-built**: input adapters construct typed ``ParseResult`` objects.
 
 Usage::
 
@@ -48,7 +48,6 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from docmirror.models.tracking.mutation import Mutation
-from docmirror.ocr.page_canvas.models import PageCanvas
 
 if TYPE_CHECKING:
     from docmirror.models.entities.evidence import EvidenceSummary
@@ -108,8 +107,9 @@ def _build_scanned_ocr_page_pool(*evidence_groups: Any) -> tuple[list[dict[str, 
                     **({"page_width": evidence.get("page_width")} if evidence.get("page_width") is not None else {}),
                     **({"page_height": evidence.get("page_height")} if evidence.get("page_height") is not None else {}),
                     "source": source,
-                    "lines": evidence.get("lines") or [],
-                    "tokens": evidence.get("tokens") or [],
+                    "line_count": len(evidence.get("lines") or []),
+                    "token_count": len(evidence.get("tokens") or []),
+                    "payload": "external_evidence_bundle",
                 }
             )
     return pages, refs
@@ -134,6 +134,61 @@ def _strip_scanned_ocr_payload_from_evidence(
     return out
 
 
+def _strip_inline_page_evidence_bundles(value: Any) -> Any:
+    """Remove raw page evidence bundles from public Mirror JSON provenance."""
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for key, item in value.items():
+            if key in {"_page_evidence_bundles", "page_evidence_bundles"}:
+                continue
+            out[key] = _strip_inline_page_evidence_bundles(item)
+        return out
+    if isinstance(value, list):
+        return [_strip_inline_page_evidence_bundles(item) for item in value]
+    return value
+
+
+def _strip_ocr_text_atoms_when_text_excluded(payload: dict[str, Any], *, include_text: bool | None) -> None:
+    """Drop OCR-derived text atoms from the main Mirror JSON when text is excluded."""
+    if include_text is not False:
+        return
+    evidence = payload.get("evidence")
+    if not isinstance(evidence, dict):
+        return
+    atoms = evidence.get("text_atoms")
+    if not isinstance(atoms, list):
+        return
+    kept: list[Any] = []
+    removed_ids: set[str] = set()
+    for atom in atoms:
+        if not isinstance(atom, dict):
+            kept.append(atom)
+            continue
+        metadata = atom.get("metadata") if isinstance(atom.get("metadata"), dict) else {}
+        source_kind = str(atom.get("source_kind") or "")
+        is_ocr_atom = bool(metadata.get("ocr_evidence_key")) or source_kind.endswith("_evidence_token")
+        if is_ocr_atom:
+            atom_id = str(atom.get("id") or "")
+            if atom_id:
+                removed_ids.add(atom_id)
+            continue
+        kept.append(atom)
+    if not removed_ids:
+        return
+    evidence["text_atoms"] = kept
+    indexes = evidence.get("indexes")
+    if isinstance(indexes, dict):
+        for key, value in list(indexes.items()):
+            if isinstance(value, list):
+                indexes[key] = [item for item in value if str(item) not in removed_ids]
+            elif isinstance(value, dict):
+                indexes[key] = {
+                    sub_key: [item for item in sub_value if str(item) not in removed_ids]
+                    for sub_key, sub_value in value.items()
+                    if isinstance(sub_value, list)
+                }
+
+
 def _pages_with_region_kinds(api_pages: list[dict[str, Any]], kinds: set[str]) -> set[int]:
     pages: set[int] = set()
     for page in api_pages:
@@ -151,7 +206,7 @@ def _strip_structure_payload_from_local_structure_evidence(
     evidence_group: Any,
     api_pages: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Drop duplicated structures from forensic evidence when PCM regions already carry them."""
+    """Drop duplicated structures from forensic evidence when vNext regions already carry them."""
     if not isinstance(evidence_group, list):
         return []
     pages_with_structures = _pages_with_region_kinds(
@@ -463,12 +518,6 @@ class PageContent(BaseModel):
     routing_confidence: float | None = Field(default=None, description="Routing confidence score")
     width: int | None = None
     height: int | None = None
-    page_canvas: PageCanvas | None = Field(
-        default=None,
-        exclude=True,
-        repr=False,
-        description="In-memory PCM canvas (regions + flow); populated by sync_page_canvases()",
-    )
     source_member: str = Field(
         default="",
         description="Relative path inside a parent archive/container, if applicable.",
@@ -907,11 +956,9 @@ class ParseResult(BaseModel):
 
         Args:
             source_filename: Optional source identifier for provenance.
-            mirror_level: Deprecated compatibility alias for the vNext
-                profile. It does not re-enable legacy output fields.
-            include_text: Deprecated compatibility flag. vNext always emits
-                content through blocks/evidence instead of a legacy top-level
-                text field.
+            mirror_level: Optional vNext projection profile.
+            include_text: Optional projection hint. vNext emits content
+                through blocks/evidence instead of a raw top-level text field.
 
         Returns:
             vNext MirrorJson dict (top-level keys: mirror, source,
@@ -928,82 +975,80 @@ class ParseResult(BaseModel):
         core = MirrorCoreVNext()
         result = core.process(self, options=options)
         if isinstance(result, MirrorResult):
-            return result.to_dict()
-        if isinstance(result, dict):
-            return result
-        return {"error": f"unexpected result type: {type(result).__name__}"}
-
-    # ── Legacy bridge ──
-
-    @classmethod
-    def from_legacy_parser_output(cls, output: Any) -> ParseResult:
-        """
-        Bridge from legacy ``ParserOutput`` — for gradual migration.
-
-        Converts the old ``document_structure`` list and ``key_entities``
-        dict into the typed ParseResult structure.
-        """
-        pages: list[PageContent] = []
-        current_page = PageContent(page_number=1)
-
-        for item in getattr(output, "document_structure", None) or []:
-            if not isinstance(item, dict):
-                continue
-
-            page_num = item.get("page", 1)
-            if page_num != current_page.page_number:
-                pages.append(current_page)
-                current_page = PageContent(page_number=page_num)
-
-            block_type = item.get("type", "")
-
-            if block_type == "table":
-                headers = item.get("headers", [])
-                raw_rows = item.get("rows", [])
-                if not headers and "data" in item:
-                    data = item["data"]
-                    if data:
-                        headers = data[0]
-                        raw_rows = data[1:]
-
-                table = TableBlock(
-                    table_id=f"page{page_num}_table{len(current_page.tables)}",
-                    headers=headers,
-                    page=page_num,
-                )
-                for r in raw_rows:
-                    cells = [CellValue(text=str(v)) for v in (r if isinstance(r, list) else [])]
-                    table.rows.append(TableRow(cells=cells))
-                current_page.tables.append(table)
-
-            elif block_type in ("text", "title", "heading"):
-                level = {
-                    "title": TextLevel.TITLE,
-                    "heading": TextLevel.H1,
-                }.get(block_type, TextLevel.BODY)
-                current_page.texts.append(TextBlock(content=item.get("content", ""), level=level))
-
-            elif block_type == "key_value":
-                for k, v in (item.get("pairs") or {}).items():
-                    current_page.key_values.append(KeyValuePair(key=k, value=str(v)))
-
-        pages.append(current_page)
-
-        # Entities from key_entities
-        ent = DocumentEntities()
-        ke = getattr(output, "key_entities", None) or {}
-        ent.subject_name = ke.get("户名") or ke.get("account_holder", "")
-        ent.organization = ke.get("银行") or ke.get("bank_name", "")
-        ent.domain_specific = ke
-
-        return cls(
-            pages=pages,
-            entities=ent,
-            parser_info=ParserInfo(
-                overall_confidence=getattr(output, "confidence", 1.0),
-                page_count=len(pages),
-            ),
+            payload = result.to_dict()
+        elif isinstance(result, dict):
+            payload = result
+        else:
+            return {"error": f"unexpected result type: {type(result).__name__}"}
+        return self._apply_vnext_page_projection(
+            payload,
+            mirror_level=mirror_level or "standard",
+            include_text=include_text,
         )
+
+    def _apply_vnext_page_projection(
+        self,
+        payload: dict[str, Any],
+        *,
+        mirror_level: str | None,
+        include_text: bool | None,
+    ) -> dict[str, Any]:
+        """Add vNext page projection fields on top of canonical MirrorCore output."""
+        from docmirror.models.mirror.domain_access import (
+            raw_local_structure_evidence_from_domain_specific,
+            raw_micro_grid_evidence_from_domain_specific,
+        )
+        from docmirror.models.mirror.vnext_page_projection import project_vnext_pages
+
+        ds = getattr(getattr(self, "entities", None), "domain_specific", None) or {}
+        raw_micro = raw_micro_grid_evidence_from_domain_specific(ds)
+        raw_local = raw_local_structure_evidence_from_domain_specific(ds)
+        scanned_ocr_pages, refs = _build_scanned_ocr_page_pool(raw_micro, raw_local)
+        source_page_details = {
+            int(page.get("page_number") or 0): page
+            for page in self._build_api_pages(forensic=_vnext_profile_from_mirror_level(mirror_level) == "forensic")
+            if isinstance(page, dict) and int(page.get("page_number") or 0) > 0
+        }
+        vnext_pages = {
+            int(page.get("page_number") or 0): page
+            for page in payload.get("pages", [])
+            if isinstance(page, dict) and int(page.get("page_number") or 0) > 0
+        }
+        forensic = _vnext_profile_from_mirror_level(mirror_level) == "forensic"
+        merged_pages: list[dict[str, Any]] = []
+        for page_num in sorted(set(vnext_pages) | set(source_page_details)):
+            base = dict(vnext_pages.get(page_num) or {"page_number": page_num})
+            raw = source_page_details.get(page_num) or {}
+            for key in ("width", "height", "tables", "texts", "key_values"):
+                if key in raw and (key not in base or key in {"texts", "key_values"}):
+                    base[key] = raw[key]
+            merged_pages.append(base)
+        enriched_pages = project_vnext_pages(
+            merged_pages,
+            domain_specific=ds,
+            mirror_level="forensic" if forensic else "standard",
+            scanned_ocr_pages=scanned_ocr_pages,
+            include_text=include_text,
+            document_type=str(getattr(getattr(self, "entities", None), "document_type", "") or ""),
+        )
+        if enriched_pages:
+            payload["pages"] = enriched_pages
+
+        if forensic:
+            if scanned_ocr_pages:
+                payload["scanned_ocr_pages"] = scanned_ocr_pages
+            local_evidence = _strip_structure_payload_from_local_structure_evidence(
+                _strip_scanned_ocr_payload_from_evidence(raw_local, refs),
+                payload.get("pages", []),
+            )
+            if local_evidence:
+                payload["scanned_local_structure_evidence"] = local_evidence
+            micro_evidence = _strip_scanned_ocr_payload_from_evidence(raw_micro, refs)
+            if micro_evidence:
+                payload["scanned_micro_grid_evidence"] = micro_evidence
+            payload["source"] = _strip_inline_page_evidence_bundles(payload.get("source"))
+            _strip_ocr_text_atoms_when_text_excluded(payload, include_text=include_text)
+        return payload
 
     # ── Internal helpers ──
 
@@ -1042,16 +1087,6 @@ class ParseResult(BaseModel):
                 cells.append("")
             lines.append("| " + " | ".join(cells[: len(table.headers)]) + " |")
         return "\n".join(lines)
-
-    def sync_page_canvases(
-        self,
-        *,
-        scanned_ocr_pages: list[dict[str, Any]] | None = None,
-    ) -> None:
-        """Materialize PageCanvas on each page from domain_specific evidence."""
-        from docmirror.ocr.page_canvas.sync import sync_parse_result_page_canvases
-
-        sync_parse_result_page_canvases(self, scanned_ocr_pages=scanned_ocr_pages)
 
     def _build_api_pages(self, *, forensic: bool = False) -> list[dict[str, Any]]:
         """Build API pages structure with full CellValue serialization."""

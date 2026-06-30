@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 
 from docmirror.models.entities.parse_result import ParseResult
+
 from ..base import BaseMiddleware
 
 logger = logging.getLogger(__name__)

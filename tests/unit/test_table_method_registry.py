@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from docmirror.structure.tables.engine import extract_tables_layered
-from docmirror.structure.tables.method_reconstructor import (
+from docmirror.tables.engine import extract_tables_layered
+from docmirror.tables.method_reconstructor import (
     TableMethodReconstructor,
     TableMethodRegistry,
 )

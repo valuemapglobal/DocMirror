@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import logging
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
@@ -33,11 +32,11 @@ def test_build_all_projections_serializes_mirror_before_editions():
 
     def _mirror_result(*_args, **_kwargs):
         call_order.append("mirror")
-        return SimpleNamespace(to_dict=lambda: {"mirror": {"schema_version": "3.0.0"}, "document": {}})
+        return {"mirror": {"schema_version": "3.0.0"}, "document": {}}
 
     with patch("docmirror.server.output_builder.build_community_output", side_effect=_community):
         with patch("docmirror.server.output_builder.build_extended_output", side_effect=_extended):
-            with patch("docmirror.output.mirror.MirrorCoreVNext.process", side_effect=_mirror_result):
+            with patch("docmirror.models.mirror.core.MirrorCoreVNext.process", side_effect=_mirror_result):
                 outputs = build_all_projections(result, mirror_schema="unsupported_schema")
 
     assert call_order[0] == "mirror"
@@ -52,25 +51,26 @@ def test_build_all_projections_single_vnext_mirror_call():
     with patch("docmirror.server.output_builder.build_community_output", return_value=None):
         with patch("docmirror.server.output_builder.build_extended_output", return_value=None):
             with patch(
-                "docmirror.output.mirror.MirrorCoreVNext.process",
-                return_value=SimpleNamespace(to_dict=lambda: {"mirror": {}, "document": {}}),
+                "docmirror.models.mirror.core.MirrorCoreVNext.process",
+                return_value={"mirror": {}, "document": {}},
             ) as mirror_mock:
                 build_all_projections(result, request_id="req-1", mirror_schema="unsupported_schema")
 
     mirror_mock.assert_called_once()
+    assert getattr(result, "mirror") == {"mirror": {}, "document": {}}
 
 
-def test_build_all_projections_maps_legacy_mirror_level_to_vnext_profile():
+def test_build_all_projections_maps_mirror_level_to_vnext_profile():
     result = _mirror()
     with patch("docmirror.server.output_builder.build_community_output", return_value=None):
         with patch("docmirror.server.output_builder.build_extended_output", return_value=None):
             with patch(
-                "docmirror.output.mirror.MirrorCoreVNext.process",
-                return_value=SimpleNamespace(to_dict=lambda: {"mirror": {}, "document": {}}),
+                "docmirror.models.mirror.core.MirrorCoreVNext.process",
+                return_value={"mirror": {}, "document": {}},
             ) as mirror_mock:
                 build_all_projections(result, mirror_level="forensic", editions=())
 
-    options = mirror_mock.call_args.args[1]
+    options = mirror_mock.call_args.kwargs["options"]
     assert options.profile == "forensic"
 
 
@@ -79,12 +79,12 @@ def test_build_all_projections_maps_compact_to_canonical_compact_profile():
     with patch("docmirror.server.output_builder.build_community_output", return_value=None):
         with patch("docmirror.server.output_builder.build_extended_output", return_value=None):
             with patch(
-                "docmirror.output.mirror.MirrorCoreVNext.process",
-                return_value=SimpleNamespace(to_dict=lambda: {"mirror": {}, "document": {}}),
+                "docmirror.models.mirror.core.MirrorCoreVNext.process",
+                return_value={"mirror": {}, "document": {}},
             ) as mirror_mock:
                 build_all_projections(result, mirror_level="compact", editions=())
 
-    options = mirror_mock.call_args.args[1]
+    options = mirror_mock.call_args.kwargs["options"]
     assert options.profile == "canonical_compact"
 
 
@@ -94,8 +94,8 @@ def test_build_all_projections_can_read_mirror_schema_from_runtime_config(monkey
 
     with patch("docmirror.server.output_builder.serialize_dmir", return_value={"dmir_version": "test"}):
         with patch(
-            "docmirror.output.mirror.MirrorCoreVNext.process",
-            return_value=SimpleNamespace(to_dict=lambda: {"mirror": {"schema_version": "3.0.0"}, "document": {}}),
+            "docmirror.models.mirror.core.MirrorCoreVNext.process",
+            return_value={"mirror": {"schema_version": "3.0.0"}, "document": {}},
         ) as mirror_mock:
             outputs = build_all_projections(result, editions=())
 

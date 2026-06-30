@@ -4,7 +4,7 @@
 """
 DTI field-schema helper — expected entity labels per business scene.
 
-Replaces the legacy ``DocumentType`` enum with YAML-driven field schemas loaded
+Replaces the raw ``DocumentType`` enum with YAML-driven field schemas loaded
 from ``document_field_schemas.yaml``. Each ``business_scene`` may define expected
 field label mappings used by validators and plugin scaffolding.
 

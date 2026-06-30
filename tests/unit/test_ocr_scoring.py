@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 import pytest
 
-from docmirror.structure.tables.ocr_scoring import (
+from docmirror.tables.ocr_scoring import (
     compute_decay_factor,
     detect_low_confidence_words,
     compute_ocr_enhanced_confidence,

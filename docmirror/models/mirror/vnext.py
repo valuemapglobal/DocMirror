@@ -334,6 +334,63 @@ class MirrorJsonVNext(MirrorBaseModel):
     diagnostics: DiagnosticsInfo = Field(default_factory=DiagnosticsInfo)
     assets: AssetStore = Field(default_factory=AssetStore)
 
+    @property
+    def full_text(self) -> str:
+        """Best-effort text projection for plugin compatibility."""
+        texts: list[str] = []
+        for block in self.blocks:
+            text = str(block.text or "").strip()
+            if text:
+                texts.append(text)
+        if texts:
+            return "\n".join(texts)
+        for atom in self.evidence.text_atoms:
+            text = str(atom.text or "").strip()
+            if text:
+                texts.append(text)
+        return "\n".join(texts)
+
+    @property
+    def entities(self) -> Any:
+        """ParseResult-compatible entity projection for plugin runners."""
+        from docmirror.models.entities.parse_result import DocumentEntities
+
+        candidates = list(self.document.document_type_candidates or [])
+        best = max(candidates, key=lambda item: float(item.confidence or 0.0), default=None)
+        provenance_entities = self.source.provenance.get("entities") if isinstance(self.source.provenance, dict) else {}
+        provenance_type = ""
+        provenance_specific: dict[str, Any] = {}
+        if isinstance(provenance_entities, dict):
+            provenance_type = str(provenance_entities.get("document_type") or "")
+            specific = provenance_entities.get("domain_specific")
+            if isinstance(specific, dict):
+                provenance_specific = dict(specific)
+        document_type = provenance_type or str(best.type if best is not None else "unknown")
+        if document_type == "commercial_invoice" and _looks_like_vat_invoice_text(self.full_text):
+            document_type = "vat_invoice"
+        return DocumentEntities(
+            document_type=document_type or "unknown",
+            domain_specific={
+                **provenance_specific,
+                "document_type_candidates": [candidate.model_dump() for candidate in candidates],
+                "mirror_source": "mirror_json_vnext",
+            },
+        )
+
+    @property
+    def logical_tables(self) -> list[Any]:
+        """ParseResult-compatible logical table projection."""
+        return []
+
+
+def _looks_like_vat_invoice_text(text: str) -> bool:
+    normalized = str(text or "").lower()
+    return (
+        "增值税" in normalized
+        or "value-added tax invoice" in normalized
+        or ("invoice code" in normalized and "invoice number" in normalized and "tax id" in normalized)
+    )
+
 
 def mirror_json_vnext_schema() -> dict[str, Any]:
     """Return the JSON Schema for canonical Mirror JSON vNext."""

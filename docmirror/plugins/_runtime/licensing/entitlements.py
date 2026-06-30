@@ -73,6 +73,7 @@ def _has_any_license() -> bool:
     """Check whether ANY valid commercial license exists (offline or online)."""
     try:
         from docmirror.plugins._runtime.licensing.offline import offline_license_manager
+
         for lic in offline_license_manager._licenses:
             if not lic.is_valid:
                 continue
@@ -85,6 +86,7 @@ def _has_any_license() -> bool:
         pass
     try:
         from docmirror.plugins._runtime.licensing.online import license_manager
+
         cached = license_manager._cached_license
         if cached is not None and cached.is_valid:
             return True
@@ -112,11 +114,13 @@ def resolve_edition_tier() -> str:
         return "community"
     try:
         import docmirror_finance  # noqa: F401
+
         return "finance"
     except ImportError:
         pass
     try:
         import docmirror_enterprise  # noqa: F401
+
         return "enterprise"
     except ImportError:
         pass

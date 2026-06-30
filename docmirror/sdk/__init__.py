@@ -5,8 +5,8 @@ integrating DocMirror into Python applications without reading internal APIs.
 """
 
 from docmirror.sdk.client import (
-    DocMirrorClient,
     AsyncDocMirrorClient,
+    DocMirrorClient,
     DocMirrorError,
     parse_to_task,
 )

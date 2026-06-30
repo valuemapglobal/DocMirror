@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.structure.scene.evidence_engine import Evidence, EvidenceEngine
+from docmirror.layout.scene.evidence_engine import Evidence, EvidenceEngine
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 
 

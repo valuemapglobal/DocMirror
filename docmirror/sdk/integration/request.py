@@ -8,7 +8,7 @@ into this canonical form before calling the shared orchestration layer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
@@ -45,22 +45,22 @@ class ParseRequest:
     input: InputRef = field(default_factory=InputRef)
 
     # -- execution control --
-    mode: str = "auto"               # auto | fast | balanced | accurate | forensic
-    profile: str | None = None       # compact | full | forensic | ga_full
-    sync: bool = True                # False -> task-mode
+    mode: str = "auto"  # auto | fast | balanced | accurate | forensic
+    profile: str | None = None  # compact | full | forensic | ga_full
+    sync: bool = True  # False -> task-mode
 
     # -- page / geometry control --
-    pages: str | None = None         # "1-3,8,10-"
+    pages: str | None = None  # "1-3,8,10-"
     max_pages: int | None = None
-    geometry: str | None = None      # none | page | block | token | full
+    geometry: str | None = None  # none | page | block | token | full
     include_text: bool = False
-    mirror_level: str = "standard"   # standard | forensic
+    mirror_level: str = "standard"  # standard | forensic
 
     # -- output control --
     formats: list[str] = field(default_factory=lambda: ["json"])
     editions: list[str] = field(default_factory=lambda: ["mirror", "community"])
-    ocr: str = "auto"                # auto | force | off | fallback
-    cache_policy: str = "read-write" # read-write | read-only | refresh | off
+    ocr: str = "auto"  # auto | force | off | fallback
+    cache_policy: str = "read-write"  # read-write | read-only | refresh | off
 
     # -- domain hints --
     doc_type: str | None = None

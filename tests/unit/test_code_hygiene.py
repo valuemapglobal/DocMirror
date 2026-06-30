@@ -130,7 +130,7 @@ def test_import_linter_rendered_from_manifest_layers():
                         {
                             "importer": "docmirror.models.bridge",
                             "imported": "docmirror.input.bridge",
-                            "reason": "legacy",
+                            "reason": "raw",
                             "review_by": "2026-08-01",
                         }
                     ],
@@ -196,3 +196,86 @@ def test_clean_quarantine_report_classifies_review_dates(monkeypatch):
         "docmirror.soon",
         "docmirror.later",
     ]
+
+
+def test_vnext_removed_import_gate_flags_new_production_import(tmp_path, monkeypatch):
+    from scripts.validate import validate_vnext_removed_imports
+
+    root = tmp_path / "docmirror"
+    bad = root / "new_feature.py"
+    bad.parent.mkdir(parents=True)
+    removed_page_module = ".".join(("docmirror", "ocr", "page_" + "canvas", "build"))
+    bad.write_text(f"from {removed_page_module} import build_regions_from_domain_specific\n", encoding="utf-8")
+
+    monkeypatch.setattr(validate_vnext_removed_imports, "REPO_ROOT", tmp_path)
+
+    errors = validate_vnext_removed_imports.check(root)
+
+    assert len(errors) == 1
+    assert f"imports removed module {removed_page_module}" in errors[0]
+
+
+def test_vnext_removed_import_gate_allows_vnext_ocr_modules(tmp_path, monkeypatch):
+    from scripts.validate import validate_vnext_removed_imports
+
+    root = tmp_path / "docmirror"
+    allowed = root / "topology" / "page.py"
+    allowed.parent.mkdir(parents=True)
+    allowed.write_text("from docmirror.ocr.reconstruct.grid import reconstruct_table_grid_from_tokens\n", encoding="utf-8")
+
+    monkeypatch.setattr(validate_vnext_removed_imports, "REPO_ROOT", tmp_path)
+
+    assert validate_vnext_removed_imports.check(root) == []
+
+
+def test_vnext_removed_import_baseline_blocks_growth(tmp_path, monkeypatch):
+    from scripts.validate import validate_vnext_removed_imports
+
+    root = tmp_path / "docmirror"
+    importer = root / "models" / "entities" / "parse_result.py"
+    importer.parent.mkdir(parents=True)
+    removed_project = ".".join(("docmirror", "models", "mirror", "leg" + "acy_" + "project"))
+    importer.write_text(f"from {removed_project} import enrich_api_page_with_canvas\n", encoding="utf-8")
+    baseline = tmp_path / "baseline.yaml"
+    baseline.write_text(
+        "\n".join(
+            [
+                "version: 1",
+                "removed_imports:",
+                "  - module_parts: [docmirror, ocr, [page_, canvas]]",
+                "    max_import_count: 0",
+                "  - module_parts: [docmirror, models, mirror, [leg, acy_, project]]",
+                "    max_import_count: 0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(validate_vnext_removed_imports, "REPO_ROOT", tmp_path)
+
+    errors = validate_vnext_removed_imports.validate_baseline(root, baseline)
+
+    assert errors == [f"{removed_project}: import count 1 exceeds baseline max 0"]
+
+
+def test_vnext_removed_import_baseline_allows_reduction(tmp_path, monkeypatch):
+    from scripts.validate import validate_vnext_removed_imports
+
+    root = tmp_path / "docmirror"
+    root.mkdir()
+    baseline = tmp_path / "baseline.yaml"
+    baseline.write_text(
+        "\n".join(
+            [
+                "version: 1",
+                "removed_imports:",
+                "  - module_parts: [docmirror, ocr, [page_, canvas]]",
+                "    max_import_count: 47",
+                "  - module_parts: [docmirror, models, mirror, [leg, acy_, project]]",
+                "    max_import_count: 2",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(validate_vnext_removed_imports, "REPO_ROOT", tmp_path)
+
+    assert validate_vnext_removed_imports.validate_baseline(root, baseline) == []

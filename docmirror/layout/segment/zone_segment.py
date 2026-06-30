@@ -22,8 +22,8 @@ from docmirror.layout.segment.zone_builder import (
     _build_zones_from_extent,
     _column_consensus,
     _isolate_formula_components,
-    _legacy_y_band_zones,
     _refine_by_lines,
+    _y_band_recovery_zones,
 )
 from docmirror.layout.segment.zone_models import Zone
 
@@ -40,7 +40,7 @@ def segment_page_into_zones(
     Primary path: detect table extent by structural column alignment
     (Column Consensus), then derive all zones from the table extent.
 
-    Fallback: legacy Y-band splitting when no table pattern is found.
+    Fallback: raw Y-band splitting when no table pattern is found.
     """
     chars = page_plum.chars
     rects = page_plum.rects or []
@@ -126,14 +126,14 @@ def segment_page_into_zones(
             f"{len(zones)} zones (table y={table_extent[0]:.0f}-{table_extent[1]:.0f})"
         )
     else:
-        # Fallback: formula isolation + legacy Y-band splitting
+        # Fallback: formula isolation + raw Y-band splitting
         remaining_chars, formula_zones = _isolate_formula_components(chars, page_w, page_h)
         if remaining_chars:
-            zones = _legacy_y_band_zones(remaining_chars, rects, page_w, page_h, page_idx, gap_threshold)
+            zones = _y_band_recovery_zones(remaining_chars, rects, page_w, page_h, page_idx, gap_threshold)
         else:
             zones = []
         zones.extend(formula_zones)
-        logger.debug(f"segment_page_into_zones: Legacy fallback → {len(zones)} zones")
+        logger.debug(f"segment_page_into_zones: Y-band recovery → {len(zones)} zones")
 
     # ── Step 4: GraphRouter reading order (preserved) ──
     from .graph_router import GraphRouter

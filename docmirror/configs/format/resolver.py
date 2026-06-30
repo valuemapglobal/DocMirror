@@ -11,8 +11,8 @@ Resolution priority::
     3. Longest extension suffix match (``.tar.gz`` before ``.gz``)
     4. ``UNKNOWN_CAPABILITY`` sentinel
 
-Also provides ``detect_transport()`` for backward compatibility with legacy
-``detect_file_type`` callers, and ``get_capability_by_transport()`` for parser
+Also provides ``detect_transport()`` for direct transport lookup, and
+``get_capability_by_transport()`` for parser
 fallback selection.
 """
 
@@ -74,7 +74,7 @@ def resolve_capability(path: Path, known_mime: str = "") -> FormatCapability:
 
 
 def detect_transport(path: Path, known_mime: str = "") -> str:
-    """Return transport string for a path (backward-compatible with detect_file_type)."""
+    """Return transport string for a path."""
     return resolve_capability(path, known_mime).transport
 
 

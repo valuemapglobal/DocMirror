@@ -1,6 +1,7 @@
-from docmirror.output.mirror import MirrorCoreVNext, MirrorOptions
+from docmirror.models.mirror.core import MirrorCoreVNext, MirrorOptions
 from docmirror.models.mirror.vnext import BlockType
 from tests.unit.test_mirror_json_vnext import _sample_parse_result
+
 
 def test_udtr_e2e_bank_statement():
     result = _sample_parse_result()

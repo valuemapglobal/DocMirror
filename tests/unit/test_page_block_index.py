@@ -5,14 +5,14 @@
 
 from __future__ import annotations
 
-from docmirror.structure.ocr.page_canvas.block_index import (
+from docmirror.models.mirror.page_access import resolve_block_ref
+from docmirror.topology.page_projection.block_index import (
     build_page_blocks,
     morphology_summary_from_blocks,
-    pcm_blocks_enabled,
+    page_projection_blocks_enabled,
     reading_order_from_blocks,
 )
-from docmirror.structure.ocr.page_canvas.models import PageBlock, PageRegion
-from docmirror.models.mirror.page_access import resolve_block_ref
+from docmirror.topology.page_projection.models import PageBlock, PageRegion
 
 
 def _region(region_id: str, *, y0: float, kind: str = "field_grid", morph: str = "S4") -> PageRegion:
@@ -110,5 +110,5 @@ def test_morphology_summary_from_blocks():
     assert morphology_summary_from_blocks(blocks) == {"S1": 1, "S2": 1}
 
 
-def test_pcm_blocks_enabled_default_on():
-    assert pcm_blocks_enabled() is True
+def test_page_projection_blocks_enabled_default_on():
+    assert page_projection_blocks_enabled() is True

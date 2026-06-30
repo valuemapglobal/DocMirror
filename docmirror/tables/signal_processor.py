@@ -25,11 +25,11 @@ import logging
 from collections import defaultdict
 from operator import itemgetter
 
-from docmirror.structure.utils.text_utils import _is_cjk_char, _smart_join
-from docmirror.structure.utils.vocabulary import (
+from docmirror.layout.text_utils import _is_cjk_char, _smart_join
+from docmirror.layout.vocabulary import (
     _score_header_by_vocabulary,
 )
-from docmirror.structure.utils.watermark import is_watermark_char
+from docmirror.layout.watermark import is_watermark_char
 
 logger = logging.getLogger(__name__)
 

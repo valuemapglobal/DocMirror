@@ -22,7 +22,7 @@ from docmirror.models.entities.parse_result import (
     TableRow,
     TextBlock,
 )
-from docmirror.server.edition_outputs import build_all_edition_outputs, write_four_files
+from docmirror.server.edition_outputs import build_all_projections, write_four_files
 from tests.contract.test_edition_schema_conformance import check_community
 
 _FORBIDDEN_MIRROR_KEYS = frozenset({"records", "mirror_ref", "edition"})
@@ -36,7 +36,7 @@ def _minimal_mirror(document_type: str = "business_license") -> ParseResult:
 
 def test_mirror_output_has_no_plugin_records():
     result = _minimal_mirror()
-    outputs = build_all_edition_outputs(result, full_text="")
+    outputs = build_all_projections(result, full_text="")
     mirror = outputs["mirror"]
     # Mirror API must not embed edition plugin payloads
     assert "editions" not in mirror.get("data", {})
@@ -79,8 +79,8 @@ def test_written_vnext_mirror_keeps_canonical_top_level_clean(tmp_path):
 
 
 def test_written_mirror_runs_verification_crop_ocr_hook(tmp_path, monkeypatch):
+    import docmirror.geometry.verification.crops as crop_hooks
     import docmirror.server.edition_outputs as edition_outputs
-    import docmirror.structure.verification.crops as crop_hooks
 
     result = _minimal_mirror()
     pdf_path = tmp_path / "source.pdf"
@@ -138,6 +138,7 @@ def test_written_mirror_runs_verification_crop_ocr_hook(tmp_path, monkeypatch):
         task_id="task_crop_ocr",
         editions=("mirror",),
         overwrite=True,
+        artifact_pack=True,
     )
 
     mirror = json.loads(written["mirror"].read_text(encoding="utf-8"))
@@ -176,7 +177,7 @@ def test_mirror_forensic_output_preserves_projection_controls():
         )
     ]
 
-    outputs = build_all_edition_outputs(
+    outputs = build_all_projections(
         result,
         include_text=True,
         mirror_level="forensic",
@@ -211,7 +212,7 @@ def test_mirror_forensic_output_preserves_projection_controls():
 
 def test_mirror_conservation_reports_empty_tables_without_reason():
     result = _minimal_mirror()
-    outputs = build_all_edition_outputs(result)
+    outputs = build_all_projections(result)
     mirror = outputs["mirror"]
     assert "meta" not in mirror
     gate_ids = {gate["id"] for gate in mirror["quality"]["gates"]}
@@ -255,7 +256,7 @@ def test_forensic_ehl_includes_bcs_selected_and_rejected_candidates():
         },
     )
 
-    mirror = build_all_edition_outputs(result, mirror_level="forensic")["mirror"]
+    mirror = build_all_projections(result, mirror_level="forensic")["mirror"]
     assert "meta" not in mirror
     assert mirror["mirror"]["profile"] == "forensic"
     table = next(block for block in mirror["blocks"] if block["type"] == "table")
@@ -300,7 +301,7 @@ def test_bridge_projects_text_span_evidence_into_forensic_ehl():
 
 def test_community_mirror_document_type_consistency():
     result = _minimal_mirror("business_license")
-    outputs = build_all_edition_outputs(result)
+    outputs = build_all_projections(result)
     comm = outputs.get("community")
     if comm is None:
         pytest.skip("no community output")
@@ -313,7 +314,7 @@ def test_enterprise_not_generated_when_package_missing():
     try:
         importlib.import_module("docmirror_enterprise")
     except ImportError:
-        outputs = build_all_edition_outputs(_minimal_mirror())
+        outputs = build_all_projections(_minimal_mirror())
         assert outputs["enterprise"] is None
         return
     pytest.skip("docmirror_enterprise installed — skip missing-package assertion")
@@ -361,7 +362,7 @@ def test_generic_fallback_envelope_for_demoted_type():
     from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
     result = _minimal_mirror("id_card")
-    result.entities.domain_specific = {"name": "ZhangSan"}
+    result.entities.domain_specific = {"name": "Example Name"}
     out = run_plugin_extract_sync(result, edition="community")
     assert out is not None
     assert out["plugin"]["name"] == "generic"

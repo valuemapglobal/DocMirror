@@ -9,7 +9,7 @@ from docmirror.eval.gates import _primary_logical_row_count
 from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParserInfo, ParseResult, RowType, TableRow
 
 
-def test_primary_logical_row_count_uses_ltqg_not_legacy_max():
+def test_primary_logical_row_count_uses_ltqg_not_raw_max():
     good = LogicalTable(
         headers=["交易日期", "摘要", "余额"],
         rows=[TableRow(cells=[CellValue(text="2024-01-01")], row_type=RowType.DATA)],

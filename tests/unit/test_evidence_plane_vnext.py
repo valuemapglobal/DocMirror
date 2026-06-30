@@ -1,8 +1,8 @@
 import pytest
 
+from docmirror.evidence.plane import DocumentSource, EvidencePlaneBuilder, _finalize_indexes
+from docmirror.models.mirror.core import MirrorCoreVNext
 from docmirror.models.mirror.vnext import EvidenceAtom, EvidenceStore
-from docmirror.output.mirror import MirrorCoreVNext
-from docmirror.structure.evidence_plane import DocumentSource, EvidencePlaneBuilder, _finalize_indexes
 from tests.unit.test_mirror_json_vnext import _sample_parse_result
 
 

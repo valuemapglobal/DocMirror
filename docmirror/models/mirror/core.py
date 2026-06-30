@@ -118,10 +118,11 @@ class MirrorCoreVNext:
 
     def _process_source(self, source_input: Any, options: MirrorOptions) -> MirrorResult:
         from docmirror.evidence.plane import EvidencePlaneBuilder
+        from docmirror.geometry.verification import build_verification_quality_gates, build_verification_report
         from docmirror.quality.udtr_gates import build_udtr_quality_gates
 
-        page_topology_module = import_module("docmirror.structure.page_topology")
-        reconstructors_module = import_module("docmirror.structure.reconstructors")
+        page_topology_module = import_module("docmirror.topology.page")
+        reconstructors_module = import_module("docmirror.topology.reconstructors")
         PageTopologyBuilder = page_topology_module.PageTopologyBuilder
         ReconstructionContext = reconstructors_module.ReconstructionContext
         RegionReconstructorRegistry = reconstructors_module.RegionReconstructorRegistry
@@ -138,9 +139,7 @@ class MirrorCoreVNext:
         )
         registry = RegionReconstructorRegistry()
         reports = [
-            registry.reconstruct_with_report(region, context)
-            for page in topology.pages
-            for region in page.regions
+            registry.reconstruct_with_report(region, context) for page in topology.pages for region in page.regions
         ]
         blocks = [report.block for report in reports]
         self._normalize_block_quality(blocks)
@@ -149,12 +148,21 @@ class MirrorCoreVNext:
         semantics = self._semantics_from_blocks(blocks)
         graph = self._graph_from_blocks_regions(blocks, regions, semantics, plane)
         document = self._document_from_plane_blocks(plane, blocks, semantics)
+        verification_report = build_verification_report(
+            blocks=blocks,
+            evidence_atoms=list(atom_by_id.values()),
+        )
+        base_gates = [
+            *build_udtr_quality_gates(pages=pages, regions=regions, blocks=blocks),
+            *build_verification_quality_gates(verification_report),
+        ]
         quality = self._quality_from_model(
             pages=pages,
             regions=regions,
             blocks=blocks,
-            base_gates=build_udtr_quality_gates(pages=pages, regions=regions, blocks=blocks),
+            base_gates=base_gates,
         )
+        quality["verification"] = verification_report.summary()
         source = to_json_safe(plane.source)
         if options.source_filename:
             source["filename"] = options.source_filename
@@ -180,6 +188,11 @@ class MirrorCoreVNext:
                     plane.diagnostics_entry(),
                     topology.diagnostics_entry(),
                     self._reconstruction_diagnostics(reports),
+                    {
+                        "stage": "universal_evidence_verification",
+                        "status": "ok",
+                        "summary": verification_report.summary(),
+                    },
                     self._profile_diagnostics(quality),
                 ],
                 "warnings": self._diagnostic_warnings(quality, blocks),
@@ -206,7 +219,9 @@ class MirrorCoreVNext:
                 diagnostics = dict(getattr(region, "diagnostics", {}) or {})
                 quality = {
                     "selected_candidate_ids": diagnostics.get("selected_candidate_ids", [region.id]),
-                    "ownership_reason": diagnostics.get("ownership_reason", diagnostics.get("grouping", "topology_region")),
+                    "ownership_reason": diagnostics.get(
+                        "ownership_reason", diagnostics.get("grouping", "topology_region")
+                    ),
                 }
                 if diagnostics.get("overlap_warnings"):
                     quality["overlap_warnings"] = diagnostics["overlap_warnings"]
@@ -261,6 +276,12 @@ class MirrorCoreVNext:
                     "evidence_ids": evidence_ids,
                     "region_ids": [region["id"] for region in page_regions],
                     "block_ids": [block.id for block in page_blocks],
+                    "blocks": [self._page_block_ref(block) for block in page_blocks],
+                    "tables": [
+                        self._page_table_projection(block)
+                        for block in page_blocks
+                        if str(getattr(block, "type", "")) == "table"
+                    ],
                     "quality": {
                         "evidence_coverage": 1.0 if evidence_ids or page_regions else 0.0,
                         "residual_ratio": residual_ratio,
@@ -268,6 +289,25 @@ class MirrorCoreVNext:
                 }
             )
         return pages
+
+    def _page_block_ref(self, block: Any) -> dict[str, Any]:
+        """Lightweight page-local block reference.
+
+        The canonical block payload lives in top-level ``blocks``.  Keeping a
+        full copy under every page makes MirrorJson much larger and creates two
+        owners for the same table grid.  Page-local entries are references plus
+        enough summary data for quick inspection.
+        """
+        return {
+            "id": getattr(block, "id", ""),
+            "type": getattr(block, "type", ""),
+            "role": getattr(block, "role", ""),
+            "text": getattr(block, "text", "") or "",
+            "region_ids": list(getattr(block, "region_ids", []) or []),
+            "evidence_ids": list(getattr(block, "evidence_ids", []) or []),
+            "bbox": getattr(block, "bbox", None),
+            "quality": to_json_safe(getattr(block, "quality", {}) or {}),
+        }
 
     def _document_from_plane_blocks(self, plane: Any, blocks: list[Any], semantics: dict[str, Any]) -> dict[str, Any]:
         provenance = getattr(plane.source, "provenance", {}) or {}
@@ -306,16 +346,28 @@ class MirrorCoreVNext:
         ]
         edges: list[dict[str, Any]] = []
         for block in blocks:
-            edges.append({"id": f"edge:document:{block.id}", "type": "contains", "from": "document:root", "to": block.id})
+            edges.append(
+                {"id": f"edge:document:{block.id}", "type": "contains", "from": "document:root", "to": block.id}
+            )
             for region_id in getattr(block, "region_ids", []) or []:
-                edges.append({"id": f"edge:{region_id}:{block.id}", "type": "derived_from", "from": region_id, "to": block.id})
+                edges.append(
+                    {"id": f"edge:{region_id}:{block.id}", "type": "derived_from", "from": region_id, "to": block.id}
+                )
         reading_blocks = [
             block
             for block in blocks
-            if str(getattr(block, "type", "")) not in {"header", "footer"} and not (getattr(block, "quality", {}) or {}).get("suppressed_from_reading_flow")
+            if str(getattr(block, "type", "")) not in {"header", "footer"}
+            and not (getattr(block, "quality", {}) or {}).get("suppressed_from_reading_flow")
         ]
         for previous, current in zip(reading_blocks, reading_blocks[1:], strict=False):
-            edges.append({"id": f"edge:reading:{previous.id}:{current.id}", "type": "reading_next", "from": previous.id, "to": current.id})
+            edges.append(
+                {
+                    "id": f"edge:reading:{previous.id}:{current.id}",
+                    "type": "reading_next",
+                    "from": previous.id,
+                    "to": current.id,
+                }
+            )
         edges.extend(self._overlay_edges(blocks))
         edges.extend(self._toc_edges(blocks))
         edges.extend(self._footnote_edges(blocks))
@@ -357,7 +409,9 @@ class MirrorCoreVNext:
                         }
                     )
             if str(getattr(block, "type", "")) == "table":
-                table_views.append({"block_id": block.id, "grid": (getattr(block, "content", {}) or {}).get("grid", {})})
+                table_views.append(
+                    {"block_id": block.id, "grid": (getattr(block, "content", {}) or {}).get("grid", {})}
+                )
         views: dict[str, Any] = {}
         if document_metadata:
             views["document_metadata"] = document_metadata
@@ -378,6 +432,7 @@ class MirrorCoreVNext:
         numeric_score = self._table_numeric_parse_score(blocks)
         gates = [
             *base_gates,
+            self._gate("gate:evidence_plane_built", "pass", 1.0, 1.0),
             self._gate("gate:region_ownership", "pass", 1.0, 1.0),
             self._gate("gate:token_conservation", "pass", 1.0, 1.0),
             self._gate("gate:residual_ratio", "pass" if residual_ratio <= 0.2 else "warn", 1.0 - residual_ratio, 0.8),
@@ -390,8 +445,16 @@ class MirrorCoreVNext:
                 target_ids=self._overlap_details(regions)["target_ids"],
                 details=self._overlap_details(regions),
             ),
-            self._gate("gate:toc_consistency", "pass", 1.0, 1.0, details={"heading_linked_count": self._toc_heading_linked_count(blocks)}),
-            self._gate("gate:cross_page_continuity", "pass", 1.0, 1.0, details=self._cross_page_continuity_details(blocks)),
+            self._gate(
+                "gate:toc_consistency",
+                "pass",
+                1.0,
+                1.0,
+                details={"heading_linked_count": self._toc_heading_linked_count(blocks)},
+            ),
+            self._gate(
+                "gate:cross_page_continuity", "pass", 1.0, 1.0, details=self._cross_page_continuity_details(blocks)
+            ),
         ]
         events = [
             {
@@ -411,8 +474,11 @@ class MirrorCoreVNext:
                 "score": min(float(gate.get("score", 1.0) or 0.0) for gate in gates) if gates else 1.0,
                 "confidence": 1.0,
             },
-            "coverage": {"residual_ratio": residual_ratio},
-            "tables": {"numeric_parse_score": numeric_score},
+            "coverage": {"residual_ratio": residual_ratio, "text_conservation_score": 1.0},
+            "tables": {
+                "numeric_parse_score": numeric_score,
+                "count": sum(1 for block in blocks if str(getattr(block, "type", "")) == "table"),
+            },
             "reading_order": {},
             "gates": gates,
             "events": events,
@@ -430,6 +496,44 @@ class MirrorCoreVNext:
             cells.extend(((getattr(block, "content", {}) or {}).get("grid", {}) or {}).get("cells", []) or [])
         numeric_cells = [cell for cell in cells if ((cell.get("value") or {}).get("type") == "number")]
         return 1.0 if not cells or numeric_cells else 0.0
+
+    def _page_table_projection(self, block: Any) -> dict[str, Any]:
+        data = to_json_safe(block)
+        grid = (getattr(block, "content", {}) or {}).get("grid", {}) or {}
+        rows = grid.get("rows", []) or []
+        cells = grid.get("cells", []) or []
+        projected_rows: list[dict[str, Any]] = []
+        for row in rows:
+            if row.get("role") == "header":
+                continue
+            row_index = int(row.get("index", len(projected_rows)) or 0)
+            row_cells = []
+            for cell in cells:
+                if int(cell.get("row", -1)) != row_index:
+                    continue
+                item = dict(cell)
+                item["row_index"] = len(projected_rows)
+                item["col_index"] = int(cell.get("col", 0) or 0)
+                item.setdefault("token_ids", cell.get("token_ids", []))
+                if item.get("geometry_loss_reason") in (None, ""):
+                    item.pop("geometry_loss_reason", None)
+                row_cells.append(item)
+            projected_rows.append(
+                {
+                    "index": len(projected_rows),
+                    "cells": row_cells,
+                    "bbox": row.get("bbox"),
+                    "role": row.get("role", "data"),
+                }
+            )
+        data["rows"] = projected_rows
+        data["metadata"] = {
+            **(data.get("metadata") or {}),
+            "geometry": (data.get("content") or {}).get("geometry")
+            or (data.get("provenance") or {}).get("geometry")
+            or {},
+        }
+        return data
 
     def _gate(
         self,
@@ -453,7 +557,7 @@ class MirrorCoreVNext:
     def _overlap_pairs(self, regions: list[dict[str, Any]]) -> list[list[str]]:
         pairs: list[list[str]] = []
         for region in regions:
-            for warning in ((region.get("quality") or {}).get("overlap_warnings") or []):
+            for warning in (region.get("quality") or {}).get("overlap_warnings") or []:
                 other = warning.get("region_id") if isinstance(warning, dict) else None
                 if other:
                     pair = sorted([str(region.get("id") or ""), str(other)])
@@ -472,7 +576,9 @@ class MirrorCoreVNext:
 
     def _is_main_reading_block(self, block: Any) -> bool:
         block_type = str(getattr(block, "type", ""))
-        return block_type not in {"header", "footer"} and not (getattr(block, "quality", {}) or {}).get("suppressed_from_reading_flow")
+        return block_type not in {"header", "footer"} and not (getattr(block, "quality", {}) or {}).get(
+            "suppressed_from_reading_flow"
+        )
 
     def _overlay_edges(self, blocks: list[Any]) -> list[dict[str, Any]]:
         edges: list[dict[str, Any]] = []
@@ -480,7 +586,14 @@ class MirrorCoreVNext:
         for overlay in blocks:
             if str(getattr(overlay, "role", "")) not in {"seal", "signature"}:
                 continue
-            target = next((block for block in targets if self._same_page(overlay, block) and self._bbox_overlap(overlay.bbox, block.bbox) > 0), None)
+            target = next(
+                (
+                    block
+                    for block in targets
+                    if self._same_page(overlay, block) and self._bbox_overlap(overlay.bbox, block.bbox) > 0
+                ),
+                None,
+            )
             if target is None:
                 continue
             edges.append(
@@ -508,10 +621,14 @@ class MirrorCoreVNext:
 
     def _toc_edges(self, blocks: list[Any]) -> list[dict[str, Any]]:
         headings = [block for block in blocks if str(getattr(block, "type", "")) == "heading"]
-        page_by_id = {page_id: self._page_number_from_id(page_id) for block in blocks for page_id in (getattr(block, "page_ids", []) or [])}
+        page_by_id = {
+            page_id: self._page_number_from_id(page_id)
+            for block in blocks
+            for page_id in (getattr(block, "page_ids", []) or [])
+        }
         edges: list[dict[str, Any]] = []
         for toc in [block for block in blocks if str(getattr(block, "type", "")) == "toc"]:
-            for item in ((getattr(toc, "content", {}) or {}).get("items", []) or []):
+            for item in (getattr(toc, "content", {}) or {}).get("items", []) or []:
                 target_page = item.get("target_page")
                 target_page_id = f"page:{int(target_page):04d}" if target_page else ""
                 if target_page_id:
@@ -534,7 +651,10 @@ class MirrorCoreVNext:
                         block
                         for block in headings
                         if str(getattr(block, "text", "")) == title
-                        and any(page_by_id.get(page_id) == int(target_page) for page_id in (getattr(block, "page_ids", []) or []))
+                        and any(
+                            page_by_id.get(page_id) == int(target_page)
+                            for page_id in (getattr(block, "page_ids", []) or [])
+                        )
                     ),
                     None,
                 )
@@ -575,12 +695,15 @@ class MirrorCoreVNext:
         logical_tables = provenance.get("logical_tables", []) if isinstance(provenance, dict) else []
         table_blocks = [block for block in blocks if str(getattr(block, "type", "")) == "table"]
         by_source_id = {
-            str((getattr(block, "provenance", {}) or {}).get("source_table_id") or ""): block
-            for block in table_blocks
+            str((getattr(block, "provenance", {}) or {}).get("source_table_id") or ""): block for block in table_blocks
         }
         edges: list[dict[str, Any]] = []
         for logical_table in logical_tables:
-            source_ids = [str(value) for value in logical_table.get("source_physical_ids", [])] if isinstance(logical_table, dict) else []
+            source_ids = (
+                [str(value) for value in logical_table.get("source_physical_ids", [])]
+                if isinstance(logical_table, dict)
+                else []
+            )
             linked = [by_source_id[source_id] for source_id in source_ids if source_id in by_source_id]
             if len(linked) < 2:
                 continue
@@ -612,7 +735,14 @@ class MirrorCoreVNext:
         return len([edge for edge in self._toc_edges(blocks) if edge["type"] == "references"])
 
     def _cross_page_continuity_details(self, blocks: list[Any]) -> dict[str, int]:
-        table_pages = sorted({page_id for block in blocks if str(getattr(block, "type", "")) == "table" for page_id in getattr(block, "page_ids", []) or []})
+        table_pages = sorted(
+            {
+                page_id
+                for block in blocks
+                if str(getattr(block, "type", "")) == "table"
+                for page_id in getattr(block, "page_ids", []) or []
+            }
+        )
         expected = max(0, len(table_pages) - 1)
         return {"expected_continuation_edges": expected, "actual_continuation_edges": expected}
 
@@ -659,5 +789,7 @@ class MirrorCoreVNext:
             warnings.append({"type": "residual_blocks", "target_ids": residual_ids})
         for gate in quality.get("gates", []):
             if gate.get("status") == "warn":
-                warnings.append({"type": "quality_gate", "gate_id": gate.get("id"), "target_ids": gate.get("target_ids", [])})
+                warnings.append(
+                    {"type": "quality_gate", "gate_id": gate.get("id"), "target_ids": gate.get("target_ids", [])}
+                )
         return warnings

@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
-from docmirror.structure.tables.compose.composer import TableComposer
-from docmirror.structure.tables.compose.export_pipeline import page_content_to_layouts
+from docmirror.tables.compose.composer import TableComposer
+from docmirror.tables.compose.export_pipeline import page_content_to_layouts
 from docmirror.models.entities.domain import BaseResult, Block, PageLayout
 
 
@@ -68,8 +68,8 @@ def test_bridge_fallback_preserves_quarantined_merge_groups_in_mirror():
     assert spe.get("ltqg_enabled") is True
 
 
-def test_bridge_fallback_differs_from_legacy_compose_heuristic():
-    """Mirror keeps quarantined pages as standalone logical tables; legacy compose used header heuristics."""
+def test_bridge_recovery_differs_from_previous_compose_heuristic():
+    """Mirror keeps quarantined pages as standalone logical tables; raw compose used header heuristics."""
     headers = ["c"] * 8
     pages = (
         _table_page(1, [headers] + [headers] * 2),
@@ -82,8 +82,8 @@ def test_bridge_fallback_differs_from_legacy_compose_heuristic():
     assert pr.logical_tables[1].merge_method == "quarantine_standalone"
 
     parse_pages = ParseResultBridge.from_base_result(base).pages
-    legacy = TableComposer().compose(parse_pages)
-    assert len(legacy) >= 2
+    raw = TableComposer().compose(parse_pages)
+    assert len(raw) >= 2
 
 
 def test_page_content_to_layouts_enables_fallback_without_base_pages():

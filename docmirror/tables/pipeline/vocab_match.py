@@ -15,7 +15,7 @@ Downstream: ``table.pipeline.stage_header``, ``extract.char.vocab_boundary``.
 
 from __future__ import annotations
 
-from docmirror.structure.utils.vocabulary import _AC_ALL, _AC_BY_CATEGORY, _normalize_for_vocab
+from docmirror.layout.vocabulary import _AC_ALL, _AC_BY_CATEGORY, _normalize_for_vocab
 
 
 def find_vocab_words_in_string(

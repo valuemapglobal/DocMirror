@@ -6,7 +6,7 @@ Bank Ledger Orchestrator (BLO) — Plugin multi-table export SSOT (ADR-BS-05).
 
 Iterates passed ``LogicalTable`` instances, runs style parser chain per table,
 merges and dedupes canonical records. Single-table / pipe LTRO paths preserve
-legacy behaviour via one synthetic block from ``ctx.tables``.
+raw behaviour via one synthetic block from ``ctx.tables``.
 """
 
 from __future__ import annotations
@@ -94,6 +94,8 @@ class BankLedgerOrchestrator:
                     sub_ctx = replace(ctx, tables=sub_tables)
                     sub_detection = self._resolve_detection(detection, sub_ctx)
             records, identity = self._registry.run_parser_chain(sub_detection, sub_ctx, plugin)
+            if sub_ctx is not ctx and sub_ctx.reconstruction is not None:
+                ctx.reconstruction = sub_ctx.reconstruction
             if blocks and blocks[0][0] is not None and getattr(blocks[0][0], "quality_passed", True):
                 meta.tables_parsed = 1
             elif records:

@@ -57,16 +57,18 @@ def build_visual_overlay(
             role = str(getattr(text, "mirror_role", "") or getattr(text, "level", "") or "").lower()
             confidence = float(getattr(text, "confidence", 1.0) or 1.0)
 
-            page_fields.append({
-                "field_path": f"mirror.pages[{page_no - 1}].texts[{text_idx}]",
-                "value": content[:200],
-                "confidence": confidence,
-                "bbox": getattr(text, "bbox", None) or getattr(text, "bbox_norm", None),
-                "source_refs": list(getattr(text, "source_refs", []) or []),
-                "role": role,
-                "needs_review": confidence < 0.8 or role in ("header", "footer", "watermark"),
-                "kind": "text",
-            })
+            page_fields.append(
+                {
+                    "field_path": f"mirror.pages[{page_no - 1}].texts[{text_idx}]",
+                    "value": content[:200],
+                    "confidence": confidence,
+                    "bbox": getattr(text, "bbox", None) or getattr(text, "bbox_norm", None),
+                    "source_refs": list(getattr(text, "source_refs", []) or []),
+                    "role": role,
+                    "needs_review": confidence < 0.8 or role in ("header", "footer", "watermark"),
+                    "kind": "text",
+                }
+            )
 
         # Table fields
         for table_idx, table in enumerate(getattr(page, "tables", []) or []):
@@ -81,22 +83,22 @@ def build_visual_overlay(
                     conf = float(getattr(cell, "confidence", 1.0) or 0.0)
 
                     col_name = headers[col_idx] if col_idx < len(headers) else f"col_{col_idx}"
-                    page_fields.append({
-                        "field_path": f"mirror.pages[{page_no - 1}].tables[{table_idx}].rows[{row_idx}].{col_name}",
-                        "value": value[:200] if include_sensitive else _redact_value(value),
-                        "confidence": conf,
-                        "bbox": getattr(cell, "bbox", None) or getattr(cell, "bbox_norm", None),
-                        "source_refs": list(
-                            getattr(cell, "source_cell_refs", [])
-                            or getattr(cell, "evidence_ids", [])
-                            or []
-                        ),
-                        "role": col_name,
-                        "needs_review": conf < 0.8,
-                        "kind": "cell",
-                        "row_index": row_idx,
-                        "col_index": col_idx,
-                    })
+                    page_fields.append(
+                        {
+                            "field_path": f"mirror.pages[{page_no - 1}].tables[{table_idx}].rows[{row_idx}].{col_name}",
+                            "value": value[:200] if include_sensitive else _redact_value(value),
+                            "confidence": conf,
+                            "bbox": getattr(cell, "bbox", None) or getattr(cell, "bbox_norm", None),
+                            "source_refs": list(
+                                getattr(cell, "source_cell_refs", []) or getattr(cell, "evidence_ids", []) or []
+                            ),
+                            "role": col_name,
+                            "needs_review": conf < 0.8,
+                            "kind": "cell",
+                            "row_index": row_idx,
+                            "col_index": col_idx,
+                        }
+                    )
 
         # Key-value fields
         for kv_idx, kv in enumerate(getattr(page, "key_values", []) or []):
@@ -106,16 +108,18 @@ def build_visual_overlay(
                 continue
             conf = float(getattr(kv, "confidence", 1.0) or 0.0)
 
-            page_fields.append({
-                "field_path": f"mirror.pages[{page_no - 1}].key_values[{kv_idx}]",
-                "value": f"{key}: {value}"[:200] if include_sensitive else f"{key}: {_redact_value(value)}",
-                "confidence": conf,
-                "bbox": getattr(kv, "bbox", None),
-                "source_refs": list(getattr(kv, "source_refs", []) or []),
-                "role": "key_value",
-                "needs_review": conf < 0.8,
-                "kind": "key_value",
-            })
+            page_fields.append(
+                {
+                    "field_path": f"mirror.pages[{page_no - 1}].key_values[{kv_idx}]",
+                    "value": f"{key}: {value}"[:200] if include_sensitive else f"{key}: {_redact_value(value)}",
+                    "confidence": conf,
+                    "bbox": getattr(kv, "bbox", None),
+                    "source_refs": list(getattr(kv, "source_refs", []) or []),
+                    "role": "key_value",
+                    "needs_review": conf < 0.8,
+                    "kind": "key_value",
+                }
+            )
 
         # Fields from edition projections
         if editions:
@@ -128,18 +132,21 @@ def build_visual_overlay(
                         rendered = str(field_value)[:200] if include_sensitive else _redact_value(str(field_value))
                         conf = float((payload.get("quality") or {}).get("confidence", 0.0) or 0.0)
 
-                        page_fields.append({
-                            "field_path": f"{edition_name}.data.fields.{field_key}",
-                            "value": rendered,
-                            "confidence": conf,
-                            "bbox": (payload.get("metadata") or {}).get("source_bbox"),
-                            "source_refs": (payload.get("metadata") or {}).get("source_fact_ids", []),
-                            "role": field_key,
-                            "needs_review": conf < 0.8 or not (payload.get("metadata") or {}).get("source_fact_ids"),
-                            "kind": "edition_field",
-                            "edition": edition_name,
-                            "support_level": (payload.get("metadata") or {}).get("support_level", "unknown"),
-                        })
+                        page_fields.append(
+                            {
+                                "field_path": f"{edition_name}.data.fields.{field_key}",
+                                "value": rendered,
+                                "confidence": conf,
+                                "bbox": (payload.get("metadata") or {}).get("source_bbox"),
+                                "source_refs": (payload.get("metadata") or {}).get("source_fact_ids", []),
+                                "role": field_key,
+                                "needs_review": conf < 0.8
+                                or not (payload.get("metadata") or {}).get("source_fact_ids"),
+                                "kind": "edition_field",
+                                "edition": edition_name,
+                                "support_level": (payload.get("metadata") or {}).get("support_level", "unknown"),
+                            }
+                        )
 
         # Add ledger entries that match this page
         for entry in ledger_by_page.get(page_no, []):
@@ -148,39 +155,45 @@ def build_visual_overlay(
             if not bbox:
                 continue
             conf = float(entry.get("confidence", 1.0) or 0.0)
-            page_fields.append({
-                "field_path": f"ledger.{fact_id}",
-                "value": str(entry.get("normalized_value") or entry.get("raw_value", ""))[:200],
-                "confidence": conf,
-                "bbox": bbox,
-                "source_refs": list(entry.get("source_refs", []) or []),
-                "role": entry.get("kind", "unknown"),
-                "needs_review": entry.get("review", "") in ("needs_review", "needs_evidence"),
-                "kind": "ledger_entry",
-                "ledger_kind": entry.get("kind", "unknown"),
-            })
+            page_fields.append(
+                {
+                    "field_path": f"ledger.{fact_id}",
+                    "value": str(entry.get("normalized_value") or entry.get("raw_value", ""))[:200],
+                    "confidence": conf,
+                    "bbox": bbox,
+                    "source_refs": list(entry.get("source_refs", []) or []),
+                    "role": entry.get("kind", "unknown"),
+                    "needs_review": entry.get("review", "") in ("needs_review", "needs_evidence"),
+                    "kind": "ledger_entry",
+                    "ledger_kind": entry.get("kind", "unknown"),
+                }
+            )
 
-        pages.append({
-            "page_number": page_no,
-            "fields": page_fields,
-            "field_count": len(page_fields),
-            "needs_review_count": sum(1 for f in page_fields if f.get("needs_review")),
-        })
+        pages.append(
+            {
+                "page_number": page_no,
+                "fields": page_fields,
+                "field_count": len(page_fields),
+                "needs_review_count": sum(1 for f in page_fields if f.get("needs_review")),
+            }
+        )
 
     # Add unresolved evidence entries
     unresolved_fields: list[dict[str, Any]] = []
     for entry in (evidence_bundle or {}).get("unresolved") or []:
-        unresolved_fields.append({
-            "field_path": entry.get("field_path", "unknown"),
-            "value": _redact_value(entry.get("value", "")),
-            "confidence": float(entry.get("confidence", 0.0) or 0.0),
-            "bbox": None,
-            "source_refs": [],
-            "role": "unresolved",
-            "needs_review": True,
-            "kind": "unresolved_evidence",
-            "reason": entry.get("reason", "no_page_or_bbox_or_source_refs"),
-        })
+        unresolved_fields.append(
+            {
+                "field_path": entry.get("field_path", "unknown"),
+                "value": _redact_value(entry.get("value", "")),
+                "confidence": float(entry.get("confidence", 0.0) or 0.0),
+                "bbox": None,
+                "source_refs": [],
+                "role": "unresolved",
+                "needs_review": True,
+                "kind": "unresolved_evidence",
+                "reason": entry.get("reason", "no_page_or_bbox_or_source_refs"),
+            }
+        )
 
     # Build summary
     total_fields = sum(p["field_count"] for p in pages) + len(unresolved_fields)

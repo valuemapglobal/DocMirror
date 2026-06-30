@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from docmirror.structure.tables.cross_page_predictor import (
+from docmirror.tables.cross_page_predictor import (
     CrossPageTablePredictor,
     NextPagePrediction,
     TruncationInfo,

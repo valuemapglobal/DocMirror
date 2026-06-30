@@ -20,40 +20,44 @@ from docmirror.output.projection.engine import (
 
 def _fake_parse_result():
     """Build a minimal fake ParseResult for testing."""
-    from unittest.mock import MagicMock
+    from docmirror.models.entities.parse_result import (
+        DocumentEntities,
+        ExtractionMethod,
+        ParseResult,
+        ParserInfo,
+        TrustResult,
+    )
 
-    pr = MagicMock()
-    pr.entities.document_type = "test_report"
-    pr.entities.organization = "Test Corp"
-    pr.entities.subject_name = "Test Subject"
-    pr.entities.subject_id = "ID-001"
-    pr.entities.document_date = "2026-06-01"
-    pr.entities.period_start = "2026-01-01"
-    pr.entities.period_end = "2026-06-01"
-    pr.confidence = 0.95
-    pr.trust = MagicMock()
-    pr.trust.trust_score = 0.92
-    pr.trust.validation_passed = True
-    pr.trust.is_forged = False
-    pr.trust.forgery_reasons = []
-    pr.parser_info.parser_name = "DocMirror-Test"
-    pr.parser_info.parser_version = "1.0.0"
-    pr.parser_info.elapsed_ms = 42.5
-    pr.parser_info.page_count = 2
-    from docmirror.models.entities.parse_result import ExtractionMethod
-    pr.parser_info.extraction_method = ExtractionMethod.DIGITAL
-    pr.parser_info.ocr_engine = ""
-    pr.parser_info.table_engine = "pymupdf"
-    pr.parser_info.overall_confidence = 0.95
-    pr.parser_info.warnings = []
-    pr.pages = []
-    pr.total_tables = 0
-    pr.total_rows = 0
-    pr.full_text = "Test document content"
-    pr.extractor_full_text = "Test document content"
-    pr.logical_tables = []
-    pr.sections = []
-    return pr
+    return ParseResult(
+        entities=DocumentEntities(
+            document_type="test_report",
+            organization="Test Corp",
+            subject_name="Test Subject",
+            subject_id="ID-001",
+            document_date="2026-06-01",
+            period_start="2026-01-01",
+            period_end="2026-06-01",
+        ),
+        confidence=0.95,
+        trust=TrustResult(
+            trust_score=0.92,
+            validation_passed=True,
+            is_forged=False,
+            forgery_reasons=[],
+        ),
+        parser_info=ParserInfo(
+            parser_name="DocMirror-Test",
+            parser_version="1.0.0",
+            elapsed_ms=42.5,
+            page_count=2,
+            extraction_method=ExtractionMethod.DIGITAL,
+            ocr_engine="",
+            table_engine="pymupdf",
+            overall_confidence=0.95,
+            warnings=[],
+        ),
+        raw_text="Test document content",
+    )
 
 
 def test_dmir_version():

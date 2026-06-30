@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
     from .template_injector import GlobalTableTemplate
 
-from docmirror.structure.utils.vocabulary import _is_header_row, _score_header_by_vocabulary
+from docmirror.layout.vocabulary import _is_header_row, _score_header_by_vocabulary
 
 logger = logging.getLogger(__name__)
 # T3-3: Module-level DEBUG flag — avoids f-string formatting cost
@@ -83,7 +83,7 @@ def _extract_tables_layered_registry(
 ) -> tuple[list[list[list[str]]], str, float]:
     """Registry-first table extraction path.
 
-    This keeps the legacy BCS/profile gates but delegates individual
+    This keeps the raw BCS/profile gates but delegates individual
     extraction methods to ``TableMethodRegistry`` instead of hard-coding the
     L0-L3 method calls in the engine body.
     """
@@ -180,7 +180,12 @@ def _extract_tables_layered_registry(
         if result is None:
             return None
         layer, table, _score = result
-        if method_id == "template_injection" and table_template and not _is_header_row(table[0]) and table_template.header_vocab:
+        if (
+            method_id == "template_injection"
+            and table_template
+            and not _is_header_row(table[0])
+            and table_template.header_vocab
+        ):
             header = table_template.header_vocab[: len(table[0])]
             while len(header) < len(table[0]):
                 header.append("")
@@ -316,7 +321,8 @@ def _extract_tables_layered_registry(
                 key=lambda item: (
                     item[2],
                     priority.get(item[1], 0),
-                    len(item[0]) - sum(1 for row in item[0][:10] for cell in row if _cell_is_stuffed(str(cell or ""))) * 10,
+                    len(item[0])
+                    - sum(1 for row in item[0][:10] for cell in row if _cell_is_stuffed(str(cell or ""))) * 10,
                 ),
                 reverse=True,
             )
@@ -369,6 +375,7 @@ def _extract_tables_layered_registry(
             return result
 
     return _finalize()
+
 
 def extract_tables_layered(
     page_plum,
@@ -425,7 +432,7 @@ def extract_tables_layered(
                 audit_page=audit_page,
             )
     except Exception as exc:
-        logger.warning("[TableEngine] registry path failed; falling back to legacy cascade: %s", exc)
+        logger.warning("[TableEngine] registry path failed; falling back to raw cascade: %s", exc)
 
     timings: dict[str, float] = {}
     t_total = time.time()
@@ -893,8 +900,12 @@ def extract_tables_layered(
             # Layer 2 method priority: header_guided and grid_reconstructor
             # are preferred over word_anchors (they produce better column segmentation).
             _L2_METHOD_PRIO: dict[str, int] = {
-                "grid_reconstructor": 5, "header_guided": 4, "header_anchors": 3,
-                "word_anchors": 2, "data_voting": 1, "whitespace_projection": 0,
+                "grid_reconstructor": 5,
+                "header_guided": 4,
+                "header_anchors": 3,
+                "word_anchors": 2,
+                "data_voting": 1,
+                "whitespace_projection": 0,
             }
 
             def _get_sort_key(c):
@@ -912,6 +923,7 @@ def extract_tables_layered(
             # Applied regardless of which char-level method won BCS.
             try:
                 from docmirror.tables.utils import _refine_dense_rows as _rdfn
+
                 _refined = _rdfn(best_table, [], [])
                 if _refined is not None:
                     best_table = _refined

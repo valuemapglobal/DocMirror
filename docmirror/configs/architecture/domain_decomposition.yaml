@@ -63,13 +63,13 @@ canonical_domains:
       - docmirror.cli
 compatibility:
   old_root: docmirror/structure
-  shim_style: path_redirect_or_module_reexport
-  removal_target: "1.2+"
+  shim_style: removed
+  status: removed
+  may_define_real_code: false
+  removal_completed: "2026-06-28"
 strict_new_imports:
-  allowed_old_import_prefixes:
-    - docmirror.structure
+  allowed_old_import_prefixes: []
   exempt_paths:
-    - docmirror/structure/**
     - tests/**
     - docs/**
     - scripts/validate/validate_domain_decomposition.py

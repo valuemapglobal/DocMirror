@@ -16,8 +16,8 @@ optional_modules:
   - rapidocr_onnxruntime
 allowed_top_level_optional_import_prefixes:
   - docmirror/input/adapters/
-  - docmirror/structure/ocr/
-  - docmirror/structure/pdf/
-  - docmirror/structure/tables/
+  - docmirror/ocr/
+  - docmirror/pdf/
+  - docmirror/tables/
   - docmirror/server/
   - docmirror/cli/

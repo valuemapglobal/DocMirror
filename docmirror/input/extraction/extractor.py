@@ -30,10 +30,10 @@ from pathlib import Path
 from typing import Any
 
 from docmirror.input.entry.exceptions import ExtractionError
+from docmirror.layout.vocabulary import _is_header_row
+from docmirror.layout.watermark import preprocess_document
 from docmirror.models.entities.domain import BaseResult, Block, PageLayout, TextSpan
 from docmirror.runtime.optional_deps import require_optional_module
-from docmirror.structure.utils.vocabulary import _is_header_row
-from docmirror.structure.utils.watermark import preprocess_document
 from docmirror.tables.classifier import get_last_layer_timings
 
 from .entity_collector import collect_kv_entities
@@ -121,7 +121,9 @@ def _ocr_blocks_for_pdf_page(
     return blocks
 
 
-def _select_ocr_orientation(image: Any, engine: Any, *, zoom: float) -> tuple[list[Any], int, float, float, dict[str, Any]]:
+def _select_ocr_orientation(
+    image: Any, engine: Any, *, zoom: float
+) -> tuple[list[Any], int, float, float, dict[str, Any]]:
     candidates: list[tuple[float, int, list[Any], Any, dict[str, Any]]] = []
     original_words = engine.detect_image_words(image)
     original_metrics = _ocr_orientation_metrics(original_words)
@@ -222,11 +224,7 @@ def _remove_table_owned_text_blocks(blocks: list[Block], table: Block) -> list[B
     owned = set(table.evidence_ids or ())
     if not owned:
         return blocks
-    return [
-        block
-        for block in blocks
-        if block.block_type != "text" or not (_block_evidence_id_set(block) & owned)
-    ]
+    return [block for block in blocks if block.block_type != "text" or not (_block_evidence_id_set(block) & owned)]
 
 
 def _block_full_text(block: Block) -> str:
@@ -235,9 +233,7 @@ def _block_full_text(block: Block) -> str:
         return span_text
     if block.block_type == "table" and isinstance(block.raw_content, list):
         return "\n".join(
-            "\t".join(str(cell or "") for cell in row)
-            for row in block.raw_content
-            if isinstance(row, list)
+            "\t".join(str(cell or "") for cell in row) for row in block.raw_content if isinstance(row, list)
         )
     if isinstance(block.raw_content, str):
         return block.raw_content
@@ -418,22 +414,61 @@ class CoreExtractor:
                     is_scanned=page.content_mode == "image",
                 )
             )
+        table_count = sum(1 for page in pages for block in page.blocks if block.block_type == "table")
+        sample_text = "\n".join(
+            str(atom.text or "") for atom in plane.evidence.text_atoms if str(atom.text or "").strip()
+        )
+        metadata = {
+            "parser": "DocMirror_CoreExtractor",
+            "pipeline": "udtr_vnext",
+            "selected_pages": [page.page_number for page in pages],
+            "ocr_mode": ocr_mode,
+        }
+        metadata["structure"] = self._build_vnext_structure_metadata(
+            sample_text=sample_text,
+            table_count=table_count,
+            extraction_layer="udtr_vnext",
+            physical_table_count=table_count,
+        )
         return BaseResult(
             document_id=doc_id,
             pages=tuple(pages),
-            metadata={
-                "parser": "DocMirror_CoreExtractor",
-                "pipeline": "udtr_vnext",
-                "selected_pages": [page.page_number for page in pages],
-                "ocr_mode": ocr_mode,
-            },
+            metadata=metadata,
             full_text="\n".join(
-                text
-                for page in pages
-                for block in page.blocks
-                if (text := _block_full_text(block)).strip()
+                text for page in pages for block in page.blocks if (text := _block_full_text(block)).strip()
             ),
         )
+
+    @staticmethod
+    def _build_vnext_structure_metadata(
+        *,
+        sample_text: str,
+        table_count: int,
+        extraction_layer: str,
+        physical_table_count: int | None = None,
+    ) -> dict[str, Any]:
+        from docmirror.evidence.structure_provenance import build_structure_provenance
+        from docmirror.layout.structure_signals import score_pipe_grid, score_section_headers
+
+        h_section = score_section_headers(sample_text)
+        h_pipe = score_pipe_grid(sample_text)
+        if table_count > 0 or h_pipe >= 0.85:
+            content_type = "table_dominant"
+        elif h_section >= 0.3:
+            content_type = "section_dominant"
+        elif sample_text.strip():
+            content_type = "text_dominant"
+        else:
+            content_type = "unknown"
+        spe = build_structure_provenance(
+            content_type=content_type,
+            sample_text=sample_text,
+            table_count=table_count,
+            extraction_layer=extraction_layer,
+            competitors={"H_section": h_section, "H_pipe_grid": h_pipe},
+        ).to_dict()
+        spe["physical_table_count"] = physical_table_count
+        return spe
 
     async def extract_parse_result(self, file_path: Path, *, options: dict | None = None) -> ParseResult:
         """
@@ -476,7 +511,6 @@ class CoreExtractor:
           4. Assemble BaseResult
         """
         import asyncio
-        from dataclasses import dataclass
 
         t0 = _clock()
         options = dict(options or {})
@@ -507,8 +541,7 @@ class CoreExtractor:
         # produce garbage there. Go directly to plain-OCR QGE path.
         if is_image_input and _pa_quality < 0.5:
             logger.info(
-                f"[QGE] Low-quality image (quality={_pa_quality:.2f}), "
-                f"skipping scanned pipeline, running direct OCR"
+                f"[QGE] Low-quality image (quality={_pa_quality:.2f}), skipping scanned pipeline, running direct OCR"
             )
             ocr_blocks, qge_tokens = CoreExtractor._qge_plain_ocr_fallback(file_path)
             if ocr_blocks:
@@ -516,11 +549,13 @@ class CoreExtractor:
             else:
                 pages, full_text = [], ""
             if qge_tokens:
-                self._page_evidence_bundles.append({
-                    "page": 1,
-                    "tokens": qge_tokens,
-                    "source": "qge_fallback",
-                })
+                self._page_evidence_bundles.append(
+                    {
+                        "page": 1,
+                        "tokens": qge_tokens,
+                        "source": "qge_fallback",
+                    }
+                )
             extraction_layer = "ocr"
             extraction_confidence = 0.8
             _perf = {
@@ -561,15 +596,15 @@ class CoreExtractor:
                     )
                     ocr_blocks, qge_tokens = CoreExtractor._qge_plain_ocr_fallback(file_path)
                     if ocr_blocks:
-                        pages, full_text, _, _ = CoreExtractor._qge_merge_results(
-                            pages, full_text, ocr_blocks
-                        )
+                        pages, full_text, _, _ = CoreExtractor._qge_merge_results(pages, full_text, ocr_blocks)
                     if qge_tokens:
-                        self._page_evidence_bundles.append({
-                            "page": 1,
-                            "tokens": qge_tokens,
-                            "source": "qge_fallback",
-                        })
+                        self._page_evidence_bundles.append(
+                            {
+                                "page": 1,
+                                "tokens": qge_tokens,
+                                "source": "qge_fallback",
+                            }
+                        )
 
         # Step 6: Assemble BaseResult
         elapsed = (_clock() - t0) * 1000
@@ -698,12 +733,12 @@ class CoreExtractor:
         ltqg_summary: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Build SPE dict for parser_info.structure (ADR-M13-02)."""
-        from docmirror.structure.analysis.structure_provenance import (
+        from docmirror.evidence.structure_provenance import (
             apply_logical_tables_spe,
             apply_pipe_enrich_spe,
             build_structure_provenance,
         )
-        from docmirror.structure.analysis.structure_signals import build_sso_sample_text
+        from docmirror.layout.structure_signals import build_sso_sample_text
 
         sample_text = build_sso_sample_text(fitz_doc) if fitz_doc is not None else ""
 
@@ -755,10 +790,12 @@ class CoreExtractor:
 
     class _QgeQuality:
         """Quality assessment result — score < 0.3 triggers fallback."""
+
         __slots__ = ("score", "total_blocks", "total_text_chars", "table_count", "reason")
 
-        def __init__(self, score: float, total_blocks: int, total_text_chars: int,
-                     table_count: int, reason: str | None = None):
+        def __init__(
+            self, score: float, total_blocks: int, total_text_chars: int, table_count: int, reason: str | None = None
+        ):
             self.score = score
             self.total_blocks = total_blocks
             self.total_text_chars = total_text_chars
@@ -858,12 +895,12 @@ class CoreExtractor:
 
         is_image = file_path.suffix.lower() in CoreExtractor._IMAGE_SUFFIXES
         if not is_image:
-            return []
+            return [], []
 
         img = cv2.imread(str(file_path))
         if img is None:
             logger.warning("[QGE] OpenCV failed to read image for fallback OCR")
-            return []
+            return [], []
 
         # Image preprocessing: deskew + CLAHE + sharpen for blurry/skewed images
         try:
@@ -878,7 +915,7 @@ class CoreExtractor:
             words = engine.detect_image_words(img)
         except Exception as exc:
             logger.warning(f"[QGE] RapidOCR fallback failed: {exc}")
-            return []
+            return [], []
 
         if not words:
             logger.info("[QGE] RapidOCR fallback returned no words")
@@ -948,23 +985,25 @@ class CoreExtractor:
         # Also build OCRToken evidence for the GA1.0 evidence bus
         qge_tokens: list[dict] = []
         from docmirror.ocr.micro_grid.models import OCRToken as _OCRToken
+
         for idx, ww in enumerate(words):
             token_text = str(ww[4] or "").strip()
             if not token_text:
                 continue
-            qge_tokens.append(_OCRToken(
-                token_id=f"qge_p1_t{idx}",
-                text=token_text,
-                bbox=(float(ww[0]), float(ww[1]), float(ww[2]), float(ww[3])),
-                confidence=float(ww[5]) if len(ww) > 5 else 0.9,
-                page=1,
-                source="qge_fallback",
-                coordinate_system="image_pixels",
-            ).to_dict())
+            qge_tokens.append(
+                _OCRToken(
+                    token_id=f"qge_p1_t{idx}",
+                    text=token_text,
+                    bbox=(float(ww[0]), float(ww[1]), float(ww[2]), float(ww[3])),
+                    confidence=float(ww[5]) if len(ww) > 5 else 0.9,
+                    page=1,
+                    source="qge_fallback",
+                    coordinate_system="image_pixels",
+                ).to_dict()
+            )
 
         logger.info(
-            f"[QGE] Plain OCR fallback: {len(blocks)} text blocks, "
-            f"{len(qge_tokens)} OCR tokens from {len(words)} words"
+            f"[QGE] Plain OCR fallback: {len(blocks)} text blocks, {len(qge_tokens)} OCR tokens from {len(words)} words"
         )
         return blocks, qge_tokens
 
@@ -980,10 +1019,7 @@ class CoreExtractor:
         if not ocr_blocks:
             return [], ""
 
-        full_text = "\n".join(
-            (b.raw_content if isinstance(b.raw_content, str) else "")
-            for b in ocr_blocks
-        )
+        full_text = "\n".join((b.raw_content if isinstance(b.raw_content, str) else "") for b in ocr_blocks)
         page = PageLayout(
             page_number=1,
             blocks=tuple(ocr_blocks),
@@ -1016,28 +1052,23 @@ class CoreExtractor:
 
         kept_blocks = [b for b in target_page.blocks if b.block_type != "text"]
         import dataclasses
+
         merged_page = dataclasses.replace(
             target_page,
             blocks=tuple(kept_blocks + ocr_blocks),
         )
         new_pages[0] = merged_page
 
-        ocr_text = "\n".join(
-            (b.raw_content if isinstance(b.raw_content, str) else "")
-            for b in ocr_blocks
-        )
+        ocr_text = "\n".join((b.raw_content if isinstance(b.raw_content, str) else "") for b in ocr_blocks)
         merged_full_text = full_text
         if ocr_text:
             merged_full_text = (full_text + "\n\n" + ocr_text).strip()
 
         total_blocks_new = sum(len(p.blocks) for p in new_pages)
-        table_count_new = sum(
-            1 for p in new_pages for b in p.blocks if b.block_type == "table"
-        )
+        table_count_new = sum(1 for p in new_pages for b in p.blocks if b.block_type == "table")
 
         logger.info(
-            f"[QGE] Merged {len(ocr_blocks)} OCR blocks | "
-            f"tables={table_count_new} | text_len={len(merged_full_text)}"
+            f"[QGE] Merged {len(ocr_blocks)} OCR blocks | tables={table_count_new} | text_len={len(merged_full_text)}"
         )
         return new_pages, merged_full_text, table_count_new, total_blocks_new
 
@@ -1082,13 +1113,13 @@ class CoreExtractor:
     def _process_pdf_sync(
         self, fitz_doc, pre_analysis, has_text, is_image_input, cleaned_path, file_path, options=None
     ):
-        raise NotImplementedError("legacy PdfSyncProcessor was removed; use CoreExtractor.extract() or MirrorCoreVNext")
+        raise NotImplementedError("raw PdfSyncProcessor was removed; use CoreExtractor.extract() or MirrorCoreVNext")
 
     def _extract_page(self, ctx):
-        raise NotImplementedError("legacy PageExtractor was removed; use the UDTR pipeline")
+        raise NotImplementedError("raw PageExtractor was removed; use the UDTR pipeline")
 
     def _extract_scanned_page(self, **kwargs):
-        raise NotImplementedError("legacy scanned page extractor was removed; use the UDTR pipeline")
+        raise NotImplementedError("raw scanned page extractor was removed; use the UDTR pipeline")
 
     def _collect_kv_entities(self, pages):
         return collect_kv_entities(pages)

@@ -1,19 +1,19 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.structure.ocr.page_canvas.evidence_bundles import (
+from docmirror.models.mirror.domain_access import (
+    local_structure_evidence_pages_from_domain_specific,
+    micro_grid_evidence_pages_from_domain_specific,
+)
+from docmirror.models.mirror.page_evidence_bundles import (
     attach_page_evidence_bundles,
     build_page_evidence_bundles,
-    bundles_from_legacy_extractor_meta,
+    bundles_from_extractor_meta,
     domain_specific_with_page_bundles,
     merge_micro_grid_structures_into_bundles,
     micro_grid_evidence_needing_reconstruction,
     page_evidence_bundle,
     upsert_page_evidence_bundle,
-)
-from docmirror.models.mirror.domain_access import (
-    local_structure_evidence_pages_from_domain_specific,
-    micro_grid_evidence_pages_from_domain_specific,
 )
 
 
@@ -54,7 +54,7 @@ def test_upsert_page_evidence_bundle_stores_region_detect():
     assert host._page_evidence_bundles[0]["region_detect"]["region_detect_candidates"][0]["candidate_id"] == "c1"
 
 
-def test_build_page_evidence_bundles_ignores_legacy_tracks():
+def test_build_page_evidence_bundles_ignores_removed_tracks():
     ds = {
         "_scanned_micro_grid_evidence": [{"page": 5, "lines": []}],
         "_scanned_local_structure_evidence": [{"page": 5, "structures": []}],
@@ -62,8 +62,8 @@ def test_build_page_evidence_bundles_ignores_legacy_tracks():
     assert build_page_evidence_bundles(ds) == []
 
 
-def test_bundles_from_legacy_extractor_meta_merges_by_page():
-    bundles = bundles_from_legacy_extractor_meta(
+def test_bundles_from_extractor_meta_merges_by_page():
+    bundles = bundles_from_extractor_meta(
         scanned_micro_grid_evidence=[{"page": 4, "page_width": 800, "lines": [], "source": "scanned_page_ocr"}],
         scanned_local_structure_evidence=[
             {
@@ -109,7 +109,7 @@ def test_upsert_page_evidence_bundle_merges_same_page():
     assert bundle["local_structure_evidence"]["structures"]
 
 
-def test_domain_access_ignores_legacy_scanned_tracks_without_bundles():
+def test_domain_access_ignores_removed_scanned_tracks_without_bundles():
     ds = {
         "_scanned_micro_grid_evidence": [{"page": 4, "lines": [{"content": "x"}], "tokens": []}],
         "_scanned_local_structure_evidence": [{"page": 4, "structures": [{"structure_id": "ls_p4_0"}]}],

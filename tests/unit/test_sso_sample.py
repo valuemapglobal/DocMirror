@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.structure.analysis.structure_signals import build_sso_sample_text, sso_sample_page_indices
+from docmirror.layout.structure_signals import build_sso_sample_text, sso_sample_page_indices
 from docmirror.plugins._runtime.community import normalize_premium_document_type
 
 

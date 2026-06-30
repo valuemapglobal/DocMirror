@@ -57,7 +57,7 @@ def _ocr_block(text: str, page_number: int) -> Block:
 
 
 def test_vnext_extractor_respects_page_selection_and_auto_ocr(monkeypatch):
-    import docmirror.structure.evidence_plane as evidence_plane_module
+    import docmirror.evidence.plane as evidence_plane_module
 
     class FakeEvidencePlaneBuilder:
         def build(self, _path):
@@ -90,7 +90,7 @@ def test_vnext_extractor_respects_page_selection_and_auto_ocr(monkeypatch):
 
 
 def test_vnext_extractor_force_ocr_runs_even_with_native_text(monkeypatch):
-    import docmirror.structure.evidence_plane as evidence_plane_module
+    import docmirror.evidence.plane as evidence_plane_module
 
     class FakeEvidencePlaneBuilder:
         def build(self, _path):
@@ -121,7 +121,7 @@ def test_vnext_extractor_force_ocr_runs_even_with_native_text(monkeypatch):
 
 
 def test_vnext_extractor_suppresses_text_owned_by_scanned_table(monkeypatch):
-    import docmirror.structure.evidence_plane as evidence_plane_module
+    import docmirror.evidence.plane as evidence_plane_module
 
     class FakeEvidencePlaneBuilder:
         def build(self, _path):

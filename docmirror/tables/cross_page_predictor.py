@@ -154,7 +154,9 @@ class CrossPageTablePredictor:
 
         # 5. Generate warnings
         if confidence < self.confidence_threshold:
-            prediction.warnings.append(f"Prediction confidence too low ({confidence:.2f} < {self.confidence_threshold})")
+            prediction.warnings.append(
+                f"Prediction confidence too low ({confidence:.2f} < {self.confidence_threshold})"
+            )
 
         if truncation_info.col_count == 0:
             prediction.warnings.append("Page N: no table columns detected")
@@ -196,7 +198,9 @@ class CrossPageTablePredictor:
                     validation.reasons.append("Column count exact match")
                 elif col_diff == 1:
                     score += 25  # permit 1-column diff (possibly merged cells)
-                    validation.warnings.append(f"Column count diff of 1 ({truncation_info.col_count} vs {next_col_count})")
+                    validation.warnings.append(
+                        f"Column count diff of 1 ({truncation_info.col_count} vs {next_col_count})"
+                    )
                 else:
                     validation.reasons.append(f"Column count diff too large ({col_diff})")
             else:
@@ -234,7 +238,9 @@ class CrossPageTablePredictor:
         validation.score = score / max_score if max_score > 0 else 0.0
         validation.is_valid = validation.score >= self.confidence_threshold
 
-        logger.debug(f"✅ Merge validation: score={validation.score:.2f}, valid={validation.is_valid}, reasons={validation.reasons}")
+        logger.debug(
+            f"✅ Merge validation: score={validation.score:.2f}, valid={validation.is_valid}, reasons={validation.reasons}"
+        )
 
         return validation
 
@@ -541,10 +547,12 @@ def _median_column_boundaries(rows: list[Any]) -> list[float]:
         ]
         if len(positioned) < 2:
             continue
-        positioned.sort(key=lambda cell: (
-            getattr(cell, "col_index", None) if getattr(cell, "col_index", None) is not None else 10_000,
-            float(getattr(cell, "bbox")[0]),
-        ))
+        positioned.sort(
+            key=lambda cell: (
+                getattr(cell, "col_index", None) if getattr(cell, "col_index", None) is not None else 10_000,
+                float(getattr(cell, "bbox")[0]),
+            )
+        )
         boundaries = [float(positioned[0].bbox[0])]
         for left, right in zip(positioned, positioned[1:]):
             boundaries.append((float(left.bbox[2]) + float(right.bbox[0])) / 2.0)

@@ -136,7 +136,7 @@ fixtures:
   - community
   - evidence
   frozen_at: '2026-06-21'
-  frozen_commit: TBD
+  frozen_commit: da4f216
   golden_version: ga-1.0
   id: bank_statement_golden_borderless_ocr_json
   path: tests/fixtures/bank_statement/golden/borderless_ocr.json
@@ -163,7 +163,7 @@ fixtures:
   - community
   - evidence
   frozen_at: '2026-06-21'
-  frozen_commit: TBD
+  frozen_commit: da4f216
   golden_version: ga-1.0
   id: bank_statement_golden_compact_merged_ledger_json
   path: tests/fixtures/bank_statement/golden/compact_merged_ledger.json
@@ -190,7 +190,7 @@ fixtures:
   - community
   - evidence
   frozen_at: '2026-06-21'
-  frozen_commit: TBD
+  frozen_commit: da4f216
   golden_version: ga-1.0
   id: bank_statement_golden_grid_standard_json
   path: tests/fixtures/bank_statement/golden/grid_standard.json
@@ -217,7 +217,7 @@ fixtures:
   - community
   - evidence
   frozen_at: '2026-06-21'
-  frozen_commit: TBD
+  frozen_commit: da4f216
   golden_version: ga-1.0
   id: bank_statement_golden_signed_amount_json
   path: tests/fixtures/bank_statement/golden/signed_amount.json
@@ -244,7 +244,7 @@ fixtures:
   - community
   - evidence
   frozen_at: '2026-06-21'
-  frozen_commit: TBD
+  frozen_commit: da4f216
   golden_version: ga-1.0
   id: bank_statement_golden_split_debit_credit_boc_json
   path: tests/fixtures/bank_statement/golden/split_debit_credit_boc.json
@@ -271,7 +271,7 @@ fixtures:
   - community
   - evidence
   frozen_at: '2026-06-21'
-  frozen_commit: TBD
+  frozen_commit: da4f216
   golden_version: ga-1.0
   id: bank_statement_golden_split_debit_credit_json
   path: tests/fixtures/bank_statement/golden/split_debit_credit.json
@@ -309,17 +309,17 @@ fixtures:
   tracks:
   - classify
   transport: pdf
-- dgc_ref: dgc_golden_pcm_l3_credit_finance
+- dgc_ref: dgc_golden_vnext_l3_credit_finance
   domain: bank_statement
   expected_outputs:
   - mirror
   - community
   - evidence
   frozen_at: '2026-06-21'
-  frozen_commit: TBD
+  frozen_commit: da4f216
   golden_version: ga-1.0
-  id: golden_pcm_l3_credit_finance_json
-  path: tests/fixtures/golden/pcm_l3_credit_finance.json
+  id: golden_vnext_l3_credit_finance_json
+  path: tests/fixtures/golden/vnext_l3_credit_finance.json
   pii: needs_review
   quality_bucket: easy
   release_gate_refs:
@@ -336,17 +336,17 @@ fixtures:
   tracks:
   - classify
   transport: pdf
-- dgc_ref: dgc_golden_pcm_mirror_volume_baseline
+- dgc_ref: dgc_golden_vnext_mirror_volume_baseline
   domain: bank_statement
   expected_outputs:
   - mirror
   - community
   - evidence
   frozen_at: '2026-06-21'
-  frozen_commit: TBD
+  frozen_commit: da4f216
   golden_version: ga-1.0
-  id: golden_pcm_mirror_volume_baseline_json
-  path: tests/fixtures/golden/pcm_mirror_volume_baseline.json
+  id: golden_vnext_mirror_volume_baseline_json
+  path: tests/fixtures/golden/vnext_mirror_volume_baseline.json
   pii: needs_review
   quality_bucket: easy
   release_gate_refs:
@@ -1957,8 +1957,8 @@ fixtures:
   - mirror
   - community
   - evidence
-  id: text_samples_legacy_scan_doc_txt
-  path: tests/fixtures/text_samples/legacy_scan_doc.txt
+  id: text_samples_scanned_text_doc_txt
+  path: tests/fixtures/text_samples/scanned_text_doc.txt
   pii: none
   quality_bucket: easy
   role: both
@@ -1966,7 +1966,7 @@ fixtures:
   source_type: public
   support_level: L0
   tags:
-  - legacy_scan_doc
+  - scanned_text_doc
   tracks:
   - classify
   transport: text

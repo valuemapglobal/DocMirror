@@ -56,19 +56,21 @@ def detect_continuations(
             confidence = _compute_confidence(signals)
 
             if confidence >= confidence_threshold:
-                flows.append({
-                    "flow_id": f"flow:paragraph:p{curr_page}_p{nxt_page}_{i}",
-                    "type": "cross_page_paragraph",
-                    "node_ids": [curr.get("node_id", ""), nxt.get("node_id", "")],
-                    "source_pages": [curr_page, nxt_page],
-                    "confidence": round(confidence, 3),
-                    "policy": "punctuation_style_position_v1",
-                    "merged_view": (curr.get("text", "") + " " + nxt.get("text", "")).strip(),
-                    "evidence_refs": [
-                        curr.get("node_id", ""),
-                        nxt.get("node_id", ""),
-                    ],
-                })
+                flows.append(
+                    {
+                        "flow_id": f"flow:paragraph:p{curr_page}_p{nxt_page}_{i}",
+                        "type": "cross_page_paragraph",
+                        "node_ids": [curr.get("node_id", ""), nxt.get("node_id", "")],
+                        "source_pages": [curr_page, nxt_page],
+                        "confidence": round(confidence, 3),
+                        "policy": "punctuation_style_position_v1",
+                        "merged_view": (curr.get("text", "") + " " + nxt.get("text", "")).strip(),
+                        "evidence_refs": [
+                            curr.get("node_id", ""),
+                            nxt.get("node_id", ""),
+                        ],
+                    }
+                )
 
     # ── GA F8: Formula cross-page continuations ────────────────────────
     formulas = [n for n in nodes if n.get("type") == "formula"]
@@ -90,19 +92,21 @@ def detect_continuations(
             confidence = _compute_formula_confidence(signals)
 
             if confidence >= confidence_threshold:
-                flows.append({
-                    "flow_id": f"flow:formula:p{curr_page}_p{nxt_page}_{i}",
-                    "type": "cross_page_formula",
-                    "node_ids": [curr.get("node_id", ""), nxt.get("node_id", "")],
-                    "source_pages": [curr_page, nxt_page],
-                    "confidence": round(confidence, 3),
-                    "policy": "formula_position_latex_v1",
-                    "merged_view": (curr.get("text", "") + "\n" + nxt.get("text", "")).strip(),
-                    "evidence_refs": [
-                        curr.get("node_id", ""),
-                        nxt.get("node_id", ""),
-                    ],
-                })
+                flows.append(
+                    {
+                        "flow_id": f"flow:formula:p{curr_page}_p{nxt_page}_{i}",
+                        "type": "cross_page_formula",
+                        "node_ids": [curr.get("node_id", ""), nxt.get("node_id", "")],
+                        "source_pages": [curr_page, nxt_page],
+                        "confidence": round(confidence, 3),
+                        "policy": "formula_position_latex_v1",
+                        "merged_view": (curr.get("text", "") + "\n" + nxt.get("text", "")).strip(),
+                        "evidence_refs": [
+                            curr.get("node_id", ""),
+                            nxt.get("node_id", ""),
+                        ],
+                    }
+                )
 
     return flows
 
@@ -110,6 +114,7 @@ def detect_continuations(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Paragraph continuation signals
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _evaluate_continuation_signals(
     curr: dict[str, Any],
@@ -119,8 +124,6 @@ def _evaluate_continuation_signals(
     signals: dict[str, bool | float] = {}
 
     curr_text = str(curr.get("text") or "").strip()
-    nxt_text = str(nxt.get("text") or "").strip()
-
     # 1. No terminal punctuation on current paragraph
     if curr_text:
         last_char = curr_text[-1]
@@ -130,9 +133,7 @@ def _evaluate_continuation_signals(
 
     # 2. Hyphen or dash break
     if curr_text:
-        signals["hyphen_or_dash_break"] = (
-            curr_text.endswith("-") or curr_text.endswith("—")
-        )
+        signals["hyphen_or_dash_break"] = curr_text.endswith("-") or curr_text.endswith("—")
     else:
         signals["hyphen_or_dash_break"] = False
 
@@ -142,7 +143,9 @@ def _evaluate_continuation_signals(
     if curr_bbox and nxt_bbox and len(curr_bbox) >= 4 and len(nxt_bbox) >= 4:
         curr_height = float(curr_bbox[3]) - float(curr_bbox[1])
         nxt_height = float(nxt_bbox[3]) - float(nxt_bbox[1])
-        height_ratio = min(curr_height, nxt_height) / max(curr_height, nxt_height) if max(curr_height, nxt_height) > 0 else 1.0
+        height_ratio = (
+            min(curr_height, nxt_height) / max(curr_height, nxt_height) if max(curr_height, nxt_height) > 0 else 1.0
+        )
         signals["style_match"] = height_ratio > 0.7
     else:
         signals["style_match"] = False
@@ -186,6 +189,7 @@ def _compute_confidence(signals: dict[str, bool | float]) -> float:
 # GA F8: Formula cross-page continuation signals
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _evaluate_formula_continuation_signals(
     curr: dict[str, Any],
     nxt: dict[str, Any],
@@ -227,9 +231,8 @@ def _evaluate_formula_continuation_signals(
     )
 
     # 3. Same display type
-    signals["same_display_type"] = (
-        curr.get("metadata", {}).get("formula_display_type")
-        == nxt.get("metadata", {}).get("formula_display_type")
+    signals["same_display_type"] = curr.get("metadata", {}).get("formula_display_type") == nxt.get("metadata", {}).get(
+        "formula_display_type"
     )
 
     # 4. Noise excluded

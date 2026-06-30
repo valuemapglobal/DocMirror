@@ -23,7 +23,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from docmirror.configs.paths import YAML_DIR
-from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows
+from docmirror.evidence.spe_consumer import mirror_expected_primary_rows
 from docmirror.models.entities.parse_result import ParseResult
 
 logger = logging.getLogger(__name__)

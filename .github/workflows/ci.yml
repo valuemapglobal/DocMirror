@@ -99,12 +99,12 @@ jobs:
       - name: Validate core god-file gate (design 12 §7.2)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python scripts/validate/validate_core_god_files.py
-      - name: PCM legacy JSON reference gate (Design 19 G2/G3)
+      - name: vNext removed reference gate
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python scripts/validate/gate_pcm_legacy_refs.py
-      - name: PCM mirror volume gate (Design 19 G5/C2)
+        run: python scripts/validate/gate_vnext_removed_refs.py
+      - name: vNext mirror volume gate
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python scripts/validate/gate_pcm_mirror_volume.py
+        run: python scripts/validate/gate_vnext_mirror_volume.py
       - name: Audit core imports (CPA §13)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: |

@@ -379,14 +379,16 @@ def postprocess_ocr_result(
 
     return result
 
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # GA1.0-05: Context-Aware Post-Processing — Column-Adaptive Correction
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 import re as _re
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 # ── Default column-specific correction chains ─────────────────────────────
 # Each chain is a list of callable names (module-level function names) that
@@ -394,12 +396,12 @@ from typing import Any, Callable
 # dependency while keeping the chains declarative.
 
 _COLUMN_CORRECTION_CHAINS: dict[str, list[str]] = {
-    "amount":  ["normalize_chars", "fix_amount_format", "fix_alphanumeric_confusion"],
-    "date":    ["normalize_chars", "fix_date_format", "fix_alphanumeric_confusion"],
+    "amount": ["normalize_chars", "fix_amount_format", "fix_alphanumeric_confusion"],
+    "date": ["normalize_chars", "fix_date_format", "fix_alphanumeric_confusion"],
     "account": ["normalize_chars", "fix_digit_noise"],
-    "name":    ["normalize_chars", "fix_domain_terms"],
-    "code":    ["normalize_chars"],
-    "text":    ["normalize_chars", "fix_domain_terms", "fix_domain_keys"],
+    "name": ["normalize_chars", "fix_domain_terms"],
+    "code": ["normalize_chars"],
+    "text": ["normalize_chars", "fix_domain_terms", "fix_domain_keys"],
     "unknown": ["postprocess_ocr_text"],  # Full 7-layer pipeline fallback
 }
 
@@ -416,12 +418,12 @@ _HEADER_PATTERNS: list[tuple[_re.Pattern, str]] = [
 
 # Data value regex → column type
 _DATA_PATTERNS: dict[_re.Pattern, str] = {
-    _re.compile(r"^-?\d{1,3}(?:,\d{3})*(?:\.\d{2})$"): "amount",         # 1,234.56
-    _re.compile(r"^-?\d+(?:\.\d+)?$"):                "amount",           # 1234.56
-    _re.compile(r"^\d{4}[-/]\d{2}[-/]\d{2}$"):        "date",             # 2024-01-15
-    _re.compile(r"^\d{4}年\d{1,2}月\d{1,2}日$"):     "date",             # 2024年01月15日
-    _re.compile(r"^\d{15,19}$"):                       "account",          # 16-19 digit account
-    _re.compile(r"^\d{17}[\dXx]$"):                    "account",          # 18 digit ID
+    _re.compile(r"^-?\d{1,3}(?:,\d{3})*(?:\.\d{2})$"): "amount",  # 1,234.56
+    _re.compile(r"^-?\d+(?:\.\d+)?$"): "amount",  # 1234.56
+    _re.compile(r"^\d{4}[-/]\d{2}[-/]\d{2}$"): "date",  # 2024-01-15
+    _re.compile(r"^\d{4}年\d{1,2}月\d{1,2}日$"): "date",  # 2024年01月15日
+    _re.compile(r"^\d{15,19}$"): "account",  # 16-19 digit account
+    _re.compile(r"^\d{17}[\dXx]$"): "account",  # 18 digit ID
 }
 
 _LABEL_SUFFIX_TO_TYPE: dict[str, str] = {
@@ -440,12 +442,12 @@ _LABEL_SUFFIX_TO_TYPE: dict[str, str] = {
 }
 
 _TYPE_FORMATS: dict[str, list[str]] = {
-    "amount":  ["#,##0.00", "#,##0", "0.00"],
-    "date":    ["YYYY-MM-DD", "YYYY/MM/DD", "YYYY年MM月DD日"],
+    "amount": ["#,##0.00", "#,##0", "0.00"],
+    "date": ["YYYY-MM-DD", "YYYY/MM/DD", "YYYY年MM月DD日"],
     "account": ["16-19 digit numeric", "alphanumeric code"],
-    "name":    ["unicode text", "CJK characters"],
-    "code":    ["alphanumeric code"],
-    "text":    ["free text"],
+    "name": ["unicode text", "CJK characters"],
+    "code": ["alphanumeric code"],
+    "text": ["free text"],
 }
 
 
@@ -457,9 +459,10 @@ class ColumnContext:
     so that :class:`ContextAwarePostProcessor` can apply the correct
     correction chain.
     """
+
     column_index: int = 0
     header_text: str | None = None
-    inferred_type: str = "unknown"   # "date", "amount", "name", "account", "code", "text", "unknown"
+    inferred_type: str = "unknown"  # "date", "amount", "name", "account", "code", "text", "unknown"
     confidence: float = 0.0
     column_bands: list[dict] = field(default_factory=list)
     supported_formats: list[str] = field(default_factory=list)
@@ -637,11 +640,7 @@ class ContextAwarePostProcessor:
         for row_idx, row in enumerate(table):
             corrected_row: list[str] = []
             for col_idx, cell in enumerate(row):
-                ctx = (
-                    col_contexts[col_idx]
-                    if col_contexts and col_idx < len(col_contexts)
-                    else None
-                )
+                ctx = col_contexts[col_idx] if col_contexts and col_idx < len(col_contexts) else None
                 corrected_row.append(self.process_cell(cell, ctx))
             corrected.append(corrected_row)
         return corrected

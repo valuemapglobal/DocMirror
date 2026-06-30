@@ -8,15 +8,15 @@ from __future__ import annotations
 from docmirror.features.agent.router import route_document
 
 
-def test_premium_domains_route_to_premium_tier():
+def test_core_domains_route_to_core_domain_tier():
     route = route_document("alipay_payment")
-    assert route.community_tier == "premium"
+    assert route.community_tier == "core_domain"
     assert route.recommended_plugins == ["alipay_payment"]
 
 
 def test_id_card_routes_to_generic_plugin():
     route = route_document("id_card")
-    assert route.community_tier == "generic"
+    assert route.community_tier == "generic_fallback"
     assert route.recommended_plugins == ["generic"]
 
 

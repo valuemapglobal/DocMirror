@@ -10,7 +10,6 @@ The five levels form a strict ordering: public < internal < confidential < restr
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any
 
 
 class DataClassification(IntEnum):

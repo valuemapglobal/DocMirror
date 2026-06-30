@@ -11,7 +11,7 @@ Design principles:
   - Structure is a graph, not just a tree.
   - All outputs (Markdown, RAG, Evidence) must read the same graph.
   - Uncertain repairs are downgraded, never hallucinated.
-  - Old structure fields are preserved for backward compatibility.
+  - Existing structure fields are preserved for output contract stability.
 """
 
 from __future__ import annotations
@@ -19,7 +19,6 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # ── Node types ──────────────────────────────────────────────────────────────
 
@@ -117,7 +116,7 @@ class StructureEdge(BaseModel):
                 "from_node": "node:p1:b3",
                 "to_node": "node:p1:b4",
                 "confidence": 0.98,
-                "policy": "column_aware_reading_order_v1",
+                "policy": "column_aware_reading_order",
                 "evidence_refs": ["layout:p1"],
             }
         }
@@ -125,6 +124,7 @@ class StructureEdge(BaseModel):
 
 
 # ── Reading flow ─────────────────────────────────────────────────────────────
+
 
 class ReadingFlow(BaseModel):
     """A linear reading sequence through the document — the single source for output order.
@@ -163,6 +163,7 @@ class CrossPageFlow(BaseModel):
 
 
 # ── Outline / Section ────────────────────────────────────────────────────────
+
 
 class SectionNode(BaseModel):
     """Section node in the document outline tree — hierarchical.
@@ -213,6 +214,7 @@ class StructureRelation(BaseModel):
 
 # ── Noise ────────────────────────────────────────────────────────────────────
 
+
 class SuppressedNoise(BaseModel):
     """A noise element (header, footer, watermark) that has been suppressed.
 
@@ -230,6 +232,7 @@ class SuppressedNoise(BaseModel):
 
 
 # ── DFG envelope ─────────────────────────────────────────────────────────────
+
 
 class DocumentFlowGraph(BaseModel):
     """Complete Document Flow Graph v2 — the structure bus for all outputs.
@@ -270,7 +273,7 @@ class DocumentFlowGraph(BaseModel):
 # ── Profile enum ─────────────────────────────────────────────────────────────
 
 ProfileType = Literal[
-    "legacy",
+    "raw",
     "structure_v2",
     "ga_full",
     "forensic",

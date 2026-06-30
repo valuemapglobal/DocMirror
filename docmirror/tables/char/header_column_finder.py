@@ -15,7 +15,7 @@ boundaries.
 
 Main components: ``detect_columns_by_header_guided``.
 
-Upstream: pdfplumber page, ``docmirror.structure.utils.vocabulary``.
+Upstream: pdfplumber page, ``docmirror.layout.vocabulary``.
 
 Downstream: ``extract.char_strategy``, ``extract.engine``.
 """
@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import logging
 
-from docmirror.structure.utils.vocabulary import _score_header_by_vocabulary
-from docmirror.structure.utils.watermark import is_watermark_char
+from docmirror.layout.vocabulary import _score_header_by_vocabulary
+from docmirror.layout.watermark import is_watermark_char
 from docmirror.tables.utils import (
     _assign_chars_to_columns,
     _group_chars_into_rows,
@@ -42,10 +42,7 @@ _CJK_X_TOLERANCE_FACTOR = 0.7
 
 def _estimate_font_size(chars: list[dict]) -> float:
     """Estimate the dominant font size from character height."""
-    heights = [
-        c.get("bottom", 0) - c.get("top", 0)
-        for c in chars if c.get("bottom", 0) - c.get("top", 0) > 3
-    ]
+    heights = [c.get("bottom", 0) - c.get("top", 0) for c in chars if c.get("bottom", 0) - c.get("top", 0) > 3]
     if not heights:
         return 10.0
     heights.sort()
@@ -144,7 +141,10 @@ def detect_columns_by_header_guided(page_plum) -> list[list[str]] | None:
 
     logger.debug(
         "header-guided: %d cols from %d header words (x_tol=%.1f, vocab=%d)",
-        len(col_boundaries), len(header_words), x_tol, best_vocab_score,
+        len(col_boundaries),
+        len(header_words),
+        x_tol,
+        best_vocab_score,
     )
 
     # Step 5: Project onto all rows from header onwards.
@@ -167,8 +167,10 @@ def detect_columns_by_header_guided(page_plum) -> list[list[str]] | None:
     refined = _refine_dense_rows(result, col_boundaries, chars)
     if refined is not None:
         result = refined
-        logger.info("header-guided: refined %d rows affected by column fusion",
-                     sum(1 for r in result if any(len(c) > 20 for c in r)))
+        logger.info(
+            "header-guided: refined %d rows affected by column fusion",
+            sum(1 for r in result if any(len(c) > 20 for c in r)),
+        )
 
     # Column structure verification: log first data row
     if len(result) >= 2:
@@ -176,7 +178,11 @@ def detect_columns_by_header_guided(page_plum) -> list[list[str]] | None:
         non_empty = sum(1 for c in first_data if c.strip())
         logger.info(
             "header-guided: %d rows, %d cols (x_tol=%.1f, vocab=%d, non_empty_cells=%d)",
-            len(result), len(col_boundaries), x_tol, best_vocab_score, non_empty,
+            len(result),
+            len(col_boundaries),
+            x_tol,
+            best_vocab_score,
+            non_empty,
         )
         if non_empty < 3:
             logger.warning("header-guided: first data row has only %d non-empty cells — reducing threshold", non_empty)

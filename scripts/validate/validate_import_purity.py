@@ -31,11 +31,7 @@ CHECKS = {
 
 
 def _run_check(name: str, code: str) -> list[str]:
-    probe = (
-        "import json, sys\n"
-        f"{code}\n"
-        "print('__DOCMIRROR_MODULES__=' + json.dumps(sorted(sys.modules)))\n"
-    )
+    probe = f"import json, sys\n{code}\nprint('__DOCMIRROR_MODULES__=' + json.dumps(sorted(sys.modules)))\n"
     result = subprocess.run(
         [sys.executable, "-c", probe],
         cwd=REPO_ROOT,

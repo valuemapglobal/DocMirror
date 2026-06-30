@@ -18,33 +18,50 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from docmirror.output.dmir import serialize_dmir
 
 logger = logging.getLogger(__name__)
 
 
-def build_community_output(result, full_text: str = "", on_progress: Callable[[str, float, str], None] | None = None) -> dict | None:
+def build_community_output(
+    result,
+    full_text: str = "",
+    *,
+    file_path: str = "",
+    on_progress: Callable[[str, float, str], None] | None = None,
+) -> dict | None:
     """Build community v2.0 output via PEC plugin runner (does not mutate Mirror)."""
     from docmirror.plugins._runtime.community import is_community_premium
     from docmirror.plugins._runtime.composition import CompositionReason, annotate_composition
     from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
-    out = run_plugin_extract_sync(result, edition="community", full_text=full_text, on_progress=on_progress)
+    out = run_plugin_extract_sync(
+        result,
+        edition="community",
+        full_text=full_text,
+        file_path=file_path,
+        on_progress=on_progress,
+    )
+    if out is None:
+        from docmirror.plugins._base.generic_mirror_adapter import build_generic_community_output
+
+        detected_type = str(getattr(getattr(result, "entities", None), "document_type", "") or "generic")
+        out = build_generic_community_output(result, detected_type if detected_type else "generic", full_text)
     if out is None:
         return None
 
     plugin_name = (out.get("plugin") or {}).get("name", "")
     meta = out.setdefault("metadata", {})
     if plugin_name == "generic":
-        meta["community_tier"] = "generic"
+        meta["community_tier"] = "generic_fallback"
         meta["community_route"] = "generic.community_plugin"
     elif is_community_premium(plugin_name):
-        meta["community_tier"] = "premium"
+        meta["community_tier"] = "core_domain"
         meta["community_route"] = plugin_name
     elif (out.get("status") or {}).get("warnings") and any("mirror_only" in str(w) for w in out["status"]["warnings"]):
         meta["community_tier"] = "enterprise_only"
@@ -158,11 +175,10 @@ def build_extended_output(
         except Exception as exc:
             logger.warning(
                 "[Projections] %s post-extract patch/composition failed: %s",
-                edition, exc,
+                edition,
+                exc,
             )
-            extracted.setdefault("status", {}).setdefault("warnings", []).append(
-                f"post_extract_patch_failed:{exc}"
-            )
+            extracted.setdefault("status", {}).setdefault("warnings", []).append(f"post_extract_patch_failed:{exc}")
     return extracted
 
 
@@ -195,6 +211,7 @@ def build_all_projections(
 
     has_parse_result_envelope = getattr(result, "parse_result", None) is not None
     mirror_source = getattr(result, "parse_result", None) or getattr(result, "mirror", result)
+    prebuilt_mirror = getattr(result, "mirror", None) if has_parse_result_envelope else None
     edition_source = result if has_parse_result_envelope else mirror_source
     is_parse_result = isinstance(mirror_source, ParseResult)
     want = (("community", "enterprise", "finance") if editions is None else editions or ()) if is_parse_result else ()
@@ -210,24 +227,42 @@ def build_all_projections(
     mirror_t0 = time.perf_counter()
     if on_progress:
         on_progress("community_plugin", 0.0, "Serializing core mirror...")
-    if isinstance(mirror_source, MirrorJsonVNext):
+    if isinstance(prebuilt_mirror, MirrorJsonVNext):
+        mirror = prebuilt_mirror.model_dump(by_alias=True, exclude_none=True)
+    elif (
+        isinstance(prebuilt_mirror, dict)
+        and (prebuilt_mirror.get("mirror") or {}).get("schema") == "docmirror.mirror_json"
+    ):
+        mirror = dict(prebuilt_mirror)
+    elif isinstance(mirror_source, MirrorJsonVNext):
         mirror = mirror_source.model_dump(by_alias=True, exclude_none=True)
+    elif is_parse_result and hasattr(mirror_source, "to_mirror_json_vnext"):
+        mirror = mirror_source.to_mirror_json_vnext(
+            source_filename=file_path if file_path else "",
+            mirror_level=mirror_level,
+        )
     elif not is_parse_result and hasattr(result, "to_mirror_json_vnext"):
         mirror = result.to_mirror_json_vnext()
     else:
         mirror_core_config = _resolve_mirror_core_config(mirror_schema)
         mirror_profile = _resolve_vnext_profile(mirror_level, default=mirror_core_config["profile"])
         source_filename = file_path if file_path else ""
-        from docmirror.output.mirror import MirrorCoreVNext, MirrorOptions
+        from docmirror.models.mirror.core import MirrorCoreVNext, MirrorOptions
 
-        mirror = MirrorCoreVNext().process(
-            mirror_source,
-            MirrorOptions(
-                source_filename=source_filename,
-                profile=mirror_profile,
-                engine_version=mirror_core_config["engine_version"],
-            ),
-        ).to_dict()
+        mirror = (
+            MirrorCoreVNext()
+            .process(
+                mirror_source,
+                MirrorOptions(
+                    source_filename=source_filename,
+                    profile=mirror_profile,
+                    engine_version=mirror_core_config["engine_version"],
+                ),
+            )
+            .to_dict()
+        )
+    if is_parse_result:
+        _attach_runtime_mirror_cache(mirror_source, mirror)
     timings["mirror_ms"] = (time.perf_counter() - mirror_t0) * 1000
     # DMIR projection — lossless, versioned LLM framework format (GA1.0-ODL-06)
     dmir = None
@@ -243,7 +278,7 @@ def build_all_projections(
         community_t0 = time.perf_counter()
         if on_progress:
             on_progress("community_plugin", 50.0, "Building community edition output...")
-        community = build_community_output(edition_source, full_text)
+        community = build_community_output(edition_source, full_text, file_path=file_path)
         if on_progress:
             on_progress("community_plugin", 100.0, "Community edition complete")
         timings["community_ms"] = (time.perf_counter() - community_t0) * 1000
@@ -323,7 +358,8 @@ def build_all_projections(
                     fut.cancel()
                     logger.warning(
                         "[Projections] %s edition timed out after %.0f s — skipping",
-                        ed, _timeout,
+                        ed,
+                        _timeout,
                     )
             except Exception as exc:
                 logger.error(
@@ -354,26 +390,21 @@ def build_all_projections(
     return outputs
 
 
-def build_all_edition_outputs(
-    result,
-    *,
-    full_text: str = "",
-    file_path: str = "",
-    mirror_level: str = "standard",
-    include_text: bool = False,
-    request_id: str = "",
-    mirror_schema: str = "config",
-) -> dict[str, dict[str, Any] | None]:
-    """Backward-compatible alias for :func:`build_all_projections`."""
-    return build_all_projections(
-        result,
-        full_text=full_text,
-        file_path=file_path,
-        mirror_level=mirror_level,
-        include_text=include_text,
-        request_id=request_id,
-        mirror_schema=mirror_schema,
-    )
+def _attach_runtime_mirror_cache(parse_result: Any, mirror: dict[str, Any]) -> None:
+    """Expose the already-built vNext Mirror to edition-only recoveries.
+
+    Bank scanned-table recovery reads Mirror blocks to reconstruct implicit
+    ledger grids.  Without this runtime cache it calls ``to_mirror_json_vnext``
+    again during community/enterprise/finance projection, duplicating the most
+    expensive output-stage work.  This is deliberately a transient attribute:
+    it does not rewrite physical ParseResult tables or edition payloads.
+    """
+    if not isinstance(mirror, dict) or not mirror:
+        return
+    try:
+        object.__setattr__(parse_result, "mirror", mirror)
+    except Exception:
+        logger.debug("[Projections] unable to attach runtime mirror cache", exc_info=True)
 
 
 def _resolve_mirror_core_config(mirror_schema: str | None) -> dict[str, str]:
@@ -573,6 +604,28 @@ def _enrich_edition_metadata(
 
     mirror_ref = "001_mirror.json"
     meta = output.setdefault("metadata", {})
+    plugin_name = str((output.get("plugin") or {}).get("name") or "")
+    route_type = str(meta.get("community_route_type") or meta.get("community_tier") or "")
+    if route_type == "generic":
+        route_type = "generic_fallback"
+    if route_type == "premium":
+        route_type = "core_domain"
+    if not route_type:
+        if plugin_name == "generic":
+            route_type = "generic_fallback"
+        elif plugin_name:
+            route_type = "core_domain"
+        else:
+            route_type = "generic_fallback"
+    domain_status = route_type
+    if route_type == "core_domain" and plugin_name:
+        from docmirror.configs.ga_readiness import dgc_status_for_domain
+
+        domain_status = dgc_status_for_domain(plugin_name)
+    meta.setdefault("route_type", route_type)
+    meta.setdefault("domain_status", domain_status)
+    meta.setdefault("support_level", "community" if route_type == "core_domain" else route_type)
+    meta.setdefault("community_tier", route_type)
 
     source_fact_ids = compute_source_fact_ids(result)
     evidence_ids = compute_evidence_ids(source_fact_ids)

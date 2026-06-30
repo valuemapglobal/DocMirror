@@ -1,26 +1,47 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""PCM query helpers — SSOT for page-local structure access."""
+"""vNext page query helpers."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
+from enum import Enum
 from typing import Any
 
-from docmirror.models.mirror.legacy_access import record_legacy_mirror_access
+from docmirror.models.mirror.vnext_access import (
+    find_region_by_id as vnext_find_region_by_id,
+)
+from docmirror.models.mirror.vnext_access import (
+    get_page as vnext_get_page,
+)
+from docmirror.models.mirror.vnext_access import (
+    iter_blocks as vnext_iter_blocks,
+)
+from docmirror.models.mirror.vnext_access import (
+    iter_flow_texts as vnext_iter_flow_texts,
+)
+from docmirror.models.mirror.vnext_access import (
+    iter_regions as vnext_iter_regions,
+)
+from docmirror.models.mirror.vnext_access import (
+    iter_structures as vnext_iter_structures,
+)
+from docmirror.models.mirror.vnext_access import (
+    pages as vnext_pages,
+)
+from docmirror.models.mirror.vnext_access import (
+    resolve_ref as vnext_resolve_ref,
+)
 
 
 def _document_pages(document: dict[str, Any]) -> list[dict[str, Any]]:
-    pages = document.get("pages")
-    return pages if isinstance(pages, list) else []
+    return vnext_pages(document)
 
 
-def get_page_canvas(document: dict[str, Any], page: int) -> dict[str, Any] | None:
-    for api_page in _document_pages(document):
-        if int(api_page.get("page_number") or 0) == page:
-            return api_page
-    return None
+def get_page_projection(document: dict[str, Any], page: int) -> dict[str, Any] | None:
+    """Return a vNext page projection by 1-based page number."""
+    return vnext_get_page(document, page)
 
 
 def iter_page_regions(
@@ -29,30 +50,15 @@ def iter_page_regions(
     *,
     kind: str | None = None,
 ) -> Iterator[dict[str, Any]]:
-    api_page = get_page_canvas(document, page)
-    if not api_page:
-        return
-    for region in api_page.get("regions") or []:
-        if not isinstance(region, dict):
-            continue
-        if kind is not None and region.get("kind") != kind:
-            continue
-        yield region
+    yield from vnext_iter_regions(document, page, kind=kind)
 
 
 def iter_all_regions(document: dict[str, Any], *, kind: str | None = None) -> Iterator[dict[str, Any]]:
-    for api_page in _document_pages(document):
-        page_num = int(api_page.get("page_number") or 0)
-        yield from iter_page_regions(document, page_num, kind=kind)
+    yield from vnext_iter_regions(document, kind=kind)
 
 
 def find_region_by_id(document: dict[str, Any], region_id: str) -> tuple[int, dict[str, Any]] | None:
-    for api_page in _document_pages(document):
-        page_num = int(api_page.get("page_number") or 0)
-        for region in api_page.get("regions") or []:
-            if isinstance(region, dict) and str(region.get("region_id")) == region_id:
-                return page_num, region
-    return None
+    return vnext_find_region_by_id(document, region_id)
 
 
 def region_structure(document: dict[str, Any], region_id: str) -> dict[str, Any] | None:
@@ -64,61 +70,29 @@ def region_structure(document: dict[str, Any], region_id: str) -> dict[str, Any]
     return structure if isinstance(structure, dict) else None
 
 
-def micro_grids_from_document(document: dict[str, Any]) -> list[dict[str, Any]]:
-    """Prefer page regions; fall back to legacy document.micro_grids."""
+def micro_grid_structures_from_document(document: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return micro-grid structures from vNext page regions."""
     grids: list[dict[str, Any]] = []
     for region in iter_all_regions(document, kind="micro_grid"):
         structure = region.get("structure")
         if isinstance(structure, dict):
             grids.append(structure)
-    if grids:
-        return grids
-    legacy = document.get("micro_grids")
-    if legacy:
-        record_legacy_mirror_access("document.micro_grids")
-    return list(legacy) if isinstance(legacy, list) else []
+    return grids
 
 
 def field_grid_structures_from_document(document: dict[str, Any], *, page: int | None = None) -> list[dict[str, Any]]:
-    structures: list[dict[str, Any]] = []
-    pages = _document_pages(document)
-    for api_page in pages:
-        page_num = int(api_page.get("page_number") or 0)
-        if page is not None and page_num != page:
-            continue
-        for region in api_page.get("regions") or []:
-            if not isinstance(region, dict):
-                continue
-            if region.get("kind") not in {"field_grid", "label_value_graph"}:
-                continue
-            structure = region.get("structure")
-            if isinstance(structure, dict):
-                structures.append(structure)
-    if structures:
-        return structures
-    for evidence in document.get("scanned_local_structure_evidence") or []:
-        if not isinstance(evidence, dict):
-            continue
-        if page is not None and int(evidence.get("page") or 0) != page:
-            continue
-        record_legacy_mirror_access("document.scanned_local_structure_evidence")
-        for structure in evidence.get("structures") or []:
-            if isinstance(structure, dict):
-                structures.append(structure)
+    structures = [
+        *vnext_iter_structures(document, page, kind="field_grid"),
+        *vnext_iter_structures(document, page, kind="label_value_graph"),
+    ]
     return structures
 
 
 def page_flow_texts(document: dict[str, Any], page: int) -> list[dict[str, Any]]:
-    api_page = get_page_canvas(document, page)
-    if not api_page:
-        return []
-    flow = api_page.get("flow")
-    if isinstance(flow, dict) and flow.get("texts"):
-        return list(flow.get("texts") or [])
-    texts = api_page.get("texts")
-    if texts:
-        record_legacy_mirror_access("pages[].texts")
-    return list(texts or [])
+    flow_texts = list(vnext_iter_flow_texts(document, page))
+    if flow_texts:
+        return flow_texts
+    return []
 
 
 def iter_page_blocks(
@@ -128,21 +102,11 @@ def iter_page_blocks(
     morphology: str | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Yield UBI blocks for a page (Design 20)."""
-    api_page = get_page_canvas(document, page)
-    if not api_page:
-        return
-    for block in api_page.get("blocks") or []:
-        if not isinstance(block, dict):
-            continue
-        if morphology is not None and block.get("morphology") != morphology:
-            continue
-        yield block
+    yield from vnext_iter_blocks(document, page, morphology=morphology)
 
 
 def iter_all_blocks(document: dict[str, Any], *, morphology: str | None = None) -> Iterator[dict[str, Any]]:
-    for api_page in _document_pages(document):
-        page_num = int(api_page.get("page_number") or 0)
-        yield from iter_page_blocks(document, page_num, morphology=morphology)
+    yield from vnext_iter_blocks(document, morphology=morphology)
 
 
 def resolve_block_ref(api_page: dict[str, Any], ref: str) -> Any | None:
@@ -181,11 +145,10 @@ def resolve_block_ref(api_page: dict[str, Any], ref: str) -> Any | None:
 
 
 def resolve_block(document: dict[str, Any], page: int, block: dict[str, Any]) -> Any | None:
-    api_page = get_page_canvas(document, page)
-    if not api_page or not isinstance(block, dict):
+    if not isinstance(block, dict):
         return None
     ref = str(block.get("ref") or "")
-    return resolve_block_ref(api_page, ref)
+    return vnext_resolve_ref(document, page, ref)
 
 
 def block_structure(document: dict[str, Any], page: int, block: dict[str, Any]) -> dict[str, Any] | None:
@@ -197,9 +160,6 @@ def block_structure(document: dict[str, Any], page: int, block: dict[str, Any]) 
         structure = resolved.get("structure")
         return structure if isinstance(structure, dict) else None
     return None
-
-from enum import Enum
-from typing import Any
 
 
 class PageStatus(Enum):
@@ -214,9 +174,7 @@ class PageStatus(Enum):
         return self.value
 
     @classmethod
-    def from_exception(
-        cls, exception: BaseException | None, *, skipped: bool = False
-    ) -> PageStatus:
+    def from_exception(cls, exception: BaseException | None, *, skipped: bool = False) -> PageStatus:
         """Determine PageStatus from an optional exception and skip flag."""
         if skipped:
             return cls.skipped

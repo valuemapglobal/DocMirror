@@ -15,7 +15,7 @@ from typing import Any
 
 from docmirror.evidence.ledger import build_evidence_ledger, ledger_summary
 from docmirror.evidence.quality import build_quality_summary
-import time
+
 
 def _collect_cell_evidence(result: Any) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
@@ -46,6 +46,7 @@ def _collect_cell_evidence(result: Any) -> list[dict[str, Any]]:
                     )
     return out[:500]
 
+
 def _collect_edition_field_evidence(editions: dict[str, Any] | None) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for edition, payload in (editions or {}).items():
@@ -75,6 +76,7 @@ def _collect_edition_field_evidence(editions: dict[str, Any] | None) -> list[dic
                     )
     return out
 
+
 def _collect_projection_evidence(editions: dict[str, Any] | None) -> list[dict[str, Any]]:
     """Build projection evidence records from edition payloads.
 
@@ -98,7 +100,8 @@ def _collect_projection_evidence(editions: dict[str, Any] | None) -> list[dict[s
                 "target": f"{edition}.metadata",
                 "source_fact_ids": meta.get("source_fact_ids", []),
                 "evidence_ids": meta.get("evidence_ids", []),
-                "projection_policy": "plugin_declared_source_ref" if plugin_name != "generic"
+                "projection_policy": "plugin_declared_source_ref"
+                if plugin_name != "generic"
                 else "structure_context_match",
                 "confidence": float((payload.get("quality") or {}).get("confidence") or 0.0),
                 "support_level": meta.get("support_level") or meta.get("community_tier") or "unknown",
@@ -116,7 +119,8 @@ def _collect_projection_evidence(editions: dict[str, Any] | None) -> list[dict[s
                         "target": f"{edition}.data.fields.{key}",
                         "source_fact_ids": [],
                         "evidence_ids": [],
-                        "projection_policy": "plugin_declared_source_ref" if plugin_name != "generic"
+                        "projection_policy": "plugin_declared_source_ref"
+                        if plugin_name != "generic"
                         else "structure_context_match",
                         "confidence": float((payload.get("quality") or {}).get("confidence") or 0.0),
                         "support_level": meta.get("support_level") or "unknown",
@@ -145,6 +149,7 @@ def _collect_projection_evidence(editions: dict[str, Any] | None) -> list[dict[s
 
     return out
 
+
 def _collect_unresolved_evidence(field_evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extract unresolved fields from field_evidence where page/bbox/source_refs are all missing."""
     unresolved: list[dict[str, Any]] = []
@@ -158,6 +163,7 @@ def _collect_unresolved_evidence(field_evidence: list[dict[str, Any]]) -> list[d
                 }
             )
     return unresolved
+
 
 def build_evidence_bundle(
     result: Any,
@@ -214,7 +220,7 @@ def build_evidence_bundle(
         "ledger_summary": ledger_summary(ledger),
         "projection_evidence": projection_evidence,
         "field_evidence": field_evidence,
-"structure_evidence": _build_structure_evidence(result, document_structure),
+        "structure_evidence": _build_structure_evidence(result, document_structure),
         "artifact_evidence": [
             {"artifact": "mirror", "status": "produced"},
             *[
@@ -227,8 +233,7 @@ def build_evidence_bundle(
         "unresolved": unresolved,
         "quality": build_quality_summary(result, editions),
         "warnings": warnings,
-        
-"page_status_ledger": _build_page_status_ledger(result, editions),
+        "page_status_ledger": _build_page_status_ledger(result, editions),
         "support": {
             "redaction_safe": False,
             "minimal_repro": {
@@ -237,6 +242,7 @@ def build_evidence_bundle(
             },
         },
     }
+
 
 def _build_page_status_ledger(
     result: Any,
@@ -247,7 +253,6 @@ def _build_page_status_ledger(
     GA 1.0 SS4.12 C4 / G1: Tracks per-page status (success/partial/failure/skipped)
     so the evidence bundle can report page-level retention metrics.
     """
-    from docmirror.models.mirror.page_access import PageStatus
 
     pages = getattr(result, "pages", []) or []
     outcomes: list[dict[str, Any]] = []
@@ -255,12 +260,14 @@ def _build_page_status_ledger(
         pn = int(getattr(page, "page_number", 0) or 0)
         page_status = str(getattr(page, "page_status", "success") or "success")
         error = getattr(page, "error_code", None)
-        outcomes.append({
-            "page": pn,
-            "status": page_status,
-            "error_code": error,
-            "content_preserved": page_status in ("success", "partial"),
-        })
+        outcomes.append(
+            {
+                "page": pn,
+                "status": page_status,
+                "error_code": error,
+                "content_preserved": page_status in ("success", "partial"),
+            }
+        )
 
     total = len(outcomes)
     success_count = sum(1 for o in outcomes if o["status"] == "success")
@@ -280,6 +287,7 @@ def _build_page_status_ledger(
         "outcomes": outcomes,
     }
 
+
 def _build_structure_evidence(
     result: Any,
     document_structure: dict[str, Any] | None = None,
@@ -292,7 +300,7 @@ def _build_structure_evidence(
     """
     evidence: list[dict[str, Any]] = []
 
-    # Always include table operations (backward compatible)
+    # Always include table operations as part of the stable evidence contract.
     evidence.extend(list(getattr(result, "table_operations", []) or []))
 
     if document_structure is None:
@@ -300,65 +308,76 @@ def _build_structure_evidence(
 
     # DFG edges as structure evidence
     for edge in document_structure.get("edges") or []:
-        evidence.append({
-            "type": "structure_edge",
-            "edge_id": edge.get("edge_id", ""),
-            "relation_type": edge.get("type", ""),
-            "from_node": edge.get("from_node", ""),
-            "to_node": edge.get("to_node", ""),
-            "confidence": edge.get("confidence", 1.0),
-            "policy": edge.get("policy", ""),
-            "evidence_refs": edge.get("evidence_refs", []),
-        })
+        evidence.append(
+            {
+                "type": "structure_edge",
+                "edge_id": edge.get("edge_id", ""),
+                "relation_type": edge.get("type", ""),
+                "from_node": edge.get("from_node", ""),
+                "to_node": edge.get("to_node", ""),
+                "confidence": edge.get("confidence", 1.0),
+                "policy": edge.get("policy", ""),
+                "evidence_refs": edge.get("evidence_refs", []),
+            }
+        )
 
     # Cross-page flows
     for flow in document_structure.get("cross_page_flows") or []:
-        evidence.append({
-            "type": "cross_page_flow",
-            "flow_id": flow.get("flow_id", ""),
-            "flow_type": flow.get("type", ""),
-            "node_ids": flow.get("node_ids", []),
-            "source_pages": flow.get("source_pages", []),
-            "confidence": flow.get("confidence", 1.0),
-            "policy": flow.get("policy", ""),
-        })
+        evidence.append(
+            {
+                "type": "cross_page_flow",
+                "flow_id": flow.get("flow_id", ""),
+                "flow_type": flow.get("type", ""),
+                "node_ids": flow.get("node_ids", []),
+                "source_pages": flow.get("source_pages", []),
+                "confidence": flow.get("confidence", 1.0),
+                "policy": flow.get("policy", ""),
+            }
+        )
 
     # Relations (caption_of, title_of, etc.)
     for rel in document_structure.get("relations") or []:
-        evidence.append({
-            "type": "structure_relation",
-            "relation_id": rel.get("relation_id", ""),
-            "relation_type": rel.get("type", ""),
-            "from_node": rel.get("from_node", ""),
-            "to_node": rel.get("to_node", ""),
-            "confidence": rel.get("confidence", 1.0),
-            "policy": rel.get("policy", ""),
-        })
+        evidence.append(
+            {
+                "type": "structure_relation",
+                "relation_id": rel.get("relation_id", ""),
+                "relation_type": rel.get("type", ""),
+                "from_node": rel.get("from_node", ""),
+                "to_node": rel.get("to_node", ""),
+                "confidence": rel.get("confidence", 1.0),
+                "policy": rel.get("policy", ""),
+            }
+        )
 
     # Suppressed noise
     for noise in document_structure.get("suppressed_noise") or []:
-        evidence.append({
-            "type": "suppressed_noise",
-            "noise_type": noise.get("type", ""),
-            "pages": noise.get("pages", []),
-            "policy": noise.get("policy", ""),
-            "text_sample": str(noise.get("text_sample", ""))[:100],
-        })
+        evidence.append(
+            {
+                "type": "suppressed_noise",
+                "noise_type": noise.get("type", ""),
+                "pages": noise.get("pages", []),
+                "policy": noise.get("policy", ""),
+                "text_sample": str(noise.get("text_sample", ""))[:100],
+            }
+        )
 
     # Reading flow summary
     for rf in document_structure.get("reading_flow") or []:
-        evidence.append({
-            "type": "reading_flow_summary",
-            "flow_id": rf.get("flow_id", ""),
-            "flow_type": rf.get("type", ""),
-            "node_count": len(rf.get("node_ids") or []),
-            "excluded_count": len(rf.get("excluded_node_ids") or []),
-            "source_pages": rf.get("source_pages", []),
-            "confidence": rf.get("confidence", 1.0),
-            "profile": rf.get("profile", ""),
-        })
+        evidence.append(
+            {
+                "type": "reading_flow_summary",
+                "flow_id": rf.get("flow_id", ""),
+                "flow_type": rf.get("type", ""),
+                "node_count": len(rf.get("node_ids") or []),
+                "excluded_count": len(rf.get("excluded_node_ids") or []),
+                "source_pages": rf.get("source_pages", []),
+                "confidence": rf.get("confidence", 1.0),
+                "profile": rf.get("profile", ""),
+            }
+        )
 
     return evidence
+
 
 def compute_ga_observations_from_bundle(bundle: dict[str, Any]) -> dict[str, float]:
     """Compute GA metric observations from a built evidence bundle.
@@ -371,9 +390,7 @@ def compute_ga_observations_from_bundle(bundle: dict[str, Any]) -> dict[str, flo
     # evidence coverage for key fields
     summary = bundle.get("ledger_summary") or {}
     coverage = summary.get("coverage") or {}
-    obs["evidence_coverage_for_key_fields"] = float(
-        coverage.get("bbox", {}).get("ratio", 0.0)
-    )
+    obs["evidence_coverage_for_key_fields"] = float(coverage.get("bbox", {}).get("ratio", 0.0))
 
     # silent failure: check if evidence bundle has warnings
     warnings = bundle.get("warnings") or []
@@ -392,7 +409,7 @@ def compute_ga_observations_from_bundle(bundle: dict[str, Any]) -> dict[str, flo
     obs["mirror_json_generation_success"] = 1.0 if mirror_artifacts else 0.0
 
     # page-level partial retention
-        # page-level partial retention from page_status_ledger
+    # page-level partial retention from page_status_ledger
     page_ledger = bundle.get("page_status_ledger") or {}
     obs["page_level_partial_retention"] = page_ledger.get("page_level_partial_retention", 1.0)
 
@@ -401,4 +418,3 @@ def compute_ga_observations_from_bundle(bundle: dict[str, Any]) -> dict[str, flo
     obs["error_envelope_coverage"] = 1.0 if not unresolved else 0.9
 
     return obs
-

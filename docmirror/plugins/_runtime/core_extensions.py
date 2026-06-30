@@ -67,7 +67,7 @@ def _register_parse_time_structure_extensions() -> None:
         import docmirror.plugins.credit_report.micro_grid_materialize  # noqa: F401
     except ImportError:
         pass
-    if os.environ.get("DOCMIRROR_PCM_LEGACY_SUPPLEMENT") == "1":
+    if os.environ.get("DOCMIRROR_VNEXT_LEGACY_SUPPLEMENT") == "1":
         try:
             import docmirror.plugins.credit_report.local_structure_supplement  # noqa: F401
         except ImportError:

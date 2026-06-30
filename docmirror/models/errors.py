@@ -37,6 +37,14 @@ _ERROR_META: dict[str, dict[str, Any]] = {
     "FILE_TOO_LARGE": {"recoverable": False, "user_message": "File exceeds maximum allowed size."},
     "FILE_EMPTY": {"recoverable": False, "user_message": "File is empty."},
     "UNSUPPORTED_FORMAT": {"recoverable": False, "user_message": "File format is not supported."},
+    "LOW_QUALITY_INPUT": {"recoverable": True, "user_message": "Input quality is too low for reliable extraction."},
+    "LOW_QUALITY_IMAGE": {"recoverable": True, "user_message": "Image quality is too low for reliable extraction."},
+    "INVALID_IMAGE": {"recoverable": True, "user_message": "Image cannot be decoded."},
+    "DAMAGED_PDF": {"recoverable": True, "user_message": "PDF appears damaged or truncated."},
+    "RESOURCE_LIMIT_EXCEEDED": {"recoverable": True, "user_message": "Input exceeds configured resource limits."},
+    "PARTIAL_PAGE_FAILURE": {"recoverable": True, "user_message": "One or more pages failed during extraction."},
+    "EMPTY_RESULT": {"recoverable": True, "user_message": "Extraction produced no usable result."},
+    "PARSER_ERROR": {"recoverable": False, "user_message": "Parser returned an error."},
     "FORMAT_REQUIRES_CONVERTER": {
         "recoverable": True,
         "user_message": "This format requires LibreOffice (soffice) to be installed for conversion.",
@@ -48,6 +56,8 @@ _ERROR_META: dict[str, dict[str, Any]] = {
         "recoverable": False,
         "user_message": "Password-protected archives are not supported yet. Please provide an unencrypted archive.",
     },
+    "ARCHIVE_RESOURCE_LIMIT": {"recoverable": False, "user_message": "Archive exceeds configured safety limits."},
+    "ARCHIVE_UNSAFE_PATH": {"recoverable": False, "user_message": "Archive contains an unsafe path."},
     "TIMEOUT": {"recoverable": True, "user_message": "Processing timed out."},
     "unknown": {"recoverable": False, "user_message": "An unexpected error occurred."},
 }
@@ -61,11 +71,21 @@ class DocMirrorErrorCode(str, Enum):
     FILE_TOO_LARGE = "FILE_TOO_LARGE"
     FILE_EMPTY = "FILE_EMPTY"
     UNSUPPORTED_FORMAT = "UNSUPPORTED_FORMAT"
+    LOW_QUALITY_INPUT = "LOW_QUALITY_INPUT"
+    LOW_QUALITY_IMAGE = "LOW_QUALITY_IMAGE"
+    INVALID_IMAGE = "INVALID_IMAGE"
+    DAMAGED_PDF = "DAMAGED_PDF"
+    RESOURCE_LIMIT_EXCEEDED = "RESOURCE_LIMIT_EXCEEDED"
+    PARTIAL_PAGE_FAILURE = "PARTIAL_PAGE_FAILURE"
+    EMPTY_RESULT = "EMPTY_RESULT"
+    PARSER_ERROR = "PARSER_ERROR"
     FORMAT_REQUIRES_CONVERTER = "FORMAT_REQUIRES_CONVERTER"
     EXTRACTION_FAILED = "EXTRACTION_FAILED"
     ORCHESTRATION_FAILURE = "ORCHESTRATION_FAILURE"
     ENCRYPTED_PDF = "ENCRYPTED_PDF"
     ARCHIVE_PASSWORD_PROTECTED = "ARCHIVE_PASSWORD_PROTECTED"
+    ARCHIVE_RESOURCE_LIMIT = "ARCHIVE_RESOURCE_LIMIT"
+    ARCHIVE_UNSAFE_PATH = "ARCHIVE_UNSAFE_PATH"
     TIMEOUT = "TIMEOUT"
     UNKNOWN = "unknown"
 

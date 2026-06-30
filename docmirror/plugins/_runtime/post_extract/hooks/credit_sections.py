@@ -6,7 +6,7 @@ Post-extract hook: attach credit report sections to edition JSON.
 
 When community/enterprise credit extract did not populate ``data.sections``,
 attempts lightweight section splitting from full document text using enterprise or
-legacy section splitter implementations.
+raw section splitter implementations.
 
 Pipeline role: DocGraph and graph export paths read sections from edition output;
 Core ``ParseResult`` / ``001_mirror.json`` are not mutated (Architecture A).

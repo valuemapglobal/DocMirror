@@ -47,6 +47,7 @@ PROJECT_NAME = "docmirror"
 
 # ── Hook Specifications ──
 
+
 @hookspec
 def docmirror_plugin_manifest() -> dict[str, Any]:
     """Return plugin metadata.

@@ -10,7 +10,9 @@ from pathlib import Path
 from typing import Any
 
 
-def validate_manifest_file(path: Path, *, base_dir: Path | None = None, allow_missing_private: bool = True) -> list[str]:
+def validate_manifest_file(
+    path: Path, *, base_dir: Path | None = None, allow_missing_private: bool = True
+) -> list[str]:
     base_dir = base_dir or path.parent
     manifest = json.loads(path.read_text(encoding="utf-8"))
     errors: list[str] = []
@@ -77,7 +79,11 @@ def summarize_manifest_file(
         case_errors = _validate_case(case, index=index, base_dir=base_dir, allow_missing_private=allow_missing_private)
         validation_error_count += len(case_errors)
         if mirror is None:
-            status = "skipped" if _case_can_skip_missing(case, base_dir=base_dir, allow_missing_private=allow_missing_private) else "missing_or_invalid"
+            status = (
+                "skipped"
+                if _case_can_skip_missing(case, base_dir=base_dir, allow_missing_private=allow_missing_private)
+                else "missing_or_invalid"
+            )
             if status == "skipped":
                 summary["skipped_case_count"] += 1
             else:
@@ -97,7 +103,9 @@ def summarize_manifest_file(
         profile = _udtr_profile_summary(mirror) or {}
         gate_status_counts.update(str(gate.get("status") or "unknown") for gate in gates if isinstance(gate, dict))
         event_status_counts.update(str(event.get("status") or "unknown") for event in events if isinstance(event, dict))
-        event_severity_counts.update(str(event.get("severity") or "unknown") for event in events if isinstance(event, dict))
+        event_severity_counts.update(
+            str(event.get("severity") or "unknown") for event in events if isinstance(event, dict)
+        )
         for key in summary["profile_totals"]:
             summary["profile_totals"][key] += _int_or_default(profile.get(key), 0)
         summary["cases"].append(
@@ -112,7 +120,9 @@ def summarize_manifest_file(
             }
         )
 
-    parity_errors = _validate_parity_groups(manifest.get("parity_groups") or [], _loaded_case_mirrors(case_list, base_dir, allow_missing_private))
+    parity_errors = _validate_parity_groups(
+        manifest.get("parity_groups") or [], _loaded_case_mirrors(case_list, base_dir, allow_missing_private)
+    )
     validation_error_count += len(parity_errors)
     if parity_errors:
         summary["failed_case_count"] += 1
@@ -142,7 +152,9 @@ def validate_mirror_against_expectations(mirror: dict[str, Any], expectations: d
     errors.extend(_validate_required_gates(mirror, expectations.get("required_gates") or {}))
     errors.extend(_validate_required_rotations(mirror, expectations.get("required_page_rotations") or {}))
     errors.extend(_validate_required_relation_kinds(mirror, expectations.get("required_relation_kinds") or {}))
-    errors.extend(_validate_required_statement_structures(mirror, expectations.get("required_statement_structures") or []))
+    errors.extend(
+        _validate_required_statement_structures(mirror, expectations.get("required_statement_structures") or [])
+    )
     errors.extend(_validate_verification_expectations(mirror, expectations.get("verification") or {}))
     errors.extend(_validate_quality_event_expectations(mirror, expectations.get("quality_events") or {}))
     errors.extend(_validate_profile_summary_expectations(mirror, expectations.get("profile_summary") or {}))
@@ -168,7 +180,9 @@ def _validate_canonical_shape(mirror: dict[str, Any]) -> list[str]:
     missing = sorted(required_keys - set(mirror))
     errors = [f"canonical_shape missing top-level keys: {missing}"] if missing else []
     if (mirror.get("mirror") or {}).get("schema") != "docmirror.mirror_json":
-        errors.append(f"canonical_shape mirror.schema expected docmirror.mirror_json got {(mirror.get('mirror') or {}).get('schema')}")
+        errors.append(
+            f"canonical_shape mirror.schema expected docmirror.mirror_json got {(mirror.get('mirror') or {}).get('schema')}"
+        )
     if not isinstance(mirror.get("pages"), list):
         errors.append("canonical_shape pages must be a list")
     if not isinstance(mirror.get("blocks"), list):
@@ -329,9 +343,13 @@ def _parity_signature(mirror: dict[str, Any], check: str) -> Any:
     if check == "page_count":
         return len(mirror.get("pages", []) or [])
     if check == "block_type_counts":
-        return dict(sorted(Counter(str(block.get("type") or "unknown") for block in mirror.get("blocks", []) or []).items()))
+        return dict(
+            sorted(Counter(str(block.get("type") or "unknown") for block in mirror.get("blocks", []) or []).items())
+        )
     if check == "region_kind_counts":
-        return dict(sorted(Counter(str(region.get("kind") or "unknown") for region in mirror.get("regions", []) or []).items()))
+        return dict(
+            sorted(Counter(str(region.get("kind") or "unknown") for region in mirror.get("regions", []) or []).items())
+        )
     if check == "quality_gate_statuses":
         return {
             str(gate.get("id")): str(gate.get("status") or "")
@@ -401,7 +419,9 @@ def _validate_required_relation_kinds(mirror: dict[str, Any], required: dict[str
 def _validate_required_statement_structures(mirror: dict[str, Any], required: list[dict[str, Any]]) -> list[str]:
     if not required:
         return []
-    page_id_by_number = {str(page.get("page_number")): str(page.get("page_id") or "") for page in mirror.get("pages", []) or []}
+    page_id_by_number = {
+        str(page.get("page_number")): str(page.get("page_id") or "") for page in mirror.get("pages", []) or []
+    }
     table_blocks = [block for block in mirror.get("blocks", []) or [] if block.get("type") == "table"]
     errors: list[str] = []
     for spec in required:
@@ -421,14 +441,18 @@ def _validate_required_statement_structures(mirror: dict[str, Any], required: li
             candidates = [
                 block
                 for block in candidates
-                if ((block.get("content") or {}).get("statement_structure") or {}).get("statement_type") == expected_type
+                if ((block.get("content") or {}).get("statement_structure") or {}).get("statement_type")
+                == expected_type
             ]
         if not candidates:
             errors.append(f"statement_structure not found for page {page_number or '*'} type {expected_type or '*'}")
             continue
         if "min_rule_count" in spec:
             minimum = int(spec["min_rule_count"])
-            actual = max(len(((block.get("content") or {}).get("statement_structure") or {}).get("rules") or []) for block in candidates)
+            actual = max(
+                len(((block.get("content") or {}).get("statement_structure") or {}).get("rules") or [])
+                for block in candidates
+            )
             if actual < minimum:
                 errors.append(
                     f"statement_structure page {page_number or '*'} rule_count expected >= {minimum} got {actual}"
@@ -455,7 +479,11 @@ def _validate_required_statement_structures(mirror: dict[str, Any], required: li
         if "requires_review" in spec:
             expected = bool(spec["requires_review"])
             actual_values = [
-                bool((((block.get("content") or {}).get("statement_structure") or {}).get("quality") or {}).get("requires_review"))
+                bool(
+                    (((block.get("content") or {}).get("statement_structure") or {}).get("quality") or {}).get(
+                        "requires_review"
+                    )
+                )
                 for block in candidates
             ]
             if expected not in actual_values:
@@ -468,7 +496,7 @@ def _validate_required_statement_structures(mirror: dict[str, Any], required: li
 def _validate_verification_expectations(mirror: dict[str, Any], required: dict[str, Any]) -> list[str]:
     if not required:
         return []
-    verification = ((mirror.get("quality") or {}).get("verification") or {})
+    verification = (mirror.get("quality") or {}).get("verification") or {}
     errors: list[str] = []
     _validate_minimum(errors, "verification.unit_count", verification.get("unit_count"), required.get("min_unit_count"))
     _validate_minimum(
@@ -511,7 +539,9 @@ def _validate_verification_expectations(mirror: dict[str, Any], required: dict[s
     if isinstance(crop_ocr_required, dict):
         crop_ocr = verification.get("crop_ocr") if isinstance(verification.get("crop_ocr"), dict) else {}
         if crop_ocr_required.get("status") and crop_ocr.get("status") != crop_ocr_required.get("status"):
-            errors.append(f"verification.crop_ocr.status expected {crop_ocr_required.get('status')} got {crop_ocr.get('status')}")
+            errors.append(
+                f"verification.crop_ocr.status expected {crop_ocr_required.get('status')} got {crop_ocr.get('status')}"
+            )
         _validate_minimum(
             errors,
             "verification.crop_ocr.processed_count",
@@ -592,8 +622,12 @@ def _validate_profile_summary_expectations(mirror: dict[str, Any], required: dic
         return ["profile_summary expected udtr_profile_summary diagnostics stage"]
     errors: list[str] = []
     _validate_minimum(errors, "profile_summary.page_count", profile.get("page_count"), required.get("min_page_count"))
-    _validate_minimum(errors, "profile_summary.region_count", profile.get("region_count"), required.get("min_region_count"))
-    _validate_minimum(errors, "profile_summary.block_count", profile.get("block_count"), required.get("min_block_count"))
+    _validate_minimum(
+        errors, "profile_summary.region_count", profile.get("region_count"), required.get("min_region_count")
+    )
+    _validate_minimum(
+        errors, "profile_summary.block_count", profile.get("block_count"), required.get("min_block_count")
+    )
     _validate_minimum(errors, "profile_summary.edge_count", profile.get("edge_count"), required.get("min_edge_count"))
     _validate_minimum(
         errors,
@@ -678,7 +712,7 @@ def _validate_required_count_map(
 def _statement_rule_validation_statuses(blocks: list[dict[str, Any]]) -> list[str]:
     statuses: list[str] = []
     for block in blocks:
-        structure = ((block.get("content") or {}).get("statement_structure") or {})
+        structure = (block.get("content") or {}).get("statement_structure") or {}
         for rule in structure.get("rules") or []:
             if not isinstance(rule, dict):
                 continue

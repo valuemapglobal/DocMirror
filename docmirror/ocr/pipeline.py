@@ -42,7 +42,7 @@ def run_scanned_page(
     )
 
 
-# Backward-compatible alias
+# Public scanned-page analyzer entry point.
 analyze_scanned_page = run_scanned_page
 
 __all__ = ["run_scanned_page", "analyze_scanned_page"]

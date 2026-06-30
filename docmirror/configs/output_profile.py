@@ -11,13 +11,7 @@ Usage::
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from functools import lru_cache
-from typing import Any
-
-import yaml
-
-from docmirror.configs.paths import GA_READINESS_YAML
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -79,9 +73,9 @@ GA_FULL = OutputProfile(
     is_default=False,
 )
 
-LEGACY_JSON = OutputProfile(
-    name="legacy_json",
-    label="Legacy JSON",
+EDITIONS = OutputProfile(
+    name="editions",
+    label="Editions JSON",
     mirror=True,
     community=True,
     enterprise=True,
@@ -91,7 +85,7 @@ LEGACY_JSON = OutputProfile(
     quality_report=False,
     visual_debug=False,
     manifest=False,
-    description="Pre-GA behavior: mirror + edition JSON only",
+    description="Edition JSON only: mirror, community, enterprise, and finance artifacts",
     is_default=False,
 )
 
@@ -184,7 +178,7 @@ _PROFILES: dict[str, OutputProfile] = {
     "default": DEFAULT,
     "ga_full": GA_FULL,
     "forensic": FORENSIC,
-    "legacy_json": LEGACY_JSON,
+    "editions": EDITIONS,
     "quickstart": QUICKSTART,
 }
 
@@ -194,9 +188,7 @@ def resolve_profile(name: str) -> OutputProfile:
     normalized = name.lower().strip()
     if normalized in _PROFILES:
         return _PROFILES[normalized]
-    raise ValueError(
-        f"Unknown output profile: {name!r}. Available: {sorted(_PROFILES)}"
-    )
+    raise ValueError(f"Unknown output profile: {name!r}. Available: {sorted(_PROFILES)}")
 
 
 def default_profile() -> OutputProfile:
@@ -212,7 +204,7 @@ def list_profiles() -> tuple[str, ...]:
 __all__ = [
     "OutputProfile",
     "GA_FULL",
-    "LEGACY_JSON",
+    "EDITIONS",
     "QUICKSTART",
     "resolve_profile",
     "default_profile",

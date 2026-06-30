@@ -13,7 +13,7 @@ Result Fusion Engine 单元测试
 """
 
 import pytest
-from docmirror.structure.tables.fusion import ResultFusionEngine
+from docmirror.tables.fusion import ResultFusionEngine
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

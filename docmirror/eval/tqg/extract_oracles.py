@@ -40,17 +40,18 @@ def run_column_fidelity_oracle(
         report.passed = False
         report.failures.append(f"headers {len(headers)} < {min_cols}: {headers!r}")
 
-    trade_header = spec.get("trade_no_header") or "trade_no"
-    time_header = spec.get("time_header") or "trade_time"
+    trade_headers = spec.get("trade_no_headers") or [spec.get("trade_no_header") or "trade_no", "交易单号", "商户单号"]
+    time_headers = spec.get("time_headers") or [spec.get("time_header") or "trade_time", "交易时间", "交易日期", "时间"]
 
-    def _header_index(name: str) -> int | None:
+    def _header_index(names: list[str]) -> int | None:
         for i, h in enumerate(headers):
-            if name in (h or ""):
-                return i
+            for name in names:
+                if name and name in (h or ""):
+                    return i
         return None
 
-    trade_idx = _header_index(trade_header)
-    time_idx = _header_index(time_header)
+    trade_idx = _header_index([str(name) for name in trade_headers])
+    time_idx = _header_index([str(name) for name in time_headers])
     report.checks["trade_no_column"] = trade_idx is not None
     report.checks["time_column"] = time_idx is not None
     if trade_idx is None:

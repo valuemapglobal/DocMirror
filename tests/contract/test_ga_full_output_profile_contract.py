@@ -76,9 +76,9 @@ def test_ga_full_profile_is_defined():
     assert profile.markdown is True
 
 
-def test_legacy_json_profile_is_defined():
-    profile = resolve_profile("legacy_json")
-    assert profile.name == "legacy_json"
+def test_editions_profile_is_defined():
+    profile = resolve_profile("editions")
+    assert profile.name == "editions"
     assert profile.mirror is True
     assert profile.markdown is False
     assert profile.evidence_bundle is False
@@ -87,7 +87,7 @@ def test_legacy_json_profile_is_defined():
 def test_all_profiles_listed():
     from docmirror.configs.output_profile import list_profiles
     names = list_profiles()
-    for required in ("ga_full", "legacy_json", "quickstart"):
+    for required in ("ga_full", "editions", "quickstart"):
         assert required in names, f"missing profile: {required}"
 
 
@@ -120,6 +120,7 @@ def test_ga_full_writes_artifact_pack():
             file_id="001",
             task_id="ga_full_test_task",
             overwrite=True,
+            profile=GA_FULL,
         )
 
         actual_dir = task_dir.parent / task_id

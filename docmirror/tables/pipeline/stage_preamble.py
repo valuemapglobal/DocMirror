@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import re
 
-from docmirror.structure.utils.vocabulary import (
+from docmirror.layout.vocabulary import (
     _RE_IS_AMOUNT,
     _RE_IS_DATE,
     _is_data_row,

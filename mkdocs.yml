@@ -1,5 +1,5 @@
 site_name: DocMirror
-site_description: Universal document parsing engine — PDF, Image, Office to structured JSON
+site_description: Commercial Document Trust Layer for verifiable, audit-ready document signals
 site_url: https://valuemapglobal.github.io/docmirror/
 repo_url: https://github.com/valuemapglobal/docmirror
 repo_name: valuemapglobal/docmirror
@@ -63,18 +63,9 @@ nav:
   - Home: index.md
   - Installation: installation.md
   - Quick Start: quickstart.md
-  - FAQ: faq.md
-  - Features:
-      - features/adaptive-routing.md
-      - features/parser-backends.md
-      - features/pdfua.md
-  - Benchmarks:
-      - Overview: benchmarks/BENCHMARKS.md
-      - Comparison: benchmarks/COMPARISON.md
-  - Plugins: plugins/INDEX.md
-  - API Reference:
-      - OpenAPI Spec: openapi/openapi.json
-  - Changelog: ../CHANGELOG.md
+  - Deployment: deployment.md
+  - API Authentication: api-authentication.md
+  - Changelog: https://github.com/valuemapglobal/docmirror/blob/main/CHANGELOG.md
 
 extra:
   social:

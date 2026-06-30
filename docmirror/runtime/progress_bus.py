@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import lru_cache
-from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +94,7 @@ def _load_phase_weights() -> dict[str, PhaseWeight]:
 
         if PIPELINE_WEIGHTS_YAML.is_file():
             import yaml
+
             with open(PIPELINE_WEIGHTS_YAML, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
             phases = data.get("phases") or {}
@@ -123,6 +124,7 @@ def _load_phase_order() -> dict[str, int]:
 
         if PIPELINE_WEIGHTS_YAML.is_file():
             import yaml
+
             with open(PIPELINE_WEIGHTS_YAML, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
             phases = data.get("phases") or {}

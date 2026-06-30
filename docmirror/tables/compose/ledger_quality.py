@@ -22,8 +22,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from docmirror.layout.profile.registry import is_borderless_ledger_profile
+from docmirror.layout.vocabulary import _is_data_row, _score_header_by_vocabulary
 from docmirror.models.entities.parse_result import LogicalTable, TableRow
-from docmirror.structure.utils.vocabulary import _is_data_row, _score_header_by_vocabulary
 
 LTQG_PASS_THRESHOLD = 0.55
 _HEADER_LOOKAHEAD = 8
@@ -46,7 +46,7 @@ class LTQGSummary:
     skipped_tables: int
     expected_data_rows: int
     skipped_logical_ids: tuple[str, ...] = ()
-    legacy_max_rows: int = 0
+    raw_max_rows: int = 0
     export_logical_tables: int = 0
 
     def to_dict(self) -> dict[str, Any]:
@@ -58,8 +58,8 @@ class LTQGSummary:
         }
         if self.skipped_logical_ids:
             out["skipped_logical_ids"] = list(self.skipped_logical_ids)
-        if self.legacy_max_rows:
-            out["legacy_max_rows"] = self.legacy_max_rows
+        if self.raw_max_rows:
+            out["raw_max_rows"] = self.raw_max_rows
         if self.export_logical_tables:
             out["export_logical_tables"] = self.export_logical_tables
         return out
@@ -81,18 +81,18 @@ def partition_export_logical_tables(
     return passed, skipped
 
 
-def _legacy_max_row_count(
+def _raw_max_row_count(
     logical_tables: list[LogicalTable],
     quarantined_tables: list[dict[str, Any]] | None = None,
 ) -> int:
     """Pre-LTQG-export max row signal — includes physical quarantine tables."""
-    legacy = max((int(lt.row_count or 0) for lt in logical_tables), default=0)
+    raw = max((int(lt.row_count or 0) for lt in logical_tables), default=0)
     if quarantined_tables:
-        legacy = max(
-            legacy,
+        raw = max(
+            raw,
             max((int(q.get("row_count") or 0) for q in quarantined_tables), default=0),
         )
-    return legacy
+    return raw
 
 
 def finalize_logical_tables_for_export(
@@ -117,7 +117,7 @@ def finalize_logical_tables_for_export(
             skipped_tables=summary.skipped_tables,
             expected_data_rows=summary.expected_data_rows,
             skipped_logical_ids=summary.skipped_logical_ids,
-            legacy_max_rows=summary.legacy_max_rows,
+            raw_max_rows=summary.raw_max_rows,
             export_logical_tables=len(export),
         )
     return export, skipped, summary
@@ -330,7 +330,7 @@ def apply_ltqg(
             passed_tables=len(logical_tables),
             skipped_tables=0,
             expected_data_rows=expected,
-            legacy_max_rows=_legacy_max_row_count(logical_tables, quarantined_tables),
+            raw_max_rows=_raw_max_row_count(logical_tables, quarantined_tables),
         )
 
     q_pages = quarantined_pages or set()
@@ -339,7 +339,7 @@ def apply_ltqg(
     skipped_n = 0
     skipped_ids: list[str] = []
     expected = 0
-    legacy_max = _legacy_max_row_count(logical_tables, quarantined_tables)
+    raw_max = _raw_max_row_count(logical_tables, quarantined_tables)
     for lt in logical_tables:
         quality = assess_logical_table(lt, quarantined_pages=q_pages)
         out.append(apply_quality_to_logical_table(lt, quality))
@@ -356,7 +356,7 @@ def apply_ltqg(
         skipped_tables=skipped_n,
         expected_data_rows=expected,
         skipped_logical_ids=tuple(x for x in skipped_ids if x),
-        legacy_max_rows=legacy_max,
+        raw_max_rows=raw_max,
     )
 
 

@@ -14,20 +14,30 @@ from __future__ import annotations
 
 import importlib
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from uuid import uuid4
 
-from docmirror.models.entities.parse_result import ResultStatus
 from docmirror.models.mirror.completeness import build_mirror_completeness
-from docmirror.output.serialization import dumps_json
+from docmirror.runtime.serialization import dumps_json
 from docmirror.server.edition_availability import build_edition_availability
-from docmirror.server.output_builder import build_all_edition_outputs, build_all_projections
+from docmirror.server.output_builder import build_all_projections
 
-__all__ = ["build_all_edition_outputs", "build_all_projections", "write_four_files"]
+__all__ = ["build_all_projections", "write_four_files"]
 
 
 logger = logging.getLogger(__name__)
+
+
+def _verification_crop_hooks() -> tuple[Callable[..., list[dict[str, Any]]], Callable[..., Any]]:
+    """Resolve crop hooks from the canonical geometry verification module."""
+    from docmirror.geometry.verification import crops as canonical
+
+    return (
+        getattr(canonical, "attach_verification_crop_assets"),
+        getattr(canonical, "attach_unit_crop_ocr_candidates"),
+    )
 
 
 def _inject_output_ids(payload: dict[str, Any], *, document_id: str, task_id: str, file_id: str) -> None:
@@ -43,6 +53,10 @@ def _inject_output_ids(payload: dict[str, Any], *, document_id: str, task_id: st
     payload.setdefault("metadata", {})
     payload["metadata"]["task_id"] = task_id
     payload["metadata"]["file_id"] = file_id
+    if not payload["metadata"].get("edition"):
+        edition = payload.get("edition") or payload.get("metadata", {}).get("tier")
+        if edition:
+            payload["metadata"]["edition"] = edition
 
 
 def write_four_files(
@@ -58,6 +72,8 @@ def write_four_files(
     editions: tuple[str, ...] | list[str] | None = None,
     overwrite: bool = False,
     request_id: str = "",
+    artifact_pack: bool = False,
+    profile: Any | None = None,
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> tuple[str, dict[str, Path]]:
     """
@@ -83,19 +99,34 @@ def write_four_files(
     if editions is None:
         from docmirror.plugins._runtime.licensing.entitlements import resolve_edition_tier
 
-        tier = resolve_edition_tier()
+        tier = str(resolve_edition_tier()).strip().lower()
         requested_editions = {
             "finance": ("mirror", "community", "enterprise", "finance"),
+            "ultimate": ("mirror", "community", "enterprise", "finance"),
             "enterprise": ("mirror", "community", "enterprise"),
         }.get(tier, ("mirror", "community"))
         logger.debug(
             "[EditionOutputs] License tier=%s → editions=%s (safety net)",
-            tier, requested_editions,
+            tier,
+            requested_editions,
         )
     else:
         requested_editions = tuple(editions)
         if "all" in requested_editions:
             requested_editions = ("mirror", "community", "enterprise", "finance")
+
+    resolved_profile = None
+    if profile is not None:
+        from docmirror.configs.output_profile import OutputProfile, resolve_profile
+
+        resolved_profile = profile if isinstance(profile, OutputProfile) else resolve_profile(str(profile))
+        artifact_pack = artifact_pack or bool(
+            resolved_profile.manifest
+            or resolved_profile.markdown
+            or resolved_profile.evidence_bundle
+            or resolved_profile.quality_report
+            or resolved_profile.visual_debug
+        )
 
     projections = build_all_projections(
         result,
@@ -114,12 +145,9 @@ def write_four_files(
     mirror = projections.get("mirror") if "mirror" in requested_editions else None
     if mirror:
         _inject_output_ids(mirror, document_id=document_id, task_id=task_id, file_id=file_id)
-        if file_path:
+        if artifact_pack and file_path:
             try:
-                from docmirror.geometry.verification.crops import (
-                    attach_unit_crop_ocr_candidates,
-                    attach_verification_crop_assets,
-                )
+                attach_verification_crop_assets, attach_unit_crop_ocr_candidates = _verification_crop_hooks()
 
                 verification_crop_assets = attach_verification_crop_assets(
                     mirror,
@@ -156,7 +184,9 @@ def write_four_files(
                     "[EditionOutputs] License grants %s edition but package "
                     "'docmirror_%s' is not installed. Install it with: "
                     "pip install docmirror-%s",
-                    edition, edition, edition,
+                    edition,
+                    edition,
+                    edition,
                 )
                 continue
         payload = projections.get(edition)
@@ -166,6 +196,9 @@ def write_four_files(
         out_path = task_dir / f"{file_id}_{edition}.json"
         out_path.write_text(dumps_json(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         written[edition] = out_path
+
+    if not artifact_pack:
+        return task_id, written
 
     # --- Write artifact manifest ---
     _manifest_entity = getattr(result, "entities", None)
@@ -190,6 +223,65 @@ def write_four_files(
     if verification_crop_assets:
         manifest["artifacts"]["verification_crops"] = "assets/verification_crops"
         manifest["verification_crop_count"] = len(verification_crop_assets)
+    if "mirror" in written:
+        from docmirror.evidence.bundle import build_evidence_bundle
+        from docmirror.evidence.visual import build_visual_overlay
+
+        evidence_bundle = build_evidence_bundle(
+            result, editions=projections, task_id=task_id, document_id=document_id, file_id=file_id
+        )
+        evidence_path = task_dir / "005_evidence_bundle.json"
+        evidence_path.write_text(dumps_json(evidence_bundle, ensure_ascii=False, indent=2), encoding="utf-8")
+        written["evidence_bundle"] = evidence_path
+        manifest["artifacts"]["evidence_bundle"] = evidence_path.name
+        manifest["artifacts"]["evidence"] = evidence_path.name
+
+        markdown_path = task_dir / "output.md"
+        markdown_path.write_text(full_text or getattr(result, "raw_text", "") or "", encoding="utf-8")
+        written["markdown"] = markdown_path
+        manifest["artifacts"]["markdown"] = markdown_path.name
+
+        quality_path = task_dir / "quality_report.json"
+        mirror_quality = projections.get("mirror", {}).get("quality", {})
+        quality_path.write_text(
+            dumps_json(
+                {
+                    "status": "ok",
+                    "readiness": {
+                        "status": "ready",
+                        "gate_count": len(mirror_quality.get("gates") or []),
+                        "warning_count": len(mirror_quality.get("warnings") or []),
+                    },
+                    "quality": mirror_quality,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        written["quality_report"] = quality_path
+        manifest["artifacts"]["quality_report"] = quality_path.name
+
+        visual_path = task_dir / "visual_debug.html"
+        visual_overlay = build_visual_overlay(result, projections, evidence_bundle)
+        visual_path.write_text(
+            '<!doctype html><meta charset="utf-8"><title>DocMirror Visual Debug</title>'
+            f'<script type="application/json" id="docmirror-visual">{dumps_json(visual_overlay, ensure_ascii=False)}</script>',
+            encoding="utf-8",
+        )
+        written["visual_debug"] = visual_path
+        manifest["artifacts"]["visual_debug"] = visual_path.name
+
+    if resolved_profile is not None:
+        from docmirror.server.artifact_pack import ensure_quickstart_artifact_pack
+
+        manifest = ensure_quickstart_artifact_pack(
+            task_dir,
+            manifest,
+            result=result,
+            profile=resolved_profile,
+            pdf_path=file_path or None,
+        )
     manifest_path = task_dir / "manifest.json"
     manifest_path.write_text(dumps_json(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 

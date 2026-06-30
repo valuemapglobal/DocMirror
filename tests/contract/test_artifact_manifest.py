@@ -19,6 +19,7 @@ def test_write_four_files_writes_artifact_manifest(tmp_path: Path):
         file_id="001",
         task_id="task_manifest",
         editions=("mirror", "community", "enterprise", "finance"),
+        artifact_pack=True,
     )
 
     manifest_path = tmp_path / task_id / "manifest.json"

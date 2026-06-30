@@ -19,10 +19,15 @@ Dependencies: ``bank_statement.styles.*``, ``bank_statement.canonical``.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import Any
 
 from docmirror.plugins.bank_statement.canonical import ensure_canonical_normalized, records_from_raw_transactions
 from docmirror.plugins.bank_statement.context import StyleContext
+from docmirror.plugins.bank_statement.ocr_implicit_table_recovery import (
+    recover_ocr_implicit_ledger_tables,
+    recovered_ocr_implicit_row_count,
+)
 from docmirror.plugins.bank_statement.style_detector import StyleDetectionResult
 from docmirror.plugins.bank_statement.styles import (
     borderless_ocr,
@@ -30,6 +35,11 @@ from docmirror.plugins.bank_statement.styles import (
     grid_standard,
     kv_identity,
     signed_amount,
+)
+from docmirror.plugins.bank_statement.text_table_builder import build_tables_from_stacked_bank_text
+from docmirror.plugins.bank_statement.wide_table_recovery import (
+    count_expected_rows_from_bank_footer,
+    recover_wide_bank_tables,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,8 +100,14 @@ def _parser_score(
 
 
 def _expected_rows(ctx: StyleContext) -> int:
+    footer_expected = count_expected_rows_from_bank_footer(ctx.full_text)
+    if footer_expected > 0:
+        return footer_expected
+    ocr_expected = recovered_ocr_implicit_row_count(ctx.parse_result)
+    if ocr_expected > 0:
+        return ocr_expected
     if ctx.parse_result is not None:
-        from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows, read_structure_spe
+        from docmirror.evidence.spe_consumer import mirror_expected_primary_rows, read_structure_spe
 
         expected = mirror_expected_primary_rows(ctx.parse_result, read_structure_spe(ctx.parse_result))
         if expected > 0:
@@ -163,9 +179,84 @@ class BankStyleParserRegistry:
             transactions = compact_merged.extract_transactions(ctx.tables)
             normalize_fn = compact_merged.normalize_record
 
+        if not transactions:
+            stacked_tables = _solve_split_debit_credit_tables(ctx.full_text) or build_tables_from_stacked_bank_text(
+                ctx.full_text
+            )
+            if stacked_tables:
+                stacked_ctx = replace(ctx, tables=stacked_tables)
+                transactions = grid_standard.extract_transactions(stacked_ctx, plugin)
+                if transactions:
+
+                    def _stacked_normalize(raw):
+                        return grid_standard.normalize_record(raw, plugin)
+
+                    normalize_fn = _stacked_normalize
+                    if ctx.reconstruction is not None:
+                        ctx.reconstruction = replace(
+                            ctx.reconstruction,
+                            source="stacked_text",
+                            expected_primary_rows=len(transactions),
+                            pipe_parse_failed=False,
+                        )
+                    logger.info(
+                        "[BankStyleRegistry] stacked text fallback rows=%d",
+                        len(transactions),
+                    )
+
         expected = _expected_rows(ctx)
         primary_parser = (detection.parser_chain or ["grid_standard"])[-1]
         primary_score, coverage = _parser_score(transactions, normalize_fn, plugin, expected)
+        if primary_score < _CAPS_THRESHOLD or (expected > 0 and coverage < _COVERAGE_THRESHOLD):
+            wide_tables = recover_wide_bank_tables(ctx.parse_result, ctx.full_text)
+            if wide_tables:
+                wide_ctx = replace(ctx, tables=wide_tables)
+                wide_batch, wide_norm = _run_parser("grid_standard", wide_ctx, plugin)
+                wide_score, wide_coverage = _parser_score(wide_batch, wide_norm, plugin, expected)
+                if wide_score > primary_score:
+                    transactions = wide_batch
+                    normalize_fn = wide_norm
+                    primary_score = wide_score
+                    coverage = wide_coverage
+                    if ctx.reconstruction is not None:
+                        ctx.reconstruction = replace(
+                            ctx.reconstruction,
+                            source="native_wide_table",
+                            expected_primary_rows=expected or len(wide_batch),
+                            pipe_parse_failed=False,
+                        )
+                    logger.info(
+                        "[BankStyleRegistry] native wide table recovery rows=%d score=%.2f",
+                        len(wide_batch),
+                        wide_score,
+                    )
+        primary_score, coverage = _parser_score(transactions, normalize_fn, plugin, expected)
+        if primary_score < _CAPS_THRESHOLD or (expected > 0 and coverage < _COVERAGE_THRESHOLD):
+            ocr_tables = recover_ocr_implicit_ledger_tables(ctx.parse_result, ctx.full_text)
+            if ocr_tables:
+                recovered_count = sum(max(len(table) - 1, 0) for table in ocr_tables)
+                ocr_expected = max(expected, recovered_count)
+                ocr_ctx = replace(ctx, tables=ocr_tables)
+                ocr_batch, ocr_norm = _run_parser("grid_standard", ocr_ctx, plugin)
+                ocr_score, ocr_coverage = _parser_score(ocr_batch, ocr_norm, plugin, ocr_expected)
+                if ocr_score > primary_score:
+                    transactions = ocr_batch
+                    normalize_fn = ocr_norm
+                    primary_score = ocr_score
+                    coverage = ocr_coverage
+                    expected = ocr_expected
+                    if ctx.reconstruction is not None:
+                        ctx.reconstruction = replace(
+                            ctx.reconstruction,
+                            source="ocr_implicit_table",
+                            expected_primary_rows=expected or len(ocr_batch),
+                            pipe_parse_failed=False,
+                        )
+                    logger.info(
+                        "[BankStyleRegistry] OCR implicit table recovery rows=%d score=%.2f",
+                        len(ocr_batch),
+                        ocr_score,
+                    )
         needs_fallback = primary_score < _CAPS_THRESHOLD or (expected > 0 and coverage < _COVERAGE_THRESHOLD)
         if needs_fallback:
             best_batch = transactions
@@ -230,3 +321,24 @@ class BankStyleParserRegistry:
             expected,
         )
         return records, identity_fields
+
+
+def _solve_split_debit_credit_tables(full_text: str) -> list[list[list[str]]]:
+    """Use vNext domain solver when debit/credit ledger invariants close."""
+    try:
+        from docmirror.domains.bank_statement import BankStatementSemanticSolver
+
+        solution = BankStatementSemanticSolver().solve(full_text=full_text)
+    except Exception as exc:
+        logger.debug("[BankStyleRegistry] bank semantic solver skipped: %s", exc)
+        return []
+    if not solution.success:
+        return []
+    split_table = (solution.canonical_model or {}).get("split_table")
+    if not split_table:
+        return []
+    logger.info(
+        "[BankStyleRegistry] semantic ledger solver rows=%d",
+        max(len(split_table) - 1, 0),
+    )
+    return [split_table]

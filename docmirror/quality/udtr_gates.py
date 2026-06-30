@@ -7,6 +7,12 @@ from typing import Any
 from docmirror.layout.normalization import is_invertible_matrix
 
 
+def _value(item: Any, key: str, default: Any = None) -> Any:
+    if isinstance(item, dict):
+        return item.get(key, default)
+    return getattr(item, key, default)
+
+
 def build_udtr_quality_gates(*, pages: list[Any], regions: list[Any], blocks: list[Any]) -> list[dict[str, Any]]:
     return [
         _page_normalization_confidence_gate(pages),
@@ -26,26 +32,28 @@ def _page_normalization_confidence_gate(pages: list[Any]) -> dict[str, Any]:
     scores: list[float] = []
     target_ids: list[str] = []
     for page in pages:
-        transform = getattr(page, "coordinate_transform", None) or {}
+        transform = _value(page, "coordinate_transform", {}) or {}
         normalization = transform.get("page_normalization") if isinstance(transform, dict) else {}
         if not isinstance(normalization, dict):
             continue
         scores.append(float(normalization.get("confidence", normalization.get("orientation_score", 1.0)) or 0.0))
-        if getattr(page, "page_id", ""):
-            target_ids.append(page.page_id)
+        if _value(page, "page_id", ""):
+            target_ids.append(str(_value(page, "page_id", "")))
     if not scores:
         return _gate("gate:page_normalization_confidence", "not_applicable", 1.0, 0.8)
     score = min(1.0, min(scores))
-    return _gate("gate:page_normalization_confidence", "pass" if score >= 0.8 else "warn", score, 0.8, target_ids=target_ids)
+    return _gate(
+        "gate:page_normalization_confidence", "pass" if score >= 0.8 else "warn", score, 0.8, target_ids=target_ids
+    )
 
 
 def _coordinate_transform_invertible_gate(pages: list[Any]) -> dict[str, Any]:
     bad: list[str] = []
     for page in pages:
-        transform = getattr(page, "coordinate_transform", None) or {}
+        transform = _value(page, "coordinate_transform", {}) or {}
         matrix = transform.get("matrix") if isinstance(transform, dict) else None
         if not matrix or not is_invertible_matrix(matrix):
-            bad.append(str(getattr(page, "page_id", "") or ""))
+            bad.append(str(_value(page, "page_id", "") or ""))
     total = len(pages)
     score = (total - len(bad)) / total if total else 1.0
     return _gate(
@@ -63,9 +71,9 @@ def _region_candidate_resolution_gate(regions: list[Any]) -> dict[str, Any]:
     if region_count == 0:
         return _gate("gate:region_candidate_resolution", "not_applicable", 1.0, 1.0)
     missing = [
-        str(getattr(region, "id", "") or "")
+        str(_value(region, "id", "") or "")
         for region in regions
-        if not (getattr(region, "quality", {}) or {}).get("selected_candidate_ids")
+        if not (_value(region, "quality", {}) or {}).get("selected_candidate_ids")
     ]
     score = (region_count - len(missing)) / region_count
     return _gate(
@@ -83,9 +91,9 @@ def _ownership_explainability_gate(regions: list[Any]) -> dict[str, Any]:
     if region_count == 0:
         return _gate("gate:ownership_explainability", "not_applicable", 1.0, 1.0)
     missing = [
-        str(getattr(region, "id", "") or "")
+        str(_value(region, "id", "") or "")
         for region in regions
-        if not (getattr(region, "quality", {}) or {}).get("ownership_reason")
+        if not (_value(region, "quality", {}) or {}).get("ownership_reason")
     ]
     score = (region_count - len(missing)) / region_count
     return _gate(
@@ -111,7 +119,11 @@ def _financial_header_hierarchy_gate(blocks: list[Any]) -> dict[str, Any]:
     if not financial_tables:
         return _gate("gate:financial_header_hierarchy", "not_applicable", 1.0, 0.8)
     scores = [
-        float(((block.content.get("statement_structure") or {}).get("quality") or {}).get("header_hierarchy_confidence", 0.0))
+        float(
+            ((block.content.get("statement_structure") or {}).get("quality") or {}).get(
+                "header_hierarchy_confidence", 0.0
+            )
+        )
         for block in financial_tables
     ]
     score = min(scores) if scores else 0.0
@@ -131,7 +143,8 @@ def _overlay_relationship_consistency_gate(regions: list[Any], blocks: list[Any]
     overlay_regions = [
         region
         for region in regions
-        if str(getattr(region, "kind", "")) in {"seal", "signature"} or str(getattr(region, "role", "")) in {"seal", "signature"}
+        if str(getattr(region, "kind", "")) in {"seal", "signature"}
+        or str(getattr(region, "role", "")) in {"seal", "signature"}
     ]
     overlay_blocks = [block for block in blocks if str(getattr(block, "role", "")) in {"seal", "signature"}]
     if not overlay_regions and not overlay_blocks:
@@ -143,11 +156,7 @@ def _overlay_relationship_consistency_gate(regions: list[Any], blocks: list[Any]
         or (getattr(region, "quality", {}) or {}).get("overlay_target_region_id")
     ]
     score = len(explained) / len(overlay_regions) if overlay_regions else 1.0
-    missing = [
-        str(getattr(region, "id", "") or "")
-        for region in overlay_regions
-        if region not in explained
-    ]
+    missing = [str(getattr(region, "id", "") or "") for region in overlay_regions if region not in explained]
     return _gate(
         "gate:overlay_relationship_consistency",
         "pass" if score >= 0.8 else "warn",
@@ -234,14 +243,13 @@ def _statement_note_reference_gate(blocks: list[Any]) -> dict[str, Any]:
 
 def _visual_artifact_coverage_gate(regions: list[Any], blocks: list[Any]) -> dict[str, Any]:
     visual_regions = [
-        region
-        for region in regions
-        if str(getattr(region, "kind", "")) in {"seal", "signature", "figure", "image"}
+        region for region in regions if str(getattr(region, "kind", "")) in {"seal", "signature", "figure", "image"}
     ]
     visual_blocks = [
         block
         for block in blocks
-        if str(getattr(block, "type", "")) in {"artifact", "figure"} or str(getattr(block, "role", "")) in {"seal", "signature"}
+        if str(getattr(block, "type", "")) in {"artifact", "figure"}
+        or str(getattr(block, "role", "")) in {"seal", "signature"}
     ]
     if not visual_regions and not visual_blocks:
         return _gate("gate:visual_artifact_coverage", "not_applicable", 1.0, 0.9)
@@ -262,11 +270,11 @@ def _visual_artifact_coverage_gate(regions: list[Any], blocks: list[Any]) -> dic
 def _cross_format_projection_consistency_gate(pages: list[Any], blocks: list[Any]) -> dict[str, Any]:
     if not pages:
         return _gate("gate:cross_format_projection_consistency", "not_applicable", 1.0, 1.0)
-    page_ids = {str(getattr(page, "page_id", "") or "") for page in pages}
+    page_ids = {str(_value(page, "page_id", "") or "") for page in pages}
     missing_page = [
-        str(getattr(block, "id", "") or "")
+        str(_value(block, "id", "") or "")
         for block in blocks
-        if not set(str(page_id) for page_id in getattr(block, "page_ids", []) or []) <= page_ids
+        if not set(str(page_id) for page_id in _value(block, "page_ids", []) or []) <= page_ids
     ]
     score = (len(blocks) - len(missing_page)) / len(blocks) if blocks else 1.0
     return _gate(

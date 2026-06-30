@@ -14,18 +14,17 @@ these characters depending on the configured strictness level.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
+from dataclasses import dataclass
 
 # ── Zero-width character catalog ──────────────────────────────────────────
 
 ZERO_WIDTH_CHARS: dict[str, str] = {
-    "\u200B": "ZERO_WIDTH_SPACE",
-    "\u200C": "ZERO_WIDTH_NON_JOINER",
-    "\u200D": "ZERO_WIDTH_JOINER",
-    "\u200E": "LEFT_TO_RIGHT_MARK",
-    "\u200F": "RIGHT_TO_LEFT_MARK",
-    "\uFEFF": "BOM_ZERO_WIDTH_NO_BREAK_SPACE",
+    "\u200b": "ZERO_WIDTH_SPACE",
+    "\u200c": "ZERO_WIDTH_NON_JOINER",
+    "\u200d": "ZERO_WIDTH_JOINER",
+    "\u200e": "LEFT_TO_RIGHT_MARK",
+    "\u200f": "RIGHT_TO_LEFT_MARK",
+    "\ufeff": "BOM_ZERO_WIDTH_NO_BREAK_SPACE",
     "\u2060": "WORD_JOINER",
     "\u2061": "FUNCTION_APPLICATION",
     "\u2062": "INVISIBLE_TIMES",
@@ -39,10 +38,10 @@ ZERO_WIDTH_CHARS: dict[str, str] = {
 
 SANITIZE_MAP: dict[str, str] = {
     # Replace visible-adjacent zero-width chars with space
-    "\u200B": "",
-    "\u200C": "",
-    "\u200D": "",
-    "\uFEFF": "",
+    "\u200b": "",
+    "\u200c": "",
+    "\u200d": "",
+    "\ufeff": "",
     "\u2060": "",
     "\u2061": "",
     "\u2062": "",
@@ -54,8 +53,8 @@ SANITIZE_MAP: dict[str, str] = {
     "\u2068": "",
     "\u2069": "",
     # Directional marks — replace with space
-    "\u200E": "",
-    "\u200F": "",
+    "\u200e": "",
+    "\u200f": "",
 }
 
 
@@ -107,9 +106,7 @@ class ZeroWidthDetector:
                 )
         return flags
 
-    def sanitize(
-        self, text: str, *, mode: str = "remove"
-    ) -> str:
+    def sanitize(self, text: str, *, mode: str = "remove") -> str:
         """Remove or replace zero-width characters in *text*.
 
         Args:

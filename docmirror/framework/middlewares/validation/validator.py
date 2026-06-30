@@ -34,6 +34,7 @@ import unicodedata
 from typing import Any
 
 from docmirror.models.entities.parse_result import ParseResult, TableBlock, TrustResult
+
 from ..base import BaseMiddleware
 
 logger = logging.getLogger(__name__)
@@ -193,7 +194,7 @@ class Validator(BaseMiddleware):
         return result
 
     # ════════════════════════════════════════════════════════════════
-    # Helper: Convert typed TableBlock to 2D arrays for legacy checks
+    # Helper: Convert typed TableBlock to 2D arrays for raw checks
     # ════════════════════════════════════════════════════════════════
 
     @staticmethod

@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from docmirror.configs.runtime.settings import default_settings
-from docmirror.structure.ocr.vlm_gateway import vlm_ocr_provider
+from docmirror.ocr.vlm_gateway import vlm_ocr_provider
 
 
 @pytest.fixture

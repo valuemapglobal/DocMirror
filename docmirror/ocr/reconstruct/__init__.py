@@ -3,10 +3,10 @@
 """
 OCR reconstruct subpackage — grid reconstruction from OCR output.
 
-Purpose: Re-exports legacy grid reconstruction utilities shared by scanned
-analysis and table OCR paths.
+Purpose: Re-exports grid reconstruction utilities shared by scanned analysis
+and table OCR paths.
 
-Main components: Grid functions from ``grid_legacy``.
+Main components: Grid functions from ``grid``.
 
 Upstream: OCR chars with geometry.
 

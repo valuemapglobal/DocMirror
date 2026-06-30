@@ -11,7 +11,7 @@ from pathlib import Path
 
 from docmirror.configs.ga_experience import load_real_world_fixture_bank
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def validate_real_world_fixture_catalog() -> list[str]:

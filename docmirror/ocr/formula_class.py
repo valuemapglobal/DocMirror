@@ -37,10 +37,11 @@ logger = logging.getLogger(__name__)
 
 class FormulaDisplayType(Enum):
     """Formula display classification types."""
-    INLINE = "inline"          # Embedded in text line: $x^2$
-    DISPLAY = "display"        # Centered standalone: $$\sum$$
-    MULTILINE = "multiline"    # Multi-line equation environment
-    UNKNOWN = "unknown"        # Could not determine
+
+    INLINE = "inline"  # Embedded in text line: $x^2$
+    DISPLAY = "display"  # Centered standalone: $$\sum$$
+    MULTILINE = "multiline"  # Multi-line equation environment
+    UNKNOWN = "unknown"  # Could not determine
 
 
 @dataclass
@@ -53,6 +54,7 @@ class FormulaClass:
         evidence: Explanation of how the classification was determined.
         needs_review: Whether human review is recommended for this classification.
     """
+
     display_type: FormulaDisplayType = FormulaDisplayType.UNKNOWN
     confidence: float = 0.0
     evidence: str = ""
@@ -62,6 +64,7 @@ class FormulaClass:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Classification function
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def classify_formula(
     latex: str,
@@ -170,6 +173,7 @@ _MULTILINE_ENV_RE = r"\\begin\{(align|equation|multline|gather|eqnarray|alignat)
 def _has_multiline_environment(latex: str) -> bool:
     """Check if LaTeX contains a multiline equation environment."""
     import re
+
     return bool(re.search(_MULTILINE_ENV_RE, latex))
 
 
@@ -228,7 +232,6 @@ def classify_formula_simple(latex: str, page_width: float, page_height: float) -
         A FormulaClass result.
     """
     # Use a dummy bbox based on the formula's complexity
-    import math
 
     # Estimate formula width based on LaTeX length
     char_count = len(latex)

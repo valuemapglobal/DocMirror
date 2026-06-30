@@ -26,7 +26,8 @@ class CheckpointControl:
     directory: str = "checkpoints"
 
     def fingerprint(self) -> str:
-        import hashlib, json
+        import hashlib
+        import json
 
         data = json.dumps({"enabled": self.enabled, "directory": self.directory}, sort_keys=True)
         return hashlib.sha256(data.encode()).hexdigest()[:16]
@@ -40,7 +41,8 @@ class ProgressControl:
     events_path: str = "progress_events.ndjson"
 
     def fingerprint(self) -> str:
-        import hashlib, json
+        import hashlib
+        import json
 
         data = json.dumps({"emit_events": self.emit_events, "events_path": self.events_path}, sort_keys=True)
         return hashlib.sha256(data.encode()).hexdigest()[:16]
@@ -56,7 +58,8 @@ class StreamingControl:
     chunk_artifacts_dir: str = "chunks"
 
     def fingerprint(self) -> str:
-        import hashlib, json
+        import hashlib
+        import json
 
         data = json.dumps(
             {
@@ -78,7 +81,8 @@ class RetryControl:
     delay_seconds: float = 0.5
 
     def fingerprint(self) -> str:
-        import hashlib, json
+        import hashlib
+        import json
 
         data = json.dumps(
             {"max_attempts": self.max_attempts, "delay_seconds": self.delay_seconds},
@@ -99,7 +103,8 @@ class LongDocumentControl:
     ocr_heavy_ratio: float = 0.5
 
     def fingerprint(self) -> str:
-        import hashlib, json
+        import hashlib
+        import json
 
         data = json.dumps(
             {
@@ -197,7 +202,8 @@ class RuntimeControl:
         return cls.full()
 
     def fingerprint(self) -> str:
-        import hashlib, json
+        import hashlib
+        import json
 
         data = json.dumps(
             {

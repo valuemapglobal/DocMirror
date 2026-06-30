@@ -11,10 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.eval.tqg.manifest import TQGCase, TQG_GATES_DIR, load_track_manifest
+from docmirror.eval.tqg.manifest import TQG_GATES_DIR, TQGCase, load_track_manifest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TQG_REPORT_DIR = REPO_ROOT / "artifacts" / "tqg"
+RUN_PRIVATE_FIXTURES = os.environ.get("DOCMIRROR_RUN_PRIVATE_FIXTURES") == "1"
 
 
 def _cases_for_track(track_file: str) -> list[TQGCase]:
@@ -34,6 +35,14 @@ def _edition_package_available(edition: str) -> bool:
         return False
 
 
+def _is_private_fixture(path: Path) -> bool:
+    try:
+        rel = path.resolve().relative_to(REPO_ROOT.resolve())
+    except ValueError:
+        return False
+    return len(rel.parts) >= 2 and rel.parts[:2] == ("tests", "fixtures")
+
+
 @pytest.fixture(scope="session")
 def tqg_report_dir() -> Path:
     path = Path(os.environ.get("TQG_REPORT_DIR", TQG_REPORT_DIR))
@@ -49,6 +58,8 @@ def _run_and_assert(case: TQGCase, tqg_report_dir: Path | None = None) -> None:
             if edition in ("enterprise", "finance") and not _edition_package_available(edition):
                 pytest.skip(f"optional edition package missing: {edition}")
 
+    if case.fixture and _is_private_fixture(case.fixture) and not RUN_PRIVATE_FIXTURES:
+        pytest.skip("private fixture gated; set DOCMIRROR_RUN_PRIVATE_FIXTURES=1 to run")
     if case.fixture and not case.fixture.is_file():
         pytest.skip(f"fixture missing: {case.fixture}")
     report = run_tqg_case(case)

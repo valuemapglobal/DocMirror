@@ -181,8 +181,8 @@ def _find_spec_quiet(module_name: str) -> Any:
 )
 @click.option(
     "--editions",
-    default="mirror,community",
-    show_default=True,
+    default=None,
+    show_default="license-aware",
     help="Output editions: mirror,community,enterprise,finance,all",
 )
 @click.option("--doc-type", default=None, help="Manual document type")
@@ -279,8 +279,6 @@ def parse(
             include_text=include_text,
             split_layers=split_layers,
             debug_artifact=debug_artifact,
-            export_chunks=False,
-            export_csv=False,
             export_parquet=False,
             mirror_level=mirror_level,
             pages=pages,

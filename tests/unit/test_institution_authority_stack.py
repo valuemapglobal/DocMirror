@@ -63,6 +63,19 @@ def test_filename_bank_token_priority_over_body_keyword():
     assert authority == "filename.token"
 
 
+def test_personal_bank_product_name_is_not_institution_hint():
+    ctx = StyleContext(
+        tables=[],
+        full_text="个人银行结算账户 客户姓名 于鑫日 客户账号 621700001234567890",
+        institution="个人银行",
+        page_count=1,
+        parse_result=type("PR", (), {"file_path": "/tmp/于鑫日_银行流水_个人银行.pdf"})(),
+    )
+    hint, authority = resolve_institution_hint(ctx, {"中国建设银行": ["建设银行"]})
+    assert hint is None
+    assert authority == ""
+
+
 def test_extract_identity_from_header():
     text = (
         "账号     544362180589         账户名称  南京创沃电气设备有限公司"
@@ -74,3 +87,18 @@ def test_extract_identity_from_header():
     assert identity["account_holder"] == "南京创沃电气设备有限公司"
     assert identity["account_number"] == "544362180589"
     assert "2022-04-01" in identity["query_period"]
+
+
+def test_extract_identity_from_header_when_holder_is_nearby_line():
+    text = (
+        "账号: 6230 **** 3462 开户行: 江苏镇江农村商业银行 起止日期: 2024-07-14 — 2025-01-14\n"
+        "户名: 币种：人民币\n"
+        "交易明细详情\n"
+        "申请时间: 2025-01-17\n"
+        "曹兴勇\n"
+        "|序号|交易日期|"
+    )
+    identity = extract_identity_from_header(text)
+    assert identity["account_holder"] == "曹兴勇"
+    assert identity["account_number"] == "6230 **** 3462"
+    assert identity["currency"] == "CNY"

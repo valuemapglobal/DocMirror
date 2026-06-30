@@ -61,29 +61,81 @@ class TesseractPageResult:
 # Major language groups mapped to Tesseract language codes
 LANGUAGE_GROUPS: dict[str, list[str]] = {
     "european": [
-        "eng", "fra", "deu", "ita", "spa", "por", "nld", "rus",
-        "ces", "pol", "swe", "dan", "fin", "nor", "hun", "ron",
-        "cat", "glg", "eus", "bel", "bul", "hrv", "slk", "slv",
-        "srp", "ukr", "ell", "tur",
+        "eng",
+        "fra",
+        "deu",
+        "ita",
+        "spa",
+        "por",
+        "nld",
+        "rus",
+        "ces",
+        "pol",
+        "swe",
+        "dan",
+        "fin",
+        "nor",
+        "hun",
+        "ron",
+        "cat",
+        "glg",
+        "eus",
+        "bel",
+        "bul",
+        "hrv",
+        "slk",
+        "slv",
+        "srp",
+        "ukr",
+        "ell",
+        "tur",
     ],
     "asian": [
-        "chi_sim", "chi_tra", "jpn", "kor", "tha", "vie",
-        "hin", "ben", "tam", "tel", "kan", "mal", "guj", "pan",
-        "urd", "mar", "nep", "sin", "mya", "khm", "lao",
+        "chi_sim",
+        "chi_tra",
+        "jpn",
+        "kor",
+        "tha",
+        "vie",
+        "hin",
+        "ben",
+        "tam",
+        "tel",
+        "kan",
+        "mal",
+        "guj",
+        "pan",
+        "urd",
+        "mar",
+        "nep",
+        "sin",
+        "mya",
+        "khm",
+        "lao",
     ],
     "middle_east": [
-        "ara", "heb", "fas", "kur", "pus",
+        "ara",
+        "heb",
+        "fas",
+        "kur",
+        "pus",
     ],
     "other": [
-        "amh", "aze", "est", "lav", "lit", "mkd", "mlt",
-        "sqi", "tat", "uzb",
+        "amh",
+        "aze",
+        "est",
+        "lav",
+        "lit",
+        "mkd",
+        "mlt",
+        "sqi",
+        "tat",
+        "uzb",
     ],
 }
 
 # Full flat list of all supported languages
-ALL_TESSERACT_LANGUAGES: list[str] = sorted(
-    set().union(*LANGUAGE_GROUPS.values())
-)
+ALL_TESSERACT_LANGUAGES: list[str] = sorted(set().union(*LANGUAGE_GROUPS.values()))
 
 
 def get_installed_languages() -> list[str]:
@@ -93,10 +145,13 @@ def get_installed_languages() -> list[str]:
     On some systems output goes to stdout, on others to stderr.
     """
     import subprocess
+
     try:
         result = subprocess.run(
             ["tesseract", "--list-langs"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         # Output may go to stdout or stderr depending on version
         raw = result.stdout or result.stderr or ""
@@ -105,9 +160,7 @@ def get_installed_languages() -> list[str]:
         langs = [
             line.strip()
             for line in lines
-            if line.strip()
-            and not line.startswith("List")
-            and not line.startswith("script/")
+            if line.strip() and not line.startswith("List") and not line.startswith("script/")
         ]
         return langs
     except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as exc:
@@ -134,6 +187,7 @@ class TesseractBackend:
         # Check pytesseract availability
         try:
             import pytesseract  # noqa: F401
+
             self.have_pytesseract = True
         except ImportError:
             self.have_pytesseract = False
@@ -191,14 +245,10 @@ class TesseractBackend:
         from PIL import Image
 
         if not self.have_pytesseract:
-            raise RuntimeError(
-                "pytesseract is not installed. Install with: pip install pytesseract"
-            )
+            raise RuntimeError("pytesseract is not installed. Install with: pip install pytesseract")
 
         if not shutil.which("tesseract"):
-            raise RuntimeError(
-                "Tesseract binary not found. Install Tesseract OCR engine."
-            )
+            raise RuntimeError("Tesseract binary not found. Install Tesseract OCR engine.")
 
         # Validate requested language(s)
         installed = self.installed_languages
@@ -206,9 +256,9 @@ class TesseractBackend:
         if installed and not all(l in installed for l in requested_langs):
             missing = [l for l in requested_langs if l not in installed]
             logger.warning(
-                "Tesseract language(s) not installed: %s. "
-                "Installed: %s. Falling back to available languages.",
-                missing, installed,
+                "Tesseract language(s) not installed: %s. Installed: %s. Falling back to available languages.",
+                missing,
+                installed,
             )
             # Filter to only installed languages
             valid_langs = [l for l in requested_langs if l in installed]
@@ -227,12 +277,18 @@ class TesseractBackend:
 
             # Get full text
             text = pytesseract.image_to_string(
-                img, lang=lang, config=custom_config, timeout=timeout,
+                img,
+                lang=lang,
+                config=custom_config,
+                timeout=timeout,
             )
 
             # Get per-word data with bounding boxes
             word_data = pytesseract.image_to_data(
-                img, lang=lang, config=custom_config, output_type=pytesseract.Output.DICT,
+                img,
+                lang=lang,
+                config=custom_config,
+                output_type=pytesseract.Output.DICT,
                 timeout=timeout,
             )
 
@@ -268,23 +324,27 @@ class TesseractBackend:
 
                 word_bbox = [left, top, left + width, top + height]
 
-                words.append(TesseractOCRResult(
-                    text=word_text,
-                    confidence=word_conf,
-                    bbox=word_bbox,
-                    block_num=block_num,
-                    line_num=line_num,
-                    word_num=i,
-                ))
+                words.append(
+                    TesseractOCRResult(
+                        text=word_text,
+                        confidence=word_conf,
+                        bbox=word_bbox,
+                        block_num=block_num,
+                        line_num=line_num,
+                        word_num=i,
+                    )
+                )
 
                 # Accumulate line
                 if line_num != current_line_num:
                     if current_line_text.strip():
-                        lines.append(TesseractOCRResult(
-                            text=current_line_text.strip(),
-                            confidence=current_line_conf_sum / max(current_line_conf_count, 1),
-                            bbox=current_line_bbox,
-                        ))
+                        lines.append(
+                            TesseractOCRResult(
+                                text=current_line_text.strip(),
+                                confidence=current_line_conf_sum / max(current_line_conf_count, 1),
+                                bbox=current_line_bbox,
+                            )
+                        )
                     current_line_num = line_num
                     current_line_text = ""
                     current_line_conf_sum = 0.0
@@ -299,11 +359,13 @@ class TesseractBackend:
 
             # Flush last line
             if current_line_text.strip():
-                lines.append(TesseractOCRResult(
-                    text=current_line_text.strip(),
-                    confidence=current_line_conf_sum / max(current_line_conf_count, 1),
-                    bbox=current_line_bbox,
-                ))
+                lines.append(
+                    TesseractOCRResult(
+                        text=current_line_text.strip(),
+                        confidence=current_line_conf_sum / max(current_line_conf_count, 1),
+                        bbox=current_line_bbox,
+                    )
+                )
 
             return TesseractPageResult(
                 text=text.strip(),

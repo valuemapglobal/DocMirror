@@ -39,6 +39,7 @@ class RecognitionResult:
         preprocessing_ms: Time spent on image preprocessing in ms.
         inference_ms: Time spent on model inference in ms.
     """
+
     latex: str = ""
     confidence: float = 0.0
     backend: str = "none"
@@ -129,7 +130,7 @@ class FormulaEngine:
         if self._vocab_path and Path(self._vocab_path).exists():
             try:
                 self._vocab = {}
-                with open(self._vocab_path, "r") as f:
+                with open(self._vocab_path) as f:
                     for line in f:
                         line = line.strip()
                         if line:
@@ -152,39 +153,135 @@ class FormulaEngine:
         """
         tokens = [
             # Special tokens
-            "<PAD>", "<BOS>", "<EOS>", "<UNK>",
+            "<PAD>",
+            "<BOS>",
+            "<EOS>",
+            "<UNK>",
             # Greek lowercase
-            r"\alpha", r"\beta", r"\gamma", r"\delta", r"\epsilon", r"\varepsilon",
-            r"\zeta", r"\eta", r"\theta", r"\iota", r"\kappa", r"\lambda", r"\mu",
-            r"\nu", r"\xi", r"\pi", r"\rho", r"\sigma", r"\tau", r"\upsilon",
-            r"\phi", r"\varphi", r"\chi", r"\psi", r"\omega",
+            r"\alpha",
+            r"\beta",
+            r"\gamma",
+            r"\delta",
+            r"\epsilon",
+            r"\varepsilon",
+            r"\zeta",
+            r"\eta",
+            r"\theta",
+            r"\iota",
+            r"\kappa",
+            r"\lambda",
+            r"\mu",
+            r"\nu",
+            r"\xi",
+            r"\pi",
+            r"\rho",
+            r"\sigma",
+            r"\tau",
+            r"\upsilon",
+            r"\phi",
+            r"\varphi",
+            r"\chi",
+            r"\psi",
+            r"\omega",
             # Greek uppercase
-            r"\Gamma", r"\Delta", r"\Theta", r"\Lambda", r"\Xi",
-            r"\Pi", r"\Sigma", r"\Upsilon", r"\Phi", r"\Psi", r"\Omega",
+            r"\Gamma",
+            r"\Delta",
+            r"\Theta",
+            r"\Lambda",
+            r"\Xi",
+            r"\Pi",
+            r"\Sigma",
+            r"\Upsilon",
+            r"\Phi",
+            r"\Psi",
+            r"\Omega",
             # Operators and relations
-            r"\pm", r"\mp", r"\times", r"\div", r"\cdot", r"\oplus",
-            r"\leq", r"\geq", r"\neq", r"\approx", r"\equiv", r"\sim",
-            r"\in", r"\notin", r"\subset", r"\supset", r"\subseteq",
+            r"\pm",
+            r"\mp",
+            r"\times",
+            r"\div",
+            r"\cdot",
+            r"\oplus",
+            r"\leq",
+            r"\geq",
+            r"\neq",
+            r"\approx",
+            r"\equiv",
+            r"\sim",
+            r"\in",
+            r"\notin",
+            r"\subset",
+            r"\supset",
+            r"\subseteq",
             # Large operators
-            r"\sum", r"\prod", r"\int", r"\oint", r"\iint",
+            r"\sum",
+            r"\prod",
+            r"\int",
+            r"\oint",
+            r"\iint",
             # Functions
-            r"\sin", r"\cos", r"\tan", r"\log", r"\ln", r"\lim",
+            r"\sin",
+            r"\cos",
+            r"\tan",
+            r"\log",
+            r"\ln",
+            r"\lim",
             # Structures
-            r"\frac", r"\sqrt", r"\overline", r"\underline",
-            r"\left", r"\right", r"\begin", r"\end",
+            r"\frac",
+            r"\sqrt",
+            r"\overline",
+            r"\underline",
+            r"\left",
+            r"\right",
+            r"\begin",
+            r"\end",
             # Miscellaneous
-            r"\infty", r"\partial", r"\nabla", r"\forall", r"\exists",
-            r"\text", r"\mathrm", r"\mathbf", r"\mathit",
+            r"\infty",
+            r"\partial",
+            r"\nabla",
+            r"\forall",
+            r"\exists",
+            r"\text",
+            r"\mathrm",
+            r"\mathbf",
+            r"\mathit",
             # Brackets
-            "{", "}", "(", ")", "[", "]", r"\langle", r"\rangle",
+            "{",
+            "}",
+            "(",
+            ")",
+            "[",
+            "]",
+            r"\langle",
+            r"\rangle",
             # Punctuation and digits
-            "^", "_", "&", "\\", ",", ".",
-            "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+            "^",
+            "_",
+            "&",
+            "\\",
+            ",",
+            ".",
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
             # Single letters (a-z, A-Z)
-            *[chr(c) for c in range(ord('a'), ord('z') + 1)],
-            *[chr(c) for c in range(ord('A'), ord('Z') + 1)],
+            *[chr(c) for c in range(ord("a"), ord("z") + 1)],
+            *[chr(c) for c in range(ord("A"), ord("Z") + 1)],
             # Binary operators
-            "+", "-", "=", "<", ">", "/", "*",
+            "+",
+            "-",
+            "=",
+            "<",
+            ">",
+            "/",
+            "*",
         ]
         return {i: t for i, t in enumerate(tokens)}
 
@@ -311,9 +408,10 @@ class FormulaEngine:
             return "", 0.0
 
         try:
+            from io import BytesIO
+
             import numpy as np
             from PIL import Image
-            from io import BytesIO
 
             # Load image, convert to BGR, resize to ONNX expected input
             img = Image.open(BytesIO(image_bytes)).convert("RGB")
@@ -330,7 +428,7 @@ class FormulaEngine:
 
             # HWC → CHW, add batch dim
             arr = np.transpose(arr, (2, 0, 1))  # CHW
-            arr = np.expand_dims(arr, axis=0)    # NCHW
+            arr = np.expand_dims(arr, axis=0)  # NCHW
 
             # Run ONNX inference
             input_name = self._onnx_session.get_inputs()[0].name
@@ -403,21 +501,24 @@ class FormulaEngine:
             List of RecognitionResult.
         """
         import time
+
         results: list[RecognitionResult] = []
 
         for i in range(0, len(preprocessed), max_batch_size):
-            batch = preprocessed[i:i + max_batch_size]
+            batch = preprocessed[i : i + max_batch_size]
             for img_bytes in batch:
                 t1 = time.perf_counter()
                 latex, conf = self._recognize_onnx_with_confidence(img_bytes)
                 inf_ms = (time.perf_counter() - t1) * 1000
-                results.append(RecognitionResult(
-                    latex=latex,
-                    confidence=conf,
-                    backend="unimernet_onnx",
-                    preprocessing_ms=preproc_ms,
-                    inference_ms=inf_ms,
-                ))
+                results.append(
+                    RecognitionResult(
+                        latex=latex,
+                        confidence=conf,
+                        backend="unimernet_onnx",
+                        preprocessing_ms=preproc_ms,
+                        inference_ms=inf_ms,
+                    )
+                )
 
         return results
 
@@ -616,6 +717,7 @@ def _estimate_rapid_confidence(latex: str) -> float:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Image preprocessing
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _preprocess_formula_image(image_bytes: bytes) -> bytes:
     """Preprocess a formula image to improve OCR accuracy.

@@ -245,12 +245,15 @@ def _community_for_fallback(
         try:
             return copy.deepcopy(community_baseline)
         except Exception as exc:
-            logger.warning("[PluginRunner] deepcopy of community_baseline (detected_type=%s) failed: %s", detected_type, exc)
+            logger.warning(
+                "[PluginRunner] deepcopy of community_baseline (detected_type=%s) failed: %s", detected_type, exc
+            )
     return _run_community_extract(result, detected_type, full_text)
 
 
 # ── Run-scoped plugin extract cache (GA 1.0 DEDUP-01) ──
 _run_cache: dict[tuple[str, str], dict[str, Any]] = {}
+
 
 def clear_run_cache() -> None:
     """Clear the run-scoped plugin extract cache (GA 1.0 DEDUP-01).
@@ -264,6 +267,16 @@ def clear_run_cache() -> None:
 def _run_cache_key(plugin_document_type: str, edition: str) -> tuple[str, str]:
     """Normalize cache key for consistent lookup."""
     return (plugin_document_type, edition)
+
+
+def _attach_source_file_path(result: ParseResult, file_path: str) -> None:
+    """Expose source path to guarded domain candidate recovery without changing schema."""
+    if not file_path or getattr(result, "file_path", None):
+        return
+    try:
+        object.__setattr__(result, "file_path", file_path)
+    except Exception:
+        logger.debug("[PluginRunner] unable to attach source file path", exc_info=True)
 
 
 async def run_plugin_extract(
@@ -280,6 +293,7 @@ async def run_plugin_extract(
 
     Mirror ``ParseResult`` is not mutated during extract; post-extract hooks may apply audited mutations.
     """
+    _attach_source_file_path(result, file_path)
     detected_type = getattr(result.entities, "document_type", "") or ""
     plugin_document_type = _plugin_document_type(result, detected_type)
     if plugin_document_type in _GENERIC_TYPES:
@@ -298,6 +312,7 @@ async def run_plugin_extract(
     if edition == "community":
         if on_progress:
             from docmirror.plugins._runtime.plugin_registry import registry
+
             registry.set_progress_callback(on_progress)
         out = _run_community_extract(result, plugin_document_type, full_text)
         if out is not None:
@@ -352,11 +367,12 @@ def run_plugin_extract_sync(
     — never call ``asyncio.run()``, which hangs in Python 3.12 ThreadPoolExecutor
     threads during ``shutdown_default_executor()``.
     """
+
     def _run_coro_in_new_loop(
         c: asyncio.Future[dict[str, Any] | None],
     ) -> dict[str, Any] | None:
         """Run a coroutine in a fresh event loop, then tear down cleanly.
-        
+
         Never calls ``asyncio.run()`` because ``loop.shutdown_default_executor()``
         hangs in Python 3.12 when the coroutine spawns executor-backed tasks.
         """
@@ -533,10 +549,18 @@ async def _run_extended_extract_async(
                 extracted["edition"] = edition
                 return extracted
             else:
-                logger.warning("[%s] extract() returned non-dict: %s (type=%s)", edition, detected_type, type(extracted).__name__ if extracted is not None else "None")
+                logger.warning(
+                    "[%s] extract() returned non-dict: %s (type=%s)",
+                    edition,
+                    detected_type,
+                    type(extracted).__name__ if extracted is not None else "None",
+                )
         except Exception as e:
             import traceback
-            logger.error("[%s] 🔥 extract() EXCEPTION for %s: %s\n%s", edition, detected_type, e, traceback.format_exc())
+
+            logger.error(
+                "[%s] 🔥 extract() EXCEPTION for %s: %s\n%s", edition, detected_type, e, traceback.format_exc()
+            )
 
     extract_mirror = getattr(plugin, "extract_from_mirror", None)
     if extract_mirror is not None:
@@ -552,7 +576,11 @@ async def _run_extended_extract_async(
         except Exception as e:
             logger.warning("[%s] extract_from_mirror failed: %s", edition, e)
 
-    logger.info("[%s] extract/extract_from_mirror both failed for %s — falling back to community baseline", edition, detected_type)
+    logger.info(
+        "[%s] extract/extract_from_mirror both failed for %s — falling back to community baseline",
+        edition,
+        detected_type,
+    )
     community = _community_for_fallback(community_baseline, result, detected_type, full_text)
     if community is not None:
         cloned = copy.deepcopy(community)

@@ -9,7 +9,7 @@ universal text/table content for mixed scanned layouts.
 
 Main components: ``ocr_extract_universal``, ``_group_words_into_lines``.
 
-Upstream: OCR word stream from ``runner_legacy``.
+Upstream: OCR word stream from ``runner``.
 
 Downstream: ``ocr.scanned.analyze_page``, text block assembly.
 """
@@ -23,9 +23,9 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from docmirror.ocr.micro_grid.models import OCRToken, TieredTokenCollection
-from docmirror.ocr.preprocess.legacy_fallback import _render_page_to_bgr
-from docmirror.ocr.recognize.runner_legacy import _run_ocr
-from docmirror.ocr.reconstruct.grid_legacy import _detect_table_lines_hough
+from docmirror.ocr.preprocess.pipeline import _render_page_to_bgr
+from docmirror.ocr.recognize.runner import _run_ocr
+from docmirror.ocr.reconstruct.grid import _detect_table_lines_hough
 from docmirror.ocr.scanned.analyze_page import analyze_scanned_page
 
 
@@ -95,9 +95,6 @@ def _group_words_into_lines(words: list[tuple], y_tolerance: float = 12.0) -> li
     return lines
 
 
-
-
-
 def _words_to_ocr_tokens(words: list[tuple], *, page_idx: int) -> list[OCRToken]:
     """Convert RapidOCR word tuples to OCRToken objects using the universal factory.
 
@@ -108,9 +105,7 @@ def _words_to_ocr_tokens(words: list[tuple], *, page_idx: int) -> list[OCRToken]
     tokens: list[OCRToken] = []
     for idx, word in enumerate(words or []):
         try:
-            token = OCRToken.from_rapidocr_word(
-                word, page=page_idx + 1, source="rapidocr", idx=idx
-            )
+            token = OCRToken.from_rapidocr_word(word, page=page_idx + 1, source="rapidocr", idx=idx)
             tokens.append(token)
         except (ValueError, TypeError):
             continue
@@ -133,7 +128,7 @@ def ocr_extract_universal(
     instead of built-in OCR (for 99% recognition targets on very poor scans).
 
     For table-dominant pages, delegates to ``analyze_scanned_page``
-    (full backward compatibility).  For general documents (licenses,
+    to preserve the stable table extraction contract.  For general documents (licenses,
     certificates, contracts, etc.), returns all text lines in reading
     order with real bounding boxes.
 
@@ -173,7 +168,9 @@ def ocr_extract_universal(
                     if has_table:
                         table_words = [(w[0], w[1], w[2], w[3], w[4]) for w in all_words]
                         table_result = analyze_scanned_page(
-                            fitz_page, page_idx, min_confidence,
+                            fitz_page,
+                            page_idx,
+                            min_confidence,
                             pre_existing_words=table_words,
                             pre_existing_img=img,
                             pre_existing_page_h=page_h,
@@ -205,7 +202,9 @@ def ocr_extract_universal(
             # Pass pre-existing words to avoid duplicate OCR in analyze_scanned_page
             table_words = [(w[0], w[1], w[2], w[3], w[4]) for w in all_words]
             table_result = analyze_scanned_page(
-                fitz_page, page_idx, min_confidence,
+                fitz_page,
+                page_idx,
+                min_confidence,
                 pre_existing_words=table_words,
                 pre_existing_img=img,
                 pre_existing_page_h=page_h,
@@ -234,4 +233,3 @@ def ocr_extract_universal(
     except Exception as e:
         logger.warning(f"[universal] OCR error on page {page_idx}: {e}")
         return None
-

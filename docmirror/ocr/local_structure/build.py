@@ -345,9 +345,9 @@ def build_local_structures(
 
     items = line_items(lines, page=page)
     token_list = coerce_tokens(tokens, page=page)
+    from docmirror.layout.segment.page_blocks import grid_anchor_top_from_lines, is_lattice_content_line
     from docmirror.ocr.local_structure.candidate_supplement import supplement_local_structure_candidates
     from docmirror.ocr.local_structure.detect import detect_local_structure_candidates
-    from docmirror.ocr.page_canvas.page_segment import grid_anchor_top_from_lines, is_lattice_content_line
 
     candidate_list = (
         list(candidates)

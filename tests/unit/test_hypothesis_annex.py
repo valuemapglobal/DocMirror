@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from docmirror.structure.ocr.page_canvas.hypothesis_annex import build_document_hypothesis_annex
-from docmirror.structure.ocr.page_canvas.morphology_orchestrator import write_detect_audit_to_bundle
+from docmirror.topology.page_projection.hypothesis_annex import build_document_hypothesis_annex
+from docmirror.topology.page_projection.morphology_orchestrator import write_detect_audit_to_bundle
 
 
 def test_write_detect_audit_to_bundle():

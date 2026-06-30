@@ -22,11 +22,7 @@ from docmirror.input.entry.factory import perceive_document
 
 # Each entry: (test_name, fixture_path, adapter_kind)
 FIXTURE_TABLE = [
-    pytest.param("sample_1page.pdf", id="pdf"),
-    # Uncomment and add fixtures for other adapter types:
-    # pytest.param("sample_scan.png", id="image"),
-    # pytest.param("sample.docx", id="word"),
-    # pytest.param("sample.xlsx", id="excel"),
+    pytest.param("synthetic/credit_report_section_smoke.pdf", id="pdf"),
 ]
 
 
@@ -65,12 +61,10 @@ def test_adapter_produces_valid_parse_result(fixture_name: str):
 
 @pytest.mark.contract
 def test_all_adapters_share_result_type():
-    """Ensure different adapters produce the same result type."""
-    from docmirror.models.mirror.vnext import MirrorJsonVNext
-
-    fixture_path = Path(__file__).parent.parent / "fixtures" / "sample_1page.pdf"
-    if not fixture_path.exists():
-        pytest.skip("Fixture not found")
+    """Ensure adapter entrypoints expose the same vNext serialization surface."""
+    fixture_path = Path(__file__).parent.parent / "fixtures" / "synthetic" / "credit_report_section_smoke.pdf"
 
     result = asyncio.run(perceive_document(str(fixture_path)))
-    assert isinstance(result.mirror, MirrorJsonVNext)
+    api = result.to_mirror_json_vnext()
+    assert api["mirror"]["schema"] == "docmirror.mirror_json"
+    assert "pages" in api

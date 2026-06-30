@@ -1,29 +1,36 @@
 # DocMirror
 
-**The Trust Layer for Commercial Documents.**  
+[English](README.md) | [Chinese](README_zh-CN.md)
+
+**The open-source Commercial Document Trust Layer for RAG, agents, audit, and structured extraction.**
 **Parse. Prove. Trust.**
 
-Category: **Commercial Document Trust Layer**.
+DocMirror turns commercial documents into verifiable, audit-ready, machine-usable signals. It is built for documents that move money, create obligations, prove identity, support compliance, or feed risk systems.
 
-DocMirror turns commercial documents into verifiable, audit-ready, machine-usable signals. It is built for documents that move money, create obligations, prove identity, support compliance, or feed risk and audit systems.
+It does not just parse a document. It tells you what it found, where it came from, and whether you should trust it.
 
-DocMirror is not a generic OCR tool and not a generic RAG loader. Its core promise is stronger:
+## Why DocMirror
 
-> Every important field should be traceable to source text, page, geometry, confidence, and review status.
+Most document tools stop at text, tables, or Markdown. DocMirror is designed for fields that may enter downstream systems, so every important output should carry evidence and quality context.
 
-## What It Does
+| Need | DocMirror output |
+|---|---|
+| Structured facts | `001_mirror.json` with document structure, facts, entities, and pages |
+| Field evidence | source refs, page numbers, bounding boxes, raw values, and traces |
+| Review decisions | quality status, confidence, warnings, and `needs_review` markers |
+| RAG and agent input | Markdown and structure-aware chunk JSON with source context |
+| Audit/debug handoff | evidence bundle, quality report, manifest, and visual debug artifact |
 
-- **Parse** commercial documents such as bank statements, invoices, receipts, contracts, IDs, licenses, tax forms, and payment records.
-- **Prove** fields with source references, page numbers, bounding boxes, raw values, and transformation traces.
-- **Trust** outputs with quality status, confidence, anomaly signals, partial-result handling, and `needs_review` markers.
+DocMirror is not a generic OCR tool and not a generic RAG loader. Its category is narrower and sharper: **Commercial Document Trust Layer**.
 
 ## Install
 
 ```bash
 pip install docmirror
+docmirror doctor
 ```
 
-Install optional capabilities as needed:
+Install only the public capabilities you need:
 
 ```bash
 pip install "docmirror[pdf]"      # digital PDF support
@@ -33,14 +40,53 @@ pip install "docmirror[server]"   # HTTP API
 pip install "docmirror[all]"      # all public OSS extras
 ```
 
-## Quick Start
+Commercial Enterprise and Finance extensions are distributed separately and are not required for the open-source package.
+
+## 10-Minute Trusted Parse
+
+Run the dependency-light public trust quickstart from a local checkout:
 
 ```bash
-docmirror --version
-docmirror doctor
-docmirror parse statement.pdf --format json --output-dir ./output
-python examples/trust_quickstart.py
+git clone https://github.com/valuemapglobal/docmirror.git
+cd docmirror
+python3 examples/trust_quickstart.py
 ```
+
+You should see a synthetic commercial invoice with field evidence:
+
+```text
+DocMirror trust quickstart
+document=synthetic_invoice_001 type=commercial_invoice
+trust=confidence:0.96 evidence_coverage:1.00 review_required:true
+field=invoice_number value=INV-2026-001 confidence=0.99 page=1 bbox=[88, 112, 236, 132] source_ref=synthetic_invoice_001#page=1&bbox=88,112,236,132 status=ok
+```
+
+Parse your own document:
+
+```bash
+pip install "docmirror[pdf,ocr,office]"
+docmirror parse statement.pdf \
+  --format json,markdown,chunks \
+  --output-dir ./output \
+  --debug-artifact
+```
+
+Typical output:
+
+```text
+output/<run_id>/
+  001_mirror.json
+  001_community.json
+  001.md
+  001.chunks.json
+  005_evidence_bundle.json
+  output.md
+  quality_report.json
+  visual_debug.html
+  manifest.json
+```
+
+## Python API
 
 ```python
 import asyncio
@@ -69,9 +115,9 @@ async def main():
 asyncio.run(main())
 ```
 
-## Output Shape
+## Canonical Output Shape
 
-DocMirror's canonical mirror output is document-shaped:
+DocMirror's mirror output is document-shaped and evidence-aware:
 
 ```json
 {
@@ -90,48 +136,46 @@ DocMirror's canonical mirror output is document-shaped:
 }
 ```
 
-The key design rule is simple: parsed fields should be accompanied by evidence and quality information, so downstream systems can decide whether to act, review, or reject.
+The key contract is simple: parsed fields should be accompanied by evidence and quality information, so downstream systems can decide whether to act, review, or reject.
 
-## Supported Public Capabilities
+## Common Workflows
 
-| Capability | Install |
-|---|---|
-| Core API and CLI shell | `pip install docmirror` |
-| Digital PDF | `pip install "docmirror[pdf]"` |
-| Scanned OCR | `pip install "docmirror[ocr]"` |
-| Office files | `pip install "docmirror[office]"` |
-| Server API | `pip install "docmirror[server]"` |
-| Public full stack | `pip install "docmirror[all]"` |
-
-Commercial enterprise and finance extensions are distributed separately and are not required for the open-source package.
-
-## Command Line
+### CLI
 
 ```bash
 docmirror parse document.pdf --format json
+docmirror parse document.pdf --format json,markdown,chunks --debug-artifact
 docmirror parse ./documents --recursive --output-dir ./output
-docmirror doctor
 docmirror plugins list
 ```
 
-## API Server
+### API Server
 
 ```bash
 pip install "docmirror[server]"
 uvicorn docmirror.server.api:app --host 0.0.0.0 --port 8000
 ```
 
+## Community, Enterprise, Finance
+
+| Edition | Purpose |
+|---|---|
+| Community | Open-source trust layer, public domains, Mirror JSON, evidence, quality, CLI/API |
+| Enterprise | Production batch processing, operations, private deployment, support, governance |
+| Finance | Deep financial document extraction, cash-flow features, counterparty normalization, audit evidence |
+
+The Community edition is not intentionally weakened. Mirror, Evidence, Quality Report, and visible failure behavior are core to the open-source standard.
+
 ## Known Limits
 
 - OCR quality depends on scan quality and optional OCR dependencies.
 - Complex merged tables and unusual reading order may require review.
 - Some advanced commercial editions require separately distributed packages.
-- Public benchmark claims are being moved to reproducible release gates before being advertised as fixed numbers.
-- A dependency-light public mini benchmark is available via `python scripts/run_first_benchmark.py --public-mini`.
 
 ## Community
 
 - Documentation: [valuemapglobal.github.io/docmirror](https://valuemapglobal.github.io/docmirror/)
+- Quick Start: [docs/quickstart.md](docs/quickstart.md)
 - Issues: [github.com/valuemapglobal/docmirror/issues](https://github.com/valuemapglobal/docmirror/issues)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Security: [SECURITY.md](SECURITY.md)

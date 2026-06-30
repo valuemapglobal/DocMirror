@@ -37,7 +37,7 @@ cases:
 
   - id: four_file_after_perceive
     tier: regression
-    fixture: fixtures/business_license/林晓彤_营业执照_20220826.jpg
+    fixture: fixtures/business_license/synthetic_medium_variant.pdf
     pipeline: e2e_four_file
     options:
       mode: perceive

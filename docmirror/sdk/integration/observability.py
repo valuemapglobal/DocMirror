@@ -10,7 +10,7 @@ to end without parsing divergent log formats.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
@@ -29,8 +29,8 @@ class ObservabilityContext:
 
     request_id: str = field(default_factory=_new_request_id)
     version: str = "1.0.0"
-    profile: str | None = None          # compact | full | forensic | ga_full
-    entry: str = "unknown"              # cli | sdk | rest | docker | agent
+    profile: str | None = None  # compact | full | forensic | ga_full
+    entry: str = "unknown"  # cli | sdk | rest | docker | agent
     warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:

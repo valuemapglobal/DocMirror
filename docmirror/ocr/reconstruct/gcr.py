@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ColumnBand:
     """One column band derived from GCR analysis."""
+
     col_index: int
     x_start: float
     x_end: float
@@ -55,6 +56,7 @@ class GCRColumns:
 
     Stores per-line column groupings and aggregated column bands.
     """
+
     col_bands: list[ColumnBand] = field(default_factory=list)
     per_line_boundaries: list[list[float]] = field(default_factory=list)
     num_lines_analyzed: int = 0
@@ -387,9 +389,7 @@ class GCRColumns:
             cluster_mean = statistics.mean(cluster) if len(cluster) > 1 else cluster[0]
             support_count = 0
             for boundaries in per_line_boundaries:
-                if boundaries and any(
-                    abs(b - cluster_mean) <= cluster_tolerance for b in boundaries
-                ):
+                if boundaries and any(abs(b - cluster_mean) <= cluster_tolerance for b in boundaries):
                     support_count += 1
 
             if support_count / num_lines >= min_support:
@@ -424,22 +424,17 @@ class GCRColumns:
         for idx, (start, end) in enumerate(zip(band_starts, band_ends)):
             if end - start < 1.0:
                 continue  # Skip degenerate bands
-            bands.append(ColumnBand(
-                col_index=idx,
-                x_start=start,
-                x_end=end,
-                confidence=1.0,
-            ))
+            bands.append(
+                ColumnBand(
+                    col_index=idx,
+                    x_start=start,
+                    x_end=end,
+                    confidence=1.0,
+                )
+            )
 
         return bands
 
     def __repr__(self) -> str:
-        bands_str = ", ".join(
-            f"Col{b.col_index}:({b.x_start:.0f}-{b.x_end:.0f})"
-            for b in self.col_bands
-        )
-        return (
-            f"GCRColumns({len(self.col_bands)} bands, "
-            f"{self.num_lines_analyzed} lines, "
-            f"[{bands_str}])"
-        )
+        bands_str = ", ".join(f"Col{b.col_index}:({b.x_start:.0f}-{b.x_end:.0f})" for b in self.col_bands)
+        return f"GCRColumns({len(self.col_bands)} bands, {self.num_lines_analyzed} lines, [{bands_str}])"

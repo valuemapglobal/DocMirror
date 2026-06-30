@@ -15,7 +15,7 @@ Main components: ``preprocess_image_for_ocr``, ``preprocess_minimal``,
 
 Upstream: Rendered fitz page images.
 
-Downstream: ``ocr.vision.rapidocr_engine``, ``ocr.preprocess.legacy_fallback``.
+Downstream: ``ocr.vision.rapidocr_engine``, ``ocr.preprocess.pipeline``.
 """
 
 from __future__ import annotations

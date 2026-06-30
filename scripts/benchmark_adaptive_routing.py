@@ -19,14 +19,13 @@ Design (GA1.0-ODL-01 §Phase 4):
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 import time
-import asyncio
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from docmirror.input.entry.factory import PerceiveOptions
 from docmirror.input.entry.options import ParseControl
@@ -37,7 +36,7 @@ from docmirror.input.pipeline import perceive_document
 class AdaptiveBenchmarkRecord:
     golden_case_id: str
     document_type: str
-    mode: str               # "fixed-fast", "fixed-balanced", "fixed-accurate", "adaptive-auto"
+    mode: str  # "fixed-fast", "fixed-balanced", "fixed-accurate", "adaptive-auto"
     page_count: int
     total_pages: int
     elapsed_ms: float
@@ -58,10 +57,10 @@ def run_adaptive_benchmark(
     for mode in ["fixed-fast", "fixed-balanced", "fixed-accurate", "adaptive-auto"]:
         try:
             # Map benchmark mode to the unified parse control mode.
-            parse_mode = "fast" if mode == "fixed-fast" else (
-                "balanced" if mode == "fixed-balanced" else (
-                    "accurate" if mode == "fixed-accurate" else "auto"
-                )
+            parse_mode = (
+                "fast"
+                if mode == "fixed-fast"
+                else ("balanced" if mode == "fixed-balanced" else ("accurate" if mode == "fixed-accurate" else "auto"))
             )
             options = PerceiveOptions(control=ParseControl(mode=parse_mode))
 
@@ -86,33 +85,38 @@ def run_adaptive_benchmark(
                         routed_to.append(pm)
 
             pages_per_sec = round(page_count / elapsed_s, 1) if elapsed_s > 0 else 0.0
-            records.append(AdaptiveBenchmarkRecord(
-                golden_case_id=golden_case_id,
-                document_type=document_type,
-                mode=mode,
-                page_count=page_count,
-                total_pages=page_count,
-                elapsed_ms=elapsed_ms,
-                pages_per_sec=pages_per_sec,
-                pcs_scores=pcs_scores,
-                routed_to=routed_to,
-            ))
+            records.append(
+                AdaptiveBenchmarkRecord(
+                    golden_case_id=golden_case_id,
+                    document_type=document_type,
+                    mode=mode,
+                    page_count=page_count,
+                    total_pages=page_count,
+                    elapsed_ms=elapsed_ms,
+                    pages_per_sec=pages_per_sec,
+                    pcs_scores=pcs_scores,
+                    routed_to=routed_to,
+                )
+            )
         except Exception as e:
-            records.append(AdaptiveBenchmarkRecord(
-                golden_case_id=golden_case_id,
-                document_type=document_type,
-                mode=mode,
-                page_count=0,
-                total_pages=0,
-                elapsed_ms=0.0,
-                pages_per_sec=0.0,
-                error=str(e),
-            ))
+            records.append(
+                AdaptiveBenchmarkRecord(
+                    golden_case_id=golden_case_id,
+                    document_type=document_type,
+                    mode=mode,
+                    page_count=0,
+                    total_pages=0,
+                    elapsed_ms=0.0,
+                    pages_per_sec=0.0,
+                    error=str(e),
+                )
+            )
     return records
 
 
 def main() -> None:
     import argparse
+
     parser = argparse.ArgumentParser(description="Adaptive routing benchmark")
     parser.add_argument("--matrix", required=True, help="Path to golden-matrix.json")
     parser.add_argument("--output", required=True, help="Output JSON path")

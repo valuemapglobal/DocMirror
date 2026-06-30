@@ -3,7 +3,7 @@
 
 """Public compose exports."""
 
-from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows
+from docmirror.evidence.spe_consumer import mirror_expected_primary_rows
 from docmirror.tables.compose.composer import (
     TableComposer,
     build_table_operations,

@@ -18,9 +18,11 @@ Dependencies: ``header_resolve``, ``row_extract``, ``institution``, ``standardiz
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from docmirror.plugins._base.standardizer import normalize_amount
+from docmirror.plugins.bank_statement.context import StyleContext
 from docmirror.plugins.bank_statement.header_resolve import (
     detect_headers,
     has_split_debit_credit_headers,
@@ -28,12 +30,14 @@ from docmirror.plugins.bank_statement.header_resolve import (
 )
 from docmirror.plugins.bank_statement.institution import match_institution, normalize_table_headers
 from docmirror.plugins.bank_statement.row_extract import extract_all_tables, extract_rows_from_header
+from docmirror.plugins.bank_statement.wide_table_recovery import is_footer_or_total_row
 
 PARSER_ID = "grid_standard"
 STYLE_ID = "grid_standard"
 
 _SPLIT_DEBIT_KEYS = ("支出", "支出金额", "借方发生额", "借方")
 _SPLIT_CREDIT_KEYS = ("收入", "收入金额", "贷方发生额", "贷方")
+_DIRECTION_KEYS = ("收/支", "收支", "方向", "交易方向", "月收/支")
 
 
 def _cell_value(raw_txn: dict[str, str], *needles: str) -> str:
@@ -47,6 +51,10 @@ def _cell_value(raw_txn: dict[str, str], *needles: str) -> str:
 
 def normalize_split_debit_credit(raw_txn: dict[str, str], plugin: Any) -> dict[str, Any] | None:
     """Parse separate debit/credit columns into amount + direction."""
+    directed = _normalize_direction_amount(raw_txn, plugin)
+    if directed is not None:
+        return directed
+
     income = normalize_amount(_cell_value(raw_txn, *_SPLIT_CREDIT_KEYS))
     expense = normalize_amount(_cell_value(raw_txn, *_SPLIT_DEBIT_KEYS))
     if income is None and expense is None:
@@ -57,6 +65,10 @@ def normalize_split_debit_credit(raw_txn: dict[str, str], plugin: Any) -> dict[s
         return None
 
     normalized = plugin._normalize(raw_txn)
+    if normalized.get("counter_party"):
+        normalized["counter_party"] = _clean_wrapped_text(str(normalized.get("counter_party") or ""))
+    if normalized.get("counter_account"):
+        normalized["counter_account"] = _clean_account(str(normalized.get("counter_account") or ""))
     balance = normalize_amount(_cell_value(raw_txn, "余额", "账户余额", "本次余额", "账面余额"))
     if balance is not None:
         normalized["balance"] = float(balance)
@@ -71,7 +83,7 @@ def normalize_split_debit_credit(raw_txn: dict[str, str], plugin: Any) -> dict[s
             "Remarks",
         )
         if cp:
-            normalized["counter_party"] = cp
+            normalized["counter_party"] = _clean_wrapped_text(cp)
 
     if income > 0:
         normalized["amount"] = income
@@ -82,6 +94,50 @@ def normalize_split_debit_credit(raw_txn: dict[str, str], plugin: Any) -> dict[s
         normalized["amount_cny"] = expense
         normalized["direction"] = "expense"
     return normalized
+
+
+def _normalize_direction_amount(raw_txn: dict[str, str], plugin: Any) -> dict[str, Any] | None:
+    direction_raw = _cell_value(raw_txn, *_DIRECTION_KEYS)
+    amount = normalize_amount(_cell_value(raw_txn, "交易金额", "金额", "发生额", "Amount"))
+    if not direction_raw or amount is None or float(amount or 0) <= 0:
+        return None
+    direction = _normalize_direction_text(direction_raw)
+    if direction not in ("income", "expense"):
+        return None
+
+    normalized = plugin._normalize(raw_txn)
+    normalized["amount"] = float(amount)
+    normalized["amount_cny"] = float(amount)
+    normalized["direction"] = direction
+    balance = normalize_amount(_cell_value(raw_txn, "余额", "账户余额", "本次余额", "账面余额"))
+    if balance is not None:
+        normalized["balance"] = float(balance)
+    if normalized.get("counter_party"):
+        normalized["counter_party"] = _clean_wrapped_text(str(normalized.get("counter_party") or ""))
+    if normalized.get("counter_account"):
+        normalized["counter_account"] = _clean_account(str(normalized.get("counter_account") or ""))
+    return normalized
+
+
+def _normalize_direction_text(value: str) -> str:
+    text = str(value or "").strip()
+    if any(token in text for token in ("收入", "收人")):
+        return "income"
+    if any(token in text for token in ("支出", "支山", "支鼎", "攴出")):
+        return "expense"
+    return ""
+
+
+def _clean_wrapped_text(value: str) -> str:
+    text = re.sub(r"\s+", " ", value or "").strip()
+    return re.sub(r"(?<=[\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff])", "", text)
+
+
+def _clean_account(value: str) -> str:
+    text = str(value or "").strip()
+    if re.fullmatch(r"[0-9*\s＊]+", text):
+        return re.sub(r"\s+", "", text)
+    return re.sub(r"\s+", " ", text)
 
 
 def _extract_split_grid_records(
@@ -97,7 +153,7 @@ def _extract_split_grid_records(
             if not row or not any(str(c).strip() for c in row):
                 continue
             first_cell = str(row[0] or "").strip()
-            if any(kw in first_cell for kw in ("合计", "小计", "本页", "总计")):
+            if any(kw in first_cell for kw in ("合计", "小计", "本页", "总计")) or is_footer_or_total_row(row):
                 continue
             txn: dict[str, str] = {}
             for idx, cell in enumerate(row):

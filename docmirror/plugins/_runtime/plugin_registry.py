@@ -30,8 +30,8 @@ import logging
 import threading
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
-from typing import Any, Callable
+from collections.abc import Callable, Sequence
+from typing import Any
 
 from docmirror.configs.scene.loader import get_plugin_scene_keywords
 
@@ -92,6 +92,7 @@ class PluginRegistry:
         discovery tasks such as enterprise/finance plugin registration.
         """
         self._progress_callback = callback
+
     def register(self, plugin: DomainPlugin, *, override: bool = False) -> None:
         name = plugin.domain_name
         edition = plugin.edition
@@ -199,7 +200,11 @@ class PluginRegistry:
                 self.register(plugin)
 
             _community_elapsed = (time.perf_counter() - _discovery_start) * 1000
-            logger.info("[PluginRegistry] Community plugins registered in %.0f ms (%d plugins)", _community_elapsed, len(_community_plugins))
+            logger.info(
+                "[PluginRegistry] Community plugins registered in %.0f ms (%d plugins)",
+                _community_elapsed,
+                len(_community_plugins),
+            )
 
             try:
                 _ent_start = time.perf_counter()
@@ -211,7 +216,11 @@ class PluginRegistry:
                 enterprise_enable.register_enterprise_plugins(self)
                 _ent_elapsed = (time.perf_counter() - _ent_start) * 1000
                 _ent_count = len(self._plugins) - len(_community_plugins)
-                logger.info("[PluginRegistry] Enterprise plugins registered in %.0f ms (%d plugins total)", _ent_elapsed, _ent_count)
+                logger.info(
+                    "[PluginRegistry] Enterprise plugins registered in %.0f ms (%d plugins total)",
+                    _ent_elapsed,
+                    _ent_count,
+                )
                 if _on_progress:
                     _on_progress("community_plugin", 70.0, "Enterprise plugins registered...")
             except ImportError:
@@ -229,7 +238,11 @@ class PluginRegistry:
                 finance_enable.register_finance_plugins(self)
                 _fin_elapsed = (time.perf_counter() - _fin_start) * 1000
                 _pre_fin_count = len(self._plugins)
-                logger.info("[PluginRegistry] Finance plugins registered in %.0f ms (%d plugins total)", _fin_elapsed, len(self._plugins))
+                logger.info(
+                    "[PluginRegistry] Finance plugins registered in %.0f ms (%d plugins total)",
+                    _fin_elapsed,
+                    len(self._plugins),
+                )
                 if _on_progress:
                     _on_progress("community_plugin", 85.0, "Finance plugins registered...")
             except ImportError:
@@ -240,12 +253,16 @@ class PluginRegistry:
             logger.debug("[PluginRegistry] No docmirror.plugins package found")
         finally:
             _total_elapsed = (time.perf_counter() - _discovery_start) * 1000
-            logger.info("[PluginRegistry] Plugin discovery complete in %.0f ms — %d plugins in registry", _total_elapsed, len(self._plugins))
-
+            logger.info(
+                "[PluginRegistry] Plugin discovery complete in %.0f ms — %d plugins in registry",
+                _total_elapsed,
+                len(self._plugins),
+            )
 
 
 def resolve_dgc_status(domain: str) -> str:
     from docmirror.configs.ga_readiness import dgc_status_for_domain
+
     return dgc_status_for_domain(domain)
 
 

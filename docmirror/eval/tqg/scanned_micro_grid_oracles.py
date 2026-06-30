@@ -8,13 +8,14 @@ from __future__ import annotations
 from typing import Any
 
 from docmirror.eval.tqg.report import GateReport
-from docmirror.models.mirror.page_access import micro_grids_from_document
+from docmirror.models.mirror.page_access import micro_grid_structures_from_document
+from docmirror.models.mirror.vnext_access import iter_structures
 
 
 def _doc(mirror_or_api: Any) -> dict[str, Any]:
     if hasattr(mirror_or_api, "to_mirror_json_vnext"):
         api = mirror_or_api.to_mirror_json_vnext()
-        doc = (api.get("document") or {}) if isinstance(api, dict) else {}
+        doc = api if isinstance(api, dict) else {}
         entities = getattr(mirror_or_api, "entities", None)
         domain_specific = getattr(entities, "domain_specific", None) if entities is not None else None
         if isinstance(domain_specific, dict) and domain_specific.get("credit_repayment_records"):
@@ -25,9 +26,16 @@ def _doc(mirror_or_api: Any) -> dict[str, Any]:
         api = mirror_or_api
     else:
         api = {}
-    if isinstance(api.get("document"), dict):
+    if isinstance(api, dict) and api.get("pages"):
+        return api
+    if isinstance(api.get("document"), dict) and api["document"].get("pages"):
         return api["document"]
     return ((api.get("data") or {}).get("document") or {}) if isinstance(api, dict) else {}
+
+
+def _micro_grids(doc: dict[str, Any]) -> list[dict[str, Any]]:
+    grids = list(iter_structures(doc, kind="micro_grid"))
+    return grids if grids else micro_grid_structures_from_document(doc)
 
 
 def run_scanned_micro_grid_oracle(
@@ -40,7 +48,7 @@ def run_scanned_micro_grid_oracle(
 ) -> GateReport:
     report = GateReport(case_id=case_id, track=track, tier=tier)
     doc = _doc(mirror_or_api)
-    grids = micro_grids_from_document(doc)
+    grids = _micro_grids(doc)
     records = doc.get("repayment_records") or []
 
     min_grids = int(spec.get("min_micro_grids", 0) or 0)
@@ -94,7 +102,13 @@ def run_scanned_micro_grid_oracle(
 
     expected_cols = spec.get("expected_col_count")
     if expected_cols is not None:
-        ok = all(len(grid.get("col_bands") or []) == int(expected_cols) for grid in grids)
+
+        def _business_col_count(grid: dict[str, Any]) -> int:
+            col_bands = grid.get("col_bands") or []
+            month_cols = [col for col in col_bands if isinstance(col, dict) and col.get("role") == "month"]
+            return len(month_cols) if month_cols else len(col_bands)
+
+        ok = all(_business_col_count(grid) == int(expected_cols) for grid in grids)
         report.checks["scanned_micro_grid_expected_col_count"] = ok
         if not ok:
             report.passed = False

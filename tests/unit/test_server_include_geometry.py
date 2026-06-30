@@ -47,7 +47,7 @@ def test_build_api_response_mirror_level_forensic_includes_geometry():
     assert "timestamp" not in standard
     assert standard["mirror"]["schema"] == "docmirror.mirror_json"
     assert standard["source"]["provenance"]["output_ids"]["request_id"]
-    assert forensic["mirror"]["profile"] == "forensic"
+    assert forensic["mirror"]["profile"] == "canonical_full"
 
     standard_table = next(block for block in standard["blocks"] if block["type"] == "table")
     forensic_table = next(block for block in forensic["blocks"] if block["type"] == "table")

@@ -40,8 +40,8 @@ domains:
     - bank_statement_golden_signed_amount_json
     - bank_statement_golden_split_debit_credit_json
     - bank_statement_golden_split_debit_credit_boc_json
-    - golden_pcm_l3_credit_finance_json
-    - golden_pcm_mirror_volume_baseline_json
+    - golden_vnext_l3_credit_finance_json
+    - golden_vnext_mirror_volume_baseline_json
     cases:
     - id: bank_statement_community_cqf
       tier: regression
@@ -145,7 +145,7 @@ domains:
       - business_license_uscc_checksum_invalid
       - business_license_missing_required_field
       fixtures:
-        easy: tests/fixtures/business_license/成立日期注册资本营业期限中国_营业执照_万元整营业执照一人有限责任公司_201264.pdf
+        easy: tests/fixtures/business_license/synthetic_medium_variant.pdf
         medium: tests/fixtures/business_license/synthetic_medium_variant.pdf
         hard: tests/fixtures-private/adversarial/resource_bomb.pdf
         broken: tests/fixtures-private/broken/broken_business_license_placeholder.pdf
@@ -154,7 +154,7 @@ domains:
     cases:
     - id: business_license_community_kv
       tier: regression
-      fixture: fixtures/business_license/成立日期注册资本营业期限中国_营业执照_万元整营业执照一人有限责任公司_201264.pdf
+      fixture: fixtures/business_license/synthetic_medium_variant.pdf
       pipeline: edition
       editions:
       - community
@@ -241,7 +241,7 @@ fixture_assignments:
     - tests/fixtures-private/edge_case/edge_case_alipay_payment_placeholder.gitkeep
   business_license:
     easy:
-    - tests/fixtures/business_license/成立日期注册资本营业期限中国_营业执照_万元整营业执照一人有限责任公司_201264.pdf
+    - tests/fixtures/business_license/synthetic_medium_variant.pdf
     medium: null
     broken:
     - tests/fixtures-private/broken/broken_business_license_placeholder.gitkeep

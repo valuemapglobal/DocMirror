@@ -9,7 +9,6 @@ from docmirror.models.schemas.domain_contract_validator import (
     apply_domain_contract_validation,
     validate_domain_schema,
 )
-from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 
 
 def test_validate_bank_statement_missing_identity_fields():
@@ -74,15 +73,19 @@ def test_apply_domain_contract_strips_stale_identity_warnings():
     assert not any(w.startswith("missing_identity_field:") for w in payload["status"]["warnings"])
 
 
-def test_bank_domain_quality_uses_normalized_amount():
-    plugin = BankStatementCommunityPlugin()
+def test_bank_domain_contract_accepts_normalized_amount():
+    payload = {
+        "edition": "community",
+        "plugin": {"name": "bank_statement"},
+        "data": {
+            "fields": {"account_number": {"normalized_value": "6222000000000000"}},
+            "records": [
+                {"raw": {"收入金额": "100.00", "支出金额": "0"}, "normalized": {"date": "2023-01-01", "amount": 100.0}},
+                {"raw": {"收入金额": "0", "支出金额": "50.00"}, "normalized": {"date": "2023-01-02", "amount": 50.0}},
+            ],
+        },
+        "status": {"success": True, "warnings": [], "errors": []},
+    }
 
-    class _Result:
-        records = [
-            {"raw": {"收入金额": "100.00", "支出金额": "0"}, "normalized": {"amount": 100.0}},
-            {"raw": {"收入金额": "0", "支出金额": "50.00"}, "normalized": {"amount": 50.0}},
-        ]
-        warnings = []
-
-    quality = plugin._build_bank_domain_quality_result(_Result(), {"total_rows": 2})
-    assert quality["amount_parse_rate"] == 1.0
+    report = validate_domain_schema(payload, "bank_statement")
+    assert report.required_records_passed is True

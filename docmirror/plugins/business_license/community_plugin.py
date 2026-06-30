@@ -12,7 +12,7 @@ archetype). Maps identity labels (company name, USCC, legal representative, etc.
 validates USCC checksum in enrich step, and emits v2.0 community JSON.
 
 Pipeline role: ``runner._run_community_extract`` invokes ``extract_from_mirror``;
-``build_domain_data`` provides KV fallback for legacy entity paths.
+``build_domain_data`` provides KV fallback for raw entity paths.
 
 Key exports: ``BusinessLicensePlugin``, ``plugin``.
 

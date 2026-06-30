@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import logging
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from docmirror.models.entities.parse_result import (
     CellValue,
@@ -99,11 +99,12 @@ def _cluster_y(cells: list[_Cell]) -> list[list[_Cell]]:
 def _split_x(line: list[_Cell]) -> list[list[_Cell]]:
     """Split cells into columns using GCR (Geometry Column Reconstruction).
 
-    Uses Otsu-like gap clustering instead of the legacy fixed-threshold
+    Uses Otsu-like gap clustering instead of the raw fixed-threshold
     approach, which generalises better across varied page widths and
     font sizes.
     """
     from docmirror.ocr.reconstruct.gcr import GCRColumns
+
     return GCRColumns.split_line(line)
 
 
@@ -145,16 +146,19 @@ def _to_table(grid: list[list[str]]) -> TableBlock | None:
     nc = max(len(r) for r in grid)
     norm = [r + [""] * (nc - len(r)) for r in grid]
     has_num = any(
-        any(c.replace(",", "").replace(".", "").replace("-", "").strip().isdigit()
-            for c in row if c.strip())
+        any(c.replace(",", "").replace(".", "").replace("-", "").strip().isdigit() for c in row if c.strip())
         for row in norm[1:4]
     )
     headers = norm[0] if has_num else []
     rows_raw = norm[1:] if has_num else norm
     rows = [TableRow(cells=[CellValue(text=str(c)) for c in r]) for r in rows_raw]
     return TableBlock(
-        table_id="geo_table_0", headers=headers, rows=rows, page=1,
-        confidence=0.85, extraction_layer="geometric_reconstructor",
+        table_id="geo_table_0",
+        headers=headers,
+        rows=rows,
+        page=1,
+        confidence=0.85,
+        extraction_layer="geometric_reconstructor",
         metadata={"source": "geometric_reconstructor"},
     )
 
@@ -223,7 +227,8 @@ class GeometricReconstructor(BaseMiddleware):
             # Fall back to line-level texts
             cells = [
                 _Cell(text=t.content, x0=t.bbox[0], y0=t.bbox[1], x1=t.bbox[2], y1=t.bbox[3])
-                for p in result.pages for t in p.texts
+                for p in result.pages
+                for t in p.texts
                 if t.bbox and len(t.bbox) == 4 and t.content.strip()
             ]
         # (if both sources fail, cells remains empty and we return early below)
@@ -240,8 +245,11 @@ class GeometricReconstructor(BaseMiddleware):
 
         result.pages[0].tables.append(table)
         result.record_mutation(
-            "GeometricReconstructor", target_block_id="pages",
-            field_changed="tables", old_value=[], new_value=f"{len(grid)}r x {len(grid[0])}c",
+            "GeometricReconstructor",
+            target_block_id="pages",
+            field_changed="tables",
+            old_value=[],
+            new_value=f"{len(grid)}r x {len(grid[0])}c",
             reason="geometric_reconstructor",
         )
         logger.info(f"[GeometricReconstructor] {len(grid)}r x {len(grid[0])}c from {len(cells)} blocks")

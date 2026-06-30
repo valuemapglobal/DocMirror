@@ -1,8 +1,8 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.structure.ocr.page_canvas.page_segment import detect_pre_grid_field_supplements
-from docmirror.structure.ocr.local_structure.utils import line_items
+from docmirror.layout.segment.page_blocks import detect_pre_grid_field_supplements
+from docmirror.ocr.local_structure.utils import line_items
 
 
 def _account1_prefix_lines():
@@ -20,8 +20,8 @@ def _account1_prefix_lines():
 def test_pre_grid_field_supplement_infers_account1_anchor():
     lines = _account1_prefix_lines()
     items = line_items(lines, page=4)
-    from docmirror.structure.ocr.local_structure.models import LocalStructureCandidate
-    from docmirror.structure.ocr.page_canvas.page_segment import lines_to_synthetic_tokens
+    from docmirror.layout.segment.page_blocks import lines_to_synthetic_tokens
+    from docmirror.ocr.local_structure.models import LocalStructureCandidate
 
     tokens = lines_to_synthetic_tokens(lines[3:], page=4)
     existing = [

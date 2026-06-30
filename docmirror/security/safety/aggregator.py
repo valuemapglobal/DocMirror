@@ -24,9 +24,8 @@ from enum import Enum
 from typing import Any
 
 from docmirror.security.safety.hidden_text import HiddenTextDetector, HiddenTextFlag
-from docmirror.security.safety.zero_width import ZeroWidthDetector, ZeroWidthFlag
 from docmirror.security.safety.injection import InjectionDetector, InjectionResult
-
+from docmirror.security.safety.zero_width import ZeroWidthDetector, ZeroWidthFlag
 
 # ── Strictness ────────────────────────────────────────────────────────────
 
@@ -62,11 +61,7 @@ class SafetyReport:
     @property
     def has_findings(self) -> bool:
         """Returns ``True`` if any detector found suspicious content."""
-        return (
-            self.hidden_text_count > 0
-            or self.zero_width_count > 0
-            or self.injection_risk > 0.0
-        )
+        return self.hidden_text_count > 0 or self.zero_width_count > 0 or self.injection_risk > 0.0
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise report to a plain dict for evidence-ledger use."""
@@ -194,9 +189,7 @@ class SafetyAggregator:
         if strictness_enum == SafetyStrictness.HIGH and text_blocks is not None:
             visible_blocks = self.hidden_text.sanitize(text_blocks)
             # Reconstruct text from visible blocks only
-            safe_text = "\n".join(
-                b.get("content", "") for b in visible_blocks
-            )
+            safe_text = "\n".join(b.get("content", "") for b in visible_blocks)
 
         return safe_text
 
@@ -221,11 +214,7 @@ class SafetyAggregator:
         # Update report with sanitisation metadata
         report.sanitized = safe_text != text
         report.strictness_applied = strictness
-        report.blocks_removed = (
-            len(text_blocks) - len(text.split("\n"))
-            if text_blocks and strictness == "high"
-            else 0
-        )
+        report.blocks_removed = len(text_blocks) - len(text.split("\n")) if text_blocks and strictness == "high" else 0
         original_len = len(text)
         safe_len = len(safe_text)
         report.chars_removed = max(0, original_len - safe_len)

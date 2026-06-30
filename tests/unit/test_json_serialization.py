@@ -19,8 +19,8 @@ from docmirror.models.entities.parse_result import (
     ResultStatus,
     TableOperation,
 )
-from docmirror.output.debug.artifact import build_debug_artifact, write_debug_artifact
-from docmirror.output.serialization import assert_json_serializable, dumps_json, to_json_safe
+from docmirror.runtime.debug_artifact import build_debug_artifact, write_debug_artifact
+from docmirror.runtime.serialization import assert_json_serializable, dumps_json, to_json_safe
 
 
 class _SampleEnum(str, Enum):

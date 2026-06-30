@@ -17,7 +17,7 @@
 
 import pytest
 from datetime import datetime
-from docmirror.structure.tables.signature import (
+from docmirror.tables.signature import (
     TypeSignature,
     TypeSignatureLibrary,
     ColumnSignatureProfile,

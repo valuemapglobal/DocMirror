@@ -9,7 +9,7 @@ Excel Adapter — .xlsx / .csv → ParseResult (Cell-level precision)
 =================================================================
 
 Native ``.xlsx`` via openpyxl; ``.csv`` delegated to StructuredAdapter.
-Legacy ``.xls`` is transcoded to ``.xlsx`` upstream by ``TranscodingGate`` (FCR).
+Older ``.xls`` is transcoded to ``.xlsx`` upstream by ``TranscodingGate`` (FCR).
 """
 
 from __future__ import annotations
@@ -110,8 +110,7 @@ class ExcelAdapter(BaseParser):
         if ext not in (".xlsx", ".csv"):
             return build_failure_result(
                 "FORMAT_REQUIRES_CONVERTER",
-                f"ExcelAdapter requires .xlsx or .csv; got {ext}. "
-                "Legacy .xls is transcoded by the extraction pipeline.",
+                f"ExcelAdapter requires .xlsx or .csv; got {ext}. Older .xls is transcoded by the extraction pipeline.",
                 file_path=str(file_path),
                 file_type="excel",
             )
@@ -185,12 +184,12 @@ class ExcelAdapter(BaseParser):
 
     async def to_base_result(self, file_path: Path) -> BaseResult:
         """
-        Fallback: Parse .xlsx into BaseResult via ParseResultBridge.
+        Parse .xlsx into BaseResult via the canonical input bridge.
 
         Delegates to ``to_parse_result()`` then converts down to BaseResult,
         preserving the Cell-level precision extraction path.
         """
-        from docmirror.models.construction.parse_result_bridge import ParseResultBridge
+        from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
 
         pr = await self.to_parse_result(file_path)
         return ParseResultBridge.to_base_result(pr)

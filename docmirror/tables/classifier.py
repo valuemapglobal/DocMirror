@@ -25,7 +25,7 @@ import logging
 import math
 import re
 
-from docmirror.structure.utils.vocabulary import PIPE_CHARS, _score_header_by_vocabulary
+from docmirror.layout.vocabulary import PIPE_CHARS, _score_header_by_vocabulary
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ def _cell_is_stuffed(cell: str) -> bool:
 
     Notes:
       - Dates use ``(?:19|20)\\d{6}`` instead of ``\\d{8}`` to avoid
-        treating phone numbers (e.g. 13883435811) as 8-digit dates.
+        treating mobile-like identifiers as 8-digit dates.
       - Amounts use word-boundary regex to prevent substring double-counting
         (e.g. '3000000.00' containing '000.00').
       - No ``\\n`` check: hline_columns joins cell text with spaces, not newlines.

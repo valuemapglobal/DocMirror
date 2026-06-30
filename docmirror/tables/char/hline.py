@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 
-from docmirror.structure.utils.vocabulary import _is_header_row
+from docmirror.layout.vocabulary import _is_header_row
 
 logger = logging.getLogger(__name__)
 

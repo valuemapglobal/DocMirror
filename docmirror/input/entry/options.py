@@ -18,7 +18,7 @@ from typing import Any, Literal
 EnhanceMode = Literal["raw", "standard", "full"]
 ParseMode = Literal["auto", "fast", "balanced", "accurate", "forensic"]
 MirrorLevel = Literal["standard", "compact", "forensic"]
-OutputFormat = Literal["json", "markdown", "csv", "chunks", "html", "parquet"]
+OutputFormat = Literal["json", "markdown", "csv", "chunks", "html", "parquet", "evidence"]
 CachePolicy = Literal["read-write", "read-only", "refresh", "off"]
 DocTypePolicy = Literal["prefer", "force"]
 Edition = Literal["mirror", "community", "enterprise", "finance"]
@@ -27,7 +27,7 @@ OcrMode = Literal["auto", "force", "off", "fallback"]
 SafetyMode = Literal["off", "low", "medium", "high"]
 """Safety inspection strictness for AI pipeline defense.
 
-- off: No safety inspection (pass-through, backward compatible).
+- off: No safety inspection (pass-through, stable API behavior).
 - low: Detect only — report findings, no auto-sanitize.
 - medium: Remove zero-width chars + flag hidden text (default).
 - high: Remove hidden text + zero-width chars + flag injections.
@@ -40,7 +40,8 @@ _FORMAT_ALIASES = {
     "rag_chunks": "chunks",
 }
 _STABLE_FORMATS: tuple[OutputFormat, ...] = ("json", "markdown", "csv", "chunks", "html", "parquet")
-_VALID_FORMATS = frozenset(_STABLE_FORMATS)
+_AUX_FORMATS: tuple[OutputFormat, ...] = ("evidence",)
+_VALID_FORMATS = frozenset((*_STABLE_FORMATS, *_AUX_FORMATS))
 _VALID_MODES = frozenset(("auto", "fast", "balanced", "accurate", "forensic"))
 _VALID_MIRROR_LEVELS = frozenset(("standard", "compact", "forensic"))
 _VALID_CACHE_POLICIES = frozenset(("read-write", "read-only", "refresh", "off"))
@@ -169,7 +170,6 @@ class ParseControl:
     skip_cache: bool = False
     mode_decision: dict[str, Any] = field(default_factory=dict)
     implicit_promotions: tuple[dict[str, str], ...] = ()
-    deprecated_mappings: tuple[dict[str, str], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -333,7 +333,6 @@ def parse_editions(raw: str | list[str] | tuple[str, ...] | None) -> tuple[Editi
     return tuple(out)  # type: ignore[return-value]
 
 
-
 def parse_cache_policy(raw: str | None = None, *, skip_cache: bool | None = None) -> CachePolicy:
     if raw is not None:
         normalized = raw.strip().lower()
@@ -453,16 +452,6 @@ def normalize_parse_control(
     if workers is not None:
         resource = ResourceControl(workers=parse_workers(workers), page_executor=resource.page_executor)
 
-    deprecated_mappings = list(base.deprecated_mappings)
-    if skip_cache is True and cache_policy is None:
-        deprecated_mappings.append({"from": "--skip-cache", "to": "--cache-policy refresh"})
-    elif skip_cache is False and cache_policy is None:
-        deprecated_mappings.append({"from": "--use-cache", "to": "--cache-policy read-write"})
-    if include_geometry:
-        deprecated_mappings.append({"from": "--include-geometry", "to": "--geometry full"})
-    if doc_type_hint is not None:
-        deprecated_mappings.append({"from": "--doc-type-hint", "to": "--doc-type + --doc-type-policy"})
-
     resolved_cache_policy = base.execution.cache_policy
     if cache_policy is not None:
         resolved_cache_policy = parse_cache_policy(cache_policy)
@@ -550,13 +539,13 @@ def normalize_parse_control(
         )
 
     return ParseControl(
-         pages=page_selection,
-         resource=resource,
-         mode=resolved_mode,  # type: ignore[arg-type]
-         execution=execution,
+        pages=page_selection,
+        resource=resource,
+        mode=resolved_mode,  # type: ignore[arg-type]
+        execution=execution,
         safety=base.safety,
-         output=output,
-         doc_type_hint=hint,
+        output=output,
+        doc_type_hint=hint,
         skip_cache=execution.cache_policy in {"refresh", "off"},
         mode_decision={
             "requested": resolved_mode,
@@ -567,7 +556,6 @@ def normalize_parse_control(
             else "explicit mode",
         },
         implicit_promotions=tuple(implicit_promotions),
-        deprecated_mappings=tuple(deprecated_mappings),
     )
 
 

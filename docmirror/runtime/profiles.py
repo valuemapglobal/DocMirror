@@ -11,7 +11,7 @@ strategy, visual debug policy, and size guards.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal
 
 CostProfileName = Literal["compact", "full", "forensic"]
@@ -121,9 +121,8 @@ def resolve_profile(profile_name: str | CostProfileName) -> ProfileResolution:
         return _PROFILE_MAP[normalized]
 
     import logging
-    logging.getLogger(__name__).warning(
-        "Unknown cost profile '%s', falling back to 'full'", profile_name
-    )
+
+    logging.getLogger(__name__).warning("Unknown cost profile '%s', falling back to 'full'", profile_name)
     return FULL_PROFILE
 
 

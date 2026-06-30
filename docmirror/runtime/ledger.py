@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-import time
 from pathlib import Path
 from typing import Any
 
@@ -227,7 +226,7 @@ def build_manifest_v2(
 ) -> dict[str, Any]:
     """Construct a manifest v2 dict with all baseline fields.
 
-    Backward-compatible with v1: all v1 field names are preserved.
+    Stable with v1: all v1 field names are preserved.
     """
     manifest: dict[str, Any] = {
         "version": 2,

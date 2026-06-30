@@ -16,8 +16,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from docmirror.input.adapters.data.deserializers import DESERIALIZERS
 from docmirror.framework.base import BaseParser
+from docmirror.input.adapters.data.deserializers import DESERIALIZERS
 
 logger = logging.getLogger(__name__)
 

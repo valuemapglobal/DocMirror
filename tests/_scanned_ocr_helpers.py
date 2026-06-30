@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from docmirror.structure.ocr.micro_grid.models import OCRToken
-from docmirror.structure.ocr.scanned.universal import ocr_extract_universal
+from docmirror.ocr.micro_grid.models import OCRToken
+from docmirror.ocr.scanned.universal import ocr_extract_universal
 
 
 def scaled_tokens(raw_tokens: list[dict[str, Any]] | None, *, page_number: int, sx: float, sy: float) -> list[OCRToken]:

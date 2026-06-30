@@ -13,12 +13,10 @@ Design reference: docs/design/GA1.0/12_privacy_security_compliance_ga_gap_closur
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
-from pathlib import Path
 
 from docmirror.security.security_ledger import ResourceGateDecision
-
 
 # Default resource limits (can be overridden via env or settings)
 DEFAULT_LIMITS = {
@@ -48,7 +46,9 @@ DEFAULT_LIMITS = {
         "max_temp_quota": 2_000_000_000,
         "allowed_content_types": [
             "application/pdf",
-            "image/png", "image/jpeg", "image/tiff",
+            "image/png",
+            "image/jpeg",
+            "image/tiff",
             "application/zip",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -59,6 +59,7 @@ DEFAULT_LIMITS = {
 
 class ResourceGateBlockedError(Exception):
     """Raised when a resource gate check blocks the input."""
+
     def __init__(self, component: str, code: str, reason: str = ""):
         self.component = component
         self.code = code
@@ -69,6 +70,7 @@ class ResourceGateBlockedError(Exception):
 @dataclass
 class ArchivePreflightResult:
     """Result of an archive resource preflight check."""
+
     allowed: bool
     code: str = "archive_resource_limit"
     file_size: int = 0
@@ -84,6 +86,7 @@ class ArchivePreflightResult:
 @dataclass
 class PDFPreflightResult:
     """Result of a PDF resource preflight check."""
+
     allowed: bool
     code: str = "pdf_resource_limit"
     file_size: int = 0
@@ -97,6 +100,7 @@ class PDFPreflightResult:
 @dataclass
 class ImagePreflightResult:
     """Result of an image resource preflight check."""
+
     allowed: bool
     code: str = "image_resource_limit"
     width: int = 0
@@ -140,7 +144,6 @@ def check_archive_preflight(
     max_depth_limit = _get_limit("archive", "max_depth", 10)
     max_uncompressed = _get_limit("archive", "max_uncompressed_size", 500_000_000)
     max_ratio = _get_limit("archive", "max_compression_ratio", 100)
-    max_single = _get_limit("archive", "max_single_entry_size", 200_000_000)
 
     actual_size = file_size or (os.path.getsize(filepath) if os.path.exists(filepath) else 0)
     ratio = uncompressed_size / max(actual_size, 1)
@@ -148,7 +151,10 @@ def check_archive_preflight(
     checks: list[tuple[bool, str]] = [
         (entry_count <= max_entries, f"entry_count={entry_count} exceeds max={max_entries}"),
         (max_depth <= max_depth_limit, f"depth={max_depth} exceeds max={max_depth_limit}"),
-        (uncompressed_size <= max_uncompressed, f"uncompressed_size={uncompressed_size} exceeds max={max_uncompressed}"),
+        (
+            uncompressed_size <= max_uncompressed,
+            f"uncompressed_size={uncompressed_size} exceeds max={max_uncompressed}",
+        ),
         (ratio <= max_ratio, f"compression_ratio={ratio:.1f} exceeds max={max_ratio}"),
         (not has_unsafe_paths, "unsafe path detected"),
         (not has_symlinks, "symlinks not allowed"),
@@ -262,10 +268,12 @@ def check_rest_upload(
     ]
 
     if allowed_types and content_type:
-        checks.append((
-            content_type in allowed_types,
-            f"content_type={content_type} not in allowlist",
-        ))
+        checks.append(
+            (
+                content_type in allowed_types,
+                f"content_type={content_type} not in allowlist",
+            )
+        )
 
     blocked = [reason for ok, reason in checks if not ok]
     status = "pass" if not blocked else "blocked"

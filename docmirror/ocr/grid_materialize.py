@@ -127,7 +127,7 @@ def assign_tokens_to_col_bands_exclusive(
     *,
     min_token_overlap: float = 0.20,
 ) -> dict[int, list[OCRToken]]:
-    """Row-scoped exclusive assign (backward-compatible bucket keyed by col index)."""
+    """Row-scoped exclusive assign keyed by column index."""
     bands = list(col_bands)
     grid = exclusive_assign_tokens_to_grid(
         tokens,

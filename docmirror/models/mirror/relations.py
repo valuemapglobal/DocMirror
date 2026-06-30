@@ -21,7 +21,6 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-
 FIGURE_PATTERNS = [
     re.compile(r"图\s*\d+", re.IGNORECASE),
     re.compile(r"fig(?:ure)?\s*\d+", re.IGNORECASE),
@@ -51,6 +50,7 @@ _FORMULA_NUM_DIGIT = re.compile(
 @dataclass
 class FormulaRefEvidence:
     """Evidence extracted from a formula reference in text."""
+
     pattern: str = ""
     confidence: float = 0.0
 
@@ -82,24 +82,22 @@ def resolve_relations(
         img_page = img.get("page", 1)
         img_ro = img.get("reading_order", 0)
 
-        nearby_texts = [
-            t for t in texts
-            if t.get("page") == img_page
-            and abs(t.get("reading_order", 0) - img_ro) <= 3
-        ]
+        nearby_texts = [t for t in texts if t.get("page") == img_page and abs(t.get("reading_order", 0) - img_ro) <= 3]
 
         for nt in nearby_texts:
             nt_text = str(nt.get("text") or "")
             if _matches_any_pattern(nt_text, FIGURE_PATTERNS):
-                relations.append({
-                    "relation_id": f"rel:caption:{nt.get('node_id', '')}:{img.get('node_id', '')}",
-                    "type": "caption_of",
-                    "from_node": nt.get("node_id", ""),
-                    "to_node": img.get("node_id", ""),
-                    "confidence": 0.85,
-                    "policy": "nearby_text_pattern_v1",
-                    "evidence_refs": [nt.get("node_id", ""), img.get("node_id", "")],
-                })
+                relations.append(
+                    {
+                        "relation_id": f"rel:caption:{nt.get('node_id', '')}:{img.get('node_id', '')}",
+                        "type": "caption_of",
+                        "from_node": nt.get("node_id", ""),
+                        "to_node": img.get("node_id", ""),
+                        "confidence": 0.85,
+                        "policy": "nearby_text_pattern_v1",
+                        "evidence_refs": [nt.get("node_id", ""), img.get("node_id", "")],
+                    }
+                )
                 break
 
     # 2. Title_of: heading-like text near table
@@ -107,24 +105,22 @@ def resolve_relations(
         tbl_page = tbl.get("page", 1)
         tbl_ro = tbl.get("reading_order", 0)
 
-        nearby_texts = [
-            t for t in texts
-            if t.get("page") == tbl_page
-            and abs(t.get("reading_order", 0) - tbl_ro) <= 2
-        ]
+        nearby_texts = [t for t in texts if t.get("page") == tbl_page and abs(t.get("reading_order", 0) - tbl_ro) <= 2]
 
         for nt in nearby_texts:
             nt_text = str(nt.get("text") or "")
             if _matches_any_pattern(nt_text, TABLE_PATTERNS):
-                relations.append({
-                    "relation_id": f"rel:title:{nt.get('node_id', '')}:{tbl.get('node_id', '')}",
-                    "type": "title_of",
-                    "from_node": nt.get("node_id", ""),
-                    "to_node": tbl.get("node_id", ""),
-                    "confidence": 0.85,
-                    "policy": "nearby_text_pattern_v1",
-                    "evidence_refs": [nt.get("node_id", ""), tbl.get("node_id", "")],
-                })
+                relations.append(
+                    {
+                        "relation_id": f"rel:title:{nt.get('node_id', '')}:{tbl.get('node_id', '')}",
+                        "type": "title_of",
+                        "from_node": nt.get("node_id", ""),
+                        "to_node": tbl.get("node_id", ""),
+                        "confidence": 0.85,
+                        "policy": "nearby_text_pattern_v1",
+                        "evidence_refs": [nt.get("node_id", ""), tbl.get("node_id", "")],
+                    }
+                )
                 break
 
     # ── 3. GA F9: Formula references with explicit numbering ──────────────
@@ -135,11 +131,7 @@ def resolve_relations(
         fm_page = fm.get("page", 1)
         fm_ro = fm.get("reading_order", 0)
 
-        nearby_texts = [
-            t for t in texts
-            if t.get("page") == fm_page
-            and abs(t.get("reading_order", 0) - fm_ro) <= 3
-        ]
+        nearby_texts = [t for t in texts if t.get("page") == fm_page and abs(t.get("reading_order", 0) - fm_ro) <= 3]
 
         for nt in nearby_texts:
             nt_text = str(nt.get("text") or "")
@@ -150,31 +142,35 @@ def resolve_relations(
                 target = _find_formula_by_number(formulas, formula_num, fm_page)
                 if target is not None:
                     evidence = _extract_formula_evidence(nt_text, formula_num)
-                    relations.append({
-                        "relation_id": f"rel:formula_number_of:{nt.get('node_id', '')}:{target.get('node_id', '')}",
-                        "type": "formula_number_of",
-                        "from_node": nt.get("node_id", ""),
-                        "to_node": target.get("node_id", ""),
-                        "confidence": evidence.confidence,
-                        "policy": "formula_number_pattern_v1",
-                        "evidence_refs": [nt.get("node_id", ""), target.get("node_id", "")],
-                        "metadata": {
-                            "pattern": evidence.pattern,
-                            "formula_number": formula_num,
-                        },
-                    })
+                    relations.append(
+                        {
+                            "relation_id": f"rel:formula_number_of:{nt.get('node_id', '')}:{target.get('node_id', '')}",
+                            "type": "formula_number_of",
+                            "from_node": nt.get("node_id", ""),
+                            "to_node": target.get("node_id", ""),
+                            "confidence": evidence.confidence,
+                            "policy": "formula_number_pattern_v1",
+                            "evidence_refs": [nt.get("node_id", ""), target.get("node_id", "")],
+                            "metadata": {
+                                "pattern": evidence.pattern,
+                                "formula_number": formula_num,
+                            },
+                        }
+                    )
                     break
             # Fallback: generic formula reference pattern
             elif _matches_any_pattern(nt_text, FORMULA_PATTERNS):
-                relations.append({
-                    "relation_id": f"rel:formula_ref:{nt.get('node_id', '')}:{fm.get('node_id', '')}",
-                    "type": "references",
-                    "from_node": nt.get("node_id", ""),
-                    "to_node": fm.get("node_id", ""),
-                    "confidence": 0.70,
-                    "policy": "nearby_text_pattern_v1",
-                    "evidence_refs": [nt.get("node_id", ""), fm.get("node_id", "")],
-                })
+                relations.append(
+                    {
+                        "relation_id": f"rel:formula_ref:{nt.get('node_id', '')}:{fm.get('node_id', '')}",
+                        "type": "references",
+                        "from_node": nt.get("node_id", ""),
+                        "to_node": fm.get("node_id", ""),
+                        "confidence": 0.70,
+                        "policy": "nearby_text_pattern_v1",
+                        "evidence_refs": [nt.get("node_id", ""), fm.get("node_id", "")],
+                    }
+                )
                 break
 
     return relations
@@ -183,6 +179,7 @@ def resolve_relations(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Internal helpers
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _matches_any_pattern(text: str, patterns: list[re.Pattern]) -> bool:
     """Check if text matches any of the given regex patterns."""
@@ -205,7 +202,8 @@ def _extract_formula_evidence(text: str, formula_num: str) -> FormulaRefEvidence
     # Explicit: "Eq. (5)" or "Equation (5)"
     explicit = re.search(
         rf"(?:公式|式|Equation|Eq\.)\s*[\(（]\s*{re.escape(formula_num)}\s*[\)）]",
-        text, re.IGNORECASE,
+        text,
+        re.IGNORECASE,
     )
     if explicit:
         return FormulaRefEvidence(pattern="explicit_paren", confidence=0.90)
@@ -213,7 +211,8 @@ def _extract_formula_evidence(text: str, formula_num: str) -> FormulaRefEvidence
     # Partial: "Eq. 5" or "Eq 5"
     partial = re.search(
         rf"(?:公式|式|Equation|Eq\.?)\s*{re.escape(formula_num)}",
-        text, re.IGNORECASE,
+        text,
+        re.IGNORECASE,
     )
     if partial:
         return FormulaRefEvidence(pattern="explicit_no_paren", confidence=0.80)

@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
+from docmirror.evidence.spe_consumer import mirror_api_meta_fields
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ParserInfo
-from docmirror.structure.analysis.spe_consumer import mirror_api_meta_fields
 
 
 def test_mirror_api_meta_fields_ltqg_and_quarantine():
@@ -25,7 +25,7 @@ def test_mirror_api_meta_fields_ltqg_and_quarantine():
                 "ltqg_passed_tables": 1,
                 "ltqg_skipped_tables": 0,
                 "ltqg_export_logical_tables": 1,
-                "ltqg_legacy_max_rows": 120,
+                "ltqg_raw_max_rows": 120,
                 "physical_table_count": 5,
                 "dual_view": True,
                 "quarantined_physical_count": 2,
@@ -36,7 +36,7 @@ def test_mirror_api_meta_fields_ltqg_and_quarantine():
     assert meta["dual_view"] is True
     assert meta["plugin_document_type"] == "bank_statement"
     assert meta["mirror_expected_data_rows"] == 47
-    assert meta["ltqg"]["legacy_max_rows"] == 120
+    assert meta["ltqg"]["raw_max_rows"] == 120
     assert meta["quarantine"]["physical_count"] == 2
 
 

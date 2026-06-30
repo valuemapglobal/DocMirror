@@ -7,7 +7,7 @@ route_taxonomy:
       - generic_fallback
       - enterprise_only
       - mirror_only
-    deprecated:
+    retired:
       - premium
 
 community_core_domains:

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.plugins._base.bank_compact_parser import (
+from docmirror.plugins.bank_statement.styles.compact_merged import (
     extract_compact_ledger_transactions,
     normalize_compact_transaction,
     parse_compact_ledger_cell,

@@ -14,7 +14,7 @@ Negative Space Analyzer 单元测试
 
 import pytest
 import numpy as np
-from docmirror.structure.segment.negative_space import NegativeSpaceAnalyzer, NegativeSpaceProfile
+from docmirror.layout.segment.negative_space import NegativeSpaceAnalyzer, NegativeSpaceProfile
 
 
 class TestNegativeSpaceProfile:

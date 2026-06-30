@@ -27,13 +27,13 @@ def test_click_cli_geometry_full_is_canonical(monkeypatch, tmp_path):
     assert seen["include_geometry"] is None
 
 
-def test_click_cli_help_hides_removed_legacy_options():
+def test_click_cli_help_hides_removed_options():
     from docmirror.cli.main import parse
 
     result = CliRunner().invoke(parse, ["--help"])
 
     assert result.exit_code == 0, result.output
-    for legacy in (
+    for raw in (
         "--skip-cache",
         "--use-cache",
         "--no-use-cache",
@@ -42,17 +42,17 @@ def test_click_cli_help_hides_removed_legacy_options():
         "--export-csv",
         "--export-chunks",
     ):
-        assert legacy not in result.output
+        assert raw not in result.output
 
 
-def test_click_cli_rejects_removed_legacy_options(tmp_path):
+def test_click_cli_rejects_removed_options(tmp_path):
     from docmirror.cli.main import parse
 
     src = tmp_path / "sample.txt"
     src.write_text("hello", encoding="utf-8")
 
-    for legacy in ("--include-geometry", "--skip-cache", "--doc-type-hint", "--export-csv"):
-        result = CliRunner().invoke(parse, [str(src), legacy])
+    for raw in ("--include-geometry", "--skip-cache", "--doc-type-hint", "--export-csv"):
+        result = CliRunner().invoke(parse, [str(src), raw])
         assert result.exit_code != 0
         assert "No such option" in result.output
 
@@ -105,3 +105,23 @@ def test_click_cli_passes_converged_contract_options(monkeypatch, tmp_path):
     assert seen["mirror_level"] == "compact"
     assert seen["run_id"] == "test_run"
     assert seen["overwrite"] is True
+
+
+def test_click_cli_default_editions_are_license_aware(monkeypatch, tmp_path):
+    from docmirror.cli.main import parse
+
+    seen = {}
+
+    async def fake_parse_document(*args, **kwargs):
+        seen.update(kwargs)
+
+    import docmirror.__main__ as main_mod
+
+    monkeypatch.setattr(main_mod, "parse_document", fake_parse_document)
+    src = tmp_path / "sample.txt"
+    src.write_text("hello", encoding="utf-8")
+
+    result = CliRunner().invoke(parse, [str(src)])
+
+    assert result.exit_code == 0, result.output
+    assert seen["editions"] is None

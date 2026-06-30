@@ -19,14 +19,12 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from docmirror.runtime.serialization import dumps_json
-
 logger = logging.getLogger(__name__)
 
 # ── Default size guards per cost profile ───────────────────────────────
 PROFILE_SIZE_GUARDS: dict[str, int] = {
-    "compact": 20 * 1024 * 1024,    #  20 MB
-    "full":    100 * 1024 * 1024,   # 100 MB
+    "compact": 20 * 1024 * 1024,  #  20 MB
+    "full": 100 * 1024 * 1024,  # 100 MB
     "forensic": 500 * 1024 * 1024,  # 500 MB
 }
 
@@ -153,7 +151,9 @@ class IntermediateArtifactWriter:
         if over:
             logger.warning(
                 "Intermediate artifact size (%s bytes) exceeds %s profile guard (%s bytes)",
-                self._total_bytes_written, self._profile, self._size_guard,
+                self._total_bytes_written,
+                self._profile,
+                self._size_guard,
             )
         return {
             "profile": self._profile,
@@ -211,10 +211,7 @@ class ArtifactFinalizer:
         edition: str,
     ) -> dict[str, Any] | None:
         """Read a partial projection if it exists."""
-        partial_path = (
-            self._writer.intermediate_dir / "projections" /
-            file_id / f"{edition}.partial.json"
-        )
+        partial_path = self._writer.intermediate_dir / "projections" / file_id / f"{edition}.partial.json"
         if partial_path.is_file():
             try:
                 return json.loads(partial_path.read_text(encoding="utf-8"))

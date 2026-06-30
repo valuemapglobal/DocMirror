@@ -5,8 +5,16 @@
 
 from __future__ import annotations
 
-from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, TextBlock, TextLevel
-from docmirror.models.entities.parse_result import TableBlock, TableRow, CellValue
+from docmirror.models.entities.parse_result import (
+    CellValue,
+    DocumentEntities,
+    PageContent,
+    ParseResult,
+    TableBlock,
+    TableRow,
+    TextBlock,
+    TextLevel,
+)
 
 
 def test_bank_statement_page_has_s2_block_no_regions():
@@ -29,16 +37,9 @@ def test_bank_statement_page_has_s2_block_no_regions():
         ],
         entities=DocumentEntities(document_type="bank_statement", content_type="table_dominant"),
     )
-    pr.sync_page_canvases()
-    canvas = pr.pages[0].page_canvas
-    assert canvas is not None
-    assert len(canvas.regions) == 0
-    assert len(canvas.blocks) >= 1
-    s2_blocks = [b for b in canvas.blocks if b.morphology == "S2"]
-    assert s2_blocks
-    assert s2_blocks[0].ref == "table:pt_1_0"
-
     api = pr.to_mirror_json_vnext(mirror_level="standard")
     page = api["pages"][0]
     assert page.get("regions") == []
-    assert any(b.get("morphology") == "S2" for b in page.get("blocks") or [])
+    s2_blocks = [block for block in page.get("blocks") or [] if block.get("morphology") == "S2"]
+    assert s2_blocks
+    assert s2_blocks[0].get("ref") == "table:pt_1_0"

@@ -9,7 +9,7 @@ Extract-layer oracle helpers for relative row-preservation gates.
 
 Supplies expected row-count baselines and tolerance checks for EXTRACT-tier
 gates when golden fixtures only specify relative preservation rather than
-absolute table dimensions. Used by TQG and legacy benchmark profiles.
+absolute table dimensions. Used by TQG and raw benchmark profiles.
 """
 
 from __future__ import annotations

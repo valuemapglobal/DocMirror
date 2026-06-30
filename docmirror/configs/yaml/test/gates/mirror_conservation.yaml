@@ -74,6 +74,7 @@ cases:
   - id: real_pdf_bank_statement_first_page_smoke
     tier: regression
     fixture: tests/fixtures/bank_statement/ZHAO YA_银行流水_20251104.pdf
+    skip_if_fixture_missing: true
     pipeline: perceive
     options:
       max_pages: 1

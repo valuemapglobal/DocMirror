@@ -162,11 +162,13 @@ class MetricsCollector:
     def record_fallback(self, from_path: str, to_path: str, reason: str) -> None:
         """Record a runtime fallback event."""
         self._fallback_count += 1
-        self._fallback_details.append({
-            "from": from_path,
-            "to": to_path,
-            "reason": reason,
-        })
+        self._fallback_details.append(
+            {
+                "from": from_path,
+                "to": to_path,
+                "reason": reason,
+            }
+        )
 
     def record_artifact_size(self, bytes_written: int, *, intermediate: bool = False) -> None:
         """Track artifact bytes for size metrics."""
@@ -221,6 +223,7 @@ def _get_memory_usage() -> dict[str, float]:
     """Return current and peak RSS memory in MB, if available."""
     try:
         import resource
+
         usage = resource.getrusage(resource.RUSAGE_SELF)
         return {
             "peak_rss_mb": usage.ru_maxrss / 1024.0 if usage.ru_maxrss else 0.0,

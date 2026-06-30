@@ -18,11 +18,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
 
 from docmirror.configs.format.resolver import resolve_capability
 from docmirror.configs.runtime.settings import DocMirrorSettings
-from docmirror.configs.support_matrix import compact_support_info, support_for_capability
+from docmirror.configs.support_matrix import support_for_capability
+from docmirror.input.archive_probe import probe_archive
+from docmirror.input.image_probe import probe_image
 from docmirror.input.models import (
     CapabilityReport,
     InputAcceptanceReport,
@@ -31,15 +32,14 @@ from docmirror.input.models import (
     ResourceGateReport,
     SafetyGateReport,
 )
-from docmirror.input.pdf_probe import PdfProbeResult, probe_pdf
-from docmirror.input.image_probe import ImageProbeResult, probe_image
-from docmirror.input.archive_probe import ArchiveProbeResult, probe_archive
+from docmirror.input.pdf_probe import probe_pdf
 
 logger = logging.getLogger(__name__)
 
 
 from docmirror.configs.runtime.yaml_loader import config_loader
- 
+
+
 def _build_input_probe(path: Path) -> InputProbeReport:
     """Build basic file identity probe."""
     report = InputProbeReport()
@@ -136,7 +136,6 @@ def _build_capability_report(path: Path) -> CapabilityReport:
     report = CapabilityReport()
     try:
         cap = resolve_capability(path, "")
-        support = compact_support_info(cap.id)
         sm = support_for_capability(cap.id)
         report.id = cap.id
         report.transport = cap.transport
@@ -160,7 +159,8 @@ def check_input_acceptance(path: Path) -> InputAcceptanceReport:
     # Early exit if file not found
     if not probe_report.exists:
         report.decision = InputDecisionReport(
-            accepted=False, outcome="reject",
+            accepted=False,
+            outcome="reject",
             reason="FILE_NOT_FOUND",
             suggestion="Check the file path and retry.",
         )
@@ -176,7 +176,8 @@ def check_input_acceptance(path: Path) -> InputAcceptanceReport:
 
     if resource_report.status == "fail":
         report.decision = InputDecisionReport(
-            accepted=False, outcome="reject",
+            accepted=False,
+            outcome="reject",
             reason=resource_report.violations[0] if resource_report.violations else "RESOURCE_GATE_FAIL",
             suggestion="",
         )
@@ -209,7 +210,8 @@ def check_input_acceptance(path: Path) -> InputAcceptanceReport:
         elif error_code == "ARCHIVE_UNSAFE_PATH":
             suggestion = "Remove dangerous members from the archive."
         report.decision = InputDecisionReport(
-            accepted=False, outcome="reject",
+            accepted=False,
+            outcome="reject",
             reason=error_code,
             suggestion=suggestion,
         )
@@ -218,7 +220,8 @@ def check_input_acceptance(path: Path) -> InputAcceptanceReport:
     # 5. Capability decision
     if cap_report.support_status in ("unsupported", "planned"):
         report.decision = InputDecisionReport(
-            accepted=False, outcome="reject",
+            accepted=False,
+            outcome="reject",
             reason="UNSUPPORTED_FORMAT",
             suggestion="Convert to a supported format (PDF, PNG, JPEG, TIFF, DOCX, XLSX, PPTX).",
         )

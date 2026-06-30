@@ -219,7 +219,7 @@ class BaseTableParser(DomainPlugin):
                     out.append(rows)
             return out
 
-        # Fallback: physical per-page tables (legacy)
+        # Fallback: physical per-page tables (raw)
         for page in getattr(parse_result, "pages", []):
             for table in getattr(page, "tables", []):
                 tbl_headers = getattr(table, "headers", []) or []

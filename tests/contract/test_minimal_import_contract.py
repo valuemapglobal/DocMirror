@@ -29,7 +29,7 @@ import importlib
 import sys
 for name in (
     'docmirror.input.extraction.extractor',
-    'docmirror.structure.segment.negative_space',
+    'docmirror.layout.segment.negative_space',
 ):
     importlib.import_module(name)
 assert 'numpy' not in sys.modules, sorted(k for k in sys.modules if k.startswith('numpy'))[:5]

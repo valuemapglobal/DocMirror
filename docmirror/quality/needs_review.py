@@ -16,12 +16,13 @@ from typing import Any
 from docmirror.quality.field_details import FieldDetail
 from docmirror.quality.observation import QualityObservationEvent
 
-
 # ── Needs Review Registry ───────────────────────────────────────────────────
+
 
 @dataclass
 class NeedsReviewItem:
     """A single needs_review item from a field or evidence entry."""
+
     field_path: str
     domain: str
     confidence: float
@@ -39,6 +40,7 @@ class NeedsReviewRegistry:
 
     Provides grouping, filtering, and recall computation capabilities.
     """
+
     items: list[NeedsReviewItem] = field(default_factory=list)
 
     def add_from_field_detail(
@@ -52,17 +54,19 @@ class NeedsReviewRegistry:
     ) -> None:
         """Add an item from a FieldDetail instance."""
         reason = _classify_reason(detail)
-        self.items.append(NeedsReviewItem(
-            field_path=field_path,
-            domain=domain,
-            confidence=detail.confidence,
-            review_status=detail.review,
-            has_evidence=len(detail.source_refs) > 0,
-            fixture_id=fixture_id,
-            quality_bucket=quality_bucket,
-            observation_id=observation_id,
-            reason=reason,
-        ))
+        self.items.append(
+            NeedsReviewItem(
+                field_path=field_path,
+                domain=domain,
+                confidence=detail.confidence,
+                review_status=detail.review,
+                has_evidence=len(detail.source_refs) > 0,
+                fixture_id=fixture_id,
+                quality_bucket=quality_bucket,
+                observation_id=observation_id,
+                reason=reason,
+            )
+        )
 
     def add_from_observation(
         self,
@@ -135,6 +139,7 @@ class NeedsReviewRegistry:
 
 # ── Recall computation ─────────────────────────────────────────────────────
 
+
 def compute_needs_review_recall(
     registry: NeedsReviewRegistry,
     golden_low_confidence_fields: set[str] | None = None,
@@ -195,6 +200,7 @@ def compute_no_evidence_auto_accept_rate(registry: NeedsReviewRegistry) -> float
 
 # ── Summary builder ────────────────────────────────────────────────────────
 
+
 def build_needs_review_summary(
     registry: NeedsReviewRegistry,
     golden_low_confidence_fields: set[str] | None = None,
@@ -235,9 +241,7 @@ def build_needs_review_summary(
         "no_evidence_count": len(registry.no_evidence_items),
         "low_confidence_count": len(registry.low_confidence_items),
         "no_evidence_auto_accept_rate": compute_no_evidence_auto_accept_rate(registry),
-        "needs_review_rate": (
-            len(registry.needs_review_items) / registry.total if registry.total > 0 else 0.0
-        ),
+        "needs_review_rate": (len(registry.needs_review_items) / registry.total if registry.total > 0 else 0.0),
         "recall": recall,
         "by_domain": domain_summaries,
         "by_quality_bucket": bucket_summaries,
@@ -256,6 +260,7 @@ def build_needs_review_summary(
 
 
 # ── Reason classifier ─────────────────────────────────────────────────────
+
 
 def _classify_reason(detail: FieldDetail) -> str:
     """Classify why a field needs review."""

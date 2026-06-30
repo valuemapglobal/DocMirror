@@ -39,7 +39,7 @@ async def perceive_document(*args: Any, **kwargs: Any) -> Any:
 
 
 def __getattr__(name: str) -> Any:
-    """Lazy compatibility access for historical top-level model exports."""
+    """Lazy access for stable top-level model exports."""
     if name == "ParseResult":
         from docmirror.models.entities.parse_result import ParseResult
 

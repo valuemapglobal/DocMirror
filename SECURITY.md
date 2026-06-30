@@ -4,7 +4,7 @@
 
 | Version | Supported          |
 |---------|--------------------|
-| 0.1.x   | ✅ Current release |
+| 1.0.x   | Current release |
 
 ## Reporting a Vulnerability
 
@@ -48,5 +48,6 @@ When using DocMirror in production:
 
 1. **Sandbox document parsing** — run in a container with restricted filesystem access
 2. **Validate file sizes** — set `DOCMIRROR_MAX_PAGES` to limit resource usage
-3. **Use Redis caching** — avoid re-parsing the same malicious file
+3. **Protect API deployments** — set `DOCMIRROR_API_KEY` and terminate HTTPS at your proxy
 4. **Keep dependencies updated** — run `pip audit` regularly
+5. **Redact support artifacts** — remove secrets, PII, account numbers, and regulated data before sharing issue attachments

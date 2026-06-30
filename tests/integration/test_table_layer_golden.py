@@ -4,17 +4,8 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
-import pytest
-
-from docmirror.structure.tables.compose.composer import TableComposer
 from docmirror.models.entities.domain import Block, PageLayout
-
-
-FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
-ALIPAY_PDF = FIXTURES / "alipay_payment" / "DemoUser+支付宝流水.pdf"
+from docmirror.tables.compose.composer import TableComposer
 
 
 def _page(page_number: int, rows: list[list[str]]) -> PageLayout:
@@ -53,40 +44,3 @@ class TestTableLayerSynthetic:
         assert len(logical) == 1
         assert logical[0].merge_method == "none"
         assert logical[0].source_pages == [1]
-
-
-@pytest.mark.skipif(
-    not ALIPAY_PDF.exists(),
-    reason="alipay fixture not present",
-)
-class TestTableLayerAlipayFixture:
-    """44-page alipay PDF — requires full parse pipeline."""
-
-    @pytest.fixture(scope="class")
-    def mirror_json(self):
-        import asyncio
-
-        from docmirror.input.entry.factory import PerceiveOptions, perceive_document
-
-        result = asyncio.run(
-            perceive_document(ALIPAY_PDF, PerceiveOptions(skip_cache=True))
-        )
-        return result.to_mirror_json_vnext(mirror_level="standard")
-
-    def test_alipay_logical_table_row_count(self, mirror_json):
-        lt = mirror_json.get("logical_tables", [])
-        assert len(lt) >= 1
-        assert lt[0]["row_count"] >= 1400
-
-    def test_alipay_physical_tables_per_page(self, mirror_json):
-        meta = mirror_json["meta"]
-        pages = mirror_json["pages"]
-        assert meta["physical_table_count"] >= 40
-        assert len(pages) >= 40
-        pages_with_tables = sum(1 for p in pages if p.get("tables"))
-        assert pages_with_tables >= 40
-
-    def test_alipay_source_page_provenance(self, mirror_json):
-        lt = mirror_json["logical_tables"][0]
-        src_pages = {r["source_page"] for r in lt["rows"]}
-        assert len(src_pages) >= 30

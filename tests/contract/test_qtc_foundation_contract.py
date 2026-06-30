@@ -12,19 +12,23 @@ Covers:
 """
 
 import json
-import yaml
 from pathlib import Path
 
-from docmirror.quality.observation import (
-    QualityObservationEvent, new_observation_event,
-    observation_to_dict, observation_from_dict,
-    PageOutcome, FidelityLayer,
-)
+import yaml
+
 from docmirror.quality.aggregator import BucketedMetricsAggregator
 from docmirror.quality.ga_metrics import (
     build_ga_metrics_report,
     validate_ga_metrics_report,
     validate_ga_metrics_report_strict,
+)
+from docmirror.quality.observation import (
+    FidelityLayer,
+    PageOutcome,
+    QualityObservationEvent,
+    new_observation_event,
+    observation_from_dict,
+    observation_to_dict,
 )
 
 
@@ -167,7 +171,7 @@ def test_confidence_policy_yaml_loads():
     """Confidence policy YAML is valid and has expected keys."""
     policy_path = Path("docmirror/configs/yaml/quality/confidence_policy.yaml")
     assert policy_path.is_file()
-    with open(policy_path, 'r') as f:
+    with open(policy_path) as f:
         policy = yaml.safe_load(f)
     assert policy["version"] == 1
     assert "default" in policy
@@ -192,7 +196,7 @@ def test_error_envelope_matrix_complete():
 
 
 def test_lenient_validator_accepts_skeleton():
-    """Lenient validator accepts the skeleton report (backward compat)."""
+    """Lenient validator accepts the skeleton report (contract stability)."""
     report = build_ga_metrics_report()
     errors = validate_ga_metrics_report(report)
     assert errors == []

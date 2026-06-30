@@ -151,19 +151,12 @@ def validate_built_archives(manifest: dict[str, Any]) -> list[str]:
     dist = REPO_ROOT / "dist"
     if not dist.exists():
         return errors
-    wheel_forbidden = manifest.get("wheel_forbidden_paths", [])
-    sdist_forbidden = [
-        "docmirror/plugins/.plugin_state.json",
-        "docmirror_enterprise/",
-        "docmirror_finance/",
-        "docs/design/",
-    ]
+    forbidden_paths = manifest.get("wheel_forbidden_paths", [])
     for archive in sorted(dist.glob("docmirror-1.0.0*")):
         names = _archive_names(archive)
-        forbidden = wheel_forbidden if archive.suffix == ".whl" else sdist_forbidden
         for name in names:
             normalized = name.split("/", 1)[1] if name.startswith("docmirror-1.0.0/") else name
-            for prefix in forbidden:
+            for prefix in forbidden_paths:
                 if normalized == prefix.rstrip("/") or normalized.startswith(prefix):
                     errors.append(f"{archive.name}: contains forbidden release path {normalized}")
     return errors

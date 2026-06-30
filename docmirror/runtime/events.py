@@ -10,11 +10,9 @@ REST endpoints, and SDK callbacks.
 
 from __future__ import annotations
 
-import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Literal
-
 
 EventStatus = Literal["started", "succeeded", "failed_retryable", "failed_final", "skipped"]
 
@@ -45,15 +43,15 @@ class ProgressEvent:
 
     def to_ndjson(self) -> str:
         import json
+
         return json.dumps(_serializable(self), ensure_ascii=False) + "\n"
 
 
 @dataclass
 class FallbackEvent:
-
     def to_dict(self) -> dict[str, Any]:
         """Serialize FallbackEvent to a dict matching the DRC contract schema."""
-        import json
+
         return _serializable(self)
 
     """Records a runtime fallback from one path to another.
@@ -80,11 +78,11 @@ class FallbackEvent:
 
     def to_ndjson(self) -> str:
         import json
+
         return json.dumps(_serializable(self), ensure_ascii=False) + "\n"
 
 
 @dataclass
-
 class MetricEvent:
     """Records a single runtime metric data point."""
 
@@ -104,11 +102,13 @@ class MetricEvent:
 
     def to_ndjson(self) -> str:
         import json
+
         return json.dumps(_serializable(self), ensure_ascii=False) + "\n"
 
 
 def _utc_now_iso() -> str:
     from datetime import datetime, timezone
+
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -124,7 +124,9 @@ def _serializable(obj: Any) -> dict[str, Any]:
             elif isinstance(val, list):
                 result[f_name] = [_serializable(v) if hasattr(v, "__dataclass_fields__") else v for v in val]
             elif isinstance(val, dict):
-                result[f_name] = {k: _serializable(v) if hasattr(v, "__dataclass_fields__") else v for k, v in val.items()}
+                result[f_name] = {
+                    k: _serializable(v) if hasattr(v, "__dataclass_fields__") else v for k, v in val.items()
+                }
             else:
                 result[f_name] = val
         return result

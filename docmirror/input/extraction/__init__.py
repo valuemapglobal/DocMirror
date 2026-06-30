@@ -17,7 +17,6 @@ Upstream: ``entry.factory`` via ``ParserDispatcher``.
 Downstream: ``pipeline``, ``segment``, ``extract``, ``ocr``, ``table``.
 """
 
-
 from .extractor import CoreExtractor  # noqa: F401
 from .foundation import FitzEngine  # noqa: F401
 

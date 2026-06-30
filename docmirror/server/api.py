@@ -36,7 +36,7 @@ from docmirror.server.schemas import ParseResponse
 
 # Load .env from project root
 _env_root = Path(__file__).resolve().parent.parent.parent
-load_dotenv(_env_root / '.env', override=False)
+load_dotenv(_env_root / ".env", override=False)
 
 logger = logging.getLogger(__name__)
 

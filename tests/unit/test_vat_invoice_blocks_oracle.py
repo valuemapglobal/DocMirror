@@ -39,6 +39,6 @@ def test_vat_page_blocks_include_s5():
         pages=[PageContent(page_number=1, key_values=[KeyValuePair(key="发票代码", value="ABC")])],
         entities=DocumentEntities(document_type="vat_invoice"),
     )
-    pr.sync_page_canvases()
-    canvas = pr.pages[0].page_canvas
-    assert any(b.morphology == "S5" for b in canvas.blocks)
+    api = pr.to_mirror_json_vnext(mirror_level="standard")
+    blocks = api["pages"][0].get("blocks") or []
+    assert any(block.get("morphology") == "S5" for block in blocks)

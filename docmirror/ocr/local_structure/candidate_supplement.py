@@ -31,7 +31,7 @@ def _ensure_supplements_loaded() -> None:
     if _LOADED:
         return
     _LOADED = True
-    from docmirror.ocr.page_canvas.page_segment import detect_pre_grid_field_supplements
+    from docmirror.layout.segment.page_blocks import detect_pre_grid_field_supplements
 
     register_local_structure_supplement(detect_pre_grid_field_supplements)
 

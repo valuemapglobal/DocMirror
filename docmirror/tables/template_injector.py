@@ -22,8 +22,8 @@ import logging
 import re
 from dataclasses import dataclass
 
-from docmirror.structure.utils.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE
-from docmirror.structure.utils.watermark import is_watermark_char
+from docmirror.layout.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE
+from docmirror.layout.watermark import is_watermark_char
 
 logger = logging.getLogger(__name__)
 

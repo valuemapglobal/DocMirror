@@ -265,6 +265,7 @@ def get_seal_detector() -> SealDetector:
 # Layer 3: Laplacian texture variance (non-red seals/stamps)
 # Zero ML dependencies — pure OpenCV.  Accuracy ~70-85% on audit reports.
 
+
 def detect_seals_hybrid(
     image_bgr,
     *,
@@ -282,8 +283,14 @@ def detect_seals_hybrid(
         cr = detector._detect_color_seal(image_bgr)
         if cr.get("has_seal") and cr.get("bbox"):
             x0, y0, x1, y1 = cr["bbox"]
-            results.append({"kind": "seal", "bbox": [max(0, int(x0)), max(0, int(y0)), min(w, int(x1)), min(h, int(y1))],
-                           "confidence": 0.85, "method": "red_color"})
+            results.append(
+                {
+                    "kind": "seal",
+                    "bbox": [max(0, int(x0)), max(0, int(y0)), min(w, int(x1)), min(h, int(y1))],
+                    "confidence": 0.85,
+                    "method": "red_color",
+                }
+            )
     except Exception:
         pass
 
@@ -318,8 +325,14 @@ def _detect_signature_zones(image_bgr, text_zones: list) -> list[dict]:
         e = cv2.Canny(g, 40, 120)
         ed = float((e > 0).sum()) / max(float(e.size), 1.0)
         if ed > 0.015:
-            results.append({"kind": "signature", "bbox": [0, by, w, h],
-                           "confidence": min(0.85, ed * 25.0), "method": "signature_zone_bottom"})
+            results.append(
+                {
+                    "kind": "signature",
+                    "bbox": [0, by, w, h],
+                    "confidence": min(0.85, ed * 25.0),
+                    "method": "signature_zone_bottom",
+                }
+            )
     # Below signature keywords
     for zone in text_zones:
         txt = str(zone.get("text", ""))
@@ -339,8 +352,14 @@ def _detect_signature_zones(image_bgr, text_zones: list) -> list[dict]:
         e = cv2.Canny(g, 40, 120)
         ed = float((e > 0).sum()) / max(float(e.size), 1.0)
         if ed > 0.025:
-            results.append({"kind": "signature", "bbox": [t_x0, t_y1, t_x1, sy2],
-                           "confidence": min(0.90, ed * 20.0), "method": "signature_zone_keyword"})
+            results.append(
+                {
+                    "kind": "signature",
+                    "bbox": [t_x0, t_y1, t_x1, sy2],
+                    "confidence": min(0.90, ed * 20.0),
+                    "method": "signature_zone_keyword",
+                }
+            )
     return results
 
 
@@ -353,14 +372,20 @@ def _detect_texture_seals(image_bgr) -> list[dict]:
     step = win // 2
     for y in range(0, h - win, step):
         for x in range(0, w - win, step):
-            patch = gray[y:y + win, x:x + win]
+            patch = gray[y : y + win, x : x + win]
             if patch.size == 0:
                 continue
             lv = float(cv2.Laplacian(patch, cv2.CV_64F).var())
             gv = float(patch.var())
             if lv > 400 and gv < 2500:
-                results.append({"kind": "seal", "bbox": [x, y, x + win, y + win],
-                               "confidence": round(min(0.75, lv / 1500.0), 3), "method": "texture"})
+                results.append(
+                    {
+                        "kind": "seal",
+                        "bbox": [x, y, x + win, y + win],
+                        "confidence": round(min(0.75, lv / 1500.0), 3),
+                        "method": "texture",
+                    }
+                )
     if len(results) > 1:
         results.sort(key=lambda r: r["confidence"], reverse=True)
         kept = []

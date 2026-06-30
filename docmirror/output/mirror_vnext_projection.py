@@ -17,8 +17,7 @@ def _reading_blocks(mirror: dict[str, Any]) -> list[dict[str, Any]]:
         if not flow_id or flow.get("flow_id") == flow_id:
             return [blocks[node_id] for node_id in flow.get("node_ids", []) if node_id in blocks]
     return [
-        block for block in mirror.get("blocks", [])
-        if not block.get("quality", {}).get("suppressed_from_reading_flow")
+        block for block in mirror.get("blocks", []) if not block.get("quality", {}).get("suppressed_from_reading_flow")
     ]
 
 

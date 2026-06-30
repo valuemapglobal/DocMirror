@@ -25,10 +25,9 @@ import logging
 from typing import Any
 
 from docmirror.input.adapters.ai.config import (
-    AIConfig,
-    AIBackendType,
     BASE_RETRY_DELAY_MS,
     MAX_RETRIES,
+    AIConfig,
 )
 from docmirror.input.adapters.ai.protocol import AIAnalysisResult, AIBackendCapabilities
 
@@ -71,6 +70,7 @@ class OpenAIBackend:
             return self._client
         try:
             from openai import AsyncOpenAI
+
             kwargs = {"api_key": self._config.openai_api_key}
             if self._config.openai_base_url:
                 kwargs["base_url"] = self._config.openai_base_url
@@ -170,14 +170,10 @@ class OpenAIBackend:
 
         context_prompt = ""
         if context == "chart":
-            context_prompt = (
-                "This is a chart or graph. Describe its type, axes, "
-                "data trends, and key values in detail."
-            )
+            context_prompt = "This is a chart or graph. Describe its type, axes, data trends, and key values in detail."
         elif context == "diagram":
             context_prompt = (
-                "This is a diagram or illustration. Describe its "
-                "components, relationships, and overall meaning."
+                "This is a diagram or illustration. Describe its components, relationships, and overall meaning."
             )
         elif context == "photo":
             context_prompt = "Describe this photograph in detail."
@@ -191,8 +187,7 @@ class OpenAIBackend:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an accessibility alt-text generator. "
-                    "Describe images concisely but thoroughly.",
+                    "content": "You are an accessibility alt-text generator. Describe images concisely but thoroughly.",
                 },
                 {
                     "role": "user",
@@ -232,21 +227,20 @@ class OpenAIBackend:
             except Exception as exc:
                 logger.warning(
                     "OpenAI API call failed (attempt %d/%d): %s",
-                    attempt + 1, MAX_RETRIES, exc,
+                    attempt + 1,
+                    MAX_RETRIES,
+                    exc,
                 )
                 last_exc = exc
                 if attempt < MAX_RETRIES - 1:
-                    await asyncio.sleep(BASE_RETRY_DELAY_MS * (2 ** attempt) / 1000)
+                    await asyncio.sleep(BASE_RETRY_DELAY_MS * (2**attempt) / 1000)
         raise last_exc  # type: ignore[misc]
 
-    def _parse_response(
-        self, response: Any, task: str
-    ) -> AIAnalysisResult:
+    def _parse_response(self, response: Any, task: str) -> AIAnalysisResult:
         """Parse OpenAI API response into ``AIAnalysisResult``."""
         text = self._extract_text(response)
 
         # Try JSON extraction first
-        import json
 
         json_data = self._try_extract_json(text)
         if json_data and task == "analyze":
@@ -306,6 +300,7 @@ class OpenAIBackend:
 
         # Try extracting from code block
         import re
+
         match = re.search(r"```(?:json)?\s*\n(.*?)\n```", text, re.DOTALL)
         if match:
             try:

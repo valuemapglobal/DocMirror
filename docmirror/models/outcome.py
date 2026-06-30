@@ -25,24 +25,28 @@ Usage::
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 # ── helpers ────────────────────────────────────────────────────────
 
+
 def _now_iso() -> str:
     import datetime
+
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 def _event_counter() -> int:
     _event_counter._count += 1  # type: ignore[attr-defined]
     return _event_counter._count  # type: ignore[attr-defined]
+
+
 _event_counter._count = 0  # type: ignore[attr-defined]
 
 
 # ── OutcomeEvent ───────────────────────────────────────────────────
+
 
 @dataclass
 class OutcomeEvent:
@@ -56,9 +60,9 @@ class OutcomeEvent:
     # ── identity ──
     event_id: str = field(default_factory=lambda: f"outcome_{_event_counter():05d}")
     status: Literal["success", "warning", "degraded", "partial", "failure"] = "success"
-    code: str = ""                              # user_code, e.g. "low_ocr_confidence"
-    canonical_code: str = ""                    # e.g. "LOW_OCR_CONFIDENCE"
-    category: str = "parse"                    # input / parse / ocr / table / license / domain / runtime / artifact
+    code: str = ""  # user_code, e.g. "low_ocr_confidence"
+    canonical_code: str = ""  # e.g. "LOW_OCR_CONFIDENCE"
+    category: str = "parse"  # input / parse / ocr / table / license / domain / runtime / artifact
 
     # ── severity & recoverability ──
     severity: Literal["info", "warning", "degraded", "partial", "error", "fatal"] = "info"
@@ -119,6 +123,7 @@ class OutcomeEvent:
 
 # ── PageOutcome ─────────────────────────────────────────────────────
 
+
 @dataclass
 class PageOutcome:
     """Per-page outcome entry in the OutcomeLedger."""
@@ -140,6 +145,7 @@ class PageOutcome:
 
 
 # ── OutcomeLedger ───────────────────────────────────────────────────
+
 
 @dataclass
 class OutcomeLedger:
@@ -182,24 +188,11 @@ class OutcomeLedger:
         """Derive aggregate status from all events and page outcomes."""
         all_ev = self.events + self.artifact_outcomes + self.edition_outcomes
 
-        has_failure = any(
-            e.status == "failure" or e.severity in ("error", "fatal")
-            for e in all_ev
-        )
-        has_partial = any(
-            e.status == "partial" or e.severity == "partial"
-            for e in all_ev
-        )
-        has_degraded = any(
-            e.status == "degraded" or e.severity == "degraded"
-            for e in all_ev
-        )
-        any_page_failure = any(
-            po.status == "failure" for po in self.page_outcomes
-        )
-        any_page_success = any(
-            po.status in ("success", "partial") for po in self.page_outcomes
-        )
+        has_failure = any(e.status == "failure" or e.severity in ("error", "fatal") for e in all_ev)
+        has_partial = any(e.status == "partial" or e.severity == "partial" for e in all_ev)
+        has_degraded = any(e.status == "degraded" or e.severity == "degraded" for e in all_ev)
+        any_page_failure = any(po.status == "failure" for po in self.page_outcomes)
+        any_page_success = any(po.status in ("success", "partial") for po in self.page_outcomes)
 
         if self.page_outcomes and not any_page_success:
             self.status = "failed"
@@ -267,12 +260,23 @@ class OutcomeLedger:
         for e in data.get("events", []):
             ledger.events.append(OutcomeEvent(**{k: v for k, v in e.items() if k in OutcomeEvent.__dataclass_fields__}))
         for p in data.get("page_outcomes", []):
-            po = PageOutcome(page=p.get("page", 0), status=p.get("status", "success"),
-                             retained=p.get("retained", True), metadata=p.get("metadata", {}))
-            po.events = [OutcomeEvent(**{k: v for k, v in ev.items() if k in OutcomeEvent.__dataclass_fields__}) for ev in p.get("events", [])]
+            po = PageOutcome(
+                page=p.get("page", 0),
+                status=p.get("status", "success"),
+                retained=p.get("retained", True),
+                metadata=p.get("metadata", {}),
+            )
+            po.events = [
+                OutcomeEvent(**{k: v for k, v in ev.items() if k in OutcomeEvent.__dataclass_fields__})
+                for ev in p.get("events", [])
+            ]
             ledger.page_outcomes.append(po)
         for a in data.get("artifact_outcomes", []):
-            ledger.artifact_outcomes.append(OutcomeEvent(**{k: v for k, v in a.items() if k in OutcomeEvent.__dataclass_fields__}))
+            ledger.artifact_outcomes.append(
+                OutcomeEvent(**{k: v for k, v in a.items() if k in OutcomeEvent.__dataclass_fields__})
+            )
         for ed in data.get("edition_outcomes", []):
-            ledger.edition_outcomes.append(OutcomeEvent(**{k: v for k, v in ed.items() if k in OutcomeEvent.__dataclass_fields__}))
+            ledger.edition_outcomes.append(
+                OutcomeEvent(**{k: v for k, v in ed.items() if k in OutcomeEvent.__dataclass_fields__})
+            )
         return ledger

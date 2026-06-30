@@ -78,7 +78,7 @@ class BankStyleDetector:
                 secondary_styles=["pipe_ledger_text"],
                 confidence=0.95,
                 parser_chain=chain,
-                institution_hint=institution_hint or ctx.institution,
+                institution_hint=institution_hint,
                 institution_authority=institution_authority,
             )
 
@@ -105,7 +105,7 @@ class BankStyleDetector:
             secondary_styles=secondary,
             confidence=min(confidence, 1.0),
             parser_chain=chain,
-            institution_hint=institution_hint or ctx.institution,
+            institution_hint=institution_hint,
             institution_authority=institution_authority,
         )
 
@@ -142,6 +142,7 @@ class BankStyleDetector:
             if any(token in joined_headers for token in excludes_any):
                 if style_id == "signed_amount":
                     from docmirror.plugins.bank_statement.header_resolve import has_merged_amount_header
+
                     if not has_merged_amount_header(ctx.tables):
                         score *= 0.25
                 else:

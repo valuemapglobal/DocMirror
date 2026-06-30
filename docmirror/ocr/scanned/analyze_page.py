@@ -24,16 +24,15 @@ logger = logging.getLogger(__name__)
 from typing import Any
 
 from docmirror.ocr.micro_grid.models import OCRToken
-from docmirror.ocr.preprocess.legacy_fallback import (
+from docmirror.ocr.preprocess.pipeline import (
     _deskew_image,
     _preprocess_image_for_ocr,
 )
-from docmirror.ocr.reconstruct.grid_legacy import (
+from docmirror.ocr.reconstruct.grid import (
     _detect_table_lines_hough,
     _group_chars_into_rows,
     _reconstruct_table_grid_2d,
     _split_tables_by_y_gap,
-    reconstruct_table_grid_from_tokens,
 )
 
 
@@ -107,9 +106,7 @@ def analyze_scanned_page(
 
             # ── Auto-orientation probe ──
             probe_pix = fitz_page.get_pixmap(dpi=100)
-            probe_img = np.frombuffer(probe_pix.samples, dtype=np.uint8).reshape(
-                probe_pix.h, probe_pix.w, probe_pix.n
-            )
+            probe_img = np.frombuffer(probe_pix.samples, dtype=np.uint8).reshape(probe_pix.h, probe_pix.w, probe_pix.n)
             if probe_pix.n == 3:
                 probe_img = cv2.cvtColor(probe_img, cv2.COLOR_RGB2BGR)
             elif probe_pix.n == 4:
@@ -124,9 +121,7 @@ def analyze_scanned_page(
                 dpi_passes.append(300)
             for dpi in dpi_passes:
                 pix = fitz_page.get_pixmap(dpi=dpi)
-                img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
-                    pix.h, pix.w, pix.n
-                )
+                img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
                 if pix.n == 3:
                     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
                 elif pix.n == 4:
@@ -144,9 +139,7 @@ def analyze_scanned_page(
                 img_processed = _preprocess_image_for_ocr(img)
                 img_processed, skew_angle = _deskew_image(img_processed)
 
-                words = ocr_engine.detect_image_words(
-                    img_processed, multi_scale=(dpi >= 300)
-                )
+                words = ocr_engine.detect_image_words(img_processed, multi_scale=(dpi >= 300))
                 if not words:
                     if dpi == 150:
                         continue
@@ -161,7 +154,6 @@ def analyze_scanned_page(
 
                 if len(all_words) >= 10 or dpi == 300:
                     break
-
 
         if len(all_words) < 3:
             return None
@@ -265,18 +257,13 @@ def analyze_scanned_page(
                     from docmirror.ocr.reconstruct.gcr import GCRColumns
 
                     tokens = [
-                        OCRToken.from_rapidocr_word(w, page=page_idx, idx=i)
-                        for i, w in enumerate(pre_existing_words)
+                        OCRToken.from_rapidocr_word(w, page=page_idx, idx=i) for i, w in enumerate(pre_existing_words)
                     ]
                     gcr = GCRColumns.from_tokens(tokens)
                     if gcr.col_bands and len(gcr.col_bands) >= 2:
-                        header_texts = [
-                            main_table[0][ci] if ci < len(main_table[0]) else None
-                            for ci in range(ncols)
-                        ]
+                        header_texts = [main_table[0][ci] if ci < len(main_table[0]) else None for ci in range(ncols)]
                         sample_values = [
-                            [r[ci].strip() for r in main_table[1:5]
-                             if ci < len(r) and r[ci].strip()]
+                            [r[ci].strip() for r in main_table[1:5] if ci < len(r) and r[ci].strip()]
                             for ci in range(ncols)
                         ]
                         band_dicts = [
@@ -290,18 +277,22 @@ def analyze_scanned_page(
                             for b in gcr.col_bands
                         ]
                         enriched = enrich_col_bands_with_context(
-                            band_dicts, header_texts, sample_values,
+                            band_dicts,
+                            header_texts,
+                            sample_values,
                         )
                         for band in enriched:
                             ctx = band.get("column_context", {})
-                            col_contexts.append(ColumnContext(
-                                column_index=ctx.get("column_index", len(col_contexts)),
-                                header_text=ctx.get("header_text"),
-                                inferred_type=ctx.get("inferred_type", "unknown"),
-                                confidence=ctx.get("confidence", 0.0),
-                                column_bands=[band],
-                                supported_formats=ctx.get("supported_formats", []),
-                            ))
+                            col_contexts.append(
+                                ColumnContext(
+                                    column_index=ctx.get("column_index", len(col_contexts)),
+                                    header_text=ctx.get("header_text"),
+                                    inferred_type=ctx.get("inferred_type", "unknown"),
+                                    confidence=ctx.get("confidence", 0.0),
+                                    column_bands=[band],
+                                    supported_formats=ctx.get("supported_formats", []),
+                                )
+                            )
                 except Exception:
                     logger.debug(
                         "GCR column context failed, fallback to data inference",
@@ -312,30 +303,30 @@ def analyze_scanned_page(
             if not col_contexts:
                 for ci in range(ncols):
                     hdr = main_table[0][ci] if ci < len(main_table[0]) else None
-                    samples = [
-                        r[ci].strip() for r in main_table[1:5]
-                        if ci < len(r) and r[ci].strip()
-                    ]
-                    col_contexts.append(infer_column_type(
-                        header_text=hdr, sample_values=samples, column_index=ci,
-                    ))
+                    samples = [r[ci].strip() for r in main_table[1:5] if ci < len(r) and r[ci].strip()]
+                    col_contexts.append(
+                        infer_column_type(
+                            header_text=hdr,
+                            sample_values=samples,
+                            column_index=ci,
+                        )
+                    )
 
-        meaningful = [c for c in col_contexts if c.inferred_type != 'unknown']
+        meaningful = [c for c in col_contexts if c.inferred_type != "unknown"]
         if meaningful and len(meaningful) >= max(2, len(col_contexts) * 0.3):
-            raw_result['table'] = postprocess_table_context_aware(main_table, col_contexts)
-            if raw_result.get('tables'):
-                raw_result['tables'] = [
-                    postprocess_table_context_aware(t, col_contexts[:len(t[0])])
-                    for t in raw_result['tables'] if t
+            raw_result["table"] = postprocess_table_context_aware(main_table, col_contexts)
+            if raw_result.get("tables"):
+                raw_result["tables"] = [
+                    postprocess_table_context_aware(t, col_contexts[: len(t[0])]) for t in raw_result["tables"] if t
                 ]
         else:
             raw_result = postprocess_ocr_result(raw_result)
 
         # Always correct header/footer text
-        if raw_result.get('header_text'):
-            raw_result['header_text'] = postprocess_ocr_text(raw_result['header_text'])
-        if raw_result.get('footer_text'):
-            raw_result['footer_text'] = postprocess_ocr_text(raw_result['footer_text'])
+        if raw_result.get("header_text"):
+            raw_result["header_text"] = postprocess_ocr_text(raw_result["header_text"])
+        if raw_result.get("footer_text"):
+            raw_result["footer_text"] = postprocess_ocr_text(raw_result["footer_text"])
 
         return raw_result
 

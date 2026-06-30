@@ -107,11 +107,11 @@ def test_export_chunks_from_vnext_uses_stable_block_ids():
 
 def test_dispatch_markdown_and_chunks_can_read_mirror_vnext():
     result = SimpleNamespace(
-        entities=SimpleNamespace(document_type="legacy_fallback"),
+        entities=SimpleNamespace(document_type="pipeline"),
         pages=[],
         sections=[],
-        full_text="legacy text",
-        extractor_full_text="legacy text",
+        full_text="raw text",
+        extractor_full_text="raw text",
     )
 
     markdown, markdown_media_type, markdown_suffix = export_parse_result(result, "markdown", mirror_vnext=_mirror_vnext())
@@ -121,7 +121,7 @@ def test_dispatch_markdown_and_chunks_can_read_mirror_vnext():
     assert markdown_media_type == "text/markdown"
     assert markdown_suffix == ".md"
     assert "正文内容" in markdown
-    assert "legacy text" not in markdown
+    assert "raw text" not in markdown
     assert chunks_media_type == "application/json"
     assert chunks_suffix == ".chunks.json"
     assert chunks["source"] == "mirror_vnext_reading_flow"

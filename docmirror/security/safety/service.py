@@ -28,7 +28,7 @@ import logging
 from typing import Any
 
 from docmirror.models.entities.parse_result import ParseResult
-from docmirror.security.safety import SafetyAggregator, SafetyReport, SafetyStrictness
+from docmirror.security.safety import SafetyAggregator, SafetyReport
 
 logger = logging.getLogger(__name__)
 

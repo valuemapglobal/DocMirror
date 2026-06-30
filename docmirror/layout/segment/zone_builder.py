@@ -5,10 +5,10 @@
 Zone builder — constructs typed zones from layout extents.
 
 Purpose: Refines detected regions into ``Zone`` objects via line consensus,
-formula isolation, and legacy y-band fallbacks.
+formula isolation, and raw y-band fallbacks.
 
 Main components: ``_build_zones_from_extent``, ``_refine_by_lines``,
-``_classify_zone_legacy``.
+``_classify_zone_by_y_band``.
 
 Upstream: ``segment.layout_analysis``, ``spatial_graph``, ``negative_space``.
 
@@ -22,7 +22,7 @@ import re
 from collections import defaultdict
 
 from docmirror.layout.segment.zone_models import Zone
-from docmirror.structure.utils.vocabulary import _ALL_BORDER_CHARS, HLINE_CHARS, KNOWN_HEADER_WORDS, PIPE_CHARS
+from docmirror.layout.vocabulary import _ALL_BORDER_CHARS, HLINE_CHARS, KNOWN_HEADER_WORDS, PIPE_CHARS
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +214,7 @@ def _column_consensus(
     # borders are detected, immediately bypass spatial consensus.
     border_chars_count = sum(1 for c in chars if c.get("text", "") in _ALL_BORDER_CHARS)
     if border_chars_count > 30:
-        return None  # Defer to grid-aware fallback (legacy Y-band)
+        return None  # Defer to grid-aware fallback (raw Y-band)
 
     # ── Step 1: Group chars into rows by y_mid ──
     # y_bin default: 3pt (proven for standard 12pt fonts).
@@ -584,7 +584,7 @@ def _build_zones_from_extent(
     return zones
 
 
-def _legacy_y_band_zones(
+def _y_band_recovery_zones(
     chars: list[dict],
     rects: list,
     _page_w: float,
@@ -592,11 +592,7 @@ def _legacy_y_band_zones(
     page_idx: int,
     gap_threshold: float = 15.0,
 ) -> list[Zone]:
-    """Legacy Y-band splitting fallback.
-
-    Used when Column Consensus finds no table pattern.
-    This is the original segment_page_into_zones logic preserved as fallback.
-    """
+    """Y-band recovery segmentation used when column consensus finds no table pattern."""
     # Lazy load classify helper
     _PIPE_CHARS = PIPE_CHARS
     _KNOWN_HEADER_WORDS = KNOWN_HEADER_WORDS
@@ -685,7 +681,7 @@ def _legacy_y_band_zones(
         _zone_border_count = sum(
             1 for c in zone.chars if c.get("text", "") in _PIPE_CHARS or c.get("text", "") in _HLINE_CHARS
         )
-        zone.type = _classify_zone_legacy(
+        zone.type = _classify_zone_by_y_band(
             zone,
             page_h,
             _PIPE_CHARS,
@@ -709,7 +705,7 @@ def _legacy_y_band_zones(
     return merged
 
 
-def _classify_zone_legacy(
+def _classify_zone_by_y_band(
     zone: Zone,
     page_h: float,
     pipe_chars: set,
@@ -717,7 +713,7 @@ def _classify_zone_legacy(
     is_border_zone: bool = False,
     has_structural_context: bool = False,
 ) -> str:
-    """Legacy zone classifier — used only by _legacy_y_band_zones fallback.
+    """Y-band zone classifier used only by recovery segmentation.
 
     Args:
         is_border_zone: True if this zone contains ≥10 structural border chars.

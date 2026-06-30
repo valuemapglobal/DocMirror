@@ -177,5 +177,5 @@ def resolve_enhancement_profile(
     enhance_mode: str = "standard",
     result: ParseResult | None = None,
 ) -> list[str]:
-    """Backward-compatible alias used by pipeline registry and tests."""
+    """Resolve middleware pipeline stages for a content model and mode."""
     return resolve_pipeline(content_model, enhance_mode, result)

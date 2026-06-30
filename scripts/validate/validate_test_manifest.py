@@ -11,12 +11,10 @@ from pathlib import Path
 
 import yaml
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[2]
 GATES_DIR = REPO_ROOT / "docmirror" / "configs" / "yaml" / "test" / "gates"
 
-ALLOWED_GATE_KEYS = frozenset(
-    {"equals", "in", "min", "max", "max_issues", "contains"}
-)
+ALLOWED_GATE_KEYS = frozenset({"equals", "in", "min", "max", "max_issues", "contains"})
 
 PIPELINES_WITHOUT_FIXTURE = frozenset(
     {
@@ -36,6 +34,7 @@ PIPELINES_WITHOUT_FIXTURE = frozenset(
 )
 
 # tests/fixtures/ is gitignored (local-only). Missing fixtures must not fail OSS pytest bootstrap.
+
 
 def _validate_gate_spec(gate_name: str, spec: object, case_id: str) -> list[str]:
     errors: list[str] = []
@@ -57,6 +56,8 @@ def validate_manifest_file(path: Path) -> list[str]:
         return [f"{path}: parse error: {exc}"]
 
     cases = data.get("cases") or []
+    if not cases and data.get("oracles"):
+        return errors
     if not cases and not path.name.startswith("_"):
         errors.append(f"{path}: no cases defined")
 
@@ -96,8 +97,8 @@ def validate_manifest_file(path: Path) -> list[str]:
                 or oracle.get("mirror_geometry")
                 or oracle.get("scanned_micro_grid")
                 or oracle.get("scanned_local_structure")
-                or oracle.get("page_canvas")
-                or oracle.get("pcm_finance")
+                or oracle.get("vnext_page_topology")
+                or oracle.get("vnext_finance")
                 or oracle.get("bank_statement")
                 or oracle.get("mode")
                 or oracle.get("reading_order")
@@ -107,12 +108,7 @@ def validate_manifest_file(path: Path) -> list[str]:
                 or oracle.get("quality")
             )
         )
-        if (
-            not gates
-            and not entry.get("gate_profile")
-            and entry.get("pipeline") != "metadata_only"
-            and not oracle_only
-        ):
+        if not gates and not entry.get("gate_profile") and entry.get("pipeline") != "metadata_only" and not oracle_only:
             errors.append(f"{case_id}: empty gates")
         for gate_name, spec in gates.items():
             errors.extend(_validate_gate_spec(gate_name, spec, case_id))

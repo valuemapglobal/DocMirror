@@ -23,12 +23,17 @@ def _empty_result() -> ParseResult:
 
 def test_fixed_layout_standard_pipeline():
     names = resolve_pipeline("fixed_layout_rasterizable", "standard")
-    assert names == [
+    for required in [
         "EntityExtractor",
+        "GeometricReconstructor",
         "EvidenceEngine",
         "InstitutionDetector",
         "Validator",
-    ]
+        "LlmDocumentRestorer",
+    ]:
+        assert required in names
+    assert names.index("EntityExtractor") < names.index("EvidenceEngine")
+    assert names.index("EvidenceEngine") < names.index("Validator")
 
 
 def test_fixed_layout_full_includes_tuh():

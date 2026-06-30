@@ -185,7 +185,6 @@ def strict_header_match_count(tables: list[list[list[str]]], registry: dict[str,
     return best
 
 
-
 _INCOME_CELL_KEYS: tuple[str, ...] = ("收入", "贷方发生额", "贷方", "Credit")
 _EXPENSE_CELL_KEYS: tuple[str, ...] = ("支出", "借方发生额", "借方", "Debit")
 
@@ -220,10 +219,7 @@ def has_split_debit_credit_headers(tables: list[list[list[str]]]) -> bool:
         for row in tbl[:RELAXED_LOOKAHEAD]:
             cells = [normalize_header_cell(c) for c in row]
 
-            if any(
-                _cell_has_any(c, _INCOME_CELL_KEYS) and _cell_has_any(c, _EXPENSE_CELL_KEYS)
-                for c in cells
-            ):
+            if any(_cell_has_any(c, _INCOME_CELL_KEYS) and _cell_has_any(c, _EXPENSE_CELL_KEYS) for c in cells):
                 continue
 
             has_income = any(_cell_has_any(c, _INCOME_CELL_KEYS) for c in cells)

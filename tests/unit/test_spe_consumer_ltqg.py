@@ -5,13 +5,13 @@
 
 from __future__ import annotations
 
-from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, ParserInfo, RowType, TableRow
-from docmirror.structure.analysis.spe_consumer import (
+from docmirror.evidence.spe_consumer import (
     mirror_expected_primary_rows,
     read_ltqg_summary,
     spe_ltqg_warnings,
 )
-from docmirror.structure.tables.compose.ledger_quality import apply_ltqg
+from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, ParserInfo, RowType, TableRow
+from docmirror.tables.compose.ledger_quality import apply_ltqg
 
 
 def _bank_profile():
@@ -64,7 +64,7 @@ def test_mirror_expected_primary_rows_from_logical_tables():
     assert mirror_expected_primary_rows(pr) == 1
 
 
-def test_apply_ltqg_legacy_max_in_spe_warnings():
+def test_apply_ltqg_raw_max_in_spe_warnings():
     good = LogicalTable(
         headers=["交易日期", "摘要", "借方发生额", "贷方发生额", "余额"],
         rows=[
@@ -87,15 +87,15 @@ def test_apply_ltqg_legacy_max_in_spe_warnings():
         "ltqg_enabled": True,
         "ltqg_expected_data_rows": summary.expected_data_rows,
         "ltqg_skipped_tables": summary.skipped_tables,
-        "ltqg_legacy_max_rows": summary.legacy_max_rows,
+        "ltqg_raw_max_rows": summary.raw_max_rows,
     }
     warnings = spe_ltqg_warnings(spe)
     assert any(w.startswith("ltqg:skipped_tables:") for w in warnings)
-    assert any("expected_below_legacy_max" in w for w in warnings)
+    assert any("expected_below_raw_max" in w for w in warnings)
 
 
 def test_parse_result_meta_ltqg_from_spe():
-    from docmirror.structure.analysis.spe_consumer import mirror_api_meta_fields
+    from docmirror.evidence.spe_consumer import mirror_api_meta_fields
 
     pr = ParseResult()
     pr.parser_info = ParserInfo(

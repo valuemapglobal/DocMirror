@@ -20,7 +20,7 @@ Usage::
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from docmirror.input.adapters.parsers.protocol import ParserBackend
@@ -108,21 +108,14 @@ class ParserRegistry:
             List of matching ``ParserBackend`` instances (ordered by
             registration order).  Empty list if none match.
         """
-        return [
-            backend
-            for backend in self._backends.values()
-            if format in backend.supported_formats
-        ]
+        return [backend for backend in self._backends.values() if format in backend.supported_formats]
 
     # ── Queries ────────────────────────────────────────────────────────
 
     @property
     def available(self) -> dict[str, str]:
         """Backend name → version summary for all registered backends."""
-        return {
-            name: getattr(backend, "version", "unknown")
-            for name, backend in self._backends.items()
-        }
+        return {name: getattr(backend, "version", "unknown") for name, backend in self._backends.items()}
 
     @property
     def names(self) -> list[str]:

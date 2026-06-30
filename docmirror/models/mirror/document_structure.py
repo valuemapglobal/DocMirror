@@ -4,7 +4,7 @@
 """Document-level logical structure projection — v2 with DFG nodes/edges/reading_flow.
 
 For DFG v2, adds nodes, edges, and reading_flow alongside the existing v1 fields
-(outline, flows, suppressed_noise) for backward compatibility.
+(outline, flows, suppressed_noise) for output contract stability.
 """
 
 from __future__ import annotations
@@ -12,15 +12,6 @@ from __future__ import annotations
 from typing import Any
 
 from docmirror.models.mirror.continuity import detect_continuations
-from docmirror.models.mirror.document_flow import (
-    CrossPageFlow,
-    ReadingFlow,
-    SectionNode,
-    StructureEdge,
-    StructureNode,
-    StructureRelation,
-    SuppressedNoise,
-)
 from docmirror.models.mirror.noise_policy import detect_repeated_noise
 from docmirror.models.mirror.outline import build_outline
 from docmirror.models.mirror.relations import resolve_relations
@@ -36,7 +27,7 @@ def build_document_structure(
     """Build document-level structure projection with optional DFG v2 output.
 
     profile values:
-      - "legacy": version=1 (current behavior, no DFG)
+      - "raw": version=1 (current behavior, no DFG)
       - "structure_v2": version=2 with nodes/edges/reading_flow added
       - "ga_full": version=2 with full DFG (nodes/edges/reading_flow/relations)
       - "forensic": version=2 with full DFG plus noise preservation
@@ -264,19 +255,21 @@ def _build_dfg_from_pages(
                 role = str(item.get("mirror_role") or level or "body")
                 node_type = "heading" if level in ("title", "h1", "h2", "h3") else "paragraph"
                 node_id = f"node:p{page_no}:t{global_order}"
-                nodes.append({
-                    "node_id": node_id,
-                    "type": node_type,
-                    "role": role,
-                    "page": page_no,
-                    "bbox": item.get("bbox"),
-                    "text": content,
-                    "fact_refs": [],
-                    "evidence_refs": item.get("evidence_ids") or [],
-                    "reading_order": global_order,
-                    "confidence": float(item.get("confidence", 1.0) or 1.0),
-                    "quality_flags": [],
-                })
+                nodes.append(
+                    {
+                        "node_id": node_id,
+                        "type": node_type,
+                        "role": role,
+                        "page": page_no,
+                        "bbox": item.get("bbox"),
+                        "text": content,
+                        "fact_refs": [],
+                        "evidence_refs": item.get("evidence_ids") or [],
+                        "reading_order": global_order,
+                        "confidence": float(item.get("confidence", 1.0) or 1.0),
+                        "quality_flags": [],
+                    }
+                )
                 if role in ("header", "footer", "watermark"):
                     excluded_node_ids.append(node_id)
                 else:
@@ -284,87 +277,97 @@ def _build_dfg_from_pages(
 
             elif item_type == "image":
                 node_id = f"node:p{page_no}:i{global_order}"
-                nodes.append({
-                    "node_id": node_id,
-                    "type": "image",
-                    "role": "body",
-                    "page": page_no,
-                    "bbox": item.get("bbox"),
-                    "text": item.get("caption") or f"[Image: {item.get('image_id', '')}]",
-                    "fact_refs": [],
-                    "evidence_refs": [],
-                    "reading_order": global_order,
-                    "confidence": 1.0,
-                    "quality_flags": [],
-                })
+                nodes.append(
+                    {
+                        "node_id": node_id,
+                        "type": "image",
+                        "role": "body",
+                        "page": page_no,
+                        "bbox": item.get("bbox"),
+                        "text": item.get("caption") or f"[Image: {item.get('image_id', '')}]",
+                        "fact_refs": [],
+                        "evidence_refs": [],
+                        "reading_order": global_order,
+                        "confidence": 1.0,
+                        "quality_flags": [],
+                    }
+                )
                 reading_flow_node_ids.append(node_id)
 
             elif item_type == "formula":
                 node_id = f"node:p{page_no}:f{global_order}"
                 latex = str(item.get("latex") or "")
                 raw = str(item.get("raw") or "")
-                nodes.append({
-                    "node_id": node_id,
-                    "type": "formula",
-                    "role": "body",
-                    "page": page_no,
-                    "bbox": item.get("bbox"),
-                    "text": latex or raw,
-                    "fact_refs": [],
-                    "evidence_refs": item.get("evidence_ids") or [],
-                    "reading_order": global_order,
-                    "confidence": float(item.get("confidence", 1.0) or 1.0),
-                    "quality_flags": [],
-                })
+                nodes.append(
+                    {
+                        "node_id": node_id,
+                        "type": "formula",
+                        "role": "body",
+                        "page": page_no,
+                        "bbox": item.get("bbox"),
+                        "text": latex or raw,
+                        "fact_refs": [],
+                        "evidence_refs": item.get("evidence_ids") or [],
+                        "reading_order": global_order,
+                        "confidence": float(item.get("confidence", 1.0) or 1.0),
+                        "quality_flags": [],
+                    }
+                )
                 reading_flow_node_ids.append(node_id)
 
             elif item_type == "table":
                 table_id = str(item.get("table_id") or "")
                 is_logical = table_id in logical_table_source_ids
                 node_id = f"node:p{page_no}:tb{global_order}"
-                nodes.append({
-                    "node_id": node_id,
-                    "type": "logical_table" if is_logical else "physical_table",
-                    "role": "body",
-                    "page": page_no,
-                    "bbox": item.get("bbox"),
-                    "text": "",
-                    "fact_refs": [table_id] if table_id else [],
-                    "evidence_refs": item.get("evidence_ids") or [],
-                    "reading_order": global_order,
-                    "confidence": float(item.get("confidence", 1.0) or 1.0),
-                    "quality_flags": [],
-                })
+                nodes.append(
+                    {
+                        "node_id": node_id,
+                        "type": "logical_table" if is_logical else "physical_table",
+                        "role": "body",
+                        "page": page_no,
+                        "bbox": item.get("bbox"),
+                        "text": "",
+                        "fact_refs": [table_id] if table_id else [],
+                        "evidence_refs": item.get("evidence_ids") or [],
+                        "reading_order": global_order,
+                        "confidence": float(item.get("confidence", 1.0) or 1.0),
+                        "quality_flags": [],
+                    }
+                )
                 reading_flow_node_ids.append(node_id)
 
             elif item_type == "key_value":
                 node_id = f"node:p{page_no}:kv{global_order}"
-                nodes.append({
-                    "node_id": node_id,
-                    "type": "paragraph",
-                    "role": "body",
-                    "page": page_no,
-                    "bbox": item.get("bbox"),
-                    "text": f"{item.get('key', '')}: {item.get('value', '')}",
-                    "fact_refs": [],
-                    "evidence_refs": item.get("evidence_ids") or [],
-                    "reading_order": global_order,
-                    "confidence": float(item.get("confidence", 1.0) or 1.0),
-                    "quality_flags": [],
-                })
+                nodes.append(
+                    {
+                        "node_id": node_id,
+                        "type": "paragraph",
+                        "role": "body",
+                        "page": page_no,
+                        "bbox": item.get("bbox"),
+                        "text": f"{item.get('key', '')}: {item.get('value', '')}",
+                        "fact_refs": [],
+                        "evidence_refs": item.get("evidence_ids") or [],
+                        "reading_order": global_order,
+                        "confidence": float(item.get("confidence", 1.0) or 1.0),
+                        "quality_flags": [],
+                    }
+                )
                 reading_flow_node_ids.append(node_id)
 
             # Build reading_next edge
             if prev_node_id is not None:
-                edges.append({
-                    "edge_id": f"edge:{prev_node_id}:{node_id}",
-                    "type": "reading_next",
-                    "from_node": prev_node_id,
-                    "to_node": node_id,
-                    "confidence": 0.98,
-                    "policy": "page_sequential_reading_order_v1",
-                    "evidence_refs": [f"layout:p{page_no}"],
-                })
+                edges.append(
+                    {
+                        "edge_id": f"edge:{prev_node_id}:{node_id}",
+                        "type": "reading_next",
+                        "from_node": prev_node_id,
+                        "to_node": node_id,
+                        "confidence": 0.98,
+                        "policy": "page_sequential_reading_order",
+                        "evidence_refs": [f"layout:p{page_no}"],
+                    }
+                )
             prev_node_id = node_id
 
     # Build reading_flow
@@ -374,16 +377,18 @@ def _build_dfg_from_pages(
         for n in nodes:
             if n["node_id"] in reading_flow_node_ids:
                 pages_set.add(n.get("page", 1))
-        reading_flows.append({
-            "flow_id": "reading_flow:main",
-            "type": "main_reading_order",
-            "node_ids": reading_flow_node_ids,
-            "source_pages": sorted(pages_set),
-            "confidence": 0.94,
-            "profile": "human_default",
-            "excluded_node_ids": excluded_node_ids,
-            "policy": "page_sequential_reading_order_v1",
-        })
+        reading_flows.append(
+            {
+                "flow_id": "reading_flow:main",
+                "type": "main_reading_order",
+                "node_ids": reading_flow_node_ids,
+                "source_pages": sorted(pages_set),
+                "confidence": 0.94,
+                "profile": "human_default",
+                "excluded_node_ids": excluded_node_ids,
+                "policy": "page_sequential_reading_order",
+            }
+        )
 
     return nodes, edges, reading_flows
 
@@ -449,19 +454,21 @@ def _build_dfg_from_engine_result(
             if mirror_role in ("header", "footer", "watermark"):
                 role = mirror_role
 
-        nodes.append({
-            "node_id": node_id,
-            "type": node_type,
-            "role": role,
-            "page": page_no,
-            "bbox": bbox,
-            "text": text,
-            "fact_refs": [],
-            "evidence_refs": [],
-            "reading_order": global_order,
-            "confidence": 0.98,
-            "quality_flags": [],
-        })
+        nodes.append(
+            {
+                "node_id": node_id,
+                "type": node_type,
+                "role": role,
+                "page": page_no,
+                "bbox": bbox,
+                "text": text,
+                "fact_refs": [],
+                "evidence_refs": [],
+                "reading_order": global_order,
+                "confidence": 0.98,
+                "quality_flags": [],
+            }
+        )
 
         if role in ("header", "footer", "watermark"):
             excluded_node_ids.append(node_id)
@@ -470,15 +477,17 @@ def _build_dfg_from_engine_result(
 
         # Build reading_next edge
         if prev_node_id:
-            edges.append({
-                "edge_id": f"edge:{prev_node_id}:{node_id}",
-                "type": "reading_next",
-                "from_node": prev_node_id,
-                "to_node": node_id,
-                "confidence": 0.98,
-                "policy": "column_aware_reading_order_v2",
-                "evidence_refs": [],
-            })
+            edges.append(
+                {
+                    "edge_id": f"edge:{prev_node_id}:{node_id}",
+                    "type": "reading_next",
+                    "from_node": prev_node_id,
+                    "to_node": node_id,
+                    "confidence": 0.98,
+                    "policy": "column_aware_reading_order_v2",
+                    "evidence_refs": [],
+                }
+            )
         prev_node_id = node_id
 
     # Also process images, tables, key_values not in the engine output
@@ -491,19 +500,21 @@ def _build_dfg_from_engine_result(
                 continue
             global_order += 1
             node_id = f"node:p{page_no}:i{global_order}"
-            nodes.append({
-                "node_id": node_id,
-                "type": "image",
-                "role": "body",
-                "page": page_no,
-                "bbox": img.get("bbox"),
-                "text": str(img.get("caption") or f"[Image: {img.get('image_id', '')}]"),
-                "fact_refs": [],
-                "evidence_refs": img.get("evidence_ids") or [],
-                "reading_order": global_order,
-                "confidence": float(img.get("confidence", 1.0) or 1.0),
-                "quality_flags": [],
-            })
+            nodes.append(
+                {
+                    "node_id": node_id,
+                    "type": "image",
+                    "role": "body",
+                    "page": page_no,
+                    "bbox": img.get("bbox"),
+                    "text": str(img.get("caption") or f"[Image: {img.get('image_id', '')}]"),
+                    "fact_refs": [],
+                    "evidence_refs": img.get("evidence_ids") or [],
+                    "reading_order": global_order,
+                    "confidence": float(img.get("confidence", 1.0) or 1.0),
+                    "quality_flags": [],
+                }
+            )
             reading_flow_node_ids.append(node_id)
 
         for tbl in page.get("tables") or []:
@@ -511,19 +522,21 @@ def _build_dfg_from_engine_result(
                 continue
             global_order += 1
             node_id = f"node:p{page_no}:tb{global_order}"
-            nodes.append({
-                "node_id": node_id,
-                "type": "physical_table",
-                "role": "body",
-                "page": page_no,
-                "bbox": tbl.get("bbox"),
-                "text": "",
-                "fact_refs": [str(tbl.get("table_id") or "")],
-                "evidence_refs": tbl.get("evidence_ids") or [],
-                "reading_order": global_order,
-                "confidence": float(tbl.get("confidence", 1.0) or 1.0),
-                "quality_flags": [],
-            })
+            nodes.append(
+                {
+                    "node_id": node_id,
+                    "type": "physical_table",
+                    "role": "body",
+                    "page": page_no,
+                    "bbox": tbl.get("bbox"),
+                    "text": "",
+                    "fact_refs": [str(tbl.get("table_id") or "")],
+                    "evidence_refs": tbl.get("evidence_ids") or [],
+                    "reading_order": global_order,
+                    "confidence": float(tbl.get("confidence", 1.0) or 1.0),
+                    "quality_flags": [],
+                }
+            )
             reading_flow_node_ids.append(node_id)
 
     # Build reading_flow
@@ -533,16 +546,18 @@ def _build_dfg_from_engine_result(
         for n in nodes:
             if n["node_id"] in reading_flow_node_ids:
                 pages_set.add(n.get("page", 1))
-        reading_flows.append({
-            "flow_id": "reading_flow:main",
-            "type": "main_reading_order",
-            "node_ids": reading_flow_node_ids,
-            "source_pages": sorted(pages_set),
-            "confidence": 0.95,
-            "profile": "human_default",
-            "excluded_node_ids": excluded_node_ids,
-            "policy": "column_aware_reading_order_v2",
-        })
+        reading_flows.append(
+            {
+                "flow_id": "reading_flow:main",
+                "type": "main_reading_order",
+                "node_ids": reading_flow_node_ids,
+                "source_pages": sorted(pages_set),
+                "confidence": 0.95,
+                "profile": "human_default",
+                "excluded_node_ids": excluded_node_ids,
+                "policy": "column_aware_reading_order_v2",
+            }
+        )
 
     # Add section tree from DFG engine to edges
     section_tree = dfg_result.get("section_tree") or {}
@@ -553,15 +568,17 @@ def _build_dfg_from_engine_result(
             continue
         heading_node_id = heading.get("node_id") or ""
         if heading_node_id:
-            edges.append({
-                "edge_id": f"edge:section:{heading_node_id}",
-                "type": "section_child",
-                "from_node": prev_heading.get("node_id", "") if prev_heading else "root",
-                "to_node": heading_node_id,
-                "confidence": float(heading.get("confidence", 0.9) or 0.9),
-                "policy": "multi_language_section_detection_v1",
-                "evidence_refs": [],
-            })
+            edges.append(
+                {
+                    "edge_id": f"edge:section:{heading_node_id}",
+                    "type": "section_child",
+                    "from_node": prev_heading.get("node_id", "") if prev_heading else "root",
+                    "to_node": heading_node_id,
+                    "confidence": float(heading.get("confidence", 0.9) or 0.9),
+                    "policy": "multi_language_section_detection_v1",
+                    "evidence_refs": [],
+                }
+            )
             prev_heading = heading
 
     # Add cross-page bridges as edges
@@ -580,14 +597,16 @@ def _build_dfg_from_engine_result(
         from_node = f"node:p{page_a}:b{block_a_idx}"
         to_node = f"node:p{page_b}:b{block_b_idx}"
 
-        edges.append({
-            "edge_id": f"edge:{bridge_id}",
-            "type": "continues",
-            "from_node": from_node,
-            "to_node": to_node,
-            "confidence": confidence,
-            "policy": "cross_page_continuity_v1",
-            "evidence_refs": [],
-        })
+        edges.append(
+            {
+                "edge_id": f"edge:{bridge_id}",
+                "type": "continues",
+                "from_node": from_node,
+                "to_node": to_node,
+                "confidence": confidence,
+                "policy": "cross_page_continuity_v1",
+                "evidence_refs": [],
+            }
+        )
 
     return nodes, edges, reading_flows

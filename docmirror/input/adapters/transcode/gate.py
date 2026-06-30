@@ -4,7 +4,7 @@
 """
 Transcoding gate — disk-to-disk format normalization before primary extraction.
 
-Converts legacy or unsupported on-disk formats (``.doc``, ``.xls``, ``.ppt``,
+Converts raw or unsupported on-disk formats (``.doc``, ``.xls``, ``.ppt``,
 etc.) into canonical types (``.docx``, ``.xlsx``, ``.pptx``) using external
 converters when required by the Format Capability Registry. Exposes
 ``transcode_session`` context manager and ``FormatRequiresConverterError``.

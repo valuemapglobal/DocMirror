@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.output.mirror import MirrorCoreVNext
+from docmirror.models.mirror.core import MirrorCoreVNext
 from docmirror.models.mirror.vnext import BlockType
 from tests.unit.test_mirror_json_vnext import _sample_parse_result
 

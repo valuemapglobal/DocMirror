@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from docmirror.structure.scene.institution_hint import resolve_document_institution
+from docmirror.layout.scene.institution_hint import resolve_document_institution
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 
 

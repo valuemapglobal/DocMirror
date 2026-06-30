@@ -184,7 +184,7 @@ def yaml_config_module_refs() -> list[str]:
 
 
 def imports_in_file(path: Path) -> list[str]:
-    """Backward-compatible alias — prefer ``resolved_imports_in_file``."""
+    """Resolve imports in a file."""
     return resolved_imports_in_file(path)
 
 

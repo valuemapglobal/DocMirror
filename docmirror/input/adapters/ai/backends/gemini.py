@@ -23,9 +23,9 @@ import logging
 from typing import Any
 
 from docmirror.input.adapters.ai.config import (
-    AIConfig,
     BASE_RETRY_DELAY_MS,
     MAX_RETRIES,
+    AIConfig,
 )
 from docmirror.input.adapters.ai.protocol import AIAnalysisResult, AIBackendCapabilities
 
@@ -62,6 +62,7 @@ class GeminiBackend:
             return False
         try:
             import google.generativeai as genai  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -84,8 +85,7 @@ class GeminiBackend:
             return self._model
         except ImportError:
             raise ImportError(
-                "google-generativeai package not installed. "
-                "Install with: pip install google-generativeai"
+                "google-generativeai package not installed. Install with: pip install google-generativeai"
             )
 
     async def analyze_page(
@@ -139,24 +139,17 @@ class GeminiBackend:
         """Generate a description of a chart/image for accessibility."""
         context_prompt = ""
         if context == "chart":
-            context_prompt = (
-                "This is a chart or graph. Describe its type, axes, "
-                "data trends, and key values in detail."
-            )
+            context_prompt = "This is a chart or graph. Describe its type, axes, data trends, and key values in detail."
         elif context == "diagram":
             context_prompt = (
-                "This is a diagram or illustration. Describe its "
-                "components, relationships, and overall meaning."
+                "This is a diagram or illustration. Describe its components, relationships, and overall meaning."
             )
         elif context == "photo":
             context_prompt = "Describe this photograph in detail."
         else:
             context_prompt = "Describe this image in detail for accessibility purposes."
 
-        system_context = (
-            "You are an accessibility alt-text generator. "
-            "Describe images concisely but thoroughly."
-        )
+        system_context = "You are an accessibility alt-text generator. Describe images concisely but thoroughly."
 
         model = self._get_model()
         response = await self._call_with_retry(
@@ -185,11 +178,13 @@ class GeminiBackend:
             except Exception as exc:
                 logger.warning(
                     "Gemini API call failed (attempt %d/%d): %s",
-                    attempt + 1, MAX_RETRIES, exc,
+                    attempt + 1,
+                    MAX_RETRIES,
+                    exc,
                 )
                 last_exc = exc
                 if attempt < MAX_RETRIES - 1:
-                    await asyncio.sleep(BASE_RETRY_DELAY_MS * (2 ** attempt) / 1000)
+                    await asyncio.sleep(BASE_RETRY_DELAY_MS * (2**attempt) / 1000)
         raise last_exc  # type: ignore[misc]
 
     def _parse_response(self, response: Any, task: str) -> AIAnalysisResult:

@@ -154,7 +154,9 @@ def _is_total_row(label: str, role: str) -> bool:
 
 def _looks_like_note_or_number(text: str) -> bool:
     cleaned = text.replace(",", "").replace("，", "").strip()
-    return bool(re.fullmatch(r"附注?[一二三四五六七八九十百0-9]+", cleaned) or re.fullmatch(r"-?\d+(?:\.\d+)?", cleaned))
+    return bool(
+        re.fullmatch(r"附注?[一二三四五六七八九十百0-9]+", cleaned) or re.fullmatch(r"-?\d+(?:\.\d+)?", cleaned)
+    )
 
 
 def _cell_row(cell: dict[str, Any]) -> int:

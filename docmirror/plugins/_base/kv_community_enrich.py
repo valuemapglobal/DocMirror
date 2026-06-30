@@ -227,6 +227,7 @@ def enrich_credit_report_output(
         records = _ensure_credit_repayment_records(parse_result)
     if records:
         output.setdefault("data", {})["repayment_records"] = records
+        output["repayment_records"] = records
     accounts = domain_specific.get("credit_accounts")
     if not accounts:
         accounts = _extract_credit_accounts_from_local_structure_evidence(parse_result)
@@ -284,36 +285,28 @@ def _extract_credit_accounts_from_local_structure_evidence(parse_result: Any) ->
 
 
 def _ensure_credit_repayment_records(parse_result: Any) -> list[dict[str, Any]]:
-    """Project repayment records from page canvas regions or bundle micro_grids."""
+    """Project repayment records from vNext/bundle micro-grid structures."""
     domain_specific = _domain_specific(parse_result)
     existing = domain_specific.get("credit_repayment_records")
     if existing:
         return list(existing)
 
+    from docmirror.models.mirror.domain_access import micro_grid_structures_from_domain_specific
+    from docmirror.models.mirror.vnext_access import iter_structures
     from docmirror.plugins.credit_report.repayment_grid import (
         dedupe_repayment_records,
         records_from_micro_grid_dict,
     )
 
     records: list[dict[str, Any]] = []
+    for grid in micro_grid_structures_from_domain_specific(domain_specific):
+        projected = records_from_micro_grid_dict(grid)
+        if projected:
+            records.extend(projected)
 
-    if hasattr(parse_result, "sync_page_canvases"):
-        parse_result.sync_page_canvases()
-    for page in getattr(parse_result, "pages", []) or []:
-        canvas = getattr(page, "page_canvas", None)
-        if canvas is None:
-            continue
-        for region in canvas.regions:
-            if region.kind != "micro_grid":
-                continue
-            projected = records_from_micro_grid_dict(region.structure)
-            if projected:
-                records.extend(projected)
-
-    if not records:
-        from docmirror.ocr.page_canvas.evidence_bundles import micro_grid_structures_from_bundles
-
-        for grid in micro_grid_structures_from_bundles(domain_specific):
+    if not records and hasattr(parse_result, "to_mirror_json_vnext"):
+        mirror = parse_result.to_mirror_json_vnext()
+        for grid in iter_structures(mirror if isinstance(mirror, dict) else {}, kind="micro_grid"):
             projected = records_from_micro_grid_dict(grid)
             if projected:
                 records.extend(projected)

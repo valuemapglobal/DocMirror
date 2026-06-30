@@ -75,7 +75,9 @@ def fuse_column_signals(
     # 5. Compute overall confidence
     confidence = _calculate_confidence(clean_boundaries, weights)
 
-    logger.debug(f"Signal fusion: {len(signals)} sources -> {len(clean_boundaries)} boundaries, confidence={confidence:.2f}")
+    logger.debug(
+        f"Signal fusion: {len(signals)} sources -> {len(clean_boundaries)} boundaries, confidence={confidence:.2f}"
+    )
 
     return sorted(clean_boundaries), confidence
 

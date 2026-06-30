@@ -52,9 +52,22 @@ required_public_files:
   - CODE_OF_CONDUCT.md
   - CONTRIBUTING.md
 wheel_forbidden_paths:
+  - ".env"
+  - ".env.example"
+  - ".github/"
+  - ".import_linter_cache/"
+  - "Dockerfile"
+  - "artifacts/"
+  - "docker-compose.yml"
   - "docmirror/plugins/.plugin_state.json"
   - "docmirror_enterprise/"
   - "docmirror_finance/"
+  - "docs/"
   - "docs/design/"
-  - "tests/"
   - "examples/"
+  - "mkdocs.yml"
+  - "output/"
+  - "reports/"
+  - "scripts/"
+  - "sdks/"
+  - "tests/"

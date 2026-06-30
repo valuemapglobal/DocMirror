@@ -94,7 +94,6 @@ def pdfua(input: str, output: str | None, language: str, schema_version: str, dm
                 dmir = json.load(f)
     else:
         # Parse the input document using DocMirror's engine
-        import json as _json
 
         from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 
@@ -135,7 +134,7 @@ def pdfua(input: str, output: str | None, language: str, schema_version: str, dm
             for w in export_result.warnings:
                 console.print(f"  [yellow]![/yellow] {w}")
     else:
-        console.print(f"[red]Export failed:[/red]")
+        console.print("[red]Export failed:[/red]")
         for e in export_result.errors:
             console.print(f"  [red]![/red] {e}")
         raise SystemExit(1)

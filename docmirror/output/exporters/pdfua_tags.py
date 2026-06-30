@@ -37,7 +37,11 @@ def build_pdfua_struct_tree(dmir: dict[str, Any], page_refs: list[Any]) -> list[
     from pypdf.generic import DictionaryObject, NameObject
 
     elements: list[dict[str, Any]] = [
-        {"_dict": DictionaryObject({NameObject("/S"): NameObject("/Document")}), "_parent_idx": None, "_child_indices": []}
+        {
+            "_dict": DictionaryObject({NameObject("/S"): NameObject("/Document")}),
+            "_parent_idx": None,
+            "_child_indices": [],
+        }
     ]
     pages = dmir.get("document", {}).get("pages", [])
     for page_index, page in enumerate(pages):
@@ -46,7 +50,11 @@ def build_pdfua_struct_tree(dmir: dict[str, Any], page_refs: list[Any]) -> list[
         elements.append(
             {"_dict": DictionaryObject({NameObject("/S"): NameObject("/Sect")}), "_parent_idx": 0, "_child_indices": []}
         )
-        content_items = list(page.get("texts", []) or []) + list(page.get("tables", []) or []) + list(page.get("key_values", []) or [])
+        content_items = (
+            list(page.get("texts", []) or [])
+            + list(page.get("tables", []) or [])
+            + list(page.get("key_values", []) or [])
+        )
         for item_index, item in enumerate(content_items):
             kind = "table" if "headers" in item or "data_rows" in item else "kv" if "key" in item else "text"
             tag = dmir_to_pdf_tag(kind, item)

@@ -35,10 +35,18 @@ console = Console()
 @click.command()
 @click.argument("source_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.option(
-    "--output-dir", "-o", type=click.Path(path_type=Path), default=None, help="Classification output directory (default: ./classified_output)"
+    "--output-dir",
+    "-o",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Classification output directory (default: ./classified_output)",
 )
 @click.option(
-    "--rules", "-r", type=click.Path(exists=True, path_type=Path), default=None, help="Classification rules file path (YAML format)"
+    "--rules",
+    "-r",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Classification rules file path (YAML format)",
 )
 @click.option("--dry-run", is_flag=True, default=False, help="Preview classification results, do not move files")
 @click.option(

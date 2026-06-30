@@ -124,14 +124,8 @@ def reconstruct_scanned_statement_table(
         "geometry_confidence": _grid_confidence(raw, keyword_hits=keyword_hits),
         "coordinate_system": "pdf_points_top_left",
         "cell_bboxes": cell_bboxes,
-        "cell_geometry_status": [
-            ["exact" if cell else "missing" for cell in row]
-            for row in raw
-        ],
-        "cell_geometry_loss_reason": [
-            [None if cell else "empty_ocr_cell" for cell in row]
-            for row in raw
-        ],
+        "cell_geometry_status": [["exact" if cell else "missing" for cell in row] for row in raw],
+        "cell_geometry_loss_reason": [[None if cell else "empty_ocr_cell" for cell in row] for row in raw],
         "cell_evidence_ids": cell_evidence_ids,
         "cell_token_ids": cell_evidence_ids,
         "cell_confidences": cell_confidences,
@@ -172,7 +166,9 @@ def _block_to_token(block: Block) -> _Token | None:
         return None
     confidence = float((block.attrs or {}).get("confidence") or 1.0)
     evidence_ids = list(block.evidence_ids or ())
-    return _Token(text=text, bbox=bbox, evidence_id=evidence_ids[0] if evidence_ids else block.block_id, confidence=confidence)
+    return _Token(
+        text=text, bbox=bbox, evidence_id=evidence_ids[0] if evidence_ids else block.block_id, confidence=confidence
+    )
 
 
 def _ocr_orientation_attrs(blocks: list[Block]) -> dict[str, Any]:
@@ -325,9 +321,7 @@ def _normalize_header_tokens(tokens: list[_Token]) -> list[_Token]:
         out.append(token)
         i += 1
     return [
-        token
-        for token in out
-        if token.text in _FINANCIAL_HEADER_LABELS or not _SHORT_NOISE_RE.fullmatch(token.text)
+        token for token in out if token.text in _FINANCIAL_HEADER_LABELS or not _SHORT_NOISE_RE.fullmatch(token.text)
     ]
 
 
@@ -374,11 +368,15 @@ def _materialize_rows(
             texts = [_join_cell_tokens(bucket) for bucket in buckets]
         raw.append(texts)
         bboxes.append([_union_bbox([token.bbox for token in bucket]) if bucket else None for bucket in buckets])
-        evidence_ids.append([[part for token in bucket for part in token.evidence_id.split("|") if part] for bucket in buckets])
-        confidences.append([
-            round(sum(token.confidence for token in bucket) / len(bucket), 4) if bucket else None
-            for bucket in buckets
-        ])
+        evidence_ids.append(
+            [[part for token in bucket for part in token.evidence_id.split("|") if part] for bucket in buckets]
+        )
+        confidences.append(
+            [
+                round(sum(token.confidence for token in bucket) / len(bucket), 4) if bucket else None
+                for bucket in buckets
+            ]
+        )
     return raw, bboxes, evidence_ids, confidences
 
 

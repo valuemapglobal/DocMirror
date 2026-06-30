@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from docmirror.structure.ocr.local_structure import extract_local_structure_evidence
-from docmirror.structure.ocr.page_canvas.evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+from docmirror.ocr.local_structure import extract_local_structure_evidence
+from docmirror.models.mirror.page_evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
 from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
@@ -89,7 +89,7 @@ def test_local_structure_continuation_chain_is_preserved_in_account_field():
 
 
 def test_region_crop_ocr_is_audit_only(monkeypatch):
-    from docmirror.structure.ocr.local_structure import repair
+    from docmirror.ocr.local_structure import repair
 
     class FakeImage:
         shape = (800, 600, 3)
@@ -203,7 +203,7 @@ def test_forensic_api_exports_scanned_local_structure_evidence_only():
 
 
 def test_structure_local_structure_does_not_export_credit_specific_mappers():
-    structure_files = Path("docmirror/structure/ocr/local_structure").glob("*.py")
+    structure_files = Path("docmirror/ocr/local_structure").glob("*.py")
     source = "\n".join(path.read_text(encoding="utf-8") for path in structure_files)
 
     assert "repayment" not in source.lower()

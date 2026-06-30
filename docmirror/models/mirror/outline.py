@@ -41,17 +41,19 @@ def build_outline(
                     level = str(text.get("level") or "").lower()
                     content = str(text.get("content") or "").strip()
                     if content and level in ("title", "h1", "h2", "h3"):
-                        sections.append({
-                            "node_id": f"sec:p{page_no}_h{len(sections)}",
-                            "type": "section",
-                            "title": content,
-                            "level": {"title": 1, "h1": 1, "h2": 2, "h3": 3}.get(level, 1),
-                            "page_start": page_no,
-                            "page_end": page_no,
-                            "child_ids": [],
-                            "content_node_ids": [],
-                            "confidence": float(text.get("confidence", 1.0) or 1.0),
-                        })
+                        sections.append(
+                            {
+                                "node_id": f"sec:p{page_no}_h{len(sections)}",
+                                "type": "section",
+                                "title": content,
+                                "level": {"title": 1, "h1": 1, "h2": 2, "h3": 3}.get(level, 1),
+                                "page_start": page_no,
+                                "page_end": page_no,
+                                "child_ids": [],
+                                "content_node_ids": [],
+                                "confidence": float(text.get("confidence", 1.0) or 1.0),
+                            }
+                        )
         return sections
 
     heading_nodes_sorted = sorted(heading_nodes, key=lambda n: n.get("reading_order", 0))
@@ -136,7 +138,6 @@ def _assign_content_nodes(
 
     for cn in content_nodes:
         cn_page = cn.get("page", 1)
-        cn_ro = cn.get("reading_order", 0)
 
         # Find the last section that starts on or before this node's page
         best_section: dict[str, Any] | None = None

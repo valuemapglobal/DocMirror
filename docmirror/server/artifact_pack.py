@@ -15,15 +15,15 @@ source of truth (XVC SS4.3).
 
 from __future__ import annotations
 
-import json as _json
 from html import escape
 from pathlib import Path
 from typing import Any
 
 from docmirror.configs.output_profile import OutputProfile, default_profile
-from docmirror.output.serialization import dumps_json
+from docmirror.runtime.serialization import dumps_json
 
 _TPL_DIR = Path(__file__).resolve().parent.parent / "evidence" / "templates"
+
 
 def _read_template(filename: str) -> str:
     """Read a template file from the evidence/templates directory."""
@@ -31,6 +31,7 @@ def _read_template(filename: str) -> str:
     if path.is_file():
         return path.read_text(encoding="utf-8")
     return ""
+
 
 def _build_schema_versions() -> dict[str, str]:
     return {
@@ -47,6 +48,7 @@ def _build_schema_versions() -> dict[str, str]:
         "support_bundle": "2.x",
         "manifest": "2.x",
     }
+
 
 def _build_artifact_roles(manifest: dict[str, Any]) -> dict[str, str | None]:
     artifacts = manifest.get("artifacts") or {}
@@ -65,6 +67,7 @@ def _build_artifact_roles(manifest: dict[str, Any]) -> dict[str, str | None]:
         "source_span_ledger": artifacts.get("source_span_ledger"),
         "layout_overlay": artifacts.get("layout_overlay"),
     }
+
 
 def ensure_quickstart_artifact_pack(
     task_dir: Path,
@@ -91,12 +94,28 @@ def ensure_quickstart_artifact_pack(
     if quality_decision is None and profile.name in ("ga_full", "forensic"):
         try:
             from docmirror.evidence.quality_decision import build_quality_decision
+
             quality_decision = build_quality_decision()
         except Exception:
             pass
 
     manifest["output_profile"] = profile.name
     manifest["schema_versions"] = _build_schema_versions()
+    domain = _document_type_from_result(result) or str(manifest.get("document_type") or "generic")
+    try:
+        from docmirror.configs.ga_readiness import compact_domain_readiness
+
+        manifest["domain_readiness"] = compact_domain_readiness(domain)
+    except Exception:
+        manifest["domain_readiness"] = {"domain": domain, "support_level": "unknown"}
+    manifest.setdefault(
+        "open_source_commitment",
+        {
+            "default_output": "edition_json_only",
+            "artifact_pack": "opt_in",
+            "purpose": "human_review_audit_and_issue_reproduction",
+        },
+    )
 
     artifacts = manifest.setdefault("artifacts", {})
     existing_roles = manifest.get("artifact_roles") or {}
@@ -120,7 +139,8 @@ def ensure_quickstart_artifact_pack(
     # quality_report.json v3
     if profile.quality_report:
         quality_report = _build_quality_report_v3(
-            manifest, result=result,
+            manifest,
+            result=result,
             quality_decision=quality_decision,
             source_span_ledger=source_span_ledger,
         )
@@ -174,8 +194,7 @@ def ensure_quickstart_artifact_pack(
         evidence_dir = task_dir / "evidence"
         evidence_dir.mkdir(exist_ok=True)
         (evidence_dir / "README.md").write_text(
-            "# DocMirror Evidence\n\n"
-            "This folder is reserved for crops, overlays, diffs, and minimal repro data.\n",
+            "# DocMirror Evidence\n\nThis folder is reserved for crops, overlays, diffs, and minimal repro data.\n",
             encoding="utf-8",
         )
         artifacts.setdefault("evidence_dir", evidence_dir.name)
@@ -184,6 +203,7 @@ def ensure_quickstart_artifact_pack(
     if pdf_path and Path(pdf_path).exists():
         try:
             from docmirror.output.internal.page_image_renderer import render_page_images as _render_images
+
             page_img_dir = task_dir / "page_images"
             _render_images(pdf_path, page_img_dir, dpi=150)
             artifacts["page_images"] = str(page_img_dir)
@@ -210,6 +230,23 @@ def ensure_quickstart_artifact_pack(
     manifest["artifacts"] = artifacts
     return manifest
 
+
+def _document_type_from_result(result: Any | None) -> str:
+    if result is None:
+        return ""
+    entities = getattr(result, "entities", None)
+    if entities is not None:
+        doc_type = getattr(entities, "document_type", "")
+        if doc_type:
+            return str(doc_type)
+    mirror = getattr(result, "mirror", None)
+    if isinstance(mirror, dict):
+        doc_type = (mirror.get("document") or {}).get("document_type")
+        if doc_type:
+            return str(doc_type)
+    return ""
+
+
 def _embed_quality_decision_in_artifacts(
     task_dir: Path,
     quality_decision: Any,
@@ -235,12 +272,28 @@ def _embed_quality_decision_in_artifacts(
     import json as _json
 
     # Find candidate JSON files — exclude quality_decision.json and quality_report.json
-    skip_names = {"quality_decision.json", "quality_report.json", "output.md",
-                  "visual_debug.html", "manifest.json", "visual_evidence_graph.json",
-                  "overlay_manifest.json", "source_span_ledger.json", "schema_versions.json"}
-    candidate_suffixes = {"_mirror.json", "_edition.json", "_community.json",
-                          "_enterprise.json", "_finance.json", "community.json",
-                          "enterprise.json", "finance.json", "mirror.json"}
+    skip_names = {
+        "quality_decision.json",
+        "quality_report.json",
+        "output.md",
+        "visual_debug.html",
+        "manifest.json",
+        "visual_evidence_graph.json",
+        "overlay_manifest.json",
+        "source_span_ledger.json",
+        "schema_versions.json",
+    }
+    candidate_suffixes = {
+        "_mirror.json",
+        "_edition.json",
+        "_community.json",
+        "_enterprise.json",
+        "_finance.json",
+        "community.json",
+        "enterprise.json",
+        "finance.json",
+        "mirror.json",
+    }
 
     for fpath in sorted(task_dir.glob("*.json")):
         name = fpath.name
@@ -260,6 +313,7 @@ def _embed_quality_decision_in_artifacts(
             )
         except Exception:
             pass
+
 
 def _build_quality_report_v3(
     manifest: dict[str, Any],
@@ -286,15 +340,18 @@ def _build_quality_report_v3(
     needs_review: list[dict[str, Any]] = []
     if quality_decision is not None:
         decision = (
-            quality_decision.decision if hasattr(quality_decision, "decision")
+            quality_decision.decision
+            if hasattr(quality_decision, "decision")
             else quality_decision.get("decision", "not_computed")
         )
         decision_reason = (
-            quality_decision.decision_reason if hasattr(quality_decision, "decision_reason")
+            quality_decision.decision_reason
+            if hasattr(quality_decision, "decision_reason")
             else quality_decision.get("decision_reason", "")
         )
         nr = (
-            quality_decision.needs_review if hasattr(quality_decision, "needs_review")
+            quality_decision.needs_review
+            if hasattr(quality_decision, "needs_review")
             else quality_decision.get("needs_review", [])
         )
         for item in nr:
@@ -304,17 +361,21 @@ def _build_quality_report_v3(
         needs_review.append({"scope": "task", "reason": "errors_present", "count": len(errors)})
     input_quality = parser_options.get("input_quality", {})
     if input_quality.get("low_quality_warning"):
-        needs_review.append({
-            "scope": "input_quality",
-            "reason": "low_quality_image",
-            "score": input_quality.get("image_score"),
-        })
+        needs_review.append(
+            {
+                "scope": "input_quality",
+                "reason": "low_quality_image",
+                "score": input_quality.get("image_score"),
+            }
+        )
     for edition, item in edition_availability.items():
         if isinstance(item, dict) and item.get("status") in {"degraded", "unavailable", "skipped"}:
-            needs_review.append({
-                "scope": edition,
-                "reason": item.get("reason") or item.get("status"),
-            })
+            needs_review.append(
+                {
+                    "scope": edition,
+                    "reason": item.get("reason") or item.get("status"),
+                }
+            )
 
     span_summary: dict[str, Any] = {}
     if source_span_ledger is not None and hasattr(source_span_ledger, "summary"):
@@ -357,6 +418,7 @@ def _build_quality_report_v3(
         "observed_metrics": manifest.get("ga_metric_observations") or {},
     }
 
+
 def _build_visual_debug_html_v3(
     manifest: dict[str, Any],
     *,
@@ -375,7 +437,8 @@ def _build_visual_debug_html_v3(
     decision = "not_computed"
     if quality_decision is not None:
         decision = (
-            quality_decision.decision if hasattr(quality_decision, "decision")
+            quality_decision.decision
+            if hasattr(quality_decision, "decision")
             else quality_decision.get("decision", "not_computed")
         )
 
@@ -389,8 +452,10 @@ def _build_visual_debug_html_v3(
     css = _read_template("visual_debug.css")
     js = _read_template("visual_debug.js")
 
-    decision_class = "decision-auto" if decision == "auto_ingest" else (
-        "decision-review" if decision == "needs_review" else "decision-reject"
+    decision_class = (
+        "decision-auto"
+        if decision == "auto_ingest"
+        else ("decision-review" if decision == "needs_review" else "decision-reject")
     )
 
     return f"""<!DOCTYPE html>
@@ -447,6 +512,7 @@ window.OVERLAY_MANIFEST = {om_json};
 </script>
 </body>
 </html>"""
+
 
 __all__ = [
     "ensure_quickstart_artifact_pack",

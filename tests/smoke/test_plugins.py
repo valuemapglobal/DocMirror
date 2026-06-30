@@ -186,7 +186,7 @@ class TestPluginRegistry:
         enterprise = BankStatementPlugin()
         reg.register(community)
         reg.register(enterprise)
-        # get_first resolves enterprise, which inherits legacy KV from community base
+        # get_first resolves enterprise, which inherits raw KV from community base
         result = reg.build_domain_data("bank_statement", {}, {})
         assert result is not None
         assert result["document_type"] == "bank_statement"

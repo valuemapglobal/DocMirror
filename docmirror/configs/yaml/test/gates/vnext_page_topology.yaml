@@ -1,0 +1,47 @@
+track: vnext_page_topology
+layer: mirror
+cases:
+  - id: credit_p4_vnext_page_topology_regions
+    tier: regression
+    pipeline: scanned_local_structure_full_page_fixture
+    oracle:
+      vnext_page_topology:
+        page: 4
+        min_regions: 3
+        min_blocks: 3
+        blocks_region_parity: true
+        required_kinds: [field_grid]
+        min_field_grid_cells: 6
+        require_flow_texts: true
+      scanned_local_structure:
+        min_local_structures: 3
+        min_credit_accounts: 3
+        prefer_structure_kind: field_grid
+    tags: [credit_report, vnext_page_topology, field_grid]
+
+  - id: bank_statement_no_regions_regression
+    tier: regression
+    fixture: fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    pipeline: perceive
+    options:
+      enhance_mode: standard
+    oracle:
+      vnext_page_topology:
+        max_regions: 0
+        min_tables: 1
+        min_blocks: 1
+        require_morphology: [S2]
+    tags: [bank_statement, vnext_page_topology, regression]
+
+  - id: vnext_g4_finance_stability_l3
+    tier: regression
+    pipeline: scanned_local_structure_full_page_fixture
+    oracle:
+      vnext_page_topology:
+        page: 4
+        min_regions: 3
+        required_kinds: [field_grid]
+      vnext_finance:
+        golden_fixture: tests/fixtures/golden/vnext_l3_credit_finance.json
+        require_vnext_mirror_shape: true
+    tags: [credit_report, vnext_page_topology, finance, g4]

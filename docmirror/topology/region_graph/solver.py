@@ -37,7 +37,9 @@ def solve_region_graph(
     for region in regions:
         region_id = str(getattr(region, "id", "") or "")
         evidence_ids = [str(eid) for eid in getattr(region, "evidence_ids", []) or []]
-        is_overlay_region = str(getattr(region, "kind", "")) in {"seal", "signature"} or str(getattr(region, "role", "")) in {
+        is_overlay_region = str(getattr(region, "kind", "")) in {"seal", "signature"} or str(
+            getattr(region, "role", "")
+        ) in {
             "seal",
             "signature",
         }
@@ -178,7 +180,7 @@ def _no_candidate_detector_reason(evidence_id: str, evidence_by_id: dict[str, An
     if kind in {"embedded_image", "rendered_image"}:
         role = str(metadata.get("role") or "") if isinstance(metadata, dict) else ""
         if role in {"page_background", "rendered_page"}:
-            return "page_canvas_detector_skipped_or_suppressed_background_image", atom_payload
+            return "page_projection_detector_skipped_or_suppressed_background_image", atom_payload
         return "image_detector_skipped_or_rejected_atom", atom_payload
     if kind == "visual_artifact":
         artifact_type = str(metadata.get("artifact_type") or "") if isinstance(metadata, dict) else ""
@@ -225,7 +227,7 @@ def _enrich_candidate_relationships(
     containment_count = 0
 
     for left_index, left in enumerate(candidates):
-        for right in candidates[left_index + 1:]:
+        for right in candidates[left_index + 1 :]:
             if not left.bbox or not right.bbox:
                 continue
             if _is_rendered_page_image(left) or _is_rendered_page_image(right):
@@ -285,11 +287,15 @@ def _enrich_candidate_relationships(
         )
         for candidate in candidates
     ]
-    return enriched, rejected, {
-        "duplicate_candidate_count": duplicate_count,
-        "conflict_candidate_count": conflict_count,
-        "containment_relation_count": containment_count,
-    }
+    return (
+        enriched,
+        rejected,
+        {
+            "duplicate_candidate_count": duplicate_count,
+            "conflict_candidate_count": conflict_count,
+            "containment_relation_count": containment_count,
+        },
+    )
 
 
 def _winner_loser(left: RegionCandidate, right: RegionCandidate) -> tuple[RegionCandidate, RegionCandidate]:

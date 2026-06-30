@@ -14,6 +14,7 @@ parse profiles.
 
 from .entity_extractor import EntityExtractor
 from .generic_entity_extractor import GenericEntityExtractor
+
 # SLMEntityExtractor removed in v1.1 — superseded by LlmDocumentRestorer
 
 __all__ = ["EntityExtractor", "GenericEntityExtractor"]

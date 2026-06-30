@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
@@ -25,8 +24,8 @@ def test_mirror_snapshot_before_editions():
         return {"edition": ed}
 
     with patch(
-        "docmirror.output.mirror.MirrorCoreVNext.process",
-        side_effect=lambda *_a, **_kw: order.append("mirror") or SimpleNamespace(to_dict=lambda: {"mirror": {}}),
+        "docmirror.models.mirror.core.MirrorCoreVNext.process",
+        side_effect=lambda *_a, **_kw: order.append("mirror") or {"mirror": {}},
     ):
         with patch("docmirror.server.output_builder.build_community_output", side_effect=lambda *_a, **_k: order.append("community") or {"edition": "community"}):
             with patch("docmirror.server.output_builder.build_extended_output", side_effect=_extended):

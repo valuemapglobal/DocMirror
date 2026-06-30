@@ -6,8 +6,8 @@ Thank you for your interest in contributing to DocMirror! This guide will help y
 
 ```bash
 # Clone the repository
-git clone https://github.com/valuemapglobal/DocMirror.git
-cd DocMirror
+git clone https://github.com/valuemapglobal/docmirror.git
+cd docmirror
 
 # Create a virtual environment
 python -m venv .venv
@@ -66,7 +66,10 @@ pytest tests/smoke/ -v    # Quick smoke tests (no fixtures needed)
 ```
 docmirror/
 ├── input/            # File intake, adapters, parse control, extraction intake
-├── structure/        # Evidence plane, page topology, OCR, tables, graph, verification
+├── layout/           # Layout analysis, segmentation, normalization, scene signals
+├── topology/         # Page topology, reading order, region graphs, relations
+├── ocr/              # OCR, scanned document recovery, grid reconstruction
+├── tables/           # Table detection, reconstruction, normalization
 ├── output/           # Canonical mirror JSON, projections, exporters, serialization
 ├── models/           # Shared contracts and typed data models
 ├── framework/        # Orchestration, dispatch, DI, middleware framework
@@ -112,7 +115,9 @@ Do **not** add middleware via decorators — use `middleware_catalog.yaml` only.
 
 - Use [GitHub Issues](https://github.com/valuemapglobal/DocMirror/issues)
 - Include: Python version, OS, DocMirror version, minimal reproduction steps
-- For document parsing issues, include a sample file if possible (redact sensitive data)
+- For document parsing issues, prefer a redacted sample, synthetic reproduction,
+  or selected artifact snippets. Do not upload sensitive, customer-owned, or
+  regulated documents unless you have permission to share them.
 
 ## License
 

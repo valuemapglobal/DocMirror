@@ -8,12 +8,12 @@ word/char structures compatible with reconstruction.
 
 Main components: Fallback dispatch helpers.
 
-Upstream: Failed local OCR, ``ocr.preprocess.legacy_fallback``.
+Upstream: Failed local OCR, ``ocr.preprocess.pipeline``.
 
 Downstream: ``ocr.scanned.analyze_page``, ``pipeline.handlers.scanned_page``.
 """
 
-from docmirror.ocr.preprocess.legacy_fallback import (
+from docmirror.ocr.preprocess.pipeline import (
     _resolve_external_ocr_provider,
     assess_image_quality_from_bgr,
 )

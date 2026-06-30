@@ -2,7 +2,7 @@
 
 """Unit tests for table_access unified read layer."""
 
-from docmirror.structure.tables.access import get_logical_tables, table_flatten
+from docmirror.tables.access import get_logical_tables, table_flatten
 from docmirror.models.entities.parse_result import (
     CellValue,
     LogicalTable,
@@ -35,7 +35,7 @@ def _result_with_logical() -> ParseResult:
     )
 
 
-def _legacy_merged_result() -> ParseResult:
+def _merged_result() -> ParseResult:
     return ParseResult(
         pages=[
             PageContent(
@@ -66,7 +66,7 @@ class TestTableAccess:
         assert tables[0].table_id == "lt_0"
 
     def test_fallback_to_physical_page_one(self):
-        result = _legacy_merged_result()
+        result = _merged_result()
         tables = get_logical_tables(result)
         assert len(tables) == 1
         assert tables[0].headers == ["收/支", "金额"]

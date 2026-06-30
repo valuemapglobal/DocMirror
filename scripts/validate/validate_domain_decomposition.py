@@ -73,6 +73,12 @@ def validate_manifest_paths(manifest: dict[str, Any]) -> list[str]:
 
 def validate_compatibility_shims(manifest: dict[str, Any]) -> list[str]:
     errors: list[str] = []
+    compatibility = manifest.get("compatibility") or {}
+    if compatibility.get("status") == "removed":
+        old_root = compatibility.get("old_root")
+        if old_root and (REPO_ROOT / old_root).exists():
+            errors.append(f"removed compatibility root still exists: {old_root}")
+        return errors
     for name, domain in (manifest.get("canonical_domains") or {}).items():
         if not domain.get("moved", False):
             continue

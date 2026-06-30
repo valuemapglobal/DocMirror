@@ -56,44 +56,38 @@ def _redact_value(value: str) -> dict[str, str]:
 
 
 def _build_minimal_repro(result: Any, editions: dict[str, Any] | None) -> dict[str, Any]:
-   """Build minimal reproduction context for support bundle.
+    """Build minimal reproduction context for support bundle.
 
-   Captures parser info, pipeline decision, format profile, and error traces
-   without raw content.
-   """
-   repro: dict[str, Any] = {
-       "parser": getattr(getattr(result, "parser_info", None), "parser_name", ""),
-       "format_profile": str(
-           getattr(
-               getattr(getattr(result, "parser_info", None), "options", None),
-               "get",
-               lambda _k, _d=None: None,
-           )("parse_profile", "unknown")
-           if hasattr(getattr(result, "parser_info", None), "options")
-           else "unknown"
-       ),
-       "extraction_profile": str(
-           getattr(
-               getattr(result, "parser_info", None),
-               "extraction_profile",
-               "unknown",
-           )
-           if hasattr(getattr(result, "parser_info", None), "extraction_profile")
-           else "unknown"
-       ),
-       "pipeline_decision": _safe_dict(getattr(result, "pipeline_decision", None)),
-       "document_type": str(
-           getattr(getattr(result, "entities", None), "document_type", "")
-       ),
-       "page_count": len(list(getattr(result, "pages", []) or [])),
-       "errors": [
-           str(e) for e in (getattr(getattr(result, "errors", None), "get", lambda: [])() or [])
-       ],
-       "editions_available": [
-           ed for ed in (editions or {}) if (editions or {}).get(ed) is not None
-       ],
-   }
-   return repro
+    Captures parser info, pipeline decision, format profile, and error traces
+    without raw content.
+    """
+    repro: dict[str, Any] = {
+        "parser": getattr(getattr(result, "parser_info", None), "parser_name", ""),
+        "format_profile": str(
+            getattr(
+                getattr(getattr(result, "parser_info", None), "options", None),
+                "get",
+                lambda _k, _d=None: None,
+            )("parse_profile", "unknown")
+            if hasattr(getattr(result, "parser_info", None), "options")
+            else "unknown"
+        ),
+        "extraction_profile": str(
+            getattr(
+                getattr(result, "parser_info", None),
+                "extraction_profile",
+                "unknown",
+            )
+            if hasattr(getattr(result, "parser_info", None), "extraction_profile")
+            else "unknown"
+        ),
+        "pipeline_decision": _safe_dict(getattr(result, "pipeline_decision", None)),
+        "document_type": str(getattr(getattr(result, "entities", None), "document_type", "")),
+        "page_count": len(list(getattr(result, "pages", []) or [])),
+        "errors": [str(e) for e in (getattr(getattr(result, "errors", None), "get", lambda: [])() or [])],
+        "editions_available": [ed for ed in (editions or {}) if (editions or {}).get(ed) is not None],
+    }
+    return repro
 
 
 def _safe_dict(obj: Any) -> dict[str, Any] | None:
@@ -151,26 +145,30 @@ def build_support_bundle(
     # ── Redact projection evidence ──
     projection_evidence_safe: list[dict[str, Any]] = []
     for item in (evidence_bundle or {}).get("projection_evidence") or []:
-        projection_evidence_safe.append({
-            "projection_id": item.get("projection_id", ""),
-            "target": item.get("target", ""),
-            "source_fact_ids": item.get("source_fact_ids", []),
-            "evidence_ids": item.get("evidence_ids", []),
-            "projection_policy": item.get("projection_policy", "unknown"),
-            "confidence": item.get("confidence"),
-            "support_level": item.get("support_level", "unknown"),
-            "review": item.get("review", "auto_accepted"),
-            "fallback_reason": item.get("fallback_reason"),
-        })
+        projection_evidence_safe.append(
+            {
+                "projection_id": item.get("projection_id", ""),
+                "target": item.get("target", ""),
+                "source_fact_ids": item.get("source_fact_ids", []),
+                "evidence_ids": item.get("evidence_ids", []),
+                "projection_policy": item.get("projection_policy", "unknown"),
+                "confidence": item.get("confidence"),
+                "support_level": item.get("support_level", "unknown"),
+                "review": item.get("review", "auto_accepted"),
+                "fallback_reason": item.get("fallback_reason"),
+            }
+        )
 
     # ── Redact unresolved evidence ──
     unresolved_safe: list[dict[str, Any]] = []
     for item in (evidence_bundle or {}).get("unresolved") or []:
-        unresolved_safe.append({
-            "field_path": item.get("field_path", "unknown"),
-            "reason": item.get("reason", "unresolved"),
-            "confidence": item.get("confidence"),
-        })
+        unresolved_safe.append(
+            {
+                "field_path": item.get("field_path", "unknown"),
+                "reason": item.get("reason", "unresolved"),
+                "confidence": item.get("confidence"),
+            }
+        )
 
     # ── Ledger summary (safe by construction — no raw values in ledger summary) ──
     ledger_summary_data = (evidence_bundle or {}).get("ledger_summary") or {}
@@ -218,12 +216,10 @@ def build_support_bundle(
             "minimal_repro": _build_minimal_repro(result, editions),
             "evidence_linkage": {
                 "total_ledger_entries": ledger_summary_data.get("total_entries", 0),
-                "bbox_coverage": (
-                    ledger_summary_data.get("coverage") or {}
-                ).get("bbox", {}).get("ratio", 0.0),
-                "source_ref_coverage": (
-                    ledger_summary_data.get("coverage") or {}
-                ).get("source_refs", {}).get("ratio", 0.0),
+                "bbox_coverage": (ledger_summary_data.get("coverage") or {}).get("bbox", {}).get("ratio", 0.0),
+                "source_ref_coverage": (ledger_summary_data.get("coverage") or {})
+                .get("source_refs", {})
+                .get("ratio", 0.0),
                 "unresolved_count": len(unresolved_safe),
             },
         },

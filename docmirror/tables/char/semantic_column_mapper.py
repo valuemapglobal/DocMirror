@@ -20,7 +20,6 @@ for fused values that x-coordinate heuristics cannot separate.
 from __future__ import annotations
 
 import re
-from typing import Any
 
 
 class SemanticColumnMapper:
@@ -55,9 +54,7 @@ class SemanticColumnMapper:
 
     # ── Public API ──
 
-    def map_table(
-        self, table: list[list[str]], headers: list[str] | None = None
-    ) -> list[list[str]] | None:
+    def map_table(self, table: list[list[str]], headers: list[str] | None = None) -> list[list[str]] | None:
         """Map an entire table using semantic column analysis.
 
         If ``headers`` is provided, it overrides extracting headers from
@@ -167,10 +164,10 @@ class SemanticColumnMapper:
                 if prefix:
                     tokens.append((prefix, "text"))
                 tokens.append((match_val, match_type))
-                remaining = remaining[pos + len(match_val):]
+                remaining = remaining[pos + len(match_val) :]
             elif match_val:
                 tokens.append((match_val, match_type))
-                remaining = remaining[len(match_val):]
+                remaining = remaining[len(match_val) :]
             else:
                 # No structured value found — rest is text
                 # Check if there's residual text after the last match
@@ -181,14 +178,12 @@ class SemanticColumnMapper:
         return tokens
 
     def tokenize(self, fused_text: str) -> list[tuple[str, str]]:
-        """Backward-compatible alias for ``tokenize_row``."""
+        """Tokenize a fused row string into semantic tokens."""
         return self.tokenize_row(fused_text)
 
     # ── Step 3: Assign tokens to columns ──
 
-    def assign_to_columns(
-        self, tokens: list[tuple[str, str]], column_types: list[str]
-    ) -> list[str]:
+    def assign_to_columns(self, tokens: list[tuple[str, str]], column_types: list[str]) -> list[str]:
         """Assign tokens to the best-matching columns.
 
         Strategy:
@@ -257,10 +252,8 @@ class SemanticColumnMapper:
 
         return [c.strip() for c in cells]
 
-    def _assign(
-        self, tokens: list[tuple[str, str]], column_types: list[str]
-    ) -> list[str]:
-        """Backward-compatible alias for ``assign_to_columns``."""
+    def _assign(self, tokens: list[tuple[str, str]], column_types: list[str]) -> list[str]:
+        """Assign semantic tokens to target columns."""
         return self.assign_to_columns(tokens, column_types)
 
     # ── Helpers ──

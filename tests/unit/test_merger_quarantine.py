@@ -4,7 +4,7 @@
 """Unit tests for merger quarantine collection."""
 
 from docmirror.models.entities.domain import Block, PageLayout
-from docmirror.structure.fusion import collect_quarantined_tables
+from docmirror.tables.cross_page_fusion import collect_quarantined_tables
 
 
 def _page(num: int, rows: list[list[str]]) -> PageLayout:

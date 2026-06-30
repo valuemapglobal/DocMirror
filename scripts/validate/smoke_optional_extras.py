@@ -63,7 +63,11 @@ def smoke_extra(extra: str, *, timeout: int) -> tuple[bool, str]:
                 "-m",
                 "pip",
                 "install",
+                "--disable-pip-version-check",
+                "--no-input",
                 "--only-binary=:all:",
+                "--progress-bar",
+                "off",
                 f"{wheel}[{extra}]",
             ],
             timeout=timeout,
@@ -107,8 +111,9 @@ def main() -> int:
 
     failures: list[str] = []
     for extra in extras:
+        print(f"{extra}: starting", flush=True)
         ok, message = smoke_extra(extra, timeout=args.timeout)
-        print(message)
+        print(message, flush=True)
         if not ok:
             failures.append(message)
 

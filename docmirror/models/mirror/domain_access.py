@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from docmirror.ocr.page_canvas.evidence_bundles import (
+from docmirror.models.mirror.page_evidence_bundles import (
     bundle_evidence_items,
     local_structure_evidence_pages_from_bundles,
+    micro_grid_structures_from_bundles,
 )
 
 
@@ -29,6 +30,13 @@ def micro_grid_evidence_pages_from_domain_specific(
         for evidence in bundle_evidence_items(domain_specific, bundle_key="micro_grid_evidence")
         if evidence.get("lines")
     ]
+
+
+def micro_grid_structures_from_domain_specific(
+    domain_specific: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Return persisted micro-grid structures from page evidence bundles."""
+    return micro_grid_structures_from_bundles(domain_specific)
 
 
 def raw_micro_grid_evidence_from_domain_specific(

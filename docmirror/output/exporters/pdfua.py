@@ -56,7 +56,9 @@ def export_pdfua(
     root[NameObject("/Lang")] = TextStringObject(language)
     root[NameObject("/ViewerPreferences")] = DictionaryObject({NameObject("/DisplayDocTitle"): BooleanObject(True)})
     mcr = DictionaryObject({NameObject("/Type"): NameObject("/MCR"), NameObject("/MCID"): NumberObject(0)})
-    struct_root = DictionaryObject({NameObject("/Type"): NameObject("/StructTreeRoot"), NameObject("/K"): ArrayObject([mcr])})
+    struct_root = DictionaryObject(
+        {NameObject("/Type"): NameObject("/StructTreeRoot"), NameObject("/K"): ArrayObject([mcr])}
+    )
     root[NameObject("/StructTreeRoot")] = writer._add_object(struct_root)
     if title:
         writer.add_metadata({"/Title": title})
@@ -69,5 +71,9 @@ def export_pdfua(
         success=True,
         output_path=str(out),
         page_count=len(pages),
-        metadata={"title": title or dmir.get("document", {}).get("type", "DocMirror"), "language": language, "pdfua_version": version.value},
+        metadata={
+            "title": title or dmir.get("document", {}).get("type", "DocMirror"),
+            "language": language,
+            "pdfua_version": version.value,
+        },
     )

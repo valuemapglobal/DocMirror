@@ -5,7 +5,7 @@
 
 GA 1.0 DRC §6.5: TaskResult v2 adds runtime fields (stage, progress,
 runtime, intermediate_artifacts, page_outcomes, chunk_outcomes, fallbacks,
-metrics) while remaining backward-compatible with v1."""
+metrics) while preserving the stable v1 field shape."""
 
 from __future__ import annotations
 
@@ -27,31 +27,34 @@ class TaskResult(BaseModel):
     errors: list[dict[str, Any]] = Field(default_factory=list)
 
     # ── v2 additive fields (DRC §6.5) ──
-    version: int = Field(default=2, description='Manifest version (1 or 2)')
-    stage: str = Field(default='', description='Current execution stage')
-    progress: dict[str, Any] = Field(default_factory=dict, description='Aggregate progress from work units')
-    runtime: dict[str, Any] = Field(default_factory=dict, description='Runtime control snapshot')
-    intermediate_artifacts: dict[str, Any] = Field(default_factory=dict, description='Page/chunk intermediate artifact index')
-    page_outcomes: list[dict[str, Any]] = Field(default_factory=list, description='Per-page success/failed/skipped outcomes')
-    chunk_outcomes: list[dict[str, Any]] = Field(default_factory=list, description='Per-chunk outcomes')
-    fallbacks: list[dict[str, Any]] = Field(default_factory=list, description='Fallback event ledger')
-    metrics: dict[str, Any] = Field(default_factory=dict, description='Runtime metrics snapshot')
+    version: int = Field(default=2, description="Manifest version (1 or 2)")
+    stage: str = Field(default="", description="Current execution stage")
+    progress: dict[str, Any] = Field(default_factory=dict, description="Aggregate progress from work units")
+    runtime: dict[str, Any] = Field(default_factory=dict, description="Runtime control snapshot")
+    intermediate_artifacts: dict[str, Any] = Field(
+        default_factory=dict, description="Page/chunk intermediate artifact index"
+    )
+    page_outcomes: list[dict[str, Any]] = Field(
+        default_factory=list, description="Per-page success/failed/skipped outcomes"
+    )
+    chunk_outcomes: list[dict[str, Any]] = Field(default_factory=list, description="Per-chunk outcomes")
+    fallbacks: list[dict[str, Any]] = Field(default_factory=list, description="Fallback event ledger")
+    metrics: dict[str, Any] = Field(default_factory=dict, description="Runtime metrics snapshot")
 
     # v2 explainability fields (XVC W6-03)
     artifact_roles: dict[str, str] = Field(
-        default_factory=dict,
-        description='Artifact role mapping for explainability consumers'
+        default_factory=dict, description="Artifact role mapping for explainability consumers"
     )
     explainability_summary: dict[str, Any] = Field(
         default_factory=dict,
-        description='Explainability summary: visual status, quality decision, diff link, support link'
+        description="Explainability summary: visual status, quality decision, diff link, support link",
     )
-    visual_debug_path: str = Field(default='', description='Path to visual_debug.html')
-    visual_evidence_graph_path: str = Field(default='', description='Path to visual_evidence_graph.json')
-    source_span_ledger_path: str = Field(default='', description='Path to source_span_ledger.json')
-    quality_decision_path: str = Field(default='', description='Path to quality_decision.json')
-    diff_report_path: str = Field(default='', description='Path to diff_report.json')
-    support_bundle_path: str = Field(default='', description='Path to support_bundle.zip')
+    visual_debug_path: str = Field(default="", description="Path to visual_debug.html")
+    visual_evidence_graph_path: str = Field(default="", description="Path to visual_evidence_graph.json")
+    source_span_ledger_path: str = Field(default="", description="Path to source_span_ledger.json")
+    quality_decision_path: str = Field(default="", description="Path to quality_decision.json")
+    diff_report_path: str = Field(default="", description="Path to diff_report.json")
+    support_bundle_path: str = Field(default="", description="Path to support_bundle.zip")
 
 
 def task_result_from_manifest(path: str | Path) -> TaskResult:

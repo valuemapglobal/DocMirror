@@ -19,11 +19,14 @@ from docmirror.security.data_classification import (
     classify_value,
     is_classified_above,
 )
-from docmirror.security.security_ledger import (
-    SecurityEvidenceLedger,
-    EgressEvent,
-    ResourceGateDecision,
-    build_security_summary,
+from docmirror.security.egress import (
+    EgressBlockedError,
+    EgressGate,
+)
+from docmirror.security.logging import (
+    SafeLoggingFilter,
+    install_safe_logging,
+    log_security_event,
 )
 
 # ---------------------------------------------------------------------------
@@ -33,30 +36,21 @@ from docmirror.security.privacy_mode import (
     DEFAULT_PRIVACY_MODE,
     PrivacyMode,
     PrivacyPolicy,
-    resolve_privacy_policy,
     is_provider_allowed,
-)
-from docmirror.security.egress import (
-    EgressBlockedError,
-    EgressGate,
+    resolve_privacy_policy,
 )
 
 # ---------------------------------------------------------------------------
 # Wave 2 — Redaction & Secure logging
 # ---------------------------------------------------------------------------
 from docmirror.security.redaction import (
-    redact_secrets,
-    redact_pii,
-    mask_value,
-    hash_value,
-    redact_text,
-    redact_dict,
     classify_redaction,
-)
-from docmirror.security.logging import (
-    SafeLoggingFilter,
-    install_safe_logging,
-    log_security_event,
+    hash_value,
+    mask_value,
+    redact_dict,
+    redact_pii,
+    redact_secrets,
+    redact_text,
 )
 
 # ---------------------------------------------------------------------------
@@ -64,15 +58,23 @@ from docmirror.security.logging import (
 # ---------------------------------------------------------------------------
 from docmirror.security.resource_gate import (
     DEFAULT_LIMITS as DEFAULT_RESOURCE_LIMITS,
-    ResourceGateBlockedError,
+)
+from docmirror.security.resource_gate import (
     ArchivePreflightResult,
-    PDFPreflightResult,
     ImagePreflightResult,
+    PDFPreflightResult,
+    ResourceGateBlockedError,
     check_archive_preflight,
-    check_pdf_preflight,
     check_image_preflight,
+    check_pdf_preflight,
     check_rest_upload,
     to_ledger_decision,
+)
+from docmirror.security.security_ledger import (
+    EgressEvent,
+    ResourceGateDecision,
+    SecurityEvidenceLedger,
+    build_security_summary,
 )
 
 __all__ = [

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from docmirror.configs.models.extraction_profile import ExtractionProfile, SegmentationMode
-from docmirror.structure.profile.registry import get_profile
+from docmirror.layout.profile.registry import get_profile
 
 
 def test_full_page_profile_skips_zone_template_path():

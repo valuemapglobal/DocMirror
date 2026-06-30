@@ -19,13 +19,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-
 from typing import TYPE_CHECKING
 
 from docmirror.framework.base import BaseParser
 
 if TYPE_CHECKING:
-    from docmirror.input.adapters.parsers import ParserRegistry
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ class PDFAdapter(BaseParser):
     PDF format adapter with pluggable parser backend support.
 
     Uses the ``ParserRegistry`` to select the best available backend for PDF
-    parsing. Falls back to ``CoreExtractor`` for backward compatibility when
+    parsing. Falls back to ``CoreExtractor`` for parser contract stability when
     no backend is registered. Then relies on ``BaseParser.perceive()`` for
     the shared Orchestrator middleware pipeline.
 
@@ -215,7 +214,6 @@ def _raw_to_parse_result(raw, file_path, kwargs):
         TableBlock,
         TableRow,
         TextBlock,
-        TextLevel,
     )
 
     pages = []
@@ -234,38 +232,46 @@ def _raw_to_parse_result(raw, file_path, kwargs):
         for rt in raw_page.tables:
             rows = []
             if rt.headers:
-                rows.append(TableRow(
-                    cells=[CellValue(text=h, data_type=DataType.TEXT) for h in rt.headers],
-                    row_type=RowType.HEADER,
-                ))
+                rows.append(
+                    TableRow(
+                        cells=[CellValue(text=h, data_type=DataType.TEXT) for h in rt.headers],
+                        row_type=RowType.HEADER,
+                    )
+                )
             for row_data in rt.data_rows:
-                rows.append(TableRow(
-                    cells=[CellValue(text=c, data_type=DataType.TEXT) for c in row_data],
-                    row_type=RowType.DATA,
+                rows.append(
+                    TableRow(
+                        cells=[CellValue(text=c, data_type=DataType.TEXT) for c in row_data],
+                        row_type=RowType.DATA,
+                        confidence=rt.confidence,
+                    )
+                )
+            tables.append(
+                TableBlock(
+                    table_id=rt.table_id,
+                    headers=rt.headers,
+                    rows=rows,
+                    bbox=rt.bbox,
                     confidence=rt.confidence,
-                ))
-            tables.append(TableBlock(
-                table_id=rt.table_id,
-                headers=rt.headers,
-                rows=rows,
-                bbox=rt.bbox,
-                confidence=rt.confidence,
-            ))
+                )
+            )
 
         kvs = [
             KeyValuePair(key=kv.key, value=kv.value, confidence=kv.confidence, bbox=kv.bbox)
             for kv in raw_page.key_values
         ]
 
-        pages.append(PageContent(
-            page_number=raw_page.page_number,
-            width=int(raw_page.width_pt) if raw_page.width_pt else None,
-            height=int(raw_page.height_pt) if raw_page.height_pt else None,
-            texts=texts,
-            tables=tables,
-            key_values=kvs,
-            page_confidence=raw_page.confidence if raw_page.confidence else 1.0,
-        ))
+        pages.append(
+            PageContent(
+                page_number=raw_page.page_number,
+                width=int(raw_page.width_pt) if raw_page.width_pt else None,
+                height=int(raw_page.height_pt) if raw_page.height_pt else None,
+                texts=texts,
+                tables=tables,
+                key_values=kvs,
+                page_confidence=raw_page.confidence if raw_page.confidence else 1.0,
+            )
+        )
 
     full_text = "\n".join(t.content for p in pages for t in p.texts)
 
@@ -285,7 +291,7 @@ def _raw_to_parse_result(raw, file_path, kwargs):
 
     backend_name = raw.metadata.get("backend", "unknown") if raw.metadata else "unknown"
     parser_info = ParserInfo(
-        parser_name="DocMirror/{}".format(backend_name),
+        parser_name=f"DocMirror/{backend_name}",
         table_engine=backend_name,
         page_count=len(pages),
     )

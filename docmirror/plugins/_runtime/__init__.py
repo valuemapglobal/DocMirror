@@ -30,12 +30,37 @@ Key re-exports (see each sub-module for docstrings):
 
 from __future__ import annotations
 
-# ── Registry ────────────────────────────────────────────────────────────
-from docmirror.plugins._runtime.plugin_registry import (
-    DomainPlugin,
-    PluginRegistry,
-    registry,
-    resolve_dgc_status,
+# ── Hook specs (the module, re-exported so callers can reach hookimpl) ──
+from docmirror.plugins._runtime import hooks as _hooks  # noqa: F401
+
+# ── Community plugin instances (static imports) ─────────────────────────
+from docmirror.plugins._runtime.community import (  # noqa: F401
+    alipay_payment_plugin,
+    bank_statement_plugin,
+    business_license_plugin,
+    credit_report_plugin,
+    generic_plugin,
+    vat_invoice_plugin,
+    wechat_payment_plugin,
+)
+
+# ── Community-config helpers ────────────────────────────────────────────
+from docmirror.plugins._runtime.community_config import (  # noqa: F401
+    community_plugin_import_path,
+    community_plugin_module,
+    find_community_plugin,
+    find_premium_community_plugin,
+    get_community_premium_domains,
+    get_generic_community_plugin,
+    invalidate_plugin_capability_cache,
+    is_community_generic_enabled,
+    is_community_premium,
+    is_enterprise_only,
+    list_community_plugin_domains,
+    list_premium_community_modules,
+    load_plugin_capability,
+    normalize_premium_document_type,
+    should_mirror_only,
 )
 
 # ── Composition ─────────────────────────────────────────────────────────
@@ -45,18 +70,19 @@ from docmirror.plugins._runtime.composition import (
     apply_extract_fallback,
     apply_license_degrade,
 )
+from docmirror.plugins._runtime.core_extensions import register_core_extensions  # noqa: F401
 
-# ── Runner ──────────────────────────────────────────────────────────────
-from docmirror.plugins._runtime.runner import run_plugin_extract, run_plugin_extract_sync
-
-# ── State / Manager ─────────────────────────────────────────────────────
-from docmirror.plugins._runtime.state import is_domain_enabled, set_domain_enabled
-from docmirror.plugins._runtime.manager import PluginManager, plugin_manager
+# ── Discovery / Hooks / Core-extensions ─────────────────────────────────
+from docmirror.plugins._runtime.discovery import (  # noqa: F401
+    discover_plugins,
+    get_plugin_manager,
+    reset_discovery,
+)
 
 # ── Licensing (re-export package-level symbols) ─────────────────────────
 from docmirror.plugins._runtime.licensing import (  # noqa: F401
-    EntitlementLifecycle,
     FEATURE_SUFFIX,
+    EntitlementLifecycle,
     LicenseLifecycleState,
     LicenseManager,
     OfflineLicenseManager,
@@ -77,6 +103,15 @@ from docmirror.plugins._runtime.licensing import (  # noqa: F401
     resolve_license_snapshot,
     tier_features,
 )
+from docmirror.plugins._runtime.manager import PluginManager, plugin_manager
+
+# ── Registry ────────────────────────────────────────────────────────────
+from docmirror.plugins._runtime.plugin_registry import (
+    DomainPlugin,
+    PluginRegistry,
+    registry,
+    resolve_dgc_status,
+)
 
 # ── Post-extract ────────────────────────────────────────────────────────
 from docmirror.plugins._runtime.post_extract import (  # noqa: F401
@@ -84,47 +119,11 @@ from docmirror.plugins._runtime.post_extract import (  # noqa: F401
     run_post_extract_hooks,
 )
 
-# ── Community-config helpers ────────────────────────────────────────────
-from docmirror.plugins._runtime.community_config import (  # noqa: F401
-    community_plugin_module,
-    community_plugin_import_path,
-    find_community_plugin,
-    find_premium_community_plugin,
-    get_community_premium_domains,
-    get_generic_community_plugin,
-    invalidate_plugin_capability_cache,
-    is_community_generic_enabled,
-    is_community_premium,
-    is_enterprise_only,
-    list_community_plugin_domains,
-    list_premium_community_modules,
-    load_plugin_capability,
-    normalize_premium_document_type,
-    should_mirror_only,
-)
+# ── Runner ──────────────────────────────────────────────────────────────
+from docmirror.plugins._runtime.runner import run_plugin_extract, run_plugin_extract_sync
 
-# ── Community plugin instances (static imports) ─────────────────────────
-from docmirror.plugins._runtime.community import (  # noqa: F401
-    alipay_payment_plugin,
-    bank_statement_plugin,
-    business_license_plugin,
-    credit_report_plugin,
-    generic_plugin,
-    vat_invoice_plugin,
-    wechat_payment_plugin,
-)
-
-# ── Discovery / Hooks / Core-extensions ─────────────────────────────────
-from docmirror.plugins._runtime.discovery import (  # noqa: F401
-    discover_plugins,
-    get_plugin_manager,
-    reset_discovery,
-)
-from docmirror.plugins._runtime.core_extensions import register_core_extensions  # noqa: F401
-
-# ── Hook specs (the module, re-exported so callers can reach hookimpl) ──
-from docmirror.plugins._runtime import hooks as _hooks  # noqa: F401
-
+# ── State / Manager ─────────────────────────────────────────────────────
+from docmirror.plugins._runtime.state import is_domain_enabled, set_domain_enabled
 
 __all__ = [
     # plugin_registry

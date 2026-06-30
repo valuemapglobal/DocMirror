@@ -24,7 +24,7 @@ def test_mirror_table_short_circuit():
     assert meta.expected_primary_rows == 1
 
 
-def test_mirror_table_expected_uses_mirror_ssot_not_legacy_max():
+def test_mirror_table_expected_uses_mirror_ssot_not_raw_max():
     from docmirror.models.entities.parse_result import (
         CellValue,
         LogicalTable,
@@ -72,7 +72,7 @@ def test_mirror_table_expected_uses_mirror_ssot_not_legacy_max():
     assert meta.expected_primary_rows < 127
 
 
-def test_mirror_table_legacy_max_without_parse_result():
+def test_mirror_table_raw_max_without_parse_result():
     mirror = [
         [["日期", "金额"], ["2024-01-01", "1.00"]],
         [["x", "y"]] + [["bad"] for _ in range(10)],

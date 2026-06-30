@@ -14,7 +14,6 @@ This script:
 
 import asyncio
 import json
-import math
 import os
 import sys
 import time
@@ -57,11 +56,13 @@ def discover_fixtures() -> list[dict[str, Any]]:
         parts = rel.parts
         # Map document type from parent directory
         doc_type = DOMAIN_MAP.get(parts[0], "generic")
-        fixtures.append({
-            "file_path": str(pdf),
-            "document_type": doc_type,
-            "name": pdf.stem,
-        })
+        fixtures.append(
+            {
+                "file_path": str(pdf),
+                "document_type": doc_type,
+                "name": pdf.stem,
+            }
+        )
     return fixtures
 
 
@@ -91,6 +92,7 @@ async def run_single_benchmark(fixture: dict[str, Any]) -> dict[str, Any]:
 
     # Reading order score from the metrics module
     from docmirror.eval.metrics import reading_order_score
+
     try:
         ro_score = reading_order_score(result)
     except Exception:
@@ -221,20 +223,22 @@ def generate_manifest(results: list[dict[str, Any]]) -> dict[str, Any]:
 
     records = []
     for r in successful:
-        records.append({
-            "golden_case_id": r["case_id"],
-            "document_type": r["document_type"],
-            "format": "pdf",
-            "mode": "auto",
-            "page_count": r["page_count"],
-            "char_count": r["char_count"],
-            "table_count": r["table_count"],
-            "elapsed_ms": r["elapsed_ms"],
-            "per_page_ms": r["per_page_ms"],
-            "reading_order_score": r["reading_order_score"],
-            "docmirror_version": "v1.0.0",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        records.append(
+            {
+                "golden_case_id": r["case_id"],
+                "document_type": r["document_type"],
+                "format": "pdf",
+                "mode": "auto",
+                "page_count": r["page_count"],
+                "char_count": r["char_count"],
+                "table_count": r["table_count"],
+                "elapsed_ms": r["elapsed_ms"],
+                "per_page_ms": r["per_page_ms"],
+                "reading_order_score": r["reading_order_score"],
+                "docmirror_version": "v1.0.0",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
     return {
         "manifest_version": "1.0",
@@ -276,12 +280,14 @@ def generate_benchmarks_md(manifest: dict[str, Any]) -> str:
     lines.append("")
 
     # Competitor comparison (estimates for now)
-    lines.extend([
-        "## Comparison vs Competitors",
-        "",
-        "| Metric | DocMirror | OpenDataLoader | PyMuPDF | Unstructured | Azure Doc AI |",
-        "|--------|-----------|----------------|---------|-------------|-------------|",
-    ])
+    lines.extend(
+        [
+            "## Comparison vs Competitors",
+            "",
+            "| Metric | DocMirror | OpenDataLoader | PyMuPDF | Unstructured | Azure Doc AI |",
+            "|--------|-----------|----------------|---------|-------------|-------------|",
+        ]
+    )
 
     # Try to compute per-page speed from benchmark
     speed_10pg = summary.get("avg_per_page_ms", 50) * 10 if n > 0 else "—"
@@ -294,16 +300,20 @@ def generate_benchmarks_md(manifest: dict[str, Any]) -> str:
     lines.append(f"| Reading Order | {summary.get('avg_reading_order_score', '—')} | **0.94** | 0.72 | 0.78 | 0.85 |")
     lines.append("| Multi-format | **8 formats** | 1 (PDF) | 2 | 5 | 3 |")
     lines.append("")
-    lines.append("> _DocMirror F1 scores (table, text, KV) require ground-truth labels for the golden matrix. These will be populated in a future release._")
+    lines.append(
+        "> _DocMirror F1 scores (table, text, KV) require ground-truth labels for the golden matrix. These will be populated in a future release._"
+    )
     lines.append("")
 
     # Per-document breakdown
-    lines.extend([
-        "## Per-Document Results",
-        "",
-        "| Document | Type | Pages | Tables | Chars | Latency | ms/pg |",
-        "|----------|------|-------|--------|-------|---------|-------|",
-    ])
+    lines.extend(
+        [
+            "## Per-Document Results",
+            "",
+            "| Document | Type | Pages | Tables | Chars | Latency | ms/pg |",
+            "|----------|------|-------|--------|-------|---------|-------|",
+        ]
+    )
 
     for r in sorted(records, key=lambda x: x.get("elapsed_ms", 0)):
         lines.append(
@@ -315,11 +325,15 @@ def generate_benchmarks_md(manifest: dict[str, Any]) -> str:
     lines.append("")
     lines.append("## Methodology")
     lines.append("")
-    lines.append("- **Fixture documents**: 8 real-world PDFs (bank ledgers, credit reports, VAT invoices, Alipay/WeChat payments, business licenses)")
+    lines.append(
+        "- **Fixture documents**: 8 real-world PDFs (bank ledgers, credit reports, VAT invoices, Alipay/WeChat payments, business licenses)"
+    )
     lines.append("- **Metrics**: Latency measured wall-clock from perceive_document() call to return")
     lines.append("- **Mode**: auto enhance mode (default)")
     lines.append("- **Environment**: Local MacBook (Apple Silicon), no GPU")
-    lines.append("- **Competitor numbers**: OpenDataLoader from published benchmarks; PyMuPDF/Unstructured/Azure from prior published data")
+    lines.append(
+        "- **Competitor numbers**: OpenDataLoader from published benchmarks; PyMuPDF/Unstructured/Azure from prior published data"
+    )
 
     return "\n".join(lines)
 

@@ -32,20 +32,19 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-
 # ── Capability enum ──────────────────────────────────────────────────────
 
 
 class ParserCapability(str, Enum):
     """Well-known capabilities a parser backend may declare."""
 
-    TEXT = "text"                     # Text extraction
-    TABLES = "tables"                 # Table extraction
-    READING_ORDER = "reading_order"   # Reading order detection
-    OCR = "ocr"                       # Optical character recognition (scanned docs)
-    FORMULA = "formula"               # LaTeX formula extraction
-    ACCESSIBILITY = "accessibility"   # PDF/UA tagged output
-    CHART_DESCRIPTION = "chart_description"   # AI chart description
+    TEXT = "text"  # Text extraction
+    TABLES = "tables"  # Table extraction
+    READING_ORDER = "reading_order"  # Reading order detection
+    OCR = "ocr"  # Optical character recognition (scanned docs)
+    FORMULA = "formula"  # LaTeX formula extraction
+    ACCESSIBILITY = "accessibility"  # PDF/UA tagged output
+    CHART_DESCRIPTION = "chart_description"  # AI chart description
 
 
 # ── Raw data types (canonical intermediate format) ───────────────────────

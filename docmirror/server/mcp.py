@@ -24,7 +24,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +38,7 @@ def _get_core():
     global _core
     if _core is None:
         try:
-            from docmirror.input.entry.factory import perceive_document, PerceiveOptions
+            from docmirror.input.entry.factory import PerceiveOptions, perceive_document
             from docmirror.output.dmir import serialize_dmir
 
             _core = {
@@ -48,9 +47,7 @@ def _get_core():
                 "serialize_dmir": serialize_dmir,
             }
         except ImportError as e:
-            raise ImportError(
-                "DocMirror core is not installed. Install with: pip install docmirror"
-            ) from e
+            raise ImportError("DocMirror core is not installed. Install with: pip install docmirror") from e
     return _core
 
 

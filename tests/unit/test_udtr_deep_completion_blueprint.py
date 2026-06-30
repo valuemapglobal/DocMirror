@@ -1,20 +1,20 @@
 import pytest
 
-from docmirror.models.entities.parse_result import CellValue, PageContent, ParseResult, TableBlock, TableRow
-from docmirror.models.mirror.vnext import BlockInfo, EvidenceAtom, GraphEdge
-from docmirror.output.mirror import MirrorCoreVNext
-from docmirror.quality.udtr_gates import build_udtr_quality_gates
-from docmirror.structure.normalization import build_normalization_trace, estimate_deskew_angle, is_invertible_matrix
-from docmirror.structure.region_graph import produce_region_candidates, solve_region_graph
-from docmirror.structure.relations import add_udtr_relation_edges
-from docmirror.structure.tables.statement import build_statement_structure, extract_note_ref, normalize_note_ref
-from docmirror.structure.verification import (
+from docmirror.geometry.verification import (
     FunctionVerificationRulePack,
     VerificationRule,
     VerificationRulePackRegistry,
     build_verification_report,
     default_verification_rule_pack_registry,
 )
+from docmirror.layout.normalization import build_normalization_trace, estimate_deskew_angle, is_invertible_matrix
+from docmirror.models.entities.parse_result import CellValue, PageContent, ParseResult, TableBlock, TableRow
+from docmirror.models.mirror.core import MirrorCoreVNext
+from docmirror.models.mirror.vnext import BlockInfo, EvidenceAtom, GraphEdge
+from docmirror.quality.udtr_gates import build_udtr_quality_gates
+from docmirror.tables.statement import build_statement_structure, extract_note_ref, normalize_note_ref
+from docmirror.topology.region_graph import produce_region_candidates, solve_region_graph
+from docmirror.topology.relations import add_udtr_relation_edges
 
 
 class _Region:
@@ -120,7 +120,7 @@ def test_region_graph_solver_explains_candidate_competition_and_containment():
 
 
 def test_region_graph_residual_explains_unselected_candidate_claim():
-    from docmirror.structure.region_graph.models import RegionCandidate
+    from docmirror.topology.region_graph.models import RegionCandidate
 
     graph = solve_region_graph(
         page_id="page:0001",
@@ -214,7 +214,7 @@ def test_region_graph_candidate_producer_is_detector_first_boundary():
 
 
 def test_reconstructor_registry_can_return_structured_report():
-    from docmirror.structure.reconstructors import ReconstructionContext, RegionReconstructorRegistry
+    from docmirror.topology.reconstructors import ReconstructionContext, RegionReconstructorRegistry
 
     region = _Region("reg:0001:unknown:0001", "unknown", [0, 0, 50, 20], [], role="unknown")
     context = ReconstructionContext(evidence_plane=None, atom_by_id={}, atom_text={})
@@ -611,9 +611,10 @@ def test_universal_verification_backfills_missing_evidence_from_spatial_atoms():
 
     assert amount_unit.status == "verified"
     assert amount_unit.evidence_ids == ["ev:inside:amount"]
-    assert any(candidate.source == "spatial_evidence_backfill" for candidate in amount_unit.candidates)
+    assert "spatial_evidence_backfill" in amount_unit.source_refs
+    assert not any(candidate.source == "spatial_evidence_backfill" for candidate in amount_unit.candidates)
     assert any(
-        claim.claim_type == "candidate_vote" and claim.status == "verified"
+        claim.claim_type == "candidate_vote" and claim.status == "not_applicable"
         for claim in report.claims
         if claim.subject_unit_id == amount_unit.unit_id
     )
@@ -630,7 +631,14 @@ def test_universal_verification_flags_cross_source_value_conflicts():
         content={
             "grid": {
                 "cells": [
-                    {"id": "cell:1", "row": 0, "col": 0, "text": "100.00", "bbox": [0, 0, 50, 20]},
+                    {
+                        "id": "cell:1",
+                        "row": 0,
+                        "col": 0,
+                        "text": "100.00",
+                        "bbox": [0, 0, 50, 20],
+                        "evidence_ids": ["ev:inside:conflict"],
+                    },
                 ]
             }
         },
@@ -805,7 +813,7 @@ def test_verification_crop_assets_generate_pngs_for_sample_units(tmp_path):
         "diagnostics": {"pipeline": []},
         "assets": {"items": []},
     }
-    from docmirror.structure.verification.crops import attach_verification_crop_assets
+    from docmirror.geometry.verification.crops import attach_verification_crop_assets
 
     assets = attach_verification_crop_assets(mirror, pdf_path=pdf_path, task_dir=tmp_path / "task", max_crops=1)
 
@@ -853,7 +861,7 @@ def test_unit_crop_ocr_candidates_attach_to_verification_units(tmp_path):
             ]
         },
     }
-    from docmirror.structure.verification.crops import attach_unit_crop_ocr_candidates
+    from docmirror.geometry.verification.crops import attach_unit_crop_ocr_candidates
 
     summary = attach_unit_crop_ocr_candidates(
         mirror,
@@ -901,7 +909,7 @@ def test_unit_crop_ocr_mismatch_requires_review_without_mutating_value(tmp_path)
             ]
         },
     }
-    from docmirror.structure.verification.crops import attach_unit_crop_ocr_candidates
+    from docmirror.geometry.verification.crops import attach_unit_crop_ocr_candidates
 
     summary = attach_unit_crop_ocr_candidates(
         mirror,
@@ -947,7 +955,7 @@ def test_unit_crop_ocr_accepts_reordered_long_number_fragments(tmp_path):
             ]
         },
     }
-    from docmirror.structure.verification.crops import attach_unit_crop_ocr_candidates
+    from docmirror.geometry.verification.crops import attach_unit_crop_ocr_candidates
 
     summary = attach_unit_crop_ocr_candidates(
         mirror,

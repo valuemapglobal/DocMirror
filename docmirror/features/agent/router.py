@@ -13,6 +13,12 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from docmirror.configs.ga_readiness import (
+    CORE_DOMAIN_ROUTE,
+    ENTERPRISE_ONLY_ROUTE,
+    GENERIC_FALLBACK_ROUTE,
+)
+
 
 class DocumentRoute(BaseModel):
     """Recommended parse path — does not execute parsing."""
@@ -21,7 +27,7 @@ class DocumentRoute(BaseModel):
     enhance_mode: str = "standard"
     layout_profile_hint: str | None = None
     recommended_plugins: list[str] = Field(default_factory=list)
-    community_tier: str = "generic"
+    community_tier: str = GENERIC_FALLBACK_ROUTE
     export_formats: list[str] = Field(default_factory=lambda: ["json", "udif"])
     notes: list[str] = Field(default_factory=list)
 
@@ -31,14 +37,14 @@ _DOMAIN_ROUTES: dict[str, dict] = {
         "enhance_mode": "standard",
         "layout_profile_hint": "borderless_ledger_bank",
         "plugins": ["bank_statement"],
-        "community_tier": "premium",
+        "community_tier": CORE_DOMAIN_ROUTE,
         "exports": ["json", "udif", "csv", "parquet", "chunks"],
     },
     "wechat_payment": {
         "enhance_mode": "full",
         "layout_profile_hint": "borderless_ledger_wechat",
         "plugins": ["wechat_payment"],
-        "community_tier": "premium",
+        "community_tier": CORE_DOMAIN_ROUTE,
         "exports": ["json", "udif", "csv", "chunks"],
         "notes": ["Requires cross-page merge; use full enhance mode"],
     },
@@ -46,34 +52,34 @@ _DOMAIN_ROUTES: dict[str, dict] = {
         "enhance_mode": "full",
         "layout_profile_hint": "borderless_ledger_alipay",
         "plugins": ["alipay_payment"],
-        "community_tier": "premium",
+        "community_tier": CORE_DOMAIN_ROUTE,
         "exports": ["json", "udif", "csv", "chunks"],
         "notes": ["Requires cross-page merge; use full enhance mode"],
     },
     "vat_invoice": {
         "enhance_mode": "standard",
         "plugins": ["vat_invoice"],
-        "community_tier": "premium",
+        "community_tier": CORE_DOMAIN_ROUTE,
         "exports": ["json", "udif", "chunks"],
     },
     "business_license": {
         "enhance_mode": "standard",
         "plugins": ["business_license"],
-        "community_tier": "premium",
+        "community_tier": CORE_DOMAIN_ROUTE,
         "exports": ["json", "udif", "chunks"],
     },
     "credit_report": {
         "enhance_mode": "full",
         "layout_profile_hint": "credit_report_section_dominant",
         "plugins": ["credit_report"],
-        "community_tier": "premium",
+        "community_tier": CORE_DOMAIN_ROUTE,
         "exports": ["json", "udif", "chunks"],
         "notes": ["Section-driven layout; L6 graph available"],
     },
     "audit_report": {
         "enhance_mode": "standard",
         "plugins": ["audit_report"],
-        "community_tier": "enterprise_only",
+        "community_tier": ENTERPRISE_ONLY_ROUTE,
         "exports": ["json", "udif", "chunks"],
         "notes": ["Community edition emits mirror_only envelope"],
     },
@@ -100,23 +106,23 @@ def route_document(
     if not plugins:
         if is_community_premium(doc_type):
             plugins = [doc_type]
-            community_tier = "premium"
+            community_tier = CORE_DOMAIN_ROUTE
         elif doc_type not in ("generic", "unknown", ""):
             plugins = ["generic"]
-            community_tier = "generic"
+            community_tier = GENERIC_FALLBACK_ROUTE
 
     if not community_tier:
         if is_community_premium(doc_type):
-            community_tier = "premium"
+            community_tier = CORE_DOMAIN_ROUTE
         elif doc_type in get_community_premium_domains():
-            community_tier = "premium"
+            community_tier = CORE_DOMAIN_ROUTE
         elif doc_type not in ("generic", "unknown", ""):
-            community_tier = "generic"
+            community_tier = GENERIC_FALLBACK_ROUTE
         else:
             community_tier = "unclassified"
 
     notes = list(cfg.get("notes") or [])
-    if community_tier == "generic":
+    if community_tier == GENERIC_FALLBACK_ROUTE:
         notes.append("Community structured output via generic.community_plugin fallback")
     if page_count >= 50:
         notes.append("Large document: set DOCMIRROR_MAX_PAGE_CONCURRENCY conservatively")

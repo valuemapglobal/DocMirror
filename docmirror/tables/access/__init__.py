@@ -8,7 +8,7 @@
 Table access layer — unified API for reading tables from ParseResult.
 
 Purpose: Provides ``get_logical_tables``, ``table_flatten``, and
-``get_physical_tables`` so plugins prefer composed logical tables with legacy
+``get_physical_tables`` so plugins prefer composed logical tables with raw
 fallback to page tables.
 
 Main components: ``get_logical_tables``, ``table_flatten``, ``get_physical_tables``.
@@ -39,7 +39,7 @@ def get_logical_tables(result: ParseResult) -> list[LogicalTable]:
 
     Priority:
       1. ``result.logical_tables`` — composed cross-page tables.
-      2. Fallback: ``result.pages[0].tables`` (legacy merged table).
+      2. Fallback: ``result.pages[0].tables`` (raw merged table).
 
     Returns:
         List of LogicalTable objects (may be empty).
@@ -87,7 +87,7 @@ def get_logical_tables(result: ParseResult) -> list[LogicalTable]:
 
 
 def primary_export_logical_table(result: ParseResult) -> LogicalTable | None:
-    """Primary export logical table — passed LTs only; legacy max row_count fallback."""
+    """Primary export logical table — passed LTs only; raw max row_count fallback."""
     logical = get_logical_tables(result)
     if not logical:
         return None

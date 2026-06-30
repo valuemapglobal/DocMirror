@@ -98,7 +98,7 @@ def run_opendataloader_on_file(file_path: str) -> dict[str, float]:
         for of in output_files:
             data = json.loads(of.read_text())
             pages = data.get("pages", [data]) if isinstance(data, dict) else data
-            for page in (pages if isinstance(pages, list) else [pages]):
+            for page in pages if isinstance(pages, list) else [pages]:
                 elements = page.get("elements", page.get("content", []))
                 if isinstance(elements, list):
                     element_count += len(elements)
@@ -174,8 +174,7 @@ def run_baseline(
     output_path.mkdir(parents=True, exist_ok=True)
 
     try:
-        from docmirror.eval.golden_loader import load_golden_matrix
-        from docmirror.eval.golden_loader import load_golden_matrix_from_file
+        from docmirror.eval.golden_loader import load_golden_matrix, load_golden_matrix_from_file
     except ImportError:
         print("Error: must run from DocMirror repo root with docmirror installed")
         sys.exit(1)
@@ -198,30 +197,34 @@ def run_baseline(
 
         try:
             metrics = run_opendataloader_on_file(file_path)
-            records.append({
-                "golden_case_id": case_id,
-                "document_type": case.document_type or "unknown",
-                "format": getattr(case, "format", "pdf"),
-                "metrics": metrics,
-            })
+            records.append(
+                {
+                    "golden_case_id": case_id,
+                    "document_type": case.document_type or "unknown",
+                    "format": getattr(case, "format", "pdf"),
+                    "metrics": metrics,
+                }
+            )
             if "error" in metrics:
                 print(f"  ! opendataloader  {case_id}: {metrics['error'][:60]}")
             else:
                 print(f"  ✓ opendataloader  {case_id}  ({metrics['elapsed_ms']:.0f}ms)")
         except Exception as e:
             print(f"  ✗ opendataloader  {case_id}: {e}")
-            records.append({
-                "golden_case_id": case_id,
-                "document_type": case.document_type or "unknown",
-                "format": getattr(case, "format", "pdf"),
-                "metrics": {
-                    "error": str(e)[:200],
-                    "char_count": 0,
-                    "table_count": 0,
-                    "element_count": 0,
-                    "elapsed_ms": 0.0,
-                },
-            })
+            records.append(
+                {
+                    "golden_case_id": case_id,
+                    "document_type": case.document_type or "unknown",
+                    "format": getattr(case, "format", "pdf"),
+                    "metrics": {
+                        "error": str(e)[:200],
+                        "char_count": 0,
+                        "table_count": 0,
+                        "element_count": 0,
+                        "elapsed_ms": 0.0,
+                    },
+                }
+            )
 
     # Write results
     file_name = "opendataloader.json"
@@ -246,9 +249,7 @@ def run_baseline(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Run OpenDataLoader baseline on golden matrix"
-    )
+    parser = argparse.ArgumentParser(description="Run OpenDataLoader baseline on golden matrix")
     parser.add_argument(
         "--matrix",
         default="docs/benchmarks/golden-matrix.json",

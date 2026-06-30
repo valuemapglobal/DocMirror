@@ -41,7 +41,7 @@ class TestAnalyzeDocumentLayoutParallel:
     """Test analyze_document_layout_parallel returns correct structure."""
 
     def test_returns_one_layout_per_page(self, two_page_pdf_path):
-        from docmirror.structure.segment.zones import (
+        from docmirror.layout.segment.zones import (
             analyze_document_layout_parallel,
             analyze_document_layout,
         )
@@ -54,7 +54,7 @@ class TestAnalyzeDocumentLayoutParallel:
         assert layouts[1].width > 0 and layouts[1].height > 0
 
     def test_parallel_matches_sequential_for_two_pages(self, two_page_pdf_path):
-        from docmirror.structure.segment.zones import (
+        from docmirror.layout.segment.zones import (
             analyze_document_layout_parallel,
             analyze_document_layout,
         )
@@ -75,14 +75,14 @@ class TestAnalyzeDocumentLayoutParallel:
             assert len(pa.regions) == len(se.regions)
 
     def test_single_page_uses_in_process_fallback(self, two_page_pdf_path):
-        from docmirror.structure.segment.zones import analyze_document_layout_parallel
+        from docmirror.layout.segment.zones import analyze_document_layout_parallel
         path = str(Path(two_page_pdf_path).resolve())
         layouts = analyze_document_layout_parallel(path, num_pages=1, max_workers=4)
         assert len(layouts) == 1
         assert layouts[0].page_index == 0
 
     def test_max_workers_one_uses_sequential_path(self, two_page_pdf_path):
-        from docmirror.structure.segment.zones import analyze_document_layout_parallel
+        from docmirror.layout.segment.zones import analyze_document_layout_parallel
         path = str(Path(two_page_pdf_path).resolve())
         layouts = analyze_document_layout_parallel(path, num_pages=2, max_workers=1)
         assert len(layouts) == 2

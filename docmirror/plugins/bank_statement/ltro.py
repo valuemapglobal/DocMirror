@@ -26,7 +26,15 @@ from docmirror.plugins.bank_statement.pipe_text_table_builder import (
 )
 from docmirror.plugins.bank_statement.text_table_builder import build_tables_from_spaced_ocr_text
 
-SourceKind = Literal["mirror_table", "pipe_text", "spaced_ocr", "none"]
+SourceKind = Literal[
+    "mirror_table",
+    "pipe_text",
+    "spaced_ocr",
+    "stacked_text",
+    "native_wide_table",
+    "ocr_implicit_table",
+    "none",
+]
 
 
 @dataclass
@@ -67,7 +75,7 @@ def reconstruct_tables(
             spe_table_extraction=spe_mode,
         )
 
-    from docmirror.structure.analysis.spe_consumer import should_block_pipe_ltro, should_force_ltro
+    from docmirror.evidence.spe_consumer import should_block_pipe_ltro, should_force_ltro
 
     blocked = should_block_pipe_ltro(structure_spe)
     if blocked:
@@ -125,13 +133,13 @@ def _mirror_table_expected_rows(
     parse_result: Any | None = None,
     structure_spe: dict | None = None,
 ) -> int:
-    """Mirror SSOT for coverage denominator (ADR-BS-07); legacy max fallback."""
+    """Mirror SSOT for coverage denominator (ADR-BS-07); raw max fallback."""
     if parse_result is not None:
-        from docmirror.structure.analysis.spe_consumer import mirror_expected_primary_rows
+        from docmirror.evidence.spe_consumer import mirror_expected_primary_rows
 
         expected = mirror_expected_primary_rows(parse_result, structure_spe)
         if expected > 0:
             return expected
     if mirror_tables:
-        return sum(max(len(tbl) - 1, 0) for tbl in mirror_tables if tbl)
+        return max((max(len(tbl) - 1, 0) for tbl in mirror_tables if tbl), default=0)
     return 0

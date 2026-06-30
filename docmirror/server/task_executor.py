@@ -14,14 +14,12 @@ import json
 import logging
 import os
 import time
-import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import mkdtemp
 from typing import Any
 
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
-from docmirror.server.task_result import task_result_from_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -81,18 +79,27 @@ class EventLedger:
         pass
 
     def write_progress(self, event: ProgressEvent) -> None:
-        self.events.append({
-            "task_id": event.task_id,
-            "file_id": event.file_id,
-            "stage": event.stage,
-            "status": event.status,
-            "message": event.message,
-        })
+        self.events.append(
+            {
+                "task_id": event.task_id,
+                "file_id": event.file_id,
+                "stage": event.stage,
+                "status": event.status,
+                "message": event.message,
+            }
+        )
 
 
 def write_four_files(
-    mirror, output_root, file_path="", full_text="", task_id="", file_id="",
-    mirror_level="standard", include_text=False, editions=None,
+    mirror,
+    output_root,
+    file_path="",
+    full_text="",
+    task_id="",
+    file_id="",
+    mirror_level="standard",
+    include_text=False,
+    editions=None,
 ) -> tuple[str, int]:
     """Write mirror and edition outputs for a single file."""
     editions = editions or ["mirror", "community"]
@@ -162,7 +169,9 @@ async def run_batch_parse_task(
                     task_id=task_id,
                     mirror_level=getattr(control.output, "mirror_level", "standard") if control else "standard",
                     include_text=include_text,
-                    editions=getattr(control.output, "editions", ["mirror", "community"]) if control else ["mirror", "community"],
+                    editions=getattr(control.output, "editions", ["mirror", "community"])
+                    if control
+                    else ["mirror", "community"],
                 )
                 input_entry["status"] = "succeeded"
                 results.append({"file_id": file_id, "file_name": filename, "status": "success"})
@@ -171,21 +180,33 @@ async def run_batch_parse_task(
                 )
             except asyncio.TimeoutError:
                 input_entry["status"] = "timeout"
-                results.append({
-                    "file_id": file_id, "file_name": filename, "status": "timeout",
-                    "error": {"code": "TIMEOUT", "message": "Per-file parse exceeded 300s timeout", "recoverable": True},
-                })
+                results.append(
+                    {
+                        "file_id": file_id,
+                        "file_name": filename,
+                        "status": "timeout",
+                        "error": {
+                            "code": "TIMEOUT",
+                            "message": "Per-file parse exceeded 300s timeout",
+                            "recoverable": True,
+                        },
+                    }
+                )
             except Exception as e:
                 input_entry["status"] = "failed"
                 envelope = build_error_envelope("PARSER_ERROR", str(e))
-                results.append({
-                    "file_id": file_id, "file_name": filename, "status": "error",
-                    "error": envelope.to_dict() if hasattr(envelope, "to_dict") else {"message": str(e)},
-                })
+                results.append(
+                    {
+                        "file_id": file_id,
+                        "file_name": filename,
+                        "status": "error",
+                        "error": envelope.to_dict() if hasattr(envelope, "to_dict") else {"message": str(e)},
+                    }
+                )
 
-    await asyncio.gather(*[
-        _process_one_file(i, path, name) for i, (path, name) in enumerate(files, start=1)
-    ], return_exceptions=True)
+    await asyncio.gather(
+        *[_process_one_file(i, path, name) for i, (path, name) in enumerate(files, start=1)], return_exceptions=True
+    )
 
     # Update manifest
     manifest_path = output_root / task_id / "manifest.json"

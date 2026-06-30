@@ -5,6 +5,7 @@ cases:
 - id: id_card_standard
   tier: regression
   fixture: fixtures/id_card/ZhangSan_身份证_1976112.pdf
+  skip_if_fixture_missing: true
   pipeline: perceive
   options:
     enhance_mode: standard
@@ -22,7 +23,7 @@ cases:
   - smoke_candidate
 - id: business_license_standard
   tier: regression
-  fixture: fixtures/business_license/林晓彤_营业执照_20220826.jpg
+  fixture: fixtures/business_license/synthetic_medium_variant.pdf
   pipeline: perceive
   options:
     enhance_mode: standard
@@ -38,7 +39,7 @@ cases:
   - license
 - id: wechat_payment_classify
   tier: regression
-  fixture: fixtures/wechat_payment/DemoUser+微信流水.pdf
+  fixture: fixtures/wechat_payment/synthetic_easy_standard.pdf
   pipeline: perceive
   options:
     enhance_mode: standard
@@ -51,7 +52,7 @@ cases:
   - wechat
 - id: alipay_payment_classify
   tier: regression
-  fixture: fixtures/alipay_payment/DemoUser+支付宝流水.pdf
+  fixture: fixtures/alipay_payment/synthetic_easy_standard.pdf
   pipeline: perceive
   options:
     enhance_mode: standard
@@ -68,7 +69,7 @@ cases:
   - alipay
 - id: bank_statement_classify
   tier: regression
-  fixture: fixtures/bank_statement/银行流水_中国建设银行_20231226.pdf
+  fixture: fixtures/synthetic/bank_ledger_3page_smoke.pdf
   pipeline: perceive
   options:
     enhance_mode: standard
@@ -84,7 +85,7 @@ cases:
   - bank
 - id: vat_invoice_classify
   tier: regression
-  fixture: fixtures/vat_invoice/董业伟_增值税发票_上海闵行支行_20191005.jpg
+  fixture: fixtures/vat_invoice/synthetic_easy_standard.pdf
   pipeline: perceive
   options:
     enhance_mode: standard
@@ -907,13 +908,13 @@ cases:
   tags:
   - text_sample
   - auto_batch
-- id: legacy_scan_doc_text
+- id: scanned_text_doc_text
   tier: regression
-  fixture: fixtures/text_samples/legacy_scan_doc.txt
+  fixture: fixtures/text_samples/scanned_text_doc.txt
   pipeline: classify_text
   gates:
     document_type:
-      equals: legacy_scan_doc
+      equals: scanned_text_doc
   tags:
   - text_sample
   - auto_batch

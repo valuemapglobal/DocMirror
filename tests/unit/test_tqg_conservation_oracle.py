@@ -98,7 +98,7 @@ def test_mirror_conservation_oracle_accepts_full_surface_requirements():
 
 def test_mirror_conservation_oracle_reports_missing_required_surfaces():
     payload = _api_payload()
-    page = payload["pages"][0]
+    page = payload["data"]["document"]["pages"][0]
     (page.get("flow") or {}).setdefault("texts", page.get("texts") or [])
     page["flow"]["texts"][0]["evidence_ids"] = []
     if page.get("texts"):

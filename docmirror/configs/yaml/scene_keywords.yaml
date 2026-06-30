@@ -517,6 +517,16 @@ scene_keywords:
     - 初领日期
     - 有效期限
     - 机动车驾驶
+  electronic_medical_record:
+    include:
+    - 电子病历
+    - 文档类型：electronic_medical_record
+    - Medical Record
+    - 就诊记录
+    - 出院小结
+    - 入院记录
+    - 病程记录
+    - 检查报告
   equator_principles_assessment:
     include:
     - 赤道原则
@@ -536,6 +546,52 @@ scene_keywords:
     - 设备估价
     - 资产评估
     - 固定资产评估
+  market_trend_report:
+    include:
+    - 市场趋势
+    - 文档类型：market_trend_report
+    - 趋势分析
+    - Market Trend
+    - 市场分析
+    - 走势分析
+    - 行情分析
+    - 市场调研
+  medical_diagnosis_report:
+    include:
+    - 诊断证明
+    - 文档类型：medical_diagnosis_report
+    - 诊断报告
+    - Medical Report
+    - CT检查
+    - 检查报告
+    - 超声报告
+  medication_detail:
+    include:
+    - 药品费用
+    - 文档类型：medication_detail
+    - 用药明细
+    - 药品清单
+    - 用药记录
+  performance_evaluation_report:
+    include:
+    - 业绩评估
+    - 文档类型：performance_evaluation_report
+    - 投资业绩
+    - Performance
+    - 业绩报告
+    - 绩效评估
+    - 考核结果
+  scanned_text_doc:
+    include:
+    - 历史档案
+    - 文档类型：scanned_text_doc
+    - Scanned Text Document
+    - 扫描文件
+    - 历史文件
+    - 文档扫描
+    - 纸质存档
+    - 历史记录
+    - 道路运输证
   equity_penetration:
     include:
     - 股权穿透

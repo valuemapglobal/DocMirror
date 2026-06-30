@@ -17,20 +17,19 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
 
-from docmirror.quality.ga_metrics import PLATFORM_TARGETS, FINANCE_TARGETS
-from docmirror.quality.observation import QualityObservationEvent
 from docmirror.quality.evidence_coverage import (
-    compute_evidence_coverage,
     build_evidence_coverage_summary,
-    get_key_fields_for_domain,
+    compute_evidence_coverage,
 )
+from docmirror.quality.ga_metrics import FINANCE_TARGETS, PLATFORM_TARGETS
 from docmirror.quality.needs_review import (
     NeedsReviewRegistry,
     build_needs_review_summary,
 )
-
+from docmirror.quality.observation import QualityObservationEvent
 
 # ── Metric value extractors ──────────────────────────────────────────────────
+
 
 def _compute_platform_metric(name: str, events: list[QualityObservationEvent]) -> float | None:
     """Compute a platform metric from observation events."""
@@ -61,8 +60,12 @@ def _compute_platform_metric(name: str, events: list[QualityObservationEvent]) -
     elif name == "mirror_json_generation_success":
         success = sum(1 for e in events if e.outputs.mirror.status == "success")
         return success / n
-    elif name in ("supported_format_registry_coverage", "domain_ga_catalog_machine_readable",
-                  "cpu_only_parse_availability", "license_missing_does_not_affect_mirror"):
+    elif name in (
+        "supported_format_registry_coverage",
+        "domain_ga_catalog_machine_readable",
+        "cpu_only_parse_availability",
+        "license_missing_does_not_affect_mirror",
+    ):
         # These require specific test runs (CPU-only, license-missing) that produce observation events
         passed = sum(1 for e in events if e.outputs.mirror.status == "success")
         return passed / n
@@ -71,9 +74,9 @@ def _compute_platform_metric(name: str, events: list[QualityObservationEvent]) -
 
 def _compute_finance_metric(name: str, events: list[QualityObservationEvent]) -> float | None:
     """Compute a finance-domain metric from observation events."""
-    finance_events = [e for e in events if e.input.domain in (
-        "bank_statement", "vat_invoice", "credit_report", "payment_flow"
-    )]
+    finance_events = [
+        e for e in events if e.input.domain in ("bank_statement", "vat_invoice", "credit_report", "payment_flow")
+    ]
     n = len(finance_events)
     if n == 0:
         return None
@@ -226,13 +229,15 @@ class BucketedMetricsAggregator:
                 )
                 if has_failure:
                     seen_fixtures.add(event.input.fixture_id)
-                    self._impacted_fixtures.append({
-                        "fixture_id": event.input.fixture_id,
-                        "domain": event.input.domain,
-                        "quality_bucket": event.input.quality_bucket,
-                        "error_code": event.failure.error_code,
-                        "commit": event.run.commit,
-                    })
+                    self._impacted_fixtures.append(
+                        {
+                            "fixture_id": event.input.fixture_id,
+                            "domain": event.input.domain,
+                            "quality_bucket": event.input.quality_bucket,
+                            "error_code": event.failure.error_code,
+                            "commit": event.run.commit,
+                        }
+                    )
 
     def build_ga_report(self) -> dict[str, Any]:
         """Build a GA metrics report v2 from aggregated observations."""
@@ -272,9 +277,7 @@ class BucketedMetricsAggregator:
             "buckets": self._bucket_data,
             "failures": {
                 "metric_failures": [],
-                "bucket_failures": [
-                    k for k, v in self._bucket_data.items() if v.get("status") == "fail"
-                ],
+                "bucket_failures": [k for k, v in self._bucket_data.items() if v.get("status") == "fail"],
                 "impacted_fixtures": self._impacted_fixtures,
             },
             "evidence_coverage": self._compute_evidence_coverage(),
@@ -325,7 +328,6 @@ class BucketedMetricsAggregator:
         """Build needs_review summary from observation events."""
         registry = NeedsReviewRegistry()
         return build_needs_review_summary(registry)
-
 
 
 def _compute_status(name: str, observed: float | None, target: dict[str, Any]) -> str:

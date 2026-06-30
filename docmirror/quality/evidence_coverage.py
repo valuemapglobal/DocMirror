@@ -15,16 +15,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ── DGAC Key Field Definitions ─────────────────────────────────────────────
 
 # Per-domain key field lists as defined by Domain GA Contracts.
 # Each field has a `field_path` used in Edition JSON (e.g., "account_number")
 # and a `priority` (P0 = must have evidence, P1 = should have evidence).
 
+
 @dataclass
 class KeyFieldDef:
     """Definition of a key field for a domain."""
+
     field_path: str
     priority: str = "P0"  # P0 | P1
     label: str = ""
@@ -98,9 +99,11 @@ _KEY_FIELDS: dict[str, list[KeyFieldDef]] = {
 
 # ── Evidence coverage computation ───────────────────────────────────────────
 
+
 @dataclass
 class EvidenceCoverageResult:
     """Result of evidence coverage computation for a domain."""
+
     domain: str
     total_key_fields: int = 0
     key_fields_with_evidence: int = 0

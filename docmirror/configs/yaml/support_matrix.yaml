@@ -60,7 +60,7 @@ formats:
     outputs: {mirror: text_structure, markdown: structured, evidence: partial}
     limitations: ["Native DOCX does not guarantee token-level bbox/source refs."]
 
-  word_legacy_doc:
+  word_doc_binary:
     ga_status: fallback
     user_label: "DOC"
     inputs: [".doc"]
@@ -136,7 +136,7 @@ formats:
     outputs: {mirror: text_structure, markdown: structured, evidence: partial}
     limitations: ["Slide geometry is logical unless converted/rendered."]
 
-  ppt_legacy:
+  ppt_binary:
     ga_status: fallback
     user_label: "PPT"
     inputs: [".ppt"]

@@ -25,32 +25,31 @@ if str(_PROJ) not in sys.path:
     sys.path.insert(0, str(_PROJ))
 
 from docmirror.configs.format.loader import load_format_registry
-from docmirror.configs.support_matrix import load_support_matrix, support_for_capability
 from docmirror.configs.format.resolver import resolve_capability
-
+from docmirror.configs.support_matrix import load_support_matrix
 
 # ── P0 input categories ─────────────────────────────────────────────────────
 P0_CATEGORIES = {
     # (test_name, file_suffix, capability_id, mime_type)
-    "pdf_native":             (".pdf",  "pdf_native",             "application/pdf"),
-    "image_png":              (".png",  "image_raster",           "image/png"),
-    "image_jpg":              (".jpg",  "image_raster",           "image/jpeg"),
-    "image_tiff":             (".tiff", "image_raster",           "image/tiff"),
-    "image_webp":             (".webp", "image_raster",           "image/webp"),
-    "image_bmp":              (".bmp",  "image_raster",           "image/bmp"),
-    "word_docx":              (".docx", "word_docx",              ""),
-    "excel_xlsx":             (".xlsx", "excel_xlsx",             ""),
-    "ppt_pptx":               (".pptx", "ppt_pptx",               ""),
-    "html":                   (".html", "web_html",               ""),
-    "email_eml":              (".eml",  "email_eml",              ""),
-    "archive_zip":            (".zip",  "archive_zip",            "application/zip"),
+    "pdf_native": (".pdf", "pdf_native", "application/pdf"),
+    "image_png": (".png", "image_raster", "image/png"),
+    "image_jpg": (".jpg", "image_raster", "image/jpeg"),
+    "image_tiff": (".tiff", "image_raster", "image/tiff"),
+    "image_webp": (".webp", "image_raster", "image/webp"),
+    "image_bmp": (".bmp", "image_raster", "image/bmp"),
+    "word_docx": (".docx", "word_docx", ""),
+    "excel_xlsx": (".xlsx", "excel_xlsx", ""),
+    "ppt_pptx": (".pptx", "ppt_pptx", ""),
+    "html": (".html", "web_html", ""),
+    "email_eml": (".eml", "email_eml", ""),
+    "archive_zip": (".zip", "archive_zip", "application/zip"),
 }
 
 REQUIRED_EXTS = {
-    "pdf_native":             ".pdf",
-    "image_png":              ".png",
-    "image_webp":             ".webp",
-    "word_docx":              ".docx",
+    "pdf_native": ".pdf",
+    "image_png": ".png",
+    "image_webp": ".webp",
+    "word_docx": ".docx",
 }
 
 
@@ -102,9 +101,7 @@ def check_resolver() -> list[str]:
         try:
             cap = resolve_capability(p, mime)
             if cap.id != expected_cap_id:
-                errors.append(
-                    f"RESOLVER: {name} → got capability {cap.id}, expected {expected_cap_id}"
-                )
+                errors.append(f"RESOLVER: {name} → got capability {cap.id}, expected {expected_cap_id}")
         except Exception as e:
             errors.append(f"RESOLVER EXCEPTION for {name}: {e}")
 

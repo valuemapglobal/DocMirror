@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from docmirror.structure.ocr.structure_project import project_structure
-from docmirror.structure.ocr.structure_projectors import core as _core  # noqa: F401 — registers projectors
+from docmirror.ocr.structure_project import project_structure
+from docmirror.ocr.structure_projectors import core as _core  # noqa: F401 — registers projectors
 
 
 def test_core_field_grid_projector_partial_ok():

@@ -27,7 +27,7 @@ Design (GA1.0-EC-01 §Component 4):
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
@@ -124,9 +124,7 @@ class BenchmarkManifest:
     """
 
     release_tag: str
-    generated_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     records: list[BenchmarkRecord] = field(default_factory=list)
 
     # Optional: baseline comparison
@@ -153,24 +151,12 @@ class BenchmarkManifest:
         n = len(self.records)
         return {
             "record_count": n,
-            "avg_table_f1": round(
-                sum(r.table_f1 for r in self.records) / n, 4
-            ),
-            "avg_text_f1": round(
-                sum(r.text_f1 for r in self.records) / n, 4
-            ),
-            "avg_kv_f1": round(
-                sum(r.kv_f1 for r in self.records) / n, 4
-            ),
-            "avg_char_preservation": round(
-                sum(r.char_preservation_rate for r in self.records) / n, 4
-            ),
-            "avg_elapsed_ms": round(
-                sum(r.elapsed_ms for r in self.records) / n, 1
-            ),
-            "gate_pass_rate": round(
-                sum(1 for r in self.records if r.gate_passed) / n, 4
-            ),
+            "avg_table_f1": round(sum(r.table_f1 for r in self.records) / n, 4),
+            "avg_text_f1": round(sum(r.text_f1 for r in self.records) / n, 4),
+            "avg_kv_f1": round(sum(r.kv_f1 for r in self.records) / n, 4),
+            "avg_char_preservation": round(sum(r.char_preservation_rate for r in self.records) / n, 4),
+            "avg_elapsed_ms": round(sum(r.elapsed_ms for r in self.records) / n, 1),
+            "gate_pass_rate": round(sum(1 for r in self.records if r.gate_passed) / n, 4),
         }
 
     def to_dict(self) -> dict[str, Any]:
@@ -208,6 +194,7 @@ class BenchmarkManifest:
         json_str = json.dumps(data, indent=indent, ensure_ascii=False, default=str)
         if path:
             import os
+
             os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
             with open(path, "w") as f:
                 f.write(json_str)

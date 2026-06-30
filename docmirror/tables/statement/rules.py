@@ -111,10 +111,6 @@ def _values_by_col(row: dict[str, Any]) -> dict[int, float]:
 
 def _row_by_role(account_rows: list[dict[str, Any]], role: str) -> dict[str, Any] | None:
     return next(
-        (
-            row
-            for row in account_rows
-            if row.get("role") == role or role in (row.get("matched_roles") or [])
-        ),
+        (row for row in account_rows if row.get("role") == role or role in (row.get("matched_roles") or [])),
         None,
     )

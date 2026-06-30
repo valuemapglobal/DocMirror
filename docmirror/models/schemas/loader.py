@@ -14,7 +14,7 @@ Functions::
     load_schema_registry()   LRU-cached document_type → module_key mapping
     validate_dec()             Return issue strings (empty = ok); optional strict mode
 
-Each schema module exposes ``validate_dec(dec) -> list[str]`` or the legacy
+Each schema module exposes ``validate_dec(dec) -> list[str]`` or the raw
 ``validate_entities`` alias. Unknown document types with no registry entry pass
 validation silently. Strict mode raises ``ValueError`` on import or validation errors.
 """

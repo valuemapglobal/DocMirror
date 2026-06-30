@@ -12,12 +12,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from docmirror.input.adapters.archive.archive import ArchiveAdapter
-from docmirror.input.adapters.image.image import ImageAdapter
-from docmirror.input.adapters.pdf.pdf import PDFAdapter
 from docmirror.configs.format.resolver import _extension_candidates, resolve_capability
 from docmirror.framework.dispatcher import ParserDispatcher
 from docmirror.framework.extraction_runner import run_extraction_chain
+from docmirror.input.adapters.archive.archive import ArchiveAdapter
+from docmirror.input.adapters.image.image import ImageAdapter
 from docmirror.models.entities.parse_result import (
     PageContent,
     ParseResult,
@@ -31,6 +30,25 @@ from docmirror.models.entities.parse_result import (
 def test_extension_candidates_longest_first():
     assert _extension_candidates(Path("report.tar.gz")) == [".tar.gz", ".gz"]
     assert _extension_candidates(Path("scan.png")) == [".png"]
+
+
+def test_image_adapter_groups_ocr_words_into_bbox_lines():
+    words = [
+        (10, 10, 50, 20, "发票代码", 0, 0, 0, 0.91),
+        (60, 11, 120, 21, "044002300411", 0, 0, 1, 0.93),
+        (10, 42, 70, 52, "价税合计", 0, 1, 0, 0.9),
+        (80, 43, 120, 53, "111.00", 0, 1, 1, 0.95),
+    ]
+
+    blocks = ImageAdapter._blocks_from_words(words)
+
+    assert [block.content for block in blocks] == ["发票代码 044002300411", "价税合计 111.00"]
+    assert blocks[0].bbox == [10.0, 10.0, 120.0, 21.0]
+    assert blocks[1].bbox == [10.0, 42.0, 120.0, 53.0]
+    assert blocks[0].confidence > 0.9
+    assert blocks[0].evidence_ids == ["ocr:p0:w000000", "ocr:p0:w000001"]
+    assert blocks[0].slm_entities["ocr_tokens"][1]["text"] == "044002300411"
+    assert blocks[0].slm_entities["ocr_tokens"][1]["bbox"] == [60.0, 11.0, 120.0, 21.0]
 
 
 @pytest.mark.asyncio
@@ -71,18 +89,13 @@ async def test_image_ocr_only_env_uses_fallback(tmp_path, monkeypatch):
     cap = resolve_capability(png)
     ctx = {"file_type": "image", "content_model": cap.content_model}
     result = await run_extraction_chain(cap, png, ctx, enhance_mode="standard", t0=0.0)
-    assert result.parser_info.parser_name in ("ImageAdapter", "DocMirror", "PDFAdapter")
+    assert result.parser_info.parser_name in ("ImageAdapter", "DocMirror")
 
 
 @pytest.mark.asyncio
-async def test_image_fallback_when_primary_empty(tmp_path):
+async def test_image_raster_uses_image_adapter_as_primary(tmp_path):
     cap = resolve_capability(Path("x.png"))
-    empty = ParseResult(
-        pages=[PageContent(page_number=0, texts=[])],
-        parser_info=ParserInfo(parser_name="PDFAdapter"),
-        status=ResultStatus.SUCCESS,
-    )
-    fb = ParseResult(
+    image_result = ParseResult(
         pages=[
             PageContent(
                 page_number=0,
@@ -93,16 +106,14 @@ async def test_image_fallback_when_primary_empty(tmp_path):
         status=ResultStatus.SUCCESS,
     )
 
-    with (
-        patch.object(PDFAdapter, "perceive", AsyncMock(return_value=empty)),
-        patch.object(ImageAdapter, "perceive", AsyncMock(return_value=fb)),
-    ):
+    with patch.object(ImageAdapter, "perceive", AsyncMock(return_value=image_result)) as mock_image:
         result = await run_extraction_chain(
             cap,
             tmp_path / "x.png",
             {"file_type": "image", "content_model": cap.content_model},
             enhance_mode="standard",
         )
+    mock_image.assert_awaited_once()
     assert result.parser_info.parser_name == "ImageAdapter"
     assert "ocr line" in result.full_text
 
@@ -134,19 +145,11 @@ async def test_image_ocr_off_disables_fallback(tmp_path):
     cap = resolve_capability(Path("x.png"))
     empty = ParseResult(
         pages=[PageContent(page_number=0, texts=[])],
-        parser_info=ParserInfo(parser_name="PDFAdapter"),
-        status=ResultStatus.SUCCESS,
-    )
-    fb = ParseResult(
-        pages=[PageContent(page_number=0, texts=[TextBlock(content="ocr line", level=TextLevel.BODY)])],
         parser_info=ParserInfo(parser_name="ImageAdapter"),
         status=ResultStatus.SUCCESS,
     )
 
-    with (
-        patch.object(PDFAdapter, "perceive", AsyncMock(return_value=empty)),
-        patch.object(ImageAdapter, "perceive", AsyncMock(return_value=fb)) as mock_fb,
-    ):
+    with patch.object(ImageAdapter, "perceive", AsyncMock(return_value=empty)) as mock_image:
         result = await run_extraction_chain(
             cap,
             tmp_path / "x.png",
@@ -154,6 +157,6 @@ async def test_image_ocr_off_disables_fallback(tmp_path):
             enhance_mode="standard",
         )
 
-    mock_fb.assert_not_awaited()
-    assert result.parser_info.parser_name == "PDFAdapter"
+    mock_image.assert_awaited_once()
+    assert result.parser_info.parser_name == "ImageAdapter"
     assert result.full_text == ""

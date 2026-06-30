@@ -18,8 +18,7 @@ import click
     type=click.Choice(["stdio", "sse"]),
     default="stdio",
     show_default=True,
-    help="Transport protocol. Use stdio for MCP clients (Claude Desktop, Cursor). "
-    "Use sse for remote HTTP access.",
+    help="Transport protocol. Use stdio for MCP clients (Claude Desktop, Cursor). Use sse for remote HTTP access.",
 )
 @click.option(
     "--port",

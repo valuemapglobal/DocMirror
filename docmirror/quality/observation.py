@@ -17,10 +17,9 @@ Events flow into the BucketedMetricsAggregator to produce GA metrics reports.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
-
 
 # ── Sub-models ──────────────────────────────────────────────────────────────
 
@@ -28,6 +27,7 @@ from typing import Any
 @dataclass
 class RunMetadata:
     """Execution context that produced this observation."""
+
     commit: str = ""
     parser_version: str = ""
     profile: str = "standard"
@@ -38,17 +38,21 @@ class RunMetadata:
 @dataclass
 class InputIdentity:
     """Fixture identity and classification."""
+
     fixture_id: str = ""
     document_type: str = ""
     domain: str = "generic"
     format: str = ""
     quality_bucket: str = "medium"  # easy | medium | hard | broken | low_quality | edge_case
-    fixture_source: str = "synthetic"  # public | synthetic | desensitized_real | customer_regression | golden_benchmark | adversarial
+    fixture_source: str = (
+        "synthetic"  # public | synthetic | desensitized_real | customer_regression | golden_benchmark | adversarial
+    )
 
 
 @dataclass
 class PipelineDecision:
     """Which capability and adapter handled this input."""
+
     capability_id: str = ""
     adapter: str = ""
     pipeline_decision_id: str = ""
@@ -62,6 +66,7 @@ class ArtifactStatus:
     GA 1.0 SS4.12 C4: partial_result carries page-level partial success
     metadata when some pages failed but others succeeded.
     """
+
     status: str = "not_generated"  # success | partial | failure | not_generated
     schema_valid: bool | None = None
     readable: bool | None = None
@@ -71,6 +76,7 @@ class ArtifactStatus:
 @dataclass
 class OutputStatuses:
     """Status of all output artifacts."""
+
     mirror: ArtifactStatus = field(default_factory=ArtifactStatus)
     markdown: ArtifactStatus = field(default_factory=ArtifactStatus)
     community: ArtifactStatus = field(default_factory=ArtifactStatus)
@@ -80,6 +86,7 @@ class OutputStatuses:
 @dataclass
 class FidelityLayer:
     """Standard shape for each fidelity layer (text, layout, business, audit)."""
+
     score: float = 0.0
     status: str = "not_measured"  # pass | fail | not_measured
     metrics: dict[str, float] = field(default_factory=dict)
@@ -91,6 +98,7 @@ class FidelityLayer:
 @dataclass
 class FidelityLedger:
     """Four-layer fidelity ledger."""
+
     text: FidelityLayer = field(default_factory=FidelityLayer)
     layout: FidelityLayer = field(default_factory=FidelityLayer)
     business: FidelityLayer = field(default_factory=FidelityLayer)
@@ -100,6 +108,7 @@ class FidelityLedger:
 @dataclass
 class PageOutcome:
     """Outcome for a single page."""
+
     page: int = 0
     status: str = "success"  # success | partial | failure
     error_code: str | None = None
@@ -113,6 +122,7 @@ class FailureEnvelope:
     metadata (total_pages, success_count, failed_page_details, etc.) so
     downstream consumers know exactly which pages succeeded and which failed.
     """
+
     silent_failure: bool = False
     error_code: str | None = None
     warnings: list[str] = field(default_factory=list)
@@ -134,6 +144,7 @@ class QualityObservationEvent:
 
     Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md §6.1
     """
+
     version: int = 1
     observation_id: str = ""
     generated_at: str = ""
@@ -152,7 +163,7 @@ class QualityObservationEvent:
             self.generated_at = datetime.now(timezone.utc).isoformat()
 
     @classmethod
-    def from_dict(cls, d: dict) -> "QualityObservationEvent":
+    def from_dict(cls, d: dict) -> QualityObservationEvent:
         """Construct a QualityObservationEvent from a JSON/dict representation."""
         run_d = d.get("run", {})
         inp_d = d.get("input", {})
@@ -195,7 +206,6 @@ class QualityObservationEvent:
             fidelity=_build_fidelity(fid_d),
             failure=_build_failure(fail_d),
         )
-
 
 
 # ── Factory helpers ──────────────────────────────────────────────────────────
@@ -288,11 +298,21 @@ def observation_from_dict(data: dict[str, Any]) -> QualityObservationEvent:
 
 
 def _build_run(d: dict) -> RunMetadata:
-    return RunMetadata(**{k: d.get(k, getattr(RunMetadata(), k)) for k in ("commit", "parser_version", "profile", "cpu_only", "license_state")})
+    return RunMetadata(
+        **{
+            k: d.get(k, getattr(RunMetadata(), k))
+            for k in ("commit", "parser_version", "profile", "cpu_only", "license_state")
+        }
+    )
 
 
 def _build_input(d: dict) -> InputIdentity:
-    return InputIdentity(**{k: d.get(k, getattr(InputIdentity(), k)) for k in ("fixture_id", "document_type", "domain", "format", "quality_bucket", "fixture_source")})
+    return InputIdentity(
+        **{
+            k: d.get(k, getattr(InputIdentity(), k))
+            for k in ("fixture_id", "document_type", "domain", "format", "quality_bucket", "fixture_source")
+        }
+    )
 
 
 def _build_pipeline(d: dict) -> PipelineDecision:

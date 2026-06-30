@@ -3,12 +3,12 @@ from tempfile import TemporaryDirectory
 
 from reportlab.pdfgen import canvas as canvas_mod
 
+from docmirror.evidence.plane import DocumentSource, EvidencePlane, EvidencePlaneBuilder
 from docmirror.models.entities.parse_result import LogicalTable, PageContent, ParseResult, TableBlock, TextBlock
+from docmirror.models.mirror.core import MirrorCoreVNext
 from docmirror.models.mirror.vnext import EvidenceAtom
-from docmirror.output.mirror import MirrorCoreVNext
-from docmirror.structure.evidence_plane import DocumentSource, EvidencePlane, EvidencePlaneBuilder
-from docmirror.structure.page_topology import PageTopologyBuilder
-from docmirror.structure.reconstructors import ReconstructionContext, RegionReconstructorRegistry
+from docmirror.topology.page import PageTopologyBuilder
+from docmirror.topology.reconstructors import ReconstructionContext, RegionReconstructorRegistry
 from tests.unit.test_mirror_json_vnext import _sample_parse_result
 
 

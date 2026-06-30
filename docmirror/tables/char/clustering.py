@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 
-from docmirror.structure.utils.watermark import is_watermark_char
+from docmirror.layout.watermark import is_watermark_char
 from docmirror.tables.utils import (
     _assign_chars_to_columns,
     _cluster_x_positions,

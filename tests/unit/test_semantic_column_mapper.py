@@ -1,8 +1,8 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.structure.tables.char.semantic_column_mapper import SemanticColumnMapper
-from docmirror.structure.tables.pipeline.stage_structure import apply_structure_fixes
+from docmirror.tables.char.semantic_column_mapper import SemanticColumnMapper
+from docmirror.tables.pipeline.stage_structure import apply_structure_fixes
 
 
 def test_semantic_column_mapper_exposes_design_components():

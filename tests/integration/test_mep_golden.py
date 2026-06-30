@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Legacy dual-run shim — MEP golden profiles delegate to TQG mirror track."""
+"""MEP golden profiles delegate to TQG mirror track."""
 
 from __future__ import annotations
 

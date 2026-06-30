@@ -6,25 +6,18 @@
 from __future__ import annotations
 
 import importlib
-from pathlib import Path
 from unittest.mock import PropertyMock, patch
 
 import pytest
 
-from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus
-from docmirror.models.entities.parse_result import TextBlock
+from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, ResultStatus, TextBlock
 from docmirror.plugins._runtime.post_extract.hooks.credit_sections import CreditReportSectionsHook
 from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
 pytest.importorskip("docmirror_enterprise")
 
-BANK_FIXTURE = Path("tests/fixtures/bank_statement/银行流水_中国建设银行_20231226.pdf")
-
 
 def test_enterprise_bank_statement_extract_smoke():
-    if not BANK_FIXTURE.is_file():
-        pytest.skip(f"missing fixture {BANK_FIXTURE}")
-
     pr = ParseResult(status=ResultStatus.SUCCESS)
     pr.entities = DocumentEntities(document_type="bank_statement")
 
@@ -73,8 +66,8 @@ def test_credit_report_sections_hook_attaches_sections_to_edition():
 
 
 def test_bank_table_rebuild_hook_with_transactions():
+    from docmirror.models.entities.parse_result import CellValue, RowType, TableBlock, TableRow
     from docmirror.plugins._runtime.post_extract.hooks.mirror_table_rebuild import MirrorTableRebuildHook
-    from docmirror.models.entities.parse_result import TableBlock, TableRow, CellValue, RowType
 
     page = PageContent(
         page_number=1,

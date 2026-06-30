@@ -46,17 +46,17 @@ EXCLUDE_DIR_NAMES = frozenset(
     }
 )
 
-# Orphan scan skips modules under archive/legacy trees (not audited as orphans).
-ORPHAN_EXCLUDE_PATH_PARTS = ("_archive", "legacy", "compat", "deprecated")
+# Orphan scan skips modules under archive/raw trees (not audited as orphans).
+ORPHAN_EXCLUDE_PATH_PARTS = ("_archive", "raw", "compat", "deprecated")
 
 # Ruff rule set for strict hygiene pass (separate from default pyproject profile).
+#
+# Keep this gate high-signal for release blocking. Unused arguments are common
+# in SDK interfaces, plugin hooks, and strategy protocols; commented-code
+# detection is handled by the dedicated commented_blocks checker below.
 RUFF_HYGIENE_SELECT = (
     "F401",  # unused import
     "F841",  # unused variable
-    "ARG001",  # unused function argument
-    "ARG002",  # unused method argument
-    "ARG005",  # unused lambda argument
-    "ERA001",  # commented-out code
     "UP",  # pyupgrade / deprecated syntax
 )
 

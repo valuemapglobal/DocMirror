@@ -34,7 +34,9 @@ def require_optional_module(module_name: str, *, feature: str, extra: str) -> Mo
         raise FeatureUnavailableError(feature=feature, missing=(module_name,), extra=extra) from exc
 
 
-def require_optional_modules(module_names: list[str] | tuple[str, ...], *, feature: str, extra: str) -> dict[str, ModuleType]:
+def require_optional_modules(
+    module_names: list[str] | tuple[str, ...], *, feature: str, extra: str
+) -> dict[str, ModuleType]:
     """Import multiple optional modules or report all missing modules."""
     loaded: dict[str, ModuleType] = {}
     missing: list[str] = []

@@ -16,8 +16,6 @@ Design (GA1.0-EC-01 §Component 4):
 from __future__ import annotations
 
 import json
-import os
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -104,7 +102,15 @@ def generate_table(
             ("Text F1 (digital PDF)", docmirror_metrics.get("avg_text_f1"), 0.99, 0.95, 0.97, 0.96, 0.98),
             ("KV F1 (invoices)", docmirror_metrics.get("avg_kv_f1"), 0.0, 0.82, 0.89, 0.85, 0.91),
             ("Reading Order Accuracy", docmirror_metrics.get("avg_reading_order", 0.89), 0.72, 0.78, 0.85, 0.82, 0.94),
-            ("Avg Latency (10pg PDF)", f"{docmirror_metrics.get('avg_elapsed_ms', 0):.0f}ms", "30ms", "1200ms", "3400ms", "2800ms", "15ms"),
+            (
+                "Avg Latency (10pg PDF)",
+                f"{docmirror_metrics.get('avg_elapsed_ms', 0):.0f}ms",
+                "30ms",
+                "1200ms",
+                "3400ms",
+                "2800ms",
+                "15ms",
+            ),
         ]
     else:
         rows_data = [
@@ -132,38 +138,40 @@ def generate_table(
                 cells.append(str(val))
         lines.append("| " + " | ".join(cells) + " |")
 
-    lines.extend([
-        "",
-        "_Legend: **Bold** = best-in-class (>0.90). Metrics are aggregates across the golden matrix._",
-        "",
-        "## Competitor Baselines",
-        "",
-        "| Competitor | Avg Table Count | Avg Latency (ms) |",
-        "|------------|----------------|-------------------|",
-    ])
+    lines.extend(
+        [
+            "",
+            "_Legend: **Bold** = best-in-class (>0.90). Metrics are aggregates across the golden matrix._",
+            "",
+            "## Competitor Baselines",
+            "",
+            "| Competitor | Avg Table Count | Avg Latency (ms) |",
+            "|------------|----------------|-------------------|",
+        ]
+    )
 
     # Add competitor latency rows
     for name in competitor_names:
         metrics = competitor_metrics[name]
         label = name.replace("_", " ").title()
-        lines.append(
-            f"| {label} | {metrics.get('table_count', '--')} | {metrics.get('avg_latency_ms', '--')} |"
-        )
+        lines.append(f"| {label} | {metrics.get('table_count', '--')} | {metrics.get('avg_latency_ms', '--')} |")
 
-    lines.extend([
-        "",
-        "---",
-        "",
-        "### Notes",
-        "",
-        "- Benchmarks use DocMirror's [golden matrix](golden-matrix.json) — a curated set of real-world documents.",
-        "- PyMuPDF baseline uses `page.get_text()` and `find_tables()`.",
-        "- Unstructured baseline uses `partition.auto`.",
-        "- Azure and Google baselines are estimated from published benchmarks.",
-        "- OpenDataLoader baselines use `opd parse` CLI (local JVM mode, no AI backend).",
-        "- Reading order accuracy is estimated from published benchmark data.",
-        "- Full results are available in [`docs/benchmarks/results/`](results/).",
-    ])
+    lines.extend(
+        [
+            "",
+            "---",
+            "",
+            "### Notes",
+            "",
+            "- Benchmarks use DocMirror's [golden matrix](golden-matrix.json) — a curated set of real-world documents.",
+            "- PyMuPDF baseline uses `page.get_text()` and `find_tables()`.",
+            "- Unstructured baseline uses `partition.auto`.",
+            "- Azure and Google baselines are estimated from published benchmarks.",
+            "- OpenDataLoader baselines use `opd parse` CLI (local JVM mode, no AI backend).",
+            "- Reading order accuracy is estimated from published benchmark data.",
+            "- Full results are available in [`docs/benchmarks/results/`](results/).",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -217,15 +225,19 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Generate benchmark comparison table")
-    parser.add_argument("--public-mini", action="store_true",
-                        help="Generate a public mini benchmark table from docs/benchmarks/results/public-mini.json")
-    parser.add_argument("--manifest", default="docs/benchmarks/results/latest.json",
-                        help="Path to DocMirror benchmark manifest JSON")
-    parser.add_argument("--competitors", default="docs/benchmarks/competitors/",
-                        help="Directory with competitor baseline results")
+    parser.add_argument(
+        "--public-mini",
+        action="store_true",
+        help="Generate a public mini benchmark table from docs/benchmarks/results/public-mini.json",
+    )
+    parser.add_argument(
+        "--manifest", default="docs/benchmarks/results/latest.json", help="Path to DocMirror benchmark manifest JSON"
+    )
+    parser.add_argument(
+        "--competitors", default="docs/benchmarks/competitors/", help="Directory with competitor baseline results"
+    )
     parser.add_argument("--release-tag", default="latest", help="DocMirror release tag")
-    parser.add_argument("--output", default="docs/benchmarks/BENCHMARKS.md",
-                        help="Output markdown file path")
+    parser.add_argument("--output", default="docs/benchmarks/BENCHMARKS.md", help="Output markdown file path")
     args = parser.parse_args()
 
     if args.public_mini:

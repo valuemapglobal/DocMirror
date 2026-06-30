@@ -78,7 +78,7 @@ def _sample_parse_result() -> ParseResult:
     )
 
 
-def test_mirror_json_vnext_is_document_shaped_not_legacy_envelope():
+def test_mirror_json_vnext_is_document_shaped_not_old_envelope():
     payload = _sample_parse_result().to_mirror_json_vnext(source_filename="statement.pdf")
 
     assert set(payload) == {
@@ -289,7 +289,7 @@ def test_mirror_json_vnext_emits_document_residual_when_no_pages_exist():
 
 
 def test_mirror_core_vnext_processes_parse_result():
-    from docmirror.output.mirror import MirrorCoreVNext, MirrorOptions
+    from docmirror.models.mirror.core import MirrorCoreVNext, MirrorOptions
 
     core = MirrorCoreVNext()
     result = core.process(
@@ -309,7 +309,7 @@ def test_mirror_core_vnext_processes_parse_result():
 
 
 def test_mirror_core_keeps_canonical_shape_across_synthetic_source_formats():
-    from docmirror.output.mirror import MirrorCoreVNext, MirrorOptions
+    from docmirror.models.mirror.core import MirrorCoreVNext, MirrorOptions
 
     required_keys = {
         "mirror",
@@ -341,7 +341,7 @@ def test_mirror_core_keeps_canonical_shape_across_synthetic_source_formats():
 
 
 def test_mirror_core_processes_cross_format_native_paths(tmp_path: Path):
-    from docmirror.output.mirror import MirrorCoreVNext, MirrorOptions
+    from docmirror.models.mirror.core import MirrorCoreVNext, MirrorOptions
 
     fixtures = _write_cross_format_native_fixtures(tmp_path)
     expected_kinds = {

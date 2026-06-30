@@ -18,8 +18,8 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 
-from docmirror.structure.utils.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE
-from docmirror.structure.utils.watermark import is_watermark_char
+from docmirror.layout.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE
+from docmirror.layout.watermark import is_watermark_char
 from docmirror.tables.utils import _assign_chars_to_columns, _group_chars_into_rows
 
 logger = logging.getLogger(__name__)
