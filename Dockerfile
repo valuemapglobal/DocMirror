@@ -1,5 +1,9 @@
 # Stage 1: Build & Dependencies
-FROM python:3.10-slim AS builder
+FROM python:3.12-slim AS builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 # Install system build dependencies required for compiling Python packages and OpenCV/ONNX
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -20,7 +24,11 @@ RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels \
     ".[all,server]"
 
 # Stage 2: Runtime Environment
-FROM python:3.10-slim
+FROM python:3.12-slim
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 # Install runtime C++ libraries required by OpenCV (rapidocr) and ONNX Runtime
 # Also install curl for healthcheck
@@ -45,8 +53,8 @@ RUN pip install --no-cache-dir --find-links=/wheels ".[all,server]"
 # Expose the FastAPI default port
 EXPOSE 8000
 
-# Optional: define volume for model caching (speed up rapidocr models download)
-VOLUME ["/root/.cache"]
+# Optional volumes for model caches and persistent runtime artifacts.
+VOLUME ["/root/.cache", "/root/.docmirror"]
 
 # Healthcheck for container orchestration
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

@@ -13,6 +13,7 @@ docker build -t docmirror:latest .
 docker run -d \
   --name docmirror \
   -p 8000:8000 \
+  -v ~/.cache/docmirror:/root/.cache \
   -v ~/.docmirror:/root/.docmirror \
   --restart unless-stopped \
   docmirror:latest
@@ -38,7 +39,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ~/.docmirror:/root/.docmirror
+      - docmirror_cache:/root/.cache
+      - docmirror_data:/root/.docmirror
     environment:
       - DOCMIRROR_API_KEY=${DOCMIRROR_API_KEY}
       - DOCMIRROR_LOG_LEVEL=info
@@ -47,6 +49,10 @@ services:
       resources:
         limits:
           memory: 2G
+
+volumes:
+  docmirror_cache:
+  docmirror_data:
 ```
 
 ## Reverse Proxy

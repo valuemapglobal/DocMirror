@@ -4,15 +4,16 @@ services:
       context: .
       dockerfile: Dockerfile
     image: docmirror:latest
-    container_name: docmirror_engine
+    container_name: docmirror
     ports:
       - "8000:8000"
     volumes:
-      # Map host cache to container to prevent redownloading ONNX models every time
-      - ./model_cache:/root/.cache
+      - docmirror_cache:/root/.cache
+      - docmirror_data:/root/.docmirror
     environment:
       # Optional: Enable full enhancement mode for parsing
       - DOCMIRROR_ENHANCE_MODE=standard
+      - DOCMIRROR_LOG_LEVEL=info
       # Optional: Control concurrency
       - OMP_NUM_THREADS=4
       # Optional: API authentication key
@@ -32,3 +33,7 @@ services:
     #         - driver: nvidia
     #           count: 1
     #           capabilities: [gpu]
+
+volumes:
+  docmirror_cache:
+  docmirror_data:
