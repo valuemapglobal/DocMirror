@@ -3,7 +3,7 @@ description: >
   Migration baseline for removed page-projection imports. Counts are maximum
   allowed production imports during the vNext unification migration; they should
   only stay flat or decrease.
-generated_for_design: docs/design/vNext/04_page_projection_to_vnext_unification.md
+generated_for_design: internal-page-projection-unification
 removed_imports:
   - module_parts: [docmirror, ocr, [page_, canvas]]
     max_import_count: 0

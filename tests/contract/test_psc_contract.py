@@ -13,7 +13,7 @@ Covers the core invariants defined in the PSC design document:
   PSC-I9: Redaction masks PII and secrets
   PSC-I10: Resource gate matrix covers all input types
 
-Design reference: docs/design/GA1.0/12_privacy_security_compliance_ga_gap_closure_plan.md
+Internal GA 1.0 PSC design reference.
 """
 
 import logging

@@ -6,9 +6,6 @@ Pluggable Parser Backend Architecture (GA1.0-ODL-05).
 
 Separates "what format to parse" from "how to parse" by introducing a
 ``ParserBackend`` protocol and a ``ParserRegistry`` for backend selection.
-
-See :doc:`/docs/design/GA1.0/odl/GA1.0-odl-05-pluggable-parser-backends`
-for the design rationale.
 """
 
 from __future__ import annotations

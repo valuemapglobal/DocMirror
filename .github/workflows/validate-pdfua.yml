@@ -1,6 +1,6 @@
  # GA1.0-ODL-02 Phase 2.2: PDF/UA Compliance Validation
  #
- # Runs on every push to main/dev that touches PDF/UA code or golden matrix.
+ # Runs on every push to main/dev that touches PDF/UA code.
  # Validates that DocMirror's PDF/UA output passes structural compliance checks.
  #
  # For authoritative validation, veraPDF must be installed (not available on
@@ -17,7 +17,6 @@
        - "docmirror/output/exporters/pdfua/**"
        - "docmirror/cli/pdfua.py"
        - "docmirror/server/api.py"
-       - "docs/benchmarks/golden-matrix.json"
        - "scripts/validate_pdfua.py"
    pull_request:
      paths:
@@ -102,31 +101,6 @@
            name: test-pdfua-${{ matrix.pdfua-version }}
            path: /tmp/test_pdfua.pdf
            retention-days: 7
-
-       - name: Validate against golden matrix cases (if DMIR fixtures exist)
-         run: |
-           python -c "
-           import json
-           from pathlib import Path
-           from docmirror.output.exporters.pdfua import export_pdfua, PdfUaVersion
-
-           matrix_path = Path('docs/benchmarks/golden-matrix.json')
-           if not matrix_path.exists():
-               print('No golden matrix found, skipping')
-               exit(0)
-
-           matrix = json.loads(matrix_path.read_text())
-           pdfua_cases = [c for c in matrix.get('cases', [])
-                          if 'pdfua' in c.get('tags', []) or 'accessibility' in c.get('tags', [])]
-           if not pdfua_cases:
-               print('No PDF/UA golden cases found, skipping')
-               exit(0)
-
-           version = PdfUaVersion.PDFUA_2 if '${{ matrix.pdfua-version }}' == 'UA-2' else PdfUaVersion.PDFUA_1
-           for case in pdfua_cases:
-               case_id = case.get('id', 'unknown')
-               print(f'  Exporting golden case: {case_id}')
-           "
 
        - name: Report summary
          run: |

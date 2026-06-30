@@ -9,7 +9,7 @@ Validates the drilldown pipeline:
 - Overlay dict is suitable for visual_debug.html consumption
 - Page-level failures are included as drilldown targets
 
-Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md W5-04
+Internal GA 1.0 trust design reference: W5-04.
 """
 
 from docmirror.quality.observation import (

@@ -3,13 +3,8 @@
 三版模式 Schema 合规性自动化测试
 ========================================
 
-基于三个设计文档的架构要求，验证 docmirror 输出的社区版/企业版/金融版文件
-在 顶级结构、字段必填项、跨字段一致性 上是否符合设计要求。
-
-设计文档:
-  - docs/design/01_community_edition_architecture_guide_v2.md
-  - docs/design/02_enterprise_edition_architecture_guide_v2.md
-  - docs/design/03_finance_edition_architecture_guide_v2.md
+基于社区版/企业版/金融版输出契约，验证 docmirror 输出文件
+在顶级结构、字段必填项、跨字段一致性上是否符合 GA 1.0 要求。
 
 用法:
   python3 -m pytest tests/test_edition_schema_conformance.py -v

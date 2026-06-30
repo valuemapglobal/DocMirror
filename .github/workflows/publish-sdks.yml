@@ -31,16 +31,16 @@ jobs:
 
       - name: Copy versioned DMIR schema for release
         run: |
-          SCHEMA_DIR="docs/schemas/dmir"
+          SCHEMA_DIR="docmirror/configs/schemas"
           RELEASE_TAG="${GITHUB_REF_NAME}"
-          cp "$SCHEMA_DIR/v1.0.schema.json" "$SCHEMA_DIR/v1.0.release.schema.json"
+          cp "$SCHEMA_DIR/mirror.schema.json" "$SCHEMA_DIR/mirror.v1.0.release.schema.json"
           echo "Schema prepared for release ${RELEASE_TAG}"
 
       - name: Upload DMIR schema as artifact
         uses: actions/upload-artifact@v4
         with:
           name: dmir-schema
-          path: docs/schemas/dmir/*.schema.json
+          path: docmirror/configs/schemas/*.schema.json
 
 
   generate-typescript:

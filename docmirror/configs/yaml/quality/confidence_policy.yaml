@@ -1,6 +1,6 @@
 # Confidence Policy for Quality & Trust Contract (QTC)
 # ====================================================
-# Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md §6.3
+# Internal GA 1.0 trust design reference: confidence policy.
 #
 # Defines thresholds and actions for high/medium/low/no-evidence confidence levels.
 # Every field or cell output must follow this policy:

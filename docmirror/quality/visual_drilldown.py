@@ -8,7 +8,7 @@ path from metric → page → field → bbox → evidence. This enables users to
 click on a low-quality metric and navigate to the exact visual location
 where the problem occurred.
 
-Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md W5-04
+Internal GA 1.0 trust design reference: W5-04.
 """
 
 from __future__ import annotations

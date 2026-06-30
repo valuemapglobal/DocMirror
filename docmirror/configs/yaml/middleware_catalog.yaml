@@ -1,5 +1,5 @@
 # Middleware Catalog (MEP) — single source of truth for Mirror-layer middleware.
-# See docs/design/08_middleware_layer_first_principles_redesign.md
+# Internal design reference: middleware layer redesign.
 
 version: 1
 

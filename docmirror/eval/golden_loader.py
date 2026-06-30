@@ -154,15 +154,14 @@ def load_golden_matrix_from_file(
 ) -> list[GoldenCase]:
     """Load golden cases from a JSON matrix file.
 
-    The matrix file follows the format defined in
-    ``docs/benchmarks/golden-matrix.json``:
+    The matrix file follows this shape:
 
     .. code-block:: json
 
         {"matrix_version": "1.0", "cases": [{"id": "...", "document_type": "...", "source_path": "..."}]}
 
     Args:
-        matrix_path: Path to a JSON golden-matrix file.
+        matrix_path: Path to a JSON golden matrix file.
         base_dir: Optional base directory for resolving relative
             ``source_path`` values. Defaults to the matrix file's parent.
 

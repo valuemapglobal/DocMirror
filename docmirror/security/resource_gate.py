@@ -7,7 +7,7 @@ Every input (file, PDF, image, archive, REST upload) MUST pass through a
 resource gate BEFORE deep decoding. The gate checks size budgets, structure
 limits, and known attack vectors (zip bomb, pixel bomb, path traversal, etc.).
 
-Design reference: docs/design/GA1.0/12_privacy_security_compliance_ga_gap_closure_plan.md Wave 3.
+Internal GA 1.0 PSC design reference: resource gate.
 """
 
 from __future__ import annotations

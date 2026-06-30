@@ -5,7 +5,7 @@
 Structural Signal Orchestration (SSO) — Mirror routing SSOT.
 
 Replaces single-threshold section early exit with multi-hypothesis
-competition + veto. See docs/design/13_mirror_layer_first_principles_redesign.md.
+competition + veto. Internal design reference: mirror layer redesign.
 """
 
 from __future__ import annotations

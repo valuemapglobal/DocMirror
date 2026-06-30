@@ -7,7 +7,7 @@
 """DocMirror CLI root.
 
 The root command is intentionally dependency-light. Heavy parse, server, plugin,
-benchmark, and PDF/UA modules are imported only when their subcommands run.
+and PDF/UA modules are imported only when their subcommands run.
 """
 
 from __future__ import annotations
@@ -25,7 +25,6 @@ from docmirror import __version__
 TAGLINE = "DocMirror - The Trust Layer for Commercial Documents. Parse. Prove. Trust."
 
 COMMANDS = {
-    "benchmark": ("docmirror.cli.benchmark", "benchmark"),
     "classify": ("docmirror.cli.classify", "classify"),
     "mcp": ("docmirror.cli.mcp", "mcp"),
     "pdfua": ("docmirror.cli.pdfua", "pdfua"),
@@ -33,7 +32,6 @@ COMMANDS = {
 }
 
 COMMAND_HELP = {
-    "benchmark": "Run golden matrix benchmark and report metrics.",
     "classify": "Classify commercial documents by type.",
     "doctor": "Show installation and optional capability status.",
     "mcp": "Start the DocMirror MCP server.",

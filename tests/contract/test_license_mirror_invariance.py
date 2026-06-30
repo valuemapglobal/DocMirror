@@ -10,7 +10,7 @@ Validates the QTC invariant QTC-08 / QTC-14:
 - The aggregator can compute license_missing_does_not_affect_mirror from events.
 - The release gate properly gates on this metric.
 
-Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md W4-05
+Internal GA 1.0 trust design reference: W4-05.
 """
 
 import json

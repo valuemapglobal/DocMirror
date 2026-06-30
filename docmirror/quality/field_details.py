@@ -11,7 +11,7 @@ All business fields must follow this contract:
 - source_refs: evidence references (page, bbox, cell, token)
 - review: auto_accepted | manual_optional | needs_review | needs_evidence
 
-Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md §6.4
+Internal GA 1.0 trust design reference: field detail policy.
 """
 
 from __future__ import annotations

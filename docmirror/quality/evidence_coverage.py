@@ -7,7 +7,7 @@ This module computes:
 - How many key fields have evidence (numerator).
 - Evidence coverage ratio for each domain and across all domains.
 
-Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md W3-03
+Internal GA 1.0 trust design reference: W3-03.
 """
 
 from __future__ import annotations

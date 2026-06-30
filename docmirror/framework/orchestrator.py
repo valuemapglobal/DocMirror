@@ -11,7 +11,7 @@ Orchestrator — Mirror-Layer Middleware Pipeline (MEP)
 Runs **after** format adapters finish ``to_parse_result()`` and **before**
 the Mirror ``ParseResult`` is returned to callers.
 
-See ``docs/design/08_middleware_layer_first_principles_redesign.md``.
+Internal design reference: middleware layer redesign.
 """
 
 from __future__ import annotations

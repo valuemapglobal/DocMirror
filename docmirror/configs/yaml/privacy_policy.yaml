@@ -4,7 +4,7 @@
 # behavior. This is the canonical source of truth for the PSC (Privacy / Security /
 # Compliance) contract.
 #
-# Design reference: docs/design/GA1.0/12_privacy_security_compliance_ga_gap_closure_plan.md
+# Internal GA 1.0 PSC design reference.
 
 version: 1
 default_mode: local

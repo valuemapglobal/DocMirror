@@ -165,7 +165,7 @@ def main() -> int:
         print(
             "New production code must use vNext evidence/topology/layout/quality access layers. "
             "If an existing raw dependency is still required, document it in "
-            "docs/design/vNext/04_page_projection_to_vnext_unification.md and add a temporary allowlist entry.",
+            "the internal page projection unification plan and add a temporary allowlist entry.",
             file=sys.stderr,
         )
         return 1

@@ -21,7 +21,7 @@ Components::
 Error metadata includes recoverability hints (e.g. ``FORMAT_REQUIRES_CONVERTER`` and
 ``ENCRYPTED_PDF`` are recoverable; ``UNSUPPORTED_FORMAT`` is not) for client retry logic.
 
-See ``docs/design/solution-design.md`` §4 (G3) for the error taxonomy design.
+Internal design reference: error taxonomy G3.
 """
 
 from __future__ import annotations

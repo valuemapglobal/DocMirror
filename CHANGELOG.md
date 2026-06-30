@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docmirror`, `docmirror --help`, `docmirror --version`, `docmirror version`, and `docmirror doctor` are dependency-light first-run surfaces
 - `docmirror[all]` is limited to public OSS extras; commercial/enterprise packages remain separate
 
+### Removed
+- Dormant public benchmark publishing workflows and scripts until the benchmark suite is reproducible from public artifacts.
+
 ### Fixed
 - TQG regression compatibility for vNext mirror payloads, conservation-oracle payload synthesis, scanned micro-grid column expectations, and schema fixture directory discovery
 - Classification keyword coverage for newly promoted document scenes used by the release regression track

@@ -1,5 +1,5 @@
 # Format Capability Registry (FCR) — single source of truth for L0 routing.
-# See docs/design/07_adapter_dispatcher_first_principles_redesign.md
+# Internal design reference: adapter dispatcher redesign.
 
 version: 1
 

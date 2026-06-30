@@ -3,7 +3,7 @@
 > One spec, four languages, infinite possibilities.
 
 DocMirror maintains hand-written SDKs in **TypeScript**, **Go**, and **Java**, plus an **MCP Server** npm package.
-All SDKs implement the same DMIR schema derived from the canonical OpenAPI spec at `docs/openapi/openapi.json`.
+All SDKs implement the same DMIR schema derived from the FastAPI contract. Release workflows generate the OpenAPI artifact at `docs/openapi/openapi.json`.
 
 ## SDK Structure
 
@@ -37,11 +37,11 @@ sdks/
 All SDKs implement the same DMIR (DocMirror Intermediate Representation) schema:
 
 1. The canonical schema is defined by the FastAPI app at `docmirror/server/api.py`
-2. The OpenAPI spec at `docs/openapi/openapi.json` is the single source of truth for the API contract
+2. `scripts/generate_openapi.py` generates `docs/openapi/openapi.json` as the release artifact for SDK checks
 3. SDKs are **hand-written**, not auto-generated — giving each language idiomatic patterns
 4. When the API contract changes, SDKs must be updated manually to match
 
-This means: **one API change → one spec update → each SDK team updates their client**.
+This means: **one API change -> one generated spec check -> each SDK team updates their client**.
 
 ### Adding a New Language SDK
 
@@ -122,7 +122,7 @@ Each SDK should provide typed/tagged error types for API failures:
 
 ## PR Process
 
-1. If the API contract changed, also update the OpenAPI spec at `docs/openapi/openapi.json`
+1. If the API contract changed, regenerate and inspect the OpenAPI artifact with `python scripts/generate_openapi.py`
 2. Update any affected SDK methods or types to match
 3. Add or update tests for your change
 4. Bump the SDK version if the API contract or public API surface changed:

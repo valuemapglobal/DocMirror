@@ -130,18 +130,3 @@ jobs:
           else
             echo "legacy golden test not found — skipped"
           fi
-
-  benchmark-matrix:
-    name: Golden matrix benchmark
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install package
-        run: pip install -e ".[dev,pdf]"
-      - name: Generate synthetic golden PDFs
-        run: python3 scripts/generate/generate_synthetic_golden_pdfs.py
-      - name: Benchmark regression smoke
-        run: python3 scripts/run_golden_gate.py

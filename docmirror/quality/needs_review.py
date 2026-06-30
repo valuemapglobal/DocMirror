@@ -4,7 +4,7 @@ Aggregates needs_review items across observations and domains.
 Groups by confidence bucket, domain, quality bucket, and fixture source.
 Provides recall computation when golden low-confidence labels are available.
 
-Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md W3-04
+Internal GA 1.0 trust design reference: W3-04.
 """
 
 from __future__ import annotations

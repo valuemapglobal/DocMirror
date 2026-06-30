@@ -1,5 +1,5 @@
 # MEP Golden Track B — Mirror-layer quality gates (orthogonal to EPO row preservation).
-# See docs/design/08_middleware_layer_first_principles_redesign.md §8
+# Internal design reference: middleware layer redesign.
 
 version: 1
 

@@ -11,7 +11,7 @@ This package defines the typed data contracts that flow through the DocMirror
 parsing pipeline, from physical layout representation through domain plugin
 output to edition JSON serialization.
 
-Architecture layers (see ``docs/design/09_models_layer_first_principles_redesign.md``)::
+Architecture layers (internal design reference: models layer redesign)::
 
     entities/       Core MOC types: ``ParseResult``, physical blocks, DEC output
     construction/   Builders converting adapter output to ``ParseResult``

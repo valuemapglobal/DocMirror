@@ -9,7 +9,7 @@ Validates that:
 3. CPU-only mode works end-to-end (Mirror generation succeeds without VLM/GPU).
 4. The release gate properly gates on cpu_only_parse_availability metric.
 
-Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md W4-04
+Internal GA 1.0 trust design reference: W4-04.
 """
 
 import pytest

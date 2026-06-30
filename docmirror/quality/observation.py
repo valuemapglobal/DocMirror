@@ -142,7 +142,7 @@ class QualityObservationEvent:
     Events are collected (as JSONL) and fed to the BucketedMetricsAggregator
     to produce bucketed GA metrics reports.
 
-    Design reference: docs/design/GA1.0/08_accuracy_trust_ga_gap_closure_plan.md §6.1
+    Internal GA 1.0 trust design reference: quality observations.
     """
 
     version: int = 1

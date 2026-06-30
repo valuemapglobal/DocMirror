@@ -92,7 +92,7 @@ def main() -> int:
             print(f"  - {err}", file=sys.stderr)
         print(
             "Allowed readers: page_access and domain_access (G3); "
-            "see docs/design/19_page_centric_mirror_unification_execution_plan.md §5.1",
+            "see internal page-centric mirror unification plan",
             file=sys.stderr,
         )
         return 1

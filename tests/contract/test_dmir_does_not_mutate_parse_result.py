@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 
 import pytest
 
@@ -211,9 +212,13 @@ class TestDmirDoesNotMutate:
         import json
         from pathlib import Path
 
-        schema_path = Path("docs/schemas/dmir/v1.0.schema.json")
+        schema_env = os.environ.get("DOCMIRROR_DMIR_SCHEMA")
+        if not schema_env:
+            pytest.skip("Standalone DMIR schema is not shipped in the OSS release")
+
+        schema_path = Path(schema_env)
         if not schema_path.exists():
-            pytest.skip("DMIR schema not found — skipping conformance check")
+            pytest.skip("DMIR schema path not found")
 
         with open(schema_path) as f:
             schema = json.load(f)
@@ -233,5 +238,4 @@ class TestDmirDoesNotMutate:
         assert "evidence" in dmir
         assert "meta" in dmir
         assert dmir["meta"]["dmir_version"] == "1.0"
-
 
