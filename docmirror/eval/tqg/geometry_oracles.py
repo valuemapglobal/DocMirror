@@ -29,13 +29,56 @@ def _doc(api: dict[str, Any]) -> dict[str, Any]:
 
 def _tables(api: dict[str, Any]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+    block_by_id = {
+        str(block.get("id") or ""): block
+        for block in api.get("blocks") or []
+        if isinstance(block, dict) and block.get("type") == "table"
+    }
     for page in _doc(api).get("pages") or []:
         if not isinstance(page, dict):
             continue
         for table in page.get("tables") or []:
             if isinstance(table, dict):
-                out.append(table)
+                if table.get("rows"):
+                    out.append(table)
+                    continue
+                block = block_by_id.get(str(table.get("block_id") or ""))
+                if block is not None:
+                    out.append(_canonical_block_table(block, page_number=int(page.get("page_number") or 0)))
     return out
+
+
+def _canonical_block_table(block: dict[str, Any], *, page_number: int) -> dict[str, Any]:
+    content = block.get("content") or {}
+    grid = content.get("grid") or {}
+    cells_by_row: dict[int, list[dict[str, Any]]] = {}
+    for cell in grid.get("cells") or []:
+        if not isinstance(cell, dict):
+            continue
+        row_index = int(cell.get("row", 0) or 0)
+        item = dict(cell)
+        item.setdefault("row_index", row_index)
+        item.setdefault("col_index", int(cell.get("col", 0) or 0))
+        cells_by_row.setdefault(row_index, []).append(item)
+    rows = []
+    for row in grid.get("rows") or []:
+        if row.get("role") == "header":
+            continue
+        row_index = int(row.get("index", len(rows)) or 0)
+        rows.append(
+            {
+                **dict(row),
+                "cells": sorted(cells_by_row.get(row_index, []), key=lambda cell: int(cell.get("col", 0) or 0)),
+            }
+        )
+    provenance = block.get("provenance") or {}
+    return {
+        "table_id": str(provenance.get("source_table_id") or block.get("id") or ""),
+        "page": page_number,
+        "bbox": block.get("bbox"),
+        "rows": rows,
+        "metadata": {"geometry": content.get("geometry") or {}},
+    }
 
 
 def _cells(table: dict[str, Any]) -> list[dict[str, Any]]:

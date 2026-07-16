@@ -538,13 +538,18 @@ class TableLikeRegionReconstructor:
         block_id = f"blk:table:{_region_suffix(region)}"
         headers = _headers(table_atoms)
         row_cells = _row_cells(table_atoms)
-        column_count = max([len(headers), *[max(cols.keys()) + 1 for cols in row_cells.values() if cols], 0])
+        geometry = _table_region_geometry(region)
+        row_bands = geometry.get("row_bands") if isinstance(geometry.get("row_bands"), list) else []
+        col_bands = geometry.get("col_bands") if isinstance(geometry.get("col_bands"), list) else []
+        column_count = max(
+            [len(headers), len(col_bands), *[max(cols.keys()) + 1 for cols in row_cells.values() if cols], 0]
+        )
 
         columns = [
             {
                 "id": f"col:{block_id}:{col_index:04d}",
                 "index": col_index,
-                "bbox": _column_bbox(region.bbox, col_index, column_count),
+                "bbox": _band_bbox(col_bands, col_index) or _column_bbox(region.bbox, col_index, column_count),
                 "header": headers[col_index] if col_index < len(headers) else "",
                 "data_type": "unknown",
                 "confidence": region.confidence,
@@ -554,9 +559,17 @@ class TableLikeRegionReconstructor:
 
         rows: list[dict[str, object]] = []
         cells: list[dict[str, object]] = []
+        covered_slots = _covered_table_slots(row_cells)
+        data_row_count = max(
+            [
+                (max(row_cells) + 1) if row_cells else 0,
+                max(0, len(row_bands) - int(bool(headers))),
+            ]
+        )
+        total_row_count = data_row_count + int(bool(headers))
         output_row_index = 0
         if headers:
-            rows.append(_row_dict(block_id, output_row_index, "header", region, len(row_cells) + 1))
+            rows.append(_row_dict(block_id, output_row_index, "header", region, total_row_count))
             for col_index in range(column_count):
                 header_atom = _header_atom(table_atoms, col_index)
                 header_text = headers[col_index] if col_index < len(headers) else ""
@@ -572,11 +585,14 @@ class TableLikeRegionReconstructor:
                 )
             output_row_index += 1
 
-        for source_row_index in sorted(row_cells):
-            rows.append(_row_dict(block_id, output_row_index, "data", region, len(row_cells) + int(bool(headers))))
-            source_cells = row_cells[source_row_index]
+        for source_row_index in range(data_row_count):
+            rows.append(_row_dict(block_id, output_row_index, "data", region, total_row_count))
+            source_cells = row_cells.get(source_row_index, {})
             for col_index in range(column_count):
                 atom = source_cells.get(col_index)
+                if atom is None and (source_row_index, col_index) in covered_slots:
+                    continue
+                raw_row_index = source_row_index + int(bool(headers))
                 cells.append(
                     _cell_dict(
                         block_id,
@@ -587,7 +603,8 @@ class TableLikeRegionReconstructor:
                         bbox=(
                             atom.bbox
                             if atom and atom.bbox
-                            else _cell_bbox(rows[-1].get("bbox"), col_index, column_count)
+                            else _geometry_cell_bbox(geometry, raw_row_index, col_index)
+                            or _cell_bbox(rows[-1].get("bbox"), col_index, column_count)
                         ),
                     )
                 )
@@ -602,7 +619,7 @@ class TableLikeRegionReconstructor:
             bbox=region.bbox,
             text=_joined_text(region, context),
             content={
-                "geometry": _table_region_geometry(region),
+                "geometry": geometry,
                 "grid": {
                     "line_source": "evidence_metadata",
                     "columns": columns,
@@ -779,12 +796,16 @@ def _table_region_geometry(region: TopologyRegion) -> dict[str, object]:
         "cell_evidence_ids",
         "cell_token_ids",
         "cell_confidences",
+        "cell_spans",
+        "merge_diagnostics",
     )
     out: dict[str, object] = {}
     for key in keys:
         value = region.diagnostics.get(key)
         if value not in (None, "", [], {}):
             out[key] = value
+    if region.diagnostics.get("table_geometry_confidence") is not None:
+        out["geometry_confidence"] = region.diagnostics["table_geometry_confidence"]
     return out
 
 
@@ -1054,14 +1075,18 @@ def _cell_dict(
 ) -> dict[str, object]:
     evidence_ids = [atom.id] if atom else []
     confidence = atom.confidence if atom else 0.5
-    source_evidence_ids = _string_list(atom.metadata.get("cell_evidence_ids") if atom else [])
+    source_evidence_ids = _string_list(getattr(atom, "source_refs", []) if atom else [])
+    if not source_evidence_ids:
+        source_evidence_ids = _string_list(atom.metadata.get("cell_evidence_ids") if atom else [])
     token_ids = _string_list(atom.metadata.get("token_ids") if atom else [])
+    row_span = max(1, int(atom.metadata.get("row_span", 1) or 1)) if atom else 1
+    col_span = max(1, int(atom.metadata.get("col_span", 1) or 1)) if atom else 1
     out: dict[str, object] = {
         "id": f"cell:{block_id}:{row_index:04d}:{col_index:04d}",
         "row": row_index,
         "col": col_index,
-        "row_span": 1,
-        "col_span": 1,
+        "row_span": row_span,
+        "col_span": col_span,
         "text": text,
         "value": _typed_value_dict(text, confidence=confidence),
         "bbox": bbox,
@@ -1088,6 +1113,41 @@ def _string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if isinstance(item, str) and item]
+
+
+def _covered_table_slots(row_cells: dict[int, dict[int, EvidenceAtom]]) -> set[tuple[int, int]]:
+    covered: set[tuple[int, int]] = set()
+    for row_index, columns in row_cells.items():
+        for col_index, atom in columns.items():
+            row_span = max(1, int(atom.metadata.get("row_span", 1) or 1))
+            col_span = max(1, int(atom.metadata.get("col_span", 1) or 1))
+            for row in range(row_index, row_index + row_span):
+                for col in range(col_index, col_index + col_span):
+                    if (row, col) != (row_index, col_index):
+                        covered.add((row, col))
+    return covered
+
+
+def _geometry_cell_bbox(geometry: dict[str, object], row_index: int, col_index: int) -> list[float] | None:
+    matrix = geometry.get("cell_bboxes")
+    if not isinstance(matrix, list) or not 0 <= row_index < len(matrix):
+        return None
+    row = matrix[row_index]
+    if not isinstance(row, list) or not 0 <= col_index < len(row):
+        return None
+    value = row[col_index]
+    if not isinstance(value, list | tuple) or len(value) != 4:
+        return None
+    return [float(item) for item in value]
+
+
+def _band_bbox(bands: list[object], index: int) -> list[float] | None:
+    if not 0 <= index < len(bands) or not isinstance(bands[index], dict):
+        return None
+    value = bands[index].get("bbox")
+    if not isinstance(value, list | tuple) or len(value) != 4:
+        return None
+    return [float(item) for item in value]
 
 
 def _column_bbox(table_bbox: list[float] | None, col_index: int, column_count: int) -> list[float] | None:

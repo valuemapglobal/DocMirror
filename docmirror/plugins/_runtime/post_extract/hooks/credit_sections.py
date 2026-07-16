@@ -67,10 +67,11 @@ class CreditReportSectionsHook(PostExtractHook):
         result: ParseResult,
         *,
         extracted: dict[str, Any],
-        _edition: str,
+        edition: str,
         document_type: str,
-        _plugin: Any | None = None,
+        plugin: Any | None = None,
     ) -> None:
+        del edition, plugin
         if document_type != "credit_report":
             return
 

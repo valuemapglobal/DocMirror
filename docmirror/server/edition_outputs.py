@@ -75,16 +75,20 @@ def write_four_files(
     artifact_pack: bool = False,
     profile: Any | None = None,
     on_progress: Callable[[str, float, str], None] | None = None,
+    artifact_dir: Path | None = None,
 ) -> tuple[str, dict[str, Path]]:
     """
     Write ``001_mirror.json`` and edition files under ``output_dir / task_id /``.
+
+    ``artifact_dir`` lets a parent batch task isolate each file's complete
+    artifact pack while retaining the parent ``task_id`` in output lineage.
 
     Returns ``(task_id, {edition: path})`` for files actually written.
     """
     from datetime import datetime
 
     task_id = task_id or f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:4]}"
-    task_dir = output_dir / task_id
+    task_dir = Path(artifact_dir) if artifact_dir is not None else output_dir / task_id
     if task_dir.exists() and not overwrite:
         raise FileExistsError(f"output task directory already exists: {task_dir}")
     task_dir.mkdir(parents=True, exist_ok=True)

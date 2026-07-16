@@ -518,6 +518,8 @@ class PageContent(BaseModel):
     routing_confidence: float | None = Field(default=None, description="Routing confidence score")
     width: int | None = None
     height: int | None = None
+    source_page_number: int | None = None
+    coordinate_transform: dict[str, Any] = Field(default_factory=dict)
     source_member: str = Field(
         default="",
         description="Relative path inside a parent archive/container, if applicable.",
@@ -1020,7 +1022,7 @@ class ParseResult(BaseModel):
             base = dict(vnext_pages.get(page_num) or {"page_number": page_num})
             raw = source_page_details.get(page_num) or {}
             for key in ("width", "height", "tables", "texts", "key_values"):
-                if key in raw and (key not in base or key in {"texts", "key_values"}):
+                if key in raw and (key not in base or key in {"texts", "key_values"} or (key == "tables" and forensic)):
                     base[key] = raw[key]
             merged_pages.append(base)
         enriched_pages = project_vnext_pages(
@@ -1069,14 +1071,25 @@ class ParseResult(BaseModel):
             for kv in page.key_values:
                 parts.append(f"**{kv.key}**: {kv.value}")
             for table in page.tables:
-                parts.append(self._table_to_markdown(table))
+                rendered = self._table_to_markdown(table)
+                if rendered:
+                    parts.append(rendered)
         return "\n\n".join(parts)
 
     @staticmethod
     def _table_to_markdown(table: TableBlock) -> str:
         """Render a table as Markdown."""
         if not table.headers:
-            return ""
+            physical_rows: list[str] = []
+            for row in table.data_rows:
+                cells = [
+                    "" if cell.geometry_loss_reason == "covered_by_merged_cell" else cell.text for cell in row.cells
+                ]
+                while cells and not str(cells[-1]).strip():
+                    cells.pop()
+                if any(str(cell).strip() for cell in cells):
+                    physical_rows.append("\t".join(str(cell) for cell in cells))
+            return "\n".join(physical_rows)
         lines = []
         lines.append("| " + " | ".join(table.headers) + " |")
         lines.append("|" + "|".join("---" for _ in table.headers) + "|")

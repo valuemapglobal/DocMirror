@@ -100,6 +100,8 @@ class PageLayout:
     blocks: tuple[Block, ...] = ()  # frozen constraint.
     semantic_zones: dict[str, list[str]] = dataclasses.field(default_factory=dict)
     is_scanned: bool = False
+    source_page_number: int | None = None
+    coordinate_transform: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass(frozen=True)

@@ -24,6 +24,7 @@ DocTypePolicy = Literal["prefer", "force"]
 Edition = Literal["mirror", "community", "enterprise", "finance"]
 GeometryLevel = Literal["none", "page", "block", "token", "full"]
 OcrMode = Literal["auto", "force", "off", "fallback"]
+PageSplitMode = Literal["auto", "off", "force"]
 SafetyMode = Literal["off", "low", "medium", "high"]
 """Safety inspection strictness for AI pipeline defense.
 
@@ -50,6 +51,7 @@ _STABLE_EDITIONS: tuple[Edition, ...] = ("mirror", "community", "enterprise", "f
 _VALID_EDITIONS = frozenset(_STABLE_EDITIONS)
 _VALID_GEOMETRY_LEVELS = frozenset(("none", "page", "block", "token", "full"))
 _VALID_OCR_MODES = frozenset(("auto", "force", "off", "fallback"))
+_VALID_PAGE_SPLIT_MODES = frozenset(("auto", "off", "force"))
 _VALID_SAFETY_MODES = frozenset(("off", "low", "medium", "high"))
 
 
@@ -146,6 +148,7 @@ class ExecutionControl:
 
     cache_policy: CachePolicy = "read-write"
     ocr: OcrMode = "auto"
+    page_split: PageSplitMode = "auto"
 
 
 @dataclass(frozen=True)
@@ -189,6 +192,7 @@ class ParseControl:
             "execution": {
                 "cache_policy": self.execution.cache_policy,
                 "ocr": self.execution.ocr,
+                "page_split": self.execution.page_split,
             },
             "safety": {
                 "mode": self.safety.mode,
@@ -362,6 +366,13 @@ def parse_ocr_mode(raw: str | None = None) -> OcrMode:
     return normalized  # type: ignore[return-value]
 
 
+def parse_page_split_mode(raw: str | None = None) -> PageSplitMode:
+    normalized = (raw or "auto").strip().lower()
+    if normalized not in _VALID_PAGE_SPLIT_MODES:
+        raise ValueError(f"unsupported page split mode: {normalized}")
+    return normalized  # type: ignore[return-value]
+
+
 def parse_workers(raw: str | int | None) -> int | Literal["auto"]:
     if raw is None or raw == "":
         return "auto"
@@ -424,6 +435,7 @@ def normalize_parse_control(
     cache_policy: str | None = None,
     skip_cache: bool | None = None,
     ocr: str | None = None,
+    page_split: str | None = None,
     enhance_mode: str | None = None,
 ) -> ParseControl:
     """Return a normalized ParseControl with explicit args applied."""
@@ -461,6 +473,7 @@ def normalize_parse_control(
     execution = ExecutionControl(
         cache_policy=resolved_cache_policy,
         ocr=parse_ocr_mode(ocr) if ocr is not None else base.execution.ocr,
+        page_split=parse_page_split_mode(page_split) if page_split is not None else base.execution.page_split,
     )
 
     output = base.output
@@ -576,6 +589,7 @@ __all__ = [
     "parse_geometry",
     "parse_ocr_mode",
     "parse_output_formats",
+    "parse_page_split_mode",
     "parse_page_selection",
     "parse_workers",
 ]

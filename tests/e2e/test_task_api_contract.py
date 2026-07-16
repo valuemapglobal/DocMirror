@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -66,3 +68,39 @@ def test_batch_task_api_preserves_partial_failure(tmp_path: Path, monkeypatch):
     assert len(task["inputs"]) == 2
     assert len(task["errors"]) == 1
     assert any(key.startswith("001_") for key in task["artifacts"])
+
+
+def test_task_api_accepts_background_work_and_persists_terminal_status(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("DOCMIRROR_TASK_OUTPUT_DIR", str(tmp_path))
+
+    async def fake_perceive(_path, _options):
+        await asyncio.sleep(0.02)
+        return SimpleNamespace(mirror=_mirror())
+
+    monkeypatch.setattr("docmirror.server.task_executor.perceive_document", fake_perceive)
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/tasks?formats=json&editions=mirror",
+            files={"file": ("sample.pdf", b"PDF", "application/pdf")},
+        )
+        assert response.status_code == 202
+        task_id = response.json()["task_id"]
+
+        deadline = time.monotonic() + 3.0
+        status = client.get(f"/v1/tasks/{task_id}").json()
+        while status["status"] == "running" and time.monotonic() < deadline:
+            time.sleep(0.02)
+            status = client.get(f"/v1/tasks/{task_id}").json()
+
+        assert status["status"] == "success"
+        assert status["progress"]["percent"] == 100.0
+        assert status["artifacts"]["mirror"] == "001_mirror.json"
+        assert client.get(f"/v1/tasks/{task_id}/artifacts/not_declared").status_code == 404
+
+
+def test_task_api_unknown_task_is_not_found(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("DOCMIRROR_TASK_OUTPUT_DIR", str(tmp_path))
+    client = TestClient(app)
+
+    assert client.get("/v1/tasks/task_missing").status_code == 404
+    assert client.get("/v1/tasks/../outside").status_code == 404

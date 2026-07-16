@@ -15,6 +15,8 @@ from __future__ import annotations
 import base64
 import logging
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
+from threading import Lock
 from typing import Any
 
 from docmirror.configs.runtime.settings import default_settings
@@ -148,6 +150,34 @@ class VlmOcrGateway:
             "anthropic": anthropic,
             "claude": anthropic,
         }
+        self._fallbacks: list[dict[str, Any]] = []
+        self._fallback_lock = Lock()
+
+    def _track_fallback(self, reason: str, details: str = "", *, page_idx: int | None = None) -> None:
+        """Record a user-visible VLM-to-CPU fallback for task manifests."""
+        event: dict[str, Any] = {
+            "fallback_type": "vlm_unavailable",
+            "from_path": "vlm_ocr",
+            "to_path": "cpu_ocr",
+            "reason": reason,
+            "scope": "vlm_ocr",
+            "effect": "slower_parse",
+            "user_visible": True,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        if details:
+            event["details"] = details
+        if page_idx is not None:
+            event["page"] = int(page_idx)
+        with self._fallback_lock:
+            self._fallbacks.append(event)
+
+    def collect_fallbacks(self) -> list[dict[str, Any]]:
+        """Drain and return fallback events recorded since the previous call."""
+        with self._fallback_lock:
+            events = list(self._fallbacks)
+            self._fallbacks.clear()
+        return events
 
     def process_image(self, img_bgr: Any, page_idx: int) -> dict[str, Any] | None:
         """Transcode image and dispatch to configured VLM client."""
@@ -156,11 +186,13 @@ class VlmOcrGateway:
         client = self._clients.get(provider_name)
         if not client:
             logger.warning(f"[VlmGateway] Unsupported VLM provider: {cfg.provider}")
+            self._track_fallback("unsupported_provider", f"provider={cfg.provider}", page_idx=page_idx)
             return None
 
         # API key verification (skip check if api_base is set, e.g. for custom proxies/local gateways)
         if not cfg.api_key and not cfg.api_base:
             logger.warning(f"[VlmGateway] api_key not configured for provider: {cfg.provider}")
+            self._track_fallback("provider_missing_api_key", f"provider={cfg.provider}", page_idx=page_idx)
             return None
 
         # Encode image
@@ -169,6 +201,7 @@ class VlmOcrGateway:
         success, buf = cv2.imencode(".jpg", img_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
         if not success:
             logger.warning(f"[VlmGateway] OpenCV failed to encode page {page_idx} to JPEG")
+            self._track_fallback("image_encode_failed", f"provider={provider_name}", page_idx=page_idx)
             return None
         img_base64 = base64.b64encode(buf.tobytes()).decode("ascii")
 
@@ -178,6 +211,7 @@ class VlmOcrGateway:
             )
             text_out = client.call_api(img_base64, cfg)
             if not text_out:
+                self._track_fallback("provider_empty_response", f"provider={provider_name}", page_idx=page_idx)
                 return None
 
             h, w = img_bgr.shape[:2]
@@ -189,6 +223,7 @@ class VlmOcrGateway:
             }
         except Exception as e:
             logger.error(f"[VlmGateway] Failed to recognize page {page_idx} via VLM API: {e}", exc_info=True)
+            self._track_fallback("provider_request_failed", f"provider={provider_name}; error={e}", page_idx=page_idx)
             return None
 
 

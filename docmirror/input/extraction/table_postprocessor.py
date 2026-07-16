@@ -106,6 +106,8 @@ def process_page_tables(
             blocks=tuple(new_blocks),
             semantic_zones=page.semantic_zones,
             is_scanned=page.is_scanned,
+            source_page_number=page.source_page_number,
+            coordinate_transform=dict(page.coordinate_transform),
         )
         new_pages.append(new_page)
 

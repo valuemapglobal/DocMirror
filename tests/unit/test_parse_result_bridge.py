@@ -32,6 +32,99 @@ class TestParseResultBridge:
 
         assert hasattr(bridge_mod, "ParseResultBridge")
 
+    def test_logical_page_provenance_survives_bridge_roundtrip(self):
+        transform = {
+            "source_page_number": 2,
+            "matrix": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+            "inverse_matrix": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+        }
+        base = BaseResult(
+            pages=(
+                PageLayout(
+                    page_number=3,
+                    source_page_number=2,
+                    width=420,
+                    height=594,
+                    is_scanned=True,
+                    coordinate_transform=transform,
+                ),
+            )
+        )
+
+        parse_result = ParseResultBridge.from_base_result(base)
+        roundtrip = ParseResultBridge.to_base_result(parse_result)
+
+        assert parse_result.pages[0].source_page_number == 2
+        assert parse_result.pages[0].page_mode == "scanned_ocr"
+        assert roundtrip.pages[0].source_page_number == 2
+        assert roundtrip.pages[0].coordinate_transform == transform
+        assert roundtrip.pages[0].is_scanned is True
+
+    def test_scanned_text_confidence_and_parser_method_survive_bridge(self):
+        block = Block(
+            block_id="ocr:p1:1",
+            block_type="text",
+            raw_content="低置信度文字",
+            bbox=(10, 20, 100, 40),
+            page=1,
+            attrs={"confidence": 0.63},
+            evidence_ids=("ocr:p1:1",),
+        )
+        base = BaseResult(
+            pages=(PageLayout(page_number=1, blocks=(block,), is_scanned=True),),
+            metadata={
+                "parser": "DocMirror_CoreExtractor",
+                "extraction_method": "ocr",
+                "ocr_engine": "rapidocr_onnxruntime",
+                "overall_confidence": 0.63,
+            },
+        )
+
+        result = ParseResultBridge.from_base_result(base)
+
+        assert result.pages[0].texts[0].confidence == pytest.approx(0.63)
+        assert result.pages[0].page_confidence == pytest.approx(0.63)
+        assert result.parser_info.parser_name == "DocMirror_CoreExtractor"
+        assert result.parser_info.extraction_method == "ocr"
+        assert result.parser_info.ocr_engine == "rapidocr_onnxruntime"
+        assert result.parser_info.overall_confidence == pytest.approx(0.63)
+
+    def test_physical_grid_can_preserve_first_row_as_data(self):
+        block = Block(
+            block_type="table",
+            raw_content=[["A", "B"], ["1", "2"]],
+            page=1,
+            attrs={"preserve_headers": False, "extraction_confidence": 0.9},
+        )
+        result = ParseResultBridge.from_base_result(BaseResult(pages=(PageLayout(page_number=1, blocks=(block,)),)))
+
+        table = result.pages[0].tables[0]
+        assert table.headers == []
+        assert [[cell.text for cell in row.cells] for row in table.rows] == [["A", "B"], ["1", "2"]]
+        assert "A\tB" in result.full_text
+        assert "1\t2" in result.full_text
+
+    def test_generic_scanned_tables_keep_unique_physical_logical_ids(self):
+        tables = tuple(
+            Block(
+                block_type="table",
+                raw_content=[[f"T{index}", "value"]],
+                page=1,
+                attrs={
+                    "preserve_headers": False,
+                    "extraction_layer": "scanned_image_line_grid",
+                    "source": "scanned_bordered_table_reconstructor",
+                },
+            )
+            for index in range(3)
+        )
+
+        result = ParseResultBridge.from_base_result(BaseResult(pages=(PageLayout(page_number=1, blocks=tables),)))
+
+        source_ids = [logical.source_physical_ids for logical in result.logical_tables]
+        assert source_ids == [["pt_1_0"], ["pt_1_1"], ["pt_1_2"]]
+        assert result.parser_info.structure["logical_table_policy"] == "physical_1to1_scanned_grid"
+
     def test_logical_table_metadata_rows_get_provenance_fallback(self):
         base = BaseResult(
             pages=(),
@@ -125,9 +218,7 @@ class TestParseResultBridge:
 
         extractor = CoreExtractor()
         with patch.object(extractor, "extract", AsyncMock(return_value=mock_base)):
-            with patch.object(
-                ParseResultBridge, "from_base_result", return_value=mock_pr
-            ) as bridge_mock:
+            with patch.object(ParseResultBridge, "from_base_result", return_value=mock_pr) as bridge_mock:
                 result = await extractor.extract_parse_result(pdf)
                 bridge_mock.assert_called_once_with(mock_base)
                 assert result is mock_pr

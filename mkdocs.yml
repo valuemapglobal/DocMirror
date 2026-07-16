@@ -63,6 +63,7 @@ nav:
   - Home: index.md
   - Installation: installation.md
   - Quick Start: quickstart.md
+  - Development Manual (zh-CN): development_manual_zh-CN.md
   - Deployment: deployment.md
   - API Authentication: api-authentication.md
   - Changelog: https://github.com/valuemapglobal/docmirror/blob/main/CHANGELOG.md

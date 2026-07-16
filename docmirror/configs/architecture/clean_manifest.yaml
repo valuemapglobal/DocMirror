@@ -123,10 +123,4 @@ removed_modules:
   replacement: docmirror.plugins._runtime.licensing
 - module: docmirror.plugins.post_extract
   replacement: docmirror.plugins._runtime.post_extract
-quarantine_modules:
-- module: docmirror.evidence.visual
-  owner: evidence
-  reason: Visual evidence helper is referenced by tests/docs but not static production
-    imports.
-  exit_criteria: Wire into visual graph path or move to tests/support.
-  review_by: '2026-07-15'
+quarantine_modules: []

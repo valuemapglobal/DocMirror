@@ -233,7 +233,13 @@ def _first_page_id(unit: dict[str, Any]) -> str:
 
 def _page_number(page: dict[str, Any]) -> int:
     try:
-        return int(page.get("page_number") or int(page.get("page_index") or 0) + 1)
+        transform = page.get("coordinate_transform") if isinstance(page.get("coordinate_transform"), dict) else {}
+        return int(
+            transform.get("source_page_number")
+            or page.get("source_page_number")
+            or page.get("page_number")
+            or int(page.get("page_index") or 0) + 1
+        )
     except (TypeError, ValueError):
         return 0
 

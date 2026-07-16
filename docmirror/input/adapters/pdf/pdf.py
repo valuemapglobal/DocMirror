@@ -102,7 +102,7 @@ class PDFAdapter(BaseParser):
 
         # PDF-specific parser_info
         pr.parser_info.parser_name = "DocMirror"
-        pr.parser_info.table_engine = "pymupdf_native"
+        pr.parser_info.table_engine = pr.parser_info.table_engine or "pymupdf_native"
         pr.parser_info.page_count = len(pr.pages)
 
         # ── Fill provenance (lightweight, no re-read of full file) ──

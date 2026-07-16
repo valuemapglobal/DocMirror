@@ -2,6 +2,8 @@ import json
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from docmirror.models.entities.parse_result import (
     CellValue,
     DataType,
@@ -22,7 +24,18 @@ from docmirror.models.mirror.vnext import mirror_json_vnext_schema
 def _sample_parse_result() -> ParseResult:
     table = TableBlock(
         table_id="page1_table0",
-        headers=["序号", "交易日期", "交易时间", "摘要", "凭证种类", "借方发生额", "贷方发生额", "余额", "对方账户", "对方户名"],
+        headers=[
+            "序号",
+            "交易日期",
+            "交易时间",
+            "摘要",
+            "凭证种类",
+            "借方发生额",
+            "贷方发生额",
+            "余额",
+            "对方账户",
+            "对方户名",
+        ],
         page=1,
         bbox=[42.0, 172.0, 552.0, 742.0],
         confidence=0.98,
@@ -100,7 +113,7 @@ def test_mirror_json_vnext_is_document_shaped_not_old_envelope():
     assert "data" not in payload
     assert "meta" not in payload
     assert payload["mirror"]["schema"] == "docmirror.mirror_json"
-    assert payload["mirror"]["schema_version"] == "3.0.0"
+    assert payload["mirror"]["schema_version"] == "1.0.1"
     # filename may be "statement.pdf" (direct call) or "/path/statement.pdf" (through build_all_projections)
     assert payload["source"]["filename"].endswith("statement.pdf")
     assert payload["pages"][0]["coordinate_transform"]["source_rotation"] == 0
@@ -137,6 +150,57 @@ def test_mirror_json_vnext_preserves_table_grid_and_kv_facts():
     assert any("起始日期" in fid for fid in fact_ids)
     assert any("账户名称" in fid for fid in fact_ids)
     assert "bank_statement" in payload["semantics"]["views"]
+
+
+def test_scanned_mirror_uses_conservative_title_and_measured_ocr_quality():
+    result = ParseResult(
+        pages=[
+            PageContent(
+                page_number=1,
+                page_mode="scanned_ocr",
+                width=400,
+                height=600,
+                texts=[
+                    TextBlock(content="征信中心", bbox=[50, 40, 110, 58], confidence=0.92),
+                    TextBlock(content="个人信用报告", bbox=[170, 90, 240, 108], confidence=0.94),
+                    TextBlock(content="（本人版）", bbox=[190, 116, 230, 132], confidence=0.91),
+                    TextBlock(content="噪声", bbox=[20, 180, 50, 194], confidence=0.42),
+                ],
+            )
+        ]
+    )
+
+    payload = result.to_mirror_json_vnext()
+
+    assert payload["document"]["content_mode"] == "scanned_ocr"
+    assert payload["document"]["title"]["text"] == "个人信用报告"
+    assert payload["document"]["title"]["confidence"] == pytest.approx(0.94)
+    assert payload["quality"]["overall"]["status"] == "warn"
+    ocr_gate = next(gate for gate in payload["quality"]["gates"] if gate["id"] == "gate:ocr_confidence")
+    assert ocr_gate["details"]["below_0_8_count"] == 1
+    assert payload["quality"]["verification"]["scope"] == "internal_consistency"
+
+
+def test_document_title_does_not_fall_back_to_late_account_status_heading():
+    result = ParseResult(
+        pages=[
+            PageContent(
+                page_number=1, width=400, height=600, texts=[TextBlock(content="正文", bbox=[20, 300, 80, 320])]
+            ),
+            PageContent(
+                page_number=2,
+                width=400,
+                height=600,
+                texts=[TextBlock(content="2024.08.16 结清", level=TextLevel.H1, bbox=[150, 100, 260, 120])],
+            ),
+        ]
+    )
+
+    payload = result.to_mirror_json_vnext()
+
+    assert payload["document"]["title"] is None
+    assert payload["document"]["outline_block_ids"] == []
+    assert all(region["block_ids"] for region in payload["regions"] if region["kind"] != "residual")
 
 
 def test_mirror_json_vnext_preserves_ocr_page_normalization_and_table_provenance():
@@ -188,7 +252,9 @@ def test_mirror_json_vnext_preserves_ocr_page_normalization_and_table_provenance
     assert normalization["normalized_page_width"] == 842.0
     assert normalization["normalized_page_height"] == 595.0
 
-    table_atom = next(atom for atom in payload["evidence"]["text_atoms"] if atom["metadata"].get("table_id") == "pt_10_0")
+    table_atom = next(
+        atom for atom in payload["evidence"]["text_atoms"] if atom["metadata"].get("table_id") == "pt_10_0"
+    )
     assert table_atom["metadata"]["ocr_rotation"] == 90
     assert table_atom["metadata"]["geometry_source"] == "scanned_ocr_statement_grid"
 
@@ -264,7 +330,9 @@ def test_mirror_json_vnext_emits_residual_for_empty_page():
     assert payload["quality"]["event_summary"]["actionable_count"] == sum(
         1 for event in payload["quality"]["events"] if event["actionable"]
     )
-    profile_entry = next(entry for entry in payload["diagnostics"]["pipeline"] if entry["stage"] == "udtr_profile_summary")
+    profile_entry = next(
+        entry for entry in payload["diagnostics"]["pipeline"] if entry["stage"] == "udtr_profile_summary"
+    )
     assert profile_entry["quality_gate_count"] == len(payload["quality"]["gates"])
     assert profile_entry["quality_event_count"] == len(payload["quality"]["events"])
     if residual_blocks:
@@ -326,10 +394,14 @@ def test_mirror_core_keeps_canonical_shape_across_synthetic_source_formats():
         "assets",
     }
     for filename in ("sample.pdf", "sample.docx", "sample.xlsx", "sample.html"):
-        payload = MirrorCoreVNext().process(
-            _sample_parse_result(),
-            MirrorOptions(source_filename=filename),
-        ).to_dict()
+        payload = (
+            MirrorCoreVNext()
+            .process(
+                _sample_parse_result(),
+                MirrorOptions(source_filename=filename),
+            )
+            .to_dict()
+        )
 
         assert required_keys <= set(payload)
         assert payload["mirror"]["schema"] == "docmirror.mirror_json"

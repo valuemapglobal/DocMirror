@@ -15,6 +15,8 @@ def _infer_cell_value(
     bbox: list[float] | None = None,
     row_index: int | None = None,
     col_index: int | None = None,
+    row_span: int = 1,
+    col_span: int = 1,
     geometry_status: str = "missing",
     geometry_source: str = "",
     geometry_confidence: float | None = None,
@@ -39,6 +41,8 @@ def _infer_cell_value(
             bbox=bbox,
             row_index=row_index,
             col_index=col_index,
+            row_span=row_span,
+            col_span=col_span,
             geometry_status=geometry_status,
             geometry_source=geometry_source,
             geometry_confidence=geometry_confidence,
@@ -53,6 +57,8 @@ def _infer_cell_value(
             bbox=bbox,
             row_index=row_index,
             col_index=col_index,
+            row_span=row_span,
+            col_span=col_span,
             geometry_status=geometry_status,
             geometry_source=geometry_source,
             geometry_confidence=geometry_confidence,
@@ -115,6 +121,7 @@ def _table_geometry_attrs(attrs: dict[str, Any]) -> dict[str, Any]:
         "cell_evidence_ids",
         "cell_token_ids",
         "cell_confidences",
+        "cell_spans",
         "row_bands",
         "col_bands",
     ):
@@ -189,6 +196,7 @@ def _ensure_table_geometry(
         "cell_evidence_ids",
         "cell_token_ids",
         "cell_confidences",
+        "cell_spans",
         "row_bands",
         "col_bands",
     ):
@@ -208,6 +216,36 @@ def _block_evidence_ids(block, *, prefix: str = "ev") -> list[str]:
     if spans:
         return [f"{prefix}_p{page_no}_{block_id}_span{i}" for i, _span in enumerate(spans)]
     return [f"{prefix}_p{page_no}_{block_id}"]
+
+
+def _block_confidence(block: Any, *, default: float = 1.0) -> float:
+    """Return the extractor/OCR confidence carried by a physical block."""
+    attrs = getattr(block, "attrs", None) or {}
+    raw = attrs.get("confidence")
+    if raw is None:
+        raw = attrs.get("extraction_confidence")
+    try:
+        return max(0.0, min(1.0, float(raw if raw is not None else default)))
+    except (TypeError, ValueError):
+        return max(0.0, min(1.0, float(default)))
+
+
+def _page_content_confidence(texts: list[Any], tables: list[Any], key_values: list[Any]) -> float:
+    """Aggregate page confidence without turning missing OCR confidence into 1.0."""
+    weighted: list[tuple[float, int]] = []
+    for text in texts:
+        weight = max(1, len(str(getattr(text, "content", "") or "")))
+        weighted.append((float(getattr(text, "confidence", 0.0) or 0.0), weight))
+    for table in tables:
+        row_count = len(getattr(table, "rows", []) or []) + int(bool(getattr(table, "headers", []) or []))
+        weighted.append((float(getattr(table, "confidence", 0.0) or 0.0), max(1, row_count * 4)))
+    for item in key_values:
+        weight = max(1, len(str(getattr(item, "key", "") or "")) + len(str(getattr(item, "value", "") or "")))
+        weighted.append((float(getattr(item, "confidence", 0.0) or 0.0), weight))
+    if not weighted:
+        return 0.0
+    total_weight = sum(weight for _confidence, weight in weighted)
+    return round(sum(confidence * weight for confidence, weight in weighted) / total_weight, 4)
 
 
 def _blocks_to_pages(base: BaseResult):
@@ -259,17 +297,26 @@ def _blocks_to_pages(base: BaseResult):
                             attrs["extraction_confidence"] = score
                 table_index = len(tables)
                 geometry = _ensure_table_geometry(raw, attrs, block, page_layout, table_index=table_index)
+                span_by_anchor = {
+                    (int(item.get("row", -1)), int(item.get("col", -1))): item
+                    for item in geometry.get("cell_spans", []) or []
+                    if isinstance(item, dict) and int(item.get("row", -1)) >= 0 and int(item.get("col", -1)) >= 0
+                }
                 headers = []
                 rows = []
                 pt_id = f"pt_{page_layout.page_number}_{table_index}"
+                preserve_headers = bool(attrs.get("preserve_headers", True))
                 if raw:
-                    headers = [str(h) for h in raw[0]]
-                    for row_idx, row_data in enumerate(raw[1:]):
+                    headers = [str(h) for h in raw[0]] if preserve_headers else []
+                    source_rows = raw[1:] if preserve_headers else raw
+                    source_offset = 1 if preserve_headers else 0
+                    for row_idx, row_data in enumerate(source_rows):
                         if isinstance(row_data, list):
-                            raw_row_idx = row_idx + 1
+                            raw_row_idx = row_idx + source_offset
                             cells = []
                             row_refs = []
                             for col_idx, value in enumerate(row_data):
+                                span = span_by_anchor.get((raw_row_idx, col_idx), {})
                                 source_ref = {
                                     "page": page_layout.page_number,
                                     "table_id": pt_id,
@@ -284,6 +331,8 @@ def _blocks_to_pages(base: BaseResult):
                                         bbox=_matrix_get(geometry.get("cell_bboxes"), raw_row_idx, col_idx),
                                         row_index=row_idx,
                                         col_index=col_idx,
+                                        row_span=max(1, int(span.get("row_span", 1) or 1)),
+                                        col_span=max(1, int(span.get("col_span", 1) or 1)),
                                         geometry_status=str(
                                             _matrix_get(
                                                 geometry.get("cell_geometry_status"),
@@ -373,6 +422,7 @@ def _blocks_to_pages(base: BaseResult):
                     TextBlock(
                         content=block.raw_content,
                         level=level,
+                        confidence=_block_confidence(block, default=0.0 if page_layout.is_scanned else 1.0),
                         bbox=list(block.bbox) if getattr(block, "bbox", None) else None,
                         evidence_ids=_block_evidence_ids(block, prefix="ocr" if page_layout.is_scanned else "text"),
                     )
@@ -384,6 +434,7 @@ def _blocks_to_pages(base: BaseResult):
                         KeyValuePair(
                             key=str(k),
                             value=str(v),
+                            confidence=_block_confidence(block),
                             bbox=list(block.bbox) if getattr(block, "bbox", None) else None,
                             evidence_ids=_block_evidence_ids(block, prefix="kv"),
                         )
@@ -394,6 +445,7 @@ def _blocks_to_pages(base: BaseResult):
                     TextBlock(
                         content=block.raw_content,
                         level=TextLevel.FOOTER,
+                        confidence=_block_confidence(block, default=0.0 if page_layout.is_scanned else 1.0),
                         bbox=list(block.bbox) if getattr(block, "bbox", None) else None,
                         evidence_ids=_block_evidence_ids(block, prefix="text"),
                     )
@@ -405,8 +457,12 @@ def _blocks_to_pages(base: BaseResult):
                 tables=tables,
                 texts=texts,
                 key_values=key_values,
+                page_confidence=_page_content_confidence(texts, tables, key_values),
+                page_mode="scanned_ocr" if page_layout.is_scanned else None,
                 width=int(page_layout.width) if getattr(page_layout, "width", None) else None,
                 height=int(page_layout.height) if getattr(page_layout, "height", None) else None,
+                source_page_number=getattr(page_layout, "source_page_number", None),
+                coordinate_transform=dict(getattr(page_layout, "coordinate_transform", None) or {}),
             )
         )
 

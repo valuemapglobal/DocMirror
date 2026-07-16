@@ -55,6 +55,7 @@ Can it enter a downstream system?
 
 - [Installation](installation.md)
 - [Quick Start](quickstart.md)
+- [Development Manual (zh-CN)](development_manual_zh-CN.md)
 - [Deployment](deployment.md)
 - [API Authentication](api-authentication.md)
 

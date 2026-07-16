@@ -56,7 +56,9 @@ def test_phase4_standard_mirror_shape():
         ],
     )
     pr = ParseResult(
-        pages=[PageContent(page_number=4, width=800, height=600, texts=[TextBlock(content="hdr", level=TextLevel.BODY)])],
+        pages=[
+            PageContent(page_number=4, width=800, height=600, texts=[TextBlock(content="hdr", level=TextLevel.BODY)])
+        ],
         entities=DocumentEntities(
             document_type="credit_report",
             domain_specific=ds,
@@ -102,7 +104,7 @@ def test_vnext_removed_ref_gate_script():
 
     root = Path(__file__).resolve().parents[2]
     proc = subprocess.run(
-        [sys.executable, str(root / "tools" / "gate_vnext_removed_refs.py")],
+        [sys.executable, str(root / "scripts" / "validate" / "gate_vnext_removed_refs.py")],
         cwd=root,
         capture_output=True,
         text=True,
@@ -117,7 +119,7 @@ def test_vnext_mirror_volume_gate_script():
 
     root = Path(__file__).resolve().parents[2]
     proc = subprocess.run(
-        [sys.executable, str(root / "tools" / "gate_vnext_mirror_volume.py")],
+        [sys.executable, str(root / "scripts" / "validate" / "gate_vnext_mirror_volume.py")],
         cwd=root,
         capture_output=True,
         text=True,

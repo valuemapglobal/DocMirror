@@ -33,6 +33,7 @@ from docmirror import __version__
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.input.entry.options import normalize_parse_control
 from docmirror.server.schemas import ParseResponse
+from docmirror.server.task_api import router as task_router
 
 # Load .env from project root
 _env_root = Path(__file__).resolve().parent.parent.parent
@@ -48,6 +49,8 @@ app = FastAPI(
     description="High-performance MultiModal document extraction and enhancement engine.",
     version=__version__,
 )
+
+app.include_router(task_router)
 
 
 # ── Startup/shutdown lifecycle ──

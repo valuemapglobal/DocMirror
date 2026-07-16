@@ -1,122 +1,248 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Task manifest and batch execution helpers for the DocMirror REST API.
-
-Provides ``initialize_task_manifest()``, ``run_batch_parse_task()``, and
-supporting utilities, all driven by the shared ``task_result`` schemas.
-"""
+"""Persistent execution helpers for the DocMirror REST Task API."""
 
 from __future__ import annotations
 
 import asyncio
-import json
-import logging
 import os
-import time
-from dataclasses import dataclass
 from pathlib import Path
-from tempfile import mkdtemp
 from typing import Any
 
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.runtime.ledger import EventLedger, build_manifest_v2
+from docmirror.server.edition_outputs import write_four_files
 
-logger = logging.getLogger(__name__)
-
-_OUTPUT_ROOT = os.environ.get("DOCMIRROR_TASK_DIR", mkdtemp(prefix="docmirror_tasks_"))
+_TERMINAL_STATUSES = {"success", "partial", "failed"}
 
 
-def _task_output_root() -> Path:
-    return Path(_OUTPUT_ROOT)
+def task_output_root() -> Path:
+    """Resolve the task store at request time so test/deployment env changes apply."""
+    configured = os.environ.get("DOCMIRROR_TASK_OUTPUT_DIR") or os.environ.get("DOCMIRROR_TASK_DIR") or "output/tasks"
+    return Path(configured).resolve()
+
+
+def task_directory(task_id: str, *, output_root: Path | None = None) -> Path:
+    """Return a validated task directory beneath the configured task store."""
+    if not task_id or any(part in {"", ".", ".."} for part in Path(task_id).parts) or Path(task_id).is_absolute():
+        raise ValueError("invalid task_id")
+    root = (output_root or task_output_root()).resolve()
+    candidate = (root / task_id).resolve()
+    if not candidate.is_relative_to(root):
+        raise ValueError("invalid task_id")
+    return candidate
 
 
 def initialize_task_manifest(
     output_root: Path,
     task_id: str,
-    inputs: list[dict[str, str]],
-    formats: list[str] | None = None,
-    editions: list[str] | None = None,
+    inputs: list[dict[str, Any]],
+    formats: list[str] | tuple[str, ...] | None = None,
+    editions: list[str] | tuple[str, ...] | None = None,
+    *,
+    runtime_control: dict[str, Any] | None = None,
 ) -> Path:
-    """Create a task manifest stub on disk and return its path."""
-    task_dir = output_root / task_id
+    """Create the durable manifest before execution starts."""
+    task_dir = task_directory(task_id, output_root=output_root)
     task_dir.mkdir(parents=True, exist_ok=True)
-
-    manifest = {
-        "task_id": task_id,
-        "status": "created",
-        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "inputs": inputs,
-        "formats": formats or ["json"],
-        "editions": editions or ["mirror", "community"],
-        "results": [],
-    }
-
     manifest_path = task_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    if manifest_path.exists():
+        raise FileExistsError(f"task already exists: {task_id}")
+    manifest = build_manifest_v2(
+        task_id,
+        status="running",
+        stage="queued",
+        inputs=inputs,
+        formats=list(formats or ["json"]),
+        editions=list(editions or ["mirror", "community"]),
+        runtime_control=runtime_control,
+        entry="rest",
+    )
+    EventLedger(task_dir).write_manifest(manifest)
     return manifest_path
 
 
-@dataclass
-class SchedulerConfig:
-    max_file_workers: int = 4
+def read_task_manifest(task_id: str, *, output_root: Path | None = None) -> dict[str, Any]:
+    """Load a task manifest, returning an empty dict when it does not exist."""
+    task_dir = task_directory(task_id, output_root=output_root)
+    return EventLedger(task_dir).read_manifest()
 
 
-class ProgressEvent:
-    def __init__(self, task_id: str, file_id: str, stage: str, status: str, message: str = ""):
-        self.task_id = task_id
-        self.file_id = file_id
-        self.stage = stage
-        self.status = status
-        self.message = message
+async def execute_parse_task(
+    files: list[tuple[Path, str]],
+    *,
+    output_root: Path,
+    task_id: str,
+    control: Any,
+    formats: tuple[str, ...] | list[str],
+    editions: tuple[str, ...] | list[str],
+    include_text: bool = False,
+    timeout_s: float = 300.0,
+) -> dict[str, Any]:
+    """Parse one or more files and atomically publish a terminal manifest.
 
+    Each batch member owns an isolated artifact directory so markdown,
+    evidence and visual-debug filenames cannot collide. A failure in one
+    member never discards successful members.
+    """
+    task_dir = task_directory(task_id, output_root=output_root)
+    ledger = EventLedger(task_dir)
+    manifest = ledger.read_manifest()
+    if not manifest:
+        raise FileNotFoundError(f"task manifest not found: {task_id}")
+    if manifest.get("status") in _TERMINAL_STATUSES:
+        return manifest
 
-class EventLedger:
-    def __init__(self, output_root: Path):
-        self.output_root = output_root
-        self.events: list[dict] = []
+    manifest["stage"] = "parsing"
+    manifest["progress"] = _progress(total=len(files), completed=0, failed=0, running=len(files))
+    ledger.write_manifest(manifest)
 
-    def update_manifest_v2(self, stage: str, inputs: list[dict]) -> None:
-        pass
+    requested_formats = tuple(str(value) for value in formats)
+    requested_editions = tuple(str(value) for value in editions)
+    artifact_pack = any(value in {"markdown", "evidence"} for value in requested_formats)
+    batch = len(files) > 1
+    input_entries = list(manifest.get("inputs") or [])
 
-    def write_progress(self, event: ProgressEvent) -> None:
-        self.events.append(
-            {
-                "task_id": event.task_id,
-                "file_id": event.file_id,
-                "stage": event.stage,
-                "status": event.status,
-                "message": event.message,
+    try:
+        from docmirror.ocr.vlm_gateway import _gateway
+
+        _gateway.collect_fallbacks()
+    except Exception:
+        _gateway = None
+
+    async def process_one(index: int, source_path: Path, original_name: str) -> dict[str, Any]:
+        file_id = f"{index:03d}"
+        entry = (
+            input_entries[index - 1]
+            if index - 1 < len(input_entries)
+            else {
+                "file_id": file_id,
+                "file_name": original_name,
             }
         )
+        entry["status"] = "running"
+        try:
+            perceived = await asyncio.wait_for(
+                perceive_document(source_path, PerceiveOptions(control=control)),
+                timeout=timeout_s,
+            )
+            result = perceived.mirror if hasattr(perceived, "mirror") else perceived
+            artifact_dir = task_dir / "files" / file_id if batch else task_dir
+            _written_task_id, written = write_four_files(
+                result,
+                output_root,
+                file_path=str(source_path),
+                full_text=getattr(result, "full_text", "") or "",
+                file_id=file_id,
+                task_id=task_id,
+                mirror_level=getattr(control.output, "mirror_level", "standard"),
+                include_text=include_text,
+                editions=requested_editions,
+                overwrite=True,
+                artifact_pack=artifact_pack,
+                artifact_dir=artifact_dir,
+            )
+            child_manifest = EventLedger(artifact_dir).read_manifest() if artifact_pack else {}
+            artifacts = dict(child_manifest.get("artifacts") or {})
+            if not artifacts:
+                artifacts = {name: path.name for name, path in written.items()}
+            entry["status"] = "success"
+            return {
+                "file_id": file_id,
+                "file_name": original_name,
+                "status": "success",
+                "artifacts": _parent_artifact_map(
+                    task_dir=task_dir,
+                    artifact_dir=artifact_dir,
+                    artifacts=artifacts,
+                    file_id=file_id,
+                    batch=batch,
+                ),
+                "edition_availability": child_manifest.get("edition_availability") or {},
+                "mirror_completeness": child_manifest.get("mirror_completeness") or {},
+            }
+        except asyncio.TimeoutError:
+            entry["status"] = "failed"
+            return {
+                "file_id": file_id,
+                "file_name": original_name,
+                "status": "failed",
+                "error": {
+                    "code": "TIMEOUT",
+                    "message": f"parse exceeded {timeout_s:g}s timeout",
+                    "recoverable": True,
+                },
+            }
+        except Exception as exc:
+            entry["status"] = "failed"
+            return {
+                "file_id": file_id,
+                "file_name": original_name,
+                "status": "failed",
+                "error": {
+                    "code": "PARSER_ERROR",
+                    "message": str(exc),
+                    "recoverable": False,
+                },
+            }
+        finally:
+            source_path.unlink(missing_ok=True)
 
+    outcomes = await asyncio.gather(
+        *(process_one(index, path, name) for index, (path, name) in enumerate(files, start=1))
+    )
+    successes = [outcome for outcome in outcomes if outcome["status"] == "success"]
+    failures = [outcome for outcome in outcomes if outcome["status"] == "failed"]
+    status = "partial" if successes and failures else ("success" if successes else "failed")
 
-def write_four_files(
-    mirror,
-    output_root,
-    file_path="",
-    full_text="",
-    task_id="",
-    file_id="",
-    mirror_level="standard",
-    include_text=False,
-    editions=None,
-) -> tuple[str, int]:
-    """Write mirror and edition outputs for a single file."""
-    editions = editions or ["mirror", "community"]
-    file_dir = output_root / task_id / file_id
-    file_dir.mkdir(parents=True, exist_ok=True)
+    artifacts: dict[str, str] = {}
+    edition_availability: dict[str, Any] = {}
+    mirror_completeness: dict[str, Any] = {}
+    errors: list[dict[str, Any]] = []
+    for outcome in outcomes:
+        artifacts.update(outcome.get("artifacts") or {})
+        if outcome.get("edition_availability"):
+            if batch:
+                edition_availability[outcome["file_id"]] = outcome["edition_availability"]
+            else:
+                edition_availability = outcome["edition_availability"]
+        if outcome.get("mirror_completeness"):
+            if batch:
+                mirror_completeness[outcome["file_id"]] = outcome["mirror_completeness"]
+            else:
+                mirror_completeness = outcome["mirror_completeness"]
+        if outcome.get("error"):
+            errors.append(
+                {
+                    "file_id": outcome["file_id"],
+                    "file_name": outcome["file_name"],
+                    **outcome["error"],
+                }
+            )
 
-    written = 0
-    try:
-        mirror_data = mirror.to_mirror_json_vnext() if hasattr(mirror, "to_mirror_json_vnext") else mirror
-        (file_dir / "mirror.json").write_text(
-            json.dumps(mirror_data, indent=2, ensure_ascii=False, default=str), encoding="utf-8"
-        )
-        written += 1
-    except Exception as e:
-        logger.warning(f"Failed to write mirror for {file_id}: {e}")
-
-    return task_id, written
+    fallbacks = _gateway.collect_fallbacks() if _gateway is not None else []
+    manifest.update(
+        {
+            "status": status,
+            "stage": "completed",
+            "progress": _progress(
+                total=len(files),
+                completed=len(successes),
+                failed=len(failures),
+                running=0,
+            ),
+            "inputs": input_entries,
+            "artifacts": artifacts,
+            "edition_availability": edition_availability,
+            "mirror_completeness": mirror_completeness,
+            "page_outcomes": outcomes,
+            "fallbacks": fallbacks,
+            "errors": errors,
+        }
+    )
+    ledger.write_manifest(manifest)
+    return manifest
 
 
 async def run_batch_parse_task(
@@ -126,94 +252,56 @@ async def run_batch_parse_task(
     control: Any = None,
     include_text: bool = False,
 ) -> dict[str, Any]:
-    """Run a batch parse task with per-file partial-failure isolation.
-
-    GA 1.0 Step 10: per-file timeout (300s) via asyncio.wait_for.
-    """
-    from docmirror.errors.envelope import build_error_envelope
-
-    inputs: list[dict] = []
-    results: list[dict] = []
-
-    ledger = EventLedger(output_root)
-    scheduler_config = SchedulerConfig()
-    semaphore = asyncio.Semaphore(scheduler_config.max_file_workers * 2)
-
-    async def _process_one_file(idx: int, temp_path: Path, filename: str) -> None:
-        async with semaphore:
-            file_id = f"{idx:03d}"
-            input_entry = {"file_id": file_id, "file_path": filename, "status": "running"}
-            inputs.append(input_entry)
-            ledger.update_manifest_v2(stage="parsing", inputs=inputs)
-            ledger.write_progress(
-                ProgressEvent(
-                    task_id=task_id,
-                    file_id=file_id,
-                    stage="file_parse",
-                    status="started",
-                    message=f"Parsing file {filename}",
-                )
-            )
-            try:
-                result = await asyncio.wait_for(
-                    perceive_document(temp_path, PerceiveOptions(control=control)),
-                    timeout=300.0,  # GA 1.0 Step 10
-                )
-                mirror = result.mirror if hasattr(result, "mirror") else result
-                _task_id, written = write_four_files(
-                    mirror,
-                    output_root,
-                    file_path=filename,
-                    full_text=getattr(mirror, "full_text", "") or "",
-                    file_id=file_id,
-                    task_id=task_id,
-                    mirror_level=getattr(control.output, "mirror_level", "standard") if control else "standard",
-                    include_text=include_text,
-                    editions=getattr(control.output, "editions", ["mirror", "community"])
-                    if control
-                    else ["mirror", "community"],
-                )
-                input_entry["status"] = "succeeded"
-                results.append({"file_id": file_id, "file_name": filename, "status": "success"})
-                ledger.write_progress(
-                    ProgressEvent(task_id=task_id, file_id=file_id, stage="file_parse", status="completed")
-                )
-            except asyncio.TimeoutError:
-                input_entry["status"] = "timeout"
-                results.append(
-                    {
-                        "file_id": file_id,
-                        "file_name": filename,
-                        "status": "timeout",
-                        "error": {
-                            "code": "TIMEOUT",
-                            "message": "Per-file parse exceeded 300s timeout",
-                            "recoverable": True,
-                        },
-                    }
-                )
-            except Exception as e:
-                input_entry["status"] = "failed"
-                envelope = build_error_envelope("PARSER_ERROR", str(e))
-                results.append(
-                    {
-                        "file_id": file_id,
-                        "file_name": filename,
-                        "status": "error",
-                        "error": envelope.to_dict() if hasattr(envelope, "to_dict") else {"message": str(e)},
-                    }
-                )
-
-    await asyncio.gather(
-        *[_process_one_file(i, path, name) for i, (path, name) in enumerate(files, start=1)], return_exceptions=True
+    """Backward-compatible wrapper over the durable Task API executor."""
+    formats = tuple(getattr(getattr(control, "output", None), "formats", ("json",)))
+    editions = tuple(getattr(getattr(control, "output", None), "editions", ("mirror", "community")))
+    return await execute_parse_task(
+        files,
+        output_root=output_root,
+        task_id=task_id,
+        control=control,
+        formats=formats,
+        editions=editions,
+        include_text=include_text,
     )
 
-    # Update manifest
-    manifest_path = output_root / task_id / "manifest.json"
-    if manifest_path.exists():
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        manifest["status"] = "completed"
-        manifest["results"] = results
-        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    return {"task_id": task_id, "status": "completed", "results": results}
+def _parent_artifact_map(
+    *,
+    task_dir: Path,
+    artifact_dir: Path,
+    artifacts: dict[str, Any],
+    file_id: str,
+    batch: bool,
+) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for name, relative in artifacts.items():
+        candidate = artifact_dir / str(relative)
+        try:
+            parent_relative = str(candidate.resolve().relative_to(task_dir.resolve()))
+        except ValueError:
+            continue
+        key = f"{file_id}_{name}" if batch else str(name)
+        result[key] = parent_relative
+    return result
+
+
+def _progress(*, total: int, completed: int, failed: int, running: int) -> dict[str, Any]:
+    finished = completed + failed
+    return {
+        "total_units": total,
+        "completed_units": completed,
+        "failed_units": failed,
+        "running_units": running,
+        "percent": round(finished / max(total, 1) * 100.0, 2),
+    }
+
+
+__all__ = [
+    "execute_parse_task",
+    "initialize_task_manifest",
+    "read_task_manifest",
+    "run_batch_parse_task",
+    "task_directory",
+    "task_output_root",
+]

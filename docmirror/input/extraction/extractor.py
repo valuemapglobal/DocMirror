@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from dataclasses import dataclass, replace
 
 # S2: Module-level alias — perf_counter avoids gettimeofday syscall
 _clock = time.perf_counter
@@ -30,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from docmirror.input.entry.exceptions import ExtractionError
+from docmirror.layout.normalization.transform import invert_matrix, rotation_matrix
 from docmirror.layout.vocabulary import _is_header_row
 from docmirror.layout.watermark import preprocess_document
 from docmirror.models.entities.domain import BaseResult, Block, PageLayout, TextSpan
@@ -39,10 +41,29 @@ from docmirror.tables.classifier import get_last_layer_timings
 from .entity_collector import collect_kv_entities
 from .foundation import FitzEngine
 from .image_converter import image_to_virtual_pdf
+from .page_splitter import (
+    DocumentSpreadPlan,
+    LogicalPageSlice,
+    PageSplitDecision,
+    analyze_spread_candidates,
+    build_document_plan,
+    split_or_passthrough,
+)
 from .scanned_table_reconstructor import reconstruct_scanned_statement_table
 from .table_postprocessor import process_page_tables
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _OcrLogicalPage:
+    page_number: int
+    source_page_number: int
+    width: float
+    height: float
+    blocks: tuple[Block, ...]
+    coordinate_transform: dict[str, Any]
+    image: Any | None = None
 
 
 def _selected_page_indices(plane: Any, parse_control: Any) -> set[int]:
@@ -70,7 +91,7 @@ def _ocr_blocks_for_pdf_page(
     page_number: int,
     *,
     start_order: int = 0,
-) -> list[Block]:
+) -> tuple[list[Block], Any | None]:
     import fitz
 
     from docmirror.ocr.vision.rapidocr_engine import get_ocr_engine
@@ -79,14 +100,16 @@ def _ocr_blocks_for_pdf_page(
     zoom = 2.0
     with fitz.open(file_path) as doc:
         if page_index < 0 or page_index >= len(doc):
-            return []
+            return [], None
         page = doc[page_index]
         pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
     image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
     if pix.n >= 3:
         image = image[:, :, :3]
 
-    words, rotation, page_width, page_height, ocr_metrics = _select_ocr_orientation(image, get_ocr_engine(), zoom=zoom)
+    words, rotation, selected_image, page_width, page_height, ocr_metrics = _select_ocr_orientation(
+        image, get_ocr_engine(), zoom=zoom
+    )
     blocks: list[Block] = []
     for index, word in enumerate(words):
         if len(word) < 5:
@@ -118,18 +141,26 @@ def _ocr_blocks_for_pdf_page(
                 evidence_ids=(block_id,),
             )
         )
-    return blocks
+    return blocks, selected_image
 
 
 def _select_ocr_orientation(
-    image: Any, engine: Any, *, zoom: float
-) -> tuple[list[Any], int, float, float, dict[str, Any]]:
+    image: Any,
+    engine: Any,
+    *,
+    zoom: float,
+    forced_rotations: tuple[int, ...] = (),
+    probe_low_quality: bool = True,
+) -> tuple[list[Any], int, Any, float, float, dict[str, Any]]:
     candidates: list[tuple[float, int, list[Any], Any, dict[str, Any]]] = []
     original_words = engine.detect_image_words(image)
     original_metrics = _ocr_orientation_metrics(original_words)
     candidates.append((float(original_metrics["score"]), 0, original_words, image, original_metrics))
-    if _needs_orientation_probe(original_metrics):
-        for rotation in (90, 180, 270):
+    rotations = set(forced_rotations)
+    if probe_low_quality and _needs_orientation_probe(original_metrics):
+        rotations.update((90, 180, 270))
+    for rotation in (90, 180, 270):
+        if rotation in rotations:
             rotated = _rotate_image(image, rotation)
             words = engine.detect_image_words(rotated)
             metrics = _ocr_orientation_metrics(words)
@@ -138,6 +169,7 @@ def _select_ocr_orientation(
     return (
         words,
         rotation,
+        selected_image,
         round(float(selected_image.shape[1]) / zoom, 4),
         round(float(selected_image.shape[0]) / zoom, 4),
         metrics,
@@ -170,6 +202,11 @@ def _ocr_orientation_metrics(words: list[Any]) -> dict[str, Any]:
     import re
 
     keywords = (
+        "个人信用报告",
+        "报告编号",
+        "查询请求时间",
+        "身份信息",
+        "信贷交易信息",
         "资产负债表",
         "利润表",
         "现金流量表",
@@ -211,6 +248,386 @@ def _ocr_orientation_metrics(words: list[Any]) -> dict[str, Any]:
         "long_cjk": long_cjk,
         "garbage_zero9": garbage_zero9,
     }
+
+
+def _build_pdf_spread_plan(
+    file_path: Path,
+    plane: Any,
+    *,
+    mode: str,
+) -> DocumentSpreadPlan:
+    """Render cheap thumbnails and build stable physical-to-logical numbering."""
+    source_page_numbers = [int(page.page_number) for page in getattr(plane, "pages", []) or []]
+    if mode == "off" or file_path.suffix.lower() != ".pdf":
+        return build_document_plan({}, source_page_numbers=source_page_numbers, mode="off")
+
+    page_has_text = {
+        page.page_id: any(
+            atom.page_id == page.page_id and str(atom.text or "").strip()
+            for atom in getattr(getattr(plane, "evidence", None), "text_atoms", []) or []
+        )
+        for page in getattr(plane, "pages", []) or []
+    }
+    analyses_by_page: dict[int, tuple[Any, ...]] = {}
+    try:
+        import fitz
+
+        np = require_optional_module("numpy", feature="PDF spread-page analysis", extra="ocr")
+        with fitz.open(file_path) as doc:
+            for page in getattr(plane, "pages", []) or []:
+                if page_has_text.get(page.page_id):
+                    continue
+                if page.page_index < 0 or page.page_index >= len(doc):
+                    continue
+                pix = doc[page.page_index].get_pixmap(matrix=fitz.Matrix(0.75, 0.75), alpha=False)
+                image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+                if pix.n >= 3:
+                    image = image[:, :, :3]
+                analyses_by_page[int(page.page_number)] = analyze_spread_candidates(image)
+    except Exception as exc:
+        logger.debug("[DocMirror] spread-page pre-analysis skipped: %s", exc)
+        analyses_by_page = {}
+    return build_document_plan(
+        analyses_by_page,
+        source_page_numbers=source_page_numbers,
+        mode=mode if mode in {"auto", "off", "force"} else "auto",
+    )
+
+
+def _probe_document_ocr_rotation(file_path: Path, spread_plan: DocumentSpreadPlan) -> int | None:
+    """Resolve the shared upright rotation once on a cheap thumbnail."""
+    candidates = [
+        (source_page_number, decision)
+        for source_page_number, decision in spread_plan.decisions.items()
+        if decision.should_split and decision.rotation_candidates
+    ]
+    if not candidates:
+        return None
+    source_page_number, decision = candidates[0]
+    try:
+        import fitz
+
+        from docmirror.ocr.vision.rapidocr_engine import get_ocr_engine
+
+        np = require_optional_module("numpy", feature="PDF spread orientation probe", extra="ocr")
+        zoom = 0.75
+        with fitz.open(file_path) as doc:
+            if source_page_number <= 0 or source_page_number > len(doc):
+                return None
+            pix = doc[source_page_number - 1].get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+        image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+        if pix.n >= 3:
+            image = image[:, :, :3]
+        _words, rotation, _selected, _width, _height, _metrics = _select_ocr_orientation(
+            image,
+            get_ocr_engine(),
+            zoom=zoom,
+            forced_rotations=decision.rotation_candidates,
+            probe_low_quality=False,
+        )
+        return rotation
+    except Exception as exc:
+        logger.debug("[DocMirror] document spread orientation probe skipped: %s", exc)
+        return None
+
+
+def _ocr_logical_pages_for_pdf_page(
+    file_path: Path,
+    page_index: int,
+    source_page_number: int,
+    *,
+    logical_start: int,
+    source_width: float,
+    source_height: float,
+    decision: PageSplitDecision,
+    page_split_mode: str,
+    preferred_rotation: int | None = None,
+) -> list[_OcrLogicalPage]:
+    """OCR one physical page and return one or more logical page results."""
+    if not decision.should_split:
+        ocr_result = _ocr_blocks_for_pdf_page(file_path, page_index, source_page_number)
+        if isinstance(ocr_result, tuple) and len(ocr_result) == 2:
+            blocks, selected_image = ocr_result
+        else:  # Backward-compatible test/extension seam.
+            blocks, selected_image = ocr_result, None
+        rotation = 0
+        width, height = source_width, source_height
+        for block in blocks:
+            attrs = block.attrs or {}
+            rotation = int(attrs.get("ocr_rotation") or 0) % 360
+            width = float(attrs.get("normalized_page_width") or width)
+            height = float(attrs.get("normalized_page_height") or height)
+            break
+        matrix = rotation_matrix(source_width, source_height, rotation)
+        transform = _logical_page_transform(
+            source_page_number=source_page_number,
+            matrix=matrix,
+            inverse_matrix=invert_matrix(matrix),
+            source_crop_bbox=(0.0, 0.0, source_width, source_height),
+            rotation=rotation,
+            split_kind="none",
+            segment_index=0,
+            confidence=decision.confidence,
+            width=width,
+            height=height,
+        )
+        repaged = _repage_blocks(blocks, logical_start, source_page_number)
+        return [
+            _OcrLogicalPage(
+                page_number=logical_start,
+                source_page_number=source_page_number,
+                width=width,
+                height=height,
+                blocks=tuple(repaged),
+                coordinate_transform=transform,
+                image=selected_image,
+            )
+        ]
+
+    import fitz
+
+    from docmirror.ocr.vision.rapidocr_engine import get_ocr_engine
+
+    np = require_optional_module("numpy", feature="PDF spread-page OCR", extra="ocr")
+    zoom = 2.0
+    with fitz.open(file_path) as doc:
+        if page_index < 0 or page_index >= len(doc):
+            return []
+        page = doc[page_index]
+        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+    image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+    if pix.n >= 3:
+        image = image[:, :, :3]
+
+    engine = get_ocr_engine()
+    if preferred_rotation is not None and preferred_rotation in decision.rotation_candidates:
+        rotation = int(preferred_rotation) % 360
+        selected_image = _rotate_image(image, rotation)
+        full_words: list[Any] = []
+        full_metrics: dict[str, Any] = {"score": 0.0}
+        _page_width = round(float(selected_image.shape[1]) / zoom, 4)
+        _page_height = round(float(selected_image.shape[0]) / zoom, 4)
+    else:
+        full_words, rotation, selected_image, _page_width, _page_height, full_metrics = _select_ocr_orientation(
+            image,
+            engine,
+            zoom=zoom,
+            forced_rotations=decision.rotation_candidates,
+        )
+    slices = split_or_passthrough(
+        selected_image,
+        source_width=source_width,
+        source_height=source_height,
+        selected_rotation=rotation,
+        zoom=zoom,
+        decision=decision,
+        mode=page_split_mode if page_split_mode in {"auto", "off", "force"} else "auto",
+    )
+    out: list[_OcrLogicalPage] = []
+    for offset, page_slice in enumerate(slices):
+        logical_page_number = logical_start + offset
+        is_full_page = bool(full_words) and (
+            len(slices) == 1
+            and page_slice.crop_bbox_oriented[0] == 0.0
+            and page_slice.crop_bbox_oriented[1] == 0.0
+            and abs(page_slice.width - _page_width) < 1.0
+            and abs(page_slice.height - _page_height) < 1.0
+        )
+        words = full_words if is_full_page else engine.detect_image_words(page_slice.image)
+        metrics = full_metrics if is_full_page else _ocr_orientation_metrics(words)
+        blocks = _ocr_words_to_blocks(
+            words,
+            logical_page_number=logical_page_number,
+            source_page_number=source_page_number,
+            rotation=rotation,
+            zoom=zoom,
+            page_width=page_slice.width,
+            page_height=page_slice.height,
+            metrics=metrics,
+        )
+        transform = _logical_page_transform_from_slice(
+            page_slice,
+            source_page_number=source_page_number,
+            width=page_slice.width,
+            height=page_slice.height,
+        )
+        out.append(
+            _OcrLogicalPage(
+                page_number=logical_page_number,
+                source_page_number=source_page_number,
+                width=page_slice.width,
+                height=page_slice.height,
+                blocks=tuple(blocks),
+                coordinate_transform=transform,
+                image=page_slice.image,
+            )
+        )
+    return out
+
+
+def _ocr_words_to_blocks(
+    words: list[Any],
+    *,
+    logical_page_number: int,
+    source_page_number: int,
+    rotation: int,
+    zoom: float,
+    page_width: float,
+    page_height: float,
+    metrics: dict[str, Any],
+) -> list[Block]:
+    blocks: list[Block] = []
+    for index, word in enumerate(words):
+        if len(word) < 5:
+            continue
+        x0, y0, x1, y1, text = word[:5]
+        confidence = float(word[8]) if len(word) > 8 else 1.0
+        text = str(text or "").strip()
+        if not text:
+            continue
+        bbox = (float(x0) / zoom, float(y0) / zoom, float(x1) / zoom, float(y1) / zoom)
+        block_id = f"ocr:sp{source_page_number:04d}:lp{logical_page_number:04d}:{index:04d}"
+        blocks.append(
+            Block(
+                block_id=block_id,
+                block_type="text",
+                spans=(TextSpan(text=text, bbox=bbox),),
+                bbox=bbox,
+                reading_order=index,
+                page=logical_page_number,
+                raw_content=text,
+                attrs={
+                    "ocr_source": "rapidocr_pdf_logical_page",
+                    "confidence": round(confidence, 4),
+                    "ocr_rotation": rotation,
+                    "ocr_orientation_score": metrics["score"],
+                    "normalized_page_width": page_width,
+                    "normalized_page_height": page_height,
+                    "source_page_number": source_page_number,
+                    "logical_page_number": logical_page_number,
+                },
+                evidence_ids=(block_id,),
+            )
+        )
+    return blocks
+
+
+def _repage_blocks(blocks: list[Block], logical_page_number: int, source_page_number: int) -> list[Block]:
+    return [
+        replace(
+            block,
+            page=logical_page_number,
+            attrs={
+                **dict(block.attrs or {}),
+                "source_page_number": source_page_number,
+                "logical_page_number": logical_page_number,
+            },
+        )
+        for block in blocks
+    ]
+
+
+def _logical_page_transform_from_slice(
+    page_slice: LogicalPageSlice,
+    *,
+    source_page_number: int,
+    width: float,
+    height: float,
+) -> dict[str, Any]:
+    return _logical_page_transform(
+        source_page_number=source_page_number,
+        matrix=page_slice.source_to_logical,
+        inverse_matrix=page_slice.logical_to_source,
+        source_crop_bbox=page_slice.source_crop_bbox,
+        rotation=page_slice.selected_rotation,
+        split_kind="two_page_spread",
+        segment_index=page_slice.segment_index,
+        confidence=page_slice.split_confidence,
+        width=width,
+        height=height,
+    )
+
+
+def _logical_page_transform(
+    *,
+    source_page_number: int,
+    matrix: list[list[float]],
+    inverse_matrix: list[list[float]],
+    source_crop_bbox: tuple[float, float, float, float],
+    rotation: int,
+    split_kind: str,
+    segment_index: int,
+    confidence: float,
+    width: float,
+    height: float,
+) -> dict[str, Any]:
+    return {
+        "source_page_number": source_page_number,
+        "source_page_id": f"source-page:{source_page_number:04d}",
+        "source_crop_bbox": [round(value, 4) for value in source_crop_bbox],
+        "source_rotation": 0,
+        "normalized_rotation": 0,
+        "content_rotation_applied": int(rotation) % 360,
+        "matrix": matrix,
+        "inverse_matrix": inverse_matrix,
+        "source_width": float(source_crop_bbox[2] - source_crop_bbox[0]),
+        "source_height": float(source_crop_bbox[3] - source_crop_bbox[1]),
+        "display_width": width,
+        "display_height": height,
+        "decomposition": {
+            "kind": split_kind,
+            "segment_index": segment_index,
+            "selected_rotation": int(rotation) % 360,
+            "confidence": round(float(confidence), 4),
+        },
+    }
+
+
+def _page_layout_from_blocks(
+    blocks: list[Block],
+    *,
+    logical_page_number: int,
+    source_page_number: int,
+    width: float,
+    height: float,
+    is_scanned: bool,
+    coordinate_transform: dict[str, Any],
+    page_image: Any | None = None,
+) -> PageLayout:
+    from .scanned_table_reconstructor import reconstruct_scanned_bordered_tables
+
+    scanned_tables = reconstruct_scanned_bordered_tables(
+        page_image,
+        blocks,
+        page_number=logical_page_number,
+        page_width=width,
+        page_height=height,
+        start_order=len(blocks),
+    )
+    if scanned_tables:
+        for scanned_table in scanned_tables:
+            blocks = _remove_table_owned_text_blocks(blocks, scanned_table)
+        blocks.extend(scanned_tables)
+    else:
+        scanned_table = reconstruct_scanned_statement_table(
+            blocks,
+            page_number=logical_page_number,
+            page_width=width,
+            page_height=height,
+            start_order=len(blocks),
+        )
+        if scanned_table is not None:
+            blocks = _remove_table_owned_text_blocks(blocks, scanned_table)
+            blocks.append(scanned_table)
+    return PageLayout(
+        page_number=logical_page_number,
+        width=width,
+        height=height,
+        blocks=tuple(blocks),
+        is_scanned=is_scanned,
+        source_page_number=source_page_number,
+        coordinate_transform=dict(coordinate_transform),
+    )
 
 
 def _block_evidence_id_set(block: Block) -> set[str]:
@@ -347,15 +764,34 @@ class CoreExtractor:
 
         from docmirror.evidence.plane import EvidencePlaneBuilder
 
+        started_at = _clock()
         options = dict(options or {})
         parse_control = options.get("parse_control")
         ocr_mode = getattr(getattr(parse_control, "execution", None), "ocr", "auto") if parse_control else "auto"
         plane = await asyncio.to_thread(EvidencePlaneBuilder().build, str(file_path))
         selected_indices = _selected_page_indices(plane, parse_control)
+        page_split_mode = (
+            getattr(getattr(parse_control, "execution", None), "page_split", "auto") if parse_control else "auto"
+        )
+        if ocr_mode == "off":
+            page_split_mode = "off"
+        spread_plan = await asyncio.to_thread(
+            _build_pdf_spread_plan,
+            file_path,
+            plane,
+            mode=page_split_mode,
+        )
+        preferred_spread_rotation = (
+            await asyncio.to_thread(_probe_document_ocr_rotation, file_path, spread_plan)
+            if page_split_mode != "off"
+            else None
+        )
         pages: list[PageLayout] = []
         for page in plane.pages:
             if page.page_index not in selected_indices:
                 continue
+            source_page_number = int(page.page_number)
+            logical_start = spread_plan.logical_start_for(source_page_number)
             page_atoms = [
                 atom
                 for atom in plane.evidence.text_atoms
@@ -372,57 +808,119 @@ class CoreExtractor:
                         spans=(TextSpan(text=text, bbox=bbox),),
                         bbox=bbox,
                         reading_order=index,
-                        page=page.page_number,
+                        page=logical_start,
                         raw_content=text,
                         evidence_ids=(atom.id,),
                     )
                 )
             if _should_ocr_page(ocr_mode, page_atoms):
-                blocks.extend(
-                    await asyncio.to_thread(
-                        _ocr_blocks_for_pdf_page,
-                        file_path,
-                        page.page_index,
-                        page.page_number,
-                        start_order=len(blocks),
-                    )
+                ocr_pages = await asyncio.to_thread(
+                    _ocr_logical_pages_for_pdf_page,
+                    file_path,
+                    page.page_index,
+                    source_page_number,
+                    logical_start=logical_start,
+                    source_width=float(page.width or 0.0),
+                    source_height=float(page.height or 0.0),
+                    decision=spread_plan.decision_for(source_page_number),
+                    page_split_mode=page_split_mode,
+                    preferred_rotation=preferred_spread_rotation,
                 )
-            scanned_table = reconstruct_scanned_statement_table(
-                blocks,
-                page_number=page.page_number,
-                page_width=page.width or 0.0,
-                page_height=page.height or 0.0,
-                start_order=len(blocks),
+                if ocr_pages:
+                    for ocr_page in ocr_pages:
+                        page_blocks = list(ocr_page.blocks)
+                        if blocks and len(ocr_pages) == 1:
+                            page_blocks = blocks + [
+                                replace(block, reading_order=len(blocks) + block.reading_order) for block in page_blocks
+                            ]
+                        pages.append(
+                            _page_layout_from_blocks(
+                                page_blocks,
+                                logical_page_number=ocr_page.page_number,
+                                source_page_number=source_page_number,
+                                width=ocr_page.width,
+                                height=ocr_page.height,
+                                is_scanned=True,
+                                coordinate_transform=ocr_page.coordinate_transform,
+                                page_image=ocr_page.image,
+                            )
+                        )
+                    continue
+
+            identity_matrix = rotation_matrix(float(page.width or 0.0), float(page.height or 0.0), 0)
+            transform = _logical_page_transform(
+                source_page_number=source_page_number,
+                matrix=identity_matrix,
+                inverse_matrix=invert_matrix(identity_matrix),
+                source_crop_bbox=(0.0, 0.0, float(page.width or 0.0), float(page.height or 0.0)),
+                rotation=0,
+                split_kind="none",
+                segment_index=0,
+                confidence=1.0,
+                width=float(page.width or 0.0),
+                height=float(page.height or 0.0),
             )
-            if scanned_table is not None:
-                blocks = _remove_table_owned_text_blocks(blocks, scanned_table)
-                blocks.append(scanned_table)
-            layout_width = page.width or 0.0
-            layout_height = page.height or 0.0
-            for block in blocks:
-                attrs = block.attrs or {}
-                if attrs.get("normalized_page_width") and attrs.get("normalized_page_height"):
-                    layout_width = float(attrs["normalized_page_width"])
-                    layout_height = float(attrs["normalized_page_height"])
-                    break
             pages.append(
-                PageLayout(
-                    page_number=page.page_number,
-                    width=layout_width,
-                    height=layout_height,
-                    blocks=tuple(blocks),
-                    is_scanned=page.content_mode == "image",
+                _page_layout_from_blocks(
+                    blocks,
+                    logical_page_number=logical_start,
+                    source_page_number=source_page_number,
+                    width=float(page.width or 0.0),
+                    height=float(page.height or 0.0),
+                    is_scanned=False,
+                    coordinate_transform=transform,
+                    page_image=None,
                 )
             )
         table_count = sum(1 for page in pages for block in page.blocks if block.block_type == "table")
+        confidence_values: list[tuple[float, int]] = []
+        for logical_page in pages:
+            for block in logical_page.blocks:
+                attrs = block.attrs or {}
+                raw_confidence = attrs.get("confidence", attrs.get("extraction_confidence"))
+                if raw_confidence is None:
+                    continue
+                try:
+                    confidence = max(0.0, min(1.0, float(raw_confidence)))
+                except (TypeError, ValueError):
+                    continue
+                confidence_values.append((confidence, max(1, len(_block_full_text(block)))))
+        confidence_weight = sum(weight for _confidence, weight in confidence_values)
+        overall_confidence = (
+            sum(confidence * weight for confidence, weight in confidence_values) / confidence_weight
+            if confidence_weight
+            else (0.0 if any(page.is_scanned for page in pages) else 1.0)
+        )
+        has_scanned = any(page.is_scanned for page in pages)
+        has_native = any(not page.is_scanned for page in pages)
+        extraction_method = "hybrid" if has_scanned and has_native else ("ocr" if has_scanned else "digital")
         sample_text = "\n".join(
-            str(atom.text or "") for atom in plane.evidence.text_atoms if str(atom.text or "").strip()
+            text for logical_page in pages for block in logical_page.blocks if (text := _block_full_text(block)).strip()
         )
         metadata = {
             "parser": "DocMirror_CoreExtractor",
             "pipeline": "udtr_vnext",
+            "elapsed_ms": round((_clock() - started_at) * 1000.0, 3),
+            "extraction_method": extraction_method,
+            "ocr_engine": "rapidocr_onnxruntime" if has_scanned else None,
+            "table_engine": "scanned_image_line_grid" if table_count and has_scanned else "pymupdf_native",
+            "overall_confidence": round(overall_confidence, 4),
+            "warnings": ["low_ocr_confidence"] if has_scanned and overall_confidence < 0.8 else [],
             "selected_pages": [page.page_number for page in pages],
+            "selected_source_pages": [
+                int(page.page_number) for page in plane.pages if page.page_index in selected_indices
+            ],
             "ocr_mode": ocr_mode,
+            "page_split_mode": page_split_mode,
+            "page_split_rotation": preferred_spread_rotation,
+            "source_page_count": len(plane.pages),
+            "logical_page_count": spread_plan.logical_page_count,
+            "page_decomposition": {
+                "method": "rotated_two_page_spread"
+                if any(decision.should_split for decision in spread_plan.decisions.values())
+                else "none",
+                "confidence": spread_plan.confidence,
+            },
         }
         metadata["structure"] = self._build_vnext_structure_metadata(
             sample_text=sample_text,
@@ -430,6 +928,8 @@ class CoreExtractor:
             extraction_layer="udtr_vnext",
             physical_table_count=table_count,
         )
+        metadata["structure"]["source_page_count"] = len(plane.pages)
+        metadata["structure"]["logical_page_count"] = spread_plan.logical_page_count
         return BaseResult(
             document_id=doc_id,
             pages=tuple(pages),

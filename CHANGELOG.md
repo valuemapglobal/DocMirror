@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Mirror JSON 1.0.1] — 2026-07-16
+
+This is a backward-compatible patch release of the Mirror JSON contract. The
+Python distribution version remains 1.0.0.
+
+### Added
+- Automatic scanned-spread decomposition before OCR, with source-crop provenance, invertible coordinate transforms, and an explicit `--page-split` control.
+- Bordered-table reconstruction for scanned documents, including row/column bands, validated merged-cell spans, token-to-cell assignment, and compact physical-to-logical table references.
+- Durable `/v1/tasks` and `/v1/tasks/batch` APIs with status polling, isolated per-file artifacts, partial-failure handling, and safe artifact downloads.
+- Quality gates for table-grid integrity, physical-table reference integrity, and source-text conservation.
+- A real credit-report regression covering six physical scans expanded into eleven logical pages, 31 tables, evidence conservation, payload volume, and relationship integrity.
+
+### Changed
+- Mirror table geometry now has a single evidence owner per table; other cells retain only local geometry and provenance.
+- Standard page projections and logical-table provenance are compact references instead of repeated full table payloads.
+- Headerless tables now contribute their content to structured text, while the CLI reports raw extracted text and structured text separately.
+- Credit-report Mirror output no longer emits a bank-statement business view; domain formatting remains the responsibility of downstream editions.
+- Task execution now uses durable manifests, runtime-resolved output roots, stable artifact maps, and gateway fallback reporting.
+
+### Fixed
+- Rejected non-rectangular, full-grid, and divider-crossing merge candidates that produced overlapping table cells.
+- Eliminated empty table evidence atoms, repeated table-wide metadata, duplicated physical-table references, and self-referential graph edges.
+- Restored all 1,640 unique OCR source references for the credit-report fixture while reducing the affected Mirror payload from approximately 73 MB to 8.5 MB.
+- Restored headerless-table text that had reduced the CLI extracted-text result from approximately 12k characters to 4.5k characters.
+- Corrected VLM gateway fallback collection, credit-report hook invocation compatibility, task-route availability, and cross-format validation compatibility.
+
 ## [1.0.0] — 2026-06-30
 
 ### Added

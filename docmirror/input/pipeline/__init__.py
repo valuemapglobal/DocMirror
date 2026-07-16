@@ -80,7 +80,7 @@ def _failed_mirror(path: Path, exc: Exception) -> Any:
     return MirrorJsonVNext(
         mirror=MirrorInfo(
             schema="docmirror.mirror_json",
-            schema_version="3.0.0",
+            schema_version="1.0.1",
             engine="docmirror",
             engine_version="0.1.0",
             profile="canonical_full",

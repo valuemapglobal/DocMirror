@@ -97,6 +97,22 @@ def test_ocr_geometry_and_editions_are_normalized():
     assert any(item["from"] == "geometry=full" for item in control.implicit_promotions)
 
 
+def test_page_split_mode_is_normalized_and_changes_fingerprint():
+    auto = normalize_parse_control(page_split="auto")
+    off = normalize_parse_control(page_split="off")
+    force = normalize_parse_control(page_split="force")
+
+    assert auto.execution.page_split == "auto"
+    assert off.execution.page_split == "off"
+    assert force.execution.page_split == "force"
+    assert auto.fingerprint() != off.fingerprint()
+
+
+def test_invalid_page_split_mode_is_rejected():
+    with pytest.raises(ValueError, match="unsupported page split mode"):
+        normalize_parse_control(page_split="maybe")
+
+
 def test_exporter_registry_contains_non_json_formats():
     assert {"chunks", "html", "csv", "parquet"}.issubset(set(EXPORTER_REGISTRY.formats()))
 

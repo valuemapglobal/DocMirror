@@ -60,6 +60,7 @@ class ParseResultBridge:
             - Block(type=key_value) → KeyValuePair
         """
         from docmirror.models.entities.parse_result import (
+            ExtractionMethod,
             ParseResult,
             ParserInfo,
         )
@@ -70,13 +71,27 @@ class ParseResultBridge:
         if isinstance(structure, dict):
             structure = dict(structure)
             structure.setdefault("raw_full_text_length", len(getattr(base, "full_text", "") or ""))
+        extraction_method_raw = str(meta.get("extraction_method") or "digital")
+        try:
+            extraction_method = ExtractionMethod(extraction_method_raw)
+        except ValueError:
+            extraction_method = ExtractionMethod.DIGITAL
+        overall_confidence = float(meta.get("overall_confidence") or 0.0)
+        if overall_confidence <= 0.0 and pages:
+            overall_confidence = sum(float(page.page_confidence or 0.0) for page in pages) / len(pages)
         pr = ParseResult(
             pages=pages,
             raw_text=getattr(base, "full_text", "") or "",
+            confidence=max(0.0, min(1.0, overall_confidence)),
             parser_info=ParserInfo(
-                parser=meta.get("parser", ""),
+                parser_name=meta.get("parser", ""),
                 elapsed_ms=meta.get("elapsed_ms", 0),
                 page_count=len(base.pages),
+                extraction_method=extraction_method,
+                ocr_engine=meta.get("ocr_engine"),
+                table_engine=meta.get("table_engine"),
+                overall_confidence=max(0.0, min(1.0, overall_confidence)),
+                warnings=[str(item) for item in meta.get("warnings", []) or []],
                 structure=structure,
                 options={
                     "parse_control": meta.get("parse_control"),
@@ -224,7 +239,12 @@ class ParseResultBridge:
             pages.append(
                 PageLayout(
                     page_number=page_content.page_number,
+                    width=float(page_content.width or 0.0),
+                    height=float(page_content.height or 0.0),
                     blocks=tuple(blocks),
+                    is_scanned=page_content.page_mode in {"scanned", "scanned_ocr"},
+                    source_page_number=page_content.source_page_number,
+                    coordinate_transform=dict(page_content.coordinate_transform or {}),
                 )
             )
 
@@ -364,7 +384,39 @@ def _compose_logical_tables(
          composed before destructive merge, preserves cross-page provenance).
       2. Live composition from PageLayout list (same path as extractor Step 4.5).
     """
-    from docmirror.tables.compose.composer import build_table_operations
+    from docmirror.tables.compose.composer import TableComposer, build_table_operations
+
+    # Generic OCR line-grid tables are page-local physical observations.  Their
+    # varying local column systems do not provide sufficient evidence for a
+    # cross-page business-table merge.  Preserve them 1:1 so every real
+    # ``pt_{page}_{table_index}`` remains uniquely addressable in Mirror.
+    generic_scanned_tables = [
+        table
+        for page in pr.pages
+        for table in page.tables
+        if str((table.metadata or {}).get("source") or "") == "scanned_bordered_table_reconstructor"
+        or str(table.extraction_layer or "") == "scanned_image_line_grid"
+    ]
+    if generic_scanned_tables:
+        physical_logical = TableComposer.clone_physical_from_page_content(pr.pages)
+        pr.logical_tables = physical_logical
+        pr.table_operations = build_table_operations(physical_logical)
+        pr.parser_info.structure = dict(pr.parser_info.structure or {})
+        pr.parser_info.structure.update(
+            {
+                "logical_table_count": len(physical_logical),
+                "physical_table_count": len(generic_scanned_tables),
+                "dual_view": True,
+                "logical_table_policy": "physical_1to1_scanned_grid",
+                "quarantined_physical_count": 0,
+                "quarantined_logical_count": 0,
+            }
+        )
+        if base_metadata is not None:
+            base_metadata["dual_view"] = True
+            base_metadata["quarantined_tables"] = []
+            base_metadata["quarantined_logical_tables"] = []
+        return
 
     # Priority 1: Pre-composed from extractor metadata
     raw_tables = None

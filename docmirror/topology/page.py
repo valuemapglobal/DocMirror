@@ -1356,6 +1356,9 @@ def _table_region_provenance(atoms: list[EvidenceAtom]) -> dict[str, Any]:
         "cell_evidence_ids",
         "cell_token_ids",
         "cell_confidences",
+        "cell_spans",
+        "merge_diagnostics",
+        "table_geometry_confidence",
     )
     out: dict[str, Any] = {}
     for key in keys:

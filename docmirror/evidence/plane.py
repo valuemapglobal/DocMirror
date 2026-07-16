@@ -54,12 +54,16 @@ class DocumentSource:
 
         if isinstance(value, ParseResult):
             provenance = value.provenance
-            metadata: dict[str, Any] = {"page_count": value.page_count}
+            metadata: dict[str, Any] = {"logical_page_count": value.page_count}
             parser_info = getattr(value, "parser_info", None)
             if parser_info is not None:
                 parser_info_data = _model_dump(parser_info)
                 if parser_info_data:
                     metadata["parser_info"] = parser_info_data
+                structure = parser_info_data.get("structure") if isinstance(parser_info_data, dict) else None
+                if isinstance(structure, dict) and structure.get("source_page_count") is not None:
+                    metadata["source_page_count"] = int(structure["source_page_count"])
+            metadata["page_count"] = int(metadata.get("source_page_count") or value.page_count)
             entities = getattr(value, "entities", None)
             if entities is not None:
                 metadata["entities"] = _model_dump(entities)
@@ -76,7 +80,24 @@ class DocumentSource:
                     metadata["page_evidence_bundles"] = page_evidence_bundles
             logical_tables = getattr(value, "logical_tables", None) or []
             if logical_tables:
-                metadata["logical_tables"] = [_model_dump(logical_table) for logical_table in logical_tables]
+                logical_table_refs = []
+                for logical_table in logical_tables:
+                    item = _model_dump(logical_table)
+                    logical_table_refs.append(
+                        {
+                            "table_id": str(item.get("table_id") or item.get("logical_id") or ""),
+                            "logical_id": str(item.get("logical_id") or item.get("table_id") or ""),
+                            "source_physical_ids": [str(ref) for ref in item.get("source_physical_ids", [])],
+                            "source_pages": [int(page) for page in item.get("source_pages", [])],
+                            "page_span": list(item.get("page_span") or []),
+                            "merge_method": str(item.get("merge_method") or "none"),
+                            "merge_confidence": float(item.get("merge_confidence", 1.0) or 0.0),
+                            "quality_passed": bool(item.get("quality_passed", True)),
+                            "quality_skip_reason": item.get("quality_skip_reason"),
+                        }
+                    )
+                metadata["logical_table_count"] = len(logical_table_refs)
+                metadata["logical_tables"] = logical_table_refs
             sections = getattr(value, "sections", None) or []
             if sections:
                 metadata["sections"] = [_model_dump(section) for section in sections]
@@ -88,7 +109,17 @@ class DocumentSource:
                     metadata["pipeline_debug"] = pipeline_debug
             page_projections = _page_projection_dicts(value)
             if page_projections:
-                metadata["page_projections"] = page_projections
+                metadata["page_projection_count"] = len(page_projections)
+                region_projections = [
+                    {
+                        "page_number": int(item.get("page_number") or 0),
+                        "regions": list(item.get("regions") or []),
+                    }
+                    for item in page_projections
+                    if item.get("regions")
+                ]
+                if region_projections:
+                    metadata["page_projections"] = region_projections
             return cls(
                 value=value,
                 kind="parse_result",
@@ -227,23 +258,41 @@ class EvidencePlaneBuilder:
         ids = _EvidenceIdFactory()
         pages: list[EvidencePage] = []
         evidence = EvidenceStore()
+        diagnostics: list[dict[str, Any]] = []
         ocr_evidence_by_page = _ocr_text_evidence_by_page(result)
 
         for page_index, page in enumerate(getattr(result, "pages", []) or []):
+            text_atom_start = len(evidence.text_atoms)
             page_number = int(getattr(page, "page_number", page_index + 1) or page_index + 1)
             page_id = _page_id(page_number)
             width = _float_or_none(getattr(page, "width", None))
             height = _float_or_none(getattr(page, "height", None))
             rotation = _normalized_rotation(getattr(page, "rotation", 0))
             page_normalization = _page_normalization_metadata(page)
-            normalization_trace = _normalization_trace_from_page(
-                page_id=page_id,
-                width=width,
-                height=height,
-                rotation=rotation,
-                page_normalization=page_normalization,
-            )
-            coordinate_transform = _coordinate_transform_from_trace(normalization_trace)
+            provided_transform = dict(getattr(page, "coordinate_transform", None) or {})
+            if provided_transform:
+                coordinate_transform = provided_transform
+                coordinate_transform.setdefault(
+                    "source_page_number",
+                    int(getattr(page, "source_page_number", None) or page_number),
+                )
+                normalization_trace = _normalization_trace_from_transform(
+                    page_id=page_id,
+                    width=width,
+                    height=height,
+                    rotation=rotation,
+                    coordinate_transform=coordinate_transform,
+                )
+            else:
+                normalization_trace = _normalization_trace_from_page(
+                    page_id=page_id,
+                    width=width,
+                    height=height,
+                    rotation=rotation,
+                    page_normalization=page_normalization,
+                )
+                coordinate_transform = _coordinate_transform_from_trace(normalization_trace)
+            explicit_page_mode = str(getattr(page, "page_mode", None) or "").strip()
             page_record = EvidencePage(
                 page_id=page_id,
                 page_index=page_index,
@@ -254,9 +303,12 @@ class EvidencePlaneBuilder:
                 normalized_rotation=0,
                 coordinate_transform=coordinate_transform,
                 normalization_trace=normalization_trace,
-                content_mode="scanned_ocr"
-                if page_normalization
-                else ("native_text" if _page_has_parse_content(page) else "unknown"),
+                content_mode=explicit_page_mode
+                or (
+                    "scanned_ocr"
+                    if page_normalization
+                    else ("native_text" if _page_has_parse_content(page) else "unknown")
+                ),
             )
 
             for text in getattr(page, "texts", []) or []:
@@ -292,7 +344,21 @@ class EvidencePlaneBuilder:
             for table in getattr(page, "tables", []) or []:
                 table_bbox = _bbox(getattr(table, "bbox", None))
                 table_metadata = _table_atom_metadata(table)
+                table_geometry_owner_assigned = False
                 for header_index, header in enumerate(getattr(table, "headers", []) or []):
+                    header_metadata = {
+                        "block_type": "table",
+                        "table_id": str(getattr(table, "table_id", "") or ""),
+                        "header_index": header_index,
+                    }
+                    if not table_geometry_owner_assigned:
+                        header_metadata.update(
+                            {
+                                "table_bbox": table_bbox,
+                                "table_geometry_owner": True,
+                                **table_metadata,
+                            }
+                        )
                     atom = _text_atom(
                         ids,
                         page_number=page_number,
@@ -301,17 +367,12 @@ class EvidencePlaneBuilder:
                         bbox=None,
                         confidence=_confidence(getattr(table, "confidence", 1.0)),
                         source_refs=list(getattr(table, "evidence_ids", []) or []),
-                        metadata={
-                            "block_type": "table",
-                            "table_id": str(getattr(table, "table_id", "") or ""),
-                            "table_bbox": table_bbox,
-                            "header_index": header_index,
-                            **table_metadata,
-                        },
+                        metadata=header_metadata,
                     )
                     if atom:
                         evidence.text_atoms.append(atom)
                         page_record.evidence_ids.append(atom.id)
+                        table_geometry_owner_assigned = True
 
                 for row_index, row in enumerate(getattr(table, "rows", []) or []):
                     for col_index, cell in enumerate(getattr(row, "cells", []) or []):
@@ -320,16 +381,31 @@ class EvidencePlaneBuilder:
                         cell_text = str(getattr(cell, "text", "") or "")
                         cell_bbox = _bbox(getattr(cell, "bbox", None))
                         cell_geometry_status = str(getattr(cell, "geometry_status", "missing") or "missing")
-                        allow_empty_cell = bool(
-                            not cell_text
-                            and (
-                                cell_bbox
-                                or cell_evidence_ids
-                                or cell_token_ids
-                                or cell_geometry_status != "missing"
-                                or getattr(cell, "source_cell_refs", None)
+                        allow_empty_cell = bool(not cell_text and (cell_evidence_ids or cell_token_ids))
+                        cell_metadata = {
+                            "block_type": "table",
+                            "table_id": str(getattr(table, "table_id", "") or ""),
+                            "row_index": row_index,
+                            "col_index": col_index,
+                            "source_row_index": getattr(cell, "row_index", None),
+                            "source_col_index": getattr(cell, "col_index", None),
+                            "row_span": max(1, int(getattr(cell, "row_span", 1) or 1)),
+                            "col_span": max(1, int(getattr(cell, "col_span", 1) or 1)),
+                            "geometry_status": cell_geometry_status,
+                            "geometry_source": getattr(cell, "geometry_source", ""),
+                            "geometry_confidence": getattr(cell, "geometry_confidence", None),
+                            "geometry_loss_reason": getattr(cell, "geometry_loss_reason", None),
+                            "token_ids": cell_token_ids,
+                            "source_cell_refs": list(getattr(cell, "source_cell_refs", []) or []),
+                        }
+                        if not table_geometry_owner_assigned:
+                            cell_metadata.update(
+                                {
+                                    "table_bbox": table_bbox,
+                                    "table_geometry_owner": True,
+                                    **table_metadata,
+                                }
                             )
-                        )
                         atom = _text_atom(
                             ids,
                             page_number=page_number,
@@ -342,28 +418,13 @@ class EvidencePlaneBuilder:
                                 else getattr(cell, "confidence", 1.0)
                             ),
                             source_refs=cell_evidence_ids,
-                            metadata={
-                                "block_type": "table",
-                                "table_id": str(getattr(table, "table_id", "") or ""),
-                                "table_bbox": table_bbox,
-                                **table_metadata,
-                                "row_index": row_index,
-                                "col_index": col_index,
-                                "source_row_index": getattr(cell, "row_index", None),
-                                "source_col_index": getattr(cell, "col_index", None),
-                                "geometry_status": cell_geometry_status,
-                                "geometry_source": getattr(cell, "geometry_source", ""),
-                                "geometry_confidence": getattr(cell, "geometry_confidence", None),
-                                "geometry_loss_reason": getattr(cell, "geometry_loss_reason", None),
-                                "cell_evidence_ids": cell_evidence_ids,
-                                "token_ids": cell_token_ids,
-                                "source_cell_refs": list(getattr(cell, "source_cell_refs", []) or []),
-                            },
+                            metadata=cell_metadata,
                             allow_empty=allow_empty_cell,
                         )
                         if atom:
                             evidence.text_atoms.append(atom)
                             page_record.evidence_ids.append(atom.id)
+                            table_geometry_owner_assigned = True
 
             for item_index, item in enumerate(ocr_evidence_by_page.get(page_number, [])):
                 atom = _text_atom(
@@ -389,6 +450,9 @@ class EvidencePlaneBuilder:
             if ocr_evidence_by_page.get(page_number) and page_record.content_mode == "unknown":
                 page_record.content_mode = "scanned_ocr"
 
+            for atom in evidence.text_atoms[text_atom_start:]:
+                _attach_page_coordinates(atom, page_record)
+
             pages.append(page_record)
 
         # If the source has a filename pointing to an accessible PDF, render pages
@@ -405,22 +469,42 @@ class EvidencePlaneBuilder:
                 if Path(pdf_path).exists():
                     doc = fitz.open(pdf_path)
                     for page_record in pages:
-                        pn = page_record.page_number
-                        if pn <= 0 or pn > len(doc):
+                        source_pn = int(
+                            (page_record.coordinate_transform or {}).get("source_page_number")
+                            or page_record.page_number
+                        )
+                        if source_pn <= 0 or source_pn > len(doc):
                             continue
-                        fz_page = doc[pn - 1]
-                        pix = fz_page.get_pixmap(dpi=100)
+                        fz_page = doc[source_pn - 1]
+                        source_crop = (page_record.coordinate_transform or {}).get("source_crop_bbox")
+                        clip = None
+                        if isinstance(source_crop, list | tuple) and len(source_crop) == 4:
+                            try:
+                                clip = fitz.Rect(*(float(value) for value in source_crop))
+                            except (TypeError, ValueError):
+                                clip = None
+                        pix = fz_page.get_pixmap(dpi=100, clip=clip)
                         img_bytes = pix.tobytes("png")
                         # Create an image atom for the rendered page
                         page_id = page_record.page_id
-                        img_id = ids.next(pn, "image")
+                        img_id = ids.next(page_record.page_number, "image")
                         image_atom = EvidenceAtom(
                             id=img_id,
                             kind="rendered_image",
                             source_kind="pymupdf_page_render",
                             page_id=page_id,
-                            bbox=[0.0, 0.0, float(pix.width), float(pix.height)],
-                            metadata={"dpi": 100, "page_number": pn},
+                            bbox=[0.0, 0.0, float(page_record.width or 0.0), float(page_record.height or 0.0)],
+                            source_bbox=list(source_crop) if source_crop else None,
+                            coordinate_transform=dict(page_record.coordinate_transform or {}),
+                            metadata={
+                                "dpi": 100,
+                                "page_number": page_record.page_number,
+                                "source_page_number": source_pn,
+                                "source_crop_bbox": list(source_crop) if source_crop else None,
+                                "pixel_width": int(pix.width),
+                                "pixel_height": int(pix.height),
+                                "role": "page_background",
+                            },
                         )
                         evidence.image_atoms.append(image_atom)
                         page_record.evidence_ids.append(img_id)
@@ -440,7 +524,7 @@ class EvidencePlaneBuilder:
                             for det in detections[:5]:  # max 5 per page
                                 bbox = det.get("bbox", [0, 0, 100, 100])
                                 seal_atom = EvidenceAtom(
-                                    id=ids.next(pn, "visual"),
+                                    id=ids.next(page_record.page_number, "visual"),
                                     kind="visual_artifact",
                                     source_kind="seal_detector",
                                     page_id=page_id,
@@ -460,13 +544,21 @@ class EvidencePlaneBuilder:
                 import logging as _lg
 
                 _lg.getLogger("docmirror.evidence.plane").debug("[EvPlane] %s", _diag_msg)
+                diagnostics.append({"severity": "warning", "message": _diag_msg})
 
         _finalize_indexes(evidence)
+        physical_page_count = int(
+            source.metadata.get("source_page_count")
+            or source.metadata.get("page_count")
+            or len(pages)
+            or int(getattr(result, "page_count", 0) or 0)
+        )
         plane = EvidencePlane(
-            source=source.to_source_info(page_count=len(pages) or int(getattr(result, "page_count", 0) or 0)),
+            source=source.to_source_info(page_count=physical_page_count),
             pages=pages,
             evidence=evidence,
         )
+        plane.diagnostics.extend(diagnostics)
         plane.diagnostics.append({"severity": "info", "message": "built evidence plane from ParseResult"})
         return plane
 
@@ -1353,6 +1445,47 @@ def _text_atom(
     )
 
 
+def _attach_page_coordinates(atom: EvidenceAtom, page: EvidencePage) -> None:
+    """Attach the logical-page transform and compute the physical source bbox."""
+    transform = dict(page.coordinate_transform or {})
+    atom.coordinate_transform = transform
+    atom.metadata = {
+        **dict(atom.metadata or {}),
+        "logical_page_number": page.page_number,
+        "source_page_number": int(transform.get("source_page_number") or page.page_number),
+    }
+    bbox = _bbox(atom.bbox)
+    inverse = transform.get("inverse_matrix")
+    if bbox and _is_matrix3(inverse):
+        atom.source_bbox = _transform_bbox_with_matrix(inverse, bbox)
+    elif bbox:
+        atom.source_bbox = list(bbox)
+
+
+def _is_matrix3(value: Any) -> bool:
+    return isinstance(value, list) and len(value) == 3 and all(isinstance(row, list) and len(row) == 3 for row in value)
+
+
+def _transform_bbox_with_matrix(matrix: list[list[float]], bbox: list[float]) -> list[float]:
+    x0, y0, x1, y1 = bbox
+    points = [
+        _apply_coordinate_matrix(matrix, x0, y0),
+        _apply_coordinate_matrix(matrix, x1, y0),
+        _apply_coordinate_matrix(matrix, x1, y1),
+        _apply_coordinate_matrix(matrix, x0, y1),
+    ]
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+    return [round(min(xs), 4), round(min(ys), 4), round(max(xs), 4), round(max(ys), 4)]
+
+
+def _apply_coordinate_matrix(matrix: list[list[float]], x: float, y: float) -> tuple[float, float]:
+    return (
+        float(matrix[0][0]) * x + float(matrix[0][1]) * y + float(matrix[0][2]),
+        float(matrix[1][0]) * x + float(matrix[1][1]) * y + float(matrix[1][2]),
+    )
+
+
 def _finalize_indexes(evidence: EvidenceStore) -> None:
     by_page: dict[str, list[str]] = {}
     by_source: dict[str, list[str]] = {}
@@ -1431,10 +1564,14 @@ def _table_atom_metadata(table: Any) -> dict[str, Any]:
         "cell_evidence_ids",
         "cell_token_ids",
         "cell_confidences",
+        "cell_spans",
+        "merge_diagnostics",
     ):
         value = geometry.get(key, table_metadata.get(key))
         if value not in (None, "", [], {}):
             out[key] = value
+    if out.get("geometry_confidence") is not None:
+        out["table_geometry_confidence"] = out["geometry_confidence"]
     return out
 
 
@@ -2250,15 +2387,9 @@ def _seal_detection_enabled(metadata: dict[str, Any], scene: str = "") -> bool:
     value = os.environ.get("DOCMIRROR_UDTR_DETECT_SEALS", "")
     if value:
         return str(value).strip().lower() in {"1", "true", "yes", "on"}
-    # Auto-enable when OpenCV is available (it handles the overhead well).
-    # Seal detection costs ~50ms/page and is critical for legal/financial docs.
-    # Users can disable explicitly with detect_seals=false or env var.
-    try:
-        import cv2  # noqa: F401
-
-        return True
-    except ImportError:
-        pass
+    # Visual artifact detectors are heuristic and must be explicitly enabled;
+    # the page-background image atom already preserves the source visual plane.
+    _ = scene
     return False
 
 

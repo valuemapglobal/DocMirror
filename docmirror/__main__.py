@@ -155,6 +155,7 @@ async def parse_document(
     doc_type_policy: str | None = None,
     doc_type_hint: str | None = None,
     ocr: str | None = None,
+    page_split: str | None = None,
     geometry: str | None = None,
     include_geometry: bool | None = None,
     run_id: str | None = None,
@@ -200,6 +201,7 @@ async def parse_document(
         cache_policy=cache_policy,
         skip_cache=skip_cache,
         ocr=ocr,
+        page_split=page_split,
     )
     mirror_level = control.output.mirror_level
     include_text = control.output.include_text
@@ -306,7 +308,9 @@ async def parse_document(
             table.add_row("Confidence", f"{result.confidence:.2%}")
             table.add_row("Pages", str(result.page_count))
             table.add_row("Tables Found", str(_effective_table_count(result)))
-            table.add_row("Extracted Text", f"{len(result.full_text)} chars")
+            extracted_text = result.raw_text or result.full_text
+            table.add_row("Extracted Text", f"{len(extracted_text)} chars")
+            table.add_row("Structured Text", f"{len(result.full_text)} chars")
             table.add_row("Time Elapsed", f"{wall_elapsed_ms:.0f} ms")
 
             # Wall-clock breakdown (CLI-02)
@@ -531,6 +535,12 @@ def main() -> None:
         help="Parse mode",
     )
     parser.add_argument("--ocr", default="auto", choices=["auto", "force", "off", "fallback"], help="OCR policy")
+    parser.add_argument(
+        "--page-split",
+        default="auto",
+        choices=["auto", "off", "force"],
+        help="Split scanned two-page spreads before OCR",
+    )
     parser.add_argument("--editions", default=None, help="Output editions: mirror,community,enterprise,finance,all")
     parser.add_argument("--doc-type", default=None, help="Manual document type")
     parser.add_argument(
@@ -639,6 +649,7 @@ def main() -> None:
             cache_policy=args.cache_policy,
             skip_cache=resolved_skip_cache,
             ocr=args.ocr,
+            page_split=args.page_split,
         )
         _cpu_count = multiprocessing.cpu_count()
         _budget = resolve_worker_budget(control.resource.workers, file_count=len(files), cpu_count=_cpu_count)
@@ -733,6 +744,7 @@ def main() -> None:
                 doc_type_policy=args.doc_type_policy,
                 doc_type_hint=None,
                 ocr=args.ocr,
+                page_split=args.page_split,
                 geometry=args.geometry,
                 include_geometry=None,
                 run_id=args.run_id,
