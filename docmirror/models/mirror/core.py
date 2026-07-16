@@ -60,7 +60,7 @@ class MirrorCoreVNext:
         payload = {
             "mirror": {
                 "schema": "docmirror.mirror_json",
-                "schema_version": "1.0.1",
+                "schema_version": "1.0.2",
                 "engine": "udtr",
                 "engine_version": options.engine_version,
                 "profile": options.profile,
@@ -197,13 +197,31 @@ class MirrorCoreVNext:
         )
         quality["verification"] = verification_report.summary()
         quality["verification"]["scope"] = "internal_consistency"
+        correction_audit = self._ocr_correction_audit(plane)
+        if correction_audit:
+            quality["ocr_correction"] = {key: value for key, value in correction_audit.items() if key != "events"}
         source = to_json_safe(plane.source)
         if options.source_filename:
             source["filename"] = options.source_filename
+        source_provenance = source.get("provenance") if isinstance(source, dict) else None
+        source_parser_info = source_provenance.get("parser_info") if isinstance(source_provenance, dict) else None
+        source_parser_options = source_parser_info.get("options") if isinstance(source_parser_info, dict) else None
+        if isinstance(source_parser_options, dict):
+            # Canonical events live in evidence.indexes; avoid duplicating the
+            # potentially large audit ledger in source parser options.
+            source_parser_options.pop("ocr_corrections", None)
+        evidence_payload = to_json_safe(plane.evidence)
+        if correction_audit:
+            indexes = evidence_payload.setdefault("indexes", {})
+            indexes["ocr_corrections"] = {
+                str(event.get("event_id") or f"corr:{index:06d}"): event
+                for index, event in enumerate(correction_audit.get("events") or [], start=1)
+                if isinstance(event, dict)
+            }
         payload = {
             "mirror": {
                 "schema": "docmirror.mirror_json",
-                "schema_version": "1.0.1",
+                "schema_version": "1.0.2",
                 "engine": "udtr",
                 "engine_version": options.engine_version,
                 "profile": options.profile,
@@ -211,7 +229,7 @@ class MirrorCoreVNext:
             "source": source,
             "document": document,
             "pages": pages,
-            "evidence": to_json_safe(plane.evidence),
+            "evidence": evidence_payload,
             "regions": regions,
             "blocks": to_json_safe(blocks),
             "graph": graph,
@@ -243,6 +261,14 @@ class MirrorCoreVNext:
             },
         }
         return MirrorResult(payload)
+
+    @staticmethod
+    def _ocr_correction_audit(plane: Any) -> dict[str, Any]:
+        provenance = getattr(getattr(plane, "source", None), "provenance", {}) or {}
+        parser_info = provenance.get("parser_info") if isinstance(provenance, dict) else None
+        options = parser_info.get("options") if isinstance(parser_info, dict) else None
+        audit = options.get("ocr_corrections") if isinstance(options, dict) else None
+        return dict(audit) if isinstance(audit, dict) else {}
 
     def _sha256_file(self, path: Path) -> str:
         digest = sha256()

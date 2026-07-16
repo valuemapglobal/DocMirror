@@ -118,6 +118,21 @@ def reconstruct_scanned_statement_table(
     if _non_empty_cells(raw[1:]) < 8:
         return None
 
+    correction_mode = _ocr_correction_mode(blocks)
+    correction_scope = _ocr_correction_scope(blocks)
+    raw, correction_events, correction_processed_count = _correct_table_grid(
+        raw,
+        cell_evidence_ids=cell_evidence_ids,
+        cell_confidences=cell_confidences,
+        domain="financial_report",
+        mode=correction_mode,
+        **correction_scope,
+        page_number=page_number,
+        table_index=0,
+    )
+    owned_ids = {eid for row in cell_evidence_ids for cell in row for eid in cell}
+    correction_events = [*_source_correction_events(blocks, owned_ids), *correction_events]
+
     bbox = _union_bbox([token.bbox for row in table_rows for token in row.tokens])
     geometry = {
         "geometry_source": "scanned_ocr_statement_grid",
@@ -149,6 +164,9 @@ def reconstruct_scanned_statement_table(
             "preserve_headers": True,
             "statement_keywords": [kw for kw in _FINANCIAL_KEYWORDS if kw in page_text],
             "source": "scanned_table_reconstructor",
+            "ocr_correction_mode": correction_mode,
+            "ocr_correction_processed_count": correction_processed_count,
+            **({"ocr_corrections": correction_events} if correction_events else {}),
             "page_width": page_width,
             "page_height": page_height,
             **orientation_attrs,
@@ -297,6 +315,21 @@ def reconstruct_scanned_bordered_tables(
         non_empty = sum(1 for row in raw for value in row if value.strip())
         if non_empty < 3:
             continue
+        correction_mode = _ocr_correction_mode(blocks)
+        correction_scope = _ocr_correction_scope(blocks)
+        page_text = " ".join(str(block.raw_content or "") for block in blocks)
+        correction_domain = _infer_correction_domain(page_text)
+        raw, correction_events, correction_processed_count = _correct_table_grid(
+            raw,
+            cell_evidence_ids=cell_evidence_ids,
+            cell_confidences=cell_confidences,
+            domain=correction_domain,
+            mode=correction_mode,
+            **correction_scope,
+            page_number=page_number,
+            table_index=table_index,
+        )
+        correction_events = [*_source_correction_events(blocks, owned_ids), *correction_events]
         h_strength = _line_projection_strength(horizontal, x0, y0, x1, y1, axis=1, positions=y_lines)
         v_strength = _line_projection_strength(vertical, x0, y0, x1, y1, axis=0, positions=x_lines)
         assignment_ratio = len(owned_ids) / max(
@@ -352,6 +385,9 @@ def reconstruct_scanned_bordered_tables(
                     "role": "physical_table",
                     "preserve_headers": False,
                     "source": "scanned_bordered_table_reconstructor",
+                    "ocr_correction_mode": correction_mode,
+                    "ocr_correction_processed_count": correction_processed_count,
+                    **({"ocr_corrections": correction_events} if correction_events else {}),
                     "page_width": page_width,
                     "page_height": page_height,
                 },
@@ -566,6 +602,151 @@ def _block_to_token(block: Block) -> _Token | None:
     return _Token(
         text=text, bbox=bbox, evidence_id=evidence_ids[0] if evidence_ids else block.block_id, confidence=confidence
     )
+
+
+def _ocr_correction_mode(blocks: list[Block]) -> str:
+    for block in blocks:
+        mode = str((block.attrs or {}).get("ocr_correction_mode") or "")
+        if mode in {"off", "safe", "suggest"}:
+            return mode
+    return "safe"
+
+
+def _ocr_correction_scope(blocks: list[Block]) -> dict[str, Any]:
+    for block in blocks:
+        attrs = block.attrs or {}
+        if attrs.get("ocr_correction_processed"):
+            return {
+                "language": str(attrs.get("ocr_correction_language") or "") or None,
+                "country": str(attrs.get("ocr_correction_country") or "") or None,
+                "locale": str(attrs.get("ocr_correction_locale") or "") or None,
+                "pack_ids": tuple(str(value) for value in attrs.get("ocr_correction_pack_ids") or []),
+            }
+    return {"language": None, "country": None, "locale": None, "pack_ids": ()}
+
+
+def _infer_correction_domain(text: str) -> str | None:
+    compact = str(text or "")
+    if any(keyword in compact for keyword in _FINANCIAL_KEYWORDS):
+        return "financial_report"
+    if "统一社会信用代码" in compact or "营业执照" in compact:
+        return "business_license"
+    if "发票代码" in compact or "发票号码" in compact or "价税合计" in compact:
+        return "invoice"
+    if ("交易日期" in compact or "交易时间" in compact) and ("余额" in compact or "交易金额" in compact):
+        return "bank_statement"
+    if "信用报告" in compact or "征信报告" in compact:
+        return "credit_report"
+    return None
+
+
+def _correct_table_grid(
+    raw: list[list[str]],
+    *,
+    cell_evidence_ids: list[list[list[str]]],
+    cell_confidences: list[list[float | None]],
+    domain: str | None,
+    mode: str,
+    language: str | None,
+    country: str | None,
+    locale: str | None,
+    pack_ids: tuple[str, ...],
+    page_number: int,
+    table_index: int,
+) -> tuple[list[list[str]], list[dict[str, Any]], int]:
+    from docmirror.ocr.correction import CorrectionContext, SafeOCRCorrector
+
+    if not raw:
+        return raw, [], 0
+    corrector = SafeOCRCorrector()
+    headers = [str(value or "") for value in raw[0]]
+    out = [list(row) for row in raw]
+    events: list[dict[str, Any]] = []
+    processed_count = 0
+    for row_index, row in enumerate(out):
+        for col_index, value in enumerate(row):
+            text = str(value or "").strip()
+            if not text:
+                continue
+            role = _table_cell_role(
+                row_index=row_index,
+                col_index=col_index,
+                headers=headers,
+                domain=domain,
+            )
+            if role == "data":
+                continue
+            processed_count += 1
+            evidence_ids = (
+                cell_evidence_ids[row_index][col_index]
+                if row_index < len(cell_evidence_ids) and col_index < len(cell_evidence_ids[row_index])
+                else []
+            )
+            confidence = (
+                cell_confidences[row_index][col_index]
+                if row_index < len(cell_confidences) and col_index < len(cell_confidences[row_index])
+                else None
+            )
+            source_ref = (
+                evidence_ids[0] if evidence_ids else f"table:p{page_number}:t{table_index}:r{row_index}:c{col_index}"
+            )
+            decision = corrector.correct(
+                text,
+                CorrectionContext(
+                    role=role,
+                    domain=domain,
+                    source_ref=source_ref,
+                    ocr_confidence=confidence,
+                    mode=mode if mode in {"off", "safe", "suggest"} else "safe",
+                    language=language,
+                    country=country,
+                    locale=locale,
+                    pack_ids=pack_ids,
+                    metadata={"field_type": role if role in {"date", "amount"} else ""},
+                ),
+            )
+            row[col_index] = decision.output_text
+            if decision.action != "unchanged":
+                event = decision.to_dict()
+                event["target"] = {
+                    "kind": "table_cell",
+                    "page": page_number,
+                    "table": table_index,
+                    "row": row_index,
+                    "column": col_index,
+                }
+                events.append(event)
+    return out, events, processed_count
+
+
+def _table_cell_role(*, row_index: int, col_index: int, headers: list[str], domain: str | None) -> str:
+    if row_index == 0:
+        return "table_header"
+    if col_index == 0 and domain in {"financial_report", "business_license"}:
+        return "field_label"
+    header = headers[col_index] if col_index < len(headers) else ""
+    if re.search(r"日期|时间|期限|年月日", header):
+        return "date"
+    if re.search(r"金额|余额|价款|合计|总计|收入|支出|借方|贷方", header):
+        return "amount"
+    if re.search(r"代码|编号|证号|税号|账号|卡号", header):
+        return "code"
+    return "data"
+
+
+def _source_correction_events(blocks: list[Block], owned_ids: set[str]) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for block in blocks:
+        if not (_block_evidence_ids(block) & owned_ids):
+            continue
+        event = (block.attrs or {}).get("ocr_correction")
+        if isinstance(event, dict):
+            events.append(dict(event))
+    return events
+
+
+def _block_evidence_ids(block: Block) -> set[str]:
+    return set(block.evidence_ids or ()) or ({block.block_id} if block.block_id else set())
 
 
 def _ocr_orientation_attrs(blocks: list[Block]) -> dict[str, Any]:

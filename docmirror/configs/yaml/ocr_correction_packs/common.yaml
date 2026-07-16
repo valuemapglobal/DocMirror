@@ -1,0 +1,18 @@
+# Locale-neutral additions. The legacy 1.0.2 file remains the compatibility base.
+pack_id: builtin.common
+version: 1
+priority: -500
+
+thresholds:
+  max_weighted_distance: 1.0
+  min_candidate_margin: 0.5
+
+lexicons:
+  international_business:
+    roles: [text_line, field_label, table_header, institution, unknown]
+    terms:
+      - Payment
+      - Statement
+      - Balance
+      - Currency
+      - Reference

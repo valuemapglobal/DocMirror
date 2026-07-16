@@ -1,0 +1,12 @@
+pack_id: ar.common
+version: 1
+priority: 50
+language: ar
+
+lexicons:
+  business_fields:
+    roles: [field_label, table_header]
+    terms:
+      - رقم الفاتورة
+      - تاريخ الفاتورة
+      - المبلغ الإجمالي

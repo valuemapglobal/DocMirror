@@ -155,6 +155,11 @@ async def parse_document(
     doc_type_policy: str | None = None,
     doc_type_hint: str | None = None,
     ocr: str | None = None,
+    ocr_correction: str | None = None,
+    ocr_language: str | None = None,
+    ocr_country: str | None = None,
+    ocr_locale: str | None = None,
+    ocr_correction_packs: str | list[str] | tuple[str, ...] | None = None,
     page_split: str | None = None,
     geometry: str | None = None,
     include_geometry: bool | None = None,
@@ -201,6 +206,11 @@ async def parse_document(
         cache_policy=cache_policy,
         skip_cache=skip_cache,
         ocr=ocr,
+        ocr_correction=ocr_correction,
+        ocr_language=ocr_language,
+        ocr_country=ocr_country,
+        ocr_locale=ocr_locale,
+        ocr_correction_packs=ocr_correction_packs,
         page_split=page_split,
     )
     mirror_level = control.output.mirror_level
@@ -536,6 +546,21 @@ def main() -> None:
     )
     parser.add_argument("--ocr", default="auto", choices=["auto", "force", "off", "fallback"], help="OCR policy")
     parser.add_argument(
+        "--ocr-correction",
+        default="safe",
+        choices=["off", "safe", "suggest"],
+        help="Deterministic OCR correction policy",
+    )
+    parser.add_argument("--ocr-language", default=None, help="ISO 639 OCR language hint, for example zh or en")
+    parser.add_argument("--ocr-country", default=None, help="ISO country hint, for example CN or US")
+    parser.add_argument("--ocr-locale", default=None, help="OCR locale hint, for example zh-CN")
+    parser.add_argument(
+        "--ocr-correction-pack",
+        action="append",
+        default=[],
+        help="Enable a correction pack by id; can be repeated",
+    )
+    parser.add_argument(
         "--page-split",
         default="auto",
         choices=["auto", "off", "force"],
@@ -649,6 +674,11 @@ def main() -> None:
             cache_policy=args.cache_policy,
             skip_cache=resolved_skip_cache,
             ocr=args.ocr,
+            ocr_correction=args.ocr_correction,
+            ocr_language=args.ocr_language,
+            ocr_country=args.ocr_country,
+            ocr_locale=args.ocr_locale,
+            ocr_correction_packs=args.ocr_correction_pack,
             page_split=args.page_split,
         )
         _cpu_count = multiprocessing.cpu_count()
@@ -673,10 +703,11 @@ def main() -> None:
                 name = fp.name
                 console.print(f"[bold cyan][{idx}/{total}][/bold cyan] ⏳ {name}")
                 try:
+                    from docmirror.input.entry.factory import PerceiveOptions
                     from docmirror.input.pipeline import perceive_document
 
                     path = fp.resolve()
-                    result = await perceive_document(path)
+                    result = await perceive_document(path, PerceiveOptions(control=_per_file_control))
 
                     # Handle both MirrorResult (new) and PerceptionResult (raw fallback)
                     if hasattr(result, "to_dict"):
@@ -744,6 +775,11 @@ def main() -> None:
                 doc_type_policy=args.doc_type_policy,
                 doc_type_hint=None,
                 ocr=args.ocr,
+                ocr_correction=args.ocr_correction,
+                ocr_language=args.ocr_language,
+                ocr_country=args.ocr_country,
+                ocr_locale=args.ocr_locale,
+                ocr_correction_packs=args.ocr_correction_pack,
                 page_split=args.page_split,
                 geometry=args.geometry,
                 include_geometry=None,

@@ -87,6 +87,11 @@ class DocMirrorClient:
         editions: list[str] | None = None,
         pages: str | None = None,
         doc_type: str | None = None,
+        ocr_correction: str = "safe",
+        ocr_language: str | None = None,
+        ocr_country: str | None = None,
+        ocr_locale: str | None = None,
+        ocr_correction_packs: list[str] | None = None,
         raise_on_error: bool = False,
     ) -> TaskResult:
         """Parse a single document synchronously.
@@ -99,6 +104,11 @@ class DocMirrorClient:
             editions: Output editions to generate.
             pages: Page selection string.
             doc_type: Document type hint.
+            ocr_correction: Deterministic OCR correction policy — ``safe``, ``suggest``, or ``off``.
+            ocr_language: Optional ISO 639 language hint for correction pack selection.
+            ocr_country: Optional ISO country hint for validators and correction packs.
+            ocr_locale: Optional locale hint such as ``zh-CN``.
+            ocr_correction_packs: Optional correction pack ids to enable.
             raise_on_error: If True, raise ``DocMirrorError`` on failure.
 
         Returns:
@@ -113,6 +123,11 @@ class DocMirrorClient:
                 editions=editions,
                 pages=pages,
                 doc_type=doc_type,
+                ocr_correction=ocr_correction,
+                ocr_language=ocr_language,
+                ocr_country=ocr_country,
+                ocr_locale=ocr_locale,
+                ocr_correction_packs=ocr_correction_packs,
                 raise_on_error=raise_on_error,
             )
         )
@@ -127,6 +142,11 @@ class DocMirrorClient:
         editions: list[str] | None = None,
         pages: str | None = None,
         doc_type: str | None = None,
+        ocr_correction: str = "safe",
+        ocr_language: str | None = None,
+        ocr_country: str | None = None,
+        ocr_locale: str | None = None,
+        ocr_correction_packs: list[str] | None = None,
         raise_on_error: bool = False,
     ) -> TaskResult:
         """Async implementation of parse()."""
@@ -144,6 +164,11 @@ class DocMirrorClient:
             formats=",".join(formats_tuple),
             pages=pages,
             doc_type_hint=doc_type,
+            ocr_correction=ocr_correction,
+            ocr_language=ocr_language,
+            ocr_country=ocr_country,
+            ocr_locale=ocr_locale,
+            ocr_correction_packs=ocr_correction_packs,
         )
         options = PerceiveOptions(control=control)
 

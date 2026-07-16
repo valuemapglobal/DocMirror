@@ -260,6 +260,7 @@ class EvidencePlaneBuilder:
         evidence = EvidenceStore()
         diagnostics: list[dict[str, Any]] = []
         ocr_evidence_by_page = _ocr_text_evidence_by_page(result)
+        correction_by_ref = _ocr_correction_by_source_ref(result)
 
         for page_index, page in enumerate(getattr(result, "pages", []) or []):
             text_atom_start = len(evidence.text_atoms)
@@ -312,6 +313,7 @@ class EvidencePlaneBuilder:
             )
 
             for text in getattr(page, "texts", []) or []:
+                source_refs = list(getattr(text, "evidence_ids", []) or [])
                 atom = _text_atom(
                     ids,
                     page_number=page_number,
@@ -319,8 +321,12 @@ class EvidencePlaneBuilder:
                     text=str(getattr(text, "content", "") or ""),
                     bbox=_bbox(getattr(text, "bbox", None)),
                     confidence=_confidence(getattr(text, "confidence", 1.0)),
-                    source_refs=list(getattr(text, "evidence_ids", []) or []),
-                    metadata={"block_type": "text", "level": str(getattr(getattr(text, "level", ""), "value", ""))},
+                    source_refs=source_refs,
+                    metadata={
+                        "block_type": "text",
+                        "level": str(getattr(getattr(text, "level", ""), "value", "")),
+                        **_ocr_correction_metadata(correction_by_ref, source_refs),
+                    },
                 )
                 if atom:
                     evidence.text_atoms.append(atom)
@@ -350,6 +356,10 @@ class EvidencePlaneBuilder:
                         "block_type": "table",
                         "table_id": str(getattr(table, "table_id", "") or ""),
                         "header_index": header_index,
+                        **_ocr_correction_metadata(
+                            correction_by_ref,
+                            list(getattr(table, "evidence_ids", []) or []),
+                        ),
                     }
                     if not table_geometry_owner_assigned:
                         header_metadata.update(
@@ -397,6 +407,7 @@ class EvidencePlaneBuilder:
                             "geometry_loss_reason": getattr(cell, "geometry_loss_reason", None),
                             "token_ids": cell_token_ids,
                             "source_cell_refs": list(getattr(cell, "source_cell_refs", []) or []),
+                            **_ocr_correction_metadata(correction_by_ref, cell_evidence_ids),
                         }
                         if not table_geometry_owner_assigned:
                             cell_metadata.update(
@@ -1412,6 +1423,44 @@ def _email_body_text(message: Any) -> str:
         parser.feed(payload)
         return "\n".join(parser.texts)
     return payload
+
+
+def _ocr_correction_by_source_ref(result: Any) -> dict[str, dict[str, Any]]:
+    parser_info = getattr(result, "parser_info", None)
+    options = getattr(parser_info, "options", None) or {}
+    audit = options.get("ocr_corrections") if isinstance(options, dict) else None
+    events = audit.get("events") if isinstance(audit, dict) else None
+    out: dict[str, dict[str, Any]] = {}
+    for event in events or []:
+        if not isinstance(event, dict):
+            continue
+        source_ref = str(event.get("source_ref") or "")
+        if source_ref and source_ref not in out:
+            out[source_ref] = dict(event)
+    return out
+
+
+def _ocr_correction_metadata(
+    correction_by_ref: dict[str, dict[str, Any]],
+    source_refs: list[str],
+) -> dict[str, Any]:
+    for source_ref in source_refs:
+        event = correction_by_ref.get(str(source_ref))
+        if not event:
+            continue
+        return {
+            "ocr_original_text": str(event.get("original") or ""),
+            "ocr_corrected_text": str(event.get("corrected") or ""),
+            "ocr_correction_id": str(event.get("event_id") or ""),
+            "ocr_correction_action": str(event.get("action") or ""),
+            "ocr_correction_rule_id": str(event.get("rule_id") or ""),
+            "ocr_correction_pack_id": str(event.get("pack_id") or ""),
+            "ocr_correction_pack_version": event.get("pack_version"),
+            "ocr_correction_language": str(event.get("language") or ""),
+            "ocr_correction_country": str(event.get("country") or ""),
+            "ocr_correction_locale": str(event.get("locale") or ""),
+        }
+    return {}
 
 
 def _text_atom(

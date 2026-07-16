@@ -22,8 +22,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_USCC_CHARSET = "0123456789ABCDEFGHJKLMNPQRTUWXY"
-_USCC_WEIGHTS = (1, 3, 9, 27, 19, 26, 16, 17, 20, 29, 25, 13, 8, 24, 10, 30, 28)
+from docmirror.ocr.correction.validators import validate_uscc
 
 _CREDIT_SECTION_MARKERS = (
     "个人基本信息",
@@ -74,20 +73,6 @@ def normalize_vat_fields(fields: dict[str, Any]) -> tuple[dict[str, Any], list[s
         if compact != amount:
             out["total_amount"] = compact
     return out, warnings
-
-
-def validate_uscc(code: str) -> bool:
-    """Validate unified social credit code checksum (GB 32100-2015)."""
-    normalized = re.sub(r"\s+", "", str(code or "")).upper()
-    if len(normalized) != 18:
-        return False
-    if not all(c in _USCC_CHARSET for c in normalized):
-        return False
-    total = 0
-    for i, ch in enumerate(normalized[:17]):
-        total += _USCC_CHARSET.index(ch) * _USCC_WEIGHTS[i]
-    check = _USCC_CHARSET[(31 - total % 31) % 31]
-    return normalized[17] == check
 
 
 def enrich_business_license_output(

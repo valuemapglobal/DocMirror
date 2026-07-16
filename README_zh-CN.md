@@ -66,10 +66,28 @@ field=invoice_number value=INV-2026-001 confidence=0.99 page=1 bbox=[88, 112, 23
 ```bash
 pip install "docmirror[pdf,ocr,office]"
 docmirror parse statement.pdf \
+  --ocr-correction safe \
+  --ocr-locale zh-CN \
   --format json,markdown,chunks \
   --output-dir ./output \
   --debug-artifact
 ```
+
+扫描件 OCR 默认启用确定性的安全纠错。使用 `--ocr-correction suggest`
+可只审计候选而不改写输出；使用 `--ocr-correction off` 可仅保留基础字符规范化。
+可以通过 `--ocr-language`、`--ocr-country`、`--ocr-locale` 和可重复的
+`--ocr-correction-pack` 选择语言、国家及客户规则包。规则维护不需要执行文档解析：
+
+```bash
+docmirror ocr-correction validate
+docmirror ocr-correction list-packs
+docmirror ocr-correction explain "应收账款周转牢" --locale zh-CN --domain financial_report --role field_label
+docmirror ocr-correction evaluate ./tests/fixtures/ocr_correction --fail-on-regression
+```
+
+项目或客户私有规则包可通过 `DOCMIRROR_OCR_CORRECTION_PACKS` 指定目录；设置
+`opt_in: true` 的规则包必须由请求显式启用。审计记录会保留 OCR 原文、规则包 ID/版本、
+语言地区、候选分数和唯一性边际。
 
 典型输出：
 
@@ -121,7 +139,7 @@ DocMirror 的 Mirror 输出是 document-shaped，并且保留 evidence / quality
 
 ```json
 {
-  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.1"},
+  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.2"},
   "source": {"filename": "statement.pdf"},
   "document": {"document_type": "bank_statement", "document_type_candidates": []},
   "pages": [],

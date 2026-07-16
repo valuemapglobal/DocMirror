@@ -45,7 +45,7 @@ def test_real_credit_report_rotated_spreads_expand_to_eleven_logical_pages():
     assert len(parse_result.raw_text) >= 10_000
     assert len(parse_result.full_text) >= 9_000
     mirror = parse_result.to_mirror_json_vnext(source_filename=str(_FIXTURE.resolve()))
-    assert mirror["mirror"]["schema_version"] == "1.0.1"
+    assert mirror["mirror"]["schema_version"] == "1.0.2"
     assert mirror["source"]["page_count"] == 6
     assert len(mirror["source"]["sha256"]) == 64
     assert not mirror["source"]["sha256"].startswith("fast:")

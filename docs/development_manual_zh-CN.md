@@ -19,7 +19,7 @@ DocMirror 是面向商业凭证的可信解析层，产品定位是 **Commercial
 - Python 包版本为 `1.0.0`，公共包名为 `docmirror`。
 - Python 支持 `>=3.10`，测试矩阵覆盖 Python 3.10 到 3.13。
 - 公共 OSS wheel 只打包 `docmirror` 主包；`docmirror_enterprise`、`docmirror_finance`、`tests`、`scripts`、`docs`、`sdks` 等不进入公共 wheel。
-- Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.1`。
+- Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.2`。
 - CLI、REST API、Python API 和 edition 输出最终都围绕同一个 `ParseResult`/Mirror 投影链路工作。
 
 ## 2. 快速上手
@@ -215,6 +215,9 @@ curl -F "file=@document.pdf" http://localhost:8000/v1/parse
 | `mode` | `auto`、`fast`、`balanced`、`accurate`、`forensic` |
 | `execution.cache_policy` | `read-write`、`read-only`、`refresh`、`off` |
 | `execution.ocr` | `auto`、`force`、`off`、`fallback` |
+| `execution.ocr_correction` | `safe`、`suggest`、`off` |
+| `execution.ocr_language/country/locale` | OCR 纠错语言和国家地区提示 |
+| `execution.ocr_correction_packs` | 显式启用的 opt-in 规则包 ID |
 | `output.formats` | `json`、`markdown`、`csv`、`chunks`、`html`、`parquet`、`evidence` |
 | `output.editions` | `mirror`、`community`、`enterprise`、`finance` |
 | `output.mirror_level` | `standard`、`compact`、`forensic` |
@@ -769,9 +772,30 @@ pip install "docmirror[server]"
 尝试：
 
 ```bash
-docmirror parse scan.pdf --mode accurate --ocr force --debug-artifact
+docmirror parse scan.pdf --mode accurate --ocr force --ocr-correction safe --debug-artifact
+docmirror parse scan.pdf --ocr-correction safe --ocr-locale zh-CN --ocr-correction-pack customer.finance
 docmirror parse scan.pdf --mode forensic --geometry full --debug-artifact
 ```
+
+纠错策略可选 `safe`（唯一、可验证候选自动应用）、`suggest`（只记录候选）和
+`off`（仅基础字符规范化）。纠错摘要位于 Mirror `quality.ocr_correction`，
+逐项审计记录位于 `evidence.indexes.ocr_corrections`。
+
+规则包位于 `docmirror/configs/yaml/ocr_correction_packs/`，由 `pack_id`、版本、
+优先级、语言/国家/领域范围、精确规则、词库、混淆成本和校验器声明组成。客户私有包
+通过环境变量 `DOCMIRROR_OCR_CORRECTION_PACKS` 加载；建议设置 `opt_in: true`，避免
+对其他客户请求自动生效。维护和回放命令：
+
+```bash
+docmirror ocr-correction validate
+docmirror ocr-correction list-packs
+docmirror ocr-correction explain "营业牧入" --locale zh-CN --domain financial_report --role field_label
+docmirror ocr-correction evaluate ./golden_samples --fail-on-regression
+docmirror ocr-correction export-candidates mirror.json review.jsonl
+```
+
+新增规则必须同时提供正例、反例和幂等测试。格式校验器只能报告合法性；只有存在可靠
+校验算法并得到唯一候选时，`safe` 模式才允许自动改写。
 
 检查：
 

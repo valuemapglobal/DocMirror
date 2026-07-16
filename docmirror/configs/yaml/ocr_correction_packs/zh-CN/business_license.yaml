@@ -1,0 +1,17 @@
+pack_id: zh-CN.business-license
+version: 1
+priority: 100
+language: zh
+country: CN
+locale: zh-CN
+domains: [business_license]
+
+validators: [cn.uscc]
+
+lexicons:
+  license_fields:
+    roles: [field_label, table_header]
+    terms:
+      - 登记状态
+      - 核准日期
+      - 登记机关

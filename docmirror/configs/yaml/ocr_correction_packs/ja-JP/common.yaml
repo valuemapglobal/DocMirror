@@ -1,0 +1,16 @@
+pack_id: ja-JP.common
+version: 1
+priority: 50
+language: ja
+country: JP
+locale: ja-JP
+
+lexicons:
+  business_fields:
+    roles: [field_label, table_header]
+    terms:
+      - 法人番号
+      - 登録番号
+      - 請求書番号
+      - 取引金額
+      - 支払期限

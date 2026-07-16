@@ -66,6 +66,18 @@ class _OcrLogicalPage:
     image: Any | None = None
 
 
+def _ocr_word_confidence(word: Any, default: float = 1.0) -> float:
+    """Read confidence from either legacy 6-tuples or RapidOCR word 9-tuples."""
+    for index in (-1, 8, 5):
+        try:
+            value = float(word[index])
+        except (IndexError, TypeError, ValueError):
+            continue
+        if 0.0 <= value <= 1.0:
+            return value
+    return default
+
+
 def _selected_page_indices(plane: Any, parse_control: Any) -> set[int]:
     total = len(getattr(plane, "pages", []) or [])
     if total <= 0:
@@ -115,7 +127,7 @@ def _ocr_blocks_for_pdf_page(
         if len(word) < 5:
             continue
         x0, y0, x1, y1, text = word[:5]
-        confidence = float(word[8]) if len(word) > 8 else 1.0
+        confidence = _ocr_word_confidence(word)
         text = str(text or "").strip()
         if not text:
             continue
@@ -481,7 +493,7 @@ def _ocr_words_to_blocks(
         if len(word) < 5:
             continue
         x0, y0, x1, y1, text = word[:5]
-        confidence = float(word[8]) if len(word) > 8 else 1.0
+        confidence = _ocr_word_confidence(word)
         text = str(text or "").strip()
         if not text:
             continue
@@ -657,6 +669,123 @@ def _block_full_text(block: Block) -> str:
     return ""
 
 
+def _correct_ocr_blocks(
+    blocks: list[Block],
+    *,
+    mode: str = "safe",
+    domain: str | None = None,
+    language: str | None = None,
+    country: str | None = None,
+    locale: str | None = None,
+    pack_ids: tuple[str, ...] = (),
+) -> list[Block]:
+    """Apply the shared safe corrector while preserving geometry and evidence IDs."""
+    from docmirror.ocr.correction import CorrectionContext, SafeOCRCorrector
+
+    corrector = SafeOCRCorrector()
+    corrected: list[Block] = []
+    for block in blocks:
+        if not isinstance(block.raw_content, str) or block.block_type not in {"text", "title", "footer"}:
+            corrected.append(block)
+            continue
+        original = block.raw_content
+        attrs = dict(block.attrs or {})
+        source_ref = next(iter(block.evidence_ids or ()), block.block_id)
+        raw_confidence = attrs.get("confidence", attrs.get("extraction_confidence"))
+        try:
+            confidence = float(raw_confidence) if raw_confidence is not None else None
+        except (TypeError, ValueError):
+            confidence = None
+        decision = corrector.correct(
+            original,
+            CorrectionContext(
+                role="text_line",
+                domain=domain,
+                source_ref=str(source_ref or block.block_id),
+                ocr_confidence=confidence,
+                mode=mode if mode in {"off", "safe", "suggest"} else "safe",
+                language=language,
+                country=country,
+                locale=locale,
+                pack_ids=pack_ids,
+            ),
+        )
+        output = decision.output_text
+        attrs["ocr_correction_mode"] = mode
+        attrs["ocr_correction_processed"] = True
+        attrs["ocr_correction_language"] = language
+        attrs["ocr_correction_country"] = country
+        attrs["ocr_correction_locale"] = locale
+        attrs["ocr_correction_pack_ids"] = list(pack_ids)
+        if decision.action != "unchanged":
+            attrs["ocr_original_text"] = original
+            attrs["ocr_correction"] = decision.to_dict()
+        spans = tuple(replace(span, text=output) for span in block.spans) if block.spans else block.spans
+        corrected.append(replace(block, raw_content=output, spans=spans, attrs=attrs))
+    return corrected
+
+
+def _collect_ocr_correction_audit(pages: list[PageLayout], *, mode: str) -> dict[str, Any]:
+    """Collect compact page/block correction events for Mirror projection."""
+    processed_count = 0
+    events: list[dict[str, Any]] = []
+    for page in pages:
+        for block in page.blocks:
+            attrs = dict(block.attrs or {})
+            if attrs.get("ocr_correction_processed"):
+                processed_count += 1
+            processed_count += int(attrs.get("ocr_correction_processed_count") or 0)
+            event = attrs.get("ocr_correction")
+            if isinstance(event, dict):
+                events.append(dict(event))
+            for item in attrs.get("ocr_corrections") or []:
+                if isinstance(item, dict):
+                    events.append(dict(item))
+
+    deduplicated: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str, str]] = set()
+    for event in events:
+        target = event.get("target") if isinstance(event.get("target"), dict) else {}
+        key = (
+            str(event.get("source_ref") or ""),
+            str(event.get("original") or ""),
+            str(event.get("corrected") or ""),
+            str(event.get("rule_id") or ""),
+            str(sorted(target.items())),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        item = dict(event)
+        item["event_id"] = f"corr:{len(deduplicated) + 1:06d}"
+        deduplicated.append(item)
+
+    applied_count = sum(1 for event in deduplicated if event.get("action") == "applied")
+    suggested_count = sum(1 for event in deduplicated if event.get("action") == "suggested")
+    selected_pack_ids = sorted(
+        {str(pack_id) for event in deduplicated for pack_id in event.get("selected_pack_ids") or [] if str(pack_id)}
+    )
+    selected_pack_versions = {
+        str(item.get("pack_id")): int(item.get("version") or 1)
+        for event in deduplicated
+        for item in event.get("selected_packs") or []
+        if isinstance(item, dict) and item.get("pack_id")
+    }
+    return {
+        "mode": mode,
+        "rules_version": 1,
+        "processed_count": processed_count,
+        "applied_count": applied_count,
+        "suggested_count": suggested_count,
+        "unchanged_count": max(0, processed_count - applied_count - suggested_count),
+        "selected_pack_ids": selected_pack_ids,
+        "selected_pack_versions": dict(sorted(selected_pack_versions.items())),
+        "languages": sorted({str(event["language"]) for event in deduplicated if event.get("language")}),
+        "countries": sorted({str(event["country"]) for event in deduplicated if event.get("country")}),
+        "events": deduplicated,
+    }
+
+
 class CoreExtractor:
     """
     Core extractor — generates immutable BaseResult from PDF.
@@ -768,6 +897,15 @@ class CoreExtractor:
         options = dict(options or {})
         parse_control = options.get("parse_control")
         ocr_mode = getattr(getattr(parse_control, "execution", None), "ocr", "auto") if parse_control else "auto"
+        ocr_correction_mode = (
+            getattr(getattr(parse_control, "execution", None), "ocr_correction", "safe") if parse_control else "safe"
+        )
+        correction_execution = getattr(parse_control, "execution", None)
+        correction_language = getattr(correction_execution, "ocr_language", None)
+        correction_country = getattr(correction_execution, "ocr_country", None)
+        correction_locale = getattr(correction_execution, "ocr_locale", None)
+        correction_pack_ids = tuple(getattr(correction_execution, "ocr_correction_packs", ()) or ())
+        correction_domain = str(getattr(getattr(parse_control, "doc_type_hint", None), "value", "") or "") or None
         plane = await asyncio.to_thread(EvidencePlaneBuilder().build, str(file_path))
         selected_indices = _selected_page_indices(plane, parse_control)
         page_split_mode = (
@@ -828,7 +966,15 @@ class CoreExtractor:
                 )
                 if ocr_pages:
                     for ocr_page in ocr_pages:
-                        page_blocks = list(ocr_page.blocks)
+                        page_blocks = _correct_ocr_blocks(
+                            list(ocr_page.blocks),
+                            mode=ocr_correction_mode,
+                            domain=correction_domain,
+                            language=correction_language,
+                            country=correction_country,
+                            locale=correction_locale,
+                            pack_ids=correction_pack_ids,
+                        )
                         if blocks and len(ocr_pages) == 1:
                             page_blocks = blocks + [
                                 replace(block, reading_order=len(blocks) + block.reading_order) for block in page_blocks
@@ -911,6 +1057,11 @@ class CoreExtractor:
                 int(page.page_number) for page in plane.pages if page.page_index in selected_indices
             ],
             "ocr_mode": ocr_mode,
+            "ocr_correction_mode": ocr_correction_mode,
+            "ocr_correction_language": correction_language,
+            "ocr_correction_country": correction_country,
+            "ocr_correction_locale": correction_locale,
+            "ocr_correction_pack_ids": list(correction_pack_ids),
             "page_split_mode": page_split_mode,
             "page_split_rotation": preferred_spread_rotation,
             "source_page_count": len(plane.pages),
@@ -930,6 +1081,11 @@ class CoreExtractor:
         )
         metadata["structure"]["source_page_count"] = len(plane.pages)
         metadata["structure"]["logical_page_count"] = spread_plan.logical_page_count
+        if has_scanned:
+            metadata["ocr_corrections"] = _collect_ocr_correction_audit(
+                pages,
+                mode=ocr_correction_mode,
+            )
         return BaseResult(
             document_id=doc_id,
             pages=tuple(pages),
@@ -1014,6 +1170,16 @@ class CoreExtractor:
 
         t0 = _clock()
         options = dict(options or {})
+        parse_control = options.get("parse_control")
+        ocr_correction_mode = (
+            getattr(getattr(parse_control, "execution", None), "ocr_correction", "safe") if parse_control else "safe"
+        )
+        correction_execution = getattr(parse_control, "execution", None)
+        correction_language = getattr(correction_execution, "ocr_language", None)
+        correction_country = getattr(correction_execution, "ocr_country", None)
+        correction_locale = getattr(correction_execution, "ocr_locale", None)
+        correction_pack_ids = tuple(getattr(correction_execution, "ocr_correction_packs", ()) or ())
+        correction_domain = str(getattr(getattr(parse_control, "doc_type_hint", None), "value", "") or "") or None
         _on_progress = options.get("on_progress")
         if _on_progress:
             _on_progress("load_document", 1.0, "Analyzing document structure...")
@@ -1043,7 +1209,15 @@ class CoreExtractor:
             logger.info(
                 f"[QGE] Low-quality image (quality={_pa_quality:.2f}), skipping scanned pipeline, running direct OCR"
             )
-            ocr_blocks, qge_tokens = CoreExtractor._qge_plain_ocr_fallback(file_path)
+            ocr_blocks, qge_tokens = CoreExtractor._qge_plain_ocr_fallback(
+                file_path,
+                correction_mode=ocr_correction_mode,
+                correction_domain=correction_domain,
+                correction_language=correction_language,
+                correction_country=correction_country,
+                correction_locale=correction_locale,
+                correction_pack_ids=correction_pack_ids,
+            )
             if ocr_blocks:
                 pages, full_text = CoreExtractor._qge_build_pages_from_blocks(ocr_blocks)
             else:
@@ -1094,7 +1268,15 @@ class CoreExtractor:
                         f"[QGE] Extraction quality low (score={quality.score:.2f}, "
                         f"reason={quality.reason}), running plain OCR fallback"
                     )
-                    ocr_blocks, qge_tokens = CoreExtractor._qge_plain_ocr_fallback(file_path)
+                    ocr_blocks, qge_tokens = CoreExtractor._qge_plain_ocr_fallback(
+                        file_path,
+                        correction_mode=ocr_correction_mode,
+                        correction_domain=correction_domain,
+                        correction_language=correction_language,
+                        correction_country=correction_country,
+                        correction_locale=correction_locale,
+                        correction_pack_ids=correction_pack_ids,
+                    )
                     if ocr_blocks:
                         pages, full_text, _, _ = CoreExtractor._qge_merge_results(pages, full_text, ocr_blocks)
                     if qge_tokens:
@@ -1190,6 +1372,17 @@ class CoreExtractor:
         if table_count > 0:
             metadata["extraction_quality"] = self._assess_extraction_quality(
                 pages, extraction_layer, extraction_confidence
+            )
+
+        if any(page.is_scanned for page in pages):
+            metadata["ocr_correction_mode"] = ocr_correction_mode
+            metadata["ocr_correction_language"] = correction_language
+            metadata["ocr_correction_country"] = correction_country
+            metadata["ocr_correction_locale"] = correction_locale
+            metadata["ocr_correction_pack_ids"] = list(correction_pack_ids)
+            metadata["ocr_corrections"] = _collect_ocr_correction_audit(
+                pages,
+                mode=ocr_correction_mode,
             )
 
         metadata["structure"] = self._build_structure_metadata(
@@ -1380,7 +1573,16 @@ class CoreExtractor:
         return CoreExtractor._QgeQuality(score, total_blocks, total_text_chars, table_count, reason)
 
     @staticmethod
-    def _qge_plain_ocr_fallback(file_path: Path) -> tuple[list[Block], list[dict]]:
+    def _qge_plain_ocr_fallback(
+        file_path: Path,
+        *,
+        correction_mode: str = "safe",
+        correction_domain: str | None = None,
+        correction_language: str | None = None,
+        correction_country: str | None = None,
+        correction_locale: str | None = None,
+        correction_pack_ids: tuple[str, ...] = (),
+    ) -> tuple[list[Block], list[dict]]:
         """Bypass layout analysis; run RapidOCR detect_image_words directly.
 
         Returns a list of ``Block`` (type=text) with position and confidence,
@@ -1468,7 +1670,7 @@ class CoreExtractor:
             min_y = min(ww[1] for ww in word_group)
             max_x = max(ww[2] for ww in word_group)
             max_y = max(ww[3] for ww in word_group)
-            avg_conf = sum(ww[5] if len(ww) > 5 else 0.9 for ww in word_group) / len(word_group)
+            avg_conf = sum(_ocr_word_confidence(ww, 0.9) for ww in word_group) / len(word_group)
 
             blocks.append(
                 Block(
@@ -1495,13 +1697,22 @@ class CoreExtractor:
                     token_id=f"qge_p1_t{idx}",
                     text=token_text,
                     bbox=(float(ww[0]), float(ww[1]), float(ww[2]), float(ww[3])),
-                    confidence=float(ww[5]) if len(ww) > 5 else 0.9,
+                    confidence=_ocr_word_confidence(ww, 0.9),
                     page=1,
                     source="qge_fallback",
                     coordinate_system="image_pixels",
                 ).to_dict()
             )
 
+        blocks = _correct_ocr_blocks(
+            blocks,
+            mode=correction_mode,
+            domain=correction_domain,
+            language=correction_language,
+            country=correction_country,
+            locale=correction_locale,
+            pack_ids=correction_pack_ids,
+        )
         logger.info(
             f"[QGE] Plain OCR fallback: {len(blocks)} text blocks, {len(qge_tokens)} OCR tokens from {len(words)} words"
         )

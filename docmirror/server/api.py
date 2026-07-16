@@ -136,6 +136,15 @@ async def parse_document(
     max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
     workers: str | None = Query(default=None, description="Total worker budget for this request"),
     mode: str = Query(default="auto", pattern="^(auto|fast|balanced|accurate|forensic)$", description="Parse mode"),
+    ocr_correction: str = Query(
+        default="safe",
+        pattern="^(off|safe|suggest)$",
+        description="Deterministic OCR correction policy",
+    ),
+    ocr_language: str | None = Query(default=None, description="ISO 639 OCR language hint"),
+    ocr_country: str | None = Query(default=None, description="ISO country hint"),
+    ocr_locale: str | None = Query(default=None, description="OCR locale hint"),
+    ocr_correction_packs: str | None = Query(default=None, description="Comma-separated correction pack ids"),
     format: str = Query(default="json", description="Requested output formats for parse control fingerprint"),
     doc_type_hint: str | None = Query(default=None, description="Manual document type hint, optionally type:force"),
     authorization: str | None = Header(default=None),
@@ -177,6 +186,11 @@ async def parse_document(
             mirror_level=mirror_level,
             include_text=include_text,
             doc_type_hint=doc_type_hint,
+            ocr_correction=ocr_correction,
+            ocr_language=ocr_language,
+            ocr_country=ocr_country,
+            ocr_locale=ocr_locale,
+            ocr_correction_packs=ocr_correction_packs,
         )
         result = await perceive_document(temp_path, PerceiveOptions(control=control))
         api_payload = build_api_response(
@@ -205,6 +219,11 @@ async def batch_parse(
     max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
     workers: str | None = Query(default=None, description="Total worker budget for this request"),
     mode: str = Query(default="auto", pattern="^(auto|fast|balanced|accurate|forensic)$", description="Parse mode"),
+    ocr_correction: str = Query(default="safe", pattern="^(off|safe|suggest)$"),
+    ocr_language: str | None = Query(default=None),
+    ocr_country: str | None = Query(default=None),
+    ocr_locale: str | None = Query(default=None),
+    ocr_correction_packs: str | None = Query(default=None),
     doc_type_hint: str | None = Query(default=None, description="Manual document type hint, optionally type:force"),
     authorization: str | None = Header(default=None),
 ):
@@ -226,6 +245,11 @@ async def batch_parse(
         mode=mode,
         mirror_level="forensic" if include_geometry else "standard",
         doc_type_hint=doc_type_hint,
+        ocr_correction=ocr_correction,
+        ocr_language=ocr_language,
+        ocr_country=ocr_country,
+        ocr_locale=ocr_locale,
+        ocr_correction_packs=ocr_correction_packs,
     )
     _budget = resolve_worker_budget(_control.resource.workers, file_count=len(files), cpu_count=_cpu_count)
     _semaphore = asyncio.Semaphore(_budget.file_workers)
@@ -282,6 +306,11 @@ async def parse_file_on_server(
     max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
     workers: str | None = Query(default=None, description="Total worker budget for this request"),
     mode: str = Query(default="auto", pattern="^(auto|fast|balanced|accurate|forensic)$", description="Parse mode"),
+    ocr_correction: str = Query(default="safe", pattern="^(off|safe|suggest)$"),
+    ocr_language: str | None = Query(default=None),
+    ocr_country: str | None = Query(default=None),
+    ocr_locale: str | None = Query(default=None),
+    ocr_correction_packs: str | None = Query(default=None),
     format: str = Query(default="json", description="Requested output formats for parse control fingerprint"),
     doc_type_hint: str | None = Query(default=None, description="Manual document type hint, optionally type:force"),
     authorization: str | None = Header(default=None),
@@ -307,6 +336,11 @@ async def parse_file_on_server(
             mirror_level="forensic" if include_geometry else "standard",
             include_text=include_text,
             doc_type_hint=doc_type_hint,
+            ocr_correction=ocr_correction,
+            ocr_language=ocr_language,
+            ocr_country=ocr_country,
+            ocr_locale=ocr_locale,
+            ocr_correction_packs=ocr_correction_packs,
         )
         result = await perceive_document(path, PerceiveOptions(control=control))
         api_payload = build_api_response(

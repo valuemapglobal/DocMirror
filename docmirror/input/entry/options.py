@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
@@ -24,6 +25,7 @@ DocTypePolicy = Literal["prefer", "force"]
 Edition = Literal["mirror", "community", "enterprise", "finance"]
 GeometryLevel = Literal["none", "page", "block", "token", "full"]
 OcrMode = Literal["auto", "force", "off", "fallback"]
+OcrCorrectionMode = Literal["off", "safe", "suggest"]
 PageSplitMode = Literal["auto", "off", "force"]
 SafetyMode = Literal["off", "low", "medium", "high"]
 """Safety inspection strictness for AI pipeline defense.
@@ -51,6 +53,7 @@ _STABLE_EDITIONS: tuple[Edition, ...] = ("mirror", "community", "enterprise", "f
 _VALID_EDITIONS = frozenset(_STABLE_EDITIONS)
 _VALID_GEOMETRY_LEVELS = frozenset(("none", "page", "block", "token", "full"))
 _VALID_OCR_MODES = frozenset(("auto", "force", "off", "fallback"))
+_VALID_OCR_CORRECTION_MODES = frozenset(("off", "safe", "suggest"))
 _VALID_PAGE_SPLIT_MODES = frozenset(("auto", "off", "force"))
 _VALID_SAFETY_MODES = frozenset(("off", "low", "medium", "high"))
 
@@ -148,6 +151,11 @@ class ExecutionControl:
 
     cache_policy: CachePolicy = "read-write"
     ocr: OcrMode = "auto"
+    ocr_correction: OcrCorrectionMode = "safe"
+    ocr_language: str | None = None
+    ocr_country: str | None = None
+    ocr_locale: str | None = None
+    ocr_correction_packs: tuple[str, ...] = ()
     page_split: PageSplitMode = "auto"
 
 
@@ -192,6 +200,11 @@ class ParseControl:
             "execution": {
                 "cache_policy": self.execution.cache_policy,
                 "ocr": self.execution.ocr,
+                "ocr_correction": self.execution.ocr_correction,
+                "ocr_language": self.execution.ocr_language,
+                "ocr_country": self.execution.ocr_country,
+                "ocr_locale": self.execution.ocr_locale,
+                "ocr_correction_packs": list(self.execution.ocr_correction_packs),
                 "page_split": self.execution.page_split,
             },
             "safety": {
@@ -366,6 +379,30 @@ def parse_ocr_mode(raw: str | None = None) -> OcrMode:
     return normalized  # type: ignore[return-value]
 
 
+def parse_ocr_correction_mode(raw: str | None = None) -> OcrCorrectionMode:
+    normalized = (raw or "safe").strip().lower()
+    if normalized not in _VALID_OCR_CORRECTION_MODES:
+        raise ValueError(f"unsupported OCR correction mode: {normalized}")
+    return normalized  # type: ignore[return-value]
+
+
+def parse_ocr_correction_packs(raw: str | list[str] | tuple[str, ...] | None) -> tuple[str, ...]:
+    if raw is None:
+        return ()
+    values = [raw] if isinstance(raw, str) else list(raw)
+    out: list[str] = []
+    for value in values:
+        for item in str(value).split(","):
+            pack_id = item.strip()
+            if not pack_id:
+                continue
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", pack_id):
+                raise ValueError(f"invalid OCR correction pack id: {pack_id!r}")
+            if pack_id not in out:
+                out.append(pack_id)
+    return tuple(out)
+
+
 def parse_page_split_mode(raw: str | None = None) -> PageSplitMode:
     normalized = (raw or "auto").strip().lower()
     if normalized not in _VALID_PAGE_SPLIT_MODES:
@@ -435,6 +472,11 @@ def normalize_parse_control(
     cache_policy: str | None = None,
     skip_cache: bool | None = None,
     ocr: str | None = None,
+    ocr_correction: str | None = None,
+    ocr_language: str | None = None,
+    ocr_country: str | None = None,
+    ocr_locale: str | None = None,
+    ocr_correction_packs: str | list[str] | tuple[str, ...] | None = None,
     page_split: str | None = None,
     enhance_mode: str | None = None,
 ) -> ParseControl:
@@ -470,9 +512,39 @@ def normalize_parse_control(
     elif skip_cache is not None:
         resolved_cache_policy = parse_cache_policy(skip_cache=bool(skip_cache))
 
+    from docmirror.ocr.correction.language import resolve_language_hint
+
+    locale_input = (
+        ocr_locale
+        if ocr_locale is not None
+        else (None if ocr_language is not None or ocr_country is not None else base.execution.ocr_locale)
+    )
+    language_context = resolve_language_hint(
+        "",
+        language=(
+            ocr_language
+            if ocr_language is not None
+            else (None if ocr_locale is not None else base.execution.ocr_language)
+        ),
+        country=(
+            ocr_country if ocr_country is not None else (None if ocr_locale is not None else base.execution.ocr_country)
+        ),
+        locale=locale_input,
+    )
     execution = ExecutionControl(
         cache_policy=resolved_cache_policy,
         ocr=parse_ocr_mode(ocr) if ocr is not None else base.execution.ocr,
+        ocr_correction=(
+            parse_ocr_correction_mode(ocr_correction) if ocr_correction is not None else base.execution.ocr_correction
+        ),
+        ocr_language=language_context.language,
+        ocr_country=language_context.country,
+        ocr_locale=language_context.locale,
+        ocr_correction_packs=(
+            parse_ocr_correction_packs(ocr_correction_packs)
+            if ocr_correction_packs is not None
+            else base.execution.ocr_correction_packs
+        ),
         page_split=parse_page_split_mode(page_split) if page_split is not None else base.execution.page_split,
     )
 
@@ -587,6 +659,8 @@ __all__ = [
     "parse_doc_type_hint",
     "parse_editions",
     "parse_geometry",
+    "parse_ocr_correction_mode",
+    "parse_ocr_correction_packs",
     "parse_ocr_mode",
     "parse_output_formats",
     "parse_page_split_mode",

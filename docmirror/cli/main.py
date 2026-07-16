@@ -27,6 +27,7 @@ TAGLINE = "DocMirror - The Trust Layer for Commercial Documents. Parse. Prove. T
 COMMANDS = {
     "classify": ("docmirror.cli.classify", "classify"),
     "mcp": ("docmirror.cli.mcp", "mcp"),
+    "ocr-correction": ("docmirror.cli.ocr_correction", "ocr_correction"),
     "pdfua": ("docmirror.cli.pdfua", "pdfua"),
     "plugins": ("docmirror.cli.plugins", "plugins"),
 }
@@ -35,6 +36,7 @@ COMMAND_HELP = {
     "classify": "Classify commercial documents by type.",
     "doctor": "Show installation and optional capability status.",
     "mcp": "Start the DocMirror MCP server.",
+    "ocr-correction": "Validate, inspect, and evaluate OCR correction packs.",
     "parse": "Parse a document and save verifiable outputs.",
     "pdfua": "Convert a document to tagged PDF/UA.",
     "plugins": "Plugin management commands.",
@@ -170,6 +172,17 @@ def _find_spec_quiet(module_name: str) -> Any:
     help="OCR policy",
 )
 @click.option(
+    "--ocr-correction",
+    default="safe",
+    type=click.Choice(["off", "safe", "suggest"]),
+    show_default=True,
+    help="Deterministic OCR correction policy",
+)
+@click.option("--ocr-language", default=None, help="ISO 639 OCR language hint, for example zh or en")
+@click.option("--ocr-country", default=None, help="ISO 3166-1 alpha-2 country hint, for example CN or US")
+@click.option("--ocr-locale", default=None, help="OCR locale hint, for example zh-CN")
+@click.option("--ocr-correction-pack", "ocr_correction_packs", multiple=True, help="Enable a correction pack by id")
+@click.option(
     "--format",
     "-f",
     "formats",
@@ -234,6 +247,11 @@ def parse(
     workers: str | None,
     mode: str,
     ocr: str,
+    ocr_correction: str,
+    ocr_language: str | None,
+    ocr_country: str | None,
+    ocr_locale: str | None,
+    ocr_correction_packs: tuple[str, ...],
     formats: str,
     editions: str,
     doc_type: str | None,
@@ -290,6 +308,11 @@ def parse(
             doc_type_policy=doc_type_policy,
             doc_type_hint=None,
             ocr=ocr,
+            ocr_correction=ocr_correction,
+            ocr_language=ocr_language,
+            ocr_country=ocr_country,
+            ocr_locale=ocr_locale,
+            ocr_correction_packs=ocr_correction_packs,
             geometry=geometry,
             include_geometry=None,
             run_id=run_id,

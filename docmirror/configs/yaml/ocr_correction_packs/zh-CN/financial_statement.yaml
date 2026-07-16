@@ -1,0 +1,28 @@
+pack_id: zh-CN.financial-statement
+version: 1
+priority: 100
+language: zh
+country: CN
+locale: zh-CN
+domains: [financial_report]
+
+confusions:
+  "牢":
+    "率": 0.2
+  "牧":
+    "收": 0.2
+
+exact_rules:
+  - id: finance.receivables_turnover_rate
+    observed: "应收账款周转牢"
+    canonical: "应收账款周转率"
+    roles: [field_label, table_header]
+
+lexicons:
+  financial_metrics:
+    roles: [field_label, table_header]
+    terms:
+      - 应收账款周转率
+      - 存货周转率
+      - 总资产周转率
+      - 净资产收益率

@@ -46,6 +46,11 @@ async def create_task(
     formats: str = Query(default="json"),
     editions: str = Query(default="mirror,community"),
     mode: str = Query(default="auto", pattern="^(auto|fast|balanced|accurate|forensic)$"),
+    ocr_correction: str = Query(default="safe", pattern="^(off|safe|suggest)$"),
+    ocr_language: str | None = Query(default=None),
+    ocr_country: str | None = Query(default=None),
+    ocr_locale: str | None = Query(default=None),
+    ocr_correction_packs: str | None = Query(default=None),
     pages: str | None = Query(default=None),
     max_pages: int | None = Query(default=None),
     workers: str | None = Query(default=None),
@@ -64,6 +69,11 @@ async def create_task(
         max_pages=max_pages,
         workers=workers,
         include_text=include_text,
+        ocr_correction=ocr_correction,
+        ocr_language=ocr_language,
+        ocr_country=ocr_country,
+        ocr_locale=ocr_locale,
+        ocr_correction_packs=ocr_correction_packs,
     )
     task_id = _new_task_id()
     output_root = task_output_root()
@@ -94,6 +104,11 @@ async def create_batch_task(
     formats: str = Query(default="json"),
     editions: str = Query(default="mirror,community"),
     mode: str = Query(default="auto", pattern="^(auto|fast|balanced|accurate|forensic)$"),
+    ocr_correction: str = Query(default="safe", pattern="^(off|safe|suggest)$"),
+    ocr_language: str | None = Query(default=None),
+    ocr_country: str | None = Query(default=None),
+    ocr_locale: str | None = Query(default=None),
+    ocr_correction_packs: str | None = Query(default=None),
     pages: str | None = Query(default=None),
     max_pages: int | None = Query(default=None),
     workers: str | None = Query(default=None),
@@ -114,6 +129,11 @@ async def create_batch_task(
         max_pages=max_pages,
         workers=workers,
         include_text=include_text,
+        ocr_correction=ocr_correction,
+        ocr_language=ocr_language,
+        ocr_country=ocr_country,
+        ocr_locale=ocr_locale,
+        ocr_correction_packs=ocr_correction_packs,
     )
     task_id = _new_task_id()
     output_root = task_output_root()

@@ -66,10 +66,32 @@ Parse your own document:
 ```bash
 pip install "docmirror[pdf,ocr,office]"
 docmirror parse statement.pdf \
+  --ocr-correction safe \
+  --ocr-locale en-US \
   --format json,markdown,chunks \
   --output-dir ./output \
   --debug-artifact
 ```
+
+Scanned OCR uses deterministic safe correction by default. Use
+`--ocr-correction suggest` to audit candidates without changing output, or
+`--ocr-correction off` to keep normalization-only behavior.
+Locale-aware correction packs can be selected with `--ocr-language`,
+`--ocr-country`, `--ocr-locale`, and repeatable `--ocr-correction-pack` flags.
+Maintain packs without parsing a document:
+
+```bash
+docmirror ocr-correction validate
+docmirror ocr-correction list-packs
+docmirror ocr-correction explain "Micros0ft" --language en --role text_line
+docmirror ocr-correction evaluate ./tests/fixtures/ocr_correction --fail-on-regression
+```
+
+Project or customer packs can be loaded from paths listed in
+`DOCMIRROR_OCR_CORRECTION_PACKS` (platform path separator). Opt-in packs set
+`opt_in: true` and are enabled per request by pack id. Original OCR evidence is
+always retained; pack id, version, locale, candidates, and decision margin are
+recorded in the correction audit.
 
 Typical output:
 
@@ -121,7 +143,7 @@ DocMirror's mirror output is document-shaped and evidence-aware:
 
 ```json
 {
-  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.1"},
+  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.2"},
   "source": {"filename": "statement.pdf"},
   "document": {"document_type": "bank_statement", "document_type_candidates": []},
   "pages": [],

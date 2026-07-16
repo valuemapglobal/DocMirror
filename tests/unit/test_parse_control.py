@@ -113,6 +113,44 @@ def test_invalid_page_split_mode_is_rejected():
         normalize_parse_control(page_split="maybe")
 
 
+def test_ocr_correction_mode_is_normalized_and_changes_fingerprint():
+    safe = normalize_parse_control(ocr_correction="safe")
+    suggest = normalize_parse_control(ocr_correction="suggest")
+    off = normalize_parse_control(ocr_correction="off")
+
+    assert safe.execution.ocr_correction == "safe"
+    assert suggest.execution.ocr_correction == "suggest"
+    assert off.execution.ocr_correction == "off"
+    assert safe.fingerprint() != suggest.fingerprint()
+
+
+def test_invalid_ocr_correction_mode_is_rejected():
+    with pytest.raises(ValueError, match="unsupported OCR correction mode"):
+        normalize_parse_control(ocr_correction="aggressive")
+
+
+def test_ocr_locale_and_pack_selection_are_normalized_and_fingerprinted():
+    base = normalize_parse_control()
+    localized = normalize_parse_control(
+        ocr_locale="zh_cn",
+        ocr_correction_packs="customer.finance,zh-CN.financial-statement",
+    )
+
+    assert localized.execution.ocr_language == "zh"
+    assert localized.execution.ocr_country == "CN"
+    assert localized.execution.ocr_locale == "zh-CN"
+    assert localized.execution.ocr_correction_packs == (
+        "customer.finance",
+        "zh-CN.financial-statement",
+    )
+    assert localized.fingerprint() != base.fingerprint()
+
+
+def test_conflicting_ocr_locale_is_rejected():
+    with pytest.raises(ValueError, match="conflicts with locale"):
+        normalize_parse_control(ocr_language="en", ocr_locale="zh-CN")
+
+
 def test_exporter_registry_contains_non_json_formats():
     assert {"chunks", "html", "csv", "parquet"}.issubset(set(EXPORTER_REGISTRY.formats()))
 

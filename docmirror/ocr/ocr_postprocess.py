@@ -165,17 +165,11 @@ _COMPANY_PATTERNS: list[tuple[re.Pattern, str]] = [
 
 
 def fix_domain_terms(text: str) -> str:
-    """Fix OCR glyph confusion in domain-specific terms."""
-    # Dictionary replacement
-    for wrong, correct in _GENERIC_CORRECTIONS.items():
-        if wrong in text:
-            text = text.replace(wrong, correct)
+    """Fix vetted domain terms through the shared safe-correction engine."""
+    from docmirror.ocr.correction import CorrectionContext, SafeOCRCorrector
 
-    # Regex pattern replacement
-    for pattern, replacement in _COMPANY_PATTERNS:
-        text = pattern.sub(replacement, text)
-
-    return text
+    decision = SafeOCRCorrector().correct(text, CorrectionContext(role="unknown", mode="safe"))
+    return decision.output_text
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -243,28 +237,13 @@ def _levenshtein_distance(s1: str, s2: str) -> int:
 
 
 def fix_domain_keys(text: str) -> str:
-    """Fuzzy match and correct standard document keys using Levenshtein distance."""
-    # We only correct if the text is short enough to realistically be a key (or key+value)
-    # If the text is very long (like a full paragraph of business scope), skip it.
+    """Correct short field labels through the shared contextual lexicon."""
     if len(text) > 25:
         return text
+    from docmirror.ocr.correction import CorrectionContext, SafeOCRCorrector
 
-    # Try to find if this string contains a misspelled standard key
-    for standard_key in _STANDARD_KEYS:
-        key_len = len(standard_key)
-        # If the text is exactly the key length (or very close), just compare directly
-        if abs(len(text) - key_len) <= 1:
-            if _levenshtein_distance(text, standard_key) <= 1:
-                return standard_key
-
-        # If the text contains the key as a prefix (like "利率类型：xxx")
-        # Check the first N characters
-        if len(text) > key_len:
-            prefix = text[:key_len]
-            if _levenshtein_distance(prefix, standard_key) <= 1:
-                return standard_key + text[key_len:]
-
-    return text
+    decision = SafeOCRCorrector().correct(text, CorrectionContext(role="field_label", mode="safe"))
+    return decision.output_text
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -316,10 +295,11 @@ def postprocess_ocr_text(text: str) -> str:
         L1: Character-level cleaning (Full-width to Half-width, NFKC)
         L2: Amount format fix
         L3: Date format fix
-        L4: Domain dictionary correction
+        L4: Context-scoped safe dictionary correction
         L5: Digit noise clean
-        L6: Fuzzy key correction
-        L7: Alphanumeric heuristic constraint
+
+    Fuzzy field-label and typed alphanumeric correction require an explicit
+    column/field context and are intentionally not applied to unknown text.
     """
     if not text or not text.strip():
         return text
@@ -327,10 +307,8 @@ def postprocess_ocr_text(text: str) -> str:
     text = normalize_chars(text)  # L1
     text = fix_amount_format(text)  # L2
     text = fix_date_format(text)  # L3
-    text = fix_domain_terms(text)  # L4
-    text = fix_alphanumeric_confusion(text)  # L7
+    text = fix_domain_terms(text)  # L4 — shared safe engine
     text = fix_digit_noise(text)  # L5
-    text = fix_domain_keys(text)  # L6
 
     return text
 

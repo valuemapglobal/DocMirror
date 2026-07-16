@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Mirror JSON 1.0.2] — 2026-07-17
+
+This is a backward-compatible patch release of the Mirror JSON contract. The
+Python distribution version remains 1.0.0.
+
+### Added
+- Deterministic OCR safe correction for Chinese field labels, controlled English terms, typed values, and checksum-valid identifiers without an LLM dependency.
+- Context-scoped correction dictionaries, weighted OCR-confusion matching, `safe` / `suggest` / `off` execution controls, and correction audit indexes in Mirror evidence.
+- Versioned locale/domain correction packs with conflict validation, opt-in customer packs, script-aware tokenization, country validator registration, and language/country/locale controls across CLI, REST, Task API, and SDK.
+- `docmirror ocr-correction` maintenance commands for pack validation, decision explanation, golden-corpus evaluation, and reviewable JSONL candidate export.
+
+### Changed
+- Scanned PDF, image fallback, universal OCR, and reconstructed-table paths now share one conservative correction policy while preserving original OCR text, confidence, geometry, and source references.
+- Correction audit events now include the selected packs, pack version, locale/script, candidate scores, and uniqueness margin.
+
+### Fixed
+- Preserved OCR confidence when routing universal OCR words into scanned-table reconstruction.
+- Prevented unconditional alphanumeric substitutions such as product-code `S` to digit `5` and lowercase `1` to `l`.
+
 ## [Mirror JSON 1.0.1] — 2026-07-16
 
 This is a backward-compatible patch release of the Mirror JSON contract. The

@@ -112,6 +112,133 @@ def _words_to_ocr_tokens(words: list[tuple], *, page_idx: int) -> list[OCRToken]
     return tokens
 
 
+def _correct_general_words(
+    words: list[tuple],
+    *,
+    page_idx: int,
+    mode: str = "safe",
+    domain: str | None = None,
+    language: str | None = None,
+    country: str | None = None,
+    locale: str | None = None,
+    pack_ids: tuple[str, ...] = (),
+) -> tuple[list[tuple], dict[str, Any]]:
+    from docmirror.ocr.correction import CorrectionContext, SafeOCRCorrector
+
+    corrector = SafeOCRCorrector()
+    corrected: list[tuple] = []
+    events: list[dict[str, Any]] = []
+    for index, word in enumerate(words or []):
+        if len(word) < 5:
+            corrected.append(word)
+            continue
+        try:
+            confidence = OCRToken.from_rapidocr_word(word, page=page_idx + 1, idx=index).confidence
+        except (TypeError, ValueError):
+            confidence = None
+        source_ref = f"ocr_p{page_idx + 1}_t{index}"
+        decision = corrector.correct(
+            str(word[4] or ""),
+            CorrectionContext(
+                role="text_line",
+                domain=domain,
+                source_ref=source_ref,
+                ocr_confidence=confidence,
+                mode=mode if mode in {"off", "safe", "suggest"} else "safe",
+                language=language,
+                country=country,
+                locale=locale,
+                pack_ids=pack_ids,
+            ),
+        )
+        mutable = list(word)
+        mutable[4] = decision.output_text
+        corrected.append(tuple(mutable))
+        if decision.action != "unchanged":
+            events.append(decision.to_dict())
+    return corrected, {
+        "mode": mode,
+        "rules_version": 1,
+        "processed_count": len(corrected),
+        "applied_count": sum(1 for event in events if event.get("action") == "applied"),
+        "suggested_count": sum(1 for event in events if event.get("action") == "suggested"),
+        "events": events,
+    }
+
+
+def _correct_table_result(
+    result: dict[str, Any],
+    *,
+    page_idx: int,
+    mode: str,
+    domain: str | None,
+    language: str | None,
+    country: str | None,
+    locale: str | None,
+    pack_ids: tuple[str, ...],
+) -> dict[str, Any]:
+    from docmirror.ocr.correction import CorrectionContext, SafeOCRCorrector
+
+    main = result.get("table")
+    declared = result.get("tables")
+    tables = list(declared) if isinstance(declared, list) and declared else ([main] if isinstance(main, list) else [])
+    if not tables:
+        return result
+    try:
+        main_index = next(index for index, table in enumerate(tables) if table == main)
+    except StopIteration:
+        main_index = max(range(len(tables)), key=lambda index: len(tables[index]))
+    corrector = SafeOCRCorrector()
+    corrected_tables: list[list[list[str]]] = []
+    events: list[dict[str, Any]] = []
+    processed_count = 0
+    for table_index, table in enumerate(tables):
+        corrected_rows = [list(row) for row in table]
+        for row_index, row in enumerate(corrected_rows):
+            for column_index, value in enumerate(row):
+                text = str(value or "").strip()
+                if not text or (row_index > 0 and column_index > 0):
+                    continue
+                processed_count += 1
+                decision = corrector.correct(
+                    text,
+                    CorrectionContext(
+                        role="table_header" if row_index == 0 else "field_label",
+                        domain=domain,
+                        source_ref=f"ocr:p{page_idx + 1}:t{table_index}:r{row_index}:c{column_index}",
+                        mode=mode if mode in {"off", "safe", "suggest"} else "safe",
+                        language=language,
+                        country=country,
+                        locale=locale,
+                        pack_ids=pack_ids,
+                    ),
+                )
+                row[column_index] = decision.output_text
+                if decision.action != "unchanged":
+                    event = decision.to_dict()
+                    event["target"] = {
+                        "kind": "table_cell",
+                        "page": page_idx + 1,
+                        "table": table_index,
+                        "row": row_index,
+                        "column": column_index,
+                    }
+                    events.append(event)
+        corrected_tables.append(corrected_rows)
+    result["table"] = corrected_tables[main_index]
+    if isinstance(declared, list):
+        result["tables"] = corrected_tables
+    result["ocr_corrections"] = {
+        "mode": mode,
+        "rules_version": 1,
+        "processed_count": processed_count,
+        "applied_count": sum(event.get("action") == "applied" for event in events),
+        "suggested_count": sum(event.get("action") == "suggested" for event in events),
+        "events": events,
+    }
+    return result
+
+
 def ocr_extract_universal(
     fitz_page,
     page_idx: int,
@@ -120,6 +247,12 @@ def ocr_extract_universal(
     page_quality: int | None = None,
     external_ocr_threshold: int | None = None,
     external_ocr_provider: Callable[..., list[tuple] | dict[str, Any]] | None = None,
+    ocr_correction_mode: str = "safe",
+    correction_domain: str | None = None,
+    correction_language: str | None = None,
+    correction_country: str | None = None,
+    correction_locale: str | None = None,
+    correction_pack_ids: tuple[str, ...] = (),
 ) -> dict[str, Any] | None:
     """Universal OCR extraction — auto-detects document type.
 
@@ -158,6 +291,16 @@ def ocr_extract_universal(
                         from docmirror.ocr.ocr_postprocess import postprocess_ocr_result
 
                         postprocess_ocr_result(out)
+                        _correct_table_result(
+                            out,
+                            page_idx=page_idx,
+                            mode=ocr_correction_mode,
+                            domain=correction_domain,
+                            language=correction_language,
+                            country=correction_country,
+                            locale=correction_locale,
+                            pack_ids=correction_pack_ids,
+                        )
                     logger.info(f"[DocMirror] Page {page_idx} delegated to external OCR (quality={page_quality})")
                     return out
                 if isinstance(out, list) and out:
@@ -166,7 +309,7 @@ def ocr_extract_universal(
                     page_w = img.shape[1]
                     has_table = _detect_has_table(img, page_h)
                     if has_table:
-                        table_words = [(w[0], w[1], w[2], w[3], w[4]) for w in all_words]
+                        table_words = list(all_words)
                         table_result = analyze_scanned_page(
                             fitz_page,
                             page_idx,
@@ -177,12 +320,33 @@ def ocr_extract_universal(
                         )
                         if table_result:
                             table_result["content_type"] = "table"
-                            return table_result
-                    lines = _group_words_into_lines(all_words, y_tolerance=12.0)
+                            return _correct_table_result(
+                                table_result,
+                                page_idx=page_idx,
+                                mode=ocr_correction_mode,
+                                domain=correction_domain,
+                                language=correction_language,
+                                country=correction_country,
+                                locale=correction_locale,
+                                pack_ids=correction_pack_ids,
+                            )
+                    raw_tokens = _words_to_ocr_tokens(all_words, page_idx=page_idx)
+                    corrected_words, correction_audit = _correct_general_words(
+                        all_words,
+                        page_idx=page_idx,
+                        mode=ocr_correction_mode,
+                        domain=correction_domain,
+                        language=correction_language,
+                        country=correction_country,
+                        locale=correction_locale,
+                        pack_ids=correction_pack_ids,
+                    )
+                    lines = _group_words_into_lines(corrected_words, y_tolerance=12.0)
                     return {
                         "content_type": "general",
                         "lines": lines,
-                        "tokens": _words_to_ocr_tokens(all_words, page_idx=page_idx),
+                        "tokens": raw_tokens,
+                        "ocr_corrections": correction_audit,
                         "_page_image": img,
                         "page_h": page_h,
                         "page_w": page_w,
@@ -200,7 +364,7 @@ def ocr_extract_universal(
 
         if has_table:
             # Pass pre-existing words to avoid duplicate OCR in analyze_scanned_page
-            table_words = [(w[0], w[1], w[2], w[3], w[4]) for w in all_words]
+            table_words = list(all_words)
             table_result = analyze_scanned_page(
                 fitz_page,
                 page_idx,
@@ -211,19 +375,38 @@ def ocr_extract_universal(
             )
             if table_result:
                 table_result["content_type"] = "table"
-                return table_result
+                return _correct_table_result(
+                    table_result,
+                    page_idx=page_idx,
+                    mode=ocr_correction_mode,
+                    domain=correction_domain,
+                    language=correction_language,
+                    country=correction_country,
+                    locale=correction_locale,
+                    pack_ids=correction_pack_ids,
+                )
             # If table pipeline fails, fall through to general
 
         # General document: output all text lines in reading order
-        lines = _group_words_into_lines(all_words, y_tolerance=12.0)
-
         tokens_for_general = _words_to_ocr_tokens(all_words, page_idx=page_idx)
+        corrected_words, correction_audit = _correct_general_words(
+            all_words,
+            page_idx=page_idx,
+            mode=ocr_correction_mode,
+            domain=correction_domain,
+            language=correction_language,
+            country=correction_country,
+            locale=correction_locale,
+            pack_ids=correction_pack_ids,
+        )
+        lines = _group_words_into_lines(corrected_words, y_tolerance=12.0)
         tiered_for_general = TieredTokenCollection.from_tokens(tokens_for_general)
         return {
             "content_type": "general",
             "lines": lines,
             "tokens": tokens_for_general,
             "low_confidence_tokens": [t.to_dict() for t in tiered_for_general.low],
+            "ocr_corrections": correction_audit,
             "_tiered": tiered_for_general,
             "_page_image": img,
             "page_h": page_h,

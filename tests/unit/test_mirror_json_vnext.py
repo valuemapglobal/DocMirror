@@ -113,7 +113,7 @@ def test_mirror_json_vnext_is_document_shaped_not_old_envelope():
     assert "data" not in payload
     assert "meta" not in payload
     assert payload["mirror"]["schema"] == "docmirror.mirror_json"
-    assert payload["mirror"]["schema_version"] == "1.0.1"
+    assert payload["mirror"]["schema_version"] == "1.0.2"
     # filename may be "statement.pdf" (direct call) or "/path/statement.pdf" (through build_all_projections)
     assert payload["source"]["filename"].endswith("statement.pdf")
     assert payload["pages"][0]["coordinate_transform"]["source_rotation"] == 0

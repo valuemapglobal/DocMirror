@@ -150,7 +150,8 @@ def analyze_scanned_page(
                     text = w[4].strip()
                     if not text:
                         continue
-                    all_words.append((w[0], w[1], w[2], w[3], text))
+                    confidence = float(w[-1]) if len(w) > 5 and isinstance(w[-1], int | float) else 1.0
+                    all_words.append((w[0], w[1], w[2], w[3], text, confidence))
 
                 if len(all_words) >= 10 or dpi == 300:
                     break
@@ -173,7 +174,8 @@ def analyze_scanned_page(
             return None
 
         chars = []
-        for x0, y0, x1, y1, text in table_words:
+        for word in table_words:
+            x0, y0, x1, y1, text = word[:5]
             chars.append(
                 {
                     "x0": float(x0),
