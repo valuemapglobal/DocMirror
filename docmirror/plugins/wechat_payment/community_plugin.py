@@ -25,6 +25,7 @@ Dependencies: ``_base.base_table_parser``, ``_base.column_registry``, ``standard
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Sequence
 
 from docmirror.plugins._base.base_table_parser import BaseTableParser
@@ -42,7 +43,7 @@ WECHAT_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
     "金额(元)": ColumnMapping(
         field="amount",
         unit="CNY",
-        aliases=["金额", "交易金额（元）", "交易金额(元)", "金额（元）"],
+        aliases=["金额", "交易金额（元）", "交易金额(元)", "金额（元）", "Amount", "Amount (CNY)"],
     ),
     "交易单号": ColumnMapping(
         field="trade_no",
@@ -51,7 +52,7 @@ WECHAT_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
     "交易时间": ColumnMapping(
         field="timestamp",
         format_hint="datetime",
-        aliases=["交易日期", "时间", "日期"],
+        aliases=["交易日期", "时间", "日期", "Date", "Transaction Date"],
     ),
     "交易对方": ColumnMapping(
         field="counter_party",
@@ -59,12 +60,14 @@ WECHAT_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
     ),
     "交易类型": ColumnMapping(
         field="transaction_type",
-        aliases=["类型", "交易方式", "支付方式"],
+        aliases=["类型", "交易方式", "支付方式", "Transaction", "Description"],
     ),
     "交易对象": ColumnMapping(
         field="counter_object",
         aliases=["对象", "对方账户", "对方账号"],
     ),
+    "余额": ColumnMapping(field="balance", unit="CNY", aliases=["Balance", "Balance (CNY)"]),
+    "备注": ColumnMapping(field="note", aliases=["Note", "Remarks"]),
 }
 
 WECHAT_STANDARD_FIELDS = [
@@ -75,6 +78,8 @@ WECHAT_STANDARD_FIELDS = [
     "amount",
     "trade_no",
     "timestamp",
+    "balance",
+    "note",
 ]
 
 WECHAT_SCENE_KEYWORDS = (
@@ -88,9 +93,9 @@ WECHAT_SCENE_KEYWORDS = (
 WECHAT_DEFAULT_COLUMNS = list(WECHAT_COLUMN_REGISTRY.keys())
 
 WECHAT_IDENTITY_FIELDS: Sequence[tuple[str, Sequence[str]]] = (
-    ("account_holder", ("户名", "姓名", "Account holder")),
-    ("account_number", ("账号", "卡号", "Account number")),
-    ("query_period", ("查询时间段", "起始日期", "终止日期", "Query period")),
+    ("account_holder", ("户名", "姓名", "Account holder", "User")),
+    ("account_number", ("账号", "卡号", "Account number", "WeChat ID")),
+    ("query_period", ("查询时间段", "起始日期", "终止日期", "Query period", "Statement Period")),
     ("currency", ("币种", "Currency")),
 )
 
@@ -118,7 +123,7 @@ class WeChatPaymentPlugin(BaseTableParser):
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return WECHAT_IDENTITY_FIELDS
 
-    def build_domain_data(self, _metadata, entities):
+    def build_domain_data(self, metadata, entities):
         """Lightweight KV projection used when mirror-native extraction is unavailable."""
         from docmirror.plugins._base.dec_builder import build_dec_kv
 
@@ -152,6 +157,62 @@ class WeChatPaymentPlugin(BaseTableParser):
                 "total_expense": total_expense,
             },
         )
+
+    def _detect_headers(
+        self,
+        tables: list[list[list[str]]],
+    ) -> tuple[int, list[str], dict[str, int]]:
+        for table in tables:
+            for row_index, row in enumerate(table[:12]):
+                joined = " ".join(str(cell or "") for cell in row).lower()
+                if "date" in joined and "amount" in joined and ("transaction" in joined or "description" in joined):
+                    return row_index, ["Date", "Transaction", "Amount", "Balance", "Note"], {"__english__": 0}
+        return super()._detect_headers(tables)
+
+    def _extract_records(
+        self,
+        tables: list[list[list[str]]],
+        header_row_idx: int,
+        raw_headers: list[str],
+        col_map: dict[str, int],
+    ) -> list[dict[str, str]]:
+        if "__english__" not in col_map:
+            return super()._extract_records(tables, header_row_idx, raw_headers, col_map)
+        transactions: list[dict[str, str]] = []
+        for table in tables:
+            for row in table[header_row_idx + 1 :]:
+                joined = " ".join(str(cell or "").strip() for cell in row if str(cell or "").strip())
+                date_match = re.match(r"^(\d{4}-\d{2}-\d{2})\s+", joined)
+                if not date_match:
+                    continue
+                tail = joined[date_match.end() :]
+                amounts = list(re.finditer(r"[-+]?\d[\d,]*\.\d{2}", tail))
+                if not amounts:
+                    continue
+                description = tail[: amounts[0].start()].strip()
+                amount = amounts[0].group(0)
+                balance = amounts[1].group(0) if len(amounts) > 1 else ""
+                note = tail[amounts[1].end() :].strip() if len(amounts) > 1 else tail[amounts[0].end() :].strip()
+                transactions.append(
+                    {
+                        "Date": date_match.group(1),
+                        "Transaction": description,
+                        "Amount": amount,
+                        "Balance": balance,
+                        "Note": note,
+                    }
+                )
+        return transactions
+
+    def _normalize(self, raw_txn: dict[str, str]) -> dict[str, object]:
+        normalized = super()._normalize(raw_txn)
+        amount = normalized.get("amount")
+        if isinstance(amount, (int, float)):
+            normalized["original_signed_amount"] = amount
+            normalized["direction"] = "expense" if amount < 0 else "income"
+            normalized["amount"] = abs(amount)
+            normalized["amount_cny"] = abs(amount)
+        return normalized
 
 
 plugin = WeChatPaymentPlugin()

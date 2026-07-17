@@ -20,6 +20,7 @@ Downstream: ``scene.scene_resolver``.
 from __future__ import annotations
 
 import logging
+import re
 
 from docmirror.framework.middlewares.base import BaseMiddleware
 from docmirror.layout.scene.evidence_types import Evidence
@@ -320,6 +321,18 @@ class EvidenceEngine(BaseMiddleware):
         if not includes:
             return []
 
+        # PDF text extraction often inserts a newline between every visual word
+        # (for example ``Business\nLicense``).  Match against a whitespace-free
+        # view as well as the original text so layout artifacts do not reroute a
+        # known Community document into an unrelated generic scene.
+        compact_text = re.sub(r"\s+", "", full_text)
+
+        def keyword_matches(keyword: str) -> bool:
+            if keyword in full_text:
+                return True
+            compact_keyword = re.sub(r"\s+", "", keyword)
+            return len(compact_keyword) >= 3 and compact_keyword in compact_text
+
         # Precompute uniqueness weights
         if not hasattr(self, "_kw_uniqueness"):
             self._kw_uniqueness = compute_keyword_uniqueness()
@@ -329,7 +342,7 @@ class EvidenceEngine(BaseMiddleware):
             score = 0.0
             matched = []
             for kw in kws:
-                if kw in full_text:
+                if keyword_matches(kw):
                     matched.append(kw)
                     uniqueness = self._kw_uniqueness.get(kw, 0.5)
                     lf = 3 if len(kw) >= 8 else (2 if len(kw) >= 5 else 1)
@@ -347,7 +360,7 @@ class EvidenceEngine(BaseMiddleware):
 
         # Exclusion (hard veto)
         for scene, kws in excludes.items():
-            matched = [kw for kw in kws if kw in full_text]
+            matched = [kw for kw in kws if keyword_matches(kw)]
             if matched:
                 evidence.append(
                     Evidence(

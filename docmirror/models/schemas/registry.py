@@ -43,8 +43,9 @@ def _builtin_specs() -> dict[str, ProjectionSchemaSpec]:
         ProjectionSchemaSpec(
             name="community",
             path=_SCHEMAS_DIR / "edition_community.schema.json",
-            version="2.0",
-            description="Community edition envelope (DEC v2)",
+            version="2.2",
+            description="Community consumer envelope (DEC v2.2; reads legacy v2.0/v2.1)",
+            compatibility="backward-compatible-with-2.0-and-2.1",
         ),
         ProjectionSchemaSpec(
             name="enterprise",

@@ -56,6 +56,25 @@ output/<run_id>/
   001_community.json
 ```
 
+Start with these blocks in `001_community.json`:
+
+| Block | Purpose |
+|---|---|
+| `business` | Human-readable business summary, key metrics, dimensions, and reconciliations |
+| `quality` | Readiness, quality score, structured operational issues, normalization and evidence coverage |
+| `data.field_details` | Canonical value refs, confidence, source refs, review state, and raw text only when different |
+| `data.datasets` | Reference-only catalog for every consumer-visible row collection; rows are never copied |
+| `data.data_dictionary` | Labels, types, formats, masking, coverage, and nullability for fields and dataset columns |
+| `validation.domain_contract` | Community 6+1 contract pass/partial details |
+| `projection_lineage` | Compact fact/evidence lineage |
+
+The persisted artifact is Community schema `2.2`; the Schema also accepts 2.0/2.1 payloads. Base plugin envelopes remain `2.0` internally and are promoted only after the complete consumer projection has been generated. Single-plugin results use `plugin`; `plugins` is reserved for compositions.
+Renderers derive HTML from the business, quality, field, dataset, dictionary, and lineage blocks; page-layout instructions are not part of Community JSON.
+
+The universal `generic` route is also used for `unknown` documents. It performs
+text KV recovery, type inference, value normalization, identity discovery,
+table/outline extraction, and conservative repeated-row recovery.
+
 Add the canonical Mirror alone with `--mirror`, or select the public quickstart
 profile for review, diagnostics, demos, issues, or audit handoff:
 

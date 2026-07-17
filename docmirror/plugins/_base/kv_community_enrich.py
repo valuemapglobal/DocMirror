@@ -125,6 +125,14 @@ def enrich_vat_invoice_output(output: dict[str, Any]) -> dict[str, Any]:
     tables = []
     records = data.get("records") or []
     if records:
+        if not data.get("line_items"):
+            data["line_items"] = [
+                dict(record.get("normalized") or record)
+                if isinstance(record, dict)
+                else record
+                for record in records
+            ]
+        data["records"] = []
         tables.append(
             {
                 "table_id": "mirror_logical_0",
@@ -212,7 +220,6 @@ def enrich_credit_report_output(
         records = _ensure_credit_repayment_records(parse_result)
     if records:
         output.setdefault("data", {})["repayment_records"] = records
-        output["repayment_records"] = records
     accounts = domain_specific.get("credit_accounts")
     if not accounts:
         accounts = _extract_credit_accounts_from_local_structure_evidence(parse_result)

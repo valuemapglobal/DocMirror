@@ -34,7 +34,7 @@ class FieldDetail:
     normalized: Any = None  # Can be float, str, dict, None
     normalizer: str = ""  # e.g., "amount.cn.v1", "date.iso8601.v1"
     confidence: float = 0.0
-    source_refs: list[str] = field(default_factory=list)
+    source_refs: list[Any] = field(default_factory=list)
     review: str = "needs_evidence"  # auto_accepted | manual_optional | needs_review | needs_evidence
 
 
@@ -42,9 +42,9 @@ class FieldDetail:
 class FieldDetailCollection:
     """Collection of field details for a document or record.
 
-    Supports the `data.field_details` contract in Edition JSON:
+    Supports the internal full field-detail contract:
     - data.fields.{key} = plain value (stable public shape)
-    - data.field_details.{key} = FieldDetail with raw/normalized/evidence
+    - FieldDetail = raw/normalized/evidence before the compact public projection
     """
 
     fields: dict[str, FieldDetail] = field(default_factory=dict)
@@ -74,7 +74,7 @@ def make_field_detail(
     normalized: Any = None,
     normalizer: str = "",
     confidence: float = 0.0,
-    source_refs: list[str] | None = None,
+    source_refs: list[Any] | None = None,
     review: str = "needs_evidence",
 ) -> FieldDetail:
     """Create a FieldDetail with sensible defaults.
@@ -198,7 +198,7 @@ def field_details_from_edition(
         raw_val = str(value) if value is not None else ""
         collection[key] = FieldDetail(
             raw=detail_data.get("raw", raw_val),
-            normalized=detail_data.get("normalized"),
+            normalized=detail_data.get("normalized", value),
             normalizer=detail_data.get("normalizer", ""),
             confidence=float(detail_data.get("confidence", 0.0)),
             source_refs=list(detail_data.get("source_refs", [])),
@@ -206,3 +206,130 @@ def field_details_from_edition(
         )
 
     return collection
+
+
+def field_details_from_community_data(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Build the stable ``data.field_details`` projection without changing fields.
+
+    Community plugins currently expose field intelligence in three compatible
+    shapes: rich objects in ``fields``, plain values plus ``normalized_fields``,
+    and provenance in ``field_metadata``.  This adapter projects those shapes
+    into the existing QTC ``FieldDetail`` contract while leaving every legacy
+    path intact.
+    """
+    fields = data.get("fields") if isinstance(data.get("fields"), dict) else {}
+    normalized_fields = (
+        data.get("normalized_fields") if isinstance(data.get("normalized_fields"), dict) else {}
+    )
+    field_metadata = data.get("field_metadata") if isinstance(data.get("field_metadata"), dict) else {}
+    existing = data.get("field_details") if isinstance(data.get("field_details"), dict) else {}
+    out: dict[str, dict[str, Any]] = {}
+
+    for key, field_value in fields.items():
+        existing_detail = existing.get(key) if isinstance(existing.get(key), dict) else {}
+        metadata = field_metadata.get(key) if isinstance(field_metadata.get(key), dict) else {}
+        rich_value = field_value if isinstance(field_value, dict) else {}
+
+        raw_value = existing_detail.get("raw")
+        if raw_value is None:
+            raw_value = rich_value.get("raw_value", rich_value.get("raw", field_value))
+
+        normalized = existing_detail.get("normalized")
+        if normalized is None:
+            normalized = rich_value.get("normalized_value", rich_value.get("normalized"))
+        if normalized is None and key in normalized_fields:
+            normalized = normalized_fields[key]
+        if normalized is None:
+            normalized = _preferred_plain_value(field_value)
+
+        source_refs = list(existing_detail.get("source_refs") or rich_value.get("source_refs") or [])
+        if not source_refs and metadata:
+            source_ref = {
+                name: value
+                for name, value in metadata.items()
+                if name not in {"confidence"} and value not in (None, "", [], {})
+            }
+            if source_ref:
+                source_refs = [source_ref]
+
+        confidence = _safe_confidence(
+            existing_detail.get("confidence", rich_value.get("confidence", metadata.get("confidence", 0.0)))
+        )
+        detail = make_field_detail(
+            raw=_stringify_raw(raw_value),
+            normalized=normalized,
+            normalizer=str(existing_detail.get("normalizer") or rich_value.get("normalizer") or ""),
+            confidence=confidence,
+            source_refs=source_refs,
+            review=str(existing_detail.get("review") or "needs_evidence"),
+        )
+        out[str(key)] = field_detail_to_dict(detail)
+
+    return out
+
+
+def compact_community_field_projection(
+    data: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    """Return canonical field values plus reference-only public field details.
+
+    Plugin-specific rich values and legacy normalization metadata are consumed
+    here, before the post-extract hook removes those intermediate structures.
+    ``data.fields`` becomes the only normalized-value location.  A raw value is
+    retained in ``field_details`` only when it materially differs.
+    """
+    full_details = field_details_from_community_data(data)
+    canonical_fields: dict[str, Any] = {}
+    compact_details: dict[str, dict[str, Any]] = {}
+
+    for key, detail in full_details.items():
+        value = detail.get("normalized")
+        canonical_fields[key] = value
+        pointer_key = str(key).replace("~", "~0").replace("/", "~1")
+        compact: dict[str, Any] = {
+            "value_ref": f"/data/fields/{pointer_key}",
+            "normalizer": str(detail.get("normalizer") or ""),
+            "confidence": _safe_confidence(detail.get("confidence")),
+            "source_refs": list(detail.get("source_refs") or []),
+            "review": str(detail.get("review") or "needs_evidence"),
+        }
+        raw = str(detail.get("raw") or "")
+        if not _raw_matches_value(raw, value):
+            compact["raw"] = raw
+        compact_details[key] = compact
+
+    return canonical_fields, compact_details
+
+
+def _preferred_plain_value(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    for key in ("normalized_value", "value", "raw_value", "raw"):
+        if value.get(key) not in (None, ""):
+            return value[key]
+    return value
+
+
+def _stringify_raw(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
+def _safe_confidence(value: Any) -> float:
+    try:
+        return max(0.0, min(1.0, float(value or 0.0)))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _raw_matches_value(raw: str, value: Any) -> bool:
+    if value is None:
+        return not raw
+    if isinstance(value, str):
+        return raw == value
+    if isinstance(value, bool):
+        return raw.casefold() == str(value).casefold()
+    return False

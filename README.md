@@ -103,6 +103,26 @@ output/<run_id>/
   001_community.json
 ```
 
+Community `6+1` is consumer-ready rather than a thin field/table dump. The six
+core domains (bank statements, WeChat Pay, Alipay, VAT invoices, business
+licenses, and credit reports) plus the universal fallback consistently expose:
+
+- `business` for an immediate summary, key metrics, and genuinely derived periods, rankings, and reconciliations;
+- `quality` for a scored `ready / review / insufficient` decision, operational issues, and evidence coverage;
+- `data.field_details` for value references, confidence, source refs, review state, and raw text only when it differs from the canonical field value;
+- `data.datasets` for JSON Pointer discovery of transaction, invoice, credit, and generic datasets without copying rows;
+- `data.data_dictionary` for field/dataset labels, types, formats, masking policy, coverage, and nullability;
+- `validation.domain_contract` for an honest domain-contract pass/partial result;
+- `projection_lineage` for compact traceability back to Mirror facts and evidence.
+
+Persisted Community artifacts use the compact 2.2 consumer contract and remain schema-readable alongside 2.0/2.1 payloads. The internal base DEC remains 2.0 and is upgraded atomically only after every required consumer block is complete. `data.fields` is the sole normalized-value location; intermediate field metadata, generic projections, and duplicate VAT aliases/base records are omitted after their information has been incorporated into references, datasets, and dictionaries. Single-plugin outputs use `plugin`; `plugins` is reserved for real compositions.
+HTML and other presentation layers assemble their views from `document`, `business`, `quality`, `datasets`, and `data_dictionary`; UI layout is deliberately excluded from the core JSON contract.
+
+Documents outside the six domains—and genuinely unclassified documents—still
+run through the `generic` plugin. It adaptively recovers KV facts, typed and
+normalized values, identity semantics, tables, outlines, and repeated row structures
+when table geometry is unavailable; it no longer returns an empty success shell.
+
 Diagnostic output with `--profile quickstart`:
 
 ```text
@@ -151,7 +171,7 @@ DocMirror's mirror output is document-shaped and evidence-aware:
 
 ```json
 {
-  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.3"},
+  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.4"},
   "source": {"filename": "statement.pdf"},
   "document": {"document_type": "bank_statement", "document_type_candidates": []},
   "pages": [],

@@ -5,13 +5,13 @@
 
 from __future__ import annotations
 
-from docmirror.models.mirror.page_evidence_bundles import merge_micro_grid_structures_into_bundles
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult
 from docmirror.models.mirror.page_access import (
     get_page_projection,
     iter_page_blocks,
     resolve_block_ref,
 )
+from docmirror.models.mirror.page_evidence_bundles import merge_micro_grid_structures_into_bundles
 from docmirror.plugins._base.generic_mirror_adapter import (
     _collect_structure_projected_records,
     build_generic_community_output,
@@ -57,8 +57,8 @@ def test_generic_collects_structure_projected_records():
     out = build_generic_community_output(pr, "unknown_report")
     data = out.get("data") or {}
     records = data.get("records") or []
-    struct_recs = data.get("structure_projected_records") or []
-    assert records or struct_recs
+    assert any(record.get("record_type") == "structure_projection" for record in records)
+    assert "structure_projected_records" not in data
 
 
 def test_get_page_projection_blocks_present_after_api_dict():

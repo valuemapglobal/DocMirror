@@ -10,12 +10,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
+from docmirror.plugins._runtime.composition import CompositionReason
 from docmirror.plugins._runtime.runner import (
     _is_edition_plugin_licensed,
     _wrap_license_degraded,
     run_plugin_extract_sync,
 )
-from docmirror.plugins._runtime.composition import CompositionReason
 
 
 def _mirror(document_type: str = "unknown") -> ParseResult:
@@ -24,12 +24,19 @@ def _mirror(document_type: str = "unknown") -> ParseResult:
     return pr
 
 
-def test_runner_skips_unclassified():
-    assert run_plugin_extract_sync(_mirror("unknown"), edition="community") is None
+def test_runner_unclassified_uses_universal_fallback():
+    out = run_plugin_extract_sync(_mirror("unknown"), edition="community")
+    assert out is not None
+    assert out["plugin"]["name"] == "generic"
+    assert out["classification"]["matched"] is False
+    assert out["business"]["version"] == "community.business.v1"
 
 
-def test_runner_skips_generic_type():
-    assert run_plugin_extract_sync(_mirror("generic"), edition="community") is None
+def test_runner_generic_type_uses_universal_fallback():
+    out = run_plugin_extract_sync(_mirror("generic"), edition="community")
+    assert out is not None
+    assert out["plugin"]["name"] == "generic"
+    assert "community_generic_fallback" in out["status"]["warnings"]
 
 
 def test_runner_id_card_uses_generic_fallback():
@@ -52,9 +59,7 @@ def test_runner_audit_report_uses_generic_fallback():
 
 def test_runner_skips_when_edition_package_missing():
     with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=False):
-        assert (
-            run_plugin_extract_sync(_mirror("bank_statement"), edition="enterprise") is None
-        )
+        assert run_plugin_extract_sync(_mirror("bank_statement"), edition="enterprise") is None
 
 
 class _LicensedEnterprisePlugin:
@@ -132,11 +137,6 @@ def test_enterprise_reuses_community_baseline_without_reextract():
 
 def test_enterprise_runs_extract_when_licensed():
     mirror = _mirror("bank_statement")
-    enterprise_payload = {
-        "schema_version": "2.0",
-        "data": {"records": [{"x": 1}], "summary": {"total_rows": 1}},
-        "status": {"success": True, "warnings": [], "errors": []},
-    }
 
     with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=True):
         with patch("docmirror.plugins.registry.get", return_value=_LicensedEnterprisePlugin()):

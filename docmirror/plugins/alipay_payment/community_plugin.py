@@ -25,6 +25,7 @@ Dependencies: ``_base.base_table_parser``, ``ColumnMatcher``, ``standardizer``.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Sequence
 
 from docmirror.plugins._base.base_table_parser import BaseTableParser
@@ -50,18 +51,18 @@ _DEFAULT_COLUMNS = [
 ALIPAY_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
     "收/支": ColumnMapping(
         field="direction",
-        enum_map={"支出": "expense", "收入": "income", "其他": "other"},
-        aliases=["收支"],
+        enum_map={"支出": "expense", "收入": "income", "其他": "other", "Expense": "expense", "Income": "income"},
+        aliases=["收支", "Type", "Direction"],
     ),
-    "金额": ColumnMapping(field="amount", unit="CNY", aliases=["交易金额"]),
+    "金额": ColumnMapping(field="amount", unit="CNY", aliases=["交易金额", "Amount", "Amount (CNY)"]),
     "交易订单号": ColumnMapping(field="trade_no", aliases=["订单号"]),
     "交易时间": ColumnMapping(
         field="timestamp",
         format_hint="datetime",
-        aliases=["交易日期", "时间", "日期"],
+        aliases=["交易日期", "时间", "日期", "Date", "Transaction Date"],
     ),
     "交易对方": ColumnMapping(field="counter_party", aliases=["对方", "交易对手"]),
-    "商品说明": ColumnMapping(field="description", aliases=["说明", "备注"]),
+    "商品说明": ColumnMapping(field="description", aliases=["说明", "备注", "Description", "Transaction"]),
     "收/付款方式": ColumnMapping(
         field="payment_method",
         aliases=["收/支方式", "付款方式", "支付方式"],
@@ -70,6 +71,7 @@ ALIPAY_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
         field="merchant_no",
         aliases=["商户单号", "商家单号"],
     ),
+    "余额": ColumnMapping(field="balance", unit="CNY", aliases=["Balance", "Balance (CNY)"]),
 }
 
 ALIPAY_STANDARD_FIELDS = [
@@ -81,12 +83,14 @@ ALIPAY_STANDARD_FIELDS = [
     "trade_no",
     "merchant_no",
     "timestamp",
+    "balance",
 ]
 
 ALIPAY_IDENTITY_FIELDS: Sequence[tuple[str, Sequence[str]]] = (
-    ("account_holder", ("户名", "姓名", "Account holder")),
+    ("account_holder", ("户名", "姓名", "Account holder", "Account Holder")),
+    ("account_type", ("账户类型", "Account Type")),
     ("account_number", ("账号", "卡号", "Account number")),
-    ("query_period", ("查询时间段", "起始日期", "终止日期", "Query period")),
+    ("query_period", ("查询时间段", "起始日期", "终止日期", "Query period", "Statement Period")),
     ("currency", ("币种", "Currency")),
 )
 
@@ -123,6 +127,12 @@ class AlipayPaymentPlugin(BaseTableParser):
         tables: list[list[list[str]]],
     ) -> tuple[int, list[str], dict[str, int]]:
         """Header detection: ColumnMatcher first, otherwise Alipay marker row + default column fallback."""
+        for table in tables:
+            for row_index, row in enumerate(table[:12]):
+                joined = " ".join(str(cell or "") for cell in row).lower()
+                if "date" in joined and "amount" in joined and "description" in joined:
+                    return row_index, ["Date", "Description", "Amount", "Balance", "Type"], {"__english__": 0}
+
         header_row_idx, raw_headers, col_map = super()._detect_headers(tables)
         if len(col_map) >= 3:
             return header_row_idx, raw_headers, col_map
@@ -156,6 +166,9 @@ class AlipayPaymentPlugin(BaseTableParser):
         col_map: dict[str, int],
     ) -> list[dict[str, str]]:
         """Alipay first column is income/expense, filter data rows by direction enum (not date first column)."""
+        if "__english__" in col_map:
+            return self._extract_english_records(tables, header_row_idx)
+
         transactions: list[dict[str, str]] = []
         has_col_map = bool(col_map)
 
@@ -192,7 +205,52 @@ class AlipayPaymentPlugin(BaseTableParser):
 
         return transactions
 
-    def build_domain_data(self, _metadata, entities):
+    @staticmethod
+    def _extract_english_records(
+        tables: list[list[list[str]]],
+        header_row_idx: int,
+    ) -> list[dict[str, str]]:
+        transactions: list[dict[str, str]] = []
+        for table in tables:
+            for row in table[header_row_idx + 1 :]:
+                joined = " ".join(str(cell or "").strip() for cell in row if str(cell or "").strip())
+                date_match = re.match(r"^(\d{4}-\d{2}-\d{2})\s+", joined)
+                if not date_match:
+                    continue
+                tail = joined[date_match.end() :]
+                direction_match = re.search(r"\b(Income|Expense)\s*$", tail, re.IGNORECASE)
+                direction = direction_match.group(1).title() if direction_match else ""
+                if direction_match:
+                    tail = tail[: direction_match.start()].strip()
+                amounts = list(re.finditer(r"[-+]?\d[\d,]*\.\d{2}", tail))
+                if not amounts:
+                    continue
+                description = tail[: amounts[0].start()].strip()
+                amount = amounts[0].group(0)
+                balance = amounts[1].group(0) if len(amounts) > 1 else ""
+                transactions.append(
+                    {
+                        "Date": date_match.group(1),
+                        "Description": description,
+                        "Amount": amount,
+                        "Balance": balance,
+                        "Type": direction,
+                    }
+                )
+        return transactions
+
+    def _normalize(self, raw_txn: dict[str, str]) -> dict[str, object]:
+        normalized = super()._normalize(raw_txn)
+        amount = normalized.get("amount")
+        if isinstance(amount, (int, float)):
+            normalized["original_signed_amount"] = amount
+            if not normalized.get("direction"):
+                normalized["direction"] = "expense" if amount < 0 else "income"
+            normalized["amount"] = abs(amount)
+            normalized["amount_cny"] = abs(amount)
+        return normalized
+
+    def build_domain_data(self, metadata, entities):
         """Lightweight KV projection used when mirror-native extraction is unavailable."""
         from docmirror.plugins._base.dec_builder import build_dec_kv
 

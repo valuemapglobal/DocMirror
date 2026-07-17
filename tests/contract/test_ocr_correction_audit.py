@@ -62,7 +62,7 @@ def test_mirror_projects_ocr_correction_audit_without_losing_source_text():
 
     payload = MirrorCoreVNext().process(ParseResultBridge.from_base_result(base)).to_dict()
 
-    assert payload["mirror"]["schema_version"] == "1.0.3"
+    assert payload["mirror"]["schema_version"] == "1.0.4"
     assert payload["quality"]["ocr_correction"]["applied_count"] == 1
     assert payload["evidence"]["indexes"]["ocr_corrections"]["corr:000001"]["original"] == ("Microsofl Corporation")
     atom = payload["evidence"]["text_atoms"][0]

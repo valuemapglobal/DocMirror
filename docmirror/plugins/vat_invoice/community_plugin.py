@@ -90,7 +90,7 @@ class VATInvoicePlugin(DomainPlugin):
                 properties={},
                 entities=fields,
                 structured_data={
-                    "records": line_items,
+                    "records": [],
                     "line_items": line_items,
                     "sections": [],
                     "tables": [
@@ -103,6 +103,7 @@ class VATInvoicePlugin(DomainPlugin):
                     if line_items
                     else [],
                     "summary": summary or {"total_rows": len(line_items)},
+                    "field_metadata": field_provenance,
                 },
                 quality=DomainQuality(
                     validation_passed=solution.status == "success",

@@ -154,7 +154,7 @@ async def parse_document(
     The file is saved temporarily, processed, and then asynchronously cleaned up.
 
     Supports multi-edition output via the ``edition`` parameter:
-    - ``community`` → community v2.0 schema
+    - ``community`` → Community v2.1 consumer schema (reads legacy v2.0)
     - ``enterprise`` → enterprise v2.0 schema (requires docmirror-enterprise)
     - ``finance`` → finance v3.0 schema (requires docmirror-finance)
     - ``all`` (default) → all available editions

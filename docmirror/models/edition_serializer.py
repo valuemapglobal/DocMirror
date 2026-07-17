@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-DEC → edition JSON v2.0 serializer (design 09 §4.4 / Wave 2 P1-1).
+DEC → base edition JSON v2.0 serializer (design 09 §4.4 / Wave 2 P1-1).
 
 Converts a ``DomainExtractionResult`` (DEC) into the community or enterprise
 edition JSON envelope (schema version 2.0) consumed by REST API clients and
@@ -133,7 +133,13 @@ def _structured_data_block(dec: DomainExtractionResult) -> dict[str, Any]:
     sd = dec.structured_data
     if isinstance(sd, dict):
         records = sd.get("records") or []
-        return {
+        # ``structured_data`` is the DEC extension surface for domain and generic
+        # plugins.  Keep the six stable Community keys, but do not discard useful
+        # plugin-owned structures such as ``columns``, ``identities``,
+        # ``field_metadata`` or ``credit_accounts``.  Earlier serializers silently
+        # dropped those blocks, so the plugin did the work while users only saw a
+        # much poorer JSON projection.
+        block = {
             "fields": dict(dec.entities or {}),
             "records": records,
             "sections": sd.get("sections") or [],
@@ -141,6 +147,10 @@ def _structured_data_block(dec: DomainExtractionResult) -> dict[str, Any]:
             "line_items": sd.get("line_items") or [],
             "summary": sd.get("summary") or {"total_rows": len(records) if isinstance(records, list) else 0},
         }
+        for key, value in sd.items():
+            if key not in block and key != "fields":
+                block[key] = value
+        return block
     if isinstance(sd, list):
         return {
             "fields": dict(dec.entities or {}),
@@ -161,7 +171,7 @@ def _structured_data_block(dec: DomainExtractionResult) -> dict[str, Any]:
 
 
 def edition_serializer(dec: DomainExtractionResult, *, context: EditionContext) -> dict[str, Any]:
-    """Serialize ``DomainExtractionResult`` to community/enterprise edition JSON v2.0."""
+    """Serialize DEC to the base v2.0 envelope before post-extract projection."""
     document_type = dec.document_type or context.detected_type or "unknown"
     meta = dict(dec.metadata or {})
 
@@ -205,7 +215,13 @@ def edition_serializer(dec: DomainExtractionResult, *, context: EditionContext) 
         "file_id": meta.get("file_id", ""),
     }
     if dec.metadata:
-        metadata.update(dec.metadata)
+        metadata.update(
+            {
+                key: value
+                for key, value in dec.metadata.items()
+                if key not in {"classification", "plugin", "validation"}
+            }
+        )
 
     payload: dict[str, Any] = {
         "schema_version": "2.0",
@@ -215,15 +231,17 @@ def edition_serializer(dec: DomainExtractionResult, *, context: EditionContext) 
         "status": _quality_to_status(dec),
         "plugin": plugin_block,
         "data": _structured_data_block(dec),
-        "plugins": {
+        "metadata": metadata,
+    }
+
+    if context.extra_plugins or context.edition != "community":
+        payload["plugins"] = {
             context.plugin_name or document_type: {
                 "display_name": context.plugin_display_name or document_type,
                 "edition": context.edition,
             },
             **(context.extra_plugins or {}),
-        },
-        "metadata": metadata,
-    }
+        }
 
     if dec.derived_variables:
         payload["derived_variables"] = dict(dec.derived_variables)

@@ -58,6 +58,8 @@ def test_enrich_vat_adds_table_meta_when_records():
         }
     )
     assert out["data"]["tables"][0]["row_count"] == 1
+    assert out["data"]["line_items"] == [{"row_index": 1}]
+    assert out["data"]["records"] == []
 
 
 def test_build_credit_sections_from_markers():

@@ -31,7 +31,6 @@ COMMUNITY_REQUIRED_BLOCKS = {
     "status": dict,
     "plugin": dict,
     "data": dict,
-    "plugins": dict,
     "metadata": dict,
 }
 
@@ -187,11 +186,51 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
     if not doc.get("document_name"):
         errors.append("[C18] document.document_name 不应为空")
 
-    # 12. plugins block exists (edition contract stability)
-    plugins = schema.get("plugins", {})
-    matched_type = cls.get("matched_document_type", "")
-    if matched_type and matched_type not in plugins:
-        errors.append(f"[C19] plugins 中缺少 matched_document_type: {matched_type}")
+    # 12. plugins is emitted only for a real multi-plugin composition.
+    plugins = schema.get("plugins")
+    selected_plugin = pl.get("name", "")
+    if isinstance(plugins, dict) and selected_plugin and selected_plugin not in plugins:
+        errors.append(f"[C19] plugins 中缺少主插件: {selected_plugin}")
+    if sv == "2.2" and isinstance(plugins, dict) and len(plugins) < 2:
+        errors.append("[C19] Community 2.2 的 plugins 仅用于多插件组合")
+
+    # 13. Community v2.1+ consumer contract
+    if sv in {"2.1", "2.2"}:
+        for key in ("business", "quality", "validation"):
+            if not isinstance(schema.get(key), dict):
+                errors.append(f"[C20] Community {sv} 缺少消费块: {key}")
+        for key, expected_type in {
+            "field_details": dict,
+            "datasets": list,
+            "data_dictionary": dict,
+        }.items():
+            if not isinstance(dt.get(key), expected_type):
+                errors.append(f"[C21] Community {sv} data.{key} 类型错误或缺失")
+        readiness = (schema.get("quality") or {}).get("readiness")
+        if readiness not in {"ready", "review", "insufficient"}:
+            errors.append(f"[C22] quality.readiness 非法: {readiness}")
+        if (schema.get("business") or {}).get("readiness_ref") != "/quality/readiness":
+            errors.append("[C23] business.readiness_ref 必须引用 quality.readiness")
+        for dataset in dt.get("datasets") or []:
+            if not isinstance(dataset, dict):
+                errors.append("[C24] data.datasets 项必须为对象")
+                continue
+            if "rows" in dataset or "data" in dataset:
+                errors.append(f"[C25] dataset {dataset.get('id')} 不得复制明细数据")
+            if not str(dataset.get("data_ref") or "").startswith("/data/"):
+                errors.append(f"[C26] dataset {dataset.get('id')} 缺少有效 data_ref")
+        if sv == "2.2":
+            for key, detail in (dt.get("field_details") or {}).items():
+                if not isinstance(detail, dict):
+                    errors.append(f"[C27] field_details.{key} 必须为对象")
+                    continue
+                expected_ref = f"/data/fields/{str(key).replace('~', '~0').replace('/', '~1')}"
+                if detail.get("value_ref") != expected_ref:
+                    errors.append(f"[C28] field_details.{key}.value_ref 无效")
+                if "normalized" in detail:
+                    errors.append(f"[C29] field_details.{key} 不得复制标准值")
+                if isinstance(dt.get("fields", {}).get(key), str) and detail.get("raw") == dt["fields"][key]:
+                    errors.append(f"[C30] field_details.{key}.raw 与标准值相同，应省略")
 
     return errors
 

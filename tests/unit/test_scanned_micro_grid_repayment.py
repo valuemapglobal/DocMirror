@@ -152,7 +152,7 @@ def test_credit_enrich_from_micro_grids_only_without_scanned_evidence():
         )
     )
     enriched = enrich_credit_report_output({"data": {}}, parse_result=pr)
-    assert _record_tuples(enriched["repayment_records"]) == _expected_repayment_tuples()
+    assert _record_tuples(enriched["data"]["repayment_records"]) == _expected_repayment_tuples()
 
 
 def test_credit_enrich_skips_smg_rebuild_when_structure_exists(monkeypatch):
@@ -174,7 +174,7 @@ def test_credit_enrich_skips_smg_rebuild_when_structure_exists(monkeypatch):
     )
     enriched = enrich_credit_report_output({"data": {}}, parse_result=pr)
     assert calls == []
-    assert _record_tuples(enriched["repayment_records"]) == _expected_repayment_tuples()
+    assert _record_tuples(enriched["data"]["repayment_records"]) == _expected_repayment_tuples()
 
 
 def test_credit_repayment_micro_grid_from_line_bboxes():
@@ -334,7 +334,7 @@ def test_credit_plugin_maps_generic_scanned_micro_grid_evidence():
 
     assert [
         (r["year"], r["month"], r["status"], r["overdue_amount"])
-        for r in enriched["repayment_records"]
+        for r in enriched["data"]["repayment_records"]
     ] == [
         (2021, 1, "N", "0"),
         (2021, 2, "C", "0"),
@@ -390,7 +390,7 @@ def test_four_file_forensic_mirror_includes_plugin_primed_micro_grids_without_se
     assert grid["cells"][0][0]["bbox"]
     page4 = next(p for p in document["pages"] if p.get("page_number") == 4)
     assert any(r.get("kind") == "micro_grid" for r in page4.get("regions") or [])
-    assert outputs["community"]["repayment_records"][0]["status"] == "N"
+    assert outputs["community"]["data"]["repayment_records"][0]["status"] == "N"
 
 
 def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
@@ -420,7 +420,7 @@ def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
     assert status_cell["text"] == "N"
     assert status_cell["bbox"]
     assert "token_ids" not in status_cell
-    assert outputs["community"]["repayment_records"][0]["status"] == "N"
+    assert outputs["community"]["data"]["repayment_records"][0]["status"] == "N"
 
 
 def test_write_four_files_forensic_mirror_includes_plugin_primed_micro_grids(tmp_path):

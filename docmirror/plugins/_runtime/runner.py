@@ -296,7 +296,10 @@ async def run_plugin_extract(
     _attach_source_file_path(result, file_path)
     detected_type = getattr(result.entities, "document_type", "") or ""
     plugin_document_type = _plugin_document_type(result, detected_type)
-    if plugin_document_type in _GENERIC_TYPES:
+    # Community's +1 plugin is the universal safety net, including genuinely
+    # unclassified documents.  Extended editions still require a concrete
+    # domain plugin and therefore keep the old skip behavior.
+    if plugin_document_type in _GENERIC_TYPES and edition != "community":
         logger.debug("[PluginRunner] Skip edition=%s: unclassified document", edition)
         return None
 
@@ -450,7 +453,10 @@ def _run_community_extract(
                 records = data_block.get("records", [])
                 fields = data_block.get("fields", {})
                 total_rows = data_block.get("summary", {}).get("total_rows", len(records))
-                if total_rows > 0 or fields:
+                has_structured_content = any(
+                    bool(value) for key, value in data_block.items() if key not in {"summary", "fields", "records"}
+                )
+                if total_rows > 0 or fields or has_structured_content:
                     return result_data
             except Exception as e:
                 logger.error(
@@ -470,13 +476,14 @@ def _run_community_extract(
         if domain_data is not None:
             return _kv_community_payload(result, matched_plugin, detected_type, domain_data)
 
-    if is_community_generic_enabled() and detected_type not in _GENERIC_TYPES:
+    if is_community_generic_enabled():
         generic_plugin, _gmod = get_generic_community_plugin()
         if generic_plugin is not None:
             from docmirror.plugins._base.generic_mirror_adapter import build_generic_community_output
 
             try:
-                return build_generic_community_output(result, detected_type, full_text)
+                generic_type = detected_type if detected_type not in {"", "unknown"} else "generic"
+                return build_generic_community_output(result, generic_type, full_text)
             except Exception as e:
                 logger.error("[PluginRunner] generic community extract failed: %s", e)
 

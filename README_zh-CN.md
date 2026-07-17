@@ -99,6 +99,23 @@ output/<run_id>/
   001_community.json
 ```
 
+Community `6+1` 输出不再只是字段和表格的搬运。六个核心场景
+（银行流水、微信支付、支付宝、增值税发票、营业执照、征信报告）以及通用兜底都会稳定提供：
+
+- `business`：可直接阅读的业务摘要、关键指标，以及真正派生的期间、排行与金额勾稽；
+- `quality`：结构化质量分、`ready / review / insufficient` 可用性、运行问题与证据覆盖；
+- `data.field_details`：标准值引用、置信度、来源与复核状态；仅在原文与标准值不同时保留原文；
+- `data.datasets`：通过 JSON Pointer 发现交易、发票和征信数据集，不复制大型明细；
+- `data.data_dictionary`：字段/数据集列的类型、标签、格式、脱敏策略、覆盖率和可空性；
+- `validation.domain_contract`：对 Community 领域契约的真实通过/部分通过状态；
+- `projection_lineage`：从 Community 结果回到 Mirror 事实与证据的紧凑血缘。
+
+标准落盘文件使用精简的 Community 2.2，并可与 2.0/2.1 文件共同通过 Schema 读取。内部基础 DEC 仍为 2.0，只有在消费层完整生成后才原子升级。`data.fields` 是标准值唯一位置；中间字段元数据、通用插件中间投影及 VAT 重复别名/基础记录，会在信息进入引用、数据集和数据字典后从最终文件中移除。单插件输出仅使用 `plugin`，`plugins` 仅用于真实组合。
+HTML 等展示层根据 `document`、`business`、`quality`、`datasets` 和 `data_dictionary` 自行组装，不进入核心 JSON 数据契约。
+
+对六类之外或未能稳定分类的文档，`generic` 插件仍会运行，并自适应恢复 KV、字段类型、
+标准化值、身份语义、表格、章节，以及表格几何丢失后的重复行结构；不会再输出空壳成功结果。
+
 使用 `--profile quickstart` 时的诊断输出：
 
 ```text
@@ -147,7 +164,7 @@ DocMirror 的 Mirror 输出是 document-shaped，并且保留 evidence / quality
 
 ```json
 {
-  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.3"},
+  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.4"},
   "source": {"filename": "statement.pdf"},
   "document": {"document_type": "bank_statement", "document_type_candidates": []},
   "pages": [],

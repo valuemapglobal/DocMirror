@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from docmirror.models.edition_serializer import EditionContext, edition_serializer
 from docmirror.models.entities.domain_result import DomainExtractionResult, DomainQuality, normalize_domain_result
+from docmirror.models.entities.parse_result import ParseResult
 from docmirror.models.schemas.loader import validate_dec
 from docmirror.plugins._base.dec_builder import build_dec_kv
 from docmirror.plugins._base.table_dec import build_table_dec, serialize_table_plugin_output
 from docmirror.plugins._runtime.runner import _finalize_extract, _kv_community_payload
-from docmirror.models.entities.parse_result import ParseResult
 
 
 class _FakeTablePlugin:
@@ -44,6 +44,21 @@ class TestEditionSerializer:
         assert out["data"]["fields"]["name"] == "张三"
         assert out["document"]["document_type"] == "id_card"
         assert out["plugin"]["name"] == "generic"
+        assert "plugins" not in out
+
+    def test_community_plugins_index_requires_composition(self):
+        dec = normalize_domain_result(build_dec_kv("id_card", {"name": "张三"}))
+        ctx = EditionContext(
+            edition="community",
+            detected_type="id_card",
+            plugin_name="generic",
+            plugin_display_name="Generic Community",
+            extra_plugins={"identity_enricher": {"display_name": "Identity Enricher", "edition": "community"}},
+        )
+
+        out = edition_serializer(dec, context=ctx)
+
+        assert set(out["plugins"]) == {"generic", "identity_enricher"}
 
     def test_serialize_table_dec(self):
         dec = build_table_dec(
@@ -103,7 +118,7 @@ class TestRunnerWave2:
         pr = ParseResult()
         payload = build_dec_kv("bank_statement", {"account": "123"})
         out = _finalize_extract(pr, payload, edition="community", detected_type="bank_statement")
-        assert out["schema_version"] == "2.0"
+        assert out["schema_version"] == "2.2"
         assert out["data"]["fields"]["account"] == "123"
 
     def test_finalize_passes_through_v2(self):

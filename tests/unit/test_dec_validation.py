@@ -46,5 +46,5 @@ class TestDecValidation:
             "status": {"success": True, "warnings": [], "errors": []},
         }
         out = _finalize_extract(pr, payload, edition="community", detected_type="bank_statement")
-        assert out["schema_version"] == "2.0"
+        assert out["schema_version"] == "2.2"
         assert out["data"]["fields"]["account"] == "123"

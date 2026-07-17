@@ -43,6 +43,25 @@ VAT_OCR_TEXT = """
 收款人：辰展
 """.strip()
 
+VAT_ENGLISH_TEXT = """
+Value-Added Tax Invoice
+Invoice Code: 3100212130
+Invoice Number: 87654321
+Issue Date: 2025-03-15
+Seller: Shanghai Dongfang Technology Co., Ltd.
+Seller Tax ID: 91310000MA1FL6NCX7
+Buyer: Beijing Innovation Enterprise Co., Ltd.
+Buyer Tax ID: 91110108MA01ABCD1
+Total Amount (excl. tax): CNY 85,000.00
+VAT Rate: 13%
+VAT Amount: CNY 11,050.00
+Total Amount (incl. tax): CNY 96,050.00
+Item Description Qty Unit Price Amount
+1 Software Development Service 1 50,000.00 50,000.00
+2 Technical Consulting 2 17,500.00 35,000.00
+Payee: Zhang Wei Reviewer: Li Ming Drawer: Wang Fang
+""".strip()
+
 
 def test_vat_invoice_solver_extracts_core_fields_and_amount_equation() -> None:
     solution = VATInvoiceSemanticSolver().solve(full_text=VAT_OCR_TEXT)
@@ -57,7 +76,27 @@ def test_vat_invoice_solver_extracts_core_fields_and_amount_equation() -> None:
     assert fields["amount_without_tax"] == "101.83"
     assert fields["tax_amount"] == "9.17"
     assert fields["total_amount"] == "111.00"
-    assert any(item["id"] == "vat.amount_tax_total_equation" and item["status"] == "pass" for item in solution.invariant_results)
+    assert any(
+        item["id"] == "vat.amount_tax_total_equation" and item["status"] == "pass"
+        for item in solution.invariant_results
+    )
+
+
+def test_vat_invoice_solver_supports_english_word_split_layout() -> None:
+    word_split = "\n\n".join(VAT_ENGLISH_TEXT.replace("\n", " ").split(" "))
+    solution = VATInvoiceSemanticSolver().solve(full_text=word_split)
+
+    assert solution.success
+    fields = solution.canonical_model["fields"]
+    assert fields["invoice_code"] == "3100212130"
+    assert fields["invoice_number"] == "87654321"
+    assert fields["buyer_name"] == "Beijing Innovation Enterprise Co., Ltd."
+    assert fields["seller_name"] == "Shanghai Dongfang Technology Co., Ltd."
+    assert fields["amount_without_tax"] == "85000.00"
+    assert fields["tax_amount"] == "11050.00"
+    assert fields["total_amount"] == "96050.00"
+    assert len(solution.canonical_model["line_items"]) == 2
+    assert solution.canonical_model["line_items"][0]["description"] == "Software Development Service"
 
 
 def test_vat_invoice_plugin_uses_semantic_solver_before_generic_kv() -> None:
@@ -70,15 +109,29 @@ def test_vat_invoice_plugin_uses_semantic_solver_before_generic_kv() -> None:
             evidence_ids=["ocr:p0:w000000", "ocr:p0:w000001"],
             slm_entities={
                 "ocr_tokens": [
-                    {"evidence_id": "ocr:p0:w000000", "text": "发票代码：", "bbox": [10, 10, 58, 24], "confidence": 0.98},
-                    {"evidence_id": "ocr:p0:w000001", "text": "044002300411", "bbox": [60, 10, 160, 24], "confidence": 0.98},
+                    {
+                        "evidence_id": "ocr:p0:w000000",
+                        "text": "发票代码：",
+                        "bbox": [10, 10, 58, 24],
+                        "confidence": 0.98,
+                    },
+                    {
+                        "evidence_id": "ocr:p0:w000001",
+                        "text": "044002300411",
+                        "bbox": [60, 10, 160, 24],
+                        "confidence": 0.98,
+                    },
                 ]
             },
         ),
         TextBlock(content="发票号码：36538561", level=TextLevel.BODY, confidence=0.97, bbox=[180, 10, 310, 24]),
         TextBlock(content="开票日期：2024年05月27日", level=TextLevel.BODY, confidence=0.96, bbox=[320, 10, 500, 24]),
-        TextBlock(content="称：卢子不加班（广州）咨询有限公司", level=TextLevel.BODY, confidence=0.95, bbox=[10, 52, 260, 70]),
-        TextBlock(content="纳税人识别号：91440101190478645G", level=TextLevel.BODY, confidence=0.95, bbox=[10, 220, 280, 238]),
+        TextBlock(
+            content="称：卢子不加班（广州）咨询有限公司", level=TextLevel.BODY, confidence=0.95, bbox=[10, 52, 260, 70]
+        ),
+        TextBlock(
+            content="纳税人识别号：91440101190478645G", level=TextLevel.BODY, confidence=0.95, bbox=[10, 220, 280, 238]
+        ),
     ]
     parse_result = ParseResult(
         pages=[PageContent(page_number=1, texts=[*ocr_lines, TextBlock(content=VAT_OCR_TEXT, level=TextLevel.BODY)])],
@@ -104,16 +157,20 @@ def test_vat_invoice_plugin_uses_semantic_solver_before_generic_kv() -> None:
 
 
 def test_vat_invoice_solver_trims_same_line_ocr_noise() -> None:
-    noisy = VAT_OCR_TEXT.replace(
-        "称：卢子不加班（广州）咨询有限公司",
-        "名 称：卢子不加班（广州）咨询有限公司 /708</-<638+*43149226+8+5<-",
-    ).replace(
-        "开户行及账号：中国银行股份有限公司广州东园支行、627575257856",
-        "开户行及账号：中国银行股份有限公司广州东园支行、627575257856 区 84<-35803>330<83254-+<+///<",
-        1,
-    ).replace(
-        "收款人：辰展",
-        "收款人：辰展 复核：郑志伟 开票人：陈文玉 销售方：（） 发票专用章",
+    noisy = (
+        VAT_OCR_TEXT.replace(
+            "称：卢子不加班（广州）咨询有限公司",
+            "名 称：卢子不加班（广州）咨询有限公司 /708</-<638+*43149226+8+5<-",
+        )
+        .replace(
+            "开户行及账号：中国银行股份有限公司广州东园支行、627575257856",
+            "开户行及账号：中国银行股份有限公司广州东园支行、627575257856 区 84<-35803>330<83254-+<+///<",
+            1,
+        )
+        .replace(
+            "收款人：辰展",
+            "收款人：辰展 复核：郑志伟 开票人：陈文玉 销售方：（） 发票专用章",
+        )
     )
 
     fields = VATInvoiceSemanticSolver().solve(full_text=noisy).canonical_model["fields"]

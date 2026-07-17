@@ -34,7 +34,7 @@ def test_validate_bank_statement_missing_identity_fields():
     assert any("required_any" in item for item in report.missing_fields)
 
 
-def test_apply_domain_contract_validation_adds_warnings():
+def test_apply_domain_contract_validation_uses_validation_as_single_source():
     payload = {
         "edition": "community",
         "plugin": {"name": "bank_statement"},
@@ -45,8 +45,9 @@ def test_apply_domain_contract_validation_adds_warnings():
     report = apply_domain_contract_validation(payload, "bank_statement")
 
     assert report.status == "partial"
-    assert any("partial_missing_required" in w for w in payload["status"]["warnings"])
+    assert payload["status"]["warnings"] == []
     assert payload["validation"]["domain_contract"]["status"] == "partial"
+    assert "domain_contract_validation" not in payload["metadata"]
 
 
 def test_apply_domain_contract_strips_stale_identity_warnings():

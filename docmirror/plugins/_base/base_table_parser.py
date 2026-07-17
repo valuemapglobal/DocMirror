@@ -84,6 +84,25 @@ class BaseTableParser(DomainPlugin):
         """Extract and return v2.0 community edition output from ParseResult."""
         # Step 1: Extract KV header area
         identity_fields = self._extract_identity(parse_result)
+        if text:
+            try:
+                from docmirror.plugins._base.kv_community_extract import _recover_identity_fields_from_text
+
+                recovered = _recover_identity_fields_from_text(text, self.identity_fields)
+                for field_name, value in recovered.items():
+                    identity_fields.setdefault(
+                        field_name,
+                        {
+                            "raw_name": field_name,
+                            "raw_value": value,
+                            "normalized_value": self._normalize_identity(field_name, value),
+                            "data_type": "string",
+                            "source_refs": [{"source": "full_text"}],
+                            "evidence_ids": [],
+                        },
+                    )
+            except Exception:
+                logger.debug("[%s] text identity recovery skipped", self.domain_name, exc_info=True)
 
         # Step 2: Extract transaction table
         tables = self._collect_tables(parse_result)
@@ -144,6 +163,13 @@ class BaseTableParser(DomainPlugin):
                                 "raw_value": val,
                                 "normalized_value": self._normalize_identity(field_name, val),
                                 "data_type": "string",
+                                "source_refs": [
+                                    {
+                                        "page": int(getattr(page, "page_number", 0) or 0),
+                                        **({"bbox": list(kv.bbox)} if getattr(kv, "bbox", None) else {}),
+                                    }
+                                ],
+                                "evidence_ids": list(getattr(kv, "evidence_ids", []) or []),
                             }
                             break
 
@@ -156,6 +182,13 @@ class BaseTableParser(DomainPlugin):
                             "raw_value": val,
                             "normalized_value": name,
                             "data_type": "string",
+                            "source_refs": [
+                                {
+                                    "page": int(getattr(page, "page_number", 0) or 0),
+                                    **({"bbox": list(kv.bbox)} if getattr(kv, "bbox", None) else {}),
+                                }
+                            ],
+                            "evidence_ids": list(getattr(kv, "evidence_ids", []) or []),
                         }
                 if "account_number" not in fields and "证件号码" in key:
                     m = re.search(r"(\d{6,})", val)
@@ -165,6 +198,13 @@ class BaseTableParser(DomainPlugin):
                             "raw_value": val,
                             "normalized_value": m.group(1),
                             "data_type": "string",
+                            "source_refs": [
+                                {
+                                    "page": int(getattr(page, "page_number", 0) or 0),
+                                    **({"bbox": list(kv.bbox)} if getattr(kv, "bbox", None) else {}),
+                                }
+                            ],
+                            "evidence_ids": list(getattr(kv, "evidence_ids", []) or []),
                         }
                 if "currency" not in fields and key in ("币种", "Currency"):
                     fields["currency"] = {
@@ -172,6 +212,13 @@ class BaseTableParser(DomainPlugin):
                         "raw_value": val,
                         "normalized_value": "CNY" if "人民" in val else val,
                         "data_type": "string",
+                        "source_refs": [
+                            {
+                                "page": int(getattr(page, "page_number", 0) or 0),
+                                **({"bbox": list(kv.bbox)} if getattr(kv, "bbox", None) else {}),
+                            }
+                        ],
+                        "evidence_ids": list(getattr(kv, "evidence_ids", []) or []),
                     }
 
         return fields
@@ -357,6 +404,7 @@ class BaseTableParser(DomainPlugin):
                     "row_index": idx,
                     "raw": dict(raw_txn),
                     "normalized": normalized,
+                    "source": {"source": "mirror_table", "source_row_index": idx - 1},
                 }
             )
 

@@ -17,7 +17,8 @@ from docmirror.plugins._runtime.community import (
     find_premium_community_plugin,
     get_community_premium_domains,
 )
-from docmirror.plugins._runtime.runner import run_plugin_extract_sync
+from docmirror.plugins._runtime.runner import clear_run_cache, run_plugin_extract_sync
+from docmirror.server.output_builder import build_community_output
 from tests.contract.test_edition_schema_conformance import check_community
 
 pytestmark = [pytest.mark.integration]
@@ -75,8 +76,18 @@ def test_unknown_domain_uses_generic_plugin():
 @pytest.mark.parametrize("domain,fixture", FIXTURE_BY_DOMAIN.items())
 def test_public_fixture_can_be_perceived(domain: str, fixture: Path):
     assert fixture.exists(), domain
-    result = asyncio.run(
-        perceive_document(fixture, PerceiveOptions(enhance_mode="standard", max_pages=3))
-    )
+    result = asyncio.run(perceive_document(fixture, PerceiveOptions(enhance_mode="standard", max_pages=3)))
     assert result.pages, domain
     assert result.full_text or result.total_tables >= 0
+    clear_run_cache()
+    output = build_community_output(
+        result,
+        result.full_text or "",
+        file_path=str(fixture),
+    )
+    assert output is not None, domain
+    assert output["business"]["summary"], domain
+    assert output["quality"]["readiness"] in {"ready", "review"}, domain
+    data = output["data"]
+    assert data["fields"] or data["records"] or data["sections"], domain
+    assert not check_community(output), domain

@@ -45,7 +45,7 @@ class CreditReportPlugin(DomainPlugin):
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return (
-            ("name", ("姓名", "Name", "报告主体")),
+            ("subject_name", ("姓名", "Name", "报告主体")),
             ("id_number", ("身份证号", "证件号码", "ID Number")),
             ("report_time", ("报告时间", "查询时间", "Report Time")),
             ("report_number", ("报告编号", "Report No")),
@@ -57,7 +57,7 @@ class CreditReportPlugin(DomainPlugin):
         return build_dec_kv(
             "credit_report",
             {
-                "name": entities.get("name", ""),
+                "subject_name": entities.get("subject_name", entities.get("name", "")),
                 "id_number": entities.get("id_number", ""),
                 "report_time": entities.get("report_time", ""),
             },

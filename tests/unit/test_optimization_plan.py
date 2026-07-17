@@ -53,6 +53,8 @@ def test_projection_schema_registry():
     assert "mirror" in registry
     assert "community" in registry
     assert get_projection_schema("mirror").version == "1.1"
+    assert get_projection_schema("community").version == "2.2"
+    assert get_projection_schema("community").compatibility == "backward-compatible-with-2.0-and-2.1"
 
 
 def test_projection_schema_runtime_validation():
@@ -68,4 +70,19 @@ def test_projection_schema_runtime_validation():
     invalid = validate_projection_payload("community", {"edition": "community"})
 
     assert valid.valid is True
+    assert invalid.valid is False
+
+
+def test_community_22_schema_requires_consumer_contract_blocks():
+    invalid = validate_projection_payload(
+        "community",
+        {
+            "$schema": "https://docmirror.dev/schemas/edition_community.schema.json",
+            "schema_version": "2.2",
+            "edition": "community",
+            "document": {},
+            "data": {},
+        },
+    )
+
     assert invalid.valid is False

@@ -34,15 +34,19 @@ class VATInvoiceSemanticSolver:
 
     def solve(self, *, full_text: str, parse_result: Any = None) -> DomainSolution:
         text = _normalize_text(full_text or getattr(parse_result, "full_text", "") or "")
-        if "发票" not in text or "纳税人识别号" not in text:
+        english_vat = bool(
+            re.search(r"Value\s*-?\s*Added\s+Tax\s+Invoice", text, re.IGNORECASE)
+            and re.search(r"Invoice\s+(?:Code|Number)", text, re.IGNORECASE)
+        )
+        if not english_vat and ("发票" not in text or "纳税人识别号" not in text):
             return DomainSolution(
                 domain=self.domain,
                 status="failed",
                 diagnostics=({"reason": "missing_vat_invoice_markers"},),
             )
 
-        fields = _extract_fields(text)
-        line_items = _extract_line_items(text)
+        fields = _extract_english_fields(text) if english_vat else _extract_fields(text)
+        line_items = _extract_english_line_items(text) if english_vat else _extract_line_items(text)
         invariants = _evaluate_invariants(fields, line_items)
         required_failures = [item for item in invariants if item["status"] == "fail" and item.get("required")]
         field_coverage = _field_coverage(fields)
@@ -138,6 +142,119 @@ def _extract_fields(text: str) -> dict[str, Any]:
     if payee := _inline_label_value(text, "收款人"):
         fields["payee"] = payee
     return fields
+
+
+def _flat_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def _english_value(text: str, label: str, stop_labels: tuple[str, ...]) -> str:
+    stop = "|".join(re.escape(item) for item in stop_labels)
+    match = re.search(
+        rf"(?:^|\s){re.escape(label)}\s*:\s*(.+?)(?=\s+(?:{stop})\s*:|$)",
+        text,
+        re.IGNORECASE,
+    )
+    return match.group(1).strip() if match else ""
+
+
+def _english_money(text: str, label_pattern: str) -> str:
+    match = re.search(
+        rf"{label_pattern}\s*:\s*(?:CNY|¥|￥)?\s*([\d,]+\.\d{{2}})",
+        text,
+        re.IGNORECASE,
+    )
+    return match.group(1).replace(",", "") if match else ""
+
+
+def _extract_english_fields(text: str) -> dict[str, Any]:
+    flat = _flat_text(text)
+    fields: dict[str, Any] = {}
+    scalar_patterns = {
+        "invoice_code": r"Invoice\s+Code\s*:\s*(\d{10,12})",
+        "invoice_number": r"Invoice\s+Number\s*:\s*(\d{6,12})",
+        "invoice_date": r"Issue\s+Date\s*:\s*(20\d{2}-\d{2}-\d{2})",
+        "seller_tax_id": r"Seller\s+Tax\s+ID\s*:\s*([0-9A-Z]{12,25})",
+        "buyer_tax_id": r"Buyer\s+Tax\s+ID\s*:\s*([0-9A-Z]{12,25})",
+        "tax_rate": r"VAT\s+Rate\s*:\s*(\d+(?:\.\d+)?%)",
+    }
+    for key, pattern in scalar_patterns.items():
+        match = re.search(pattern, flat, re.IGNORECASE)
+        if match:
+            fields[key] = match.group(1)
+    if fields.get("invoice_date"):
+        fields["issue_date"] = fields["invoice_date"]
+
+    party_stops = (
+        "Seller Tax ID",
+        "Buyer",
+        "Buyer Tax ID",
+        "Total Amount",
+        "VAT Rate",
+        "VAT Amount",
+        "Item Description",
+    )
+    seller = _english_value(flat, "Seller", party_stops)
+    buyer = _english_value(flat, "Buyer", party_stops)
+    if seller:
+        fields["seller_name"] = seller
+    if buyer:
+        fields["buyer_name"] = buyer
+
+    amount_without_tax = _english_money(flat, r"Total\s+Amount\s*\(excl\.\s*tax\)")
+    tax_amount = _english_money(flat, r"VAT\s+Amount")
+    total_amount = _english_money(flat, r"Total\s+Amount\s*\(incl\.\s*tax\)")
+    if amount_without_tax:
+        fields["amount_without_tax"] = amount_without_tax
+    if tax_amount:
+        fields["tax_amount"] = tax_amount
+    if total_amount:
+        fields["total_amount"] = total_amount
+
+    person_stops = (
+        "Payee",
+        "Reviewer",
+        "Drawer",
+        "Value-Added Tax Invoice",
+        "Special VAT Invoice",
+        "Total Amount",
+        "Item Description",
+    )
+    for key, label in (("payee", "Payee"), ("reviewer", "Reviewer"), ("issuer", "Drawer")):
+        value = _english_value(flat, label, person_stops)
+        if value:
+            fields[key] = value
+    return fields
+
+
+def _extract_english_line_items(text: str) -> list[dict[str, Any]]:
+    flat = _flat_text(text)
+    match = re.search(
+        r"Item\s+Description\s+Qty\s+Unit\s+Price\s+Amount\s+(.+?)(?=\s+Payee\s*:|$)",
+        flat,
+        re.IGNORECASE,
+    )
+    if not match:
+        return []
+    segment = match.group(1).strip()
+    money = r"[\d,]+\.\d{2}"
+    pattern = re.compile(
+        rf"(?P<line_no>\d+)\s+(?P<description>.+?)\s+(?P<quantity>\d+(?:\.\d+)?)\s+"
+        rf"(?P<unit_price>{money})\s+(?P<amount>{money})(?=\s+\d+\s+|$)"
+    )
+    line_items: list[dict[str, Any]] = []
+    for item in pattern.finditer(segment):
+        line_items.append(
+            {
+                "line_no": int(item.group("line_no")),
+                "description": item.group("description").strip(),
+                "quantity": float(item.group("quantity")),
+                "unit_price": float(item.group("unit_price").replace(",", "")),
+                "amount": float(item.group("amount").replace(",", "")),
+                "currency": "CNY",
+            }
+        )
+    return line_items
 
 
 def _extract_party_names(text: str) -> dict[str, str]:

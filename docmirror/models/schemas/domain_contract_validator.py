@@ -56,7 +56,7 @@ def validate_domain_schema(
     """Validate an Edition JSON payload against the domain's DGAC P0 commitments.
 
     Args:
-        payload: Edition JSON dict (community v2.0 envelope).
+        payload: Edition JSON dict (Community v2.x envelope).
         domain: Domain name (e.g. ``bank_statement``, ``vat_invoice``).
         contracts: Pre-loaded contracts dict (optional; loads from disk if None).
 
@@ -209,30 +209,23 @@ def get_domain_contract_version(domain: str, *, contracts: dict[str, Any] | None
 
 
 def apply_domain_contract_validation(payload: dict[str, Any], domain: str) -> DomainContractValidationReport:
-    """Validate community payload against DGAC and merge results into ``status`` / ``validation``."""
+    """Validate Community payload and publish one canonical validation block."""
     report = validate_domain_schema(payload, domain)
     if report.status == "skip":
         return report
 
     status = payload.setdefault("status", {})
-    warnings: list[str] = list(status.get("warnings") or [])
-
-    for field_name in report.missing_fields:
-        tag = (
-            f"partial_missing_required:{field_name}"
-            if field_name.startswith("required_any:")
-            else f"missing_required_field:{field_name}"
-        )
-        if tag not in warnings:
-            warnings.append(tag)
-
-    for field_name in report.missing_records:
-        tag = f"missing_required_record_field:{field_name}"
-        if tag not in warnings:
-            warnings.append(tag)
-
-    if report.required_fields_passed:
-        warnings[:] = [w for w in warnings if not w.startswith("missing_identity_field:")]
+    contract_warning_prefixes = (
+        "missing_identity_field:",
+        "missing_required_field:",
+        "missing_required_record_field:",
+        "partial_missing_required:",
+    )
+    warnings = [
+        str(warning)
+        for warning in (status.get("warnings") or [])
+        if not str(warning).startswith(contract_warning_prefixes)
+    ]
 
     status["warnings"] = warnings
     if report.status in ("partial", "fail") and report.missing_fields:
@@ -247,6 +240,4 @@ def apply_domain_contract_validation(payload: dict[str, Any], domain: str) -> Do
         "missing_records": list(report.missing_records),
     }
     payload.setdefault("validation", {})["domain_contract"] = contract_block
-    meta = payload.setdefault("metadata", {})
-    meta["domain_contract_validation"] = contract_block
     return report

@@ -45,14 +45,27 @@ class BusinessLicensePlugin(DomainPlugin):
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return (
-            ("company_name", ("名称", "公司名称", "Name")),
-            ("unified_social_credit_code", ("统一社会信用代码", "信用代码", "USCC")),
+            ("company_name", ("名称", "公司名称", "Company Name", "Name")),
+            ("company_type", ("类型", "公司类型", "Company Type")),
+            (
+                "unified_social_credit_code",
+                ("统一社会信用代码", "信用代码", "Unified Social Credit Code", "USCC"),
+            ),
             ("legal_representative", ("法定代表人", "负责人", "Legal Representative")),
             ("registered_capital", ("注册资本", "Registered Capital")),
-            ("date_of_establishment", ("成立日期", "成立时间", "Date of Establishment")),
+            (
+                "date_of_establishment",
+                ("成立日期", "成立时间", "Date of Establishment", "Establishment Date"),
+            ),
             ("business_term", ("营业期限", "Business Term")),
-            ("address", ("住所", "地址", "Address")),
+            ("address", ("住所", "地址", "Registered Address", "Address")),
             ("business_scope", ("经营范围", "Business Scope")),
+            ("registration_authority", ("登记机关", "Registration Authority")),
+            ("additional_registration_details", ("Additional Registration Details",)),
+            ("postal_code", ("邮政编码", "Postal Code")),
+            ("contact_phone", ("联系电话", "Contact Phone")),
+            ("annual_inspection", ("年检", "Annual Inspection")),
+            ("special_qualification", ("特殊资质", "Special Qualification")),
         )
 
     def build_domain_data(self, _metadata, entities):

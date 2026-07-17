@@ -1,16 +1,17 @@
 """
-Mirror → generic community v2.1 output adapter for non-premium classified types.
+Mirror → generic community v2.2 output adapter for non-core and unclassified types.
 
 Maps a complete Mirror ``ParseResult`` into a structured community envelope with
 heuristic column type detection, value standardization, and identity extraction.
 
-Key changes in v2.1:
+Key capabilities in v2.2:
   - ``_type_detect_column`` infers column types (date/amount/phone/id/email/enum/text)
   - ``_standardize_value`` normalizes values by type (amount→float, date→ISO)
   - ``_extract_identities`` auto-detects name/id/phone/account fields by key pattern
   - ``records[].normalized`` is populated with typed values (was always empty)
   - ``columns`` metadata block added to output
   - ``identities`` block added to output
+  - text KV, outline, source metadata, and repeated-row recovery fallbacks
 
 Pipeline role: ``runner._run_community_extract`` calls ``build_generic_community_output``
 via ``generic.community_plugin`` when generic fallback is enabled.
@@ -23,6 +24,7 @@ Dependencies: stdlib ``re``, ``unicodedata`` only (no external models).
 from __future__ import annotations
 
 import re
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -47,6 +49,32 @@ _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 _ACCOUNT_RE = re.compile(r"^\d{15,19}$")
 
 _CURRENCY_SYMBOLS = {"¥": "CNY", "$": "USD", "€": "EUR", "£": "GBP", "￥": "CNY"}
+
+_INTERNAL_ENTITY_KEYS = frozenset(
+    {
+        "plugin_document_type",
+        "extractor_scene_hint",
+        "extractor_scene_confidence",
+        "pre_analyzer_scene_hint",
+        "pre_analyzer_scene_confidence",
+        "structural_anomaly_report",
+        "classification_provenance",
+        "classification_source",
+        "document_scene_refined",
+        "layout_profile_id",
+        "layout_profile_id_refined",
+        "layout_profile_refine_confidence",
+        "mirror_expected_data_rows",
+        "mirror_ltqg_enabled",
+        "source_file_name",
+        "extracted_entities",
+        "step_timings",
+        "page_evidence_bundles",
+        "local_structure_evidence",
+        "scanned_ocr_evidence",
+    }
+)
+_TEXT_KV_RE = re.compile(r"^\s*([^:：]{1,40})\s*[:：]\s*(\S.{0,499}|\S)\s*$")
 
 ColumnType = str
 
@@ -181,6 +209,24 @@ def _infer_column_types(
     return result
 
 
+def _infer_record_column_types(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Infer columns from standard records when source tables have no headers."""
+    values: dict[str, list[str]] = {}
+    for record in records:
+        raw = record.get("raw") if isinstance(record.get("raw"), dict) else {}
+        for key, value in raw.items():
+            values.setdefault(str(key), []).append(str(value or ""))
+    columns: dict[str, dict[str, Any]] = {}
+    for key, samples in values.items():
+        column_type, confidence = _type_detect_column(samples)
+        columns[key] = {
+            "type": column_type,
+            "confidence": round(confidence, 3),
+            "null_ratio": round(sum(1 for value in samples if not value.strip()) / max(1, len(samples)), 3),
+        }
+    return columns
+
+
 def _build_normalized_record(
     raw: dict[str, str],
     col_types: dict[str, dict[str, Any]],
@@ -195,6 +241,169 @@ def _build_normalized_record(
         else:
             normalized[key] = _standardize_value(raw_val, col_type)
     return normalized
+
+
+def _is_public_field(key: Any, value: Any) -> bool:
+    """Keep business facts out of Mirror/runtime implementation metadata."""
+    name = str(key or "").strip()
+    if not name or name.startswith("_") or name in _INTERNAL_ENTITY_KEYS:
+        return False
+    if value in (None, ""):
+        return False
+    if isinstance(value, (str, int, float, bool)):
+        return True
+    if isinstance(value, list):
+        return len(value) <= 20 and all(isinstance(item, (str, int, float, bool)) for item in value)
+    if isinstance(value, dict):
+        return len(value) <= 20 and all(
+            isinstance(item, (str, int, float, bool, type(None))) for item in value.values()
+        )
+    return False
+
+
+def _collect_text_key_values(full_text: str) -> dict[str, str]:
+    """Conservatively recover label/value lines when adapters emitted no KV object."""
+    fields: dict[str, str] = {}
+    for line in (full_text or "").splitlines():
+        match = _TEXT_KV_RE.match(line)
+        if not match:
+            continue
+        key, value = match.group(1).strip(), match.group(2).strip()
+        if key.lower() in {"http", "https"} or any(ch in key for ch in ("。", "！", "？", "?", "!")):
+            continue
+        if key and value and key not in fields:
+            fields[key] = value
+        if len(fields) >= 200:
+            break
+    return fields
+
+
+def _recover_repeated_text_records(
+    full_text: str,
+) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]], dict[str, Any] | None]:
+    """Recover a conservative row grid from repeated date-led text sequences.
+
+    This is the last safety net for PDFs whose table geometry was lost but whose
+    reading order still repeats a stable row width.  Requiring at least three
+    date anchors and a dominant width avoids turning ordinary prose into rows.
+    """
+    tokens = [line.strip() for line in (full_text or "").splitlines() if line.strip()]
+    date_indexes = [index for index, token in enumerate(tokens) if _DATE_RE.match(token) or _DATETIME_RE.match(token)]
+    if len(date_indexes) < 3:
+        return [], {}, None
+    spans = [right - left for left, right in zip(date_indexes, date_indexes[1:]) if 2 <= right - left <= 20]
+    if not spans:
+        return [], {}, None
+    width, support = Counter(spans).most_common(1)[0]
+    if support < max(2, len(date_indexes) - 2):
+        return [], {}, None
+
+    header_candidates = tokens[max(0, date_indexes[0] - width) : date_indexes[0]]
+    useful_headers = (
+        len(header_candidates) == width
+        and len(set(header_candidates)) == width
+        and all(re.search(r"[\w\u4e00-\u9fff]", value) for value in header_candidates)
+    )
+    headers = header_candidates if useful_headers else [f"col_{index}" for index in range(width)]
+    raw_rows: list[dict[str, str]] = []
+    for anchor in date_indexes:
+        cells = tokens[anchor : anchor + width]
+        if len(cells) != width:
+            continue
+        raw_rows.append({header: cell for header, cell in zip(headers, cells)})
+    if len(raw_rows) < 3:
+        return [], {}, None
+
+    column_values = {header: [row[header] for row in raw_rows] for header in headers}
+    columns: dict[str, dict[str, Any]] = {}
+    for header, values in column_values.items():
+        column_type, confidence = _type_detect_column(values)
+        columns[header] = {
+            "type": column_type,
+            "confidence": round(confidence, 3),
+            "null_ratio": 0.0,
+        }
+    records = [
+        {
+            "row_index": index,
+            "raw": raw,
+            "normalized": _build_normalized_record(raw, columns),
+            "source": {"source": "full_text_repeated_rows"},
+        }
+        for index, raw in enumerate(raw_rows, start=1)
+    ]
+    descriptor = {
+        "table_id": "text_recovered_0",
+        "kind": "recovered_text_table",
+        "headers": headers,
+        "row_count": len(records),
+        "source_pages": [],
+        "recovery_method": "repeated_date_anchor",
+        "row_width": width,
+        "confidence": round(support / max(1, len(spans)), 4),
+    }
+    return records, columns, descriptor
+
+
+def _field_type(key: str, value: Any) -> tuple[str, float]:
+    if isinstance(value, bool):
+        return "boolean", 1.0
+    if isinstance(value, (int, float)):
+        return "number", 1.0
+    if isinstance(value, list):
+        return "array", 1.0
+    if isinstance(value, dict):
+        return "object", 1.0
+    text = str(value or "").strip()
+    key_lower = key.lower()
+    if any(token in key_lower for token in ("金额", "合计", "总额", "amount", "total", "price", "余额")):
+        if _AMOUNT_RE.match(text):
+            return "amount", 0.95
+    inferred, confidence = _type_detect_column([text])
+    return inferred, confidence
+
+
+def _build_field_intelligence(fields: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return typed normalized fields and a compact data dictionary."""
+    normalized: dict[str, Any] = {}
+    schema: dict[str, Any] = {}
+    for key, value in fields.items():
+        field_type, confidence = _field_type(key, value)
+        if isinstance(value, str) and field_type not in {"text", "boolean", "number", "array", "object"}:
+            normalized[key] = _standardize_value(value, field_type)
+        else:
+            normalized[key] = value
+        schema[key] = {
+            "type": field_type,
+            "confidence": round(float(confidence), 3),
+            "nullable": False,
+        }
+    return normalized, schema
+
+
+def _collect_field_metadata(parse_result: Any, fields: dict[str, Any]) -> dict[str, Any]:
+    """Attach page/bbox/evidence to generic KV facts without changing field values."""
+    metadata: dict[str, Any] = {}
+    wanted = set(fields)
+    for page_index, page in enumerate(getattr(parse_result, "pages", []) or [], start=1):
+        page_number = int(getattr(page, "page_number", 0) or page_index)
+        for kv in getattr(page, "key_values", []) or []:
+            key = str(getattr(kv, "key", "") or "").strip()
+            if key not in wanted or key in metadata:
+                continue
+            item: dict[str, Any] = {
+                "source": "mirror_key_value",
+                "page": page_number,
+                "confidence": round(float(getattr(kv, "confidence", 0.0) or 0.0), 4),
+            }
+            bbox = getattr(kv, "bbox", None)
+            if bbox:
+                item["bbox"] = list(bbox)
+            evidence_ids = list(getattr(kv, "evidence_ids", []) or [])
+            if evidence_ids:
+                item["evidence_ids"] = evidence_ids
+            metadata[key] = item
+    return metadata
 
 
 # ── Identity extraction ─────────────────────────────────────────────────────
@@ -294,19 +503,22 @@ def _collect_entity_fields(parse_result: Any) -> dict[str, Any]:
     raw = getattr(entities, "domain_specific", None)
     if isinstance(raw, dict):
         for key, value in raw.items():
-            if value is not None and value != "":
+            if _is_public_field(key, value):
                 fields[str(key)] = value
 
     # Priority 2: general entities
     raw = getattr(entities, "entities", None)
     if isinstance(raw, dict):
         for key, value in raw.items():
-            if value is not None and value != "" and str(key) not in fields:
+            if _is_public_field(key, value) and str(key) not in fields:
                 fields[str(key)] = value
 
     # Priority 3: common structured attributes
     for attr in (
-        "document_type",
+        "organization",
+        "subject_name",
+        "subject_id",
+        "document_date",
         "period_start",
         "period_end",
         "institution",
@@ -314,7 +526,7 @@ def _collect_entity_fields(parse_result: Any) -> dict[str, Any]:
         "account_holder",
     ):
         val = getattr(entities, attr, None)
-        if val is not None and val != "" and attr not in fields:
+        if _is_public_field(attr, val) and attr not in fields:
             fields[attr] = val
 
     # Priority 4: page-level key_values
@@ -335,16 +547,21 @@ def _collect_table_records(parse_result: Any) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     logical = get_logical_tables(parse_result)
     if logical:
-        tables = logical
+        tables: list[tuple[Any, list[int]]] = [
+            (table, list(getattr(table, "source_pages", []) or [])) for table in logical
+        ]
     else:
         tables = []
         for page in getattr(parse_result, "pages", []) or []:
-            tables.extend(getattr(page, "tables", []) or [])
+            page_number = int(getattr(page, "page_number", 0) or 0)
+            tables.extend((table, [page_number] if page_number else []) for table in getattr(page, "tables", []) or [])
 
     row_index = 0
-    for table in tables:
+    for table_index, (table, source_pages) in enumerate(tables):
         headers = list(getattr(table, "headers", None) or [])
-        for row in getattr(table, "rows", []) or []:
+        table_id = str(getattr(table, "logical_id", "") or getattr(table, "table_id", "") or f"table_{table_index}")
+        provenance = list(getattr(table, "provenance", []) or [])
+        for table_row_index, row in enumerate(getattr(table, "rows", []) or []):
             cells = [getattr(c, "text", str(c)) for c in getattr(row, "cells", [])]
             if not any(str(c).strip() for c in cells):
                 continue
@@ -353,8 +570,114 @@ def _collect_table_records(parse_result: Any) -> list[dict[str, Any]]:
                 raw = {str(h): str(c) for h, c in zip(headers, cells)}
             else:
                 raw = {f"col_{i}": str(c) for i, c in enumerate(cells)}
-            records.append({"row_index": row_index, "raw": raw, "normalized": {}})
+            source: dict[str, Any] = {"table_id": table_id, "table_row_index": table_row_index}
+            if table_row_index < len(provenance):
+                prov = provenance[table_row_index]
+                prov_page = int(getattr(prov, "source_page", 0) or 0)
+                if prov_page:
+                    source["page"] = prov_page
+                physical_id = str(getattr(prov, "source_table_id", "") or "")
+                if physical_id:
+                    source["physical_table_id"] = physical_id
+            elif source_pages:
+                source["pages"] = source_pages
+            records.append(
+                {
+                    "row_index": row_index,
+                    "raw": raw,
+                    "normalized": {},
+                    "source": source,
+                }
+            )
     return records
+
+
+def _collect_table_descriptors(parse_result: Any) -> list[dict[str, Any]]:
+    """Describe every logical/physical table so records remain navigable."""
+    from docmirror.tables.access import get_logical_tables
+
+    logical = get_logical_tables(parse_result) or []
+    descriptors: list[dict[str, Any]] = []
+    if logical:
+        for index, table in enumerate(logical):
+            rows = list(getattr(table, "rows", []) or [])
+            descriptors.append(
+                {
+                    "table_id": str(
+                        getattr(table, "logical_id", "") or getattr(table, "table_id", "") or f"table_{index}"
+                    ),
+                    "kind": "logical_table",
+                    "headers": [str(item) for item in (getattr(table, "headers", []) or [])],
+                    "row_count": len(rows),
+                    "source_pages": list(getattr(table, "source_pages", []) or []),
+                    "merge_confidence": round(float(getattr(table, "merge_confidence", 0.0) or 0.0), 4),
+                }
+            )
+        return descriptors
+
+    for page_index, page in enumerate(getattr(parse_result, "pages", []) or [], start=1):
+        page_number = int(getattr(page, "page_number", 0) or page_index)
+        for table_index, table in enumerate(getattr(page, "tables", []) or []):
+            descriptors.append(
+                {
+                    "table_id": str(getattr(table, "table_id", "") or f"p{page_number}_table_{table_index}"),
+                    "kind": "physical_table",
+                    "headers": [str(item) for item in (getattr(table, "headers", []) or [])],
+                    "row_count": len(getattr(table, "rows", []) or []),
+                    "source_pages": [page_number],
+                    "confidence": round(float(getattr(table, "confidence", 0.0) or 0.0), 4),
+                }
+            )
+    return descriptors
+
+
+def _collect_sections(parse_result: Any) -> list[dict[str, Any]]:
+    """Create a compact document outline from sections and heading text blocks."""
+    sections: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, section in enumerate(getattr(parse_result, "sections", []) or []):
+        title = str(
+            (section.get("title") or section.get("name") or "")
+            if isinstance(section, dict)
+            else (getattr(section, "title", "") or getattr(section, "name", "") or "")
+        ).strip()
+        if not title or title in seen:
+            continue
+        seen.add(title)
+        sections.append(
+            {
+                "id": str(section.get("id") if isinstance(section, dict) else getattr(section, "id", ""))
+                or f"section_{index}",
+                "title": title,
+                "page_start": int(
+                    (section.get("page_start", 1) if isinstance(section, dict) else getattr(section, "page_start", 1))
+                    or 1
+                ),
+            }
+        )
+
+    for page_index, page in enumerate(getattr(parse_result, "pages", []) or [], start=1):
+        page_number = int(getattr(page, "page_number", 0) or page_index)
+        for text in getattr(page, "texts", []) or []:
+            content = str(getattr(text, "content", "") or "").strip()
+            level = getattr(text, "level", None)
+            level_value = str(getattr(level, "value", level) or "").lower()
+            if level_value not in {"title", "h1", "h2", "h3", "heading"}:
+                continue
+            if not content or len(content) > 120 or content in seen:
+                continue
+            seen.add(content)
+            item: dict[str, Any] = {
+                "id": f"heading_{len(sections)}",
+                "title": content,
+                "level": level_value,
+                "page_start": page_number,
+            }
+            bbox = getattr(text, "bbox", None)
+            if bbox:
+                item["bbox"] = list(bbox)
+            sections.append(item)
+    return sections
 
 
 def _collect_structure_projected_records(parse_result: Any) -> list[dict[str, Any]]:
@@ -408,12 +731,33 @@ def build_generic_community_output(
     detected_type: str,
     full_text: str = "",
 ) -> dict[str, Any]:
-    """Build v2.1 community JSON using heuristic type detection and standardization."""
+    """Build v2.2 adaptive Community JSON from any usable Mirror document."""
     fields = _collect_entity_fields(parse_result)
+    for key, value in _collect_text_key_values(full_text).items():
+        fields.setdefault(key, value)
     records = _collect_table_records(parse_result)
+    recovered_records: list[dict[str, Any]] = []
+    recovered_columns: dict[str, dict[str, Any]] = {}
+    recovered_table: dict[str, Any] | None = None
+    if not records:
+        recovered_records, recovered_columns, recovered_table = _recover_repeated_text_records(full_text)
+        records.extend(recovered_records)
     structure_records = _collect_structure_projected_records(parse_result)
     if structure_records:
-        records = records + structure_records
+        for projected in structure_records:
+            records.append(
+                {
+                    "row_index": len(records) + 1,
+                    "raw": {},
+                    "normalized": dict(projected),
+                    "record_type": "structure_projection",
+                    "source": {
+                        "page": projected.get("page"),
+                        "block_id": projected.get("block_id"),
+                        "schema_hint": projected.get("schema_hint"),
+                    },
+                }
+            )
 
     # ── Heuristic column type detection ──
     from docmirror.tables.access import get_logical_tables
@@ -424,6 +768,10 @@ def build_generic_community_output(
             all_tables.extend(getattr(page, "tables", []) or [])
 
     col_types = _infer_column_types(all_tables) if all_tables else {}
+    if not col_types and records:
+        col_types = _infer_record_column_types(records)
+    for key, value in recovered_columns.items():
+        col_types.setdefault(key, value)
 
     # ── Build normalized records ──
     for record in records:
@@ -433,6 +781,12 @@ def build_generic_community_output(
 
     # ── Identity extraction ──
     identities = _extract_identities(fields) if fields else {}
+    normalized_fields, field_schema = _build_field_intelligence(fields)
+    field_metadata = _collect_field_metadata(parse_result, fields)
+    sections = _collect_sections(parse_result)
+    table_descriptors = _collect_table_descriptors(parse_result)
+    if recovered_table is not None:
+        table_descriptors.append(recovered_table)
 
     # ── Assemble structured data ──
     file_path = getattr(parse_result, "file_path", "") or ""
@@ -440,10 +794,17 @@ def build_generic_community_output(
     page_count = len(getattr(parse_result, "pages", []) or [])
 
     summary = {"total_rows": len(records)}
+    summary["field_count"] = len(fields)
+    summary["table_count"] = len(table_descriptors)
+    summary["section_count"] = len(sections)
     if col_types:
         summary["inferred_columns"] = len(col_types)
     if identities:
         summary["inferred_identities"] = len(identities)
+    if recovered_records:
+        summary["text_recovered_record_count"] = len(recovered_records)
+    if structure_records:
+        summary["structure_projected_record_count"] = len(structure_records)
 
     warnings: list[str] = [_GENERIC_WARNING]
     if not fields and not records:
@@ -451,11 +812,13 @@ def build_generic_community_output(
 
     structured_data = {
         "records": records,
-        "structure_projected_records": structure_records,
         "summary": summary,
-        "sections": [],
-        "tables": [],
+        "sections": sections,
+        "tables": table_descriptors,
         "line_items": [],
+        "normalized_fields": normalized_fields,
+        "field_schema": field_schema,
+        "field_metadata": field_metadata,
     }
     if col_types:
         structured_data["columns"] = col_types
@@ -479,11 +842,12 @@ def build_generic_community_output(
                 match_method="generic_fallback",
                 text=full_text,
                 scene_keywords=(),
+                matched=detected_type not in {"", "unknown", "generic"},
             ),
             "plugin": {
                 "name": "generic",
                 "display_name": "Generic Community",
-                "version": "community-2.1",
+                "version": "community-2.2",
                 "support_level": "generic",
             },
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -502,7 +866,17 @@ def build_generic_community_output(
     output = edition_serializer(dec, context=ctx)
 
     metadata = output.setdefault("metadata", {})
-    metadata["generic_route"] = "type_aware_fallback"
+    metadata["generic_route"] = "adaptive_structured_fallback"
+    metadata["adaptive_features"] = [
+        "text_kv_recovery",
+        "field_type_inference",
+        "value_normalization",
+        "identity_discovery",
+        "table_schema_inference",
+        "repeated_row_recovery",
+        "document_outline",
+        "source_metadata",
+    ]
     if col_types:
         metadata["inferred_columns"] = len(col_types)
     if identities:

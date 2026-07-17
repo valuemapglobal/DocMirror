@@ -82,8 +82,9 @@ def _is_enterprise_envelope(raw: dict[str, Any]) -> bool:
 
 
 def _is_edition_v2_payload(raw: dict[str, Any]) -> bool:
-    """True when *raw* is community edition JSON v2.0 (``schema_version`` + ``data``)."""
-    return raw.get("schema_version") == "2.0" and isinstance(raw.get("data"), dict)
+    """True for DEC v2.x ``data`` envelopes, including edition fallback clones."""
+    version = str(raw.get("schema_version") or "")
+    return version.split(".", 1)[0] == "2" and isinstance(raw.get("data"), dict)
 
 
 def _is_edition_envelope_passthrough(raw: dict[str, Any]) -> bool:
@@ -188,7 +189,7 @@ def _normalize_enterprise_envelope(raw: dict[str, Any]) -> DomainExtractionResul
 
 
 def _normalize_edition_v2(raw: dict[str, Any]) -> DomainExtractionResult:
-    """Map edition v2.0 blocks → DEC (table plugins via ``extract_from_mirror``)."""
+    """Map Community v2.x blocks → DEC (table plugins via ``extract_from_mirror``)."""
     doc = raw.get("document") if isinstance(raw.get("document"), dict) else {}
     data = raw["data"]
     status = raw.get("status") if isinstance(raw.get("status"), dict) else {}

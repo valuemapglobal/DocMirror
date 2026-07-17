@@ -16,6 +16,7 @@ pytestmark = [pytest.mark.tier_e2e, pytest.mark.tier_regression, pytest.mark.int
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
 from docmirror.server.edition_outputs import write_four_files
+from tests.contract.test_edition_schema_conformance import check_community
 
 LICENSE_FIXTURE = Path("tests/fixtures/business_license/synthetic_medium_variant.pdf")
 
@@ -32,7 +33,16 @@ def test_write_four_files_defaults_to_community_only(tmp_path: Path):
     assert not (tmp_path / task_id / "001_mirror.json").exists()
 
     comm_data = json.loads(written["community"].read_text(encoding="utf-8"))
+    assert comm_data["schema_version"] == "2.2"
     assert comm_data["document"]["document_id"] == f"doc_{task_id}_001"
+    assert comm_data["business"]["version"] == "community.business.v1"
+    assert comm_data["quality"]["readiness"] in {"ready", "review", "insufficient"}
+    assert "data_dictionary" in comm_data["data"]
+    assert "field_details" in comm_data["data"]
+    assert "datasets" in comm_data["data"]
+    assert "plugins" not in comm_data
+    assert "presentation" not in comm_data
+    assert not check_community(comm_data)
 
 
 def test_write_four_files_respects_requested_editions(tmp_path: Path):
@@ -123,9 +133,7 @@ def test_write_four_files_after_perceive(tmp_path: Path):
     if not LICENSE_FIXTURE.is_file():
         pytest.skip(f"missing fixture {LICENSE_FIXTURE}")
 
-    result = asyncio.run(
-        perceive_document(LICENSE_FIXTURE, PerceiveOptions(enhance_mode="standard"))
-    )
+    result = asyncio.run(perceive_document(LICENSE_FIXTURE, PerceiveOptions(enhance_mode="standard")))
     task_id, written = write_four_files(
         result,
         tmp_path,
@@ -141,6 +149,8 @@ def test_write_four_files_after_perceive(tmp_path: Path):
     if "community" in written:
         comm_json = json.loads(written["community"].read_text(encoding="utf-8"))
         assert comm_json["metadata"]["task_id"] == task_id
+        assert comm_json["business"]["summary"]
+        assert not check_community(comm_json)
 
 
 def test_artifact_pack_uses_internal_mirror_without_persisting_it(tmp_path: Path):

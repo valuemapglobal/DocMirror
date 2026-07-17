@@ -5,10 +5,638 @@
   "type": "object",
   "required": ["schema_version", "edition", "document", "data"],
   "properties": {
-    "schema_version": { "const": "2.0" },
-    "edition": { "const": "community" },
-    "document": { "type": "object" },
-    "data": { "type": "object" },
-    "composition": { "type": "object" }
-  }
+    "$schema": {
+      "const": "https://docmirror.dev/schemas/edition_community.schema.json"
+    },
+    "schema_version": {
+      "enum": ["2.0", "2.1", "2.2"]
+    },
+    "edition": {
+      "const": "community"
+    },
+    "document": {
+      "$ref": "#/$defs/document"
+    },
+    "classification": {
+      "$ref": "#/$defs/classification"
+    },
+    "status": {
+      "$ref": "#/$defs/status"
+    },
+    "quality": {
+      "$ref": "#/$defs/quality"
+    },
+    "plugin": {
+      "$ref": "#/$defs/plugin"
+    },
+    "plugins": {
+      "type": "object"
+    },
+    "business": {
+      "$ref": "#/$defs/business"
+    },
+    "data": {
+      "$ref": "#/$defs/data"
+    },
+    "validation": {
+      "$ref": "#/$defs/validation"
+    },
+    "composition": {
+      "type": "object"
+    },
+    "projection_lineage": {
+      "type": "object"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "derived_variables": {
+      "type": "object"
+    },
+    "mirror_ref": {}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "enum": ["2.1", "2.2"]
+          }
+        },
+        "required": ["schema_version"]
+      },
+      "then": {
+        "required": [
+          "$schema",
+          "classification",
+          "status",
+          "quality",
+          "plugin",
+          "business",
+          "validation",
+          "metadata"
+        ],
+        "properties": {
+          "document": {
+            "required": [
+              "document_type",
+              "document_name",
+              "domain",
+              "archetype",
+              "language",
+              "region",
+              "source_format",
+              "page_count"
+            ]
+          },
+          "data": {
+            "required": [
+              "fields",
+              "field_details",
+              "records",
+              "sections",
+              "tables",
+              "line_items",
+              "summary",
+              "datasets",
+              "data_dictionary"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "document": {
+      "type": "object",
+      "properties": {
+        "document_id": {
+          "type": "string"
+        },
+        "document_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "document_name": {
+          "type": ["string", "null"]
+        },
+        "domain": {
+          "type": "string"
+        },
+        "archetype": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "source_format": {
+          "type": "string"
+        },
+        "page_count": {
+          "type": ["integer", "number", "null"],
+          "minimum": 0
+        },
+        "properties": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "classification": {
+      "type": "object",
+      "required": [
+        "matched",
+        "matched_document_type",
+        "matched_domain",
+        "matched_archetype",
+        "match_method",
+        "candidate_types"
+      ],
+      "properties": {
+        "matched": {
+          "type": "boolean"
+        },
+        "matched_document_type": {
+          "type": "string"
+        },
+        "matched_domain": {
+          "type": "string"
+        },
+        "matched_archetype": {
+          "type": "string"
+        },
+        "match_method": {
+          "type": "string"
+        },
+        "candidate_types": {
+          "type": "array"
+        }
+      },
+      "additionalProperties": true
+    },
+    "status": {
+      "type": "object",
+      "required": ["success", "warnings", "errors"],
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "qualityIssue": {
+      "type": "object",
+      "required": ["code", "severity", "target", "message", "action", "source_code"],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": ["info", "warning", "error"]
+        },
+        "target": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "source_code": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "quality": {
+      "type": "object",
+      "required": [
+        "score",
+        "grade",
+        "readiness",
+        "needs_review",
+        "source_confidence",
+        "normalization_rate",
+        "issues",
+        "evidence"
+      ],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "grade": {
+          "enum": ["excellent", "good", "review", "insufficient"]
+        },
+        "readiness": {
+          "enum": ["ready", "review", "insufficient"]
+        },
+        "needs_review": {
+          "type": "boolean"
+        },
+        "source_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "normalization_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/qualityIssue"
+          }
+        },
+        "evidence": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "plugin": {
+      "type": "object",
+      "required": ["name", "display_name", "version", "support_level"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "support_level": {
+          "enum": ["L1", "L2", "L3", "generic"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "business": {
+      "type": "object",
+      "required": [
+        "version",
+        "derived",
+        "derived_from",
+        "document_label",
+        "summary",
+        "key_metrics",
+        "dimensions",
+        "highlights",
+        "readiness_ref"
+      ],
+      "properties": {
+        "version": {
+          "const": "community.business.v1"
+        },
+        "derived": {
+          "const": true
+        },
+        "derived_from": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "document_label": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "key_metrics": {
+          "type": "object"
+        },
+        "metric_cards": {
+          "type": "array"
+        },
+        "dimensions": {
+          "type": "object"
+        },
+        "highlights": {
+          "type": "array"
+        },
+        "readiness": {
+          "enum": ["ready", "review", "insufficient"]
+        },
+        "readiness_ref": {
+          "const": "/quality/readiness"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fieldDetail": {
+      "type": "object",
+      "anyOf": [
+        {
+          "required": ["raw", "normalized", "normalizer", "confidence", "source_refs", "review"]
+        },
+        {
+          "required": ["value_ref", "normalizer", "confidence", "source_refs", "review"]
+        }
+      ],
+      "properties": {
+        "raw": {
+          "type": "string"
+        },
+        "normalized": {},
+        "value_ref": {
+          "type": "string",
+          "pattern": "^/data/fields/"
+        },
+        "normalizer": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": ["string", "object"]
+          }
+        },
+        "review": {
+          "enum": ["auto_accepted", "manual_optional", "needs_review", "needs_evidence"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "record": {
+      "type": "object",
+      "required": ["row_index", "raw", "normalized"],
+      "properties": {
+        "row_index": {
+          "type": ["integer", "number"]
+        },
+        "raw": {
+          "type": "object"
+        },
+        "normalized": {
+          "type": "object"
+        },
+        "source": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "dataset": {
+      "type": "object",
+      "required": ["id", "label", "kind", "role", "data_ref", "row_count", "columns_ref"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "role": {
+          "enum": ["primary", "auxiliary"]
+        },
+        "data_ref": {
+          "type": "string",
+          "pattern": "^/data/"
+        },
+        "row_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "columns_ref": {
+          "type": "string",
+          "pattern": "^/data/data_dictionary/(record_columns|datasets/)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "dictionaryColumn": {
+      "type": "object",
+      "required": ["label", "type", "format", "nullable", "sensitive", "display_order"],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "type": {
+          "enum": ["string", "number", "integer", "boolean", "array", "object", "unknown"]
+        },
+        "format": {
+          "enum": [
+            "text",
+            "integer",
+            "decimal",
+            "currency",
+            "percentage",
+            "date",
+            "datetime",
+            "identifier",
+            "account_number",
+            "id_number",
+            "phone",
+            "boolean"
+          ]
+        },
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "nullable": {
+          "type": "boolean"
+        },
+        "sensitive": {
+          "type": "boolean"
+        },
+        "has_source": {
+          "type": "boolean"
+        },
+        "display_order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unit": {
+          "type": "string"
+        },
+        "mask": {
+          "type": "string"
+        },
+        "value_ref": {
+          "type": "string"
+        },
+        "detail_ref": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "dataDictionary": {
+      "type": "object",
+      "required": ["version", "field_count", "record_count", "fields", "record_columns", "datasets"],
+      "properties": {
+        "version": {
+          "const": "community.dictionary.v1"
+        },
+        "field_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/dictionaryColumn"
+          }
+        },
+        "record_columns": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/dictionaryColumn"
+          }
+        },
+        "datasets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "columns": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/dictionaryColumn"
+                }
+              },
+              "columns_ref": {
+                "const": "/data/data_dictionary/record_columns"
+              }
+            },
+            "oneOf": [
+              {
+                "required": ["columns"]
+              },
+              {
+                "required": ["columns_ref"]
+              }
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "object"
+        },
+        "field_details": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/fieldDetail"
+          }
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/record"
+          }
+        },
+        "sections": {
+          "type": "array"
+        },
+        "tables": {
+          "type": "array"
+        },
+        "line_items": {
+          "type": "array"
+        },
+        "summary": {
+          "type": "object"
+        },
+        "datasets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dataset"
+          }
+        },
+        "data_dictionary": {
+          "$ref": "#/$defs/dataDictionary"
+        }
+      },
+      "additionalProperties": true
+    },
+    "validation": {
+      "type": "object",
+      "required": ["domain_contract"],
+      "properties": {
+        "domain_contract": {
+          "type": "object",
+          "required": [
+            "contract_id",
+            "status",
+            "required_fields_passed",
+            "required_records_passed",
+            "missing_fields",
+            "missing_records"
+          ],
+          "properties": {
+            "contract_id": {
+              "type": "string"
+            },
+            "status": {
+              "enum": ["pass", "partial", "fail", "skip", "unknown"]
+            },
+            "required_fields_passed": {
+              "type": "boolean"
+            },
+            "required_records_passed": {
+              "type": "boolean"
+            },
+            "missing_fields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "missing_records": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
 }

@@ -35,7 +35,7 @@ def build_community_output(
     file_path: str = "",
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict | None:
-    """Build community v2.0 output via PEC plugin runner (does not mutate Mirror)."""
+    """Build the final Community v2.1 consumer output without mutating Mirror."""
     from docmirror.plugins._runtime.community import is_community_premium
     from docmirror.plugins._runtime.composition import CompositionReason, annotate_composition
     from docmirror.plugins._runtime.runner import run_plugin_extract_sync
@@ -69,6 +69,10 @@ def build_community_output(
         annotate_composition(out, edition="community", reason=CompositionReason.MIRROR_ONLY)
     if "composition" not in out:
         annotate_composition(out, edition="community", reason=CompositionReason.INDEPENDENT_EXTRACT)
+    # Community JSON is the default standalone business artifact.  Always add
+    # compact source-fact counts and projection lineage, even when callers do
+    # not request the optional Mirror file on disk.
+    _enrich_edition_metadata(out, result, "community", evidence_depth="standard")
     return out
 
 
@@ -612,16 +616,15 @@ def _enrich_edition_metadata(
     meta["source_fact_ids"] = source_fact_ids
     meta["evidence_ids"] = evidence_ids
 
+    # Projection lineage includes edition, field and record granularity where
+    # plugins supplied local refs.  Build it before compacting the document-wide
+    # ID lists so field-level evidence remains independently discoverable.
+    from docmirror.output.projection.resolver import build_projection_lineage
+
+    lineage = build_projection_lineage(output)
+    lineage.setdefault("edition_lineage", {})["projection_id"] = f"proj:{edition}.edition"
+    output["projection_lineage"] = lineage
+
     if evidence_depth != "full":
         compact_source_ref_metadata(meta, mirror_ref=mirror_ref)
-
-    # Projection lineage
-    lineage = output.setdefault("projection_lineage", {})
-    lineage["edition_lineage"] = {
-        "projection_id": f"proj:{edition}.edition",
-        "source_fact_ids": source_fact_ids,
-        "evidence_ids": evidence_ids,
-    }
-
-    if evidence_depth != "full":
         compact_projection_lineage_source_refs(lineage, mirror_ref=mirror_ref)

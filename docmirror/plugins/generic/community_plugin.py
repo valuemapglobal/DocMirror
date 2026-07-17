@@ -6,8 +6,8 @@ Generic community fallback plugin.
 
 Universal community plugin for classified document types outside the six premium
 domains. Delegates ``extract_from_mirror`` to ``build_generic_community_output``,
-mapping Mirror entities, KV pairs, and tables into a minimal v2.0 envelope with
-``community_generic_fallback`` warning.
+mapping Mirror entities, KV pairs, tables, outlines and repeated text rows into
+an adaptive v2.0 envelope with ``community_generic_fallback`` warning.
 
 Pipeline role: last community extract attempt before ``mirror_only`` for
 enterprise-only types; gated by ``community.is_community_generic_enabled`` and

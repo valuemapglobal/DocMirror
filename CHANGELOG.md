@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Mirror JSON 1.0.4] — 2026-07-17
+
+This is a backward-compatible patch release of the Mirror JSON contract. The
+Python distribution version remains 1.0.0.
+
+### Added
+- A consumer-first Community 6+1 projection for bank statements, WeChat Pay, Alipay, VAT invoices, business licenses, credit reports, and the universal fallback.
+- A compact Community 2.2 consumer contract with canonical field values, reference-only field details and datasets, masking-aware dictionaries, structured operational issues, and 2.0/2.1 schema compatibility.
+- Adaptive generic fallback recovery for text-derived KV fields, typed and normalized values, identity semantics, outlines, table descriptors, repeated date-led rows, and structure-projected records.
+- Bilingual word-split recovery for payment ledgers, business licenses, and VAT invoices, including English VAT amount reconciliation and line-item extraction.
+
+### Changed
+- `data.fields` is the sole normalized-value location; `field_details` carries `value_ref`, evidence, confidence, review state, and only materially different raw text.
+- Dataset descriptors use JSON Pointer references without embedding rows, while record-column schemas are referenced instead of serialized twice.
+- VAT line items are the single canonical invoice-row collection, `invoice_date` is the single invoice-date field, and generic recovered rows live only in `data.records`.
+- Domain validation gaps live only in `validation.domain_contract`; intermediate field metadata and VAT provenance copies are folded into `data.field_details`.
+- Business output retains semantic summaries, key metrics, and genuinely derived dimensions while omitting presentation descriptors, direct field copies, metric cards, and mirrored readiness values.
+- Single-plugin Community outputs use only `plugin`; `plugins` is reserved for real multi-plugin compositions.
+- Community serialization consumes plugin-owned DEC extensions before removing generic intermediate metadata and duplicated structures from the final artifact.
+
+### Fixed
+- Unclassified `unknown` and `generic` documents now execute the universal Community plugin instead of being skipped.
+- Payment KV fallback metadata, credit-report subject naming, and scanned repayment-grid extraction now align with the Community domain contracts.
+- Removed the duplicate top-level credit-report repayment collection; `data.repayment_records` is its single public location.
+
 ## [Mirror JSON 1.0.3] — 2026-07-17
 
 This is a backward-compatible patch release of the Mirror JSON contract. The

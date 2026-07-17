@@ -19,7 +19,7 @@ DocMirror 是面向商业凭证的可信解析层，产品定位是 **Commercial
 - Python 包版本为 `1.0.0`，公共包名为 `docmirror`。
 - Python 支持 `>=3.10`，测试矩阵覆盖 Python 3.10 到 3.13。
 - 公共 OSS wheel 只打包 `docmirror` 主包；`docmirror_enterprise`、`docmirror_finance`、`tests`、`scripts`、`docs`、`sdks` 等不进入公共 wheel。
-- Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.3`。
+- Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.4`。
 - CLI、REST API、Python API 和 edition 输出最终都围绕同一个 `ParseResult`/Mirror 投影链路工作。
 
 ## 2. 快速上手
@@ -410,6 +410,8 @@ Community 当前核心结构化插件：
 - `business_license`
 - `credit_report`
 - `generic` fallback
+
+标准落盘输出采用 Community 2.2 消费契约，并在同一 Schema 中兼容读取 2.0/2.1。插件和 `edition_serializer` 先生成内部 DEC 2.0 包络，`community_business_projection` 再统一补齐紧凑 `field_details`、`datasets`、`data_dictionary` 和结构化运行问题，清理已被消费层吸收的中间副本后原子升级为 2.2。`data.fields` 是标准值唯一来源；单插件仅输出 `plugin`，`plugins` 仅供组合执行；契约缺失项仅以 `validation.domain_contract` 为事实源；HTML 布局属于独立渲染层，不进入 Community JSON。
 
 配置事实源：
 
