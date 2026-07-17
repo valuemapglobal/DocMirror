@@ -75,9 +75,8 @@ def test_unknown_domain_uses_generic_plugin():
 @pytest.mark.parametrize("domain,fixture", FIXTURE_BY_DOMAIN.items())
 def test_public_fixture_can_be_perceived(domain: str, fixture: Path):
     assert fixture.exists(), domain
-    perceive_result = asyncio.run(
+    result = asyncio.run(
         perceive_document(fixture, PerceiveOptions(enhance_mode="standard", max_pages=3))
     )
-    mirror = perceive_result.mirror
-    assert mirror.pages, domain
-    assert mirror.full_text or mirror.total_tables >= 0
+    assert result.pages, domain
+    assert result.full_text or result.total_tables >= 0

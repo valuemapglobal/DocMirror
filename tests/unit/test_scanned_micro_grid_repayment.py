@@ -436,6 +436,7 @@ def test_write_four_files_forensic_mirror_includes_plugin_primed_micro_grids(tmp
         tmp_path,
         task_id="task_micro_grid",
         mirror_level="forensic",
+        editions=("mirror",),
     )
 
     mirror = json.loads(written["mirror"].read_text(encoding="utf-8"))

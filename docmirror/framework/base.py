@@ -79,6 +79,7 @@ class BaseParser(ABC):
                 stat = file_path.stat()
                 suffix = file_path.suffix.lstrip(".").lower()
                 pr.provenance = ProvenanceInfo(
+                    file_path=str(file_path),
                     file_type=context.get("file_type") or suffix,
                     file_size=int(context.get("file_size") or stat.st_size),
                     checksum=context.get("checksum", ""),
@@ -89,6 +90,7 @@ class BaseParser(ABC):
             except OSError:
                 pass
         else:
+            pr.provenance.file_path = pr.provenance.file_path or str(file_path)
             pr.provenance.checksum = pr.provenance.checksum or context.get("checksum", "")
             pr.provenance.mime_type = pr.provenance.mime_type or context.get("mime_type", "")
             pr.provenance.capability_id = pr.provenance.capability_id or context.get("capability_id", "")

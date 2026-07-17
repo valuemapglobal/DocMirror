@@ -7,6 +7,10 @@ from __future__ import annotations
 
 import pytest
 
+from docmirror.input.adapters.parsers.discovery import (
+    discover_backends,
+    register_discovered_backends,
+)
 from docmirror.input.adapters.parsers.protocol import (
     ParserBackend,
     ParserCapability,
@@ -22,12 +26,18 @@ from docmirror.input.adapters.parsers.registry import (
     get_registry,
     register_backend,
 )
-from docmirror.input.adapters.parsers.discovery import (
-    discover_backends,
-    register_discovered_backends,
-)
 
 pytestmark = [pytest.mark.tier_unit]
+
+
+@pytest.fixture(autouse=True)
+def isolate_global_registry():
+    """Prevent backend registrations in this module from leaking to later tests."""
+    registry = get_registry()
+    original = dict(registry._backends)
+    yield
+    registry._backends.clear()
+    registry._backends.update(original)
 
 
 @pytest.fixture

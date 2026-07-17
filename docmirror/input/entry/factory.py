@@ -8,7 +8,7 @@
 Document perception factory — single public entry point for parsing.
 
 Purpose: Accepts a file path and explicit ``PerceiveOptions``, delegates to
-``ParserDispatcher``, and returns a ``PerceiveResult`` / ``ParseResult``.
+``ParserDispatcher``, and returns a ``ParseResult``.
 All configuration is explicit; no hidden globals.
 
 Main components: ``perceive_document``, ``PerceptionFactory``,
@@ -30,10 +30,9 @@ from typing import TYPE_CHECKING, Literal
 
 from docmirror.framework.dispatcher import ParserDispatcher
 from docmirror.input.entry.options import ParseControl, normalize_parse_control
-from docmirror.input.entry.perceive_result import PerceiveResult
 
 if TYPE_CHECKING:
-    pass
+    from docmirror.models.entities.parse_result import ParseResult
 
 logger = logging.getLogger(__name__)
 
@@ -80,12 +79,9 @@ class PerceiveOptions:
     on_progress: Callable[..., None] | None = None
     """Optional progress callback (compatible with ``ProgressBus.emit``)."""
 
-    # ── Plugin layer (PEC) — optional; does not mutate Mirror ──
+    # ── Legacy edition convenience option ──
     editions: list[str] = field(default_factory=list)
-    """If non-empty, run ``plugins.runner`` for each edition after parse.
-
-    Results are stored on ``PerceiveResult.editions`` (never on ``ParseResult``).
-    """
+    """Deprecated no-op; select editions through ``ParseControl.output``."""
 
     # ── Unified parse control (new contract) ──
     control: ParseControl | None = None
@@ -139,7 +135,7 @@ class PerceptionFactory:
 async def perceive_document(
     file_path: str | Path,
     control: PerceiveOptions | None = None,
-) -> PerceiveResult:
+) -> ParseResult:
     """Public entry point delegated to ``docmirror.input.pipeline``."""
     from docmirror.input.pipeline import perceive_document as _new
 

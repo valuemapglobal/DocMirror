@@ -28,7 +28,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 async def perceive_document(*args: Any, **kwargs: Any) -> Any:
-    """Parse a document into a DocMirror perceive result.
+    """Parse a document into the canonical runtime ``ParseResult``.
 
     The implementation is imported lazily so ``import docmirror`` remains fast,
     quiet, and usable with the base package installation.

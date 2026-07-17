@@ -15,11 +15,11 @@ Most document tools stop at text, tables, or Markdown. DocMirror is designed for
 
 | Need | DocMirror output |
 |---|---|
-| Structured facts | `001_mirror.json` with document structure, facts, entities, and pages |
+| Structured facts | `001_community.json` with the routed Community 6+1 structured output |
 | Field evidence | source refs, page numbers, bounding boxes, raw values, and traces |
 | Review decisions | quality status, confidence, warnings, and `needs_review` markers |
 | RAG and agent input | Markdown and structure-aware chunk JSON with source context |
-| Audit/debug handoff | evidence bundle, quality report, manifest, and visual debug artifact |
+| Audit/debug handoff | optional `_mirror.json`, evidence bundle, quality report, manifest, and visual debug artifact |
 
 DocMirror is not a generic OCR tool and not a generic RAG loader. Its category is narrower and sharper: **Commercial Document Trust Layer**.
 
@@ -61,16 +61,19 @@ trust=confidence:0.96 evidence_coverage:1.00 review_required:true
 field=invoice_number value=INV-2026-001 confidence=0.99 page=1 bbox=[88, 112, 236, 132] source_ref=synthetic_invoice_001#page=1&bbox=88,112,236,132 status=ok
 ```
 
-Parse your own document:
+Parse your own document. Community JSON is the default output:
 
 ```bash
 pip install "docmirror[pdf,ocr,office]"
-docmirror parse statement.pdf \
-  --ocr-correction safe \
-  --ocr-locale en-US \
-  --format json,markdown,chunks \
-  --output-dir ./output \
-  --debug-artifact
+docmirror statement.pdf --output-dir ./output
+```
+
+Request the canonical Mirror alone with `--mirror`, or use the public quickstart
+profile when you need diagnostics, audit evidence, and support artifacts:
+
+```bash
+docmirror statement.pdf --mirror
+docmirror statement.pdf --profile quickstart
 ```
 
 Scanned OCR uses deterministic safe correction by default. Use
@@ -93,14 +96,19 @@ Project or customer packs can be loaded from paths listed in
 always retained; pack id, version, locale, candidates, and decision margin are
 recorded in the correction audit.
 
-Typical output:
+Default output:
+
+```text
+output/<run_id>/
+  001_community.json
+```
+
+Diagnostic output with `--profile quickstart`:
 
 ```text
 output/<run_id>/
   001_mirror.json
   001_community.json
-  001.md
-  001.chunks.json
   005_evidence_bundle.json
   output.md
   quality_report.json
@@ -143,7 +151,7 @@ DocMirror's mirror output is document-shaped and evidence-aware:
 
 ```json
 {
-  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.2"},
+  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.3"},
   "source": {"filename": "statement.pdf"},
   "document": {"document_type": "bank_statement", "document_type_candidates": []},
   "pages": [],
@@ -165,9 +173,9 @@ The key contract is simple: parsed fields should be accompanied by evidence and 
 ### CLI
 
 ```bash
-docmirror parse document.pdf --format json
-docmirror parse document.pdf --format json,markdown,chunks --debug-artifact
-docmirror parse ./documents --recursive --output-dir ./output
+docmirror document.pdf
+docmirror document.pdf --mirror --format markdown,chunks --debug-artifact
+docmirror ./documents --recursive --output-dir ./output
 docmirror plugins list
 ```
 

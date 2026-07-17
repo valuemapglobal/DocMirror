@@ -49,13 +49,18 @@ def initialize_task_manifest(
     manifest_path = task_dir / "manifest.json"
     if manifest_path.exists():
         raise FileExistsError(f"task already exists: {task_id}")
+    if editions is None:
+        from docmirror.framework.edition_defaults import default_editions
+
+        editions = default_editions()
+
     manifest = build_manifest_v2(
         task_id,
         status="running",
         stage="queued",
         inputs=inputs,
         formats=list(formats or ["json"]),
-        editions=list(editions or ["mirror", "community"]),
+        editions=list(editions),
         runtime_control=runtime_control,
         entry="rest",
     )
@@ -123,11 +128,10 @@ async def execute_parse_task(
         )
         entry["status"] = "running"
         try:
-            perceived = await asyncio.wait_for(
+            result = await asyncio.wait_for(
                 perceive_document(source_path, PerceiveOptions(control=control)),
                 timeout=timeout_s,
             )
-            result = perceived.mirror if hasattr(perceived, "mirror") else perceived
             artifact_dir = task_dir / "files" / file_id if batch else task_dir
             _written_task_id, written = write_four_files(
                 result,
@@ -254,7 +258,13 @@ async def run_batch_parse_task(
 ) -> dict[str, Any]:
     """Backward-compatible wrapper over the durable Task API executor."""
     formats = tuple(getattr(getattr(control, "output", None), "formats", ("json",)))
-    editions = tuple(getattr(getattr(control, "output", None), "editions", ("mirror", "community")))
+    output_editions = getattr(getattr(control, "output", None), "editions", None)
+    if output_editions is None:
+        from docmirror.framework.edition_defaults import default_editions
+
+        editions = default_editions()
+    else:
+        editions = tuple(output_editions)
     return await execute_parse_task(
         files,
         output_root=output_root,

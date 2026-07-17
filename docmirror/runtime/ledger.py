@@ -228,6 +228,11 @@ def build_manifest_v2(
 
     Stable with v1: all v1 field names are preserved.
     """
+    if editions is None:
+        from docmirror.framework.edition_defaults import default_editions
+
+        editions = list(default_editions())
+
     manifest: dict[str, Any] = {
         "version": 2,
         "task_id": task_id,
@@ -254,7 +259,7 @@ def build_manifest_v2(
             "token_budget": {},
         },
         "inputs": list(inputs or []),
-        "editions": list(editions or ["mirror", "community"]),
+        "editions": list(editions),
         "formats": list(formats or ["json"]),
         "artifacts": {},
         "intermediate_artifacts": {},

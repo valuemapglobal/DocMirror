@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from docmirror.framework.edition_defaults import default_editions
+
 
 @dataclass
 class InputRef:
@@ -58,7 +60,7 @@ class ParseRequest:
 
     # -- output control --
     formats: list[str] = field(default_factory=lambda: ["json"])
-    editions: list[str] = field(default_factory=lambda: ["mirror", "community"])
+    editions: list[str] = field(default_factory=lambda: list(default_editions()))
     ocr: str = "auto"  # auto | force | off | fallback
     cache_policy: str = "read-write"  # read-write | read-only | refresh | off
 

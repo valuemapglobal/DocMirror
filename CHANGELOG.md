@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Mirror JSON 1.0.3] — 2026-07-17
+
+This is a backward-compatible patch release of the Mirror JSON contract. The
+Python distribution version remains 1.0.0.
+
+### Added
+- A concise `--mirror` CLI flag that explicitly persists the canonical `_mirror.json` diagnostic artifact.
+- Cross-surface delivery contracts covering Community-only defaults, explicit Mirror output, output profiles, task manifests, and support artifact packs.
+
+### Changed
+- `perceive_document()` now returns the canonical runtime `ParseResult` directly; the redundant `PerceiveResult` wrapper and its duplicate result path have been removed.
+- Mirror JSON and all edition plugins now project from the same `ParseResult` source of truth, with any runtime Mirror cache kept private and non-contractual.
+- Open-source CLI, REST, Task API, SDK, and work-unit planning now default deterministically to Community JSON only; entitlement state no longer changes implicit outputs.
+- The public quickstart profile now produces only open-source Mirror and Community projections plus support artifacts, while enterprise and finance outputs remain explicitly requested extensions.
+- Common CLI help now emphasizes the default Community workflow and hides advanced compatibility controls without removing them.
+
+### Fixed
+- Support artifacts can now consume the in-memory Mirror projection without requiring `_mirror.json` to be persisted.
+- CLI export and completion reporting now use the Community artifact when Mirror output is not requested.
+
 ## [Mirror JSON 1.0.2] — 2026-07-17
 
 This is a backward-compatible patch release of the Mirror JSON contract. The

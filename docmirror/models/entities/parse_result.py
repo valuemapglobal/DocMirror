@@ -45,7 +45,7 @@ import os
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 from docmirror.models.tracking.mutation import Mutation
 
@@ -682,6 +682,9 @@ class DocumentSection(BaseModel):
 class ProvenanceInfo(BaseModel):
     """Source file provenance for audit trail."""
 
+    file_path: str = ""
+    file_id: str = ""
+    file_hash: str = ""
     file_type: str = ""
     file_size: int = 0
     checksum: str = ""
@@ -768,6 +771,10 @@ class ParseResult(BaseModel):
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # Output-stage optimization only.  Keeping the projected Mirror private
+    # prevents it from becoming a second public result contract.
+    _runtime_mirror_cache: dict[str, Any] | None = PrivateAttr(default=None)
 
     # ── Envelope ──
     status: ResultStatus = ResultStatus.SUCCESS
@@ -865,6 +872,11 @@ class ParseResult(BaseModel):
     def full_text(self) -> str:
         """Reconstruct full text from all pages (texts + table markdown)."""
         return self._build_full_text()
+
+    @property
+    def file_path(self) -> str:
+        """Source path recorded in provenance, if available."""
+        return str(getattr(self.provenance, "file_path", "") or "")
 
     def all_tables(self) -> list[TableBlock]:
         """Collect all tables across pages."""
@@ -970,8 +982,9 @@ class ParseResult(BaseModel):
         from docmirror.models.mirror.core import MirrorCoreVNext, MirrorOptions, MirrorResult
 
         _ = include_text
+        source_filename = source_filename or self.file_path
         options = MirrorOptions(
-            source_filename=source_filename or "",
+            source_filename=source_filename,
             profile=_vnext_profile_from_mirror_level(mirror_level),
         )
         core = MirrorCoreVNext()

@@ -209,11 +209,9 @@ def build_all_projections(
     from docmirror.models.entities.parse_result import ParseResult
     from docmirror.models.mirror.vnext import MirrorJsonVNext
 
-    has_parse_result_envelope = getattr(result, "parse_result", None) is not None
-    mirror_source = getattr(result, "parse_result", None) or getattr(result, "mirror", result)
-    prebuilt_mirror = getattr(result, "mirror", None) if has_parse_result_envelope else None
-    edition_source = result if has_parse_result_envelope else mirror_source
-    is_parse_result = isinstance(mirror_source, ParseResult)
+    mirror_source = result
+    edition_source = result
+    is_parse_result = isinstance(result, ParseResult)
     want = (("community", "enterprise", "finance") if editions is None else editions or ()) if is_parse_result else ()
     timings: dict[str, float] = {}
     total_t0 = time.perf_counter()
@@ -227,39 +225,20 @@ def build_all_projections(
     mirror_t0 = time.perf_counter()
     if on_progress:
         on_progress("community_plugin", 0.0, "Serializing core mirror...")
-    if isinstance(prebuilt_mirror, MirrorJsonVNext):
-        mirror = prebuilt_mirror.model_dump(by_alias=True, exclude_none=True)
-    elif (
-        isinstance(prebuilt_mirror, dict)
-        and (prebuilt_mirror.get("mirror") or {}).get("schema") == "docmirror.mirror_json"
-    ):
-        mirror = dict(prebuilt_mirror)
-    elif isinstance(mirror_source, MirrorJsonVNext):
-        mirror = mirror_source.model_dump(by_alias=True, exclude_none=True)
+    if isinstance(result, MirrorJsonVNext):
+        mirror = result.model_dump(by_alias=True, exclude_none=True)
+    elif isinstance(result, dict) and (result.get("mirror") or {}).get("schema") == "docmirror.mirror_json":
+        mirror = dict(result)
     elif is_parse_result and hasattr(mirror_source, "to_mirror_json_vnext"):
         mirror = mirror_source.to_mirror_json_vnext(
             source_filename=file_path if file_path else "",
             mirror_level=mirror_level,
         )
-    elif not is_parse_result and hasattr(result, "to_mirror_json_vnext"):
-        mirror = result.to_mirror_json_vnext()
     else:
-        mirror_core_config = _resolve_mirror_core_config(mirror_schema)
-        mirror_profile = _resolve_vnext_profile(mirror_level, default=mirror_core_config["profile"])
-        source_filename = file_path if file_path else ""
-        from docmirror.models.mirror.core import MirrorCoreVNext, MirrorOptions
-
-        mirror = (
-            MirrorCoreVNext()
-            .process(
-                mirror_source,
-                MirrorOptions(
-                    source_filename=source_filename,
-                    profile=mirror_profile,
-                    engine_version=mirror_core_config["engine_version"],
-                ),
-            )
-            .to_dict()
+        raise TypeError(
+            "build_all_projections expects ParseResult, MirrorJsonVNext, "
+            "or a canonical Mirror JSON dict; "
+            f"got {type(result).__name__}"
         )
     if is_parse_result:
         _attach_runtime_mirror_cache(mirror_source, mirror)
@@ -402,7 +381,7 @@ def _attach_runtime_mirror_cache(parse_result: Any, mirror: dict[str, Any]) -> N
     if not isinstance(mirror, dict) or not mirror:
         return
     try:
-        object.__setattr__(parse_result, "mirror", mirror)
+        parse_result._runtime_mirror_cache = mirror
     except Exception:
         logger.debug("[Projections] unable to attach runtime mirror cache", exc_info=True)
 

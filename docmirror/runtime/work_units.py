@@ -225,7 +225,12 @@ class WorkUnitPlanner:
     ) -> list[WorkUnit]:
         """Generate work unit plan for a single file in a task."""
         units: list[WorkUnit] = []
-        _e = editions or ["mirror", "community"]
+        if editions is None:
+            from docmirror.framework.edition_defaults import default_editions
+
+            _e = list(default_editions())
+        else:
+            _e = editions
 
         # 1. input_intake (always)
         intake = WorkUnit(

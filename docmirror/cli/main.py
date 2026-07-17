@@ -37,7 +37,7 @@ COMMAND_HELP = {
     "doctor": "Show installation and optional capability status.",
     "mcp": "Start the DocMirror MCP server.",
     "ocr-correction": "Validate, inspect, and evaluate OCR correction packs.",
-    "parse": "Parse a document and save verifiable outputs.",
+    "parse": "Parse a document; Community JSON is the default output.",
     "pdfua": "Convert a document to tagged PDF/UA.",
     "plugins": "Plugin management commands.",
     "version": "Print the DocMirror version.",
@@ -193,8 +193,23 @@ def _find_spec_quiet(module_name: str) -> Any:
 @click.option(
     "--editions",
     default=None,
-    show_default="license-aware",
+    hidden=True,
     help="Output editions: mirror,community,enterprise,finance,all",
+)
+@click.option(
+    "--mirror",
+    "include_mirror",
+    is_flag=True,
+    help="Also persist the canonical _mirror.json diagnostic artifact",
+)
+@click.option(
+    "--profile",
+    "output_profile",
+    default=None,
+    type=click.Choice(["community", "default", "editions", "quickstart", "ga_full", "full", "forensic", "compact"]),
+    metavar="PROFILE",
+    show_choices=False,
+    help="Output artifact profile, for example quickstart, compact, or forensic",
 )
 @click.option("--doc-type", default=None, help="Manual document type")
 @click.option(
@@ -211,21 +226,23 @@ def _find_spec_quiet(module_name: str) -> Any:
     show_default=True,
     help="Cache policy",
 )
-@click.option("--split-layers", is_flag=True, help="Export L1/L2/L3 as separate files")
-@click.option("--include-text", is_flag=True, help="Include full text in output")
+@click.option("--split-layers", is_flag=True, hidden=True, help="Export L1/L2/L3 as separate files")
+@click.option("--include-text", is_flag=True, hidden=True, help="Include full text in output")
 @click.option(
     "--mirror-level",
     default=None,
     type=click.Choice(["standard", "compact", "forensic"]),
+    hidden=True,
     help="Mirror output level: standard/compact/forensic",
 )
 @click.option(
     "--geometry",
     default=None,
     type=click.Choice(["none", "page", "block", "token", "full"]),
+    hidden=True,
     help="Geometry output level",
 )
-@click.option("--debug-artifact", is_flag=True, help="Write debug artifact")
+@click.option("--debug-artifact", is_flag=True, hidden=True, help="Write debug artifact")
 @click.option("--recursive", is_flag=True, help="Recursively parse directory/glob inputs")
 @click.option("--exclude", multiple=True, metavar="SUBSTR", help="Skip files whose path contains SUBSTR")
 @click.option("--include-ext", default=None, help="Comma-separated extensions to include in batch mode")
@@ -254,6 +271,8 @@ def parse(
     ocr_correction_packs: tuple[str, ...],
     formats: str,
     editions: str,
+    include_mirror: bool,
+    output_profile: str | None,
     doc_type: str | None,
     doc_type_policy: str,
     cache_policy: str,
@@ -269,7 +288,7 @@ def parse(
     overwrite: bool,
     run_id: str | None,
 ) -> None:
-    """Parse a document and save verifiable mirror/evidence/trust outputs."""
+    """Parse a document and save Community JSON by default."""
     import asyncio
     import logging
 
@@ -284,6 +303,10 @@ def parse(
         inputs = [p for p in inputs if not any(pat in str(p) for pat in exclude)]
     if not inputs:
         raise click.ClickException(f"Path/glob not found or no files matched: {file}")
+
+    requested_editions = editions
+    if include_mirror:
+        requested_editions = "mirror,community" if editions is None else f"mirror,{editions}"
 
     async def _parse_one(path: Path) -> None:
         await parse_document(
@@ -302,7 +325,8 @@ def parse(
             workers=workers,
             mode=mode,
             formats=formats,
-            editions=editions,
+            editions=requested_editions,
+            output_profile=output_profile,
             cache_policy=cache_policy,
             doc_type=doc_type,
             doc_type_policy=doc_type_policy,

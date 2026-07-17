@@ -370,11 +370,11 @@ def test_generic_fallback_envelope_for_demoted_type():
     assert "community_generic_fallback" in out["status"]["warnings"]
 
 
-def test_perceive_result_envelope_no_edition_on_mirror():
-    from docmirror.input.entry.perceive_result import PerceiveResult
+def test_parse_result_keeps_editions_outside_core():
+    result = _minimal_mirror()
+    outputs = build_all_projections(result, editions=("community",))
 
-    mirror = _minimal_mirror()
-    env = PerceiveResult(mirror=mirror, editions={"community": {"edition": "community"}})
-    assert env.mirror is mirror
-    assert env.editions["community"]["edition"] == "community"
-    assert "_edition_outputs" not in (mirror.entities.domain_specific or {})
+    assert outputs["mirror"] is not None
+    assert outputs["community"]["edition"] == "community"
+    assert not hasattr(result, "editions")
+    assert "_edition_outputs" not in (result.entities.domain_specific or {})

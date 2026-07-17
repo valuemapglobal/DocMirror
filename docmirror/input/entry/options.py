@@ -320,6 +320,11 @@ def parse_output_formats(raw: str | list[str] | tuple[str, ...] | None) -> tuple
 
 
 def parse_editions(raw: str | list[str] | tuple[str, ...] | None) -> tuple[Edition, ...]:
+    """Normalize explicitly requested delivery editions.
+
+    The stable default is Community-only, while an explicit request is
+    preserved as-is. The projection layer may still build Mirror internally.
+    """
     if raw is None:
         return _default_editions()
     values: list[str] = []
@@ -344,9 +349,7 @@ def parse_editions(raw: str | list[str] | tuple[str, ...] | None) -> tuple[Editi
         if normalized not in out:
             out.append(normalized)  # type: ignore[arg-type]
     if not out:
-        return ("mirror", "community")
-    if "mirror" not in out:
-        out.insert(0, "mirror")
+        return _default_editions()
     return tuple(out)  # type: ignore[return-value]
 
 

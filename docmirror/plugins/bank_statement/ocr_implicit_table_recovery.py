@@ -99,7 +99,9 @@ def _recovered_row_count(tables: list[list[list[str]]]) -> int:
 def _mirror_payload(parse_result: Any) -> dict[str, Any]:
     if parse_result is None:
         return {}
-    mirror = getattr(parse_result, "mirror", None)
+    mirror = getattr(parse_result, "_runtime_mirror_cache", None)
+    if mirror is None:
+        mirror = getattr(parse_result, "mirror", None)
     if isinstance(mirror, dict):
         return mirror
     if hasattr(mirror, "model_dump"):

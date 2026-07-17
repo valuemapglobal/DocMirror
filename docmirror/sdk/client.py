@@ -53,12 +53,11 @@ async def parse_to_task(
 ) -> TaskResult:
     """One-shot async parse that writes artifacts and returns a ``TaskResult``."""
     result = await perceive_document(file_path, options or PerceiveOptions())
-    mirror = result.mirror if hasattr(result, "mirror") else result
     task_id, _written = write_four_files(
-        mirror,
+        result,
         Path(output_dir),
         file_path=str(file_path),
-        full_text=getattr(mirror, "full_text", "") or "",
+        full_text=getattr(result, "full_text", "") or "",
         editions=editions,
     )
     return task_result_from_manifest(Path(output_dir) / task_id / "manifest.json")
@@ -156,12 +155,18 @@ class DocMirrorClient:
 
         obs = build_observability_context(profile=profile, entry="sdk")
         request_id = obs.request_id
-        editions_tuple = tuple(editions or ["mirror", "community"])
+        if editions is None:
+            from docmirror.framework.edition_defaults import default_editions
+
+            editions_tuple = default_editions()
+        else:
+            editions_tuple = tuple(editions)
         formats_tuple = tuple(formats or ["json", "markdown", "evidence"])
 
         control = normalize_parse_control(
             mode=mode,
             formats=",".join(formats_tuple),
+            editions=editions_tuple,
             pages=pages,
             doc_type_hint=doc_type,
             ocr_correction=ocr_correction,
@@ -185,10 +190,9 @@ class DocMirrorClient:
                 errors=[envelope.to_dict()],
             )
 
-        mirror = result.mirror if hasattr(result, "mirror") else result
-        full_text = getattr(mirror, "full_text", "") or ""
+        full_text = getattr(result, "full_text", "") or ""
         task_id, written = write_four_files(
-            mirror,
+            result,
             self.output_dir,
             file_path=str(path),
             full_text=full_text,

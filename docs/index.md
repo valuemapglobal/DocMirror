@@ -11,7 +11,8 @@ DocMirror does not stop at OCR, raw text, or Markdown. It produces evidence-back
 
 | Layer | Purpose |
 |---|---|
-| Mirror JSON | canonical document facts, structure, pages, blocks, entities |
+| Community JSON | default 6+1 routed structured output for application use |
+| Mirror JSON | optional canonical diagnostic facts, structure, pages, blocks, entities |
 | Evidence Bundle | source refs, page numbers, bounding boxes, raw values |
 | Quality Report | quality status, confidence, warnings, review signals |
 | Markdown / Chunks | RAG-ready reading-order content and retrievable chunks |
@@ -34,7 +35,8 @@ Parse your own document:
 
 ```bash
 pip install "docmirror[pdf,ocr,office]"
-docmirror parse statement.pdf --format json,markdown,chunks --output-dir ./output --debug-artifact
+docmirror statement.pdf --output-dir ./output
+docmirror statement.pdf --profile quickstart
 ```
 
 ## Product Promise

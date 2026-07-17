@@ -20,22 +20,19 @@ from docmirror.server.edition_outputs import write_four_files
 LICENSE_FIXTURE = Path("tests/fixtures/business_license/synthetic_medium_variant.pdf")
 
 
-def test_write_four_files_from_synthetic_mirror(tmp_path: Path):
-    mirror = ParseResult(status=ResultStatus.SUCCESS)
-    mirror.entities = DocumentEntities(document_type="business_license")
+def test_write_four_files_defaults_to_community_only(tmp_path: Path):
+    result = ParseResult(status=ResultStatus.SUCCESS)
+    result.entities = DocumentEntities(document_type="business_license")
 
-    task_id, written = write_four_files(mirror, tmp_path, file_id="001", task_id="test_task_001")
+    task_id, written = write_four_files(result, tmp_path, file_id="001", task_id="test_task_001")
 
     assert task_id == "test_task_001"
-    assert written["mirror"].name == "001_mirror.json"
-    assert written["mirror"].is_file()
+    assert set(written) == {"community"}
     assert written["community"].is_file()
+    assert not (tmp_path / task_id / "001_mirror.json").exists()
 
-    mirror_data = json.loads(written["mirror"].read_text(encoding="utf-8"))
     comm_data = json.loads(written["community"].read_text(encoding="utf-8"))
-    assert mirror_data["source"]["provenance"]["output_ids"]["task_id"] == task_id
     assert comm_data["document"]["document_id"] == f"doc_{task_id}_001"
-    assert "editions" not in mirror_data.get("data", {})
 
 
 def test_write_four_files_respects_requested_editions(tmp_path: Path):
@@ -56,20 +53,66 @@ def test_write_four_files_respects_requested_editions(tmp_path: Path):
     assert not (tmp_path / "test_task_editions" / "manifest.json").exists()
 
 
+def test_write_four_files_can_persist_community_without_mirror(tmp_path: Path):
+    result = ParseResult(status=ResultStatus.SUCCESS)
+    result.entities = DocumentEntities(document_type="business_license")
+
+    _task_id, written = write_four_files(
+        result,
+        tmp_path,
+        file_id="001",
+        task_id="test_task_community_only",
+        editions=("community",),
+    )
+
+    assert set(written) == {"community"}
+    assert written["community"].is_file()
+    assert not (tmp_path / "test_task_community_only" / "001_mirror.json").exists()
+
+
+def test_community_profile_selects_community_when_editions_unspecified(tmp_path: Path):
+    result = ParseResult(status=ResultStatus.SUCCESS)
+    result.entities = DocumentEntities(document_type="business_license")
+
+    _task_id, written = write_four_files(
+        result,
+        tmp_path,
+        file_id="001",
+        task_id="test_task_community_profile",
+        profile="community",
+    )
+
+    assert set(written) == {"community"}
+    assert not (tmp_path / "test_task_community_profile" / "001_mirror.json").exists()
+
+
 def test_write_four_files_requires_overwrite_for_existing_run_id(tmp_path: Path):
     mirror = ParseResult(status=ResultStatus.SUCCESS)
     mirror.entities = DocumentEntities(document_type="business_license")
 
-    write_four_files(mirror, tmp_path, file_id="001", task_id="test_task_overwrite")
+    write_four_files(
+        mirror,
+        tmp_path,
+        file_id="001",
+        task_id="test_task_overwrite",
+        editions=("mirror", "community"),
+    )
 
     with pytest.raises(FileExistsError):
-        write_four_files(mirror, tmp_path, file_id="001", task_id="test_task_overwrite")
+        write_four_files(
+            mirror,
+            tmp_path,
+            file_id="001",
+            task_id="test_task_overwrite",
+            editions=("mirror", "community"),
+        )
 
     _task_id, written = write_four_files(
         mirror,
         tmp_path,
         file_id="001",
         task_id="test_task_overwrite",
+        editions=("mirror", "community"),
         overwrite=True,
     )
     assert written["mirror"].is_file()
@@ -80,15 +123,15 @@ def test_write_four_files_after_perceive(tmp_path: Path):
     if not LICENSE_FIXTURE.is_file():
         pytest.skip(f"missing fixture {LICENSE_FIXTURE}")
 
-    perceive_result = asyncio.run(
+    result = asyncio.run(
         perceive_document(LICENSE_FIXTURE, PerceiveOptions(enhance_mode="standard"))
     )
-    result = perceive_result.mirror
     task_id, written = write_four_files(
         result,
         tmp_path,
         file_path=str(LICENSE_FIXTURE),
         full_text=result.full_text,
+        editions=("mirror", "community"),
     )
 
     assert (tmp_path / task_id / "001_mirror.json").exists()
@@ -98,3 +141,30 @@ def test_write_four_files_after_perceive(tmp_path: Path):
     if "community" in written:
         comm_json = json.loads(written["community"].read_text(encoding="utf-8"))
         assert comm_json["metadata"]["task_id"] == task_id
+
+
+def test_artifact_pack_uses_internal_mirror_without_persisting_it(tmp_path: Path):
+    result = ParseResult(status=ResultStatus.SUCCESS)
+    result.entities = DocumentEntities(document_type="business_license")
+
+    task_id, written = write_four_files(
+        result,
+        tmp_path,
+        file_id="001",
+        task_id="test_task_internal_mirror",
+        editions=("community",),
+        artifact_pack=True,
+    )
+
+    task_dir = tmp_path / task_id
+    assert "mirror" not in written
+    assert not (task_dir / "001_mirror.json").exists()
+    expected = (
+        "005_evidence_bundle.json",
+        "output.md",
+        "quality_report.json",
+        "visual_debug.html",
+        "manifest.json",
+    )
+    for name in expected:
+        assert (task_dir / name).is_file(), name

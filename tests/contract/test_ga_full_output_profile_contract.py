@@ -84,10 +84,31 @@ def test_editions_profile_is_defined():
     assert profile.evidence_bundle is False
 
 
+def test_community_profile_omits_persisted_mirror():
+    profile = resolve_profile("community")
+    assert profile.mirror is False
+    assert profile.community is True
+    assert profile.editions == ("community",)
+    assert profile.manifest is False
+
+
+def test_default_profile_is_community_only():
+    profile = resolve_profile("default")
+    assert profile.is_default is True
+    assert profile.editions == ("community",)
+
+
+def test_quickstart_profile_stays_within_public_oss_editions():
+    profile = resolve_profile("quickstart")
+    assert profile.editions == ("mirror", "community")
+    assert profile.evidence_bundle is True
+    assert profile.manifest is True
+
+
 def test_all_profiles_listed():
     from docmirror.configs.output_profile import list_profiles
     names = list_profiles()
-    for required in ("ga_full", "editions", "quickstart"):
+    for required in ("community", "ga_full", "editions", "quickstart"):
         assert required in names, f"missing profile: {required}"
 
 

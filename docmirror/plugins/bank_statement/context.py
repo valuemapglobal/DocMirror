@@ -65,7 +65,10 @@ def collect_tables_from_parse_result(parse_result: Any) -> list[list[list[str]]]
     tables = _Collector()._collect_tables(parse_result)
     if tables:
         return tables
-    return _collect_tables_from_vnext_mirror(getattr(parse_result, "mirror", None))
+    mirror = getattr(parse_result, "_runtime_mirror_cache", None)
+    if mirror is None:
+        mirror = getattr(parse_result, "mirror", None)
+    return _collect_tables_from_vnext_mirror(mirror)
 
 
 def _collect_tables_from_vnext_mirror(mirror: Any) -> list[list[list[str]]]:

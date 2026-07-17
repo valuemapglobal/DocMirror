@@ -46,22 +46,30 @@ pip install "docmirror[all]"      # all public OSS extras
 ## 3. Parse A Commercial Document
 
 ```bash
-docmirror parse statement.pdf \
-  --format json,markdown,chunks \
-  --output-dir ./output \
-  --debug-artifact
+docmirror statement.pdf --output-dir ./output
 ```
 
-`--debug-artifact` asks DocMirror to write the evidence and quality artifacts that are most useful for review, demos, issues, and handoff.
+Community JSON is the default and only persisted document projection:
 
-Typical output:
+```text
+output/<run_id>/
+  001_community.json
+```
+
+Add the canonical Mirror alone with `--mirror`, or select the public quickstart
+profile for review, diagnostics, demos, issues, or audit handoff:
+
+```bash
+docmirror statement.pdf --mirror
+docmirror statement.pdf --profile quickstart
+```
+
+Diagnostic output:
 
 ```text
 output/<run_id>/
   001_mirror.json
   001_community.json
-  001.md
-  001.chunks.json
   005_evidence_bundle.json
   output.md
   quality_report.json
@@ -73,7 +81,7 @@ output/<run_id>/
 
 | Artifact | What to inspect |
 |---|---|
-| `001_mirror.json` | canonical document structure, pages, facts, evidence, quality |
+| `001_mirror.json` | optional canonical diagnostic projection requested with `--mirror` |
 | `001_community.json` | community edition structured output |
 | `001.md` / `output.md` | reading-order text for humans and LLM workflows |
 | `001.chunks.json` | structure-aware chunks for retrieval pipelines |
@@ -123,9 +131,8 @@ asyncio.run(main())
 ## 6. Batch Parse
 
 ```bash
-docmirror parse ./documents \
+docmirror ./documents \
   --recursive \
-  --format json,markdown,chunks \
   --output-dir ./output
 ```
 

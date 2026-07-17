@@ -16,11 +16,11 @@ cases:
       mirror_has_no_editions_key: { equals: true }
     tags: [four_file, contract]
 
-  - id: mirror_envelope_no_edition_on_mirror
+  - id: parse_result_projection_boundary
     tier: contract
     pipeline: e2e_contract
     options:
-      contract: perceive_result_envelope
+      contract: parse_result_projection_boundary
     gates:
       contract_passed: { equals: true }
     tags: [pec, contract]

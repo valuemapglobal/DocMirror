@@ -97,33 +97,29 @@ def write_four_files(
     full_text = full_text or getattr(result, "full_text", "") or ""
     file_path = file_path or getattr(result, "file_path", "") or ""
 
-    # Edition routing: caller-resolved editions (from _default_editions via
-    # resolve_edition_tier) take precedence.  None = direct API call without
-    # control options — fall back to resolve_edition_tier as safety net.
-    if editions is None:
-        from docmirror.plugins._runtime.licensing.entitlements import resolve_edition_tier
-
-        tier = str(resolve_edition_tier()).strip().lower()
-        requested_editions = {
-            "finance": ("mirror", "community", "enterprise", "finance"),
-            "ultimate": ("mirror", "community", "enterprise", "finance"),
-            "enterprise": ("mirror", "community", "enterprise"),
-        }.get(tier, ("mirror", "community"))
-        logger.debug(
-            "[EditionOutputs] License tier=%s → editions=%s (safety net)",
-            tier,
-            requested_editions,
-        )
-    else:
-        requested_editions = tuple(editions)
-        if "all" in requested_editions:
-            requested_editions = ("mirror", "community", "enterprise", "finance")
-
     resolved_profile = None
     if profile is not None:
         from docmirror.configs.output_profile import OutputProfile, resolve_profile
 
         resolved_profile = profile if isinstance(profile, OutputProfile) else resolve_profile(str(profile))
+
+    # Edition routing: explicit caller editions take precedence, followed by
+    # the selected output profile. None with no profile falls back to the
+    # stable Community-only default as a safety net.
+    if editions is None:
+        if resolved_profile is not None:
+            requested_editions = resolved_profile.editions
+        else:
+            from docmirror.framework.edition_defaults import default_editions
+
+            requested_editions = default_editions()
+            logger.debug("[EditionOutputs] Default editions=%s (safety net)", requested_editions)
+    else:
+        requested_editions = tuple(editions)
+        if "all" in requested_editions:
+            requested_editions = ("mirror", "community", "enterprise", "finance")
+
+    if resolved_profile is not None:
         artifact_pack = artifact_pack or bool(
             resolved_profile.manifest
             or resolved_profile.markdown
@@ -146,35 +142,36 @@ def write_four_files(
     written: dict[str, Path] = {}
     verification_crop_assets: list[dict[str, Any]] = []
 
-    mirror = projections.get("mirror") if "mirror" in requested_editions else None
-    if mirror:
-        _inject_output_ids(mirror, document_id=document_id, task_id=task_id, file_id=file_id)
+    mirror_projection = projections.get("mirror")
+    if mirror_projection:
+        _inject_output_ids(mirror_projection, document_id=document_id, task_id=task_id, file_id=file_id)
         if artifact_pack and file_path:
             try:
                 attach_verification_crop_assets, attach_unit_crop_ocr_candidates = _verification_crop_hooks()
 
                 verification_crop_assets = attach_verification_crop_assets(
-                    mirror,
+                    mirror_projection,
                     pdf_path=file_path,
                     task_dir=task_dir,
                 )
                 if verification_crop_assets:
                     attach_unit_crop_ocr_candidates(
-                        mirror,
+                        mirror_projection,
                         task_dir=task_dir,
                         crop_assets=verification_crop_assets,
                     )
             except Exception as exc:
                 logger.warning("[EditionOutputs] verification crop artifacts failed: %s", exc)
-                mirror.setdefault("diagnostics", {}).setdefault("pipeline", []).append(
+                mirror_projection.setdefault("diagnostics", {}).setdefault("pipeline", []).append(
                     {
                         "stage": "verification_crop_artifacts",
                         "status": "warn",
                         "reason": f"artifact_generation_failed:{exc}",
                     }
                 )
+    if "mirror" in requested_editions and mirror_projection:
         mirror_path = task_dir / f"{file_id}_mirror.json"
-        mirror_path.write_text(dumps_json(mirror, ensure_ascii=False, indent=2), encoding="utf-8")
+        mirror_path.write_text(dumps_json(mirror_projection, ensure_ascii=False, indent=2), encoding="utf-8")
         written["mirror"] = mirror_path
 
     for edition in ("community", "enterprise", "finance"):
@@ -227,7 +224,7 @@ def write_four_files(
     if verification_crop_assets:
         manifest["artifacts"]["verification_crops"] = "assets/verification_crops"
         manifest["verification_crop_count"] = len(verification_crop_assets)
-    if "mirror" in written:
+    if artifact_pack:
         from docmirror.evidence.bundle import build_evidence_bundle
         from docmirror.evidence.visual import build_visual_overlay
 
@@ -246,7 +243,7 @@ def write_four_files(
         manifest["artifacts"]["markdown"] = markdown_path.name
 
         quality_path = task_dir / "quality_report.json"
-        mirror_quality = projections.get("mirror", {}).get("quality", {})
+        mirror_quality = (mirror_projection or {}).get("quality", {})
         quality_path.write_text(
             dumps_json(
                 {

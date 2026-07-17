@@ -19,7 +19,7 @@ DocMirror 是面向商业凭证的可信解析层，产品定位是 **Commercial
 - Python 包版本为 `1.0.0`，公共包名为 `docmirror`。
 - Python 支持 `>=3.10`，测试矩阵覆盖 Python 3.10 到 3.13。
 - 公共 OSS wheel 只打包 `docmirror` 主包；`docmirror_enterprise`、`docmirror_finance`、`tests`、`scripts`、`docs`、`sdks` 等不进入公共 wheel。
-- Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.2`。
+- Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.3`。
 - CLI、REST API、Python API 和 edition 输出最终都围绕同一个 `ParseResult`/Mirror 投影链路工作。
 
 ## 2. 快速上手
@@ -64,10 +64,8 @@ python3 examples/trust_quickstart.py
 解析单个文件：
 
 ```bash
-docmirror parse statement.pdf \
-  --format json,markdown,chunks \
-  --output-dir ./output \
-  --debug-artifact
+docmirror statement.pdf --output-dir ./output
+docmirror statement.pdf --profile quickstart
 ```
 
 启动 API 服务：
@@ -149,7 +147,7 @@ flowchart TD
     H --> I["ParseResult SSOT"]
     I --> J["MirrorCoreVNext projection"]
     I --> K["PEC edition plugins"]
-    J --> L["001_mirror.json / API Mirror"]
+    J --> L["内存 Mirror；显式请求时写 001_mirror.json"]
     K --> M["community / enterprise / finance JSON"]
     J --> N["evidence bundle / markdown / chunks / quality / visual debug"]
 ```
@@ -185,8 +183,12 @@ mirror = result.to_mirror_json_vnext()
 CLI：
 
 ```bash
-docmirror parse document.pdf --format json,markdown,chunks --debug-artifact
+docmirror document.pdf
+docmirror document.pdf --mirror --format markdown,chunks --debug-artifact
 ```
+
+开源版默认只持久化 `001_community.json`。`--mirror` 是常用的显式 Mirror
+开关；高级调用仍可通过 output profile 或 `output.editions` 精确控制产物。
 
 REST：
 
@@ -219,7 +221,7 @@ curl -F "file=@document.pdf" http://localhost:8000/v1/parse
 | `execution.ocr_language/country/locale` | OCR 纠错语言和国家地区提示 |
 | `execution.ocr_correction_packs` | 显式启用的 opt-in 规则包 ID |
 | `output.formats` | `json`、`markdown`、`csv`、`chunks`、`html`、`parquet`、`evidence` |
-| `output.editions` | `mirror`、`community`、`enterprise`、`finance` |
+| `output.editions` | `mirror`、`community`、`enterprise`、`finance`；开源默认仅 `community` |
 | `output.mirror_level` | `standard`、`compact`、`forensic` |
 | `output.geometry` | `none`、`page`、`block`、`token`、`full` |
 | `doc_type_hint` | 用户给出的 document type hint，可 `prefer` 或 `force` |
@@ -359,15 +361,15 @@ docmirror/server/output_builder.py
 
 ```text
 output/<task_id>/
-  001_mirror.json
   001_community.json
-  001_enterprise.json
-  001_finance.json
-  005_evidence_bundle.json
-  output.md
-  quality_report.json
-  visual_debug.html
-  manifest.json
+  001_mirror.json          # 仅显式请求 Mirror 时
+  001_enterprise.json      # 仅相应扩展可用且被请求时
+  001_finance.json         # 仅相应扩展可用且被请求时
+  005_evidence_bundle.json # 仅 artifact pack/profile 请求时
+  output.md                # 仅相应 format/profile 请求时
+  quality_report.json      # 仅 artifact pack/profile 请求时
+  visual_debug.html        # 仅 artifact pack/profile 请求时
+  manifest.json            # 仅 artifact pack/profile 请求时
 ```
 
 实际写哪些文件取决于：
@@ -376,6 +378,10 @@ output/<task_id>/
 - license/entitlement
 - `docmirror_enterprise`、`docmirror_finance` 是否安装
 - `artifact_pack` 或 output profile 是否开启
+
+Mirror 是否在内存中构建与 `_mirror.json` 是否持久化是两个独立决策：插件和
+支持产物可以只读使用内存 Mirror；只有 editions 包含 `mirror` 或 profile 设置
+`mirror=True` 时才写 `_mirror.json`。
 
 ### 8.3 轻量导出
 
@@ -429,7 +435,7 @@ docmirror/plugins/_runtime/community/__init__.py
 - Enterprise/Finance 插件通过可选包 `docmirror_enterprise`、`docmirror_finance` 注册。
 - 插件应读取 `ParseResult`/Mirror，不应修改 Core Mirror。
 - 插件输出先归一为 DEC，再通过 `edition_serializer` 生成 edition JSON。
-- post-extract hooks 只能 enrichment edition JSON，不能改变 `001_mirror.json`。
+- post-extract hooks 只能 enrichment edition JSON，不能改变 canonical Mirror 投影。
 
 ### 9.3 新增领域插件
 
@@ -772,9 +778,9 @@ pip install "docmirror[server]"
 尝试：
 
 ```bash
-docmirror parse scan.pdf --mode accurate --ocr force --ocr-correction safe --debug-artifact
-docmirror parse scan.pdf --ocr-correction safe --ocr-locale zh-CN --ocr-correction-pack customer.finance
-docmirror parse scan.pdf --mode forensic --geometry full --debug-artifact
+docmirror scan.pdf --mirror --mode accurate --ocr force --debug-artifact
+docmirror scan.pdf --ocr-locale zh-CN --ocr-correction-pack customer.finance
+docmirror scan.pdf --profile forensic --geometry full --debug-artifact
 ```
 
 纠错策略可选 `safe`（唯一、可验证候选自动应用）、`suggest`（只记录候选）和
@@ -808,7 +814,7 @@ docmirror ocr-correction export-candidates mirror.json review.jsonl
 
 检查：
 
-- 是否请求了 edition：`--editions enterprise,finance` 或 API `edition=all`。
+- 是否请求了 edition：高级兼容参数 `--editions enterprise,finance` 或 API `editions=all`。
 - 是否安装了 `docmirror_enterprise` / `docmirror_finance`。
 - license/entitlement 是否满足。
 - `manifest.json` 的 `edition_availability`。

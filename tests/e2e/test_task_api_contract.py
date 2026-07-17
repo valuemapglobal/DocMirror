@@ -6,7 +6,6 @@ from __future__ import annotations
 import asyncio
 import time
 from pathlib import Path
-from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
@@ -24,7 +23,7 @@ def test_task_api_wait_writes_artifacts(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DOCMIRROR_TASK_OUTPUT_DIR", str(tmp_path))
 
     async def fake_perceive(_path, _options):
-        return SimpleNamespace(mirror=_mirror())
+        return _mirror()
 
     monkeypatch.setattr("docmirror.server.task_executor.perceive_document", fake_perceive)
     client = TestClient(app)
@@ -44,13 +43,36 @@ def test_task_api_wait_writes_artifacts(tmp_path: Path, monkeypatch):
     assert client.get(f"/v1/tasks/{task_id}/artifacts/visual_debug").status_code == 200
 
 
+def test_task_api_can_deliver_community_without_mirror(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("DOCMIRROR_TASK_OUTPUT_DIR", str(tmp_path))
+
+    async def fake_perceive(_path, _options):
+        return _mirror()
+
+    monkeypatch.setattr("docmirror.server.task_executor.perceive_document", fake_perceive)
+    client = TestClient(app)
+    response = client.post(
+        "/v1/tasks?wait=true&formats=json",
+        files={"file": ("sample.pdf", b"PDF", "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    task = response.json()
+    assert task["status"] == "success"
+    assert task["editions"] == ["community"]
+    assert task["artifacts"]["community"] == "001_community.json"
+    assert "mirror" not in task["artifacts"]
+    task_dir = tmp_path / task["task_id"]
+    assert not (task_dir / "001_mirror.json").exists()
+
+
 def test_batch_task_api_preserves_partial_failure(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DOCMIRROR_TASK_OUTPUT_DIR", str(tmp_path))
 
     async def fake_perceive(path, _options):
         if Path(path).read_text(encoding="utf-8") == "FAIL":
             raise ValueError("fixture failure")
-        return SimpleNamespace(mirror=_mirror("bank_statement"))
+        return _mirror("bank_statement")
 
     monkeypatch.setattr("docmirror.server.task_executor.perceive_document", fake_perceive)
     client = TestClient(app)
@@ -75,7 +97,7 @@ def test_task_api_accepts_background_work_and_persists_terminal_status(tmp_path:
 
     async def fake_perceive(_path, _options):
         await asyncio.sleep(0.02)
-        return SimpleNamespace(mirror=_mirror())
+        return _mirror()
 
     monkeypatch.setattr("docmirror.server.task_executor.perceive_document", fake_perceive)
     with TestClient(app) as client:

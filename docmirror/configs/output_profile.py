@@ -35,7 +35,9 @@ class OutputProfile:
     @property
     def editions(self) -> tuple[str, ...]:
         """The edition names this profile should generate."""
-        chosen: list[str] = ["mirror"]
+        chosen: list[str] = []
+        if self.mirror:
+            chosen.append("mirror")
         if self.community:
             chosen.append("community")
         if self.enterprise:
@@ -56,6 +58,22 @@ class OutputProfile:
 
 
 # ── Built-in profiles ─────────────────────────────────────────────────────
+
+COMMUNITY = OutputProfile(
+    name="community",
+    label="Community JSON",
+    mirror=False,
+    community=True,
+    enterprise=False,
+    finance=False,
+    markdown=False,
+    evidence_bundle=False,
+    quality_report=False,
+    visual_debug=False,
+    manifest=False,
+    description="Community JSON only; Mirror remains an internal projection and is not persisted",
+    is_default=False,
+)
 
 GA_FULL = OutputProfile(
     name="ga_full",
@@ -94,8 +112,8 @@ QUICKSTART = OutputProfile(
     label="Quickstart",
     mirror=True,
     community=True,
-    enterprise=True,
-    finance=True,
+    enterprise=False,
+    finance=False,
     markdown=True,
     evidence_bundle=True,
     quality_report=True,
@@ -140,8 +158,8 @@ FULL = OutputProfile(
 
 DEFAULT = OutputProfile(
     name="default",
-    label="Default (GA Transition)",
-    mirror=True,
+    label="Default Community Output",
+    mirror=False,
     community=True,
     enterprise=False,
     finance=False,
@@ -150,7 +168,7 @@ DEFAULT = OutputProfile(
     quality_report=False,
     visual_debug=False,
     manifest=False,
-    description="Default for open-source users: mirror + community JSON. Enterprise, finance, markdown, manifest, evidence require --profile ga_full.",
+    description="Default for open-source users: Community JSON only; request Mirror or a diagnostic profile explicitly.",
     is_default=True,
 )
 
@@ -173,6 +191,7 @@ FORENSIC = OutputProfile(
 # ── Registry ────────────────────────────────────────────────────────────
 
 _PROFILES: dict[str, OutputProfile] = {
+    "community": COMMUNITY,
     "compact": COMPACT,
     "full": FULL,
     "default": DEFAULT,
@@ -203,6 +222,7 @@ def list_profiles() -> tuple[str, ...]:
 
 __all__ = [
     "OutputProfile",
+    "COMMUNITY",
     "GA_FULL",
     "EDITIONS",
     "QUICKSTART",

@@ -60,7 +60,7 @@ class MirrorCoreVNext:
         payload = {
             "mirror": {
                 "schema": "docmirror.mirror_json",
-                "schema_version": "1.0.2",
+                "schema_version": "1.0.3",
                 "engine": "udtr",
                 "engine_version": options.engine_version,
                 "profile": options.profile,
@@ -221,7 +221,7 @@ class MirrorCoreVNext:
         payload = {
             "mirror": {
                 "schema": "docmirror.mirror_json",
-                "schema_version": "1.0.2",
+                "schema_version": "1.0.3",
                 "engine": "udtr",
                 "engine_version": options.engine_version,
                 "profile": options.profile,

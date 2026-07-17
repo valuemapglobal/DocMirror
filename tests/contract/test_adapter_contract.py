@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from docmirror.input.entry.factory import perceive_document
+from docmirror.models.entities.parse_result import ParseResult
 
 # Each entry: (test_name, fixture_path, adapter_kind)
 FIXTURE_TABLE = [
@@ -35,7 +36,8 @@ def test_adapter_produces_valid_parse_result(fixture_name: str):
 
     result = asyncio.run(perceive_document(str(fixture_path)))
 
-    # Invariant 1: vNext mirror result is valid
+    # Invariant 1: the public parser result is the single ParseResult contract
+    assert isinstance(result, ParseResult)
     assert hasattr(result, "to_mirror_json_vnext"), "Result must expose vNext mirror serialization"
     api = result.to_mirror_json_vnext()
     assert len(api["pages"]) >= 1
@@ -65,6 +67,7 @@ def test_all_adapters_share_result_type():
     fixture_path = Path(__file__).parent.parent / "fixtures" / "synthetic" / "credit_report_section_smoke.pdf"
 
     result = asyncio.run(perceive_document(str(fixture_path)))
+    assert isinstance(result, ParseResult)
     api = result.to_mirror_json_vnext()
     assert api["mirror"]["schema"] == "docmirror.mirror_json"
     assert "pages" in api

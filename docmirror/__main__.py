@@ -184,6 +184,10 @@ async def parse_document(
         return
 
     requested_formats = formats if formats is not None else format_out
+    if output_profile is not None and editions is None:
+        from docmirror.configs.output_profile import resolve_profile
+
+        editions = resolve_profile(output_profile).editions
     extra_formats = []
     if export_parquet:
         extra_formats.append("parquet")
@@ -290,7 +294,7 @@ async def parse_document(
                     profile=output_profile,
                     on_progress=bus.emit,
                 )
-                saved_path = written.get("mirror")
+                saved_path = written.get("mirror") or written.get("community")
 
             # All phases complete — real "Done!" after all work
             bus.emit("extended_plugins", 100.0, "All editions complete")
@@ -364,13 +368,15 @@ async def parse_document(
 
         # Display edition summaries (already written inside progress context)
         if not no_save and saved_path:
-            console.print(f"[bold blue]\U0001f4be Mirror saved to:[/bold blue] [white]{saved_path}[/white]")
+            label = "Mirror" if "mirror" in written else "Community output"
+            console.print(f"[bold blue]\U0001f4be {label} saved to:[/bold blue] [white]{saved_path}[/white]")
             _write_requested_exports(
                 result,
                 saved_path.parent,
                 file_id=file_id,
                 formats=control.output.formats,
-                mirror_path=saved_path,
+                json_path=saved_path,
+                mirror_path=written.get("mirror"),
                 parse_control=control.to_dict(),
                 parse_control_fingerprint=control.fingerprint(),
             )
@@ -391,7 +397,7 @@ def _save_multi_edition(
     artifact_pack: bool = False,
     output_profile: str | None = None,
 ) -> str:
-    """Save mirror + community + enterprise + finance outputs to a timestamped subdirectory.
+    """Save the requested projections to a timestamped subdirectory.
 
     Returns task_id (directory name).
     """
@@ -420,14 +426,15 @@ def _write_requested_exports(
     *,
     file_id: str,
     formats: tuple[str, ...],
-    mirror_path: Path,
+    json_path: Path,
+    mirror_path: Path | None,
     parse_control: dict,
     parse_control_fingerprint: str,
 ) -> dict[str, str]:
     """Write non-JSON requested exports and a small artifact manifest."""
     from docmirror.runtime.serialization import dumps_json
 
-    artifacts: dict[str, str] = {"json": mirror_path.name}
+    artifacts: dict[str, str] = {"json": json_path.name}
     mirror_vnext: dict | None = None
     for fmt in formats:
         normalized = fmt.lower().strip()
@@ -441,7 +448,7 @@ def _write_requested_exports(
         try:
             from docmirror.output.exporters.dispatch import export_parse_result
 
-            if mirror_vnext is None and mirror_path.exists():
+            if mirror_vnext is None and mirror_path is not None and mirror_path.exists():
                 try:
                     mirror_vnext = json.loads(mirror_path.read_text(encoding="utf-8"))
                 except Exception:
@@ -566,7 +573,16 @@ def main() -> None:
         choices=["auto", "off", "force"],
         help="Split scanned two-page spreads before OCR",
     )
-    parser.add_argument("--editions", default=None, help="Output editions: mirror,community,enterprise,finance,all")
+    parser.add_argument(
+        "--editions",
+        default=None,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--mirror",
+        action="store_true",
+        help="Also persist the canonical _mirror.json diagnostic artifact",
+    )
     parser.add_argument("--doc-type", default=None, help="Manual document type")
     parser.add_argument(
         "--doc-type-policy",
@@ -584,18 +600,18 @@ def main() -> None:
     )
     parser.add_argument("--include-ext", default=None, help="Comma-separated extensions to include in batch mode")
     parser.add_argument("--authors", action="store_true", help="Show contributors and authors")
-    parser.add_argument("--include-text", action="store_true", help="Include full markdown text in output")
+    parser.add_argument("--include-text", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--mirror-level",
         default=None,
         choices=["standard", "compact", "forensic"],
-        help=f"Mirror output level: standard/compact/forensic (default: {DEFAULT_MIRROR_LEVEL})",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--geometry",
         default=None,
         choices=["none", "page", "block", "token", "full"],
-        help="Geometry output level",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--log-level",
@@ -610,17 +626,19 @@ def main() -> None:
     parser.add_argument(
         "--artifact-pack",
         action="store_true",
-        help="Write support artifacts: manifest, evidence bundle, output.md, quality report, and visual debug",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--profile",
         default=None,
-        choices=["default", "editions", "quickstart", "ga_full", "full", "forensic", "compact"],
+        choices=["community", "default", "editions", "quickstart", "ga_full", "full", "forensic", "compact"],
         help="Output profile. Profiles with audit/debug artifacts imply --artifact-pack.",
     )
     # --slm flag removed in v1.1 — superseded by LlmDocumentRestorer
 
     args = parser.parse_args()
+    if args.mirror:
+        args.editions = "mirror,community" if args.editions is None else f"mirror,{args.editions}"
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
     resolved_skip_cache = args.cache_policy in {"refresh", "off"}
 
@@ -657,13 +675,19 @@ def main() -> None:
         from docmirror.configs.runtime.performance import resolve_worker_budget
         from docmirror.input.entry.options import ResourceControl, normalize_parse_control
 
+        profile_editions = args.editions
+        if args.profile is not None and profile_editions is None:
+            from docmirror.configs.output_profile import resolve_profile
+
+            profile_editions = resolve_profile(args.profile).editions
+
         control = normalize_parse_control(
             pages=args.pages,
             max_pages=args.max_pages,
             workers=args.workers,
             mode=args.mode,
             formats=args.format,
-            editions=args.editions,
+            editions=profile_editions,
             mirror_level=args.mirror_level,
             geometry=args.geometry,
             include_geometry=None,

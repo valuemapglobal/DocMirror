@@ -141,18 +141,17 @@ async def _execute_perceive(case: TQGCase) -> tuple[Any, dict[str, Any]]:
         enhance_mode=str(opts.get("enhance_mode", "standard")),
         max_pages=opts.get("max_pages"),
     )
-    perceive_result = await perceive_document(case.fixture, perceive_opts)
-    mirror = perceive_result.mirror
-    api = perceive_result.to_mirror_json_vnext() if hasattr(perceive_result, "to_mirror_json_vnext") else {}
+    parse_result = await perceive_document(case.fixture, perceive_opts)
+    api = parse_result.to_mirror_json_vnext() if hasattr(parse_result, "to_mirror_json_vnext") else {}
     pages = api.get("pages") if isinstance(api, dict) else None
     blocks = api.get("blocks") if isinstance(api, dict) else None
     meta: dict[str, Any] = {
-        "perceive_result": perceive_result,
-        "page_count": getattr(mirror, "page_count", None) or len(pages or []),
-        "table_count": getattr(mirror, "total_tables", None)
+        "parse_result": parse_result,
+        "page_count": getattr(parse_result, "page_count", None) or len(pages or []),
+        "table_count": getattr(parse_result, "total_tables", None)
         or sum(1 for block in (blocks or []) if isinstance(block, dict) and block.get("type") == "table"),
     }
-    return mirror, meta
+    return parse_result, meta
 
 
 def _edition_from_plugin(mirror: Any, document_type: str) -> dict[str, Any] | None:
@@ -189,32 +188,28 @@ async def _execute_edition(case: TQGCase) -> tuple[dict[str, Any], dict[str, Any
         if not _edition_package_available(edition_name):
             meta["edition_skipped"] = edition_name
             return {"mirror": mirror, "edition": None}, meta
-    perceive_result = meta.get("perceive_result")
     edition_payload: dict[str, Any] | None = None
-    if perceive_result and getattr(perceive_result, "editions", None):
-        edition_payload = perceive_result.editions.get(edition_name)
-    if edition_payload is None:
-        if edition_name == "community":
-            from docmirror.plugins._runtime.runner import _plugin_document_type, _run_community_extract
+    if edition_name == "community":
+        from docmirror.plugins._runtime.runner import _plugin_document_type, _run_community_extract
 
-            doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
-            edition_payload = _run_community_extract(
+        doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
+        edition_payload = _run_community_extract(
+            mirror,
+            _plugin_document_type(mirror, doc_type),
+            getattr(mirror, "full_text", "") or "",
+        )
+        if edition_payload is None:
+            from docmirror.plugins._runtime.runner import run_plugin_extract_sync
+
+            edition_payload = run_plugin_extract_sync(
                 mirror,
-                _plugin_document_type(mirror, doc_type),
-                getattr(mirror, "full_text", "") or "",
+                edition="community",
+                full_text=getattr(mirror, "full_text", "") or "",
+                file_path=str(getattr(mirror, "file_path", "") or case.fixture),
             )
-            if edition_payload is None:
-                from docmirror.plugins._runtime.runner import run_plugin_extract_sync
-
-                edition_payload = run_plugin_extract_sync(
-                    mirror,
-                    edition="community",
-                    full_text=getattr(mirror, "full_text", "") or "",
-                    file_path=str(getattr(mirror, "file_path", "") or case.fixture),
-                )
-        else:
-            doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
-            edition_payload = _edition_from_plugin(mirror, doc_type)
+    else:
+        doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
+        edition_payload = _edition_from_plugin(mirror, doc_type)
     meta["edition_payload"] = edition_payload
     meta["edition_name"] = edition_name
     return {"mirror": mirror, "edition": edition_payload}, meta
@@ -307,20 +302,20 @@ async def _execute_e2e_four_file(case: TQGCase) -> tuple[dict[str, Any], dict[st
 
 
 async def _execute_e2e_contract(case: TQGCase) -> tuple[dict[str, Any], dict[str, Any]]:
-    from docmirror.input.entry.perceive_result import PerceiveResult
     from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
     from docmirror.server.edition_outputs import build_all_projections
 
     contract = str(case.options.get("contract", ""))
     passed = False
-    if contract == "perceive_result_envelope":
-        mirror = ParseResult(status=ResultStatus.SUCCESS)
-        mirror.entities = DocumentEntities(document_type="business_license")
-        env = PerceiveResult(mirror=mirror, editions={"community": {"edition": "community"}})
+    if contract == "parse_result_projection_boundary":
+        result = ParseResult(status=ResultStatus.SUCCESS)
+        result.entities = DocumentEntities(document_type="business_license")
+        outputs = build_all_projections(result, editions=("community",))
         passed = (
-            env.mirror is mirror
-            and env.editions["community"]["edition"] == "community"
-            and "_edition_outputs" not in (mirror.entities.domain_specific or {})
+            outputs.get("mirror") is not None
+            and (outputs.get("community") or {}).get("edition") == "community"
+            and not hasattr(result, "editions")
+            and "_edition_outputs" not in (result.entities.domain_specific or {})
         )
     elif contract == "enterprise_not_generated":
         mirror = ParseResult(status=ResultStatus.SUCCESS)

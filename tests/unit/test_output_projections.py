@@ -57,7 +57,8 @@ def test_build_all_projections_single_vnext_mirror_call():
                 build_all_projections(result, request_id="req-1", mirror_schema="unsupported_schema")
 
     mirror_mock.assert_called_once()
-    assert getattr(result, "mirror") == {"mirror": {}, "document": {}}
+    assert result._runtime_mirror_cache == {"mirror": {}, "document": {}}
+    assert not hasattr(result, "mirror")
 
 
 def test_build_all_projections_maps_mirror_level_to_vnext_profile():

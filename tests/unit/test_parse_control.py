@@ -57,7 +57,8 @@ def test_output_formats_accept_public_aliases_and_all():
 
 def test_editions_accept_all_and_dedupe():
     assert parse_editions("mirror,community,mirror") == ("mirror", "community")
-    assert parse_editions("finance") == ("mirror", "finance")
+    assert parse_editions("community") == ("community",)
+    assert parse_editions("finance") == ("finance",)
     assert parse_editions("all") == ("mirror", "community", "enterprise", "finance")
 
 
@@ -189,10 +190,10 @@ def test_slim_mirror_level_rejected():
         normalize_parse_control(mirror_level="slim")
 
 
-def test_output_control_default_editions_is_license_aware():
-    """GA1.0: OutputControl() must resolve editions from license, not hardcode paid tiers."""
+def test_output_control_defaults_to_community_only():
+    """Unconfigured output must never imply Mirror or paid editions."""
     oc = OutputControl()
-    assert oc.editions[:2] == ("mirror", "community")
+    assert oc.editions == ("community",)
 
     pc = ParseControl()
     assert pc.output.editions == oc.editions

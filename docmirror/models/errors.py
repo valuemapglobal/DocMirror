@@ -109,7 +109,7 @@ def make_error_detail(code: str, message: str = "") -> ErrorDetail:
 def build_failure_result(
     code: str,
     message: str,
-    file_path: str = "",  # noqa: ARG001 — kept for caller keyword compatibility
+    file_path: str = "",
     file_type: str = "",
     is_forged: bool | None = None,
     forgery_reasons: list[str] | None = None,
@@ -137,5 +137,5 @@ def build_failure_result(
         error=detail,
         parser_info=ParserInfo(elapsed_ms=elapsed),
         trust=trust,
-        provenance=ProvenanceInfo(file_type=file_type),
+        provenance=ProvenanceInfo(file_path=file_path, file_type=file_type),
     )

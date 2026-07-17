@@ -37,7 +37,7 @@ class ParseResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.2"},
+                "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.3"},
                 "source": {"filename": "statement.pdf"},
                 "document": {"document_type": "bank_statement", "document_type_candidates": []},
                 "pages": [],
