@@ -117,6 +117,8 @@ def test_generic_fallback_recovers_text_kv_tables_outline_and_sources():
     assert data["field_details"]["部门"]["value_ref"] == "/data/fields/部门"
     assert "normalized" not in data["field_details"]["部门"]
     assert "raw" not in data["field_details"]["部门"]
+    assert data["field_details"]["部门"]["source_refs"] == [{"source": "full_text_line", "line": 2}]
+    assert data["field_details"]["部门"]["review"] == "needs_review"
     assert data["field_details"]["客户名称"]["source_refs"][0]["evidence_ids"] == ["ev:kv:1"]
     for legacy_key in ("normalized_fields", "field_schema", "field_metadata", "identities"):
         assert legacy_key not in data
@@ -124,8 +126,18 @@ def test_generic_fallback_recovers_text_kv_tables_outline_and_sources():
     assert data["sections"][0]["title"] == "费用明细"
     assert data["columns"]["日期"]["type"] == "date"
     assert data["records"][0]["normalized"]["金额"]["value"] == 1280.5
+    assert "currency" not in data["records"][0]["normalized"]["金额"]
+    assert "unit" not in data["data_dictionary"]["record_columns"]["金额"]
     assert out["business"]["dimensions"]["adaptive_profile"]["document_shape"] == "mixed_document"
     assert out["quality"]["evidence"]["field_source_coverage"] > 0
+    assert out["quality"]["readiness"] == "review"
+    assert out["quality"]["score"] < 0.9
+    assert out["quality"]["grade"] == "good"
+    assert any(
+        issue["message"] == "金额已解析，但源文档未明确币种：金额"
+        and issue["target"] == "/data/columns/金额"
+        for issue in out["quality"]["issues"]
+    )
     assert data["datasets"] == [
         {
             "id": "records",
@@ -232,6 +244,349 @@ def test_generic_fallback_recovers_repeated_date_led_rows_without_table_geometry
     assert out["data"]["tables"][0]["recovery_method"] == "repeated_date_anchor"
     assert out["data"]["columns"]["日期"]["type"] == "date"
     assert out["data"]["records"][0]["normalized"]["金额"]["value"] == 1000.0
+
+
+def test_generic_explicit_currency_is_preserved_in_values_and_dictionary():
+    clear_run_cache()
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[PageContent(page_number=1, tables=[TableBlock(
+            table_id="usd_expenses", headers=["金额"],
+            rows=[TableRow(cells=[CellValue(text="$50.00")])],
+        )])],
+        entities=DocumentEntities(document_type="expense_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert out["data"]["records"][0]["normalized"]["金额"] == {"value": 50.0, "currency": "USD"}
+    assert out["data"]["data_dictionary"]["record_columns"]["金额"]["unit"] == "USD"
+    assert not any("generic_currency_unknown" in warning for warning in out["status"]["warnings"])
+
+
+def test_generic_scoped_currency_context_applies_to_following_pages():
+    clear_run_cache()
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[
+            PageContent(
+                page_number=1,
+                texts=[TextBlock(content="（除特别说明外，金额单位为人民币元）")],
+            ),
+            PageContent(
+                page_number=2,
+                tables=[
+                    TableBlock(
+                        table_id="cny_balance",
+                        headers=["项目", "年末余额"],
+                        rows=[TableRow(cells=[CellValue(text="银行存款"), CellValue(text="64,822,045.96")])],
+                    )
+                ],
+            ),
+        ],
+        entities=DocumentEntities(document_type="audit_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert out["data"]["records"][0]["normalized"]["年末余额"] == {
+        "value": 64822045.96,
+        "currency": "CNY",
+    }
+    assert out["data"]["data_dictionary"]["record_columns"]["年末余额"]["unit"] == "CNY"
+    assert not any("generic_currency_unknown:年末余额" in warning for warning in out["status"]["warnings"])
+    assert out["business"]["document_label"] == "审计报告（通用处理）"
+
+
+def test_generic_normalization_rate_counts_typed_cells_not_text_passthrough():
+    clear_run_cache()
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[
+            PageContent(
+                page_number=1,
+                tables=[
+                    TableBlock(
+                        table_id="mixed_amounts",
+                        headers=["项目", "金额"],
+                        rows=[
+                            TableRow(cells=[CellValue(text="甲"), CellValue(text="10.00")]),
+                            TableRow(cells=[CellValue(text="乙"), CellValue(text="20.00")]),
+                            TableRow(cells=[CellValue(text="丙"), CellValue(text="30.00")]),
+                            TableRow(cells=[CellValue(text="丁"), CellValue(text="10.0020.00")]),
+                        ],
+                    )
+                ],
+            )
+        ],
+        entities=DocumentEntities(document_type="expense_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert out["quality"]["normalization_rate"] == 0.75
+
+
+def test_generic_normalization_rate_ignores_non_candidate_text_in_typed_column():
+    clear_run_cache()
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[
+            PageContent(
+                page_number=1,
+                tables=[
+                    TableBlock(
+                        table_id="mixed_amounts",
+                        headers=["项目", "金额"],
+                        rows=[
+                            TableRow(cells=[CellValue(text="甲"), CellValue(text="10.00")]),
+                            TableRow(cells=[CellValue(text="乙"), CellValue(text="20.00")]),
+                            TableRow(cells=[CellValue(text="说明"), CellValue(text="待定")]),
+                        ],
+                    )
+                ],
+            )
+        ],
+        entities=DocumentEntities(document_type="expense_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert out["quality"]["normalization_rate"] == 1.0
+
+
+def test_generic_header_repair_is_visible_and_requires_review():
+    clear_run_cache()
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[PageContent(page_number=1, tables=[TableBlock(
+            table_id="duplicate_headers", headers=["金额", "金额", ""],
+            rows=[TableRow(cells=[CellValue(text="1"), CellValue(text="2"), CellValue(text="3")])],
+        )])],
+        entities=DocumentEntities(document_type="expense_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert out["data"]["records"][0]["raw"] == {"金额": "1", "金额_2": "2", "col_2": "3"}
+    assert out["data"]["tables"][0]["header_repaired"] is True
+    assert out["quality"]["readiness"] == "review"
+    assert any(
+        issue["message"] == "表头存在重复或空列名，已生成唯一列名以避免丢失单元格：duplicate_headers"
+        for issue in out["quality"]["issues"]
+    )
+
+
+def test_generic_many_repaired_headers_are_aggregated_and_penalized():
+    clear_run_cache()
+    tables = [
+        TableBlock(
+            table_id=f"broken_{index}",
+            headers=["", ""],
+            rows=[TableRow(cells=[CellValue(text="项目"), CellValue(text="10.00")])],
+        )
+        for index in range(6)
+    ]
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[PageContent(page_number=1, tables=tables)],
+        entities=DocumentEntities(document_type="expense_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert "precision:generic_header_repaired_ratio:6/6" in out["status"]["warnings"]
+    assert out["quality"]["score"] < 0.85
+    assert out["quality"]["readiness"] == "review"
+    assert any(
+        issue["message"] == "多张表格仍需表头复核：6/6；优先复核：1页(6张)"
+        for issue in out["quality"]["issues"]
+    )
+
+
+def test_generic_row_alignment_issue_targets_the_exact_record():
+    clear_run_cache()
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[
+            PageContent(
+                page_number=1,
+                tables=[
+                    TableBlock(
+                        table_id="collapsed_rows",
+                        headers=["项目", "金额"],
+                        rows=[
+                            TableRow(
+                                cells=[
+                                    CellValue(text="甲公司 乙公司"),
+                                    CellValue(text="10.00 20.00"),
+                                ]
+                            )
+                        ],
+                    )
+                ],
+            )
+        ],
+        entities=DocumentEntities(document_type="audit_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert "precision:generic_row_alignment_suspect:collapsed_rows@row=0" in out["status"]["warnings"]
+    issue = next(
+        issue for issue in out["quality"]["issues"]
+        if issue["source_code"].startswith("precision:generic_row_alignment_suspect")
+    )
+    assert issue["target"] == "/data/records/0"
+    assert "行列对齐" in issue["message"]
+
+
+def test_generic_promotes_explicit_business_header_row_without_losing_data():
+    clear_run_cache()
+    table = TableBlock(
+        table_id="subsidiary",
+        headers=[],
+        metadata={"source": "scanned_bordered_table_reconstructor"},
+        extraction_layer="scanned_image_line_grid",
+        rows=[
+            TableRow(cells=[
+                CellValue(text="公司名称"),
+                CellValue(text="注册地 主要经营地"),
+                CellValue(text=""),
+                CellValue(text="业务性质"),
+                CellValue(text="持股比例(%) 直接"),
+                CellValue(text="间接"),
+                CellValue(text="取得方式"),
+            ]),
+            TableRow(cells=[
+                CellValue(text="河南示例有限公司"),
+                CellValue(text="河南"),
+                CellValue(text=""),
+                CellValue(text="制造业"),
+                CellValue(text="100.00"),
+                CellValue(text=""),
+                CellValue(text="投资设立"),
+            ]),
+        ],
+    )
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[PageContent(page_number=1, tables=[table])],
+        entities=DocumentEntities(document_type="audit_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert out["data"]["tables"][0]["headers"] == [
+        "公司名称",
+        "注册地 主要经营地",
+        "col_2",
+        "业务性质",
+        "持股比例(%) 直接",
+        "间接",
+        "取得方式",
+    ]
+    assert out["data"]["tables"][0]["row_count"] == 1
+    assert out["data"]["records"][0]["raw"]["公司名称"] == "河南示例有限公司"
+
+
+def test_generic_does_not_promote_single_merged_header_data_row():
+    clear_run_cache()
+    table = TableBlock(
+        table_id="merged_depreciation",
+        headers=[],
+        metadata={"source": "scanned_bordered_table_reconstructor"},
+        extraction_layer="scanned_image_line_grid",
+        rows=[TableRow(cells=[
+            CellValue(text="类别 折旧方法 房屋、建筑物 年限平均法"),
+            CellValue(text="折旧年限(年) 20-40"),
+            CellValue(text="残值率(%) 3"),
+            CellValue(text="年折旧率(%) 2.43-4.85"),
+        ])],
+    )
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[PageContent(page_number=1, tables=[table])],
+        entities=DocumentEntities(document_type="audit_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert out["data"]["tables"][0]["headers"] == ["col_0", "col_1", "col_2", "col_3"]
+    assert out["data"]["tables"][0]["row_count"] == 1
+    assert out["data"]["records"][0]["raw"]["col_0"].startswith("类别 折旧方法")
+
+
+def test_generic_repairs_only_evidence_backed_first_label_header():
+    clear_run_cache()
+    table = TableBlock(
+        table_id="expenses",
+        headers=["", "本年发生额", "上年发生额"],
+        rows=[
+            TableRow(cells=[CellValue(text="工资"), CellValue(text="10.00"), CellValue(text="8.00")]),
+            TableRow(cells=[CellValue(text="社保"), CellValue(text="3.00"), CellValue(text="2.00")]),
+            TableRow(cells=[CellValue(text="合计"), CellValue(text="13.00"), CellValue(text="10.00")]),
+        ],
+    )
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[PageContent(page_number=1, tables=[table])],
+        entities=DocumentEntities(document_type="audit_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert out["data"]["tables"][0]["headers"] == ["项目", "本年发生额", "上年发生额"]
+    assert out["data"]["records"][0]["raw"] == {"项目": "工资", "本年发生额": "10.00", "上年发生额": "8.00"}
+    assert out["data"]["tables"][0]["header_repaired"] is True
+
+
+def test_generic_amount_unit_declaration_is_not_an_amount_column():
+    clear_run_cache()
+    table = TableBlock(
+        table_id="unit_fragment",
+        headers=["金额单位:人民币元"],
+        rows=[TableRow(cells=[CellValue(text="人民币元")])],
+    )
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[PageContent(page_number=1, tables=[table])],
+        entities=DocumentEntities(document_type="audit_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert out["data"]["columns"]["金额单位:人民币元"]["type"] == "text"
+    assert not any("金额单位:人民币元" in warning for warning in out["status"]["warnings"])
+
+
+def test_generic_empty_pdf_result_explains_that_ocr_is_required():
+    clear_run_cache()
+    result = ParseResult(
+        status=ResultStatus.SUCCESS,
+        pages=[PageContent(page_number=1)],
+        entities=DocumentEntities(document_type="audit_report"),
+    )
+
+    out = build_community_output(result)
+
+    assert out is not None
+    assert "precision:generic_ocr_required" in out["status"]["warnings"]
+    assert any(
+        issue["message"] == "扫描件没有可用文本层，请启用 --ocr auto 或 --ocr force"
+        for issue in out["quality"]["issues"]
+    )
 
 
 def test_business_license_text_fallback_handles_word_per_line_layout():

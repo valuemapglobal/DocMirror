@@ -44,3 +44,12 @@ def test_generic_output_collects_key_values():
 
     out = plugin.extract_from_mirror(pr)
     assert out["data"]["fields"]["姓名"] == "李四"
+
+
+def test_generic_projection_does_not_mutate_parse_result():
+    pr = _mirror("expense_report", {"报销单号": "BX-001", "金额": "1,000.00"})
+    before = pr.model_dump(mode="python")
+
+    plugin.extract_from_mirror(pr, "部门：销售部")
+
+    assert pr.model_dump(mode="python") == before

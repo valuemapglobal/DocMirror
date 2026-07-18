@@ -8,7 +8,7 @@ back to the source physical page.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from math import sqrt
 from typing import Any, Literal
 
@@ -150,6 +150,59 @@ def build_document_plan(
 
     return DocumentSpreadPlan(
         mode=mode,
+        decisions=decisions,
+        logical_starts=starts,
+        logical_page_count=max(0, next_logical - 1),
+        confidence=round(sum(confidences) / len(confidences), 4) if confidences else 0.0,
+    )
+
+
+def confirm_document_plan_rotation(
+    plan: DocumentSpreadPlan,
+    *,
+    source_page_numbers: list[int],
+    preferred_rotation: int | None,
+) -> DocumentSpreadPlan:
+    """Reconcile provisional spread decisions with the OCR orientation probe.
+
+    Thumbnail geometry deliberately evaluates 90/270-degree candidates so a
+    sideways two-page scan can be recognized before OCR.  Dense upright report
+    pages can nevertheless resemble a landscape spread after that synthetic
+    rotation.  Do not reserve two logical page numbers for those candidates
+    unless the document-level OCR probe also confirms a sideways orientation.
+
+    Native 0-degree landscape spreads remain eligible without an orientation
+    probe.  This keeps the existing credit-report spread path while preventing
+    sparse logical numbering when runtime OCR correctly keeps an upright page
+    intact.
+    """
+    if plan.mode == "off":
+        return plan
+
+    sideways_confirmed = int(preferred_rotation or 0) % 360 in {90, 270}
+    decisions: dict[int, PageSplitDecision] = {}
+    starts: dict[int, int] = {}
+    next_logical = 1
+    confidences: list[float] = []
+    for source_page_number in source_page_numbers:
+        starts[source_page_number] = next_logical
+        decision = plan.decision_for(source_page_number)
+        best_rotation = int(decision.analyses[0].rotation) % 360 if decision.analyses else 0
+        if decision.should_split and best_rotation in {90, 270} and not sideways_confirmed:
+            decision = replace(
+                decision,
+                should_split=False,
+                rotation_candidates=(),
+                expected_nonblank_segments=1,
+            )
+        decisions[source_page_number] = decision
+        page_count = decision.expected_nonblank_segments if decision.should_split else 1
+        next_logical += max(1, page_count)
+        if decision.should_split:
+            confidences.append(decision.confidence)
+
+    return DocumentSpreadPlan(
+        mode=plan.mode,
         decisions=decisions,
         logical_starts=starts,
         logical_page_count=max(0, next_logical - 1),
@@ -379,6 +432,7 @@ __all__ = [
     "SpreadAnalysis",
     "analyze_spread_candidates",
     "build_document_plan",
+    "confirm_document_plan_rotation",
     "decision_from_analyses",
     "split_or_passthrough",
 ]

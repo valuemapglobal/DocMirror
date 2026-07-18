@@ -121,6 +121,71 @@ def test_reconstruct_scanned_bordered_tables_preserves_multiple_physical_grids()
     assert tables[0].attrs["geometry"]["cell_evidence_ids"][0][0]
 
 
+def test_reconstruct_scanned_bordered_table_restores_open_outer_columns():
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    image = np.full((260, 400, 3), 255, dtype=np.uint8)
+    for y in (30, 100, 170):
+        cv2.line(image, (20, y), (380, y), (0, 0, 0), 2)
+    # Financial-note tables commonly omit their left and right vertical rules.
+    for x in (140, 260):
+        cv2.line(image, (x, 30), (x, 170), (0, 0, 0), 2)
+    blocks = [
+        _ocr_block("项目", 35, 50, 95, 70, 0),
+        _ocr_block("年末余额", 155, 50, 225, 70, 1),
+        _ocr_block("年初余额", 275, 50, 345, 70, 2),
+        _ocr_block("存货", 35, 120, 95, 140, 3),
+        _ocr_block("10.00", 165, 120, 215, 140, 4),
+        _ocr_block("9.00", 285, 120, 335, 140, 5),
+    ]
+
+    tables = reconstruct_scanned_bordered_tables(
+        image,
+        blocks,
+        page_number=1,
+        page_width=400,
+        page_height=260,
+    )
+
+    assert len(tables) == 1
+    assert tables[0].raw_content == [
+        ["项目", "年末余额", "年初余额"],
+        ["存货", "10.00", "9.00"],
+    ]
+
+
+def test_reconstruct_scanned_bordered_table_includes_unruled_left_label_column():
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    image = np.full((260, 400, 3), 255, dtype=np.uint8)
+    for y in (30, 100, 170):
+        cv2.line(image, (140, y), (380, y), (0, 0, 0), 2)
+    for x in (140, 260, 380):
+        cv2.line(image, (x, 30), (x, 170), (0, 0, 0), 2)
+    blocks = [
+        _ocr_block("项目", 80, 50, 130, 70, 0),
+        _ocr_block("年末余额", 155, 50, 225, 70, 1),
+        _ocr_block("年初余额", 275, 50, 345, 70, 2),
+        _ocr_block("存货", 80, 120, 130, 140, 3),
+        _ocr_block("10.00", 165, 120, 215, 140, 4),
+        _ocr_block("9.00", 285, 120, 335, 140, 5),
+    ]
+
+    tables = reconstruct_scanned_bordered_tables(
+        image,
+        blocks,
+        page_number=1,
+        page_width=400,
+        page_height=260,
+    )
+
+    assert len(tables) == 1
+    assert tables[0].raw_content == [
+        ["项目", "年末余额", "年初余额"],
+        ["存货", "10.00", "9.00"],
+    ]
+
+
 def test_reconstruct_scanned_bordered_table_records_merged_cell_span():
     cv2 = pytest.importorskip("cv2")
     np = pytest.importorskip("numpy")
@@ -155,6 +220,115 @@ def test_reconstruct_scanned_bordered_table_records_merged_cell_span():
     mirror = bridged.to_mirror_json_vnext()
     grid = next(block for block in mirror["blocks"] if block["type"] == "table")["content"]["grid"]
     assert any(cell["row"] == 0 and cell["col"] == 0 and cell["col_span"] == 2 for cell in grid["cells"])
+
+
+def test_reconstruct_scanned_bordered_table_splits_numeric_tokens_across_row_bands():
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    image = np.full((240, 360, 3), 255, dtype=np.uint8)
+    for y in (20, 80, 140, 200):
+        cv2.line(image, (20, y), (340, y), (0, 0, 0), 2)
+    for x in (20, 180, 340):
+        cv2.line(image, (x, 20), (x, 200), (0, 0, 0), 2)
+    # The copied scan loses one amount-column divider, but the OCR tokens
+    # still occupy distinct row bands.
+    cv2.line(image, (183, 140), (337, 140), (255, 255, 255), 7)
+    blocks = [
+        _ocr_block("项目", 40, 40, 100, 60, 0),
+        _ocr_block("金额", 210, 40, 270, 60, 1),
+        _ocr_block("存货", 40, 100, 100, 120, 2),
+        _ocr_block("10.00", 210, 100, 270, 120, 3),
+        _ocr_block("合计", 40, 160, 100, 180, 4),
+        _ocr_block("20.00", 210, 160, 270, 180, 5),
+    ]
+
+    tables = reconstruct_scanned_bordered_tables(
+        image,
+        blocks,
+        page_number=1,
+        page_width=360,
+        page_height=240,
+    )
+
+    assert tables[0].raw_content == [
+        ["项目", "金额"],
+        ["存货", "10.00"],
+        ["合计", "20.00"],
+    ]
+    assert tables[0].attrs["geometry"]["merge_diagnostics"]["token_split_vertical_merge_count"] == 1
+
+
+def test_reconstruct_scanned_bordered_table_splits_label_tokens_with_aligned_amount_rows():
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    image = np.full((240, 360, 3), 255, dtype=np.uint8)
+    for y in (20, 80, 140, 200):
+        cv2.line(image, (20, y), (340, y), (0, 0, 0), 2)
+    for x in (20, 180, 340):
+        cv2.line(image, (x, 20), (x, 200), (0, 0, 0), 2)
+    # The label-column divider is missing, while the amount column still
+    # proves that two physical body rows exist at the same y bands.
+    cv2.line(image, (23, 140), (177, 140), (255, 255, 255), 7)
+    blocks = [
+        _ocr_block("项目", 40, 40, 100, 60, 0),
+        _ocr_block("金额", 210, 40, 270, 60, 1),
+        _ocr_block("甲公司", 40, 100, 100, 120, 2),
+        _ocr_block("10.00", 210, 100, 270, 120, 3),
+        _ocr_block("乙公司", 40, 160, 100, 180, 4),
+        _ocr_block("20.00", 210, 160, 270, 180, 5),
+    ]
+
+    tables = reconstruct_scanned_bordered_tables(
+        image,
+        blocks,
+        page_number=1,
+        page_width=360,
+        page_height=240,
+    )
+
+    assert tables[0].raw_content == [
+        ["项目", "金额"],
+        ["甲公司", "10.00"],
+        ["乙公司", "20.00"],
+    ]
+    assert tables[0].attrs["geometry"]["merge_diagnostics"]["token_split_vertical_merge_count"] == 1
+
+
+def test_reconstruct_scanned_bordered_table_splits_subheader_from_first_amount():
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    image = np.full((240, 520, 3), 255, dtype=np.uint8)
+    for y in (20, 80, 140, 200):
+        cv2.line(image, (20, y), (500, y), (0, 0, 0), 2)
+    for x in (20, 180, 340, 500):
+        cv2.line(image, (x, 20), (x, 200), (0, 0, 0), 2)
+    # Only the first amount-column divider is lost. Its second-level header
+    # and first body value must still land in their respective row bands.
+    cv2.line(image, (183, 140), (337, 140), (255, 255, 255), 7)
+    blocks = [
+        _ocr_block("项目", 40, 40, 100, 60, 0),
+        _ocr_block("年末余额", 370, 40, 450, 60, 1),
+        _ocr_block("账面余额", 210, 100, 290, 120, 2),
+        _ocr_block("账面价值", 370, 100, 450, 120, 3),
+        _ocr_block("原材料", 40, 160, 100, 180, 4),
+        _ocr_block("1,297,676.15", 205, 160, 310, 180, 5),
+        _ocr_block("1,297,676.15", 365, 160, 470, 180, 6),
+    ]
+
+    tables = reconstruct_scanned_bordered_tables(
+        image,
+        blocks,
+        page_number=1,
+        page_width=520,
+        page_height=240,
+    )
+
+    assert tables[0].raw_content == [
+        ["项目", "", "年末余额"],
+        ["", "账面余额", "账面价值"],
+        ["原材料", "1,297,676.15", "1,297,676.15"],
+    ]
+    assert tables[0].attrs["geometry"]["merge_diagnostics"]["token_split_vertical_merge_count"] == 1
 
 
 def test_reconstruct_scanned_bordered_tables_rejects_single_column_notice_frame():

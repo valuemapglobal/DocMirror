@@ -4,8 +4,12 @@ np = pytest.importorskip("numpy")
 cv2 = pytest.importorskip("cv2")
 
 from docmirror.input.extraction.page_splitter import (
+    DocumentSpreadPlan,
+    PageSplitDecision,
+    SpreadAnalysis,
     analyze_spread_candidates,
     build_document_plan,
+    confirm_document_plan_rotation,
     decision_from_analyses,
     split_or_passthrough,
 )
@@ -101,3 +105,50 @@ def test_page_split_off_preserves_physical_numbering():
     assert plan.logical_starts == {1: 1, 2: 2}
     assert plan.logical_page_count == 2
     assert plan.decision_for(1).should_split is False
+
+
+def test_sideways_candidate_requires_document_orientation_confirmation():
+    analysis = SpreadAnalysis(
+        rotation=90,
+        split_position=300,
+        split_ratio=0.5,
+        score=0.96,
+        gutter_density=0.001,
+        left_density=0.08,
+        right_density=0.08,
+        left_aspect=0.707,
+        right_aspect=0.707,
+    )
+    decision = PageSplitDecision(
+        should_split=True,
+        rotation_candidates=(90, 270),
+        confidence=0.96,
+        split_ratio=0.5,
+        expected_nonblank_segments=2,
+        analyses=(analysis,),
+    )
+    provisional = DocumentSpreadPlan(
+        mode="auto",
+        decisions={1: decision},
+        logical_starts={1: 1, 2: 3},
+        logical_page_count=3,
+        confidence=0.96,
+    )
+
+    upright = confirm_document_plan_rotation(
+        provisional,
+        source_page_numbers=[1, 2],
+        preferred_rotation=None,
+    )
+    sideways = confirm_document_plan_rotation(
+        provisional,
+        source_page_numbers=[1, 2],
+        preferred_rotation=270,
+    )
+
+    assert upright.logical_starts == {1: 1, 2: 2}
+    assert upright.logical_page_count == 2
+    assert upright.decision_for(1).should_split is False
+    assert sideways.logical_starts == {1: 1, 2: 3}
+    assert sideways.logical_page_count == 3
+    assert sideways.decision_for(1).should_split is True

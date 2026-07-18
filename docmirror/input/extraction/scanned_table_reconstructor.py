@@ -233,9 +233,14 @@ def reconstruct_scanned_bordered_tables(
     tokens = [token for block in blocks if (token := _block_to_token(block)) is not None]
     out: list[Block] = []
     for table_index, pixel_bbox in enumerate(sorted(candidates, key=lambda value: (value[1], value[0]))):
+        original_x0 = pixel_bbox[0]
+        pixel_bbox = _extend_open_left_candidate(pixel_bbox, tokens, sx=sx, sy=sy, width_px=width_px)
+        open_left_column = pixel_bbox[0] < original_x0 - 3
         x0, y0, x1, y1 = pixel_bbox
         x_lines = _projection_line_positions(vertical[y0:y1, x0:x1], axis=0, offset=x0)
-        y_lines = _projection_line_positions(horizontal[y0:y1, x0:x1], axis=1, offset=y0)
+        # The extrapolated label column is intentionally unruled; retain the
+        # original numeric grid width when measuring horizontal row rules.
+        y_lines = _projection_line_positions(horizontal[y0:y1, original_x0:x1], axis=1, offset=y0)
         x_lines = _ensure_outer_lines(x_lines, x0, x1)
         y_lines = _ensure_outer_lines(y_lines, y0, y1)
         if len(x_lines) < 3 or len(y_lines) < 3:
@@ -245,10 +250,17 @@ def reconstruct_scanned_bordered_tables(
         if len(x_lines) - 1 < 2 or len(y_lines) - 1 < 2:
             continue
 
-        groups, merge_diagnostics = _merged_cell_groups(horizontal, vertical, x_lines, y_lines)
+        groups, merge_diagnostics = _merged_cell_groups(
+            horizontal,
+            vertical,
+            x_lines,
+            y_lines,
+            preserve_left_column_rows=open_left_column,
+        )
         grid_rows = len(y_lines) - 1
         grid_cols = len(x_lines) - 1
         group_tokens: dict[int, list[_Token]] = {index: [] for index in range(len(groups))}
+        numeric_columns_by_row: dict[int, set[int]] = {index: set() for index in range(grid_rows)}
         table_bbox_points = (x0 * sx, y0 * sy, x1 * sx, y1 * sy)
         for token in tokens:
             if not _center_in_bbox(token.cx, token.cy, table_bbox_points):
@@ -263,6 +275,8 @@ def reconstruct_scanned_bordered_tables(
             )
             if group_index is not None:
                 group_tokens[group_index].append(token)
+                if _looks_numeric(token.text):
+                    numeric_columns_by_row[row_index].add(col_index)
 
         raw = [["" for _col in range(grid_cols)] for _row in range(grid_rows)]
         cell_bboxes: list[list[list[float] | None]] = [[None for _col in range(grid_cols)] for _row in range(grid_rows)]
@@ -274,6 +288,7 @@ def reconstruct_scanned_bordered_tables(
         ]
         cell_spans: list[dict[str, Any]] = []
         owned_ids: set[str] = set()
+        token_split_vertical_merge_count = 0
         for group_index, cells in enumerate(groups):
             rows = sorted({cell[0] for cell in cells})
             cols = sorted({cell[1] for cell in cells})
@@ -285,6 +300,59 @@ def reconstruct_scanned_bordered_tables(
                 round(y_lines[rows[-1] + 1] * sy, 4),
             ]
             assigned = sorted(group_tokens[group_index], key=lambda token: (token.cy, token.cx))
+            row_buckets: dict[int, list[_Token]] = {row: [] for row in rows}
+            for token in assigned:
+                token_row = _band_index(token.cy / sy, y_lines)
+                if token_row in row_buckets:
+                    row_buckets[token_row].append(token)
+            populated_buckets = [bucket for bucket in row_buckets.values() if bucket]
+            populated_rows = [row for row, bucket in row_buckets.items() if bucket]
+            numeric_rows_in_group = [
+                row for row, bucket in row_buckets.items()
+                if any(_looks_numeric(token.text) for token in bucket)
+            ]
+            aligned_numeric_rows = [
+                row for row in populated_rows
+                if numeric_columns_by_row.get(row, set()).difference(cols)
+            ]
+            numeric_rows_aligned_elsewhere = set(numeric_rows_in_group).intersection(aligned_numeric_rows)
+            split_vertical_merge = bool(
+                len(rows) > 1
+                and len(cols) == 1
+                and len(populated_buckets) >= 2
+                and (
+                    len(numeric_rows_in_group) >= 2
+                    or len(aligned_numeric_rows) >= 2
+                    # A missing horizontal rule can merge a second-level
+                    # header with the first body amount.  A numeric token in
+                    # the later row plus numeric evidence in another column
+                    # on that same row proves that the row boundary is real.
+                    or bool(numeric_rows_aligned_elsewhere)
+                )
+            )
+            if split_vertical_merge:
+                token_split_vertical_merge_count += 1
+                for row, bucket in row_buckets.items():
+                    if not bucket:
+                        continue
+                    bucket = sorted(bucket, key=lambda token: token.cx)
+                    bucket_evidence_ids = [token.evidence_id for token in bucket]
+                    bucket_confidence = sum(
+                        token.confidence * max(1, len(token.text)) for token in bucket
+                    ) / sum(max(1, len(token.text)) for token in bucket)
+                    raw[row][anchor_col] = " ".join(token.text for token in bucket).strip()
+                    cell_bboxes[row][anchor_col] = [
+                        round(x_lines[anchor_col] * sx, 4),
+                        round(y_lines[row] * sy, 4),
+                        round(x_lines[anchor_col + 1] * sx, 4),
+                        round(y_lines[row + 1] * sy, 4),
+                    ]
+                    cell_evidence_ids[row][anchor_col] = bucket_evidence_ids
+                    cell_confidences[row][anchor_col] = round(float(bucket_confidence), 4)
+                    cell_geometry_status[row][anchor_col] = "exact"
+                    cell_geometry_loss_reason[row][anchor_col] = None
+                    owned_ids.update(bucket_evidence_ids)
+                continue
             text = " ".join(token.text for token in assigned).strip()
             evidence_ids = [token.evidence_id for token in assigned]
             confidence = (
@@ -311,6 +379,7 @@ def reconstruct_scanned_bordered_tables(
                         "evidence_ids": evidence_ids,
                     }
                 )
+        merge_diagnostics["token_split_vertical_merge_count"] = token_split_vertical_merge_count
 
         non_empty = sum(1 for row in raw for value in row if value.strip())
         if non_empty < 3:
@@ -413,6 +482,35 @@ def _merge_nested_table_candidates(candidates: list[tuple[int, int, int, int]]) 
     return kept
 
 
+def _extend_open_left_candidate(
+    candidate: tuple[int, int, int, int],
+    tokens: list[_Token],
+    *,
+    sx: float,
+    sy: float,
+    width_px: int,
+) -> tuple[int, int, int, int]:
+    """Include an unruled first label column adjacent to a detected numeric grid."""
+    x0, y0, x1, y1 = candidate
+    x0_points, y0_points, y1_points = x0 * sx, y0 * sy, y1 * sy
+    max_extension = min(110.0, width_px * sx * 0.18)
+    left_tokens = [
+        token
+        for token in tokens
+        if x0_points - max_extension <= token.cx < x0_points
+        and y0_points <= token.cy <= y1_points
+    ]
+    has_project_header = any(re.sub(r"\s+", "", token.text) in {"项", "目", "项目"} for token in left_tokens)
+    row_centers = {
+        int(round(token.cy / max(3.0, token.h)))
+        for token in left_tokens
+    }
+    if not has_project_header or len(left_tokens) < 2 or len(row_centers) < 2:
+        return candidate
+    extended_x0 = max(0, int((min(token.bbox[0] for token in left_tokens) - 2.0) / sx))
+    return (extended_x0, y0, x1, y1)
+
+
 def _projection_line_positions(mask: Any, *, axis: int, offset: int) -> list[int]:
     import numpy as np
 
@@ -432,8 +530,19 @@ def _projection_line_positions(mask: Any, *, axis: int, offset: int) -> list[int
     return [offset + int(round(sum(group) / len(group))) for group in groups]
 
 
-def _ensure_outer_lines(lines: list[int], _start: int, _end: int) -> list[int]:
-    result = sorted(set(lines))
+def _ensure_outer_lines(lines: list[int], start: int, end: int) -> list[int]:
+    """Deduplicate detected rules and restore open table outer boundaries."""
+    result = sorted({int(value) for value in lines if start <= int(value) <= end})
+    if not result:
+        return [start, end] if end - start >= 12 else []
+    if result[0] - start >= 6:
+        result.insert(0, start)
+    else:
+        result[0] = start
+    if end - result[-1] >= 6:
+        result.append(end)
+    else:
+        result[-1] = end
     return [value for index, value in enumerate(result) if index == 0 or value - result[index - 1] >= 6]
 
 
@@ -442,6 +551,8 @@ def _merged_cell_groups(
     vertical: Any,
     x_lines: list[int],
     y_lines: list[int],
+    *,
+    preserve_left_column_rows: bool = False,
 ) -> tuple[list[set[tuple[int, int]]], dict[str, int]]:
     """Return only geometrically valid rectangular merged-cell groups.
 
@@ -475,6 +586,8 @@ def _merged_cell_groups(
                 union(row * cols + col, row * cols + col + 1)
     for row in range(rows - 1):
         for col in range(cols):
+            if preserve_left_column_rows and col == 0:
+                continue
             y = y_lines[row + 1]
             x0, x1 = x_lines[col], x_lines[col + 1]
             pad = max(1, int((x1 - x0) * 0.08))

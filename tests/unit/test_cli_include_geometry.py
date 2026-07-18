@@ -6,6 +6,42 @@ from __future__ import annotations
 from click.testing import CliRunner
 
 
+def test_community_review_summary_exposes_existing_quality_contract(tmp_path):
+    import json
+
+    from docmirror.__main__ import _community_review_summary
+
+    output = tmp_path / "001_community.json"
+    output.write_text(
+        json.dumps(
+            {
+                "plugin": {"name": "generic"},
+                "classification": {"matched_document_type": "audit_report"},
+                "quality": {
+                    "score": 0.7857,
+                    "readiness": "review",
+                    "issues": [
+                        {"severity": "info", "message": "通用处理"},
+                        {"severity": "warning", "message": "复核页55"},
+                    ],
+                },
+                "status": {"warnings": ["a", "b"]},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    assert _community_review_summary(output) == {
+        "plugin": "generic",
+        "document_type": "audit_report",
+        "score": 0.7857,
+        "readiness": "review",
+        "warning_count": 2,
+        "review_messages": ["复核页55"],
+    }
+
+
 def test_click_cli_geometry_full_is_canonical(monkeypatch, tmp_path):
     from docmirror.cli.main import parse
 
@@ -92,6 +128,8 @@ def test_click_cli_passes_converged_contract_options(monkeypatch, tmp_path):
             "mirror,finance",
             "--ocr",
             "force",
+            "--page-split",
+            "off",
             "--geometry",
             "full",
             "--mirror-level",
@@ -108,6 +146,7 @@ def test_click_cli_passes_converged_contract_options(monkeypatch, tmp_path):
     assert seen["doc_type_policy"] == "force"
     assert seen["editions"] == "mirror,finance"
     assert seen["ocr"] == "force"
+    assert seen["page_split"] == "off"
     assert seen["geometry"] == "full"
     assert seen["mirror_level"] == "compact"
     assert seen["run_id"] == "test_run"

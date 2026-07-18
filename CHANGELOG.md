@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Mirror JSON 1.0.6] — 2026-07-19
+
+This is a backward-compatible precision and reviewability patch for scanned
+Generic documents. The Community JSON structure and data flow remain unchanged,
+and the Python distribution version remains 1.0.0.
+
+### Added
+- Public `--page-split auto|off|force` control and a concise post-parse Community summary showing the selected plugin, document type, quality score, readiness, warning count, and prioritized review messages.
+- Generic fallback review signals with table-, row-, and page-level targets for weak provenance, repaired headers, failed normalization, uncertain currencies, suspicious row alignment, and low-confidence text-table recovery.
+- Exact JSON-contract, CLI, table-reconstruction, Generic projection, private native-PDF, and full 87-page scanned-audit regression coverage.
+
+### Changed
+- Generic fallback now uses stricter header selection, table-local type inference, table-local currency context, conservative amount normalization, appendix-aware field confidence, and evidence-aware duplicate table handling.
+- Scanned report processing now confirms sideways OCR orientation before reserving split-page numbers and uses numeric row evidence to separate tokens trapped in falsely merged vertical cells.
+- Review output now aggregates repeated repaired-header warnings with priority pages while retaining precise record targets for actionable anomalies.
+
+### Fixed
+- Open-border scanned tables retain unruled label columns and restore missing outer boundaries without changing the downstream table or Community JSON contracts.
+- Multi-level scanned headers no longer absorb the first body amount when a horizontal rule is missing; the audited inventory value `1,297,676.15` is restored to both book-balance and book-value columns.
+- Data-contaminated rows are no longer promoted as headers, unambiguous OCR thousands-separator errors normalize safely while preserving raw text, and signature/seal appendix fields remain available with review-level confidence.
+
 ## [Mirror JSON 1.0.5] — 2026-07-18
 
 This is a backward-compatible precision patch for the Community core-domain

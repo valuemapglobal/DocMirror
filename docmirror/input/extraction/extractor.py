@@ -47,6 +47,7 @@ from .page_splitter import (
     PageSplitDecision,
     analyze_spread_candidates,
     build_document_plan,
+    confirm_document_plan_rotation,
     split_or_passthrough,
 )
 from .scanned_table_reconstructor import reconstruct_scanned_statement_table
@@ -923,6 +924,11 @@ class CoreExtractor:
             await asyncio.to_thread(_probe_document_ocr_rotation, file_path, spread_plan)
             if page_split_mode != "off"
             else None
+        )
+        spread_plan = confirm_document_plan_rotation(
+            spread_plan,
+            source_page_numbers=[int(page.page_number) for page in plane.pages],
+            preferred_rotation=preferred_spread_rotation,
         )
         pages: list[PageLayout] = []
         for page in plane.pages:

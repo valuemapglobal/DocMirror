@@ -115,6 +115,26 @@ HTML 等展示层根据 `document`、`business`、`quality`、`datasets` 和 `da
 
 对六类之外或未能稳定分类的文档，`generic` 插件仍会运行，并自适应恢复 KV、字段类型、
 标准化值、身份语义、表格、章节，以及表格几何丢失后的重复行结构；不会再输出空壳成功结果。
+通用投影会使用表头语义与有效值联合判断日期、金额、账号、电话和编号，保留重复或空表头下的
+每个单元格，并把低来源覆盖、全文 KV、表头修复、标准化失败和币种不明确转换为可定位的复核提示。
+未在原文中明确出现的币种不会被默认推定为人民币。
+对于长篇报告，正文编号可用于恢复章节；低置信度、非连续页或表头漂移的跨页合并会保守回退到
+原始物理表，避免错误拼接覆盖真实行，同时保持 Community JSON 结构及处理链路不变。
+合同编号、证件号码、户号等标识符会保留前导零；保费、工资、利息、租金、税款、净值等
+明确金额字段可在原文给出币种时生成带币种的标准化数值。
+
+纯扫描长篇报告建议保持自动分页并显式启用中文 OCR；通用插件会在 OCR 方向确认后才拆分
+旋转双页，避免直立报告产生稀疏逻辑页码。示例：
+
+```bash
+docmirror scanned-report.pdf --profile community --mode accurate --ocr force \
+  --ocr-language zh --ocr-locale zh-CN --ocr-correction safe --page-split auto
+```
+
+扫描报告的 `quality.readiness=review` 表示字段或复杂表格仍需人工复核，不应仅凭质量分自动入库；
+表头修复会按比例汇总提示，具体受影响表仍可通过 `data.tables[].header_repaired` 定位。
+命令行完成后会直接显示实际插件、文档类型、Community 质量分、readiness、警告数量及前三项
+复核提示；JSON 的字段层级和数据流程不因此改变。
 
 使用 `--profile quickstart` 时的诊断输出：
 
@@ -164,7 +184,7 @@ DocMirror 的 Mirror 输出是 document-shaped，并且保留 evidence / quality
 
 ```json
 {
-  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.5"},
+  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.6"},
   "source": {"filename": "statement.pdf"},
   "document": {"document_type": "bank_statement", "document_type_candidates": []},
   "pages": [],

@@ -183,6 +183,13 @@ def _find_spec_quiet(module_name: str) -> Any:
 @click.option("--ocr-locale", default=None, help="OCR locale hint, for example zh-CN")
 @click.option("--ocr-correction-pack", "ocr_correction_packs", multiple=True, help="Enable a correction pack by id")
 @click.option(
+    "--page-split",
+    default="auto",
+    type=click.Choice(["auto", "off", "force"]),
+    show_default=True,
+    help="Split scanned two-page spreads before OCR",
+)
+@click.option(
     "--format",
     "-f",
     "formats",
@@ -269,6 +276,7 @@ def parse(
     ocr_country: str | None,
     ocr_locale: str | None,
     ocr_correction_packs: tuple[str, ...],
+    page_split: str,
     formats: str,
     editions: str,
     include_mirror: bool,
@@ -337,6 +345,7 @@ def parse(
             ocr_country=ocr_country,
             ocr_locale=ocr_locale,
             ocr_correction_packs=ocr_correction_packs,
+            page_split=page_split,
             geometry=geometry,
             include_geometry=None,
             run_id=run_id,

@@ -52,6 +52,61 @@ def _safe_str(s: str) -> str:
     return s.encode("utf-8", errors="replace").decode("utf-8")
 
 
+def _community_review_summary(path: Path | None) -> dict[str, object] | None:
+    """Read a compact, user-facing review summary from the saved Community JSON."""
+    if path is None or not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    plugin = payload.get("plugin") if isinstance(payload.get("plugin"), dict) else {}
+    classification = (
+        payload.get("classification") if isinstance(payload.get("classification"), dict) else {}
+    )
+    quality = payload.get("quality") if isinstance(payload.get("quality"), dict) else {}
+    status = payload.get("status") if isinstance(payload.get("status"), dict) else {}
+    issues = quality.get("issues") if isinstance(quality.get("issues"), list) else []
+    review_messages = [
+        str(issue.get("message") or "")
+        for issue in issues
+        if isinstance(issue, dict)
+        and issue.get("severity") in {"warning", "error"}
+        and issue.get("message")
+    ][:3]
+    return {
+        "plugin": str(plugin.get("name") or "unknown"),
+        "document_type": str(classification.get("matched_document_type") or "unknown"),
+        "score": float(quality.get("score", 0.0) or 0.0),
+        "readiness": str(quality.get("readiness") or "unknown"),
+        "warning_count": len(status.get("warnings") or []),
+        "review_messages": review_messages,
+    }
+
+
+def _show_community_review_summary(path: Path | None) -> None:
+    summary = _community_review_summary(path)
+    if summary is None:
+        return
+    console.print(
+        "[bold cyan]Community:[/bold cyan] "
+        f"plugin={_safe_str(str(summary['plugin']))}  "
+        f"type={_safe_str(str(summary['document_type']))}  "
+        f"quality={float(summary['score']):.4f}  "
+        f"readiness={_safe_str(str(summary['readiness']))}  "
+        f"warnings={int(summary['warning_count'])}"
+    )
+    for message in summary["review_messages"]:
+        console.print(f"[yellow]Review:[/yellow] {_safe_str(str(message))}")
+    if summary["plugin"] == "generic" and summary["readiness"] == "review":
+        console.print(
+            "[dim]For difficult scans: --mode accurate --ocr force --ocr-language zh "
+            "--ocr-locale zh-CN --ocr-correction safe --page-split auto[/dim]"
+        )
+
+
 def _effective_table_count(result) -> int:
     total = int(getattr(result, "total_tables", 0) or 0)
     if total > 0:
@@ -370,6 +425,7 @@ async def parse_document(
         if not no_save and saved_path:
             label = "Mirror" if "mirror" in written else "Community output"
             console.print(f"[bold blue]\U0001f4be {label} saved to:[/bold blue] [white]{saved_path}[/white]")
+            _show_community_review_summary(written.get("community"))
             _write_requested_exports(
                 result,
                 saved_path.parent,

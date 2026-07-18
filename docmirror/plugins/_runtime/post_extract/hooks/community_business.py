@@ -11,6 +11,7 @@ It deliberately avoids predictive risk scoring and never mutates Core Mirror.
 
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
 from datetime import datetime
 from typing import Any
@@ -429,6 +430,35 @@ def _build_data_dictionary(
     }
 
 
+def _correct_generic_currency_units(data: dict[str, Any]) -> None:
+    """Keep Generic currency units only when normalized facts state a currency."""
+    dictionary = data.get("data_dictionary") if isinstance(data.get("data_dictionary"), dict) else {}
+    fields = data.get("fields") if isinstance(data.get("fields"), dict) else {}
+    for key, schema in (dictionary.get("fields") or {}).items():
+        if not isinstance(schema, dict) or schema.get("format") != "currency":
+            continue
+        value = fields.get(key)
+        currency = value.get("currency") if isinstance(value, dict) else None
+        if currency:
+            schema["unit"] = str(currency)
+        else:
+            schema.pop("unit", None)
+    records = data.get("records") if isinstance(data.get("records"), list) else []
+    for key, schema in (dictionary.get("record_columns") or {}).items():
+        if not isinstance(schema, dict) or schema.get("format") != "currency":
+            continue
+        currencies = {
+            str(value["currency"])
+            for record in records if isinstance(record, dict)
+            for value in [(record.get("normalized") or {}).get(key)]
+            if isinstance(value, dict) and value.get("currency")
+        }
+        if len(currencies) == 1:
+            schema["unit"] = next(iter(currencies))
+        else:
+            schema.pop("unit", None)
+
+
 def _normalization_rate(records: list[Any], fields: dict[str, Any]) -> float:
     if not records:
         return 1.0 if fields else 0.0
@@ -438,6 +468,89 @@ def _normalization_rate(records: list[Any], fields: dict[str, Any]) -> float:
             if any(_present(value) for value in record["normalized"].values()):
                 normalized += 1
     return round(normalized / len(records), 4)
+
+
+def _generic_typed_normalization_rate(data: dict[str, Any]) -> float | None:
+    """Measure Generic typed cells instead of counting copied text as normalized."""
+    records = data.get("records") if isinstance(data.get("records"), list) else []
+    columns = data.get("columns") if isinstance(data.get("columns"), dict) else {}
+    typed = {
+        str(key)
+        for key, info in columns.items()
+        if isinstance(info, dict) and info.get("type") in {"amount", "date", "datetime", "percentage", "phone"}
+    }
+    considered = 0
+    normalized = 0
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        raw = record.get("raw") if isinstance(record.get("raw"), dict) else {}
+        values = record.get("normalized") if isinstance(record.get("normalized"), dict) else {}
+        for key in typed:
+            raw_value = raw.get(key)
+            if raw_value in (None, ""):
+                continue
+            column_type = str((columns.get(key) or {}).get("type") or "")
+            text = str(raw_value).strip()
+            is_candidate = (
+                bool(re.search(r"\d|[¥￥$€£]", text))
+                if column_type == "amount"
+                else len(re.sub(r"\D", "", text)) >= 6
+                if column_type == "phone"
+                else bool(re.search(r"\d", text) or (column_type == "percentage" and "%" in text))
+            )
+            if not is_candidate:
+                continue
+            considered += 1
+            if isinstance(values.get(key), dict) and values[key].get("value") not in (None, ""):
+                normalized += 1
+    return round(normalized / considered, 4) if considered else None
+
+
+def _adjust_generic_quality(quality: dict[str, Any], output: dict[str, Any]) -> None:
+    """Keep Generic score/grade consistent with typed-cell quality and review signals."""
+    data = output.get("data") if isinstance(output.get("data"), dict) else {}
+    typed_rate = _generic_typed_normalization_rate(data)
+    if typed_rate is not None:
+        previous = float(quality.get("normalization_rate", 0.0) or 0.0)
+        quality["normalization_rate"] = typed_rate
+        quality["score"] = round(
+            max(0.0, float(quality.get("score", 0.0) or 0.0) - 0.2 * max(0.0, previous - typed_rate)),
+            4,
+        )
+    warnings = (output.get("status") or {}).get("warnings") or []
+    tables = data.get("tables") if isinstance(data.get("tables"), list) else []
+    repaired_ratio = (
+        sum(isinstance(table, dict) and bool(table.get("header_repaired")) for table in tables) / len(tables)
+        if tables
+        else 0.0
+    )
+    placeholder_ratio = (
+        sum(
+            isinstance(table, dict)
+            and any(re.fullmatch(r"(?:col(?:umn)?|字段|列)[_\s-]*\d+", str(header), re.IGNORECASE)
+                    for header in table.get("headers", []) or [])
+            for table in tables
+        )
+        / len(tables)
+        if tables
+        else 0.0
+    )
+    structural_review_ratio = max(repaired_ratio, placeholder_ratio)
+    if structural_review_ratio:
+        quality["score"] = round(
+            max(0.0, float(quality.get("score", 0.0) or 0.0) - 0.18 * structural_review_ratio),
+            4,
+        )
+    if any("generic_page_reference_mismatch" in str(warning) for warning in warnings):
+        quality["score"] = round(max(0.0, float(quality.get("score", 0.0) or 0.0) - 0.15), 4)
+    has_precision_review = any(str(warning).startswith("precision:") for warning in warnings)
+    if quality.get("readiness") == "review" and has_precision_review:
+        quality["score"] = min(float(quality.get("score", 0.0) or 0.0), 0.8999)
+    score = float(quality.get("score", 0.0) or 0.0)
+    quality["grade"] = (
+        "excellent" if score >= 0.9 else "good" if score >= 0.75 else "review" if score >= 0.5 else "insufficient"
+    )
 
 
 def _source_quality(result: ParseResult) -> float:
@@ -641,6 +754,9 @@ def _build_business(output: dict[str, Any], domain: str, readiness: str) -> dict
     sections = data.get("sections") if isinstance(data.get("sections"), list) else []
     tables = data.get("tables") if isinstance(data.get("tables"), list) else []
     label = _DOMAIN_LABELS.get(domain, _DOMAIN_LABELS["generic"])
+    document_type = str((output.get("document") or {}).get("document_type") or "")
+    if domain == "generic" and document_type == "audit_report":
+        label = "审计报告（通用处理）"
     metrics: dict[str, Any] = {}
     dimensions: dict[str, Any] = {}
     highlights: list[dict[str, Any]] = []
@@ -757,7 +873,7 @@ def _issue_parts(raw_code: str) -> tuple[str, str]:
     return code or "unknown", detail
 
 
-def _issue_target(code: str, detail: str) -> str:
+def _issue_target(code: str, detail: str, output: dict[str, Any] | None = None) -> str:
     if code == "missing_required_field" and detail:
         return f"/data/fields/{_pointer_token(detail)}"
     if code == "missing_required_record_field" and detail:
@@ -768,10 +884,50 @@ def _issue_target(code: str, detail: str) -> str:
         return "/data/fields"
     if code == "no_records_extracted":
         return "/data/records"
+    if code == "precision" and detail.startswith("generic_"):
+        generic_code, _, target = detail.partition(":")
+        if generic_code in {"generic_low_source_coverage", "generic_low_confidence_text_kv"}:
+            return "/data/field_details"
+        if generic_code in {"generic_ocr_required", "generic_ocr_fields_filtered"}:
+            return "/data/fields"
+        if generic_code in {"generic_normalization_failed", "generic_currency_unknown", "generic_ambiguous_type"}:
+            return f"/data/columns/{_pointer_token(target)}" if target else "/data/columns"
+        data = output.get("data") if isinstance(output, dict) and isinstance(output.get("data"), dict) else {}
+        if generic_code == "generic_header_repaired" and target:
+            tables = data.get("tables") if isinstance(data.get("tables"), list) else []
+            table_index = next(
+                (
+                    index for index, table in enumerate(tables)
+                    if isinstance(table, dict) and str(table.get("table_id") or "") == target
+                ),
+                None,
+            )
+            if table_index is not None:
+                return f"/data/tables/{table_index}"
+        if generic_code == "generic_row_alignment_suspect" and target:
+            table_id, _, raw_row = target.partition("@row=")
+            records = data.get("records") if isinstance(data.get("records"), list) else []
+            record_index = next(
+                (
+                    index for index, record in enumerate(records)
+                    if isinstance(record, dict)
+                    and isinstance(record.get("source"), dict)
+                    and str(record["source"].get("table_id") or "") == table_id
+                    and (not raw_row or str(record["source"].get("table_row_index")) == raw_row)
+                ),
+                None,
+            )
+            if record_index is not None:
+                return f"/data/records/{record_index}"
+            return "/data/records"
+        if generic_code in {"generic_header_repaired", "generic_header_repaired_ratio", "generic_text_table_low_confidence"}:
+            return "/data/tables"
+        if generic_code == "generic_page_reference_mismatch":
+            return "/document/page_count"
     return "/quality"
 
 
-def _issue_message(code: str, detail: str) -> str:
+def _issue_message(code: str, detail: str, output: dict[str, Any] | None = None) -> str:
     if code == "missing_required_field":
         return f"缺少必填字段：{_field_label(detail)}"
     if code == "missing_required_record_field":
@@ -786,6 +942,45 @@ def _issue_message(code: str, detail: str) -> str:
         return "未提取到可用明细记录"
     if code == "community_generic_fallback":
         return "文档由通用结构化引擎处理"
+    if code == "precision" and detail.startswith("generic_"):
+        generic_code, _, target = detail.partition(":")
+        messages = {
+            "generic_low_source_coverage": "部分通用字段缺少页码、坐标或直接证据，建议核对原文",
+            "generic_low_confidence_text_kv": "部分字段仅由全文行恢复，缺少页面坐标，建议核对原文",
+            "generic_ambiguous_type": "列类型存在歧义，已保守按文本保留",
+            "generic_normalization_failed": "部分值未通过标准化校验，已保留原文",
+            "generic_header_repaired": "表头存在重复或空列名，已生成唯一列名以避免丢失单元格",
+            "generic_header_repaired_ratio": "多张表格仍需表头复核",
+            "generic_currency_unknown": "金额已解析，但源文档未明确币种",
+            "generic_text_table_low_confidence": "表格由全文重复行恢复，列边界置信度较低",
+            "generic_ocr_required": "扫描件没有可用文本层，请启用 --ocr auto 或 --ocr force",
+            "generic_ocr_fields_filtered": "已过滤不满足标量字段约束的 OCR 候选",
+            "generic_page_reference_mismatch": "证据页码超出文档页数，页面映射需要复核",
+            "generic_row_alignment_suspect": "同一单元格疑似包含多条金额记录，建议核对行列对齐",
+        }
+        message = messages.get(generic_code, "通用结构化结果需要复核")
+        if target and generic_code in {
+            "generic_normalization_failed", "generic_header_repaired", "generic_header_repaired_ratio",
+            "generic_currency_unknown", "generic_ocr_fields_filtered", "generic_page_reference_mismatch",
+            "generic_row_alignment_suspect",
+        }:
+            message += f"：{target}"
+        if generic_code == "generic_header_repaired_ratio" and isinstance(output, dict):
+            data = output.get("data") if isinstance(output.get("data"), dict) else {}
+            page_counts = Counter(
+                int(page)
+                for table in (data.get("tables") or [])
+                if isinstance(table, dict) and table.get("header_repaired")
+                for page in (table.get("source_pages") or [])
+                if int(page) > 0
+            )
+            if page_counts:
+                priority_pages = "、".join(
+                    f"{page}页({count}张)"
+                    for page, count in page_counts.most_common(5)
+                )
+                message += f"；优先复核：{priority_pages}"
+        return message
     if code.startswith("cqf_"):
         return f"文档结构质量需要复核：{detail or code}"
     if code == "dec_validation":
@@ -804,7 +999,7 @@ def _structured_issues(output: dict[str, Any]) -> list[dict[str, Any]]:
     seen: set[tuple[str, str]] = set()
     for default_severity, raw_code in candidates:
         code, detail = _issue_parts(raw_code)
-        target = _issue_target(code, detail)
+        target = _issue_target(code, detail, output)
         marker = (raw_code, target)
         if marker in seen:
             continue
@@ -815,7 +1010,7 @@ def _structured_issues(output: dict[str, Any]) -> list[dict[str, Any]]:
                 "code": code,
                 "severity": severity,
                 "target": target,
-                "message": _issue_message(code, detail),
+                "message": _issue_message(code, detail, output),
                 "action": "inspect_result" if severity == "info" else "review_source",
                 "source_code": raw_code,
             }
@@ -862,6 +1057,8 @@ class CommunityBusinessProjectionHook(PostExtractHook):
         datasets = _build_dataset_catalog(data, domain)
         data["datasets"] = datasets
         data["data_dictionary"] = _build_data_dictionary(data, datasets)
+        if domain == "generic":
+            _correct_generic_currency_units(data)
 
         contract_status = "skip"
         missing_fields: list[str] = []
@@ -883,6 +1080,8 @@ class CommunityBusinessProjectionHook(PostExtractHook):
             missing_fields=missing_fields,
             missing_records=missing_records,
         )
+        if domain == "generic":
+            _adjust_generic_quality(quality, extracted)
         existing_quality = extracted.get("quality") if isinstance(extracted.get("quality"), dict) else {}
         extracted["quality"] = {**existing_quality, **quality}
         for key in (
