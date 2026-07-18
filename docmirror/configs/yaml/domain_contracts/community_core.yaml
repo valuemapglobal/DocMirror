@@ -189,10 +189,10 @@ domains:
     p0_commitment:
       fields:
         required:
-          - invoice_code
           - invoice_number
           - total_amount
         conditional:
+          - invoice_code
           - buyer_name
           - seller_name
           - amount_without_tax

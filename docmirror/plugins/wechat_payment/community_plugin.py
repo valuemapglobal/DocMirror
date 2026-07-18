@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 WECHAT_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
     "收/支/其他": ColumnMapping(
         field="direction",
-        enum_map={"收入": "income", "支出": "expense", "/": "other"},
+        enum_map={"收入": "income", "支出": "expense", "其他": "other", "/": "other"},
         aliases=["收/支", "收支其他"],
     ),
     "金额(元)": ColumnMapping(
@@ -62,6 +62,10 @@ WECHAT_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
         field="transaction_type",
         aliases=["类型", "交易方式", "支付方式", "Transaction", "Description"],
     ),
+    "交易方式": ColumnMapping(
+        field="transaction_method",
+        aliases=["支付方式", "交易渠道", "Payment Method"],
+    ),
     "交易对象": ColumnMapping(
         field="counter_object",
         aliases=["对象", "对方账户", "对方账号"],
@@ -74,6 +78,7 @@ WECHAT_STANDARD_FIELDS = [
     "direction",
     "counter_party",
     "transaction_type",
+    "transaction_method",
     "counter_object",
     "amount",
     "trade_no",
@@ -91,6 +96,22 @@ WECHAT_SCENE_KEYWORDS = (
 )
 
 WECHAT_DEFAULT_COLUMNS = list(WECHAT_COLUMN_REGISTRY.keys())
+
+_MIRROR_DATE_RE = re.compile(r"^20\d{2}-\d{2}-\d{2}$")
+_MIRROR_TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
+_MIRROR_AMOUNT_RE = re.compile(r"^-?\d[\d,]*\.\d{2}$")
+_MIRROR_DIRECTIONS = frozenset({"收入", "支出", "其他"})
+_MIRROR_HEADERS = (
+    "交易单号",
+    "交易时间",
+    "交易类型",
+    "收/支/其他",
+    "交易方式",
+    "金额(元)",
+    "交易对方",
+    "商户单号",
+)
+_DATETIME_RE = r"20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}"
 
 WECHAT_IDENTITY_FIELDS: Sequence[tuple[str, Sequence[str]]] = (
     ("account_holder", ("户名", "姓名", "Account holder", "User")),
@@ -122,6 +143,38 @@ class WeChatPaymentPlugin(BaseTableParser):
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return WECHAT_IDENTITY_FIELDS
+
+    def _recover_identity_from_mirror(self, parse_result) -> dict[str, dict[str, object]]:
+        atoms_by_page = self._mirror_text_atoms_by_page(parse_result)
+        if not atoms_by_page:
+            return {}
+        page_id = sorted(atoms_by_page)[0]
+        atoms = sorted(
+            atoms_by_page[page_id],
+            key=lambda atom: (float(atom["bbox"][1]), float(atom["bbox"][0])),
+        )
+        text = " ".join(str(atom.get("text") or "").strip() for atom in atoms)
+        patterns = {
+            "certificate_number": ("编号", r"编号\s*[:：]\s*([0-9A-Za-z]+)"),
+            "account_holder": ("兹证明", r"兹证明\s*[:：]\s*(.+?)\s*[（(]身份证"),
+            "id_number": ("身份证", r"身份证\s*[:：]\s*([0-9Xx*]+)"),
+            "account_number": ("微信号", r"微信号\s*[:：]\s*([A-Za-z0-9_*\-]+)"),
+            "query_period": (
+                "交易明细对应时间段",
+                rf"交易明细对应时间段\s*({_DATETIME_RE})\s*至\s*({_DATETIME_RE})",
+            ),
+            "currency": ("币种", r"币种\s*[:：]?\s*([^\s/，,]+)"),
+            "unit": ("单位", r"单位\s*[:：]?\s*([^\s，,]+)"),
+        }
+        recovered: dict[str, dict[str, object]] = {}
+        for field_name, (label, pattern) in patterns.items():
+            match = re.search(pattern, text)
+            if not match:
+                continue
+            value = " 至 ".join(match.groups()) if field_name == "query_period" else match.group(1).strip()
+            if value:
+                recovered[field_name] = self._mirror_identity_detail(field_name, label, value, page_id=page_id)
+        return recovered
 
     def build_domain_data(self, metadata, entities):
         """Lightweight KV projection used when mirror-native extraction is unavailable."""
@@ -204,12 +257,144 @@ class WeChatPaymentPlugin(BaseTableParser):
                 )
         return transactions
 
+    def _recover_records_from_mirror(self, parse_result) -> list[dict[str, object]]:
+        """Recover WeChat issuer rows from positioned Mirror text atoms."""
+        atoms_by_page = self._mirror_text_atoms_by_page(parse_result)
+        if not atoms_by_page:
+            return []
+
+        all_atoms = [atom for atoms in atoms_by_page.values() for atom in atoms]
+        header_texts = {str(atom.get("text") or "").strip() for atom in all_atoms}
+        composite_header = next(
+            (
+                atom
+                for atom in all_atoms
+                if all(
+                    marker in str(atom.get("text") or "")
+                    for marker in ("交易时间", "交易类型", "收/支/其他", "金额(元)")
+                )
+            ),
+            None,
+        )
+        counter_party_header = next(
+            (atom for atom in all_atoms if str(atom.get("text") or "").strip() == "交易对方"),
+            None,
+        )
+        trade_header = next(
+            (atom for atom in all_atoms if str(atom.get("text") or "").strip() == "交易单号"),
+            None,
+        )
+        merchant_header = next(
+            (atom for atom in all_atoms if str(atom.get("text") or "").strip() == "商户单号"),
+            None,
+        )
+        if not {"交易单号", "交易对方", "商户单号"}.issubset(header_texts):
+            return []
+        if any(atom is None for atom in (composite_header, counter_party_header, trade_header, merchant_header)):
+            return []
+        composite_left = float(composite_header["bbox"][0])
+        composite_width = float(composite_header["bbox"][2]) - composite_left
+        if composite_width <= 0:
+            return []
+        composite_anchors = [composite_left + composite_width * index / 5 for index in range(5)]
+        anchors = [
+            float(trade_header["bbox"][0]),
+            *composite_anchors,
+            float(counter_party_header["bbox"][0]),
+            float(merchant_header["bbox"][0]),
+        ]
+        if anchors != sorted(anchors):
+            return []
+        bounds = [float("-inf"), *((left + right) / 2 for left, right in zip(anchors, anchors[1:])), float("inf")]
+        date_x = anchors[1]
+
+        recovered: list[dict[str, object]] = []
+        for page_id in sorted(atoms_by_page):
+            atoms = atoms_by_page[page_id]
+            dates = sorted(
+                (
+                    (float(atom["bbox"][1]), str(atom.get("text") or "").strip(), atom)
+                    for atom in atoms
+                    if abs(float(atom["bbox"][0]) - date_x) <= 12.0
+                    and _MIRROR_DATE_RE.fullmatch(str(atom.get("text") or "").strip())
+                ),
+                key=lambda item: item[0],
+            )
+            for index, (row_y, date, date_atom) in enumerate(dates):
+                if index + 1 < len(dates):
+                    row_end = dates[index + 1][0]
+                else:
+                    prior_gap = row_y - dates[index - 1][0] if index > 0 else 40.0
+                    row_end = row_y + max(prior_gap * 1.5, 40.0)
+                row_atoms = sorted(
+                    (atom for atom in atoms if row_y - 0.5 <= float(atom["bbox"][1]) < row_end - 0.5),
+                    key=lambda atom: (float(atom["bbox"][1]), float(atom["bbox"][0])),
+                )
+
+                def column_atoms(column_index: int) -> list[dict]:
+                    return [
+                        atom
+                        for atom in row_atoms
+                        if bounds[column_index] <= float(atom["bbox"][0]) < bounds[column_index + 1]
+                    ]
+
+                def column_text(column_index: int) -> str:
+                    return "".join(str(atom.get("text") or "").strip() for atom in column_atoms(column_index))
+
+                direction_atom = next(
+                    (atom for atom in column_atoms(3) if str(atom.get("text") or "").strip() in _MIRROR_DIRECTIONS),
+                    None,
+                )
+                amount_atom = next(
+                    (
+                        atom
+                        for atom in column_atoms(5)
+                        if _MIRROR_AMOUNT_RE.fullmatch(str(atom.get("text") or "").strip())
+                    ),
+                    None,
+                )
+                time_atom = next(
+                    (
+                        atom
+                        for atom in column_atoms(1)
+                        if _MIRROR_TIME_RE.fullmatch(str(atom.get("text") or "").strip())
+                    ),
+                    None,
+                )
+                trade_atoms = [atom for atom in column_atoms(0) if str(atom.get("text") or "").strip().isdigit()]
+                trade_no = "".join(str(atom.get("text") or "").strip() for atom in trade_atoms)
+                if direction_atom is None or amount_atom is None or time_atom is None or not trade_no:
+                    continue
+
+                evidence_atoms = [date_atom, *row_atoms]
+                recovered.append(
+                    {
+                        "收/支/其他": str(direction_atom.get("text") or "").strip(),
+                        "金额(元)": str(amount_atom.get("text") or "").strip(),
+                        "交易单号": trade_no,
+                        "交易时间": f"{date} {str(time_atom.get('text') or '').strip()}",
+                        "交易类型": column_text(2),
+                        "交易方式": column_text(4),
+                        "交易对方": column_text(6),
+                        "商户单号": column_text(7),
+                        "_source": {
+                            "source": "mirror_text_atoms",
+                            "page_id": page_id,
+                            "evidence_ids": [
+                                str(atom.get("id") or "") for atom in evidence_atoms if str(atom.get("id") or "")
+                            ],
+                        },
+                    }
+                )
+        return recovered
+
     def _normalize(self, raw_txn: dict[str, str]) -> dict[str, object]:
         normalized = super()._normalize(raw_txn)
         amount = normalized.get("amount")
         if isinstance(amount, (int, float)):
             normalized["original_signed_amount"] = amount
-            normalized["direction"] = "expense" if amount < 0 else "income"
+            if not normalized.get("direction"):
+                normalized["direction"] = "expense" if amount < 0 else "income"
             normalized["amount"] = abs(amount)
             normalized["amount_cny"] = abs(amount)
         return normalized

@@ -528,6 +528,7 @@ def _quality_summary(
                 "no_fields_extracted",
                 "no_records_extracted",
                 "cqf_",
+                "precision:",
             )
         )
     ]

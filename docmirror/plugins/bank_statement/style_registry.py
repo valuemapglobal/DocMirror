@@ -24,6 +24,7 @@ from typing import Any
 
 from docmirror.plugins.bank_statement.canonical import ensure_canonical_normalized, records_from_raw_transactions
 from docmirror.plugins.bank_statement.context import StyleContext
+from docmirror.plugins.bank_statement.mirror_atom_table_recovery import recover_mirror_atom_bank_tables
 from docmirror.plugins.bank_statement.ocr_implicit_table_recovery import (
     recover_ocr_implicit_ledger_tables,
     recovered_ocr_implicit_row_count,
@@ -82,6 +83,17 @@ def _batch_field_completeness(
         norm = ensure_canonical_normalized(nf(txn), plugin.standard_fields)
         scores.append(sum(1 for f in fields if norm.get(f) not in (None, "", 0)) / len(fields))
     return sum(scores) / len(scores)
+
+
+def _batch_raw_width(transactions: list[dict[str, str]], sample: int = 8) -> float:
+    """Average number of populated source columns, used only as a tie-breaker."""
+    if not transactions:
+        return 0.0
+    widths = [
+        sum(bool(str(value or "").strip()) for key, value in transaction.items() if not key.startswith("_"))
+        for transaction in transactions[:sample]
+    ]
+    return sum(widths) / len(widths)
 
 
 def _parser_score(
@@ -207,6 +219,36 @@ class BankStyleParserRegistry:
         expected = _expected_rows(ctx)
         primary_parser = (detection.parser_chain or ["grid_standard"])[-1]
         primary_score, coverage = _parser_score(transactions, normalize_fn, plugin, expected)
+        atom_tables = recover_mirror_atom_bank_tables(ctx.parse_result)
+        if atom_tables:
+            atom_count = sum(max(len(table) - 1, 0) for table in atom_tables)
+            atom_expected = max(expected, atom_count)
+            atom_ctx = replace(ctx, tables=atom_tables)
+            atom_batch, atom_norm = _run_parser("grid_standard", atom_ctx, plugin)
+            atom_score, atom_coverage = _parser_score(atom_batch, atom_norm, plugin, atom_expected)
+            richer_equal_coverage = (
+                len(atom_batch) >= len(transactions)
+                and atom_coverage >= coverage
+                and _batch_raw_width(atom_batch) > _batch_raw_width(transactions) + 1.0
+            )
+            if atom_score > primary_score or richer_equal_coverage:
+                transactions = atom_batch
+                normalize_fn = atom_norm
+                primary_score = atom_score
+                coverage = atom_coverage
+                expected = atom_expected
+                if ctx.reconstruction is not None:
+                    ctx.reconstruction = replace(
+                        ctx.reconstruction,
+                        source="mirror_atom_table",
+                        expected_primary_rows=atom_expected,
+                        pipe_parse_failed=False,
+                    )
+                logger.info(
+                    "[BankStyleRegistry] Mirror atom table recovery rows=%d score=%.2f",
+                    len(atom_batch),
+                    atom_score,
+                )
         if primary_score < _CAPS_THRESHOLD or (expected > 0 and coverage < _COVERAGE_THRESHOLD):
             wide_tables = recover_wide_bank_tables(ctx.parse_result, ctx.full_text)
             if wide_tables:

@@ -61,7 +61,14 @@ def _match_identity_fields(
 
 
 def _label_pattern(label: str) -> str:
-    parts = [re.escape(part) for part in re.split(r"\s+", label.strip()) if part]
+    parts = []
+    for part in re.split(r"\s+", label.strip()):
+        if not part:
+            continue
+        if re.fullmatch(r"[\u3400-\u9fff]+", part):
+            parts.append(r"\s*".join(re.escape(char) for char in part))
+        else:
+            parts.append(re.escape(part))
     return r"\s+".join(parts)
 
 

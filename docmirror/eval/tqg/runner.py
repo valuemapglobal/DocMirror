@@ -274,6 +274,7 @@ async def _execute_e2e_four_file(case: TQGCase) -> tuple[dict[str, Any], dict[st
                 out_dir,
                 file_path=str(case.fixture) if case.fixture else "",
                 full_text=getattr(mirror, "full_text", "") or "",
+                editions=("mirror", "community"),
             )
         else:
             doc_type = str(case.options.get("document_type", "business_license"))
@@ -284,6 +285,7 @@ async def _execute_e2e_four_file(case: TQGCase) -> tuple[dict[str, Any], dict[st
                 out_dir,
                 file_id="001",
                 task_id="test_task_001",
+                editions=("mirror", "community"),
             )
         mirror_path = written.get("mirror")
         community_path = written.get("community")

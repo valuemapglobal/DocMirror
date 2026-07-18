@@ -171,7 +171,7 @@ DocMirror's mirror output is document-shaped and evidence-aware:
 
 ```json
 {
-  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.4"},
+  "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.5"},
   "source": {"filename": "statement.pdf"},
   "document": {"document_type": "bank_statement", "document_type_candidates": []},
   "pages": [],

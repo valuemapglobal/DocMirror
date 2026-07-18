@@ -37,6 +37,24 @@ logger = logging.getLogger(__name__)
 
 _ISO_DATE_RE = re.compile(r"^\d{4}[-/]\d{2}[-/]\d{2}")
 _ISO_DATETIME_RE = re.compile(r"^\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}")
+_SUMMARY_ROW_RE = re.compile(r"^(?:(?:本页|本期|当页)?(?:收入|支出)?(?:合计|小计|总计))(?:[:：].*)?$")
+
+
+def _is_summary_row(row: list[str]) -> bool:
+    """Return true only for rows that are clearly summaries, not directions.
+
+    Payment exports may legitimately place ``收入`` or ``支出`` in the first
+    column.  A row carrying a date or transaction id is therefore always data.
+    """
+    cells = [str(cell or "").strip() for cell in row]
+    if any(_ISO_DATE_RE.match(cell) or _ISO_DATETIME_RE.match(cell) for cell in cells):
+        return False
+    if any(re.match(r"^\d{16,}$", re.sub(r"\s+", "", cell)) for cell in cells):
+        return False
+    first_cell = cells[0] if cells else ""
+    if _SUMMARY_ROW_RE.fullmatch(first_cell):
+        return True
+    return first_cell in {"收入", "支出"} and any("合计" in cell for cell in cells[1:])
 
 
 class BaseTableParser(DomainPlugin):
@@ -51,6 +69,7 @@ class BaseTableParser(DomainPlugin):
 
     Optional overrides:
     - identity_fields
+    - _recover_records_from_mirror
     - edition (default community)
     """
 
@@ -84,6 +103,13 @@ class BaseTableParser(DomainPlugin):
         """Extract and return v2.0 community edition output from ParseResult."""
         # Step 1: Extract KV header area
         identity_fields = self._extract_identity(parse_result)
+        try:
+            recovered_identity = self._recover_identity_from_mirror(parse_result)
+        except Exception:
+            logger.warning("[%s] Mirror identity recovery failed", self.domain_name, exc_info=True)
+            recovered_identity = {}
+        for field_name, detail in recovered_identity.items():
+            identity_fields.setdefault(field_name, detail)
         if text:
             try:
                 from docmirror.plugins._base.kv_community_extract import _recover_identity_fields_from_text
@@ -112,6 +138,11 @@ class BaseTableParser(DomainPlugin):
 
         # Step 4: Extract transaction records
         transactions = self._extract_records(tables, header_row_idx, raw_headers, col_map)
+        if not transactions:
+            try:
+                transactions = self._recover_records_from_mirror(parse_result)
+            except Exception:
+                logger.warning("[%s] Mirror record recovery failed", self.domain_name, exc_info=True)
 
         # Step 5: Build records (raw + normalized)
         records = self._build_records(transactions)
@@ -346,9 +377,9 @@ class BaseTableParser(DomainPlugin):
                 if not row or not any(str(c).strip() for c in row):
                     continue
 
-                # Skip summary rows (containing "合计", "小计", "本页", etc.)
+                # Skip only unambiguous summaries; 收入/支出 may be valid directions.
                 first_cell = str(row[0] or "").strip() if row else ""
-                if any(kw in first_cell for kw in ("合计", "小计", "本页", "总计", "收入", "支出")):
+                if _is_summary_row(row):
                     continue
 
                 # First column validation: must be date or long number (transaction ID)
@@ -385,9 +416,67 @@ class BaseTableParser(DomainPlugin):
 
         return transactions
 
+    def _recover_records_from_mirror(self, parse_result) -> list[dict[str, Any]]:
+        """Optional coordinate-aware fallback for documents with no detected table.
+
+        The default is deliberately empty.  Payment plugins override this only
+        for issuer layouts whose column headers and row anchors are explicit in
+        Mirror text atoms.
+        """
+        return []
+
+    def _recover_identity_from_mirror(self, parse_result) -> dict[str, dict[str, Any]]:
+        """Optional positioned-text recovery for issuer narrative headers."""
+        return {}
+
+    @staticmethod
+    def _mirror_identity_detail(
+        field_name: str,
+        raw_name: str,
+        value: str,
+        *,
+        page_id: str = "page:0001",
+        evidence_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Build the same evidence-preserving shape as KV identity extraction."""
+        return {
+            "raw_name": raw_name,
+            "raw_value": value,
+            "normalized_value": value,
+            "data_type": "string",
+            "source_refs": [{"source": "mirror_text_atoms", "page_id": page_id}],
+            "evidence_ids": list(evidence_ids or []),
+            "field_name": field_name,
+        }
+
+    @staticmethod
+    def _mirror_text_atoms_by_page(parse_result) -> dict[str, list[dict[str, Any]]]:
+        """Return usable runtime Mirror text atoms grouped by page id."""
+        mirror = getattr(parse_result, "_runtime_mirror_cache", None)
+        if not isinstance(mirror, dict):
+            return {}
+        evidence = mirror.get("evidence")
+        if not isinstance(evidence, dict):
+            return {}
+        atoms = evidence.get("text_atoms")
+        if not isinstance(atoms, list):
+            return {}
+
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for atom in atoms:
+            if not isinstance(atom, dict):
+                continue
+            page_id = str(atom.get("page_id") or "")
+            text = str(atom.get("text") or "").strip()
+            bbox = atom.get("bbox")
+            if not page_id or not text or not isinstance(bbox, list) or len(bbox) < 4:
+                continue
+            grouped.setdefault(page_id, []).append(atom)
+        return grouped
+
     # ── Step 5: Build records (raw + normalized) ──
 
-    def _build_records(self, transactions: list[dict[str, str]]) -> list[dict]:
+    def _build_records(self, transactions: list[dict[str, Any]]) -> list[dict]:
         """Build standard records format.
 
         每条记录包含：
@@ -398,13 +487,17 @@ class BaseTableParser(DomainPlugin):
         records: list[dict] = []
 
         for idx, raw_txn in enumerate(transactions, start=1):
-            normalized = self._normalize(raw_txn)
+            raw_public = public_record_raw(raw_txn)
+            normalized = self._normalize(raw_public)
+            source = raw_txn.get("_source")
+            if not isinstance(source, dict):
+                source = {"source": "mirror_table", "source_row_index": idx - 1}
             records.append(
                 {
                     "row_index": idx,
-                    "raw": dict(raw_txn),
+                    "raw": raw_public,
                     "normalized": normalized,
-                    "source": {"source": "mirror_table", "source_row_index": idx - 1},
+                    "source": source,
                 }
             )
 

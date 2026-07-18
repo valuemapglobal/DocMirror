@@ -32,6 +32,7 @@ SourceKind = Literal[
     "spaced_ocr",
     "stacked_text",
     "native_wide_table",
+    "mirror_atom_table",
     "ocr_implicit_table",
     "none",
 ]

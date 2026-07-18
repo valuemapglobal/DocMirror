@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Mirror JSON 1.0.5] — 2026-07-18
+
+This is a backward-compatible precision patch for the Community core-domain
+projections. The Python distribution version remains 1.0.0.
+
+### Added
+- Conservative Community precision guards for required-field coverage, normalization, duplicate transaction identifiers, VAT amount reconciliation, business-license identifiers, and credit repayment anchors.
+- Positioned Mirror-atom recovery for complete 13-column bank ledgers, complete 8-column WeChat Pay and Alipay exports, and complete 9-column VAT invoice line items.
+- High-confidence local visual recovery for business-license copy type, QR presence, national emblem and registration seal, plus VAT QR payload and seller-seal presence.
+
+### Changed
+- Bank parser selection now prefers equally complete positioned tables when they preserve more source columns, while retaining transaction references, counterparty bank details, channel, purpose, and summary data.
+- Payment projections now retain every source column, preserve non-counted directions, and recover certificate, account-holder, account, identity, period, scope, currency, and unit metadata from positioned first-page text.
+- VAT projection now recovers invoice header, buyer and seller identity/contact/bank fields, password and remarks areas, participants, amount-in-words, visual facts, and fully structured line items.
+- Business-license projection now removes OCR notice and stamp contamination, restores guarded standard notice and authority content, preserves partially visible registration dates, and validates visible document objects without inventing occluded text.
+
+### Fixed
+- Summary-row filtering no longer drops valid payment rows whose direction is income or expense.
+- Bank recovery no longer collapses split debit/credit tables into a narrower legacy layout or deduplicates distinct transactions that share lossy business fields.
+- Community readiness now moves to review when precision warnings reveal malformed, incomplete, duplicated, or invariant-breaking domain data.
+
 ## [Mirror JSON 1.0.4] — 2026-07-17
 
 This is a backward-compatible patch release of the Mirror JSON contract. The

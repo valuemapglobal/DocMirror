@@ -19,6 +19,7 @@ Dependencies: ``_base.base_table_parser``, ``bank_statement.extract_pipeline``, 
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from docmirror.plugins._base.table_dec import build_table_dec
 from docmirror.plugins.bank_statement.extract_pipeline import run_bank_statement_extract
 
 BANK_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
+    "序号": ColumnMapping(field="sequence_no", aliases=["No.", "序列号"]),
     "交易日期": ColumnMapping(field="date", format_hint="date", aliases=["日期", "记账日期", "记账日", "Date"]),
     "交易时间": ColumnMapping(field="timestamp", format_hint="datetime", aliases=["时间", "Time"]),
     "收/支": ColumnMapping(
@@ -62,6 +64,10 @@ BANK_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
         ],
     ),
     "对方账号": ColumnMapping(field="counter_account", aliases=["对方账户", "Counter account"]),
+    "对方行号": ColumnMapping(field="counter_bank_code", aliases=["对方银行行号"]),
+    "对方行名": ColumnMapping(field="counter_bank_name", aliases=["对方开户行", "对方银行名称"]),
+    "交易渠道": ColumnMapping(field="channel", aliases=["渠道", "交易方式"]),
+    "用途": ColumnMapping(field="purpose", aliases=["交易用途"]),
 }
 
 BANK_STANDARD_FIELDS = [
@@ -73,6 +79,11 @@ BANK_STANDARD_FIELDS = [
     "balance",
     "counter_party",
     "counter_account",
+    "sequence_no",
+    "counter_bank_code",
+    "counter_bank_name",
+    "channel",
+    "purpose",
     "counterparty_status",
 ]
 
@@ -80,7 +91,9 @@ BANK_IDENTITY_FIELDS: Sequence[tuple[str, Sequence[str]]] = (
     ("account_holder", ("Account holder", "Account name", "Card holder", "Customer name", "户名", "账户名")),
     ("account_number", ("Account number", "Card number", "Customer account number", "账号", "账户号", "卡号")),
     ("bank_name", ("Bank name", "Bank branch", "银行名称")),
-    ("query_period", ("Query period", "From/to date", "Period", "查询时间段")),
+    ("query_period", ("Query period", "From/to date", "Period", "查询时间段", "交易时段")),
+    ("print_date", ("打印日期",)),
+    ("total_transactions", ("总笔数", "总条数")),
     ("currency", ("Currency", "币种")),
 )
 
@@ -111,6 +124,50 @@ class BankStatementCommunityPlugin(BaseTableParser):
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return BANK_IDENTITY_FIELDS
+
+    def _recover_identity_from_mirror(self, parse_result) -> dict[str, dict[str, object]]:
+        atoms_by_page = self._mirror_text_atoms_by_page(parse_result)
+        if not atoms_by_page:
+            return {}
+        page_id = sorted(atoms_by_page)[0]
+        atoms = sorted(
+            atoms_by_page[page_id],
+            key=lambda atom: (float(atom["bbox"][1]), float(atom["bbox"][0])),
+        )
+        text = " ".join(str(atom.get("text") or "").strip() for atom in atoms)
+        patterns = {
+            "print_date": ("打印日期", r"打印日期\s*[:：]\s*(20\d{2}-\d{2}-\d{2})"),
+            "query_period": (
+                "交易时段",
+                r"交易时段\s*[:：]\s*(20\d{2}-\d{2}-\d{2})\s*至\s*(20\d{2}-\d{2}-\d{2})",
+            ),
+            "total_transactions": ("总条数", r"(?:总笔数|总条数)\s*[:：]\s*(\d+)"),
+            "account_holder": ("户名", r"户名\s*[:：]\s*(.+?)(?=\s+账号\s*[:：])"),
+            "account_number": ("账号", r"账号\s*[:：]\s*([0-9*]+)"),
+            "currency": ("币种", r"币种\s*[:：]\s*([^\s]+)"),
+        }
+        recovered: dict[str, dict[str, object]] = {}
+        for field_name, (label, pattern) in patterns.items():
+            match = re.search(pattern, text)
+            if not match:
+                continue
+            value = " 至 ".join(match.groups()) if field_name == "query_period" else match.group(1).strip()
+            if value:
+                recovered[field_name] = self._mirror_identity_detail(field_name, label, value, page_id=page_id)
+        title_atom = next(
+            (atom for atom in atoms if "账户交易明细表" in str(atom.get("text") or "")),
+            None,
+        )
+        if title_atom is not None:
+            title = str(title_atom.get("text") or "").strip()
+            recovered["statement_title"] = self._mirror_identity_detail(
+                "statement_title",
+                "document_title",
+                title,
+                page_id=page_id,
+                evidence_ids=[str(title_atom.get("id") or "")],
+            )
+        return recovered
 
     def build_domain_data(self, _metadata, entities):
         from docmirror.plugins._base.dec_builder import build_dec_kv

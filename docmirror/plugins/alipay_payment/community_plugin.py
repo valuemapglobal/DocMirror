@@ -37,6 +37,20 @@ logger = logging.getLogger(__name__)
 _ALIPAY_KEYWORDS = ("支付宝（中国）网络技术有限公司", "交易流水证明", "Alipay")
 _HEADER_MARKERS = ("收/支", "交易对方", "金额", "交易订单号", "交易时间")
 _DIRECTION_VALUES = frozenset({"支出", "收入", "其他"})
+_MIRROR_HEADERS = (
+    "收/支",
+    "交易对方",
+    "商品说明",
+    "收/付款方式",
+    "金额",
+    "交易订单号",
+    "商家订单号",
+    "交易时间",
+)
+_MIRROR_DATE_RE = re.compile(r"^20\d{2}-\d{2}-\d{2}$")
+_MIRROR_TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
+_MIRROR_AMOUNT_RE = re.compile(r"^-?\d[\d,]*\.\d{2}$")
+_DATETIME_RE = r"20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}"
 _DEFAULT_COLUMNS = [
     "收/支",
     "交易对方",
@@ -51,7 +65,14 @@ _DEFAULT_COLUMNS = [
 ALIPAY_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
     "收/支": ColumnMapping(
         field="direction",
-        enum_map={"支出": "expense", "收入": "income", "其他": "other", "Expense": "expense", "Income": "income"},
+        enum_map={
+            "支出": "expense",
+            "收入": "income",
+            "其他": "other",
+            "不计收支": "other",
+            "Expense": "expense",
+            "Income": "income",
+        },
         aliases=["收支", "Type", "Direction"],
     ),
     "金额": ColumnMapping(field="amount", unit="CNY", aliases=["交易金额", "Amount", "Amount (CNY)"]),
@@ -121,6 +142,39 @@ class AlipayPaymentPlugin(BaseTableParser):
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return ALIPAY_IDENTITY_FIELDS
+
+    def _recover_identity_from_mirror(self, parse_result) -> dict[str, dict[str, object]]:
+        atoms_by_page = self._mirror_text_atoms_by_page(parse_result)
+        if not atoms_by_page:
+            return {}
+        page_id = sorted(atoms_by_page)[0]
+        atoms = sorted(
+            atoms_by_page[page_id],
+            key=lambda atom: (float(atom["bbox"][1]), float(atom["bbox"][0])),
+        )
+        text = " ".join(str(atom.get("text") or "").strip() for atom in atoms)
+        patterns = {
+            "certificate_number": ("编号", r"编号\s*[:：]\s*([0-9A-Za-z]+)"),
+            "account_holder": ("兹证明", r"兹证明\s*[:：]\s*(.+?)\s*[（(]证件号码"),
+            "id_number": ("证件号码", r"证件号码\s*[:：]\s*([0-9Xx*]+)"),
+            "account_number": ("支付宝账号", r"支付宝账号\s*([A-Za-z0-9._%+@*\-]+)"),
+            "query_period": (
+                "交易时间段",
+                rf"交易时间段\s*[:：]?\s*({_DATETIME_RE})\s*至\s*({_DATETIME_RE})",
+            ),
+            "transaction_scope": ("交易类型", r"交易类型\s*[:：]?\s*([^\s，,]+)"),
+            "currency": ("币种", r"币种\s*[:：]?\s*([^\s/，,]+)"),
+            "unit": ("单位", r"单位\s*[:：]?\s*([^\s，,]+)"),
+        }
+        recovered: dict[str, dict[str, object]] = {}
+        for field_name, (label, pattern) in patterns.items():
+            match = re.search(pattern, text)
+            if not match:
+                continue
+            value = " 至 ".join(match.groups()) if field_name == "query_period" else match.group(1).strip()
+            if value:
+                recovered[field_name] = self._mirror_identity_detail(field_name, label, value, page_id=page_id)
+        return recovered
 
     def _detect_headers(
         self,
@@ -204,6 +258,119 @@ class AlipayPaymentPlugin(BaseTableParser):
                         transactions.append(txn)
 
         return transactions
+
+    def _recover_records_from_mirror(self, parse_result) -> list[dict[str, object]]:
+        """Recover issuer-column rows from Mirror atoms when table detection is empty."""
+        atoms_by_page = self._mirror_text_atoms_by_page(parse_result)
+        if not atoms_by_page:
+            return []
+
+        header_atoms: dict[str, dict] = {}
+        for atoms in atoms_by_page.values():
+            for atom in atoms:
+                text = str(atom.get("text") or "").strip()
+                if text in _MIRROR_HEADERS and text not in header_atoms:
+                    header_atoms[text] = atom
+            if len(header_atoms) == len(_MIRROR_HEADERS):
+                break
+        if len(header_atoms) != len(_MIRROR_HEADERS):
+            return []
+
+        starts = [float(header_atoms[header]["bbox"][0]) for header in _MIRROR_HEADERS]
+        if starts != sorted(starts):
+            return []
+        bounds = [starts[0] - 1.0, *((left + right) / 2 for left, right in zip(starts, starts[1:])), float("inf")]
+
+        recovered: list[dict[str, object]] = []
+        for page_id in sorted(atoms_by_page):
+            atoms = atoms_by_page[page_id]
+            dates = sorted(
+                (
+                    (float(atom["bbox"][1]), str(atom.get("text") or "").strip(), atom)
+                    for atom in atoms
+                    if bounds[7] <= float(atom["bbox"][0]) < bounds[8]
+                    and _MIRROR_DATE_RE.fullmatch(str(atom.get("text") or "").strip())
+                ),
+                key=lambda item: item[0],
+            )
+            for index, (row_y, date, date_atom) in enumerate(dates):
+                if index + 1 < len(dates):
+                    row_end = dates[index + 1][0]
+                else:
+                    prior_gap = row_y - dates[index - 1][0] if index > 0 else 40.0
+                    row_end = row_y + max(prior_gap * 1.5, 40.0)
+
+                def column_atoms(column_index: int) -> list[dict]:
+                    return sorted(
+                        (
+                            atom
+                            for atom in atoms
+                            if bounds[column_index] <= float(atom["bbox"][0]) < bounds[column_index + 1]
+                            and row_y - 0.5 <= float(atom["bbox"][1]) < row_end - 0.5
+                        ),
+                        key=lambda atom: (float(atom["bbox"][1]), float(atom["bbox"][0])),
+                    )
+
+                def column_text(column_index: int) -> str:
+                    return "".join(str(atom.get("text") or "").strip() for atom in column_atoms(column_index))
+
+                direction_values = [str(atom.get("text") or "").strip() for atom in column_atoms(0)]
+                if direction_values[:2] == ["不计", "收支"]:
+                    direction = "不计收支"
+                else:
+                    direction = next((value for value in direction_values if value in _DIRECTION_VALUES), "")
+
+                amount_atoms = column_atoms(4)
+                amount = next(
+                    (
+                        str(atom.get("text") or "").strip()
+                        for atom in amount_atoms
+                        if _MIRROR_AMOUNT_RE.fullmatch(str(atom.get("text") or "").strip())
+                    ),
+                    "",
+                )
+                trade_atoms = column_atoms(5)
+                trade_no = "".join(
+                    str(atom.get("text") or "").strip()
+                    for atom in trade_atoms
+                    if str(atom.get("text") or "").strip().isdigit()
+                )
+                time_atoms = column_atoms(7)
+                time = next(
+                    (
+                        str(atom.get("text") or "").strip()
+                        for atom in time_atoms
+                        if _MIRROR_TIME_RE.fullmatch(str(atom.get("text") or "").strip())
+                    ),
+                    "",
+                )
+                if not (direction and amount and trade_no and time):
+                    continue
+
+                row_atoms = [
+                    atom for column_index in range(len(_MIRROR_HEADERS)) for atom in column_atoms(column_index)
+                ]
+                evidence_ids = [
+                    str(atom.get("id") or "") for atom in [date_atom, *row_atoms] if str(atom.get("id") or "")
+                ]
+                recovered.append(
+                    {
+                        "收/支": direction,
+                        "交易对方": column_text(1),
+                        "商品说明": column_text(2),
+                        "收/付款方式": column_text(3),
+                        "金额": amount,
+                        "交易订单号": trade_no,
+                        "商家订单号": column_text(6),
+                        "交易时间": f"{date} {time}",
+                        "_source": {
+                            "source": "mirror_text_atoms",
+                            "page_id": page_id,
+                            "evidence_ids": evidence_ids,
+                        },
+                    }
+                )
+        return recovered
 
     @staticmethod
     def _extract_english_records(

@@ -79,11 +79,14 @@ class VATInvoicePlugin(DomainPlugin):
         from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
 
         solution = VATInvoiceSemanticSolver().solve(full_text=text, parse_result=parse_result)
-        fields = dict((solution.canonical_model or {}).get("fields") or {})
+        fields, canonical_warnings = _canonicalize_vat_fields(
+            dict((solution.canonical_model or {}).get("fields") or {})
+        )
+        fields.update(_vat_visual_facts(parse_result))
         if fields:
             line_items = list((solution.canonical_model or {}).get("line_items") or [])
             summary = dict((solution.canonical_model or {}).get("summary") or {})
-            issues = _solution_issues(solution)
+            issues = [*_solution_issues(solution), *(f"warning:{warning}" for warning in canonical_warnings)]
             field_provenance = _build_field_provenance(parse_result, fields)
             dec = DomainExtractionResult(
                 document_type=self.domain_name,
@@ -167,10 +170,81 @@ def _solution_issues(solution) -> list[str]:
     return issues
 
 
+def _canonicalize_vat_fields(fields: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Expose one public invoice date without silently hiding conflicts."""
+    out = dict(fields)
+    warnings: list[str] = []
+    issue_date = out.pop("issue_date", None)
+    invoice_date = out.get("invoice_date")
+    if issue_date not in (None, ""):
+        if invoice_date not in (None, "") and invoice_date != issue_date:
+            warnings.append("vat_invoice_date_conflict")
+        else:
+            out["invoice_date"] = issue_date
+    return out, warnings
+
+
 def _is_image_parse(parse_result) -> bool:
     provenance = getattr(parse_result, "provenance", None)
     mime = str(getattr(provenance, "mime_type", "") or "")
     return mime.startswith("image/")
+
+
+def _vat_visual_facts(parse_result) -> dict[str, Any]:
+    """Decode first-page QR data and verify the visible seller seal locally."""
+    file_path = str(getattr(parse_result, "file_path", "") or "")
+    if not file_path:
+        return {}
+    try:
+        import cv2
+        import numpy as np
+
+        if file_path.lower().endswith(".pdf"):
+            import fitz
+
+            with fitz.open(file_path) as document:
+                if not document:
+                    return {}
+                pixmap = document[0].get_pixmap(matrix=fitz.Matrix(2.0, 2.0), alpha=False)
+                rgb = np.frombuffer(pixmap.samples, dtype=np.uint8).reshape(
+                    pixmap.height,
+                    pixmap.width,
+                    pixmap.n,
+                )
+                image = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+        else:
+            image = cv2.imread(file_path)
+        if image is None:
+            return {}
+        height, width = image.shape[:2]
+        detector = cv2.QRCodeDetector()
+        qr_value = ""
+        qr_points = None
+        qr_candidates = (
+            image[: max(int(height * 0.35), 1), : max(int(width * 0.35), 1)],
+            image,
+            cv2.resize(image, None, fx=3.0, fy=3.0, interpolation=cv2.INTER_NEAREST),
+        )
+        for candidate in qr_candidates:
+            qr_value, qr_points, _ = detector.detectAndDecode(candidate)
+            if qr_points is not None:
+                break
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        red = cv2.bitwise_or(
+            cv2.inRange(hsv, np.array([0, 70, 50]), np.array([15, 255, 255])),
+            cv2.inRange(hsv, np.array([160, 70, 50]), np.array([180, 255, 255])),
+        )
+        bottom_red = int((red[int(height * 0.55) :] > 0).sum())
+        facts: dict[str, Any] = {
+            "qr_code_present": qr_points is not None,
+            "qr_code_decoded": bool(qr_value),
+            "seller_seal_present": bottom_red >= max(int(width * height * 0.0005), 100),
+        }
+        if qr_value:
+            facts["qr_code_value"] = qr_value
+        return facts
+    except Exception:
+        return {}
 
 
 def _field_provenance_status(
@@ -275,7 +349,7 @@ def _best_line_match(lines: list[dict[str, Any]], variants: set[str]) -> dict[st
 
 def _field_value_variants(field_name: str, value: str) -> set[str]:
     variants = {value}
-    if field_name == "issue_date" and len(value) == 10 and value[4] == "-" and value[7] == "-":
+    if field_name in {"issue_date", "invoice_date"} and len(value) == 10 and value[4] == "-" and value[7] == "-":
         variants.add(f"{value[:4]}年{int(value[5:7])}月{int(value[8:10])}日")
         variants.add(f"{value[:4]}年{value[5:7]}月{value[8:10]}日")
     if field_name.endswith("_name"):

@@ -120,7 +120,7 @@ class IdPolicy(MirrorBaseModel):
 
 class MirrorInfo(MirrorBaseModel):
     schema_: str = Field(default="docmirror.mirror_json", alias="schema")
-    schema_version: str = "1.0.4"
+    schema_version: str = "1.0.5"
     engine: str = "udtr"
     engine_version: str = "0.1.0"
     generated_at: str = ""

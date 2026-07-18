@@ -253,6 +253,19 @@ def test_business_license_text_fallback_handles_word_per_line_layout():
     assert fields["date_of_establishment"] == "2018-03-15"
 
 
+def test_business_license_text_fallback_handles_split_chinese_label_and_safe_ocr_alias():
+    from docmirror.plugins._base.kv_community_extract import _recover_identity_fields_from_text
+    from docmirror.plugins.business_license.community_plugin import plugin
+
+    text = "名 称示例科技有限公司 主体类型有限责任公司 负责K人李明 成立日期2020年01月02日"
+
+    fields = _recover_identity_fields_from_text(text, plugin.identity_fields)
+
+    assert fields["company_name"] == "示例科技有限公司"
+    assert fields["company_type"] == "有限责任公司"
+    assert fields["legal_representative"] == "李明"
+
+
 def test_cashflow_business_summary_is_descriptive_and_typed():
     result = _mirror("bank_statement")
     output = {
@@ -367,9 +380,7 @@ def test_vat_uses_line_items_as_single_consumer_dataset():
     assert output["data"]["records"] == []
     assert output["data"]["data_dictionary"]["record_count"] == 1
     assert "issue_date" not in output["data"]["fields"]
-    assert output["data"]["field_details"]["invoice_code"]["source_refs"] == [
-        {"source": "ocr", "page": 1}
-    ]
+    assert output["data"]["field_details"]["invoice_code"]["source_refs"] == [{"source": "ocr", "page": 1}]
     assert "field_metadata" not in output["data"]
     assert "field_provenance" not in output["metadata"]
 

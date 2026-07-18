@@ -90,3 +90,23 @@ def test_bank_domain_contract_accepts_normalized_amount():
 
     report = validate_domain_schema(payload, "bank_statement")
     assert report.required_records_passed is True
+
+
+def test_vat_contract_allows_digital_invoice_without_invoice_code():
+    payload = {
+        "edition": "community",
+        "plugin": {"name": "vat_invoice"},
+        "data": {
+            "fields": {
+                "invoice_number": "12345678901234567890",
+                "total_amount": "113.00",
+            },
+            "records": [],
+        },
+        "status": {"success": True, "warnings": [], "errors": []},
+    }
+
+    report = validate_domain_schema(payload, "vat_invoice")
+
+    assert report.required_fields_passed is True
+    assert "invoice_code" not in report.missing_fields

@@ -151,6 +151,8 @@ def dedupe_transaction_rows(records: list[dict[str, Any]]) -> list[dict[str, Any
     out: list[dict[str, Any]] = []
     for rec in records:
         norm = rec.get("normalized") or {}
+        raw = rec.get("raw") if isinstance(rec.get("raw"), dict) else {}
+        reference = str(norm.get("reference") or _raw_reference(raw) or "").strip()
         balance = norm.get("balance")
         try:
             balance_key = float(balance) if balance not in (None, "") else None
@@ -160,12 +162,15 @@ def dedupe_transaction_rows(records: list[dict[str, Any]]) -> list[dict[str, Any
             amount_key = float(norm.get("amount") or 0)
         except (TypeError, ValueError):
             amount_key = norm.get("amount")
-        key = (
-            str(norm.get("date") or ""),
-            amount_key,
-            balance_key,
-            str(norm.get("counter_party") or ""),
-        )
+        if reference:
+            key = ("reference", reference)
+        else:
+            key = (
+                str(norm.get("date") or ""),
+                amount_key,
+                balance_key,
+                str(norm.get("counter_party") or ""),
+            )
         if key in seen:
             continue
         seen.add(key)
@@ -173,6 +178,13 @@ def dedupe_transaction_rows(records: list[dict[str, Any]]) -> list[dict[str, Any
     for idx, rec in enumerate(out, start=1):
         rec["row_index"] = idx
     return out
+
+
+def _raw_reference(raw: dict[str, Any]) -> str:
+    for key, value in raw.items():
+        if any(marker in str(key) for marker in ("交易流水号", "流水号", "Reference")):
+            return str(value or "").strip()
+    return ""
 
 
 def ensure_canonical_normalized(normalized: dict[str, Any], standard_fields: list[str]) -> dict[str, Any]:

@@ -72,6 +72,9 @@ def normalize_split_debit_credit(raw_txn: dict[str, str], plugin: Any) -> dict[s
     balance = normalize_amount(_cell_value(raw_txn, "余额", "账户余额", "本次余额", "账面余额"))
     if balance is not None:
         normalized["balance"] = float(balance)
+    reference = _cell_value(raw_txn, "交易流水号", "流水号", "Reference")
+    if reference:
+        normalized["reference"] = reference
 
     if not str(normalized.get("counter_party", "") or "").strip():
         cp = _cell_value(

@@ -19,7 +19,7 @@ DocMirror 是面向商业凭证的可信解析层，产品定位是 **Commercial
 - Python 包版本为 `1.0.0`，公共包名为 `docmirror`。
 - Python 支持 `>=3.10`，测试矩阵覆盖 Python 3.10 到 3.13。
 - 公共 OSS wheel 只打包 `docmirror` 主包；`docmirror_enterprise`、`docmirror_finance`、`tests`、`scripts`、`docs`、`sdks` 等不进入公共 wheel。
-- Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.4`。
+- Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.5`。
 - CLI、REST API、Python API 和 edition 输出最终都围绕同一个 `ParseResult`/Mirror 投影链路工作。
 
 ## 2. 快速上手
