@@ -108,6 +108,8 @@ _SENSITIVE_EXACT = {
 }
 
 _DATA_KEYS_NOT_DATASETS = {
+    "document_flow",
+    "notes",
     "sections",
     "tables",
 }
@@ -219,8 +221,7 @@ def _field_format(key: Any, field_type: str) -> str:
     if field_type == "percentage" or any(token in text for token in ("rate", "ratio", "percent")):
         return "percentage"
     if field_type == "amount" or any(
-        token in text
-        for token in ("amount", "income", "expense", "balance", "capital", "price", "tax", "金额", "余额")
+        token in text for token in ("amount", "income", "expense", "balance", "capital", "price", "tax", "金额", "余额")
     ):
         return "currency"
     if field_type == "boolean":
@@ -449,7 +450,8 @@ def _correct_generic_currency_units(data: dict[str, Any]) -> None:
             continue
         currencies = {
             str(value["currency"])
-            for record in records if isinstance(record, dict)
+            for record in records
+            if isinstance(record, dict)
             for value in [(record.get("normalized") or {}).get(key)]
             if isinstance(value, dict) and value.get("currency")
         }
@@ -528,8 +530,10 @@ def _adjust_generic_quality(quality: dict[str, Any], output: dict[str, Any]) -> 
     placeholder_ratio = (
         sum(
             isinstance(table, dict)
-            and any(re.fullmatch(r"(?:col(?:umn)?|字段|列)[_\s-]*\d+", str(header), re.IGNORECASE)
-                    for header in table.get("headers", []) or [])
+            and any(
+                re.fullmatch(r"(?:col(?:umn)?|字段|列)[_\s-]*\d+", str(header), re.IGNORECASE)
+                for header in table.get("headers", []) or []
+            )
             for table in tables
         )
         / len(tables)
@@ -897,7 +901,8 @@ def _issue_target(code: str, detail: str, output: dict[str, Any] | None = None) 
             tables = data.get("tables") if isinstance(data.get("tables"), list) else []
             table_index = next(
                 (
-                    index for index, table in enumerate(tables)
+                    index
+                    for index, table in enumerate(tables)
                     if isinstance(table, dict) and str(table.get("table_id") or "") == target
                 ),
                 None,
@@ -909,7 +914,8 @@ def _issue_target(code: str, detail: str, output: dict[str, Any] | None = None) 
             records = data.get("records") if isinstance(data.get("records"), list) else []
             record_index = next(
                 (
-                    index for index, record in enumerate(records)
+                    index
+                    for index, record in enumerate(records)
                     if isinstance(record, dict)
                     and isinstance(record.get("source"), dict)
                     and str(record["source"].get("table_id") or "") == table_id
@@ -920,7 +926,11 @@ def _issue_target(code: str, detail: str, output: dict[str, Any] | None = None) 
             if record_index is not None:
                 return f"/data/records/{record_index}"
             return "/data/records"
-        if generic_code in {"generic_header_repaired", "generic_header_repaired_ratio", "generic_text_table_low_confidence"}:
+        if generic_code in {
+            "generic_header_repaired",
+            "generic_header_repaired_ratio",
+            "generic_text_table_low_confidence",
+        }:
             return "/data/tables"
         if generic_code == "generic_page_reference_mismatch":
             return "/document/page_count"
@@ -960,8 +970,12 @@ def _issue_message(code: str, detail: str, output: dict[str, Any] | None = None)
         }
         message = messages.get(generic_code, "通用结构化结果需要复核")
         if target and generic_code in {
-            "generic_normalization_failed", "generic_header_repaired", "generic_header_repaired_ratio",
-            "generic_currency_unknown", "generic_ocr_fields_filtered", "generic_page_reference_mismatch",
+            "generic_normalization_failed",
+            "generic_header_repaired",
+            "generic_header_repaired_ratio",
+            "generic_currency_unknown",
+            "generic_ocr_fields_filtered",
+            "generic_page_reference_mismatch",
             "generic_row_alignment_suspect",
         }:
             message += f"：{target}"
@@ -975,10 +989,7 @@ def _issue_message(code: str, detail: str, output: dict[str, Any] | None = None)
                 if int(page) > 0
             )
             if page_counts:
-                priority_pages = "、".join(
-                    f"{page}页({count}张)"
-                    for page, count in page_counts.most_common(5)
-                )
+                priority_pages = "、".join(f"{page}页({count}张)" for page, count in page_counts.most_common(5))
                 message += f"；优先复核：{priority_pages}"
         return message
     if code.startswith("cqf_"):
@@ -1045,15 +1056,16 @@ class CommunityBusinessProjectionHook(PostExtractHook):
             fields = data.get("fields") if isinstance(data.get("fields"), dict) else {}
             if "invoice_date" in fields and _unwrap(fields.get("invoice_date")) == _unwrap(fields.get("issue_date")):
                 fields.pop("issue_date", None)
-                field_metadata = (
-                    data.get("field_metadata") if isinstance(data.get("field_metadata"), dict) else {}
-                )
+                field_metadata = data.get("field_metadata") if isinstance(data.get("field_metadata"), dict) else {}
                 field_metadata.pop("issue_date", None)
         from docmirror.quality.field_details import compact_community_field_projection
 
         canonical_fields, field_details = compact_community_field_projection(data)
         data["fields"] = canonical_fields
         data["field_details"] = field_details
+        from docmirror.plugins._base.community_reading_view import finalize_community_reading_view
+
+        finalize_community_reading_view(result, data, domain)
         datasets = _build_dataset_catalog(data, domain)
         data["datasets"] = datasets
         data["data_dictionary"] = _build_data_dictionary(data, datasets)

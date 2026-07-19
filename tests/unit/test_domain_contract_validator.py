@@ -110,3 +110,65 @@ def test_vat_contract_allows_digital_invoice_without_invoice_code():
 
     assert report.required_fields_passed is True
     assert "invoice_code" not in report.missing_fields
+
+
+def test_credit_contract_accepts_person_or_enterprise_identifier() -> None:
+    personal = {
+        "data": {
+            "fields": {"subject_name": "张三", "id_number": "11010519491231002X"},
+            "credit_accounts": [],
+            "credit_lines": [],
+            "overdue_records": [],
+            "inquiry_records": [],
+            "credit_extraction_audit": {},
+        },
+        "status": {"success": True},
+    }
+    enterprise = {
+        "data": {
+            "fields": {
+                "subject_name": "示例科技股份有限公司",
+                "unified_social_credit_code": "91310000MA1FL6NCX7",
+                "report_subtype": "enterprise",
+            },
+            "credit_accounts": [],
+            "credit_lines": [],
+            "overdue_records": [],
+            "public_records": [],
+            "credit_extraction_audit": {},
+        },
+        "status": {"success": True},
+    }
+
+    assert validate_domain_schema(personal, "credit_report").required_fields_passed is True
+    assert validate_domain_schema(enterprise, "credit_report").required_fields_passed is True
+
+
+def test_credit_contract_rejects_subject_without_any_identifier() -> None:
+    payload = {"data": {"fields": {"subject_name": "张三"}}, "status": {"success": True}}
+
+    report = validate_domain_schema(payload, "credit_report")
+
+    assert report.required_fields_passed is False
+    assert report.missing_fields == ["required_any:id_number,unified_social_credit_code,zhongzheng_code"]
+
+
+def test_credit_v3_contract_checks_profile_collections_and_audit() -> None:
+    payload = {
+        "data": {
+            "fields": {
+                "subject_name": "张三",
+                "id_number": "11010519491231002X",
+                "report_subtype": "personal_detail",
+            },
+            "credit_accounts": [],
+            "overdue_records": [],
+        },
+        "status": {"success": True},
+    }
+
+    report = validate_domain_schema(payload, "credit_report")
+
+    assert report.contract_id == "credit_report.community.v3"
+    assert report.required_records_passed is False
+    assert report.missing_collections == ["repayment_records", "credit_extraction_audit"]

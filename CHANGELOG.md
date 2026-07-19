@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Mirror JSON 1.0.7] — 2026-07-19
+
+This is a backward-compatible Community precision and readability patch for
+credit reports and the shared 6+1 consumer projection. The Community envelope
+remains version 2.2, and the Python distribution version remains 1.0.0.
+
+### Added
+- Subtype-aware Community extraction for native personal brief reports, scanned personal detailed reports, and native enterprise credit reports, including canonical account, credit-line, repayment, overdue, inquiry, public-record, and summary collections.
+- Stable credit-business identifiers, normalized record views, source evidence, conflict resolution, reconciliation checks, document-completeness auditing, and privacy-safe golden governance that prevents unsupported 100% precision claims.
+- A shared reference-only Community reading view for all six core plugins and Generic fallback using ordered `sections`, `tables`, `notes`, and `document_flow` structures.
+
+### Changed
+- Community credit-report classification now records report subtype and content mode, recovers validated header identity, and applies profile-specific collection requirements without weakening backward compatibility.
+- Reading tables point to canonical collections with `data_ref`; Generic multi-table output uses stable `record_ids`, and business-license notices use `content_ref` while retaining legacy fields and sections.
+- Section ordering now carries logical and source page ranges, while the common post-extract hook normalizes the same reading contract across bank statements, WeChat Pay, Alipay, VAT invoices, business licenses, credit reports, and Generic documents.
+
+### Fixed
+- Native credit reports no longer lose account histories, credit lines, inquiry records, public records, or summary facts when source tables are borderless or represented as narrative text.
+- Scanned detailed reports preserve repayment-grid and local account-structure evidence, flag truncated source documents for review, and avoid treating positional placeholder rows as canonical business records.
+- Reading metadata no longer duplicates business rows or leaks into the dataset catalog; every flow reference, data pointer, content reference, and Generic record reference is validated against its canonical target.
+
 ## [Mirror JSON 1.0.6] — 2026-07-19
 
 This is a backward-compatible precision and reviewability patch for scanned

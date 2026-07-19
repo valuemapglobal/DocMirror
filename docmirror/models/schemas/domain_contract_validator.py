@@ -34,6 +34,7 @@ class DomainContractValidationReport:
     failure_policy_passed: bool = False
     missing_fields: list[str] = field(default_factory=list)
     missing_records: list[str] = field(default_factory=list)
+    missing_collections: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
 
@@ -109,7 +110,23 @@ def validate_domain_schema(
                     missing_recs.append(field_name)
 
     report.missing_records = missing_recs
-    report.required_records_passed = len(missing_recs) == 0
+
+    # ── Named business collections validation (Community v3) ──
+    collection_commitments = p0.get("collections") or {}
+    required_collections = list(collection_commitments.get("required") or [])
+    profile_name = str(_plain_field_value(fields.get("report_subtype")) or "")
+    profiles = collection_commitments.get("profiles") or {}
+    profile_contract = profiles.get(profile_name) if isinstance(profiles, dict) else None
+    if isinstance(profile_contract, dict):
+        required_collections.extend(profile_contract.get("required") or [])
+    required_collections = list(dict.fromkeys(str(item) for item in required_collections))
+    report.missing_collections = [
+        name for name in required_collections if name not in data or not isinstance(data.get(name), list)
+    ]
+    audit_key = str(collection_commitments.get("audit") or "")
+    if audit_key and not isinstance(data.get(audit_key), dict):
+        report.missing_collections.append(audit_key)
+    report.required_records_passed = not missing_recs and not report.missing_collections
 
     # ── Evidence check (heuristic) ──
     evidence_ok = _check_evidence_coverage(payload, p0)
@@ -141,6 +158,15 @@ def _field_present(fields: dict[str, Any], field_name: str) -> bool:
     if isinstance(value, str):
         return bool(value.strip())
     return bool(value)
+
+
+def _plain_field_value(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    for key in ("normalized_value", "value", "raw_value", "raw"):
+        if value.get(key) not in (None, ""):
+            return value[key]
+    return None
 
 
 def _record_has_field(record: dict[str, Any], field_name: str) -> bool:
@@ -238,6 +264,7 @@ def apply_domain_contract_validation(payload: dict[str, Any], domain: str) -> Do
         "required_records_passed": report.required_records_passed,
         "missing_fields": list(report.missing_fields),
         "missing_records": list(report.missing_records),
+        "missing_collections": list(report.missing_collections),
     }
     payload.setdefault("validation", {})["domain_contract"] = contract_block
     return report

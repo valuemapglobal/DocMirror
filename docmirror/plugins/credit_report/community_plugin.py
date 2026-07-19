@@ -7,9 +7,9 @@
 """
 Credit report community domain plugin.
 
-Premium community plugin for personal credit reports (key-value archetype). Extracts
-identity fields (name, ID number, report time), optional lightweight section hints,
-and table records via shared KV extract helpers.
+Premium community plugin for personal brief, personal detail, and enterprise
+credit reports. Extracts identity fields, report subtype/content mode, optional
+lightweight section hints, and table records via shared KV extract helpers.
 
 Pipeline role: ``runner`` community path; ``post_extract.hooks.credit_sections`` may
 attach full sections to Mirror when enterprise splitter is available.
@@ -45,10 +45,14 @@ class CreditReportPlugin(DomainPlugin):
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return (
-            ("subject_name", ("姓名", "Name", "报告主体")),
-            ("id_number", ("身份证号", "证件号码", "ID Number")),
+            ("subject_name", ("被查询者姓名", "企业名称", "姓名", "Name", "报告主体")),
+            ("id_number", ("被查询者证件号码", "身份证号", "证件号码", "ID Number")),
+            ("id_type", ("被查询者证件类型", "证件类型", "ID Type")),
+            ("unified_social_credit_code", ("统一社会信用代码",)),
+            ("zhongzheng_code", ("中征码", "贷款卡编码", "贷款卡号")),
+            ("query_institution", ("查询机构",)),
             ("report_time", ("报告时间", "查询时间", "Report Time")),
-            ("report_number", ("报告编号", "Report No")),
+            ("report_number", ("报告编号", "Report No", "NO.")),
         )
 
     def build_domain_data(self, _metadata, entities):
@@ -73,6 +77,8 @@ class CreditReportPlugin(DomainPlugin):
             identity_specs=self.identity_fields,
             full_text=text,
             support_level="L2",
+            include_block_kv=False,
+            include_generic_records=False,
         )
         return enrich_credit_report_output(out, parse_result=parse_result, full_text=text)
 

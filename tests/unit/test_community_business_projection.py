@@ -71,6 +71,9 @@ def test_six_core_plugins_emit_consistent_business_layer(domain: str):
     assert "field_details" in out["data"]
     assert "datasets" in out["data"]
     assert "domain_contract" in out["validation"]
+    assert "notes" in out["data"]
+    assert "document_flow" in out["data"]
+    assert validate_projection_payload("community", out).valid is True
 
 
 def test_generic_fallback_recovers_text_kv_tables_outline_and_sources():
@@ -124,6 +127,9 @@ def test_generic_fallback_recovers_text_kv_tables_outline_and_sources():
         assert legacy_key not in data
     assert data["tables"][0]["table_id"] == "p1_expenses"
     assert data["sections"][0]["title"] == "费用明细"
+    assert "notes" in data
+    assert data["document_flow"]
+    assert validate_projection_payload("community", out).valid is True
     assert data["columns"]["日期"]["type"] == "date"
     assert data["records"][0]["normalized"]["金额"]["value"] == 1280.5
     assert "currency" not in data["records"][0]["normalized"]["金额"]
@@ -134,8 +140,7 @@ def test_generic_fallback_recovers_text_kv_tables_outline_and_sources():
     assert out["quality"]["score"] < 0.9
     assert out["quality"]["grade"] == "good"
     assert any(
-        issue["message"] == "金额已解析，但源文档未明确币种：金额"
-        and issue["target"] == "/data/columns/金额"
+        issue["message"] == "金额已解析，但源文档未明确币种：金额" and issue["target"] == "/data/columns/金额"
         for issue in out["quality"]["issues"]
     )
     assert data["datasets"] == [
@@ -250,10 +255,18 @@ def test_generic_explicit_currency_is_preserved_in_values_and_dictionary():
     clear_run_cache()
     result = ParseResult(
         status=ResultStatus.SUCCESS,
-        pages=[PageContent(page_number=1, tables=[TableBlock(
-            table_id="usd_expenses", headers=["金额"],
-            rows=[TableRow(cells=[CellValue(text="$50.00")])],
-        )])],
+        pages=[
+            PageContent(
+                page_number=1,
+                tables=[
+                    TableBlock(
+                        table_id="usd_expenses",
+                        headers=["金额"],
+                        rows=[TableRow(cells=[CellValue(text="$50.00")])],
+                    )
+                ],
+            )
+        ],
         entities=DocumentEntities(document_type="expense_report"),
     )
 
@@ -363,10 +376,18 @@ def test_generic_header_repair_is_visible_and_requires_review():
     clear_run_cache()
     result = ParseResult(
         status=ResultStatus.SUCCESS,
-        pages=[PageContent(page_number=1, tables=[TableBlock(
-            table_id="duplicate_headers", headers=["金额", "金额", ""],
-            rows=[TableRow(cells=[CellValue(text="1"), CellValue(text="2"), CellValue(text="3")])],
-        )])],
+        pages=[
+            PageContent(
+                page_number=1,
+                tables=[
+                    TableBlock(
+                        table_id="duplicate_headers",
+                        headers=["金额", "金额", ""],
+                        rows=[TableRow(cells=[CellValue(text="1"), CellValue(text="2"), CellValue(text="3")])],
+                    )
+                ],
+            )
+        ],
         entities=DocumentEntities(document_type="expense_report"),
     )
 
@@ -405,8 +426,7 @@ def test_generic_many_repaired_headers_are_aggregated_and_penalized():
     assert out["quality"]["score"] < 0.85
     assert out["quality"]["readiness"] == "review"
     assert any(
-        issue["message"] == "多张表格仍需表头复核：6/6；优先复核：1页(6张)"
-        for issue in out["quality"]["issues"]
+        issue["message"] == "多张表格仍需表头复核：6/6；优先复核：1页(6张)" for issue in out["quality"]["issues"]
     )
 
 
@@ -441,7 +461,8 @@ def test_generic_row_alignment_issue_targets_the_exact_record():
     assert out is not None
     assert "precision:generic_row_alignment_suspect:collapsed_rows@row=0" in out["status"]["warnings"]
     issue = next(
-        issue for issue in out["quality"]["issues"]
+        issue
+        for issue in out["quality"]["issues"]
         if issue["source_code"].startswith("precision:generic_row_alignment_suspect")
     )
     assert issue["target"] == "/data/records/0"
@@ -456,24 +477,28 @@ def test_generic_promotes_explicit_business_header_row_without_losing_data():
         metadata={"source": "scanned_bordered_table_reconstructor"},
         extraction_layer="scanned_image_line_grid",
         rows=[
-            TableRow(cells=[
-                CellValue(text="公司名称"),
-                CellValue(text="注册地 主要经营地"),
-                CellValue(text=""),
-                CellValue(text="业务性质"),
-                CellValue(text="持股比例(%) 直接"),
-                CellValue(text="间接"),
-                CellValue(text="取得方式"),
-            ]),
-            TableRow(cells=[
-                CellValue(text="河南示例有限公司"),
-                CellValue(text="河南"),
-                CellValue(text=""),
-                CellValue(text="制造业"),
-                CellValue(text="100.00"),
-                CellValue(text=""),
-                CellValue(text="投资设立"),
-            ]),
+            TableRow(
+                cells=[
+                    CellValue(text="公司名称"),
+                    CellValue(text="注册地 主要经营地"),
+                    CellValue(text=""),
+                    CellValue(text="业务性质"),
+                    CellValue(text="持股比例(%) 直接"),
+                    CellValue(text="间接"),
+                    CellValue(text="取得方式"),
+                ]
+            ),
+            TableRow(
+                cells=[
+                    CellValue(text="河南示例有限公司"),
+                    CellValue(text="河南"),
+                    CellValue(text=""),
+                    CellValue(text="制造业"),
+                    CellValue(text="100.00"),
+                    CellValue(text=""),
+                    CellValue(text="投资设立"),
+                ]
+            ),
         ],
     )
     result = ParseResult(
@@ -505,12 +530,16 @@ def test_generic_does_not_promote_single_merged_header_data_row():
         headers=[],
         metadata={"source": "scanned_bordered_table_reconstructor"},
         extraction_layer="scanned_image_line_grid",
-        rows=[TableRow(cells=[
-            CellValue(text="类别 折旧方法 房屋、建筑物 年限平均法"),
-            CellValue(text="折旧年限(年) 20-40"),
-            CellValue(text="残值率(%) 3"),
-            CellValue(text="年折旧率(%) 2.43-4.85"),
-        ])],
+        rows=[
+            TableRow(
+                cells=[
+                    CellValue(text="类别 折旧方法 房屋、建筑物 年限平均法"),
+                    CellValue(text="折旧年限(年) 20-40"),
+                    CellValue(text="残值率(%) 3"),
+                    CellValue(text="年折旧率(%) 2.43-4.85"),
+                ]
+            )
+        ],
     )
     result = ParseResult(
         status=ResultStatus.SUCCESS,
@@ -754,7 +783,13 @@ def test_credit_repayments_only_live_under_data():
 
     enrich_credit_report_output(output, parse_result=result)
 
-    assert output["data"]["repayment_records"] == [{"year": 2026, "month": 1, "status": "N"}]
+    repayment = output["data"]["repayment_records"][0]
+    assert {key: repayment[key] for key in ("year", "month", "status")} == {
+        "year": 2026,
+        "month": 1,
+        "status": "N",
+    }
+    assert repayment["normalized"]["status"] == "N"
     assert "repayment_records" not in output
 
 

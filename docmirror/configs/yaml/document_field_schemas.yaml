@@ -103,7 +103,15 @@ field_schemas:
     buyer_name: Buyer name
     invoice_date: Invoice date
   credit_report:
-    name: Report subject name
-    id_number: ID number
+    subject_name: Report subject name (person or enterprise)
+    name: Legacy personal report subject name
+    company_name: Enterprise report subject name
+    id_type: Personal identity document type
+    id_number: Personal identity document number
+    unified_social_credit_code: Enterprise unified social credit code
+    zhongzheng_code: Enterprise credit reference code
+    query_institution: Report query institution
     report_time: Report time
     report_number: Report number
+    report_subtype: personal_brief, personal_detail, or enterprise
+    content_mode: native_text, scanned_ocr, or mixed

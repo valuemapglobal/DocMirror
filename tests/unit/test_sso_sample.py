@@ -45,4 +45,5 @@ def test_build_sso_sample_text_concatenates_sample_pages():
 
 def test_normalize_premium_document_type_m9():
     assert normalize_premium_document_type("bank_reconciliation") == "bank_statement"
+    assert normalize_premium_document_type("credit_report_enterprise") == "credit_report"
     assert normalize_premium_document_type("wechat_payment") == "wechat_payment"

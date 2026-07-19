@@ -15,6 +15,7 @@ from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.input.entry.options import ExecutionControl, ParseControl, normalize_parse_control
 from docmirror.plugins._runtime.runner import clear_run_cache
 from docmirror.server.output_builder import build_community_output
+from tests._community_reading import assert_community_reading_view
 from tests.contract.test_edition_schema_conformance import check_community
 
 pytestmark = [
@@ -50,10 +51,12 @@ EXPECTED_DATA_KEYS = {
     "field_details",
     "fields",
     "line_items",
+    "notes",
     "records",
     "sections",
     "summary",
     "tables",
+    "document_flow",
 }
 
 
@@ -85,6 +88,7 @@ def test_generic_private_audit_report_precision_and_contract():
     assert output["schema_version"] == "2.2"
     assert output["plugin"]["name"] == "generic"
     assert output["classification"]["matched_document_type"] == "audit_report"
+    assert_community_reading_view(output["data"])
 
     fields = output["data"]["fields"]
     assert fields == {
@@ -151,8 +155,7 @@ def test_generic_private_audit_report_precision_and_contract():
     bank_deposit = next(
         record
         for record in output["data"]["records"]
-        if record.get("raw", {}).get("项目") == "银行存款"
-        and record.get("raw", {}).get("年末余额") == "64,822,045.96"
+        if record.get("raw", {}).get("项目") == "银行存款" and record.get("raw", {}).get("年末余额") == "64,822,045.96"
     )
     assert bank_deposit["normalized"]["年末余额"] == {
         "value": 64822045.96,
@@ -195,9 +198,7 @@ def test_generic_private_scanned_audit_report_precision_and_contract():
         page_split="auto",
         cache_policy="off",
     )
-    result = asyncio.run(
-        perceive_document(SCANNED_FIXTURE, PerceiveOptions(control=control))
-    )
+    result = asyncio.run(perceive_document(SCANNED_FIXTURE, PerceiveOptions(control=control)))
     output = build_community_output(
         result,
         result.full_text or "",
@@ -211,6 +212,7 @@ def test_generic_private_scanned_audit_report_precision_and_contract():
     assert output["document"]["page_count"] == 87
     assert output["plugin"]["name"] == "generic"
     assert output["classification"]["matched_document_type"] == "audit_report"
+    assert_community_reading_view(output["data"])
 
     fields = output["data"]["fields"]
     assert fields["统一社会信用代码"] == "91330109MA27XQ7P70"
@@ -252,14 +254,11 @@ def test_generic_private_scanned_audit_report_precision_and_contract():
     inventory = {
         record["raw"]["项目"]: record
         for record in output["data"]["records"]
-        if record.get("raw", {}).get("项目") in expected_inventory
-        and "年末余额/账面余额" in record.get("raw", {})
+        if record.get("raw", {}).get("项目") in expected_inventory and "年末余额/账面余额" in record.get("raw", {})
     }
     assert set(inventory) == set(expected_inventory)
     for item, amount in expected_inventory.items():
         assert inventory[item]["raw"]["年末余额/账面余额"] == amount
         assert inventory[item]["raw"]["年末余额/账面价值"] == amount
         assert inventory[item]["source"]["page"] == 55
-    assert not any(
-        "generic_page_reference_mismatch" in warning for warning in output["status"]["warnings"]
-    )
+    assert not any("generic_page_reference_mismatch" in warning for warning in output["status"]["warnings"])

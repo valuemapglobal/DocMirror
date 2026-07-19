@@ -19,6 +19,7 @@ from docmirror.plugins._runtime.community import (
 )
 from docmirror.plugins._runtime.runner import clear_run_cache, run_plugin_extract_sync
 from docmirror.server.output_builder import build_community_output
+from tests._community_reading import assert_community_reading_view
 from tests.contract.test_edition_schema_conformance import check_community
 
 pytestmark = [pytest.mark.integration]
@@ -60,6 +61,7 @@ def test_premium_community_extract_plugin_name(domain: str):
     assert out["classification"]["matched_document_type"] == domain
     errors = check_community(out)
     assert not errors, errors
+    assert_community_reading_view(out["data"])
 
 
 def test_unknown_domain_uses_generic_plugin():
@@ -71,6 +73,7 @@ def test_unknown_domain_uses_generic_plugin():
     assert "community_generic_fallback" in out["status"]["warnings"]
     errors = check_community(out)
     assert not errors, errors
+    assert_community_reading_view(out["data"])
 
 
 @pytest.mark.parametrize("domain,fixture", FIXTURE_BY_DOMAIN.items())
@@ -90,4 +93,5 @@ def test_public_fixture_can_be_perceived(domain: str, fixture: Path):
     assert output["quality"]["readiness"] in {"ready", "review"}, domain
     data = output["data"]
     assert data["fields"] or data["records"] or data["sections"], domain
+    assert_community_reading_view(data)
     assert not check_community(output), domain

@@ -178,16 +178,103 @@ def _repayment_grid_id(record: dict[str, Any]) -> str:
     return str(first_ref.get("grid_id") or record.get("grid_id") or record.get("account_id") or "")
 
 
+def _duplicate_business_ids(records: Any, id_key: str) -> bool:
+    if not isinstance(records, list):
+        return False
+    seen: set[str] = set()
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        record_id = str(record.get(id_key) or "").strip()
+        if not record_id:
+            continue
+        if record_id in seen:
+            return True
+        seen.add(record_id)
+    return False
+
+
 def _precision_credit(output: dict[str, Any]) -> None:
     data = output.get("data") if isinstance(output.get("data"), dict) else {}
+    audit = data.get("credit_extraction_audit") if isinstance(data.get("credit_extraction_audit"), dict) else {}
+    audit_issues = [str(item) for item in audit.get("issues") or []]
+    if audit.get("document_complete") is False or "document_truncated" in audit_issues:
+        _append_warning(output, "precision:document_truncated")
+    for issue in audit_issues:
+        if issue.startswith("missing_evidence:"):
+            _append_warning(output, f"precision:{issue}")
+        elif issue.startswith("reconciliation_failed:"):
+            _append_warning(output, f"precision:invariant_failed:{issue}")
+    if audit.get("conflicts"):
+        _append_warning(output, "precision:candidate_conflicts")
+    if audit.get("quarantined_fields"):
+        _append_warning(output, "precision:quarantined_fields")
+
     fields = data.get("fields") if isinstance(data.get("fields"), dict) else {}
-    for field in ("subject_name", "id_number"):
+    subtype = str(_plain(fields.get("report_subtype")) or "")
+    required = ("subject_name",) if subtype == "enterprise" else ("subject_name", "id_number")
+    for field in required:
         if not _present(fields.get(field)):
             _append_warning(output, f"precision:missing_required:{field}")
+
+    if subtype == "enterprise":
+        uscc = re.sub(
+            r"[^0-9A-Z]",
+            "",
+            str(_plain(fields.get("unified_social_credit_code")) or "").upper(),
+        )
+        zhongzheng_code = re.sub(r"\D", "", str(_plain(fields.get("zhongzheng_code")) or ""))
+        if not uscc and not zhongzheng_code:
+            _append_warning(output, "precision:missing_required:enterprise_identifier")
+        if uscc and not validate_uscc(uscc):
+            _append_warning(output, "precision:invalid_format:unified_social_credit_code")
 
     raw_id = str(_plain(fields.get("id_number")) or "").upper().replace(" ", "")
     if raw_id and "*" not in raw_id and not _PERSON_ID_RE.fullmatch(raw_id):
         _append_warning(output, "precision:invalid_format:id_number")
+
+    accounts = data.get("credit_accounts") if isinstance(data.get("credit_accounts"), list) else []
+    if _duplicate_business_ids(accounts, "account_id"):
+        _append_warning(output, "precision:duplicate_record:credit_account")
+    for account in accounts:
+        if not isinstance(account, dict):
+            continue
+        open_date = str(_plain(account.get("open_date")) or "").strip()
+        if open_date and not _ISO_DATE_RE.fullmatch(open_date):
+            _append_warning(output, "precision:invalid_format:credit_account_open_date")
+            break
+
+    inquiries = data.get("inquiry_records") if isinstance(data.get("inquiry_records"), list) else []
+    if _duplicate_business_ids(inquiries, "inquiry_id"):
+        _append_warning(output, "precision:duplicate_record:credit_inquiry")
+    for inquiry in inquiries:
+        if not isinstance(inquiry, dict):
+            continue
+        inquiry_date = str(inquiry.get("inquiry_date") or "").strip()
+        if not _ISO_DATE_RE.fullmatch(inquiry_date):
+            _append_warning(output, "precision:invalid_format:credit_inquiry_date")
+        for field in ("institution", "reason"):
+            if not _present(inquiry.get(field)):
+                _append_warning(output, f"precision:missing_required_record_field:credit_inquiry:{field}")
+
+    credit_summary = data.get("credit_summary") if isinstance(data.get("credit_summary"), dict) else {}
+    projected_account_count = credit_summary.get("projected_account_count")
+    if projected_account_count is not None:
+        try:
+            summary_count = int(projected_account_count)
+        except (TypeError, ValueError):
+            _append_warning(output, "precision:invalid_format:credit_summary_account_count")
+        else:
+            if summary_count != len(accounts):
+                _append_warning(output, "precision:invariant_failed:credit_account_count")
+
+    for records_name, id_key in (
+        ("credit_lines", "credit_line_id"),
+        ("overdue_records", "overdue_id"),
+        ("public_records", "public_record_id"),
+    ):
+        if _duplicate_business_ids(data.get(records_name), id_key):
+            _append_warning(output, f"precision:duplicate_record:{records_name}")
 
     records = data.get("repayment_records") if isinstance(data.get("repayment_records"), list) else []
     seen: dict[tuple[str, int, int], str] = {}

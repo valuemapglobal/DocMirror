@@ -152,19 +152,26 @@ def extract_kv_community_output(
     full_text: str = "",
     match_method: str = "keyword_kv_hybrid",
     support_level: str = "L2",
+    include_block_kv: bool = True,
+    include_generic_records: bool = True,
 ) -> dict[str, Any]:
-    """Build v2.0 community output for key-value premium plugins."""
+    """Build v2.0 community output for key-value premium plugins.
+
+    Domain plugins with their own record assemblers may disable the two generic
+    projections.  Defaults preserve the shared helper's existing behaviour.
+    """
     detected_type = getattr(plugin, "domain_name", "unknown")
     entity_pool = _collect_entity_fields(parse_result)
-    block_kv = collect_kv_fields_from_blocks(parse_result)
-    for key, value in block_kv.items():
-        entity_pool.setdefault(key, value)
+    if include_block_kv:
+        block_kv = collect_kv_fields_from_blocks(parse_result)
+        for key, value in block_kv.items():
+            entity_pool.setdefault(key, value)
     fields = _match_identity_fields(parse_result, identity_specs, entity_pool, full_text)
     if not fields:
         fields = {k: v for k, v in entity_pool.items() if v not in (None, "")}
     field_metadata = _collect_identity_field_metadata(parse_result, fields, identity_specs, full_text)
 
-    records = _collect_table_records(parse_result)
+    records = _collect_table_records(parse_result) if include_generic_records else []
     file_path = getattr(parse_result, "file_path", "") or ""
     doc_name = Path(file_path).name if file_path else getattr(plugin, "display_name", detected_type)
     page_count = len(getattr(parse_result, "pages", []) or [])

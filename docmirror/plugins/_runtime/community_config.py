@@ -107,6 +107,7 @@ def _load_plugin(module_path: str) -> Any | None:
 
 _PLUGIN_TYPE_ALIASES: dict[str, str] = {
     "bank_reconciliation": "bank_statement",
+    "credit_report_enterprise": "credit_report",
 }
 
 

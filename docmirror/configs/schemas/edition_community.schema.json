@@ -388,6 +388,10 @@
       "type": "object",
       "required": ["row_index", "raw", "normalized"],
       "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
         "row_index": {
           "type": ["integer", "number"]
         },
@@ -550,6 +554,236 @@
       },
       "additionalProperties": false
     },
+    "readingSourceRef": {
+      "type": "object",
+      "properties": {
+        "logical_page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bbox": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "communitySection": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "logical_page_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "logical_page_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_page_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_page_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "field_keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "readingDataRef": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "enum": ["object", "collection"]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/data/"
+        }
+      },
+      "additionalProperties": false
+    },
+    "readingTable": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "table_id": {
+          "type": "string"
+        },
+        "section_id": {
+          "type": ["string", "null"]
+        },
+        "title": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "data_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/readingDataRef"
+            },
+            {
+              "type": "string",
+              "pattern": "^/data/"
+            }
+          ]
+        },
+        "row_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "record_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "readingNote": {
+      "type": "object",
+      "required": ["id", "source_refs"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "section_id": {
+          "type": ["string", "null"]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_ref": {
+          "type": "string",
+          "pattern": "^/data/"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/readingSourceRef"
+          }
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["content"]
+        },
+        {
+          "required": ["content_ref"]
+        }
+      ],
+      "additionalProperties": true
+    },
+    "documentFlowItem": {
+      "type": "object",
+      "required": ["order", "kind"],
+      "properties": {
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "enum": ["section", "field_group", "table", "note", "record_group", "text"]
+        },
+        "ref_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "field_keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "collection": {
+          "type": "string"
+        },
+        "record_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": ["section", "table", "note"]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["ref_id"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "field_group"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["field_keys"]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
     "data": {
       "type": "object",
       "properties": {
@@ -569,10 +803,28 @@
           }
         },
         "sections": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/communitySection"
+          }
         },
         "tables": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/readingTable"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/readingNote"
+          }
+        },
+        "document_flow": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/documentFlowItem"
+          }
         },
         "line_items": {
           "type": "array"

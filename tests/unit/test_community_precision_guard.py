@@ -172,6 +172,87 @@ def test_credit_flags_invalid_month_and_conflicting_duplicate() -> None:
     assert "precision:duplicate_record:conflicting_repayment_status" in output["status"]["warnings"]
 
 
+def test_credit_audit_truncation_and_conflicts_require_precision_review() -> None:
+    output = _output(
+        "credit_report",
+        fields={"subject_name": "张三", "id_number": "11010519491231002X"},
+        extra_data={
+            "credit_extraction_audit": {
+                "document_complete": False,
+                "issues": ["document_truncated", "missing_evidence:public_records"],
+                "conflicts": [{"field": "account_status"}],
+                "quarantined_fields": [{"field": "open_date"}],
+            }
+        },
+    )
+
+    _apply(output)
+
+    assert "precision:document_truncated" in output["status"]["warnings"]
+    assert "precision:missing_evidence:public_records" in output["status"]["warnings"]
+    assert "precision:candidate_conflicts" in output["status"]["warnings"]
+    assert "precision:quarantined_fields" in output["status"]["warnings"]
+
+
+def test_enterprise_credit_accepts_enterprise_identifier_instead_of_person_id() -> None:
+    output = _output(
+        "credit_report",
+        fields={
+            "report_subtype": "enterprise",
+            "subject_name": "示例科技股份有限公司",
+            "unified_social_credit_code": "91310000MA1FL6NCX7",
+        },
+    )
+
+    _apply(output)
+
+    warnings = output["status"]["warnings"]
+    assert "precision:missing_required:id_number" not in warnings
+    assert "precision:missing_required:enterprise_identifier" not in warnings
+
+
+def test_enterprise_credit_requires_at_least_one_enterprise_identifier() -> None:
+    output = _output(
+        "credit_report",
+        fields={"report_subtype": "enterprise", "subject_name": "示例科技股份有限公司"},
+    )
+
+    _apply(output)
+
+    assert "precision:missing_required:enterprise_identifier" in output["status"]["warnings"]
+
+
+def test_credit_business_records_validate_dates_ids_and_summary_count() -> None:
+    output = _output(
+        "credit_report",
+        fields={"subject_name": "张三", "id_number": "11010519491231002X"},
+        extra_data={
+            "credit_accounts": [
+                {"account_id": "account-1", "open_date": "bad-date"},
+                {"account_id": "account-1", "open_date": "2024-01-01"},
+            ],
+            "inquiry_records": [
+                {
+                    "inquiry_id": "inquiry-1",
+                    "inquiry_date": "2024/01/01",
+                    "institution": "示例银行",
+                    "reason": "",
+                }
+            ],
+            "credit_summary": {"projected_account_count": 1},
+        },
+    )
+
+    _apply(output)
+
+    warnings = output["status"]["warnings"]
+    assert "precision:duplicate_record:credit_account" in warnings
+    assert "precision:invalid_format:credit_account_open_date" in warnings
+    assert "precision:invalid_format:credit_inquiry_date" in warnings
+    assert "precision:missing_required_record_field:credit_inquiry:reason" in warnings
+    assert "precision:invariant_failed:credit_account_count" in warnings
+
+
 def test_precision_warning_forces_review_readiness() -> None:
     result = SimpleNamespace(confidence=1.0, parser_info=None, trust=None, pages=[])
     output = _output(

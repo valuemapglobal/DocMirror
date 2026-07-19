@@ -24,14 +24,53 @@ from typing import Any
 
 from docmirror.ocr.correction.validators import validate_uscc
 
-_CREDIT_SECTION_MARKERS = (
-    "个人基本信息",
-    "信息概要",
-    "信贷交易信息",
-    "信贷交易",
-    "公共信息",
-    "查询记录",
-    "异议信息",
+_CREDIT_SECTION_SPECS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
+    "personal_brief": (
+        ("信息概要", ("信息概要",)),
+        ("信贷记录", ("信贷记录",)),
+        ("公共记录", ("公共记录", "公共信息")),
+        ("查询记录", ("查询记录",)),
+        ("说明", ("说明",)),
+    ),
+    "personal_detail": (
+        ("个人基本信息", ("个人基本信息",)),
+        ("信息概要", ("信息概要",)),
+        ("信贷交易信息明细", ("信贷交易信息明细", "信贷交易信息")),
+        ("非信贷交易信息明细", ("非信贷交易信息明细", "非银行信息")),
+        ("公共信息明细", ("公共信息明细", "公共信息")),
+        ("查询记录", ("查询记录",)),
+        ("本人声明", ("本人声明",)),
+        ("异议标注", ("异议标注", "异议信息")),
+    ),
+    "enterprise": (
+        ("身份标识", ("身份标识",)),
+        ("信息概要", ("信息概要",)),
+        ("基本信息", ("基本信息",)),
+        ("信贷记录明细", ("信贷记录明细",)),
+        ("公共记录明细", ("公共记录明细",)),
+        ("信用记录补充信息", ("信用记录补充信息",)),
+    ),
+}
+
+_CREDIT_SECTION_FALLBACK = (
+    ("个人基本信息", ("个人基本信息",)),
+    ("信息概要", ("信息概要",)),
+    ("信贷交易信息", ("信贷交易信息", "信贷交易")),
+    ("公共信息", ("公共信息",)),
+    ("查询记录", ("查询记录",)),
+    ("异议信息", ("异议信息",)),
+)
+
+_CREDIT_NON_INSTITUTION_VALUES = frozenset(
+    {
+        "信用卡",
+        "贷款",
+        "其他业务",
+        "购房",
+        "其他",
+        "信息概要",
+        "信贷记录",
+    }
 )
 
 _BUSINESS_LICENSE_NOTICE = (
@@ -306,6 +345,8 @@ def enrich_vat_invoice_output(output: dict[str, Any]) -> dict[str, Any]:
 
 def build_credit_sections_light(parse_result: Any, full_text: str = "") -> list[dict[str, Any]]:
     """Lightweight section skeleton from headings / known credit report markers."""
+    from docmirror.plugins.credit_report.report_profile import detect_credit_report_subtype
+
     sections: list[dict[str, Any]] = []
     seen: set[str] = set()
 
@@ -332,15 +373,23 @@ def build_credit_sections_light(parse_result: Any, full_text: str = "") -> list[
         )
 
     text = full_text or getattr(parse_result, "full_text", "") or ""
-    for i, marker in enumerate(_CREDIT_SECTION_MARKERS):
-        if marker in text and marker not in seen:
-            seen.add(marker)
+    subtype = detect_credit_report_subtype(parse_result, text)
+    specs = _CREDIT_SECTION_SPECS.get(subtype, _CREDIT_SECTION_FALLBACK)
+    page_texts = _credit_page_texts(parse_result)
+    for i, (title, aliases) in enumerate(specs):
+        matched_alias = next((alias for alias in aliases if alias in text), "")
+        if matched_alias and title not in seen:
+            seen.add(title)
+            page_start = next(
+                (page_number for page_number, page_text in page_texts if matched_alias in page_text),
+                1,
+            )
             sections.append(
                 {
                     "id": f"sec_marker_{i}",
-                    "title": marker,
-                    "name": marker,
-                    "page_start": 1,
+                    "title": title,
+                    "name": title,
+                    "page_start": page_start,
                 }
             )
 
@@ -363,6 +412,21 @@ def build_credit_sections_light(parse_result: Any, full_text: str = "") -> list[
     return sections
 
 
+def _credit_page_texts(parse_result: Any) -> list[tuple[int, str]]:
+    """Build bounded page text for section page-start lookup."""
+    out: list[tuple[int, str]] = []
+    for index, page in enumerate(getattr(parse_result, "pages", []) or [], start=1):
+        parts = [str(getattr(block, "content", "") or "") for block in getattr(page, "texts", []) or []]
+        for kv in getattr(page, "key_values", []) or []:
+            parts.extend((str(getattr(kv, "key", "") or ""), str(getattr(kv, "value", "") or "")))
+        for table in getattr(page, "tables", []) or []:
+            parts.extend(str(header or "") for header in getattr(table, "headers", []) or [])
+            for row in getattr(table, "rows", []) or []:
+                parts.extend(str(getattr(cell, "text", "") or "") for cell in getattr(row, "cells", []) or [])
+        out.append((int(getattr(page, "page_number", 0) or index), "\n".join(parts)))
+    return out
+
+
 def enrich_credit_report_output(
     output: dict[str, Any],
     *,
@@ -370,6 +434,13 @@ def enrich_credit_report_output(
     full_text: str = "",
 ) -> dict[str, Any]:
     """Attach section skeleton to credit report community output."""
+    from docmirror.plugins.credit_report.business_assembly import assemble_credit_report_business
+    from docmirror.plugins.credit_report.report_profile import (
+        detect_credit_report_content_mode,
+        detect_credit_report_subtype,
+        recover_credit_report_header_fields,
+    )
+
     data = output.setdefault("data", {})
     fields = data.setdefault("fields", {})
     recovered_identity = _recover_credit_subject_identity(parse_result)
@@ -385,22 +456,165 @@ def enrich_credit_report_output(
             },
         )
 
+    report_subtype = detect_credit_report_subtype(parse_result, full_text)
+    content_mode = detect_credit_report_content_mode(parse_result)
+    recovered_header = recover_credit_report_header_fields(
+        parse_result,
+        full_text,
+        report_subtype=report_subtype,
+    )
+    if report_subtype != "unknown":
+        recovered_header.setdefault("report_subtype", report_subtype)
+    if content_mode != "unknown":
+        recovered_header.setdefault("content_mode", content_mode)
+    details = data.setdefault("field_details", {})
+    for field_name, value in recovered_header.items():
+        # The shared KV matcher may overrun into adjacent labels on dense report
+        # covers. Domain-validated header facts intentionally replace those values.
+        fields[field_name] = value
+        details[field_name] = {
+            "source": "credit_report_header",
+            "confidence": 0.95 if field_name not in {"report_subtype", "content_mode"} else 1.0,
+        }
+    query_institution = re.sub(r"\s+", "", str(fields.get("query_institution") or ""))
+    if "query_institution" not in recovered_header and query_institution in _CREDIT_NON_INSTITUTION_VALUES:
+        fields.pop("query_institution", None)
+        details.pop("query_institution", None)
+
+    domain_specific = _domain_specific(parse_result)
+    if report_subtype != "unknown":
+        domain_specific["report_subtype"] = report_subtype
+    if content_mode != "unknown":
+        domain_specific["content_mode"] = content_mode
+    document = output.setdefault("document", {})
+    properties = document.setdefault("properties", {})
+    if report_subtype != "unknown":
+        properties["report_subtype"] = report_subtype
+    if content_mode != "unknown":
+        document["content_mode"] = content_mode
+
     sections = build_credit_sections_light(parse_result, full_text)
     if sections:
         data["sections"] = sections
-        output.setdefault("document", {})["archetype"] = "report_document"
-    domain_specific = _domain_specific(parse_result)
-    records = domain_specific.get("credit_repayment_records")
-    if not records:
-        records = _ensure_credit_repayment_records(parse_result)
-    if records:
-        data["repayment_records"] = records
-    accounts = domain_specific.get("credit_accounts")
-    if not accounts:
-        accounts = _extract_credit_accounts_from_local_structure_evidence(parse_result)
-    if accounts:
-        data["credit_accounts"] = accounts
+        document["archetype"] = "report_document"
+    repayment_records = list(domain_specific.get("credit_repayment_records") or [])
+    if not repayment_records and (
+        content_mode in {"scanned_ocr", "mixed"} or _has_credit_repayment_structures(parse_result)
+    ):
+        repayment_records = _ensure_credit_repayment_records(parse_result)
+    if repayment_records:
+        data["repayment_records"] = repayment_records
+
+    credit_accounts = _canonicalize_credit_accounts(list(domain_specific.get("credit_accounts") or []))
+    if not credit_accounts:
+        credit_accounts = _canonicalize_credit_accounts(
+            _extract_credit_accounts_from_local_structure_evidence(parse_result)
+        )
+
+    assembled = assemble_credit_report_business(
+        parse_result,
+        full_text,
+        report_subtype=report_subtype,
+        content_mode=content_mode,
+        existing_collections={
+            "credit_accounts": [*list(data.get("credit_accounts") or []), *credit_accounts],
+            "credit_lines": list(data.get("credit_lines") or []),
+            "repayment_records": repayment_records,
+            "overdue_records": list(data.get("overdue_records") or []),
+            "inquiry_records": list(data.get("inquiry_records") or []),
+            "public_records": list(data.get("public_records") or []),
+        },
+        existing_summary=dict(data.get("credit_summary") or {}),
+    )
+    for data_key in (
+        "credit_accounts",
+        "credit_lines",
+        "repayment_records",
+        "overdue_records",
+        "inquiry_records",
+        "public_records",
+    ):
+        records = list(assembled.get(data_key) or [])
+        data[data_key] = records
+        if records:
+            domain_key = "credit_repayment_records" if data_key == "repayment_records" else data_key
+            domain_specific[domain_key] = records
+
+    credit_accounts = list(assembled.get("credit_accounts") or [])
+    repayment_records = list(assembled.get("repayment_records") or [])
+    overdue_records = list(assembled.get("overdue_records") or [])
+    credit_summary = assembled.get("credit_summary")
+    if isinstance(credit_summary, dict) and credit_summary:
+        data["credit_summary"] = credit_summary
+    credit_audit = assembled.get("credit_extraction_audit")
+    if isinstance(credit_audit, dict):
+        data["credit_extraction_audit"] = credit_audit
+        domain_specific["credit_extraction_audit"] = credit_audit
+
+    has_business_records = any(
+        assembled.get(data_key)
+        for data_key in (
+            "credit_accounts",
+            "credit_lines",
+            "repayment_records",
+            "overdue_records",
+            "inquiry_records",
+            "public_records",
+        )
+    )
+    if has_business_records and _only_positional_credit_records(data.get("records")):
+        data["records"] = []
+    if has_business_records:
+        summary = data.setdefault("summary", {})
+        summary.update(
+            {
+                "total_rows": len(credit_accounts),
+                "credit_account_count": len(credit_accounts),
+                "repayment_record_count": len(repayment_records),
+                "overdue_record_count": len(overdue_records),
+                "inquiry_record_count": len(data.get("inquiry_records") or []),
+            }
+        )
     return output
+
+
+def _only_positional_credit_records(records: Any) -> bool:
+    if not isinstance(records, list) or not records:
+        return False
+    for record in records:
+        if not isinstance(record, dict):
+            return False
+        row = record.get("normalized") or record.get("raw") or record
+        if not isinstance(row, dict) or not row:
+            return False
+        business_keys = {str(key) for key in row if str(key) not in {"row_index", "page"}}
+        if not business_keys or not all(re.fullmatch(r"col_\d+", key) for key in business_keys):
+            return False
+    return True
+
+
+def _canonicalize_credit_accounts(accounts: list[Any]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for index, item in enumerate(accounts):
+        if not isinstance(item, dict):
+            continue
+        account = dict(item)
+        if not account.get("account_id"):
+            anchor = str(account.get("source_structure_id") or account.get("account_identifier") or "").strip()
+            account["account_id"] = (
+                f"credit_account:{anchor}"
+                if anchor
+                else f"credit_account:projected:{account.get('page', 0)}:{index + 1}"
+            )
+        if not account.get("source_refs"):
+            ref: dict[str, Any] = {"source": account.get("source") or "credit_account_projection"}
+            if account.get("page"):
+                ref["page"] = account["page"]
+            if account.get("source_structure_id"):
+                ref["structure_id"] = account["source_structure_id"]
+            account["source_refs"] = [ref]
+        out.append(account)
+    return out
 
 
 def _recover_credit_subject_identity(parse_result: Any) -> dict[str, dict[str, Any]]:
@@ -477,7 +691,8 @@ def _recover_credit_subject_identity(parse_result: Any) -> dict[str, dict[str, A
 
 
 def _domain_specific(parse_result: Any) -> dict[str, Any]:
-    return getattr(getattr(parse_result, "entities", None), "domain_specific", {}) or {}
+    value = getattr(getattr(parse_result, "entities", None), "domain_specific", {})
+    return value if isinstance(value, dict) else {}
 
 
 def _merge_unique_dicts(
@@ -555,3 +770,10 @@ def _ensure_credit_repayment_records(parse_result: Any) -> list[dict[str, Any]]:
         records = dedupe_repayment_records(records)
         domain_specific["credit_repayment_records"] = records
     return records
+
+
+def _has_credit_repayment_structures(parse_result: Any) -> bool:
+    """Check persisted micro-grids without rebuilding the full Mirror view."""
+    from docmirror.models.mirror.domain_access import micro_grid_structures_from_domain_specific
+
+    return bool(micro_grid_structures_from_domain_specific(_domain_specific(parse_result)))

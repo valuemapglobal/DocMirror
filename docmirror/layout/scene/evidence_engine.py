@@ -67,6 +67,7 @@ class EvidenceEngine(BaseMiddleware):
             # Cover letter / title block often holds issuer keywords omitted from table cells.
             classification_text = f"{cover_text}\n{classification_text}"
         all_evidence.extend(self._keyword_evidence(classification_text))
+        all_evidence.extend(self._credit_report_cover_evidence(cover_text))
         all_evidence.extend(self._bank_statement_frame_evidence(classification_text))
         all_evidence.extend(self._header_evidence(result.all_tables()))
         all_evidence.extend(self._user_hint_evidence(result))
@@ -165,6 +166,7 @@ class EvidenceEngine(BaseMiddleware):
         """Map Core aliases to edition-facing document types without importing plugins."""
         aliases = {
             "bank_reconciliation": "bank_statement",
+            "credit_report_enterprise": "credit_report",
         }
         return aliases.get(document_type, document_type)
 
@@ -259,6 +261,39 @@ class EvidenceEngine(BaseMiddleware):
                 detail=f"bank_statement_frame_signals={sorted(k for k, v in signals.items() if v)}",
             )
         ]
+
+    def _credit_report_cover_evidence(self, cover_text: str) -> list[Evidence]:
+        """Keep long credit-report appendices from diluting a definitive cover."""
+        compact = re.sub(r"\s+", "", cover_text or "")
+        if not compact:
+            return []
+        if "企业信用报告" in compact:
+            signals = ("中征码", "统一社会信用代码", "报告编号", "报告时间", "查询机构", "身份标识")
+            matched = [signal for signal in signals if signal in compact]
+            if matched:
+                return [
+                    Evidence(
+                        source="cover_frame",
+                        category="credit_report",
+                        weight=0.95,
+                        direction=1,
+                        detail=f"enterprise credit-report cover signals={matched}",
+                    )
+                ]
+        if "个人信用报告" in compact:
+            signals = ("被查询者姓名", "证件号码", "报告编号", "报告时间", "查询记录", "信贷记录")
+            matched = [signal for signal in signals if signal in compact]
+            if matched:
+                return [
+                    Evidence(
+                        source="cover_frame",
+                        category="credit_report",
+                        weight=0.90,
+                        direction=1,
+                        detail=f"personal credit-report cover signals={matched}",
+                    )
+                ]
+        return []
 
     def _protected_extractor_categories(self, result: ParseResult) -> set[str]:
         """Categories backed by high-confidence extractor hints skip keyword_exclude veto."""
