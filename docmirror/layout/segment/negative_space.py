@@ -239,10 +239,10 @@ class NegativeSpaceAnalyzer:
             if len(projection) < 3:
                 return projection
 
-            smoothed = projection.copy()
-            for i in range(1, len(projection) - 1):
-                smoothed[i] = (projection[i - 1] + projection[i] + projection[i + 1]) / 3.0
-            return smoothed
+            np = _np()
+            values = np.asarray(projection, dtype=float)
+            padded = np.pad(values, (1, 1), mode="edge")
+            return np.convolve(padded, np.ones(3) / 3.0, mode="valid")
 
     @classmethod
     def _find_projection_valleys(cls, projection: Any, threshold_ratio: float = 0.3) -> list[int]:

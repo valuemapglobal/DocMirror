@@ -31,8 +31,6 @@ import json
 import logging
 import os
 
-import requests
-
 from docmirror.models.entities.parse_result import (
     CellValue,
     KeyValuePair,
@@ -102,6 +100,12 @@ def _call_llm(full_text: str) -> dict | None:
     api_key = os.environ.get("DOCMIRROR_LLM_API_KEY")
     if not api_key:
         logger.info("[LlmRestorer] DOCMIRROR_LLM_API_KEY not set, skipped")
+        return None
+
+    try:
+        import requests
+    except ImportError:
+        logger.warning('[LlmRestorer] requests is unavailable; install the AI extra with pip install "docmirror[ai]"')
         return None
 
     api_base = os.environ.get("DOCMIRROR_LLM_API_BASE") or "https://api.openai.com/v1"

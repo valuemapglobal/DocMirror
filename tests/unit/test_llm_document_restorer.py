@@ -13,24 +13,25 @@ import pytest
 
 from docmirror.framework.middlewares.extraction.llm_document_restorer import (
     LlmDocumentRestorer,
-    _inject_tables,
+    _call_llm,
     _inject_fields,
+    _inject_tables,
 )
 from docmirror.models.entities.parse_result import (
     CellValue,
     KeyValuePair,
-    ParseResult,
     PageContent,
+    ParseResult,
     TableBlock,
     TableRow,
     TextBlock,
 )
 
-
 pytestmark = [pytest.mark.tier_unit]
 
 
 # ── Helpers ──
+
 
 def _page_with_text(text: str) -> PageContent:
     """Create a PageContent with a single TextBlock."""
@@ -44,6 +45,21 @@ def _make_result(*, pages=None, text: str = "") -> ParseResult:
     """Factory for ParseResult with optional text content."""
     pgs = pages or [_page_with_text(text)]
     return ParseResult(pages=pgs)
+
+
+def test_call_llm_handles_missing_optional_http_dependency(monkeypatch):
+    """The middleware catalog remains importable without the AI extra."""
+    monkeypatch.setenv("DOCMIRROR_LLM_API_KEY", "test-key")
+    real_import = __import__
+
+    def import_without_requests(name, *args, **kwargs):
+        if name == "requests":
+            raise ImportError("requests is not installed")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", import_without_requests)
+
+    assert _call_llm("document text") is None
 
 
 # ── should_skip tests ──
@@ -206,6 +222,7 @@ class TestLlmDocumentRestorerProcess:
         restorer = LlmDocumentRestorer()
         restorer.should_skip = lambda r: False
         from unittest.mock import patch
+
         with patch("docmirror.framework.middlewares.extraction.llm_document_restorer._call_llm", return_value=None):
             result = _make_result(text="A" * 200)
             output = restorer.process(result)
@@ -229,7 +246,10 @@ class TestLlmResponseParsing:
         restorer = LlmDocumentRestorer()
         restorer.should_skip = lambda r: False
         from unittest.mock import patch
-        with patch("docmirror.framework.middlewares.extraction.llm_document_restorer._call_llm", return_value=mock_response):
+
+        with patch(
+            "docmirror.framework.middlewares.extraction.llm_document_restorer._call_llm", return_value=mock_response
+        ):
             result = _make_result(text="A" * 200)
             output = restorer.process(result)
 
