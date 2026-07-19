@@ -795,9 +795,9 @@ def _public_certification_column_rows(
     header_tokens = {"认证类型", "认证日期", "截止日期", "认证内容"}
     anchors = _columnar_public_anchors(
         lines,
-        category_ok=lambda value: bool(_compact(value))
-        and _compact(value) not in header_tokens
-        and len(_compact(value)) <= 40,
+        category_ok=lambda value: (
+            bool(_compact(value)) and _compact(value) not in header_tokens and len(_compact(value)) <= 40
+        ),
         header_tail="认证内容",
     )
     out: list[dict[str, Any]] = []

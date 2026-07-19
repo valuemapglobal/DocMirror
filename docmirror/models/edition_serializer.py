@@ -216,11 +216,7 @@ def edition_serializer(dec: DomainExtractionResult, *, context: EditionContext) 
     }
     if dec.metadata:
         metadata.update(
-            {
-                key: value
-                for key, value in dec.metadata.items()
-                if key not in {"classification", "plugin", "validation"}
-            }
+            {key: value for key, value in dec.metadata.items() if key not in {"classification", "plugin", "validation"}}
         )
 
     payload: dict[str, Any] = {

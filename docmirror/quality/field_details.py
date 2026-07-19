@@ -218,9 +218,7 @@ def field_details_from_community_data(data: dict[str, Any]) -> dict[str, dict[st
     path intact.
     """
     fields = data.get("fields") if isinstance(data.get("fields"), dict) else {}
-    normalized_fields = (
-        data.get("normalized_fields") if isinstance(data.get("normalized_fields"), dict) else {}
-    )
+    normalized_fields = data.get("normalized_fields") if isinstance(data.get("normalized_fields"), dict) else {}
     field_metadata = data.get("field_metadata") if isinstance(data.get("field_metadata"), dict) else {}
     existing = data.get("field_details") if isinstance(data.get("field_details"), dict) else {}
     out: dict[str, dict[str, Any]] = {}

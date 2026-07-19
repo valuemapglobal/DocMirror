@@ -22,6 +22,7 @@ async def perceive_document(path: str | Path, options: Any = None) -> ParseResul
     path = Path(path)
     try:
         from docmirror.input.entry.factory import PerceptionFactory
+
         control = options.normalized_control() if hasattr(options, "normalized_control") else None
         dispatcher = PerceptionFactory.get_dispatcher()
         return await dispatcher.process(
