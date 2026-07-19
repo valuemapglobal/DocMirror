@@ -192,7 +192,9 @@ jobs:
       - name: Check metadata
         run: twine check dist/*
       - name: Validate release contract
-        run: python scripts/validate/validate_oss_release.py
+        run: |
+          python -m pip install dist/*.whl
+          python scripts/validate/validate_oss_release.py
       - name: Base wheel clean-venv smoke
         run: |
           python -m venv "$RUNNER_TEMP/docmirror-base-smoke"
