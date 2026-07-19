@@ -26,6 +26,7 @@ def test_pypi_publish_requires_release_identity_and_green_window_gate():
     gate = jobs["release-gate"]
     publish = jobs["publish"]
     gate_commands = "\n".join(step.get("run", "") for step in gate["steps"])
+    publish_commands = "\n".join(step.get("run", "") for step in publish["steps"])
 
     assert "GITHUB_REF_NAME" in gate_commands
     assert "git rev-parse origin/main" in gate_commands
@@ -33,3 +34,4 @@ def test_pypi_publish_requires_release_identity_and_green_window_gate():
     assert publish["needs"] == "release-gate"
     assert publish["environment"] == "pypi"
     assert publish["permissions"]["id-token"] == "write"
+    assert "pip install build twine pyyaml" in publish_commands
