@@ -167,6 +167,10 @@ ignore = [
 [tool.ruff.lint.mccabe]
 max-complexity = 25
 
+[tool.ruff.lint.isort]
+known-first-party = ["docmirror"]
+known-third-party = ["docmirror_enterprise", "docmirror_finance"]
+
 [tool.ruff.lint.extend-per-file-ignores]
 "**/__init__.py" = ["F401", "F811"]
 
