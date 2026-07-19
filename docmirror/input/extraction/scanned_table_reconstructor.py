@@ -308,12 +308,10 @@ def reconstruct_scanned_bordered_tables(
             populated_buckets = [bucket for bucket in row_buckets.values() if bucket]
             populated_rows = [row for row, bucket in row_buckets.items() if bucket]
             numeric_rows_in_group = [
-                row for row, bucket in row_buckets.items()
-                if any(_looks_numeric(token.text) for token in bucket)
+                row for row, bucket in row_buckets.items() if any(_looks_numeric(token.text) for token in bucket)
             ]
             aligned_numeric_rows = [
-                row for row in populated_rows
-                if numeric_columns_by_row.get(row, set()).difference(cols)
+                row for row in populated_rows if numeric_columns_by_row.get(row, set()).difference(cols)
             ]
             numeric_rows_aligned_elsewhere = set(numeric_rows_in_group).intersection(aligned_numeric_rows)
             split_vertical_merge = bool(
@@ -337,9 +335,9 @@ def reconstruct_scanned_bordered_tables(
                         continue
                     bucket = sorted(bucket, key=lambda token: token.cx)
                     bucket_evidence_ids = [token.evidence_id for token in bucket]
-                    bucket_confidence = sum(
-                        token.confidence * max(1, len(token.text)) for token in bucket
-                    ) / sum(max(1, len(token.text)) for token in bucket)
+                    bucket_confidence = sum(token.confidence * max(1, len(token.text)) for token in bucket) / sum(
+                        max(1, len(token.text)) for token in bucket
+                    )
                     raw[row][anchor_col] = " ".join(token.text for token in bucket).strip()
                     cell_bboxes[row][anchor_col] = [
                         round(x_lines[anchor_col] * sx, 4),
@@ -497,14 +495,10 @@ def _extend_open_left_candidate(
     left_tokens = [
         token
         for token in tokens
-        if x0_points - max_extension <= token.cx < x0_points
-        and y0_points <= token.cy <= y1_points
+        if x0_points - max_extension <= token.cx < x0_points and y0_points <= token.cy <= y1_points
     ]
     has_project_header = any(re.sub(r"\s+", "", token.text) in {"项", "目", "项目"} for token in left_tokens)
-    row_centers = {
-        int(round(token.cy / max(3.0, token.h)))
-        for token in left_tokens
-    }
+    row_centers = {int(round(token.cy / max(3.0, token.h))) for token in left_tokens}
     if not has_project_header or len(left_tokens) < 2 or len(row_centers) < 2:
         return candidate
     extended_x0 = max(0, int((min(token.bbox[0] for token in left_tokens) - 2.0) / sx))

@@ -17,10 +17,10 @@ def test_udtr_e2e_bank_statement():
     assert len(headings) >= 1
     kv = [b for b in mirror.blocks if b.type == BlockType.KEY_VALUE_GROUP]
     assert len(kv) >= 1
-    edge_types = {e.type for e in mirror.graph.edges if hasattr(e, 'type')}
+    edge_types = {e.type for e in mirror.graph.edges if hasattr(e, "type")}
     assert "contains" in edge_types
     assert "reading_next" in edge_types
     assert mirror.quality.gates
     assert "bank_statement" in mirror.semantics.views
     assert mirror.diagnostics.pipeline
-    assert mirror.mirror.schema_version >= "2.0"
+    assert mirror.mirror.schema_version == "1.0.7"

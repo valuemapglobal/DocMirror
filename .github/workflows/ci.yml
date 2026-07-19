@@ -9,17 +9,26 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PIP_CONSTRAINT: .github/constraints/ci.txt
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install ruff
-        run: pip install ruff
+        run: python -m pip install ruff
       - name: Run ruff check
         run: ruff check docmirror/
       - name: Run ruff format check
@@ -28,13 +37,14 @@ jobs:
   hygiene:
     name: Code hygiene audit
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install audit tools
-        run: pip install ruff vulture pyyaml rich
+        run: python -m pip install ruff vulture pyyaml rich
       - name: Run hygiene audit (strict)
         run: |
           python scripts/run_quality_gate.py \
@@ -54,6 +64,7 @@ jobs:
   test:
     name: Test (Python ${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -70,7 +81,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install package with dev dependencies
-        run: pip install -e ".[dev]"
+        run: python -m pip install -e ".[dev,pdf]"
+      - name: Validate public fixture policy
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        run: python -m pytest tests/contract/test_public_test_fixture_hygiene.py -q
       - name: Validate format capability registry
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python scripts/validate/validate_format_capabilities.py
@@ -120,7 +134,7 @@ jobs:
       - name: Run tests with coverage
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: |
-          pip install pytest-cov
+          python -m pip install pytest-cov
           pytest tests/unit/ -q --cov=docmirror --cov-append
           pytest tests/ --ignore=tests/unit -q --cov=docmirror --cov-append \
             -m "tier_smoke or tier_contract or (tier_regression and not tier_slow)" \
@@ -137,45 +151,60 @@ jobs:
   build:
     name: Build package
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install build tools
-        run: pip install build
+        run: python -m pip install build twine
       - name: Build sdist and wheel
         run: python -m build
-      - name: Verify package
+      - name: Check package metadata
+        run: python -m twine check dist/*
+      - name: Verify wheel from an isolated working directory
         run: |
-          pip install dist/*.whl
-          python -c "import docmirror; print(f'✅ docmirror {docmirror.__version__} imports successfully')"
+          python -m venv "$RUNNER_TEMP/docmirror-build-smoke"
+          "$RUNNER_TEMP/docmirror-build-smoke/bin/python" -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/docmirror-build-smoke/bin/python" -c "import docmirror; print(f'docmirror {docmirror.__version__} imports successfully')"
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/*
+          if-no-files-found: error
 
   oss-release-smoke:
     name: OSS release smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install build tools
-        run: pip install build twine pyyaml
+        run: python -m pip install build twine pyyaml
       - name: Build package
         run: python -m build
       - name: Check metadata
         run: twine check dist/*
       - name: Validate release contract
-        run: python scripts/validate/validate_oss_release.py
+        run: |
+          python -m pip install dist/*.whl
+          python scripts/validate/validate_oss_release.py
       - name: Base wheel clean-venv smoke
         run: |
-          python -m venv /tmp/docmirror-base-smoke
-          /tmp/docmirror-base-smoke/bin/python -m pip install --upgrade pip
-          /tmp/docmirror-base-smoke/bin/python -m pip install dist/*.whl
-          /tmp/docmirror-base-smoke/bin/python -c "import docmirror; print(docmirror.__version__)"
-          /tmp/docmirror-base-smoke/bin/docmirror --help
-          /tmp/docmirror-base-smoke/bin/docmirror --version
-          /tmp/docmirror-base-smoke/bin/docmirror version
-          /tmp/docmirror-base-smoke/bin/docmirror doctor
+          python -m venv "$RUNNER_TEMP/docmirror-base-smoke"
+          "$RUNNER_TEMP/docmirror-base-smoke/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/docmirror-base-smoke/bin/python" -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/docmirror-base-smoke/bin/python" -c "import docmirror; print(docmirror.__version__)"
+          "$RUNNER_TEMP/docmirror-base-smoke/bin/docmirror" --help
+          "$RUNNER_TEMP/docmirror-base-smoke/bin/docmirror" --version
+          "$RUNNER_TEMP/docmirror-base-smoke/bin/docmirror" version
+          "$RUNNER_TEMP/docmirror-base-smoke/bin/docmirror" doctor
       - name: Lightweight optional extras smoke
         run: python scripts/validate/smoke_optional_extras.py --timeout 180

@@ -38,6 +38,7 @@ cases:
   - id: four_file_after_perceive
     tier: regression
     fixture: fixtures/business_license/synthetic_medium_variant.pdf
+    skip_if_fixture_missing: true
     pipeline: e2e_four_file
     options:
       mode: perceive

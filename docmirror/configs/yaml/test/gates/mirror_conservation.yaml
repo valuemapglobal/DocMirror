@@ -30,6 +30,7 @@ cases:
   - id: real_pdf_credit_report_smoke
     tier: regression
     fixture: tests/fixtures/synthetic/credit_report_section_smoke.pdf
+    skip_if_fixture_missing: true
     pipeline: perceive
     options:
       max_pages: 1
@@ -52,6 +53,7 @@ cases:
   - id: real_pdf_bank_ledger_table_smoke
     tier: regression
     fixture: tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    skip_if_fixture_missing: true
     pipeline: perceive
     options:
       max_pages: 1

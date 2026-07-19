@@ -9,18 +9,34 @@ Plugin system tests — verify DomainPlugin contracts, edition-aware registry,
 and built-in community/enterprise plugin discovery.
 """
 
+import importlib.util
+
 import pytest
 
 pytestmark = [pytest.mark.tier_smoke]
 
 from docmirror.plugins import PluginRegistry
-from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 from docmirror.plugins._runtime.community import get_community_premium_domains
+from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 from docmirror.plugins.generic.community_plugin import GenericCommunityPlugin
-from docmirror_enterprise.plugins.bank_statement import BankStatementPlugin, plugin as bank_statement_plugin
-from docmirror_enterprise.plugins.bank_statement.plugin import plugin as bank_statement_module_plugin
+
+_HAS_ENTERPRISE = importlib.util.find_spec("docmirror_enterprise") is not None
+if _HAS_ENTERPRISE:
+    from docmirror_enterprise.plugins.bank_statement import BankStatementPlugin
+    from docmirror_enterprise.plugins.bank_statement import plugin as bank_statement_plugin
+    from docmirror_enterprise.plugins.bank_statement.plugin import plugin as bank_statement_module_plugin
+else:
+    BankStatementPlugin = None
+    bank_statement_plugin = None
+    bank_statement_module_plugin = None
+
+requires_enterprise = pytest.mark.skipif(
+    not _HAS_ENTERPRISE,
+    reason="enterprise package is not available in OSS CI",
+)
 
 
+@requires_enterprise
 class TestBankStatementEnterprisePlugin:
     """Enterprise bank_statement plugin (docmirror_enterprise)."""
 
@@ -117,6 +133,7 @@ class TestPluginRegistry:
         reg._discovered = True
         return reg
 
+    @requires_enterprise
     def test_register_and_get_by_edition(self):
         reg = self._isolated_registry()
         enterprise = BankStatementPlugin()
@@ -124,6 +141,7 @@ class TestPluginRegistry:
         assert reg.get("bank_statement", "enterprise") is enterprise
         assert reg.get("bank_statement", "community") is None
 
+    @requires_enterprise
     def test_get_defaults_to_community_edition(self):
         reg = self._isolated_registry()
         community = BankStatementCommunityPlugin()
@@ -132,6 +150,7 @@ class TestPluginRegistry:
         reg.register(enterprise, override=True)
         assert reg.get("bank_statement") is community
 
+    @requires_enterprise
     def test_get_first_prefers_highest_edition(self):
         reg = self._isolated_registry()
         community = BankStatementCommunityPlugin()
@@ -145,6 +164,7 @@ class TestPluginRegistry:
         assert reg.get("nonexistent_domain") is None
         assert reg.get_first("nonexistent_domain") is None
 
+    @requires_enterprise
     def test_list_plugins_keeps_first_sorted_edition(self):
         reg = self._isolated_registry()
         reg.register(BankStatementCommunityPlugin())
@@ -152,6 +172,7 @@ class TestPluginRegistry:
         plugins = reg.list_plugins()
         assert plugins["bank_statement"] == "Bank Statement (Community)"
 
+    @requires_enterprise
     def test_list_domains_tracks_all_editions(self):
         reg = self._isolated_registry()
         reg.register(BankStatementCommunityPlugin())
@@ -162,7 +183,7 @@ class TestPluginRegistry:
         reg = PluginRegistry()
         reg._ensure_discovered()
         assert reg.get("bank_statement", "community") is not None
-        assert reg.get("bank_statement", "enterprise") is not None
+        assert (reg.get("bank_statement", "enterprise") is not None) is _HAS_ENTERPRISE
         assert reg.get_first("bank_statement") is not None
 
     def test_auto_discovery_lists_bank_statement(self):
@@ -180,6 +201,7 @@ class TestPluginRegistry:
         reg = PluginRegistry()
         assert reg.build_domain_data("unknown_domain", {}, {}) is None
 
+    @requires_enterprise
     def test_build_domain_data_uses_get_first_plugin(self):
         reg = self._isolated_registry()
         community = BankStatementCommunityPlugin()
@@ -202,6 +224,7 @@ class TestPluginRegistry:
         assert result is not None
         assert result["entities"]["account_holder"] == "Bob"
 
+    @requires_enterprise
     def test_duplicate_register_same_edition_warns(self):
         reg = self._isolated_registry()
         p1 = BankStatementPlugin()
@@ -210,6 +233,7 @@ class TestPluginRegistry:
         reg.register(p2)
         assert reg.get("bank_statement", "enterprise") is p1
 
+    @requires_enterprise
     def test_duplicate_register_with_override_replaces(self):
         reg = self._isolated_registry()
         p1 = BankStatementPlugin()
@@ -218,6 +242,7 @@ class TestPluginRegistry:
         reg.register(p2, override=True)
         assert reg.get("bank_statement", "enterprise") is p2
 
+    @requires_enterprise
     def test_list_by_edition_enterprise(self):
         reg = PluginRegistry()
         enterprise_plugins = reg.list_by_edition("enterprise")

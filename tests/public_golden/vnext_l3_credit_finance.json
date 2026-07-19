@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "description": "Design 19 G4 — L3 full-page fixture credit account field golden (账户2)",
+  "min_credit_accounts": 3,
+  "required_anchors": ["账户2", "账户3", "账户4"],
+  "accounts_by_anchor_substring": {
+    "账户2": {
+      "management_institution": "重庆市蚂蚁商诚信息技术有限公司",
+      "open_date": "2018.08.31",
+      "currency": "人民币",
+      "due_date": "2019.06.21",
+      "loan_amount": "72000",
+      "account_status": "结清",
+      "close_date": "2019.06.21"
+    }
+  },
+  "repayment_records_sample": [
+    {"year": 2021, "month": 1, "status": "N", "overdue_amount": "0"},
+    {"year": 2021, "month": 2, "status": "C", "overdue_amount": "0"}
+  ]
+}

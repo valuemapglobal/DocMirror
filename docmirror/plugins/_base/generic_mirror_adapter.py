@@ -56,12 +56,52 @@ _CHAPTER_LABEL_RE = re.compile(r"^第.{1,20}[章节条编款项]$")
 _PLACEHOLDER_HEADER_RE = re.compile(r"^(?:col(?:umn)?|字段|列)[_\s-]*\d+$", re.IGNORECASE)
 
 _TEXT_KV_STRONG_SUFFIXES = (
-    "名称", "姓名", "代表人", "负责人", "联系人", "代码", "号码", "编号", "单号",
-    "户号", "证号", "识别号", "单元号", "地址", "范围", "日期", "时间", "期间",
-    "金额", "余额", "币种", "单位", "比例",
-    "税率", "类型", "状态", "意见", "备注", "说明", "标题", "主题", "机构", "部门",
-    "账户", "账号", "电话", "邮箱", "用途", "事由", "期限", "资本",
-    "网址", "邮编", "邮政编码", "文号", "序号",
+    "名称",
+    "姓名",
+    "代表人",
+    "负责人",
+    "联系人",
+    "代码",
+    "号码",
+    "编号",
+    "单号",
+    "户号",
+    "证号",
+    "识别号",
+    "单元号",
+    "地址",
+    "范围",
+    "日期",
+    "时间",
+    "期间",
+    "金额",
+    "余额",
+    "币种",
+    "单位",
+    "比例",
+    "税率",
+    "类型",
+    "状态",
+    "意见",
+    "备注",
+    "说明",
+    "标题",
+    "主题",
+    "机构",
+    "部门",
+    "账户",
+    "账号",
+    "电话",
+    "邮箱",
+    "用途",
+    "事由",
+    "期限",
+    "资本",
+    "网址",
+    "邮编",
+    "邮政编码",
+    "文号",
+    "序号",
 )
 _TEXT_KV_CLAUSE_KEYS = {"为", "是", "有", "其中", "加", "减", "如下", "分别", "除"}
 _TEXT_KV_CLAUSE_ENDINGS = ("进行处理", "予以确认", "确认为", "包括", "如下")
@@ -70,18 +110,25 @@ _SECTION_HEADING_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^[（(][一二三四五六七八九十百\d]{1,4}[）)]\s*\S.{0,50}$"), "h2"),
     (re.compile(r"^\d{1,2}[、.．]\s*[^\d\s].{0,50}$"), "h2"),
 )
-_SECTION_MARKER_ONLY_RE = re.compile(
-    r"^(?:[一二三四五六七八九十百]{1,4}|\d{1,2})[、.．]$"
-)
+_SECTION_MARKER_ONLY_RE = re.compile(r"^(?:[一二三四五六七八九十百]{1,4}|\d{1,2})[、.．]$")
 _TABLE_SECTION_METRIC_ENDINGS = (
-    "余额", "金额", "账面价值", "账面原值", "累计折旧", "累计摊销", "减值准备",
-    "增加", "减少", "计提", "处置", "合计", "其他",
+    "余额",
+    "金额",
+    "账面价值",
+    "账面原值",
+    "累计折旧",
+    "累计摊销",
+    "减值准备",
+    "增加",
+    "减少",
+    "计提",
+    "处置",
+    "合计",
+    "其他",
 )
 _OCR_LONG_VALUE_SUFFIXES = ("经营范围", "业务范围", "经营内容", "备注", "说明")
 _PERSON_FIELD_SUFFIXES = ("姓名", "代表人", "负责人", "联系人")
-_AUDIT_REPORT_NUMBER_RE = re.compile(
-    r"(?P<number>[\u3400-\u9fff]{1,12}字[（(]\d{4}[）)]第?[0-9A-Za-z-]{4,32}号)"
-)
+_AUDIT_REPORT_NUMBER_RE = re.compile(r"(?P<number>[\u3400-\u9fff]{1,12}字[（(]\d{4}[）)]第?[0-9A-Za-z-]{4,32}号)")
 
 _CURRENCY_SYMBOLS = {"¥": "CNY", "$": "USD", "€": "EUR", "£": "GBP", "￥": "CNY"}
 
@@ -221,17 +268,56 @@ _HEADER_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "identifier",
         (
-            "编号", "单号", "序号", "代码", "流水号", "订单号", "合同号", "户号", "证号",
-            "识别号", "单元号", "invoice no", "code", "number", "no",
+            "编号",
+            "单号",
+            "序号",
+            "代码",
+            "流水号",
+            "订单号",
+            "合同号",
+            "户号",
+            "证号",
+            "识别号",
+            "单元号",
+            "invoice no",
+            "code",
+            "number",
+            "no",
         ),
     ),
     (
         "amount",
         (
-            "交易金额", "金额", "合计", "总额", "数额", "余额", "价格", "单价", "税额",
-            "保费", "保额", "赔款", "工资", "薪资", "薪酬", "费用", "利息", "本金", "租金",
-            "收入", "支出", "成本", "利润", "税款", "市值", "净值", "amount", "total",
-            "price", "balance",
+            "交易金额",
+            "金额",
+            "合计",
+            "总额",
+            "数额",
+            "余额",
+            "价格",
+            "单价",
+            "税额",
+            "保费",
+            "保额",
+            "赔款",
+            "工资",
+            "薪资",
+            "薪酬",
+            "费用",
+            "利息",
+            "本金",
+            "租金",
+            "收入",
+            "支出",
+            "成本",
+            "利润",
+            "税款",
+            "市值",
+            "净值",
+            "amount",
+            "total",
+            "price",
+            "balance",
         ),
     ),
     ("account", ("银行账号", "银行卡号", "账户", "账号", "卡号", "account")),
@@ -453,11 +539,7 @@ def _infer_table_column_types(
     """Infer columns per source table while keeping the public aggregate unchanged."""
     result: dict[str, dict[str, dict[str, Any]]] = {}
     for table_index, (table, _source_pages, _table_kind) in enumerate(table_views):
-        table_id = str(
-            getattr(table, "logical_id", "")
-            or getattr(table, "table_id", "")
-            or f"table_{table_index}"
-        )
+        table_id = str(getattr(table, "logical_id", "") or getattr(table, "table_id", "") or f"table_{table_index}")
         headers, entries, _header_repaired = _project_table_rows(table)
         values: dict[str, list[str]] = {header: [] for header in headers}
         for _row_index, _row, cells in entries:
@@ -598,30 +680,17 @@ def _infer_scanned_table_headers(table: Any, rows: list[Any], column_count: int)
     metadata = getattr(table, "metadata", None) or {}
     source = str(metadata.get("source") or "")
     layer = str(getattr(table, "extraction_layer", "") or metadata.get("extraction_layer") or "")
-    first_labels = [
-        _clean_label(value)
-        for value in (_row_cell_texts(rows[0]) if rows else [])
-        if _clean_label(value)
-    ]
-    semantic_header_count = sum(
-        bool(_semantic_table_header_label(value))
-        for value in first_labels
-    )
+    first_labels = [_clean_label(value) for value in (_row_cell_texts(rows[0]) if rows else []) if _clean_label(value)]
+    semantic_header_count = sum(bool(_semantic_table_header_label(value)) for value in first_labels)
     second_semantic_header_count = sum(
-        bool(_semantic_table_header_label(value))
-        for value in (_row_cell_texts(rows[1]) if len(rows) > 1 else [])
+        bool(_semantic_table_header_label(value)) for value in (_row_cell_texts(rows[1]) if len(rows) > 1 else [])
     )
     sparse_parent_then_headers = bool(
         semantic_header_count == 1
-        and any(
-            re.search(r"余额|金额|本期|上期|本年|上年|期初|期末|年初|年末", value)
-            for value in first_labels
-        )
+        and any(re.search(r"余额|金额|本期|上期|本年|上年|期初|期末|年初|年末", value) for value in first_labels)
         and second_semantic_header_count >= 2
     )
-    scanned_source = (
-        source == "scanned_bordered_table_reconstructor" or layer == "scanned_image_line_grid"
-    )
+    scanned_source = source == "scanned_bordered_table_reconstructor" or layer == "scanned_image_line_grid"
     # Logical-table assembly does not retain the physical OCR source metadata.
     # In that case require at least two explicit header labels before promotion.
     if not scanned_source and semantic_header_count < 2 and not sparse_parent_then_headers:
@@ -678,9 +747,7 @@ def _infer_scanned_table_headers(table: Any, rows: list[Any], column_count: int)
 
     if len(header_rows) >= 2:
         parent_row, child_row = header_rows[0], header_rows[1]
-        child_columns = [
-            index for index, value in enumerate(child_row) if value and value != "项目"
-        ]
+        child_columns = [index for index, value in enumerate(child_row) if value and value != "项目"]
         for parent_column, parent in enumerate(parent_row):
             if (
                 parent
@@ -701,8 +768,7 @@ def _infer_scanned_table_headers(table: Any, rows: list[Any], column_count: int)
     headers = ["/".join(values) for values in parts]
     covered = sum(bool(header) for header in headers)
     semantic = sum(
-        bool(re.search(r"[A-Za-z\u3400-\u9fff]", header))
-        and _normalize_amount_value(header) is None
+        bool(re.search(r"[A-Za-z\u3400-\u9fff]", header)) and _normalize_amount_value(header) is None
         for header in headers
     )
     unique = len({header for header in headers if header})
@@ -711,9 +777,7 @@ def _infer_scanned_table_headers(table: Any, rows: list[Any], column_count: int)
     return headers, len(header_rows)
 
 
-def _infer_first_label_header(
-    headers: list[str], entries: list[tuple[int, Any, list[str]]]
-) -> list[str]:
+def _infer_first_label_header(headers: list[str], entries: list[tuple[int, Any, list[str]]]) -> list[str]:
     """Replace only an evidence-backed first placeholder with ``项目``.
 
     Financial and operational tables often lose the top-left label while the
@@ -722,17 +786,13 @@ def _infer_first_label_header(
     """
     if not headers or not _PLACEHOLDER_HEADER_RE.fullmatch(_clean_label(headers[0])):
         return headers
-    first_values = [
-        _clean_label(cells[0])
-        for _row_index, _row, cells in entries
-        if cells and _clean_label(cells[0])
-    ]
+    first_values = [_clean_label(cells[0]) for _row_index, _row, cells in entries if cells and _clean_label(cells[0])]
     if len(first_values) < 2:
         return headers
     label_values = [
-        value for value in first_values
-        if _normalize_amount_value(value) is None
-        and bool(re.search(r"[A-Za-z\u3400-\u9fff]", value))
+        value
+        for value in first_values
+        if _normalize_amount_value(value) is None and bool(re.search(r"[A-Za-z\u3400-\u9fff]", value))
     ]
     if len(label_values) / len(first_values) < 0.67:
         return headers
@@ -768,12 +828,11 @@ def _trim_trailing_statement_noise(
         any(marker in header for marker in ("余额", "金额", "发生额")) for header in headers
     ):
         return entries
-    total_re = re.compile(
-        r"^(?:资产总计|负债和所有者权益(?:或股东权益)?总计|期末现金及现金等价物余额)$"
-    )
+    total_re = re.compile(r"^(?:资产总计|负债和所有者权益(?:或股东权益)?总计|期末现金及现金等价物余额)$")
     total_index = next(
         (
-            index for index in range(len(entries) - 1, -1, -1)
+            index
+            for index in range(len(entries) - 1, -1, -1)
             if entries[index][2] and total_re.fullmatch(_clean_label(entries[index][2][0]))
         ),
         None,
@@ -910,9 +969,9 @@ def _looks_like_scalar_text_kv(key: str, value: str) -> bool:
     if re.match(r"^[（(]?\d+[）)、.]", key):
         return False
     strong_label = bool(_generic_header_hint(key)) or key.endswith(_TEXT_KV_STRONG_SUFFIXES)
-    list_like_value = bool(
-        re.match(r"^(?:[（(]?\d{1,3}[）)]|\d{1,3}[、．]|\d{1,3}\.(?!\d))\s*\S", value)
-    ) or ";" in value
+    list_like_value = (
+        bool(re.match(r"^(?:[（(]?\d{1,3}[）)]|\d{1,3}[、．]|\d{1,3}\.(?!\d))\s*\S", value)) or ";" in value
+    )
     if list_like_value and not strong_label:
         return False
     return True
@@ -989,9 +1048,8 @@ def _extend_ocr_long_fields(fields: dict[str, Any], parse_result: Any) -> dict[s
                     aligned = float(following_bbox[0]) <= float(current_bbox[0]) + 6.0
                     if not -2.0 <= vertical_gap <= 12.0 or not aligned:
                         break
-                    if (
-                        re.match(r"^[^:：]{2,20}[:：]", following_content)
-                        or any(pattern.fullmatch(following_content) for pattern, _level in _SECTION_HEADING_PATTERNS)
+                    if re.match(r"^[^:：]{2,20}[:：]", following_content) or any(
+                        pattern.fullmatch(following_content) for pattern, _level in _SECTION_HEADING_PATTERNS
                     ):
                         break
                     extended += following_content
@@ -1076,8 +1134,7 @@ def _recover_repeated_text_records(
     """
     tokens = [line.strip() for line in (full_text or "").splitlines() if line.strip()]
     date_indexes = [
-        index for index, token in enumerate(tokens)
-        if _is_valid_date_value(token) or _is_valid_datetime_value(token)
+        index for index, token in enumerate(tokens) if _is_valid_date_value(token) or _is_valid_datetime_value(token)
     ]
     if len(date_indexes) < 3:
         return [], {}, None
@@ -1172,10 +1229,7 @@ def _audit_appendix_boundary(parse_result: Any) -> int | None:
     """Find the signed-report terminus before rotated credential appendices."""
     for page_index, page in enumerate(getattr(parse_result, "pages", []) or [], start=1):
         page_number = int(getattr(page, "page_number", 0) or page_index)
-        page_text = " ".join(
-            _nfkc(getattr(text, "content", ""))
-            for text in getattr(page, "texts", []) or []
-        )
+        page_text = " ".join(_nfkc(getattr(text, "content", "")) for text in getattr(page, "texts", []) or [])
         if re.search(r"本页无正文.{0,40}(?:签字|签章|盖章)页", page_text):
             return page_number
     return None
@@ -1219,9 +1273,13 @@ def _collect_field_metadata(
                 key = _clean_label(match.group(1))
                 value = _clean_text_kv_value(match.group(2))
                 field_value = _nfkc(fields.get(key))
-                if key not in wanted or key in metadata or not (
-                    field_value == value
-                    or (key.endswith(_OCR_LONG_VALUE_SUFFIXES) and field_value.startswith(value))
+                if (
+                    key not in wanted
+                    or key in metadata
+                    or not (
+                        field_value == value
+                        or (key.endswith(_OCR_LONG_VALUE_SUFFIXES) and field_value.startswith(value))
+                    )
                 ):
                     continue
                 item = {
@@ -1268,9 +1326,21 @@ _IDENTITY_KEY_MAP: list[tuple[str, list[str]]] = [
     (
         "id_number",
         [
-            "身份证", "证件号", "ID", "id_number", "subject_id", "证件号码",
-            "统一社会信用代码", "信用代码", "税号", "纳税人识别号", "营业执照号",
-            "护照号码", "护照号", "驾驶证号", "社会保障号码",
+            "身份证",
+            "证件号",
+            "ID",
+            "id_number",
+            "subject_id",
+            "证件号码",
+            "统一社会信用代码",
+            "信用代码",
+            "税号",
+            "纳税人识别号",
+            "营业执照号",
+            "护照号码",
+            "护照号",
+            "驾驶证号",
+            "社会保障号码",
         ],
     ),
     ("phone", ["电话", "手机", "phone", "Phone", "联系电话", "Tel", "移动电话", "mobile", "Mobile"]),
@@ -1498,11 +1568,7 @@ def _bbox_overlap_ratio(
 
 
 def _table_evidence_signature(table: Any) -> set[str]:
-    return {
-        str(evidence_id)
-        for evidence_id in getattr(table, "evidence_ids", []) or []
-        if evidence_id
-    } | {
+    return {str(evidence_id) for evidence_id in getattr(table, "evidence_ids", []) or [] if evidence_id} | {
         str(evidence_id)
         for row in getattr(table, "rows", []) or []
         for cell in getattr(row, "cells", []) or []
@@ -1540,16 +1606,14 @@ def _deduplicate_table_views(
                     else 0.0
                 )
                 geometry_duplicate = bool(
-                    _bbox_overlap_ratio(bboxes[index], bboxes[other_index]) >= 0.85
-                    and text_overlap >= 0.7
+                    _bbox_overlap_ratio(bboxes[index], bboxes[other_index]) >= 0.85 and text_overlap >= 0.7
                 )
                 other_rank = (len(other_signature), widths[other_index], other_index)
                 current_rank = (len(signature), widths[index], index)
-                richer = signature < other_signature or (
-                    (evidence_overlap >= 0.85 or geometry_duplicate) and other_rank > current_rank
-                ) or (
-                    signature == other_signature
-                    and (widths[other_index], other_index) > (widths[index], index)
+                richer = (
+                    signature < other_signature
+                    or ((evidence_overlap >= 0.85 or geometry_duplicate) and other_rank > current_rank)
+                    or (signature == other_signature and (widths[other_index], other_index) > (widths[index], index))
                 )
                 if richer and (
                     signature <= other_signature
@@ -1591,7 +1655,9 @@ def _select_generic_tables(parse_result: Any) -> list[tuple[Any, list[int], str]
                 for prov in (getattr(table, "provenance", []) or [])
                 if getattr(prov, "source_table_id", "")
             ]
-        source_views = [physical_by_id[table_id] for table_id in dict.fromkeys(source_ids) if table_id in physical_by_id]
+        source_views = [
+            physical_by_id[table_id] for table_id in dict.fromkeys(source_ids) if table_id in physical_by_id
+        ]
         if not source_views and source_pages:
             source_views = [view for view in physical if view[1][0] in source_pages]
 
@@ -1603,9 +1669,7 @@ def _select_generic_tables(parse_result: Any) -> list[tuple[Any, list[int], str]
         ordered_pages = sorted(dict.fromkeys(source_pages))
         contiguous = all(right - left == 1 for left, right in zip(ordered_pages, ordered_pages[1:]))
         confidence = float(getattr(table, "merge_confidence", 1.0) or 0.0)
-        unsafe_merge = len(ordered_pages) > 1 and (
-            confidence < 0.75 or not contiguous or len(signatures) > 1
-        )
+        unsafe_merge = len(ordered_pages) > 1 and (confidence < 0.75 or not contiguous or len(signatures) > 1)
         if unsafe_merge and source_views:
             for view in source_views:
                 marker = id(view[0])
@@ -1670,9 +1734,7 @@ def _collect_table_descriptors(
     for index, (table, source_pages, table_kind) in enumerate(tables):
         headers, entries, header_repaired = _project_table_rows(table)
         descriptor = {
-            "table_id": str(
-                getattr(table, "logical_id", "") or getattr(table, "table_id", "") or f"table_{index}"
-            ),
+            "table_id": str(getattr(table, "logical_id", "") or getattr(table, "table_id", "") or f"table_{index}"),
             "kind": table_kind,
             "headers": headers,
             "row_count": len(entries),
@@ -1713,8 +1775,7 @@ def _collect_sections(parse_result: Any, *, document_type: str = "") -> list[dic
             or f"section_{index}",
             "title": title,
             "page_start": int(
-                (section.get("page_start", 1) if isinstance(section, dict) else getattr(section, "page_start", 1))
-                or 1
+                (section.get("page_start", 1) if isinstance(section, dict) else getattr(section, "page_start", 1)) or 1
             ),
         }
         if explicit_level or inferred_level:
@@ -1756,9 +1817,7 @@ def _collect_sections(parse_result: Any, *, document_type: str = "") -> list[dic
             following_content = _clean_label(getattr(following, "content", ""))
             left_bbox = getattr(text, "bbox", None)
             right_bbox = getattr(following, "bbox", None)
-            same_line = bool(
-                left_bbox and right_bbox and abs(float(left_bbox[1]) - float(right_bbox[1])) <= 3.0
-            )
+            same_line = bool(left_bbox and right_bbox and abs(float(left_bbox[1]) - float(right_bbox[1])) <= 3.0)
             candidate = f"{marker}{following_content}"
             if (
                 same_line
@@ -1781,9 +1840,7 @@ def _collect_sections(parse_result: Any, *, document_type: str = "") -> list[dic
                 following_content = _clean_label(getattr(following, "content", ""))
                 left_bbox = getattr(text, "bbox", None)
                 right_bbox = getattr(following, "bbox", None)
-                same_line = bool(
-                    left_bbox and right_bbox and abs(float(left_bbox[1]) - float(right_bbox[1])) <= 3.0
-                )
+                same_line = bool(left_bbox and right_bbox and abs(float(left_bbox[1]) - float(right_bbox[1])) <= 3.0)
                 if same_line and following_content and len(following_content) <= 48:
                     lines = [f"{marker}{following_content}"]
                     joined_marker = True
@@ -1799,9 +1856,7 @@ def _collect_sections(parse_result: Any, *, document_type: str = "") -> list[dic
                 marker_bbox = getattr(text, "bbox", None)
                 previous_bbox = getattr(previous, "bbox", None)
                 same_line = bool(
-                    marker_bbox
-                    and previous_bbox
-                    and abs(float(marker_bbox[1]) - float(previous_bbox[1])) <= 3.0
+                    marker_bbox and previous_bbox and abs(float(marker_bbox[1]) - float(previous_bbox[1])) <= 3.0
                 )
                 if same_line and previous_content and len(previous_content) <= 48:
                     lines = [f"{marker}{previous_content}"]
@@ -1860,8 +1915,7 @@ def _collect_sections(parse_result: Any, *, document_type: str = "") -> list[dic
         for table in getattr(page, "tables", []) or []:
             for row in getattr(table, "rows", []) or []:
                 nonempty_cells = [
-                    cell for cell in (getattr(row, "cells", []) or [])
-                    if _clean_label(getattr(cell, "text", cell))
+                    cell for cell in (getattr(row, "cells", []) or []) if _clean_label(getattr(cell, "text", cell))
                 ]
                 candidate_bbox: list[float] | None = None
                 if len(nonempty_cells) == 1:
@@ -1877,9 +1931,7 @@ def _collect_sections(parse_result: Any, *, document_type: str = "") -> list[dic
                     marker_bbox = getattr(marker_cell, "bbox", None)
                     title_bbox = getattr(title_cell, "bbox", None)
                     same_line = bool(
-                        marker_bbox
-                        and title_bbox
-                        and abs(float(marker_bbox[1]) - float(title_bbox[1])) <= 3.0
+                        marker_bbox and title_bbox and abs(float(marker_bbox[1]) - float(title_bbox[1])) <= 3.0
                     )
                     if not _SECTION_MARKER_ONLY_RE.fullmatch(marker) or not same_line or len(following) > 48:
                         continue
@@ -1961,9 +2013,7 @@ def _collect_sections(parse_result: Any, *, document_type: str = "") -> list[dic
                 and re.search(r"公司基本情况|公司概况|企业基本情况|财务报表.*编制基础", title)
             )
             reset_anchor = bool(
-                audit_notes_anchor
-                and last_chinese_heading >= 3
-                and page_start - last_chinese_page >= 3
+                audit_notes_anchor and last_chinese_heading >= 3 and page_start - last_chinese_page >= 3
             )
             if has_audit_notes_anchor and page_start < audit_notes_start_page:
                 if not re.search(
@@ -1983,9 +2033,7 @@ def _collect_sections(parse_result: Any, *, document_type: str = "") -> list[dic
                 last_chinese_heading = chinese_number
                 last_chinese_page = page_start
             last_numeric_heading = 0
-            strict_numeric_scope = bool(
-                re.search(r"(?:合并|母公司)?财务报表(?:主要)?项目注释", title)
-            )
+            strict_numeric_scope = bool(re.search(r"(?:合并|母公司)?财务报表(?:主要)?项目注释", title))
         elif numeric_match:
             if has_audit_notes_anchor and int(item.get("page_start") or 1) < audit_notes_start_page:
                 continue
@@ -2085,8 +2133,13 @@ def _collect_page_currency_context(parse_result: Any) -> dict[int, str]:
 
 
 def _generic_precision_warnings(
-    *, fields: dict[str, Any], field_metadata: dict[str, Any], field_schema: dict[str, Any],
-    records: list[dict[str, Any]], columns: dict[str, dict[str, Any]], tables: list[dict[str, Any]],
+    *,
+    fields: dict[str, Any],
+    field_metadata: dict[str, Any],
+    field_schema: dict[str, Any],
+    records: list[dict[str, Any]],
+    columns: dict[str, dict[str, Any]],
+    tables: list[dict[str, Any]],
 ) -> list[str]:
     """Return conservative review signals without changing extracted facts."""
     warnings: list[str] = []
@@ -2095,15 +2148,14 @@ def _generic_precision_warnings(
         if coverage < 0.8:
             warnings.append(f"precision:generic_low_source_coverage:{coverage:.4f}")
         text_count = sum(
-            isinstance(item, dict) and item.get("source") == "full_text_line"
+            isinstance(item, dict)
+            and item.get("source") == "full_text_line"
             and float(item.get("confidence", 0.0) or 0.0) < 0.6
             for item in field_metadata.values()
         )
         if text_count:
             warnings.append(f"precision:generic_low_confidence_text_kv:count={text_count}")
-    repaired_table_ids = [
-        str(table.get("table_id") or "unknown") for table in tables if table.get("header_repaired")
-    ]
+    repaired_table_ids = [str(table.get("table_id") or "unknown") for table in tables if table.get("header_repaired")]
     if len(repaired_table_ids) <= 5:
         warnings.extend(f"precision:generic_header_repaired:{table_id}" for table_id in repaired_table_ids)
     elif repaired_table_ids:
@@ -2116,7 +2168,8 @@ def _generic_precision_warnings(
         pairs = [
             ((record.get("raw") or {}).get(key), (record.get("normalized") or {}).get(key))
             for record in records
-            if isinstance(record.get("raw"), dict) and (record.get("raw") or {}).get(key) not in (None, "")
+            if isinstance(record.get("raw"), dict)
+            and (record.get("raw") or {}).get(key) not in (None, "")
             and _looks_like_typed_candidate((record.get("raw") or {}).get(key), column_type)
         ]
         failures = [pair for pair in pairs if not isinstance(pair[1], dict)]
@@ -2144,10 +2197,7 @@ def _generic_precision_warnings(
         table_row_index = source.get("table_row_index")
         marker = f"{table_id}@row={table_row_index}" if table_row_index is not None else table_id
         suspicious_rows.append(marker)
-    warnings.extend(
-        f"precision:generic_row_alignment_suspect:{marker}"
-        for marker in dict.fromkeys(suspicious_rows)
-    )
+    warnings.extend(f"precision:generic_row_alignment_suspect:{marker}" for marker in dict.fromkeys(suspicious_rows))
     return list(dict.fromkeys(warnings))[:50]
 
 
@@ -2173,12 +2223,8 @@ def build_generic_community_output(
     filtered_ocr_field_count = max(0, len(raw_entity_fields) - len(fields))
     text_fields, text_field_metadata = _collect_text_key_value_facts(full_text)
     if ocr_document:
-        text_fields = {
-            key: value for key, value in text_fields.items() if _looks_like_ocr_field(key, value)
-        }
-        text_field_metadata = {
-            key: value for key, value in text_field_metadata.items() if key in text_fields
-        }
+        text_fields = {key: value for key, value in text_fields.items() if _looks_like_ocr_field(key, value)}
+        text_field_metadata = {key: value for key, value in text_field_metadata.items() if key in text_fields}
     if detected_type == "audit_report" and "审计报告文号" not in fields:
         recovered_number = _recover_audit_report_number(full_text)
         if recovered_number is not None:
@@ -2192,14 +2238,10 @@ def build_generic_community_output(
             accepted_text_metadata[key] = text_field_metadata[key]
     if ocr_document:
         fields = _deduplicate_similar_fields(fields)
-        accepted_text_metadata = {
-            key: value for key, value in accepted_text_metadata.items() if key in fields
-        }
+        accepted_text_metadata = {key: value for key, value in accepted_text_metadata.items() if key in fields}
         fields = _extend_ocr_long_fields(fields, parse_result)
     fields = _drop_redundant_generic_fields(fields)
-    accepted_text_metadata = {
-        key: value for key, value in accepted_text_metadata.items() if key in fields
-    }
+    accepted_text_metadata = {key: value for key, value in accepted_text_metadata.items() if key in fields}
     table_views = _select_generic_tables(parse_result)
     records = _collect_table_records(parse_result, table_views)
     recovered_records: list[dict[str, Any]] = []
@@ -2281,17 +2323,8 @@ def build_generic_community_output(
             and isinstance(record.get("source"), dict)
             and int((record.get("source") or {}).get("page") or 0) > 0
         ],
-        *[
-            int(page)
-            for table in table_descriptors
-            for page in table.get("source_pages", []) or []
-            if int(page) > 0
-        ],
-        *[
-            int(section.get("page_start") or 0)
-            for section in sections
-            if int(section.get("page_start") or 0) > 0
-        ],
+        *[int(page) for table in table_descriptors for page in table.get("source_pages", []) or [] if int(page) > 0],
+        *[int(section.get("page_start") or 0) for section in sections if int(section.get("page_start") or 0) > 0],
     ]
 
     summary = {"total_rows": len(records)}
@@ -2318,8 +2351,12 @@ def build_generic_community_output(
         warnings.append(f"precision:generic_page_reference_mismatch:{max(referenced_pages)}/{page_count}")
     warnings.extend(
         _generic_precision_warnings(
-            fields=fields, field_metadata=field_metadata, field_schema=field_schema,
-            records=records, columns=col_types, tables=table_descriptors,
+            fields=fields,
+            field_metadata=field_metadata,
+            field_schema=field_schema,
+            records=records,
+            columns=col_types,
+            tables=table_descriptors,
         )
     )
 

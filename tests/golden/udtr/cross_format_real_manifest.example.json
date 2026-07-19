@@ -1,0 +1,153 @@
+{
+  "manifest_version": "1.0",
+  "description": "Metadata-only UDTR real cross-format matrix. Private source files are not committed; run scripts/validate/run_udtr_cross_format_matrix.py to generate Mirror outputs when samples exist locally.",
+  "cases": [
+    {
+      "case_id": "real_word_docx_private",
+      "format": "word_docx",
+      "private_source": true,
+      "skip_if_missing": true,
+      "source_path": "../../../fixtures/private/udtr_cross_format/word/sample.docx",
+      "mirror_output": "../../../output/real_cross_format/word_docx/001_mirror.json",
+      "expectations": {
+        "canonical_shape": true,
+        "page_count": 1,
+        "required_gates": {
+          "gate:evidence_plane_built": "pass",
+          "gate:coordinate_transform_invertible": "pass"
+        },
+        "quality_events": {
+          "summary_matches_events": true,
+          "min_event_count": 1
+        },
+        "profile_summary": {
+          "min_page_count": 1,
+          "min_block_count": 1,
+          "min_quality_gate_count": 1,
+          "min_quality_event_count": 1
+        }
+      }
+    },
+    {
+      "case_id": "real_excel_xlsx_private",
+      "format": "excel_xlsx",
+      "private_source": true,
+      "skip_if_missing": true,
+      "source_path": "../../../fixtures/private/udtr_cross_format/excel/sample.xlsx",
+      "mirror_output": "../../../output/real_cross_format/excel_xlsx/001_mirror.json",
+      "expectations": {
+        "canonical_shape": true,
+        "page_count": 1,
+        "min_table_count": 1,
+        "required_gates": {
+          "gate:evidence_plane_built": "pass",
+          "gate:coordinate_transform_invertible": "pass"
+        },
+        "quality_events": {
+          "summary_matches_events": true,
+          "min_event_count": 1
+        },
+        "profile_summary": {
+          "min_page_count": 1,
+          "min_block_count": 1,
+          "min_quality_gate_count": 1,
+          "min_quality_event_count": 1
+        }
+      }
+    },
+    {
+      "case_id": "real_html_private",
+      "format": "html",
+      "private_source": true,
+      "skip_if_missing": true,
+      "source_path": "../../../fixtures/private/udtr_cross_format/html/sample.html",
+      "mirror_output": "../../../output/real_cross_format/html/001_mirror.json",
+      "expectations": {
+        "canonical_shape": true,
+        "page_count": 1,
+        "required_gates": {
+          "gate:evidence_plane_built": "pass",
+          "gate:coordinate_transform_invertible": "pass"
+        },
+        "quality_events": {
+          "summary_matches_events": true,
+          "min_event_count": 1
+        },
+        "profile_summary": {
+          "min_page_count": 1,
+          "min_block_count": 1,
+          "min_quality_gate_count": 1,
+          "min_quality_event_count": 1
+        }
+      }
+    },
+    {
+      "case_id": "real_email_eml_private",
+      "format": "email_eml",
+      "private_source": true,
+      "skip_if_missing": true,
+      "source_path": "../../../fixtures/private/udtr_cross_format/email/sample.eml",
+      "mirror_output": "../../../output/real_cross_format/email_eml/001_mirror.json",
+      "expectations": {
+        "canonical_shape": true,
+        "page_count": 1,
+        "required_gates": {
+          "gate:evidence_plane_built": "pass",
+          "gate:coordinate_transform_invertible": "pass"
+        },
+        "quality_events": {
+          "summary_matches_events": true,
+          "min_event_count": 1
+        },
+        "profile_summary": {
+          "min_page_count": 1,
+          "min_block_count": 1,
+          "min_quality_gate_count": 1,
+          "min_quality_event_count": 1
+        }
+      }
+    },
+    {
+      "case_id": "real_ofd_private",
+      "format": "ofd",
+      "private_source": true,
+      "skip_if_missing": true,
+      "source_path": "../../../fixtures/private/udtr_cross_format/ofd/sample.ofd",
+      "mirror_output": "../../../output/real_cross_format/ofd/001_mirror.json",
+      "expectations": {
+        "canonical_shape": true,
+        "page_count": 1,
+        "required_gates": {
+          "gate:evidence_plane_built": "pass",
+          "gate:coordinate_transform_invertible": "pass"
+        },
+        "quality_events": {
+          "summary_matches_events": true,
+          "min_event_count": 1
+        },
+        "profile_summary": {
+          "min_page_count": 1,
+          "min_block_count": 1,
+          "min_quality_gate_count": 1,
+          "min_quality_event_count": 1
+        }
+      }
+    }
+  ],
+  "parity_groups": [
+    {
+      "group_id": "real_cross_format_canonical_contract",
+      "case_ids": [
+        "real_word_docx_private",
+        "real_excel_xlsx_private",
+        "real_html_private",
+        "real_email_eml_private",
+        "real_ofd_private"
+      ],
+      "required_present_count": 0,
+      "compare": [
+        "canonical_shape"
+      ]
+    }
+  ]
+}

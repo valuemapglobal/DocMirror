@@ -63,18 +63,14 @@ def _community_review_summary(path: Path | None) -> dict[str, object] | None:
     if not isinstance(payload, dict):
         return None
     plugin = payload.get("plugin") if isinstance(payload.get("plugin"), dict) else {}
-    classification = (
-        payload.get("classification") if isinstance(payload.get("classification"), dict) else {}
-    )
+    classification = payload.get("classification") if isinstance(payload.get("classification"), dict) else {}
     quality = payload.get("quality") if isinstance(payload.get("quality"), dict) else {}
     status = payload.get("status") if isinstance(payload.get("status"), dict) else {}
     issues = quality.get("issues") if isinstance(quality.get("issues"), list) else []
     review_messages = [
         str(issue.get("message") or "")
         for issue in issues
-        if isinstance(issue, dict)
-        and issue.get("severity") in {"warning", "error"}
-        and issue.get("message")
+        if isinstance(issue, dict) and issue.get("severity") in {"warning", "error"} and issue.get("message")
     ][:3]
     return {
         "plugin": str(plugin.get("name") or "unknown"),

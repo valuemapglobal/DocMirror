@@ -40,7 +40,10 @@ def _is_private_fixture(path: Path) -> bool:
         rel = path.resolve().relative_to(REPO_ROOT.resolve())
     except ValueError:
         return False
-    return len(rel.parts) >= 2 and rel.parts[:2] == ("tests", "fixtures")
+    return len(rel.parts) >= 2 and rel.parts[:2] in {
+        ("tests", "fixtures"),
+        ("tests", "fixtures-private"),
+    }
 
 
 @pytest.fixture(scope="session")
@@ -69,8 +72,7 @@ def _run_and_assert(case: TQGCase, tqg_report_dir: Path | None = None) -> None:
     if case.optional_edition and report.metrics.get("edition_skipped"):
         pytest.skip(f"optional edition skipped: {report.metrics['edition_skipped']}")
     assert report.passed, (
-        f"case_id={report.case_id} track={report.track} failure_class={report.failure_class} "
-        f"failures={report.failures}"
+        f"case_id={report.case_id} track={report.track} failure_class={report.failure_class} failures={report.failures}"
     )
 
 

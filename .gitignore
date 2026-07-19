@@ -69,6 +69,7 @@ tests/golden/*
 !tests/golden/udtr/
 tests/golden/udtr/*
 !tests/golden/udtr/manifest.example.json
+!tests/golden/udtr/cross_format_real_manifest.example.json
 
 ## Internal design documents (not part of public OSS)
 docs/design/
@@ -78,6 +79,7 @@ docs/design/
 credentials/
 secrets/
 tests/fixtures-private/
+tests/public_fixtures/generated/
 .deepseek/
 
 ## Node.js

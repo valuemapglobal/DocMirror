@@ -58,6 +58,7 @@ cases:
   - id: wechat_logical_rows_full
     tier: regression
     fixture: fixtures/wechat_payment/synthetic_easy_standard.pdf
+    skip_if_fixture_missing: true
     pipeline: extract_only
     gate_profile: wechat_payment
     gates:
@@ -69,6 +70,7 @@ cases:
   - id: alipay_logical_rows
     tier: regression
     fixture: fixtures/alipay_payment/synthetic_easy_standard.pdf
+    skip_if_fixture_missing: true
     pipeline: extract_only
     gate_profile: alipay_payment
     gates:
@@ -79,6 +81,7 @@ cases:
   - id: wechat_first_pages_smoke
     tier: regression
     fixture: fixtures/wechat_payment/synthetic_easy_standard.pdf
+    skip_if_fixture_missing: true
     pipeline: extract_only
     options:
       max_pages: 5
@@ -89,6 +92,7 @@ cases:
   - id: bank_statement_three_page_merge
     tier: regression
     fixture: fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    skip_if_fixture_missing: true
     pipeline: extract_only
     gates:
       page_count: { equals: 3 }
@@ -125,6 +129,7 @@ cases:
   - id: business_license_no_table
     tier: regression
     fixture: fixtures/business_license/synthetic_medium_variant.pdf
+    skip_if_fixture_missing: true
     pipeline: extract_only
     gates:
       table_count: { max: 2 }
@@ -133,6 +138,7 @@ cases:
   - id: credit_report_section_mode
     tier: regression
     fixture: fixtures/synthetic/credit_report_section_smoke.pdf
+    skip_if_fixture_missing: true
     pipeline: extract_only
     gate_profile: credit_report
     gates:

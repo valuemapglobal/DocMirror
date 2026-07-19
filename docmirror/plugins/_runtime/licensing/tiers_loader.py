@@ -93,6 +93,7 @@ def _finance_registry_premium_features() -> set[str]:
     logger = logging.getLogger(__name__)
     try:
         import docmirror_finance.enable as finance_enable
+
         from docmirror.plugins._runtime import registry
     except ImportError:
         return set()

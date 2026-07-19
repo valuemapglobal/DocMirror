@@ -1,51 +1,45 @@
-# Nightly enterprise/finance PEC integration.
-# Installs local monorepo packages when present (docmirror_enterprise / docmirror_finance).
-name: nightly-enterprise
+# Private edition packages are not part of the public checkout. The entire job
+# is skipped unless the repository owner explicitly enables and provisions it.
+name: Nightly Private Editions
 
 on:
   schedule:
     - cron: "0 4 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+env:
+  PIP_CONSTRAINT: .github/constraints/ci.txt
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
 jobs:
   edition-pec:
+    name: Private enterprise and finance PEC
+    if: ${{ vars.DOCMIRROR_PRIVATE_EDITIONS_ENABLED == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      # Provision both private packages before enabling the repository variable.
+      - name: Verify private edition packages were provisioned
+        run: |
+          test -f docmirror_enterprise/pyproject.toml
+          test -f docmirror_finance/pyproject.toml
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Install docmirror
-        run: pip install -e ".[dev,pdf,ocr,table]"
-
-      - name: Install local enterprise monorepo (if present)
+      - name: Install DocMirror and private editions
         run: |
-          if [ -d docmirror_enterprise ] && [ -f docmirror_enterprise/pyproject.toml ]; then
-            pip install -e docmirror_enterprise
-          elif [ -d docmirror_enterprise ]; then
-            pip install -e docmirror_enterprise/ 2>/dev/null || pip install -e . 2>/dev/null || true
-          fi
-
-      - name: Install local finance monorepo (if present)
+          python -m pip install -e ".[dev,pdf,ocr,table]"
+          python -m pip install -e docmirror_enterprise
+          python -m pip install -e docmirror_finance
+      - name: Validate MEP and post-extract catalogs
+        run: python scripts/validate/validate_middleware_catalog.py
+      - name: Run private edition integration suites
         run: |
-          if [ -d docmirror_finance ]; then
-            pip install -e docmirror_finance || true
-          fi
-
-      - name: Validate MEP + post-extract catalogs
-        run: python3 scripts/validate/validate_middleware_catalog.py
-
-      - name: Enterprise PEC integration
-        run: |
-          python3 -c "import docmirror_enterprise" 2>/dev/null && \
-            pytest tests/integration/test_enterprise_pec.py -v --tb=short || \
-            echo "docmirror_enterprise not available — enterprise tests skipped"
-
-      - name: Finance PEC integration
-        run: |
-          python3 -c "import docmirror_finance" 2>/dev/null && \
-            pytest tests/integration/test_finance_pec.py -v --tb=short || \
-            echo "docmirror_finance not available — finance tests skipped"
+          python -m pytest \
+            tests/integration/test_enterprise_pec.py \
+            tests/integration/test_finance_pec.py \
+            -v --tb=short

@@ -1,0 +1,81 @@
+name: Nightly Private Golden
+
+on:
+  schedule:
+    - cron: "30 18 * * *"  # 02:30 CST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-private-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PIP_CONSTRAINT: .github/constraints/ci.txt
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  private-extract-and-edition:
+    name: Private extract, mirror, and edition goldens
+    if: ${{ vars.DOCMIRROR_PRIVATE_GOLDEN_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      # The repository owner must provision private fixtures here before enabling
+      # DOCMIRROR_PRIVATE_GOLDEN_ENABLED. Missing data after opt-in is a failure.
+      - name: Verify private fixtures were provisioned
+        run: |
+          test -f tests/fixtures/wechat_payment/synthetic_easy_standard.pdf
+          test -f tests/fixtures/business_license/synthetic_medium_variant.pdf
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package with private regression dependencies
+        run: python -m pip install -e ".[dev,pdf,ocr,langdetect]"
+      - name: Run private TQG extract regression
+        env:
+          DOCMIRROR_RUN_PRIVATE_FIXTURES: "1"
+          DOCMIRROR_MAX_PAGE_CONCURRENCY: "1"
+        run: |
+          python -m pytest tests/regression/test_tqg_extract.py -v --tb=short \
+            -m "tier_slow and not benchmark"
+      - name: Run private MEP and edition goldens
+        env:
+          DOCMIRROR_RUN_PRIVATE_FIXTURES: "1"
+        run: |
+          python -m pytest \
+            tests/integration/test_mep_golden.py \
+            tests/integration/test_edition_golden.py \
+            -v --tb=short
+
+  private-udtr-cross-format:
+    name: Private UDTR real cross-format matrix
+    if: ${{ vars.DOCMIRROR_PRIVATE_GOLDEN_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      # Provision the private files referenced by the manifest before this step.
+      - name: Verify private UDTR fixtures were provisioned
+        run: test -d fixtures/private/udtr_cross_format
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e ".[dev,pdf,office]"
+      - name: Run strict private cross-format matrix
+        run: |
+          python scripts/validate/run_udtr_cross_format_matrix.py \
+            tests/golden/udtr/cross_format_real_manifest.example.json \
+            --strict-private \
+            --summary-json reports/udtr_private_cross_format.json
+      - name: Upload private UDTR summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: udtr-private-cross-format
+          path: reports/udtr_private_cross_format.json
+          if-no-files-found: warn
