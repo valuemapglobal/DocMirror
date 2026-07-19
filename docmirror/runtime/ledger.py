@@ -16,6 +16,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from docmirror import __version__
 from docmirror.runtime.events import FallbackEvent, MetricEvent, ProgressEvent
 
 
@@ -248,7 +249,7 @@ def build_manifest_v2(
         },
         "observability": {
             "request_id": "",
-            "version": "1.0.0",
+            "version": __version__,
             "profile": "full",
             "entry": "unknown",
             "warnings": [],
@@ -284,7 +285,7 @@ def build_manifest_v2(
     manifest["request_id"] = request_id
     manifest["observability"] = {
         "request_id": request_id,
-        "version": "1.0.0",
+        "version": __version__,
         "profile": profile,
         "entry": entry,
         "warnings": [],

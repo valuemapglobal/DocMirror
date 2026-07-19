@@ -13,6 +13,8 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from docmirror import __version__
+
 
 def _new_request_id() -> str:
     return uuid.uuid4().hex[:12]
@@ -28,7 +30,7 @@ class ObservabilityContext:
     """
 
     request_id: str = field(default_factory=_new_request_id)
-    version: str = "1.0.0"
+    version: str = __version__
     profile: str | None = None  # compact | full | forensic | ga_full
     entry: str = "unknown"  # cli | sdk | rest | docker | agent
     warnings: list[str] = field(default_factory=list)
@@ -39,7 +41,7 @@ class ObservabilityContext:
 
 
 def build_observability_context(
-    version: str = "1.0.0",
+    version: str = __version__,
     profile: str | None = None,
     entry: str = "unknown",
 ) -> ObservabilityContext:

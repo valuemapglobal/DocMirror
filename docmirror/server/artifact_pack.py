@@ -19,6 +19,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from docmirror import __version__
 from docmirror.configs.output_profile import OutputProfile, default_profile
 from docmirror.runtime.serialization import dumps_json
 
@@ -391,7 +392,7 @@ def _build_quality_report_v3(
     observability = manifest.get("observability") or {}
     integration = {
         "request_id": manifest.get("request_id") or observability.get("request_id", ""),
-        "version": observability.get("version", "1.0.0"),
+        "version": observability.get("version", __version__),
         "profile": observability.get("profile") or manifest.get("output_profile", "full"),
         "entry": observability.get("entry", "unknown"),
     }

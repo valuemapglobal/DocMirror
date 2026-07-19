@@ -1,6 +1,6 @@
 # DocMirror 研发说明手册
 
-版本基线：DocMirror `1.0.0`
+当前发行候选：DocMirror `1.0.8`（兼容性基线：`1.0.0`）
 适用对象：后续接手 DocMirror 核心研发、插件研发、服务端/API、SDK、测试与发布维护的同事。
 编写日期：2026-06-30
 
@@ -14,9 +14,9 @@ DocMirror 是面向商业凭证的可信解析层，产品定位是 **Commercial
 - Prove：为关键字段、结构、事实和表格保留来源、页码、bbox、置信度、诊断和质量信息。
 - Trust：通过质量报告、证据包、可视化调试和 `needs_review` 等信号，帮助下游决定自动入库、人工复核或拒绝。
 
-1.0.0 的主要稳定基线包括：
+1.0.x 的主要稳定基线包括：
 
-- Python 包版本为 `1.0.0`，公共包名为 `docmirror`。
+- Python 包当前版本为 `1.0.8`，公共包名为 `docmirror`。
 - Python 支持 `>=3.10`，测试矩阵覆盖 Python 3.10 到 3.13。
 - 公共 OSS wheel 只打包 `docmirror` 主包；`docmirror_enterprise`、`docmirror_finance`、`tests`、`scripts`、`docs`、`sdks` 等不进入公共 wheel。
 - Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.7`。
