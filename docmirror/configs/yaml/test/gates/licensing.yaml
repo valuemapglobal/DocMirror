@@ -43,6 +43,8 @@ cases:
   - id: lic05_expired_degrades_enterprise
     tier: regression
     pipeline: licensing
+    editions: [enterprise]
+    optional_edition: true
     options:
       setup: expired
       domain: audit_report
@@ -65,6 +67,8 @@ cases:
   - id: lic07_expiring_soon_emits_warning
     tier: regression
     pipeline: licensing
+    editions: [enterprise]
+    optional_edition: true
     options:
       setup: expiring_soon
       domain: alipay_payment
@@ -77,6 +81,8 @@ cases:
   - id: lic08_entitled_enterprise_no_degrade_warning
     tier: regression
     pipeline: licensing
+    editions: [enterprise]
+    optional_edition: true
     options:
       setup: valid_premium
       domain: alipay_payment
