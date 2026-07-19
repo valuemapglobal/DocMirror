@@ -102,7 +102,7 @@ class BaseParser(ABC):
         if not pr.parser_info.parser_version:
             import docmirror as _dm
 
-            pr.parser_info.parser_version = getattr(_dm, "__version__", "0.4.0")
+            pr.parser_info.parser_version = getattr(_dm, "__version__", "unknown")
 
         # ── Middleware enrichment ──
         from docmirror.framework.di.container import get_orchestrator

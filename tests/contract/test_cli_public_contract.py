@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from click.testing import CliRunner
 
+from docmirror import __version__
 from docmirror.cli.main import main
 
 
@@ -20,7 +21,7 @@ def test_cli_help_is_light_and_positioned():
 def test_cli_version_command():
     result = CliRunner().invoke(main, ["version"])
     assert result.exit_code == 0, result.output
-    assert result.output.strip() == "1.0.0"
+    assert result.output.strip() == __version__
 
 
 def test_cli_doctor_command():

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] — Unreleased
+
+This Python distribution release consolidates the backward-compatible Mirror
+JSON updates through 1.0.7 and hardens every public release trust surface.
+
+### Added
+- Daily main-branch CI and a release gate requiring 14 complete UTC days with at least one successful main CI run per day and no completed failures.
+- Public, versioned JSON Schemas and CI-built source previews for the Go, Java, TypeScript, and MCP integrations.
+- GitHub release notes and isolated wheel installation checks that assert the installed runtime version.
+
+### Changed
+- The Python distribution, CLI, REST metadata, observability context, licensing client metadata, and release manifest now report version 1.0.8 from a consistent release source.
+- Nightly workflows report missing private samples as an explicit skip instead of a product failure.
+- Public documentation and package metadata use reachable GitHub Pages, repository, issue, changelog, and schema links; unavailable hosted API and unpublished registry SDK claims were removed.
+- The unpublished `docmirror-enterprise` dependency was removed from the public PyPI extras metadata; private editions remain outside the OSS wheel.
+- The PyPI publishing workflow now requires an exact `v1.0.8` identity on the current `main` commit and uses trusted publishing after the release gate passes.
+
+### Fixed
+- Release archive validation no longer hard-codes version 1.0.0 and now inspects the version declared by the release manifest.
+- Community projections include the precision, evidence, reconciliation, completeness, and readability fixes shipped in Mirror JSON 1.0.1 through 1.0.7.
+
+### Security
+- Public wheel validation excludes private packages, fixtures, environment files, build artifacts, internal reports, and private plugin state.
+- Release uploads use PyPI trusted publishing with a protected GitHub environment and short-lived OIDC credentials.
+
 ## [Mirror JSON 1.0.7] — 2026-07-19
 
 This is a backward-compatible Community precision and readability patch for

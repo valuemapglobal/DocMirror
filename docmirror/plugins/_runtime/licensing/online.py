@@ -32,6 +32,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from docmirror import __version__
+
 logger = logging.getLogger(__name__)
 
 
@@ -370,7 +372,7 @@ class LicenseManager:
                     "license_key": license_key,
                     "machine_id": self._get_machine_id(),
                     "platform": platform.system(),
-                    "version": "1.0.0",
+                    "version": __version__,
                 },
                 timeout=10,
             )

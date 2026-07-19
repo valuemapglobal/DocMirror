@@ -35,8 +35,6 @@ plugins:
       handlers:
         python:
           paths: [docmirror]
-          import:
-            - https://docs.python.org/3/objects.inv
           options:
             show_source: true
             heading_level: 3

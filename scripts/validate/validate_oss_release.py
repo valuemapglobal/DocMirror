@@ -98,8 +98,8 @@ def validate_extra_contract(manifest: dict[str, Any], pyproject: dict[str, Any])
         errors.append(f"docmirror[all] missing manifest-approved extras: {', '.join(sorted(missing))}")
 
     forbidden = manifest["install_contract"]["public_all_must_not_include"]
-    for extra_name in allowed | {"all"}:
-        for dep in optional.get(extra_name, []):
+    for extra_name, dependencies in optional.items():
+        for dep in dependencies:
             for token in forbidden:
                 if token in dep:
                     errors.append(f"public extra {extra_name!r} must not include private dependency {token}: {dep}")
@@ -151,14 +151,33 @@ def validate_built_archives(manifest: dict[str, Any]) -> list[str]:
     dist = REPO_ROOT / "dist"
     if not dist.exists():
         return errors
+    version = str(manifest["version"])
+    sdist_root = f"docmirror-{version}/"
     forbidden_paths = manifest.get("wheel_forbidden_paths", [])
-    for archive in sorted(dist.glob("docmirror-1.0.0*")):
+    for archive in sorted(dist.glob(f"docmirror-{version}*")):
         names = _archive_names(archive)
         for name in names:
-            normalized = name.split("/", 1)[1] if name.startswith("docmirror-1.0.0/") else name
+            normalized = name.split("/", 1)[1] if name.startswith(sdist_root) else name
             for prefix in forbidden_paths:
                 if normalized == prefix.rstrip("/") or normalized.startswith(prefix):
                     errors.append(f"{archive.name}: contains forbidden release path {normalized}")
+    return errors
+
+
+def validate_release_notes(manifest: dict[str, Any]) -> list[str]:
+    version = str(manifest["version"])
+    changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    notes_path = REPO_ROOT / ".github" / "releases" / f"v{version}.md"
+    errors: list[str] = []
+    if not re.search(rf"^## \[{re.escape(version)}\](?:\s|—|-)", changelog, re.MULTILINE):
+        errors.append(f"CHANGELOG.md: missing release section for {version}")
+    if not notes_path.is_file():
+        errors.append(f"missing GitHub release notes: {notes_path.relative_to(REPO_ROOT)}")
+        return errors
+    notes = notes_path.read_text(encoding="utf-8")
+    for required in (f"DocMirror {version}", f"pip install docmirror=={version}"):
+        if required not in notes:
+            errors.append(f"{notes_path.relative_to(REPO_ROOT)}: missing {required!r}")
     return errors
 
 
@@ -185,6 +204,7 @@ def main() -> int:
         lambda: validate_required_files(manifest),
         lambda: validate_public_positioning(manifest),
         lambda: validate_built_archives(manifest),
+        lambda: validate_release_notes(manifest),
         validate_import_purity,
     ):
         errors.extend(check())

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-__version__ = "1.0.0"
+__version__ = "1.0.8"
 __author__ = "Adam Lin <adamlin@valuemapglobal.com>"
 __copyright__ = "Copyright 2026, ValueMap Global"
 __license__ = "Apache 2.0"

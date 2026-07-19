@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -30,6 +31,14 @@ CHECKS = {
 }
 
 
+def _expected_version() -> str:
+    init_path = REPO_ROOT / "docmirror" / "__init__.py"
+    match = re.search(r'^__version__\s*=\s*"([^"]+)"', init_path.read_text(encoding="utf-8"), re.MULTILINE)
+    if not match:
+        raise RuntimeError("docmirror/__init__.py does not define literal __version__")
+    return match.group(1)
+
+
 def _run_check(name: str, code: str) -> list[str]:
     probe = f"import json, sys\n{code}\nprint('__DOCMIRROR_MODULES__=' + json.dumps(sorted(sys.modules)))\n"
     result = subprocess.run(
@@ -49,7 +58,7 @@ def _run_check(name: str, code: str) -> list[str]:
     visible_lines = [line for line in stdout_lines if not line.startswith("__DOCMIRROR_MODULES__=")]
     if result.stderr.strip():
         errors.append(f"{name}: stderr is not quiet: {result.stderr.strip()}")
-    if name == "import_docmirror" and visible_lines != ["1.0.0"]:
+    if name == "import_docmirror" and visible_lines != [_expected_version()]:
         errors.append(f"{name}: unexpected stdout: {visible_lines!r}")
     if name == "import_cli" and visible_lines != ["cli-ok"]:
         errors.append(f"{name}: unexpected stdout: {visible_lines!r}")
