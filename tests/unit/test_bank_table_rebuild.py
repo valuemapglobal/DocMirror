@@ -4,8 +4,13 @@
 
 from __future__ import annotations
 
-from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult
+import pytest
+
+pytest.importorskip("docmirror_enterprise", reason="enterprise package is not available in OSS CI")
+
 from docmirror_enterprise.plugins.bank_statement.table_rebuild import rebuild_bank_table_from_transactions
+
+from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult
 
 
 def test_rebuild_bank_table_from_transactions():
