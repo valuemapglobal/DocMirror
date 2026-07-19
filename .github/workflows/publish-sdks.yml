@@ -1,18 +1,28 @@
-name: Publish SDK Clients
+name: Build SDK Previews
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PIP_CONSTRAINT: .github/constraints/ci.txt
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 jobs:
   generate-openapi:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install dependencies
-        run: |
-          pip install -e ".[server]"
+        run: python -m pip install -e ".[server]"
 
       - name: Extract OpenAPI spec
         run: |
@@ -25,7 +35,9 @@ jobs:
           path: docs/openapi/openapi.json
 
   publish-dmir-schema:
+    name: Build DMIR schema preview
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -44,8 +56,10 @@ jobs:
 
 
   generate-typescript:
+    name: Build TypeScript SDK preview
     needs: generate-openapi
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -56,21 +70,22 @@ jobs:
       - name: Generate TypeScript SDK
         run: |
           cd sdks/typescript
-          npm install
-          npx openapi-typescript ../../docs/openapi/openapi.json -o src/client.ts
+          npm ci
+          npm run generate
           npm run build
 
-      - name: Publish to npm
-        if: github.event_name == 'release' && github.event.action == 'published'
-        run: |
-          cd sdks/typescript
-          npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Upload TypeScript preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-sdk-preview
+          path: sdks/typescript/dist/
+          if-no-files-found: error
 
   generate-go:
+    name: Build Go SDK preview
     needs: generate-openapi
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -85,14 +100,18 @@ jobs:
           oapi-codegen -package docmirror -generate client,types \
             docs/openapi/openapi.json > sdks/go/client.go
 
-      - name: Tag Go module
-        run: |
-          git tag sdks/go/v0.1.0
-          git push origin sdks/go/v0.1.0
+      - name: Upload Go preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-sdk-preview
+          path: sdks/go/client.go
+          if-no-files-found: error
 
   generate-java:
+    name: Build Java SDK preview
     needs: generate-openapi
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -106,3 +125,10 @@ jobs:
             -i /local/docs/openapi/openapi.json \
             -g java \
             -o /local/sdks/java/
+
+      - name: Upload Java preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-sdk-preview
+          path: sdks/java/
+          if-no-files-found: error
