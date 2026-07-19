@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from docmirror.configs.paths import LICENSE_FILE_SCHEMA, TIERS_YAML
 from docmirror.plugins._runtime.licensing.contract import premium_feature
 from docmirror.plugins._runtime.licensing.tiers_loader import (
@@ -40,11 +42,17 @@ def test_enterprise_tier_includes_alipay_premium():
     assert "alipay_payment_premium" in features
 
 
-def test_finance_tier_covers_finance_registry():
+def test_finance_tier_includes_public_entitlements():
     finance = set(tier_features("finance"))
     assert "alipay_payment_premium" in finance
     assert "batch_processing" in finance
-    # When docmirror-finance is installed, SSOT expands to all finance domains
+    assert len(finance) >= 11
+
+
+def test_finance_tier_covers_installed_finance_registry():
+    pytest.importorskip("docmirror_finance", reason="finance package is not available in OSS CI")
+
+    finance = set(tier_features("finance"))
     assert len(finance) >= 120
 
 
