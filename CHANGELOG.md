@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.8] — Unreleased
+## [1.0.8] — 2026-07-19
 
 This Python distribution release consolidates the backward-compatible Mirror
 JSON updates through 1.0.7 and hardens every public release trust surface.
@@ -21,6 +21,7 @@ JSON updates through 1.0.7 and hardens every public release trust surface.
 - Public documentation and package metadata use reachable GitHub Pages, repository, issue, changelog, and schema links; unavailable hosted API and unpublished registry SDK claims were removed.
 - The unpublished `docmirror-enterprise` dependency was removed from the public PyPI extras metadata; private editions remain outside the OSS wheel.
 - The PyPI publishing workflow now requires an exact `v1.0.8` identity on the current `main` commit and uses trusted publishing after the release gate passes.
+- Version 1.0.8 uses a one-time, owner-approved immediate-release policy after its PR and current-main checks passed; later versions continue to require the 14-complete-day green window.
 
 ### Fixed
 - Release archive validation no longer hard-codes version 1.0.0 and now inspects the version declared by the release manifest.
