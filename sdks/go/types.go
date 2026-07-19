@@ -11,14 +11,14 @@ import "time"
 
 // ParseResponse is the top-level API response envelope.
 type ParseResponse struct {
-	Code        int                `json:"code"`
-	Message     string             `json:"message"`
-	APIVersion  string             `json:"api_version"`
-	RequestID   string             `json:"request_id"`
-	Timestamp   time.Time          `json:"timestamp"`
-	Data        *ParseResultData   `json:"data,omitempty"`
-	Error       *APIError          `json:"error,omitempty"`
-	Meta        map[string]any     `json:"meta,omitempty"`
+	Code       int              `json:"code"`
+	Message    string           `json:"message"`
+	APIVersion string           `json:"api_version"`
+	RequestID  string           `json:"request_id"`
+	Timestamp  time.Time        `json:"timestamp"`
+	Data       *ParseResultData `json:"data,omitempty"`
+	Error      *APIError        `json:"error,omitempty"`
+	Meta       map[string]any   `json:"meta,omitempty"`
 }
 
 // ParseResultData is the DMIR business payload.
@@ -45,12 +45,12 @@ type DocumentSection struct {
 }
 
 type PageSection struct {
-	PageNumber int             `json:"page_number"`
-	WidthPt    float64         `json:"width_pt"`
-	HeightPt   float64         `json:"height_pt"`
-	Texts      []TextBlock     `json:"texts,omitempty"`
-	Tables     []TableBlock    `json:"tables,omitempty"`
-	KeyValues  []KeyValuePair  `json:"key_values,omitempty"`
+	PageNumber int            `json:"page_number"`
+	WidthPt    float64        `json:"width_pt"`
+	HeightPt   float64        `json:"height_pt"`
+	Texts      []TextBlock    `json:"texts,omitempty"`
+	Tables     []TableBlock   `json:"tables,omitempty"`
+	KeyValues  []KeyValuePair `json:"key_values,omitempty"`
 }
 
 type TextBlock struct {
@@ -60,10 +60,10 @@ type TextBlock struct {
 }
 
 type TableBlock struct {
-	TableID string    `json:"table_id"`
-	Headers []string  `json:"headers,omitempty"`
+	TableID  string    `json:"table_id"`
+	Headers  []string  `json:"headers,omitempty"`
 	DataRows []DataRow `json:"data_rows,omitempty"`
-	Method  string    `json:"method,omitempty"`
+	Method   string    `json:"method,omitempty"`
 }
 
 type DataRow struct {
@@ -106,9 +106,9 @@ type EvidenceEntry struct {
 // ── Health Response ──
 
 type HealthResponse struct {
-	Status       string  `json:"status"`
-	Version      string  `json:"version"`
-	Timestamp    string  `json:"timestamp"`
+	Status        string  `json:"status"`
+	Version       string  `json:"version"`
+	Timestamp     string  `json:"timestamp"`
 	UptimeSeconds float64 `json:"uptime_seconds,omitempty"`
 }
 
