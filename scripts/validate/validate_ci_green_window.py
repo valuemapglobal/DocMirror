@@ -11,12 +11,13 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import defaultdict
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 DEFAULT_WORKFLOW = "ci.yml"
 DEFAULT_BRANCH = "main"
+UTC = timezone.utc
 
 
 def _parse_timestamp(value: str) -> datetime:

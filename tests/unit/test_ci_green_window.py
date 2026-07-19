@@ -5,11 +5,11 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from scripts.validate.validate_ci_green_window import evaluate_green_window, required_complete_days
 
-NOW = datetime(2026, 8, 3, 12, tzinfo=UTC)
+NOW = datetime(2026, 8, 3, 12, tzinfo=timezone.utc)
 
 
 def _run(day_offset: int, conclusion: str = "success") -> dict[str, str]:
