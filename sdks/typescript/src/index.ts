@@ -8,7 +8,7 @@
  * import { DocMirrorClient } from "@docmirror/sdk";
  *
  * const client = new DocMirrorClient({
- *   baseUrl: "https://api.docmirror.dev",
+ *   baseUrl: "http://localhost:8000",
  *   apiKey: "sk-...",
  * });
  *

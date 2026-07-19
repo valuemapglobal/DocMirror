@@ -153,7 +153,7 @@ def validate_removed_references() -> list[str]:
         for module in removed:
             for spelling in _path_spellings(module):
                 for lineno, line in enumerate(lines, start=1):
-                    if "github.com/valuemapglobal/docmirror/" in line:
+                    if "github.com/valuemapglobal/DocMirror/" in line:
                         continue
                     if spelling in line:
                         errors.append(f"{rel}:{lineno}: references removed path {spelling}")

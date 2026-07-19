@@ -11,7 +11,7 @@
 
     <name>DocMirror Java SDK</name>
     <description>Java client SDK for the DocMirror Universal Document Parsing API — auto-generated from OpenAPI spec</description>
-    <url>https://github.com/valuemapglobal/docmirror</url>
+    <url>https://github.com/valuemapglobal/DocMirror</url>
 
     <licenses>
         <license>
@@ -23,14 +23,13 @@
     <developers>
         <developer>
             <name>DocMirror Team</name>
-            <email>team@docmirror.dev</email>
         </developer>
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com/valuemapglobal/docmirror.git</connection>
-        <developerConnection>scm:git:ssh://github.com/valuemapglobal/docmirror.git</developerConnection>
-        <url>https://github.com/valuemapglobal/docmirror</url>
+        <connection>scm:git:git://github.com/valuemapglobal/DocMirror.git</connection>
+        <developerConnection>scm:git:ssh://github.com/valuemapglobal/DocMirror.git</developerConnection>
+        <url>https://github.com/valuemapglobal/DocMirror</url>
     </scm>
 
     <properties>

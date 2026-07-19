@@ -47,8 +47,8 @@ Commercial Enterprise and Finance extensions are distributed separately and are 
 Run the dependency-light public trust quickstart from a local checkout:
 
 ```bash
-git clone https://github.com/valuemapglobal/docmirror.git
-cd docmirror
+git clone https://github.com/valuemapglobal/DocMirror.git
+cd DocMirror
 python3 examples/trust_quickstart.py
 ```
 
@@ -224,9 +224,9 @@ The Community edition is not intentionally weakened. Mirror, Evidence, Quality R
 
 ## Community
 
-- Documentation: [valuemapglobal.github.io/docmirror](https://valuemapglobal.github.io/docmirror/)
+- Documentation: [valuemapglobal.github.io/DocMirror](https://valuemapglobal.github.io/DocMirror/)
 - Quick Start: [docs/quickstart.md](docs/quickstart.md)
-- Issues: [github.com/valuemapglobal/docmirror/issues](https://github.com/valuemapglobal/docmirror/issues)
+- Issues: [github.com/valuemapglobal/DocMirror/issues](https://github.com/valuemapglobal/DocMirror/issues)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Security: [SECURITY.md](SECURITY.md)
 

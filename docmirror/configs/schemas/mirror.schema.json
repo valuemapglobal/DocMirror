@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://docmirror.dev/schemas/mirror.schema.json",
+  "$id": "https://valuemapglobal.github.io/DocMirror/schemas/mirror.schema.json",
   "title": "DocMirror Mirror JSON",
   "description": "Canonical vNext mirror output. This schema is document-shaped and intentionally has no code/message/data REST envelope.",
   "type": "object",

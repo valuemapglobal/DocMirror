@@ -18,6 +18,29 @@ env:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 jobs:
+  public-release-surface:
+    name: Public release surface
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate public URLs and preview claims
+        run: python scripts/validate/validate_public_release_links.py
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install mkdocs-material mkdocstrings[python] pymdown-extensions
+          python -m pip install -e ".[dev]"
+      - name: Stage public JSON schemas
+        run: |
+          mkdir -p docs/schemas
+          cp docmirror/configs/schemas/*.schema.json docs/schemas/
+          cp docmirror/configs/yaml/licensing/license_file.schema.json docs/schemas/
+      - name: Build documentation strictly
+        run: mkdocs build --strict --site-dir "$RUNNER_TEMP/docmirror-site"
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -85,6 +108,9 @@ jobs:
       - name: Validate public fixture policy
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python -m pytest tests/contract/test_public_test_fixture_hygiene.py -q
+      - name: Validate public release links
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        run: python -m pytest tests/contract/test_public_release_links.py -q
       - name: Validate format capability registry
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python scripts/validate/validate_format_capabilities.py

@@ -35,10 +35,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/valuemapglobal/docmirror.git",
+    "url": "https://github.com/valuemapglobal/DocMirror.git",
     "directory": "sdks/typescript"
   },
-  "homepage": "https://docmirror.dev",
+  "homepage": "https://valuemapglobal.github.io/DocMirror/",
   "devDependencies": {
     "@types/node": "^26.0.0",
     "openapi-typescript": "^7.4.0",

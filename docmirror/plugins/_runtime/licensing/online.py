@@ -5,18 +5,19 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Online license manager — activation, verification, and caching.
+Optional online license manager — activation, verification, and caching.
 
-Handles license key activation against DocMirror servers, periodic online
-verification with offline grace period, machine fingerprint binding, and local
-cache persistence for entitled feature lists.
+Handles license key activation against explicitly operator-configured endpoints,
+periodic online verification with offline grace period, machine fingerprint
+binding, and local cache persistence for entitled feature lists.
 
 Pipeline role: secondary channel after offline in ``entitlements.is_entitled``;
 ``plugins.__init__`` exposes ``license_manager`` for CLI activate/status commands.
 
 Key exports: ``LicenseInfo``, ``LicenseManager``, ``license_manager``.
 
-Dependencies: HTTP client for activation API, local cache file under user config dir.
+Dependencies: optional HTTP client for configured APIs, local cache file under
+the user config directory.
 """
 
 from __future__ import annotations
@@ -91,9 +92,12 @@ class LicenseInfo:
 class LicenseManager:
     """Manager for plugin license validation."""
 
-    # API endpoints (can be overridden for testing)
-    VERIFY_URL = os.getenv("DOCMIRROR_LICENSE_VERIFY_URL", "https://api.docmirror.com/v1/license/verify")
-    ACTIVATE_URL = os.getenv("DOCMIRROR_LICENSE_ACTIVATE_URL", "https://api.docmirror.com/v1/license/activate")
+    # The OSS distribution does not advertise or contact a hosted commercial
+    # license service. Operators may configure their own endpoints explicitly.
+    VERIFY_URL = os.getenv("DOCMIRROR_LICENSE_VERIFY_URL", "").strip()
+    ACTIVATE_URL = os.getenv("DOCMIRROR_LICENSE_ACTIVATE_URL", "").strip()
+    DEACTIVATE_URL = os.getenv("DOCMIRROR_LICENSE_DEACTIVATE_URL", "").strip()
+    DOCUMENTATION_URL = "https://valuemapglobal.github.io/DocMirror/"
 
     # Offline grace period (days)
     GRACE_PERIOD_DAYS = 7
@@ -214,13 +218,15 @@ class LicenseManager:
         if plugin_name:
             return (
                 f"💡 插件 '{plugin_name}' 需要付费许可证。\n"
-                f"   访问 https://docmirror.com/pricing 了解更多\n"
+                f"   当前 OSS 发行版未提供公开在线购买入口。\n"
+                f"   查看 {self.DOCUMENTATION_URL} 了解许可状态\n"
                 f"   或使用基础版插件"
             )
         else:
             return (
                 "💡 此功能需要付费许可证。\n"
-                "   访问 https://docmirror.com/pricing 了解更多\n"
+                "   当前 OSS 发行版未提供公开在线购买入口。\n"
+                f"   查看 {self.DOCUMENTATION_URL} 了解许可状态\n"
                 "   社区版免费使用 17+ 基础插件"
             )
 
@@ -250,6 +256,10 @@ class LicenseManager:
         Returns:
             True if valid
         """
+        if not self.VERIFY_URL:
+            logger.debug("[LicenseManager] Online verification endpoint is not configured")
+            return False
+
         try:
             import requests
 
@@ -344,6 +354,13 @@ class LicenseManager:
         Returns:
             True if successful
         """
+        if not self.ACTIVATE_URL:
+            logger.error(
+                "[LicenseManager] Online activation endpoint is not configured; "
+                "set DOCMIRROR_LICENSE_ACTIVATE_URL or load an offline .lic file"
+            )
+            return False
+
         try:
             import requests
 
@@ -378,11 +395,15 @@ class LicenseManager:
         Args:
             license_key: License key
         """
+        if not self.DEACTIVATE_URL:
+            logger.debug("[LicenseManager] Online deactivation endpoint is not configured")
+            return
+
         try:
             import requests
 
             response = requests.post(
-                "https://api.docmirror.com/v1/license/deactivate",
+                self.DEACTIVATE_URL,
                 json={
                     "license_key": license_key,
                     "machine_id": self._get_machine_id(),

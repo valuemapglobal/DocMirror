@@ -1109,7 +1109,7 @@ class CommunityBusinessProjectionHook(PostExtractHook):
             for key in _GENERIC_LEGACY_DATA_KEYS:
                 data.pop(key, None)
         data.pop("field_metadata", None)
-        extracted["$schema"] = "https://docmirror.dev/schemas/edition_community.schema.json"
+        extracted["$schema"] = "https://valuemapglobal.github.io/DocMirror/schemas/edition_community.schema.json"
         extracted["schema_version"] = "2.2"
         metadata = extracted.setdefault("metadata", {})
         if domain == "vat_invoice":

@@ -94,11 +94,11 @@ dependencies = [
 docmirror = "docmirror.cli.main:main"
 
 [project.urls]
-Homepage = "https://docmirror.dev"
-Documentation = "https://valuemapglobal.github.io/docmirror/"
-Repository = "https://github.com/valuemapglobal/docmirror"
-Issues = "https://github.com/valuemapglobal/docmirror/issues"
-Changelog = "https://github.com/valuemapglobal/docmirror/blob/main/CHANGELOG.md"
+Homepage = "https://valuemapglobal.github.io/DocMirror/"
+Documentation = "https://valuemapglobal.github.io/DocMirror/"
+Repository = "https://github.com/valuemapglobal/DocMirror"
+Issues = "https://github.com/valuemapglobal/DocMirror/issues"
+Changelog = "https://github.com/valuemapglobal/DocMirror/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 enterprise = ["docmirror-enterprise>=0.4.0"]

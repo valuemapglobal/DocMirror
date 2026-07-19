@@ -29,6 +29,8 @@ from typing import Any
 
 from docmirror.plugins._runtime.licensing.tiers_loader import load_tiers
 
+_LICENSE_GUIDANCE_URL = "https://valuemapglobal.github.io/DocMirror/"
+
 
 class LicenseLifecycleState(str, Enum):
     ACTIVE = "active"
@@ -62,7 +64,7 @@ def _offline_lifecycle() -> EntitlementLifecycle | None:
     best = max(offline_license_manager._licenses, key=lambda lic: len(lic.get_features()))
     cfg = _lifecycle_config()
     expiring_days = int(cfg.get("expiring_soon_days") or 90)
-    renewal_url = str(cfg.get("renewal_url") or "https://docmirror.com/pricing/renew")
+    renewal_url = str(cfg.get("renewal_url") or _LICENSE_GUIDANCE_URL)
     now = datetime.now()
 
     if now > best.effective_expiry:
@@ -118,7 +120,7 @@ def _online_lifecycle() -> EntitlementLifecycle | None:
 
     cfg = _lifecycle_config()
     expiring_days = int(cfg.get("expiring_soon_days") or 90)
-    renewal_url = str(cfg.get("renewal_url") or "https://docmirror.com/pricing/renew")
+    renewal_url = str(cfg.get("renewal_url") or _LICENSE_GUIDANCE_URL)
 
     if cached.is_expired:
         return EntitlementLifecycle(
@@ -153,7 +155,7 @@ def resolve_entitlement_state() -> LicenseLifecycleState:
 def resolve_entitlement_lifecycle() -> EntitlementLifecycle:
     """Resolve lifecycle from offline `.lic` (preferred) or online cache."""
     cfg = _lifecycle_config()
-    renewal_url = str(cfg.get("renewal_url") or "https://docmirror.com/pricing/renew")
+    renewal_url = str(cfg.get("renewal_url") or _LICENSE_GUIDANCE_URL)
 
     offline = _offline_lifecycle()
     if offline is not None:
@@ -207,7 +209,7 @@ def lifecycle_cli_message(lifecycle: EntitlementLifecycle | None = None) -> str 
 
     lc = lifecycle or resolve_entitlement_lifecycle()
     if lc.state == LicenseLifecycleState.EXPIRING_SOON:
-        return f"License expiring in {lc.days_remaining} days — renew at {lc.renewal_url}"
+        return f"License expiring in {lc.days_remaining} days — guidance: {lc.renewal_url}"
     if lc.state == LicenseLifecycleState.GRACE_PERIOD:
-        return f"License in grace period ({lc.days_remaining} days left) — renew at {lc.renewal_url}"
+        return f"License in grace period ({lc.days_remaining} days left) — guidance: {lc.renewal_url}"
     return None

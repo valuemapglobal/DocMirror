@@ -165,7 +165,7 @@ BANNER = r"""[cyan]
 [/cyan]
 [bold white]Commercial Document Trust Layer[/bold white]
 [white]Parse. Prove. Trust.[/white]
-[yellow]Support us with a ⭐ on GitHub: https://github.com/valuemapglobal/docmirror[/yellow]
+[yellow]Support us with a ⭐ on GitHub: https://github.com/valuemapglobal/DocMirror[/yellow]
 """
 
 
@@ -182,7 +182,7 @@ def show_authors():
         )
     )
     console.print(
-        "\n[yellow]Want your name here? Contribute to DocMirror at: https://github.com/valuemapglobal/docmirror[/yellow]\n"
+        "\n[yellow]Want your name here? Contribute to DocMirror at: https://github.com/valuemapglobal/DocMirror[/yellow]\n"
     )
 
 
@@ -415,7 +415,7 @@ async def parse_document(
             console.print("\n[bold yellow]Open Source Power[/bold yellow]")
             console.print("[white]Encountered an unsupported exotic format? This is how we improve![/white]")
             console.print("[white]Please attach the logs and a sample document by opening an issue at:[/white]")
-            console.print("[cyan]https://github.com/valuemapglobal/docmirror/issues[/cyan]")
+            console.print("[cyan]https://github.com/valuemapglobal/DocMirror/issues[/cyan]")
 
         # Display edition summaries (already written inside progress context)
         if not no_save and saved_path:

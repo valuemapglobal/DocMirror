@@ -77,7 +77,7 @@ def test_community_22_schema_requires_consumer_contract_blocks():
     invalid = validate_projection_payload(
         "community",
         {
-            "$schema": "https://docmirror.dev/schemas/edition_community.schema.json",
+            "$schema": "https://valuemapglobal.github.io/DocMirror/schemas/edition_community.schema.json",
             "schema_version": "2.2",
             "edition": "community",
             "document": {},

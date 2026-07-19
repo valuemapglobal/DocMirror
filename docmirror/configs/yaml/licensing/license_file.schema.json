@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://docmirror.com/schemas/license_file.schema.json",
+  "$id": "https://valuemapglobal.github.io/DocMirror/schemas/license_file.schema.json",
   "title": "DocMirror Offline License File",
   "type": "object",
   "required": ["license_info", "security"],

@@ -1,6 +1,16 @@
-# Publishing @docmirror/mcp-server to npm
+# Publishing @docmirror/mcp-server to npm (Blocked)
 
-This guide describes how to publish the MCP server npm package.
+The package is not published. The repository workflow is preview-only and
+must not push to npm or create tags. This document is an operator checklist
+for a future explicitly approved first release.
+
+## Release Blockers
+
+- Confirm ownership of the `@docmirror` npm scope.
+- Complete provenance, token, and two-factor-authentication setup.
+- Pass the local build and package-content smoke checks.
+- Remove the preview warning only in the same reviewed release PR.
+- Obtain explicit approval for the exact version and registry action.
 
 ## Prerequisites
 
@@ -28,14 +38,9 @@ ls dist/
 node dist/cli.js --help
 ```
 
-## Publish
+## Future Manual Publish
 
-### Via CI (recommended)
-
-The `.github/workflows/publish-sdks.yml` workflow publishes on release tags.
-Simply create a GitHub release with a tag like `mcp-server/v0.1.0`.
-
-### Manually
+Do not run this section until every release blocker above is closed.
 
 ```bash
 cd sdks/mcp-server
@@ -56,9 +61,9 @@ npm publish --access public
 - **Minor** (0.1.0 → 0.2.0): New MCP tools or parameters
 - **Major** (1.0.0): Breaking changes to tool signatures
 
-## Post-Publish Checklist
+## Future Post-Publish Checklist
 
 - [ ] Verify: `npm view @docmirror/mcp-server`
 - [ ] Verify: `npx @docmirror/mcp-server --help`
 - [ ] Update README.md with any new features
-- [ ] Tag the release: `git tag mcp-server/v0.1.0`
+- [ ] Create the approved package tag only after registry verification

@@ -9,8 +9,8 @@ This guide is optimized for the first 10 minutes: install, inspect a trusted out
 The fastest way to understand DocMirror does not require OCR models or private fixtures:
 
 ```bash
-git clone https://github.com/valuemapglobal/docmirror.git
-cd docmirror
+git clone https://github.com/valuemapglobal/DocMirror.git
+cd DocMirror
 python3 examples/trust_quickstart.py
 ```
 
@@ -166,5 +166,5 @@ uvicorn docmirror.server.api:app --host 0.0.0.0 --port 8000
 
 ## 8. Next Steps
 
-- Use the [GitHub README](https://github.com/valuemapglobal/docmirror#readme) for the public landing page and positioning.
+- Use the [GitHub README](https://github.com/valuemapglobal/DocMirror#readme) for the public landing page and positioning.
 - Use GitHub Issues with a redacted sample or diagnostic bundle when DocMirror fails visibly.

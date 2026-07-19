@@ -5,7 +5,7 @@
 //
 // Usage:
 //
-//	client := docmirror.NewClient("https://api.docmirror.dev", "sk-...")
+//	client := docmirror.NewClient("http://localhost:8000", "sk-...")
 //	result, err := client.ParseDocument("statement.pdf", nil)
 //	if err != nil { log.Fatal(err) }
 //	fmt.Printf("Document type: %s\n", result.Data.Document.Type)

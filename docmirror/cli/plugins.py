@@ -249,8 +249,8 @@ def show():
             Panel(
                 "[yellow]No active license[/yellow]\n\n"
                 "Load offline: [cyan]docmirror plugins license load company.lic[/cyan]\n"
-                "Or activate online: [cyan]docmirror plugins license activate KEY[/cyan]\n\n"
-                "Visit [cyan]https://docmirror.com/pricing[/cyan] to purchase.",
+                "Online activation requires an operator-configured endpoint.\n\n"
+                "License guidance: [cyan]https://valuemapglobal.github.io/DocMirror/[/cyan]",
                 title="License Status",
                 border_style="yellow",
             )
@@ -369,9 +369,9 @@ def activate(key: str):
                 "[bold red]❌ License activation failed[/bold red]\n\n"
                 "Please check:\n"
                 "  • License key is correct\n"
-                "  • Internet connection\n"
+                "  • DOCMIRROR_LICENSE_ACTIVATE_URL is configured\n"
                 "  • License not already activated on another machine\n\n"
-                "Contact [cyan]support@docmirror.com[/cyan] for help.",
+                "Open an issue: [cyan]https://github.com/valuemapglobal/DocMirror/issues[/cyan]",
                 title="Activation Failed",
                 border_style="red",
             )
@@ -412,7 +412,7 @@ def load(license_file: str):
                 "  • License file is valid\n"
                 "  • License file is not corrupted\n"
                 "  • Machine ID matches (if bound)\n\n"
-                "Contact [cyan]support@docmirror.com[/cyan] for help.",
+                "Open an issue: [cyan]https://github.com/valuemapglobal/DocMirror/issues[/cyan]",
                 title="Load Failed",
                 border_style="red",
             )
@@ -489,7 +489,7 @@ def stats(show_all: bool):
 
 # generate_demo command removed in v1.1
 # License signing requires RSA private key — not available in open-source build.
-# Use official .lic files from docmirror.dev/license instead.
+# Use offline .lic files supplied directly by an authorized operator.
 
 
 # Export for integration

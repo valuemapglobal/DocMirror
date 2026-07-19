@@ -14,6 +14,7 @@ import pytest
 
 from docmirror.plugins._runtime.licensing.contract import premium_feature
 from docmirror.plugins._runtime.licensing.entitlements import demo_features, is_entitled
+from docmirror.plugins._runtime.licensing.online import LicenseManager
 from docmirror.plugins._runtime.runner import _is_edition_plugin_licensed, _wrap_license_degraded
 
 
@@ -129,3 +130,17 @@ def test_offline_rejects_simplified_and_unknown_formats(tmp_path):
         "security": {},
     }
     assert mgr._verify_signature(data_no_sig) is False
+
+
+def test_online_license_calls_are_disabled_without_explicit_endpoints():
+    mgr = LicenseManager.__new__(LicenseManager)
+    mgr.VERIFY_URL = ""
+    mgr.ACTIVATE_URL = ""
+    mgr.DEACTIVATE_URL = ""
+
+    with patch("requests.post") as post:
+        assert mgr._validate_online() is False
+        assert mgr._activate_online("DOC-TEST") is False
+        mgr._deactivate_online("DOC-TEST")
+
+    post.assert_not_called()

@@ -9,24 +9,24 @@ All SDKs implement the same DMIR schema derived from the FastAPI contract. Relea
 
 ```
 sdks/
-├── typescript/       # @docmirror/sdk — TypeScript client with full DMIR types
+├── typescript/       # @docmirror/sdk — source preview, not on npm
 │   ├── src/
 │   │   ├── client.ts    # DocMirrorClient — typed HTTP client
 │   │   ├── types.ts     # DMIR type definitions (ParseResponse, DocumentSection, etc.)
 │   │   └── index.ts     # Barrel exports
 │   ├── package.json
 │   └── tsconfig.json
-├── go/               # github.com/valuemapglobal/docmirror-go-sdk
+├── go/               # Go source preview, no standalone repository yet
 │   ├── client.go     # Client — typed HTTP client
 │   ├── types.go      # DMIR Go struct definitions
 │   ├── go.mod
 │   └── README.md
-├── java/             # com.docmirror:sdk (Maven Central)
+├── java/             # com.docmirror:docmirror-sdk — source preview
 │   └── src/main/java/com/docmirror/sdk/
 │       ├── DocMirrorClient.java  # Typed HTTP client
 │       ├── DMIRResponse.java     # DMIR POJOs with Jackson annotations
 │       └── HealthResponse.java   # Health check response
-└── mcp-server/       # @docmirror/mcp-server (npm)
+└── mcp-server/       # @docmirror/mcp-server — source preview, not on npm
     └── src/
         ├── index.ts   # MCP server with subprocess + API modes
         └── cli.ts     # CLI entry point
@@ -49,7 +49,7 @@ This means: **one API change -> one generated spec check -> each SDK team update
 2. Implement the four core methods: `parseDocument`, `parseDocumentBatch`, `parseFileOnServer`, `health`
 3. Define DMIR types matching the OpenAPI spec schema
 4. Write comprehensive README.md with installation and usage examples
-5. Add the package to the publishing table in this file
+5. Add the package to the distribution status table in this file
 6. Open a PR with the new SDK
 
 ## Core API Surface (All SDKs)
@@ -132,14 +132,17 @@ Each SDK should provide typed/tagged error types for API failures:
 5. Verify compilation: `npm run build`, `go build ./...`, or `mvn compile` respectively
 6. Request review from the DocMirror core team
 
-## Publishing
+## Distribution Status
 
-| Package | Registry | Trigger | Maintainer |
-|---------|----------|---------|------------|
-| `@docmirror/sdk` | npm | `.github/workflows/publish-sdks.yml` on release | Core team with npm access |
-| `github.com/valuemapglobal/docmirror-go-sdk` | Go proxy | Git tag `sdks/go/v*` | Core team |
-| `com.docmirror:sdk` | Maven Central | `.github/workflows/publish-sdks.yml` on release | Core team with Maven Central + GPG |
-| `@docmirror/mcp-server` | npm | `.github/workflows/publish-sdks.yml` on release | Core team with npm access |
+All four SDK surfaces are previews. None is currently published to a registry,
+and `.github/workflows/publish-sdks.yml` performs build validation only.
+
+| Package identity | Intended registry | Current status |
+|------------------|-------------------|----------------|
+| `@docmirror/sdk` | npm | Not published; source preview only |
+| Go SDK | Go proxy | No standalone module repository; source preview only |
+| `com.docmirror:docmirror-sdk` | Maven Central | Not published; source preview only |
+| `@docmirror/mcp-server` | npm | Not published; source preview only |
 
 ## License
 

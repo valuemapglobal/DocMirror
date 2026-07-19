@@ -1,8 +1,8 @@
 site_name: DocMirror
 site_description: Commercial Document Trust Layer for verifiable, audit-ready document signals
-site_url: https://valuemapglobal.github.io/docmirror/
-repo_url: https://github.com/valuemapglobal/docmirror
-repo_name: valuemapglobal/docmirror
+site_url: https://valuemapglobal.github.io/DocMirror/
+repo_url: https://github.com/valuemapglobal/DocMirror
+repo_name: valuemapglobal/DocMirror
 edit_uri: blob/main/docs/
 
 theme:
@@ -66,12 +66,12 @@ nav:
   - Development Manual (zh-CN): development_manual_zh-CN.md
   - Deployment: deployment.md
   - API Authentication: api-authentication.md
-  - Changelog: https://github.com/valuemapglobal/docmirror/blob/main/CHANGELOG.md
+  - Changelog: https://github.com/valuemapglobal/DocMirror/blob/main/CHANGELOG.md
 
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/valuemapglobal/docmirror
+      link: https://github.com/valuemapglobal/DocMirror
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/docmirror/
   generator: false

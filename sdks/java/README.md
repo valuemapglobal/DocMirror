@@ -1,6 +1,9 @@
 # DocMirror Java SDK
 
-Java client SDK for the [DocMirror](https://docmirror.dev) Universal Document Parsing API.
+> **Preview status:** this artifact is source-only and is not published to
+> Maven Central or attached to a GitHub Release.
+
+Java client SDK for the [DocMirror](https://valuemapglobal.github.io/DocMirror/) Universal Document Parsing API.
 
 Parse PDFs, images, and Office documents into structured DMIR (DocMirror Intermediate Representation)
 — a lossless, framework-agnostic format designed for LLM ingestion, RAG pipelines, and document AI workflows.
@@ -14,27 +17,16 @@ Parse PDFs, images, and Office documents into structured DMIR (DocMirror Interme
 - **Bearer auth** — Simple API key authentication
 - **OkHttp under the hood** — Robust HTTP client with connection pooling and timeouts
 
-## Installation
+## Preview Build
 
-### Maven
-
-```xml
-<dependency>
-    <groupId>com.docmirror</groupId>
-    <artifactId>docmirror-sdk</artifactId>
-    <version>0.1.0</version>
-</dependency>
+```bash
+git clone https://github.com/valuemapglobal/DocMirror.git
+cd DocMirror/sdks/java
+mvn verify
 ```
 
-### Gradle
-
-```groovy
-implementation 'com.docmirror:docmirror-sdk:0.1.0'
-```
-
-### Manual JAR
-
-Download the latest JAR from [GitHub Releases](https://github.com/valuemapglobal/docmirror/releases).
+The public hosted API is not available yet. Run or deploy DocMirror yourself;
+the examples below use `http://localhost:8000`.
 
 ## Quick Start
 
@@ -46,7 +38,7 @@ import com.docmirror.sdk.HealthResponse;
 public class Example {
     public static void main(String[] args) throws Exception {
         DocMirrorClient client = new DocMirrorClient(
-            "https://api.docmirror.dev",
+            "http://localhost:8000",
             "sk-your-api-key"
         );
 
@@ -206,7 +198,7 @@ OkHttpClient customClient = new OkHttpClient.Builder()
     .build();
 
 DocMirrorClient client = new DocMirrorClient(
-    "https://api.docmirror.dev",
+    "http://localhost:8000",
     "sk-...",
     customClient
 );

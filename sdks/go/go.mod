@@ -1,3 +1,3 @@
-module github.com/valuemapglobal/docmirror-go-sdk
+module github.com/valuemapglobal/DocMirror/sdks/go
 
 go 1.22
