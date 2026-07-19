@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -20,15 +21,27 @@ def _fixture_path(value: str) -> Path:
     return ROOT / path
 
 
+def _tracked_paths() -> set[str]:
+    result = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+    return {item.decode("utf-8") for item in result.stdout.split(b"\0") if item}
+
+
 def test_gate_fixtures_are_public_or_explicitly_skipped():
     offenders: list[str] = []
+    tracked = _tracked_paths()
     for manifest in sorted(GATE_DIR.glob("*.yaml")):
         data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
         for case in data.get("cases") or []:
             fixture = case.get("fixture")
             if not fixture:
                 continue
-            if not _fixture_path(str(fixture)).exists() and not case.get("skip_if_fixture_missing"):
+            relative_fixture = _fixture_path(str(fixture)).relative_to(ROOT).as_posix()
+            if relative_fixture not in tracked and not case.get("skip_if_fixture_missing"):
                 offenders.append(f"{manifest.relative_to(ROOT)}:{case.get('id')}:{fixture}")
     assert offenders == []
 

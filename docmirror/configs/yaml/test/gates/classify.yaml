@@ -24,6 +24,7 @@ cases:
 - id: business_license_standard
   tier: regression
   fixture: fixtures/business_license/synthetic_medium_variant.pdf
+  skip_if_fixture_missing: true
   pipeline: perceive
   options:
     enhance_mode: standard
@@ -40,6 +41,7 @@ cases:
 - id: wechat_payment_classify
   tier: regression
   fixture: fixtures/wechat_payment/synthetic_easy_standard.pdf
+  skip_if_fixture_missing: true
   pipeline: perceive
   options:
     enhance_mode: standard
@@ -53,6 +55,7 @@ cases:
 - id: alipay_payment_classify
   tier: regression
   fixture: fixtures/alipay_payment/synthetic_easy_standard.pdf
+  skip_if_fixture_missing: true
   pipeline: perceive
   options:
     enhance_mode: standard
@@ -70,6 +73,7 @@ cases:
 - id: bank_statement_classify
   tier: regression
   fixture: fixtures/synthetic/bank_ledger_3page_smoke.pdf
+  skip_if_fixture_missing: true
   pipeline: perceive
   options:
     enhance_mode: standard
@@ -86,6 +90,7 @@ cases:
 - id: vat_invoice_classify
   tier: regression
   fixture: fixtures/vat_invoice/synthetic_easy_standard.pdf
+  skip_if_fixture_missing: true
   pipeline: perceive
   options:
     enhance_mode: standard
@@ -911,6 +916,7 @@ cases:
 - id: scanned_text_doc_text
   tier: regression
   fixture: fixtures/text_samples/scanned_text_doc.txt
+  skip_if_fixture_missing: true
   pipeline: classify_text
   gates:
     document_type:

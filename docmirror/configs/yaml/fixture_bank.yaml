@@ -319,7 +319,7 @@ fixtures:
   frozen_commit: da4f216
   golden_version: ga-1.0
   id: golden_vnext_l3_credit_finance_json
-  path: tests/fixtures/golden/vnext_l3_credit_finance.json
+  path: tests/public_golden/vnext_l3_credit_finance.json
   pii: needs_review
   quality_bucket: easy
   release_gate_refs:

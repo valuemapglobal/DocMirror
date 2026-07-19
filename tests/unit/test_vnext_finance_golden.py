@@ -4,15 +4,15 @@
 import json
 from pathlib import Path
 
-from docmirror.ocr.local_structure import extract_local_structure_evidence
-from docmirror.models.mirror.page_evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 from docmirror.models.mirror.domain_access import local_structure_evidence_pages_from_domain_specific
+from docmirror.models.mirror.page_evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+from docmirror.ocr.local_structure import extract_local_structure_evidence
 from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
 from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
 
 _FIXTURE = Path("tests/fixtures/scanned/account_card_page4_full_layout.json")
-_GOLDEN = Path("tests/fixtures/golden/vnext_l3_credit_finance.json")
+_GOLDEN = Path("tests/public_golden/vnext_l3_credit_finance.json")
 
 
 def _load_fixture() -> dict:
@@ -78,11 +78,7 @@ def test_g4_golden_account2_fields_match_fixture():
     out = extract_credit_accounts_from_local_structure_evidence(
         [{"page": 4, "structures": evidence.get("structures") or []}]
     )
-    account = next(
-        acc
-        for acc in out["credit_accounts"]
-        if "账户2" in str(acc.get("anchor", {}).get("value", ""))
-    )
+    account = next(acc for acc in out["credit_accounts"] if "账户2" in str(acc.get("anchor", {}).get("value", "")))
     expected = golden["accounts_by_anchor_substring"]["账户2"]
     for field, want in expected.items():
         got = account[field]["value"] if isinstance(account.get(field), dict) else account.get(field)

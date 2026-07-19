@@ -5,15 +5,18 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pdfplumber
 import pytest
 
 from docmirror.layout.profile.registry import get_profile, load_profiles, match_layout_profile
+from docmirror.models.entities.extraction_profile import ExtractionProfile, SegmentationMode
 from docmirror.tables.best_candidate import ExtractCandidate, pick_best_candidate
 from docmirror.tables.cell_normalizer import normalize_cell_text, normalize_table_cells
 from docmirror.tables.engine import extract_tables_layered
 from docmirror.tables.segmentation import segment_page_for_extraction
-from docmirror.models.entities.extraction_profile import ExtractionProfile, SegmentationMode
+from tests.public_fixtures.generate import generate_synthetic_wechat_statement
 
 
 @pytest.fixture(autouse=True)
@@ -21,6 +24,12 @@ def _clear_profile_cache():
     load_profiles.cache_clear()
     yield
     load_profiles.cache_clear()
+
+
+@pytest.fixture(scope="module")
+def public_wechat_pdf(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    output = tmp_path_factory.mktemp("public-fixtures") / "synthetic_easy_standard.pdf"
+    return generate_synthetic_wechat_statement(output)
 
 
 def test_generic_profile_defaults_preserve_current_behavior():
@@ -101,8 +110,8 @@ def test_bcs_picks_pdfplumber_over_inflated_char_layer():
     assert pick.candidate.layer == "pdfplumber_default"
 
 
-def test_full_page_segmentation_bbox_covers_page():
-    pdf = "tests/fixtures/wechat_payment/synthetic_easy_standard.pdf"
+def test_full_page_segmentation_bbox_covers_page(public_wechat_pdf: Path):
+    pdf = public_wechat_pdf
     profile = get_profile("borderless_ledger_wechat")
     with pdfplumber.open(pdf) as doc:
         page = doc.pages[0]
@@ -114,8 +123,8 @@ def test_full_page_segmentation_bbox_covers_page():
     assert x1 <= page.width * 0.75
 
 
-def test_engine_profile_disables_pymupdf_on_wechat_page():
-    pdf = "tests/fixtures/wechat_payment/synthetic_easy_standard.pdf"
+def test_engine_profile_disables_pymupdf_on_wechat_page(public_wechat_pdf: Path):
+    pdf = public_wechat_pdf
     profile = get_profile("borderless_ledger_wechat")
     audit: list = []
     with pdfplumber.open(pdf) as doc:
