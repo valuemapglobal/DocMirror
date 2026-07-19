@@ -35,10 +35,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/valuemapglobal/docmirror.git",
+    "url": "https://github.com/valuemapglobal/DocMirror.git",
     "directory": "sdks/mcp-server"
   },
-  "homepage": "https://docmirror.dev",
+  "homepage": "https://valuemapglobal.github.io/DocMirror/",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23.0"

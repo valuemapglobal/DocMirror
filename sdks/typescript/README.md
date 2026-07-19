@@ -1,6 +1,9 @@
 # @docmirror/sdk
 
-Typed TypeScript client for the [DocMirror](https://docmirror.dev) Universal Document Parsing API.
+> **Preview status:** this package is source-only and is not published to npm.
+> Build it from this repository; do not use `npm install @docmirror/sdk` yet.
+
+Typed TypeScript client for the [DocMirror](https://valuemapglobal.github.io/DocMirror/) Universal Document Parsing API.
 
 Parse PDFs, images, and Office documents into structured DMIR (DocMirror Intermediate Representation) — a lossless, framework-agnostic format designed for LLM ingestion, RAG pipelines, and document AI workflows.
 
@@ -15,11 +18,17 @@ Parse PDFs, images, and Office documents into structured DMIR (DocMirror Interme
 - **Error typing** — `DocMirrorApiError` with HTTP status code and parsed response body
 - **Isomorphic** — Works in Node.js and browser environments
 
-## Installation
+## Preview Build
 
 ```bash
-npm install @docmirror/sdk
+git clone https://github.com/valuemapglobal/DocMirror.git
+cd DocMirror/sdks/typescript
+npm ci
+npm run build
 ```
+
+The public hosted API is not available yet. Examples use the local/self-hosted
+server at `http://localhost:8000`.
 
 ## Quick Start
 
@@ -28,7 +37,7 @@ import { DocMirrorClient } from "@docmirror/sdk";
 
 const client = new DocMirrorClient({
   apiKey: "sk-your-api-key",
-  baseUrl: "https://api.docmirror.dev",   // optional, defaults to http://localhost:8000
+  baseUrl: "http://localhost:8000",
 });
 
 // Parse a document
@@ -156,7 +165,7 @@ try {
 ```typescript
 import { DocMirrorClient } from "@docmirror/sdk";
 
-const client = new DocMirrorClient({ baseUrl: "https://api.docmirror.dev" });
+const client = new DocMirrorClient({ baseUrl: "http://localhost:8000" });
 
 // Handle file input
 document.querySelector("input[type=file]")?.addEventListener("change", async (e) => {

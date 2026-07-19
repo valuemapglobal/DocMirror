@@ -63,6 +63,6 @@ def resolve_license_snapshot() -> dict[str, Any]:
             "expiring_soon_days": lifecycle_cfg.get("expiring_soon_days", 90),
             "offline_grace_period_days": lifecycle_cfg.get("offline_grace_period_days", 30),
             "online_verify_grace_days": lifecycle_cfg.get("online_verify_grace_days", 7),
-            "renewal_url": lifecycle_cfg.get("renewal_url", "https://docmirror.com/pricing/renew"),
+            "renewal_url": lifecycle_cfg.get("renewal_url", "https://valuemapglobal.github.io/DocMirror/"),
         },
     }

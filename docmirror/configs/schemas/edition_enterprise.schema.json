@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://docmirror.dev/schemas/edition_enterprise.schema.json",
+  "$id": "https://valuemapglobal.github.io/DocMirror/schemas/edition_enterprise.schema.json",
   "title": "DocMirror Enterprise Edition JSON",
   "type": "object",
   "required": ["schema_version", "edition", "document", "data", "audit"],

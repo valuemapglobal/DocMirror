@@ -4,13 +4,27 @@ on:
   push:
     branches: [main]
     paths:
+      - "README.md"
+      - "README_zh-CN.md"
+      - "pyproject.toml"
       - "docs/**"
       - "mkdocs.yml"
       - "docmirror/**"
+      - "sdks/**"
+      - "scripts/generate_openapi.py"
+      - "scripts/validate/validate_public_release_links.py"
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PIP_CONSTRAINT: .github/constraints/ci.txt
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 jobs:
   deploy:
@@ -23,7 +37,16 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: |
-          pip install mkdocs-material mkdocstrings[python] pymdown-extensions
-          pip install -e ".[dev]"
+          python -m pip install mkdocs-material mkdocstrings[python] pymdown-extensions
+          python -m pip install -e ".[dev]"
+      - name: Validate public URLs and preview claims
+        run: python scripts/validate/validate_public_release_links.py
+      - name: Stage public JSON schemas
+        run: |
+          mkdir -p docs/schemas
+          cp docmirror/configs/schemas/*.schema.json docs/schemas/
+          cp docmirror/configs/yaml/licensing/license_file.schema.json docs/schemas/
+      - name: Build documentation strictly
+        run: mkdocs build --strict --site-dir "$RUNNER_TEMP/docmirror-site"
       - name: Deploy to GitHub Pages
-        run: mkdocs gh-deploy --force
+        run: mkdocs gh-deploy --force --strict

@@ -41,7 +41,7 @@ lifecycle:
   expiring_soon_days: 90
   offline_grace_period_days: 30
   online_verify_grace_days: 7
-  renewal_url: "https://docmirror.com/pricing/renew"
+  renewal_url: "https://valuemapglobal.github.io/DocMirror/"
   warn_on_parse: true
   warn_in_edition_json: true
 

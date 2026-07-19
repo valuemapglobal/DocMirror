@@ -1,6 +1,9 @@
 # DocMirror Go SDK
 
-Go client SDK for the [DocMirror](https://docmirror.dev) Universal Document Parsing API.
+> **Preview status:** this module is source-only in the DocMirror monorepo. It
+> has no versioned Go module release and is not available through the Go proxy.
+
+Go client SDK for the [DocMirror](https://valuemapglobal.github.io/DocMirror/) Universal Document Parsing API.
 
 Parse PDFs, images, and Office documents into structured DMIR (DocMirror Intermediate Representation)
 — a lossless, framework-agnostic format for LLM ingestion, RAG pipelines, and document AI.
@@ -14,44 +17,46 @@ Parse PDFs, images, and Office documents into structured DMIR (DocMirror Interme
 - **Configurable HTTP client** — Pass your own `*http.Client` for custom timeouts, transports
 - **Bearer auth** — Simple API key authentication
 
-## Installation
+## Preview Build
 
 ```bash
-go get github.com/valuemapglobal/docmirror-go-sdk@latest
+git clone https://github.com/valuemapglobal/DocMirror.git
+cd DocMirror/sdks/go
+go test ./...
 ```
+
+The public hosted API is not available yet. Run or deploy DocMirror yourself
+and point the client at that base URL; local examples use `http://localhost:8000`.
 
 ## Quick Start
 
 ```go
-package main
+package docmirror
 
-import (
-    "fmt"
-    "log"
-
-    docmirror "github.com/valuemapglobal/docmirror-go-sdk"
-)
-
-func main() {
-    client := docmirror.NewClient("https://api.docmirror.dev", "sk-your-api-key")
+func example() error {
+    client := NewClient("http://localhost:8000", "sk-your-api-key")
 
     // Parse a single document
     result, err := client.ParseDocument("statement.pdf", nil)
     if err != nil {
-        log.Fatal(err)
+        return err
     }
 
-    fmt.Printf("Document type: %s\n", result.Data.Document.Type)
-    fmt.Printf("Pages: %d\n", len(result.Data.Document.Pages))
+    println("Document type:", result.Data.Document.Type)
+    println("Pages:", len(result.Data.Document.Pages))
 
     // Check API health
     health, err := client.Health()
     if err != nil {
-        log.Fatal(err)
+        return err
     }
-    fmt.Printf("API status: %s (v%s)\n", health.Status, health.Version)
+    println("API status:", health.Status, "version:", health.Version)
+    return nil
 }
 ```
+
+This in-package example is intended for evaluating the checked-out preview;
+there is no released module version to install yet.
 
 ## API Reference
 
@@ -166,7 +171,7 @@ httpClient := &http.Client{
     Transport: transport,
 }
 
-client := docmirror.NewClientWithHTTP("https://api.docmirror.dev", "sk-...", httpClient)
+client := docmirror.NewClientWithHTTP("http://localhost:8000", "sk-...", httpClient)
 ```
 
 ### Parsing with Explicit Options

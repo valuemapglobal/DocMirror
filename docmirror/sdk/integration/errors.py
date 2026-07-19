@@ -42,8 +42,8 @@ class ErrorEnvelope:
             code="INTERNAL_ERROR",
             message=str(exc)[:500],
             recoverable=False,
-            suggestion="Please open an issue at https://github.com/valuemapglobal/docmirror/issues",
-            docs_url="https://docs.docmirror.com/troubleshooting/internal-error",
+            suggestion="Please open an issue at https://github.com/valuemapglobal/DocMirror/issues",
+            docs_url="https://valuemapglobal.github.io/DocMirror/deployment/",
             request_id=request_id,
         )
 
@@ -54,7 +54,7 @@ class ErrorEnvelope:
             message=f"Format '{fmt}' is not currently supported.",
             recoverable=False,
             suggestion="Try converting to PDF or check the supported format registry.",
-            docs_url="https://docs.docmirror.com/reference/supported-formats",
+            docs_url="https://valuemapglobal.github.io/DocMirror/quickstart/",
             request_id=request_id,
         )
 
@@ -65,7 +65,7 @@ class ErrorEnvelope:
             message=f"Request timed out after {timeout_s:.0f}s.",
             recoverable=True,
             suggestion="Retry with a longer timeout or reduce document complexity.",
-            docs_url="https://docs.docmirror.com/troubleshooting/timeout",
+            docs_url="https://valuemapglobal.github.io/DocMirror/deployment/",
             request_id=request_id,
         )
 

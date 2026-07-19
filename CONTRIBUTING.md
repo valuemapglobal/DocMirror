@@ -6,8 +6,8 @@ Thank you for your interest in contributing to DocMirror! This guide will help y
 
 ```bash
 # Clone the repository
-git clone https://github.com/valuemapglobal/docmirror.git
-cd docmirror
+git clone https://github.com/valuemapglobal/DocMirror.git
+cd DocMirror
 
 # Create a virtual environment
 python -m venv .venv

@@ -1,6 +1,9 @@
 # @docmirror/mcp-server
 
-MCP (Model Context Protocol) server for [DocMirror](https://docmirror.dev) — universal document parsing exposed as LLM-callable tools.
+> **Preview status:** this package is source-only and is not published to npm.
+> Build and run it from this repository; `npx @docmirror/mcp-server` is not available yet.
+
+MCP (Model Context Protocol) server for [DocMirror](https://valuemapglobal.github.io/DocMirror/) — universal document parsing exposed as LLM-callable tools.
 
 Use this with Claude Desktop, Cursor, Codex, or any MCP-compatible LLM client
 to parse PDFs, images, and Office documents directly from the LLM interface.
@@ -10,12 +13,15 @@ to parse PDFs, images, and Office documents directly from the LLM interface.
 - **Two operation modes**: Subprocess (default) spawns the Python DocMirror engine; API mode calls the REST API
 - **Full DMIR output**: Returns structured JSON with document sections, tables, quality metrics, and evidence
 - **Zero configuration**: Works out of the box when DocMirror Python package is installed
-- **Cross-platform**: Same npm package works on macOS, Linux, Windows
+- **Cross-platform**: The same source build works on macOS, Linux, and Windows
 
-## Installation
+## Preview Build
 
 ```bash
-npm install @docmirror/mcp-server
+git clone https://github.com/valuemapglobal/DocMirror.git
+cd DocMirror/sdks/mcp-server
+npm ci
+npm run build
 ```
 
 ## Quick Start
@@ -24,18 +30,18 @@ npm install @docmirror/mcp-server
 
 ```bash
 # The MCP server spawns the Python DocMirror MCP server as a child process
-npx @docmirror/mcp-server
+node dist/cli.js
 ```
 
 Requirements:
-- Python 3.10+ with `docmirror` package installed (`pip install docmirror[mcp]`)
+- Python 3.10+ with this checkout installed (`pip install -e ".[mcp]"` from the repository root)
 - The `docmirror` Python module must be importable
 
 ### Mode 2: API (No Python needed)
 
 ```bash
-# Calls the DocMirror REST API for each tool invocation
-npx @docmirror/mcp-server --api-url https://api.docmirror.dev
+# Calls a local or self-hosted DocMirror REST API for each tool invocation
+node dist/cli.js --api-url http://localhost:8000
 ```
 
 ## Configuration
@@ -48,8 +54,8 @@ Add to `claude_desktop_config.json`:
 {
   "mcpServers": {
     "docmirror": {
-      "command": "npx",
-      "args": ["@docmirror/mcp-server"]
+      "command": "node",
+      "args": ["/absolute/path/to/DocMirror/sdks/mcp-server/dist/cli.js"]
     }
   }
 }
@@ -61,8 +67,12 @@ Or with API mode:
 {
   "mcpServers": {
     "docmirror": {
-      "command": "npx",
-      "args": ["@docmirror/mcp-server", "--api-url", "https://api.docmirror.dev"]
+      "command": "node",
+      "args": [
+        "/absolute/path/to/DocMirror/sdks/mcp-server/dist/cli.js",
+        "--api-url",
+        "http://localhost:8000"
+      ]
     }
   }
 }
@@ -73,7 +83,7 @@ Or with API mode:
 Configure the MCP server in your editor's MCP settings. The command is:
 
 ```
-npx @docmirror/mcp-server
+node /absolute/path/to/DocMirror/sdks/mcp-server/dist/cli.js
 ```
 
 ### Environment Variables
@@ -112,7 +122,7 @@ Parse a document from raw bytes (e.g. downloaded from an API or pasted from clip
 
 ## Architecture
 
-This npm package provides **two transport strategies** for the same MCP interface:
+This source preview provides **two transport strategies** for the same MCP interface:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -120,7 +130,7 @@ This npm package provides **two transport strategies** for the same MCP interfac
 └───────────────┬──────────────────────────────────────────┘
                 │  MCP (JSON-RPC over stdio)
 ┌───────────────▼──────────────────────────────────────────┐
-│               @docmirror/mcp-server (npm)                  │
+│          @docmirror/mcp-server (source preview)            │
 │                                                           │
 │  ┌──────────────────────┐   ┌──────────────────────────┐ │
 │  │ Subprocess Mode       │   │ API Mode                  │ │
@@ -153,7 +163,7 @@ The DocMirror parsing engine is built in Python (with C-extensions for OCR, layo
 ## Programmatic Usage
 
 ```typescript
-import { runMcpServer } from "@docmirror/mcp-server";
+import { runMcpServer } from "./dist/index.js";
 
 // Subprocess mode
 await runMcpServer({ mode: "subprocess" });
@@ -161,7 +171,7 @@ await runMcpServer({ mode: "subprocess" });
 // API mode
 await runMcpServer({
   mode: "api",
-  apiUrl: "https://api.docmirror.dev",
+  apiUrl: "http://localhost:8000",
 });
 ```
 
@@ -183,7 +193,8 @@ npm start -- --api-url http://localhost:8000
 
 ## Publishing
 
-See [PUBLISH.md](./PUBLISH.md) for the release process and checklist.
+Publishing is intentionally disabled. See [PUBLISH.md](./PUBLISH.md) for the
+conditions that must be met before the first registry release.
 
 ## License
 

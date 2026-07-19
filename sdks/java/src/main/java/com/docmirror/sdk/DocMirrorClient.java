@@ -23,7 +23,7 @@ public class DocMirrorClient {
     /**
      * Create a new DocMirror API client.
      *
-     * @param baseUrl the API base URL (e.g. "https://api.docmirror.dev")
+     * @param baseUrl the API base URL (e.g. "http://localhost:8000")
      */
     public DocMirrorClient(String baseUrl) {
         this(baseUrl, null, null);

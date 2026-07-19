@@ -42,7 +42,6 @@ def generate_openapi(output_path: str | None = None) -> dict:
         "servers",
         [
             {"url": "http://localhost:8000", "description": "Local development"},
-            {"url": "https://api.docmirror.dev", "description": "Production"},
         ],
     )
 

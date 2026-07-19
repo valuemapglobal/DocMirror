@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://docmirror.dev/schemas/edition_finance.schema.json",
+  "$id": "https://valuemapglobal.github.io/DocMirror/schemas/edition_finance.schema.json",
   "title": "DocMirror Finance Edition JSON",
   "type": "object",
   "required": ["schema_version", "edition", "document", "data"],

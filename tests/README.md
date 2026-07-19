@@ -108,7 +108,7 @@ pytest tests/contract/ -q -m "not tier_slow"
 ### Running tests with fixtures
 
 To obtain the full test dataset, **contact the DocMirror team** or request access
-via [GitHub Issues](https://github.com/valuemapglobal/docmirror/issues).
+via [GitHub Issues](https://github.com/valuemapglobal/DocMirror/issues).
 
 Once fixtures are available, all tiers can run:
 
