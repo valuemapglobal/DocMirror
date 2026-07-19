@@ -35,3 +35,5 @@ def test_pypi_publish_requires_release_identity_and_green_window_gate():
     assert publish["environment"] == "pypi"
     assert publish["permissions"]["id-token"] == "write"
     assert "pip install build twine pyyaml" in publish_commands
+    assert "pip install dist/*.whl" in publish_commands
+    assert publish_commands.index("pip install dist/*.whl") < publish_commands.index("validate_oss_release.py")

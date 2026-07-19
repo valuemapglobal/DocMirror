@@ -78,6 +78,7 @@ jobs:
       - name: Verify distribution metadata and release contract
         run: |
           python -m twine check dist/*
+          python -m pip install dist/*.whl
           python scripts/validate/validate_oss_release.py
 
       - name: Verify wheel from an isolated working directory
