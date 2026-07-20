@@ -232,6 +232,62 @@ def test_allowlist_normalization_filters_ocr_noise():
     assert normalize_allowlist_text("O,OOO.50元", set("0123456789.,"), max_chars=16) == "0,000.50"
 
 
+def test_visually_confirmed_numeric_status_is_not_quarantined():
+    grid = {
+        "grid_id": "mg_p1_repayment_0",
+        "page": 1,
+        "anchor_text": "2024年01月-2024年01月的还款记录",
+        "audit": {"date_range": {"start_year": 2024, "start_month": 1, "end_year": 2024, "end_month": 1}},
+        "col_bands": [{"index": 1, "header": "1"}],
+        "cells": [
+            [
+                {"row_index": 2, "col_index": 0, "text": "2024", "role": "year"},
+                {
+                    "row_index": 2,
+                    "col_index": 1,
+                    "text": "2",
+                    "role": "status",
+                    "recognition_source": "cell_crop_consensus",
+                    "recognition_audit": {"consensus_count": 2},
+                },
+            ]
+        ],
+    }
+
+    records = records_from_micro_grid_dict(grid)
+
+    assert records[0]["status"] == "2"
+    assert records[0]["recognition_source"] == "cell_crop_consensus"
+
+
+def test_repayment_projection_binds_amount_to_same_year_row():
+    def row(row_index, year, status, amount):
+        return [
+            [
+                {"row_index": row_index, "col_index": 0, "text": str(year), "role": "year"},
+                {"row_index": row_index, "col_index": 1, "text": status, "role": "status"},
+            ],
+            [
+                {"row_index": row_index + 1, "col_index": 1, "text": amount, "role": "overdue_amount"},
+            ],
+        ]
+
+    grid = {
+        "grid_id": "mg_p1_repayment_0",
+        "page": 1,
+        "anchor_text": "2023年01月-2024年01月的还款记录",
+        "audit": {"date_range": {"start_year": 2023, "start_month": 1, "end_year": 2024, "end_month": 1}},
+        "col_bands": [{"index": 1, "header": "1"}],
+        "cells": [*row(2, 2024, "N", "0"), *row(4, 2023, "N", "200")],
+    }
+
+    records = records_from_micro_grid_dict(grid)
+    by_year = {record["year"]: record for record in records if record["month"] == 1}
+
+    assert by_year[2024]["overdue_amount"] == "0"
+    assert by_year[2023]["overdue_amount"] == "200"
+
+
 def test_repayment_mapper_is_credit_plugin_not_core_export():
     import importlib
 
@@ -279,6 +335,8 @@ def test_cell_crop_ocr_fills_missing_target_cell(monkeypatch):
     )
 
     assert (2021, 1, "N") in [(r["year"], r["month"], r["status"]) for r in out["repayment_records"]]
+    resolved = next(r for r in out["repayment_records"] if (r["year"], r["month"], r["status"]) == (2021, 1, "N"))
+    assert resolved["overdue_amount"] == "0"
     assert out["micro_grid"]["audit"]["cell_crop_ocr"]["attempts"] >= 1
     assert out["micro_grid"]["audit"]["cell_crop_ocr"]["hits"] >= 1
     status_cells = [

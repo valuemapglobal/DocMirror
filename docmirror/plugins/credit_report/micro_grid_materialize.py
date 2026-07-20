@@ -136,6 +136,7 @@ def materialize_credit_repayment_micro_grids(
     page_width: float | None = None,
     page_height: float | None = None,
     page_image: Any | None = None,
+    page_image_resolver: Any | None = None,
     enable_cell_ocr: bool = False,
 ) -> list[dict[str, Any]]:
     line_list = list(lines or [])
@@ -152,6 +153,7 @@ def materialize_credit_repayment_micro_grids(
             page_width=page_width,
             page_height=page_height,
             page_image=page_image,
+            page_image_resolver=page_image_resolver,
             enable_cell_ocr=enable_cell_ocr,
             grid_index=grid_index,
         )

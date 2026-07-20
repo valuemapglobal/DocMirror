@@ -180,7 +180,12 @@ def merge_micro_grid_structures_into_host(host: Any, grids: list[dict[str, Any]]
     merge_micro_grid_structures_into_bundles({"_page_evidence_bundles": host._page_evidence_bundles}, grids)
 
 
-def materialize_micro_grids_from_bundles(domain_specific: dict[str, Any]) -> list[dict[str, Any]]:
+def materialize_micro_grids_from_bundles(
+    domain_specific: dict[str, Any],
+    *,
+    page_image_resolver: Any | None = None,
+    enable_cell_ocr: bool = False,
+) -> list[dict[str, Any]]:
     from docmirror.ocr.micro_grid.materialize import extract_micro_grid_structures
 
     materialized: list[dict[str, Any]] = []
@@ -191,7 +196,8 @@ def materialize_micro_grids_from_bundles(domain_specific: dict[str, Any]) -> lis
             page=int(evidence.get("page") or 0),
             page_width=evidence.get("page_width"),
             page_height=evidence.get("page_height"),
-            enable_cell_ocr=False,
+            page_image_resolver=page_image_resolver,
+            enable_cell_ocr=enable_cell_ocr,
         )
         if grids:
             merge_micro_grid_structures_into_bundles(domain_specific, grids)

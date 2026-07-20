@@ -820,7 +820,17 @@ def _ensure_credit_repayment_records(parse_result: Any) -> list[dict[str, Any]]:
 
     records: list[dict[str, Any]] = []
     augment_credit_repayment_evidence_bundles(domain_specific)
-    materialize_micro_grids_from_bundles(domain_specific)
+    from docmirror.plugins.credit_report.page_image_resolver import LogicalPageImageResolver
+
+    image_resolver = LogicalPageImageResolver(parse_result)
+    try:
+        materialize_micro_grids_from_bundles(
+            domain_specific,
+            page_image_resolver=image_resolver,
+            enable_cell_ocr=True,
+        )
+    finally:
+        image_resolver.clear()
     for grid in micro_grid_structures_from_domain_specific(domain_specific):
         projected = records_from_micro_grid_dict(grid)
         if projected:

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from docmirror.ocr.micro_grid.cell_recognition import (
+    extract_micro_cell_glyph_template,
     normalize_allowlist_text,
     recognize_micro_cell_from_image,
 )
@@ -27,7 +28,7 @@ from docmirror.ocr.micro_grid.reconstruct import (
 
 _RANGE_RE = re.compile(r"(20\d{2})年\s*(\d{1,2})月\s*[-—一至~～]\s*(20\d{2})年\s*(\d{1,2})月.*还款记录")
 _YEAR_RE = re.compile(r"^20\d{2}(?=\s|$)")
-_STATUS_CHARS = {"*", "N", "C", "1", "2", "3", "4", "5", "6", "7"}
+_STATUS_CHARS = {"*", "N", "C", "1", "2", "3", "4", "5", "6", "7", "B", "M", "D", "Z", "G", "#"}
 
 
 @dataclass(frozen=True)
@@ -65,7 +66,18 @@ def _line_items(lines: Iterable[Any]) -> list[dict[str, Any]]:
         t = _text(line)
         if not b or not t:
             continue
-        out.append({"idx": idx, "text": t, "bbox": b, "confidence": _confidence(line)})
+        source_logical_page = (
+            line.get("source_logical_page") if isinstance(line, dict) else getattr(line, "source_logical_page", None)
+        )
+        out.append(
+            {
+                "idx": idx,
+                "text": t,
+                "bbox": b,
+                "confidence": _confidence(line),
+                **({"source_logical_page": int(source_logical_page)} if source_logical_page else {}),
+            }
+        )
     out.sort(key=lambda x: (x["bbox"][1], x["bbox"][0]))
     return out
 
@@ -164,6 +176,113 @@ def _nearest_year_lines(lines: list[dict[str, Any]], anchor: dict[str, Any]) -> 
 
 def _month_col_bands(header_line: dict[str, Any], *, n_months: int = 12) -> list[dict[str, Any]]:
     return equal_col_bands(header_line["bbox"], count=n_months, start_index=1, role="month")
+
+
+def _visual_page_context(
+    *,
+    source_line: dict[str, Any],
+    bbox: BBox,
+    base_page: int,
+    base_page_width: float | None,
+    base_page_height: float | None,
+    page_image: Any | None,
+    page_image_resolver: Any | None,
+) -> tuple[Any, BBox, float, float, int] | None:
+    """Resolve a local-page image and undo cross-page evidence y shifting."""
+    logical_page = int(source_line.get("source_logical_page") or base_page)
+    context = page_image_resolver(logical_page) if page_image_resolver is not None else None
+    if isinstance(context, dict):
+        image = context.get("image")
+        width = float(context.get("page_width") or base_page_width or 0.0)
+        height = float(context.get("page_height") or base_page_height or 0.0)
+    else:
+        image = page_image if logical_page == base_page else None
+        width = float(base_page_width or 0.0)
+        height = float(base_page_height or 0.0)
+    if image is None or width <= 0 or height <= 0:
+        return None
+    x0, y0, x1, y1 = bbox
+    if logical_page != base_page:
+        shift = float(base_page_height or 0.0)
+        y0 -= shift
+        y1 -= shift
+    return image, (x0, y0, x1, y1), width, height, logical_page
+
+
+def _visual_month_col_bands(
+    month_cols: list[dict[str, Any]],
+    *,
+    page_image: Any | None,
+    page_width: float | None,
+    page_height: float | None,
+    y0: float,
+    y1: float,
+    max_left_shift_months: float = 1.10,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Align month bands to vertical table rules while preserving legacy text geometry."""
+    if (
+        page_image is None
+        or page_width is None
+        or page_height is None
+        or not month_cols
+        or getattr(page_image, "size", 0) == 0
+    ):
+        return month_cols, {"source": "text_bbox", "offset": 0.0}
+    try:
+        import cv2
+        import numpy as np
+
+        shape = page_image.shape
+        image_height, image_width = int(shape[0]), int(shape[1])
+        gray = cv2.cvtColor(page_image, cv2.COLOR_RGB2GRAY) if len(shape) == 3 else page_image
+        sx = image_width / max(float(page_width), 1.0)
+        sy = image_height / max(float(page_height), 1.0)
+        start = float(month_cols[0]["bbox"][0])
+        end = float(month_cols[-1]["bbox"][2])
+        step = (end - start) / len(month_cols)
+        py0 = max(0, int(round(max(0.0, y0) * sy)))
+        py1 = min(image_height, int(round(min(float(page_height), y1) * sy)))
+        if py1 - py0 < 12 or step <= 1.0:
+            return month_cols, {"source": "text_bbox", "offset": 0.0}
+        ink = (gray[py0:py1] < 115).astype(np.float32)
+        projection = ink.mean(axis=0)
+        projection = np.convolve(projection, np.ones(5, dtype=np.float32) / 5.0, mode="same")
+        # Month glyph boxes are narrower than the table: find both outside
+        # rules, allowing the column pitch to expand instead of applying a
+        # single offset that becomes wrong near month 12.
+        start_offsets = np.linspace(-max(0.2, max_left_shift_months) * step, -0.10 * step, 113)
+        end_offsets = np.linspace(-0.90 * step, 0.55 * step, 89)
+        best_score = -1.0
+        best_start, best_end = start, end
+        for start_offset in start_offsets:
+            candidate_start = start + float(start_offset)
+            for end_offset in end_offsets:
+                candidate_end = end + float(end_offset)
+                positions = np.linspace(candidate_start * sx, candidate_end * sx, 13)
+                indices = np.clip(np.rint(positions).astype(int), 0, image_width - 1)
+                score = float(projection[indices].sum())
+                if score > best_score:
+                    best_score = score
+                    best_start, best_end = candidate_start, candidate_end
+        best_offset = best_start - start
+        # Reject offsets without sustained vertical-rule evidence.
+        baseline = float(np.median(projection)) * 13.0
+        if best_score < max(0.5, baseline * 1.05):
+            return month_cols, {"source": "text_bbox", "offset": 0.0}
+        refined = equal_col_bands(
+            (best_start, float(month_cols[0]["bbox"][1]), best_end, float(month_cols[0]["bbox"][3])),
+            count=12,
+            start_index=1,
+            role="month",
+        )
+        return refined, {
+            "source": "vertical_rule_projection",
+            "offset": round(best_offset, 4),
+            "right_offset": round(best_end - end, 4),
+            "score": round(best_score, 4),
+        }
+    except Exception:
+        return month_cols, {"source": "text_bbox", "offset": 0.0}
 
 
 def _coerce_token(obj: Any, *, page: int, idx: int) -> OCRToken | None:
@@ -269,6 +388,7 @@ def reconstruct_repayment_micro_grid_from_lines(
     page_width: float | None = None,
     page_height: float | None = None,
     page_image: Any | None = None,
+    page_image_resolver: Any | None = None,
     enable_cell_ocr: bool = False,
     grid_index: int = 0,
 ) -> RepaymentExtraction:
@@ -306,6 +426,31 @@ def reconstruct_repayment_micro_grid_from_lines(
         return RepaymentExtraction(None, [], {"reason": "year_rows_not_found", "anchor": anchor})
 
     month_cols = _month_col_bands(header_line)
+    base_visual_context = page_image_resolver(page) if page_image_resolver is not None else None
+    base_visual_image = (
+        base_visual_context.get("image") if isinstance(base_visual_context, dict) else page_image
+    )
+    base_visual_width = (
+        float(base_visual_context.get("page_width") or page_width or 0.0)
+        if isinstance(base_visual_context, dict)
+        else page_width
+    )
+    base_visual_height = (
+        float(base_visual_context.get("page_height") or page_height or 0.0)
+        if isinstance(base_visual_context, dict)
+        else page_height
+    )
+    visual_month_cols, visual_geometry_audit = _visual_month_col_bands(
+        month_cols,
+        page_image=base_visual_image,
+        page_width=base_visual_width,
+        page_height=base_visual_height,
+        y0=float(header_line["bbox"][1]) - 5.0,
+        y1=min(
+            float(base_visual_height or page_height or 0.0),
+            max(float(year_line["bbox"][3]) for year_line in years) + 35.0,
+        ),
+    )
     month_x0 = min(col["bbox"][0] for col in month_cols)
     grid_x1 = max(col["bbox"][2] for col in month_cols)
     year_x0 = min(float(year_line["bbox"][0]) for year_line in years)
@@ -383,6 +528,7 @@ def reconstruct_repayment_micro_grid_from_lines(
     record_months = set(_months_between(start_year, start_month, end_year, end_month))
     crop_ocr_attempts = 0
     crop_ocr_hits = 0
+    status_templates: dict[str, list[Any]] = {}
 
     for year_line in years:
         year_match = _YEAR_RE.match(year_line["text"].strip())
@@ -411,6 +557,29 @@ def reconstruct_repayment_micro_grid_from_lines(
             amount_band["index"] = len(row_bands)
             row_bands.append(amount_band)
 
+        year_visual_cols = visual_month_cols
+        row_visual_context = _visual_page_context(
+            source_line=status_line,
+            bbox=(grid_x0, status_band["bbox"][1], grid_x1, (amount_band or status_band)["bbox"][3]),
+            base_page=page,
+            base_page_width=page_width,
+            base_page_height=page_height,
+            page_image=page_image,
+            page_image_resolver=page_image_resolver,
+        )
+        if row_visual_context is not None:
+            row_image, row_local_bbox, row_width, row_height, row_page = row_visual_context
+            year_visual_cols, _row_geometry_audit = _visual_month_col_bands(
+                month_cols,
+                page_image=row_image,
+                page_width=row_width,
+                page_height=row_height,
+                y0=max(0.0, row_local_bbox[1] - 5.0),
+                y1=min(row_height, row_local_bbox[3] + 5.0),
+                max_left_shift_months=1.85 if row_page != page else 1.10,
+            )
+        year_visual_cols_by_month = {int(col["header"]): col for col in year_visual_cols}
+
         year_col = {
             "index": 0,
             "header": str(year),
@@ -428,7 +597,9 @@ def reconstruct_repayment_micro_grid_from_lines(
             )
         ]
         amount_cells: list[MicroGridCell] = []
-        normalized_status_text = status_line["text"].replace("★", "*").replace("#", "*")
+        normalized_status_text = (
+            status_line["text"].replace("★", "*").replace("☆", "*").replace("※", "*")
+        )
         raw_status_text = normalized_status_text.replace(" ", "")
         status_chars = [ch for ch in raw_status_text if ch in _STATUS_CHARS]
         active_months = [month for yy, month in sorted(record_months) if yy == year]
@@ -473,29 +644,51 @@ def reconstruct_repayment_micro_grid_from_lines(
             status_crop = None
             status_recognition_source = "tokens"
             status_recognition_audit: dict[str, Any] = {}
+            visual_status_bbox = _cell_bbox(status_band, year_visual_cols_by_month.get(month, col))
+            visual = None
+            if enable_cell_ocr and (year, month) in record_months:
+                visual = _visual_page_context(
+                    source_line=status_line,
+                    bbox=visual_status_bbox,
+                    base_page=page,
+                    base_page_width=page_width,
+                    base_page_height=page_height,
+                    page_image=page_image,
+                    page_image_resolver=page_image_resolver,
+                )
             if (
-                not status
+                (not status or status.isdigit())
                 and enable_cell_ocr
-                and page_image is not None
-                and page_width is not None
-                and page_height is not None
                 and (year, month) in record_months
             ):
-                crop_ocr_attempts += 1
-                rec = recognize_micro_cell_from_image(
-                    page_image,
-                    _cell_bbox(status_band, col),
-                    page_width=page_width,
-                    page_height=page_height,
-                    allowed_charset=_STATUS_CHARS,
-                    max_chars=1,
+                if visual is not None:
+                    crop_ocr_attempts += 1
+                    visual_image, visual_bbox, visual_width, visual_height, visual_page = visual
+                    rec = recognize_micro_cell_from_image(
+                        visual_image,
+                        visual_bbox,
+                        page_width=visual_width,
+                        page_height=visual_height,
+                        allowed_charset=_STATUS_CHARS,
+                        max_chars=1,
+                        reference_templates=status_templates,
+                    )
+                    status_crop = rec.raw_text
+                    status_recognition_source = rec.source
+                    status_recognition_audit = {**rec.audit, "logical_page": visual_page}
+                    if rec.text:
+                        crop_ocr_hits += 1
+                        status = rec.text
+            if status and not status.isdigit() and visual is not None:
+                visual_image, visual_bbox, visual_width, visual_height, _visual_page = visual
+                template = extract_micro_cell_glyph_template(
+                    visual_image,
+                    visual_bbox,
+                    page_width=visual_width,
+                    page_height=visual_height,
                 )
-                status_crop = rec.raw_text
-                status_recognition_source = rec.source
-                status_recognition_audit = rec.audit
-                if rec.text:
-                    crop_ocr_hits += 1
-                    status = rec.text
+                if template is not None:
+                    status_templates.setdefault(status, []).append(template)
             if len(status) > 1:
                 status = status[0]
             st_cell = build_cell(
@@ -515,33 +708,55 @@ def reconstruct_repayment_micro_grid_from_lines(
             if amount_band is not None:
                 amt_tokens = amount_assignments.get(month, [])
                 amount = _normalize_amount_text(_token_text(amt_tokens))
+                visually_verified_zero = status_recognition_source == "cell_crop_consensus" and status in {
+                    "*",
+                    "N",
+                    "C",
+                }
+                if visually_verified_zero:
+                    # These status codes explicitly mean no overdue balance.
+                    # Do not let a neighbouring month digit or table rule
+                    # override the status/amount invariant.
+                    amount = "0"
                 amount_bbox = _cell_bbox(amount_band, col)
+                visual_amount_bbox = _cell_bbox(amount_band, year_visual_cols_by_month.get(month, col))
                 amount_crop = None
-                amount_recognition_source = "tokens"
-                amount_recognition_audit: dict[str, Any] = {}
+                amount_recognition_source = "verified_status_zero" if visually_verified_zero else "tokens"
+                amount_recognition_audit: dict[str, Any] = (
+                    {"reason": "visually_verified_non_overdue_status"} if visually_verified_zero else {}
+                )
                 if (
-                    not amount
+                    (not amount or status_recognition_source == "cell_crop_consensus")
+                    and not visually_verified_zero
                     and enable_cell_ocr
-                    and page_image is not None
-                    and page_width is not None
-                    and page_height is not None
                     and (year, month) in record_months
                 ):
-                    crop_ocr_attempts += 1
-                    rec = recognize_micro_cell_from_image(
-                        page_image,
-                        amount_bbox,
-                        page_width=page_width,
-                        page_height=page_height,
-                        allowed_charset=set("0123456789.,"),
-                        max_chars=16,
+                    visual = _visual_page_context(
+                        source_line=amount_line,
+                        bbox=visual_amount_bbox,
+                        base_page=page,
+                        base_page_width=page_width,
+                        base_page_height=page_height,
+                        page_image=page_image,
+                        page_image_resolver=page_image_resolver,
                     )
-                    amount_crop = rec.raw_text
-                    amount_recognition_source = rec.source
-                    amount_recognition_audit = rec.audit
-                    if rec.text:
-                        crop_ocr_hits += 1
-                        amount = _normalize_amount_text(rec.text)
+                    if visual is not None:
+                        crop_ocr_attempts += 1
+                        visual_image, visual_bbox, visual_width, visual_height, visual_page = visual
+                        rec = recognize_micro_cell_from_image(
+                            visual_image,
+                            visual_bbox,
+                            page_width=visual_width,
+                            page_height=visual_height,
+                            allowed_charset=set("0123456789.,"),
+                            max_chars=16,
+                        )
+                        amount_crop = rec.raw_text
+                        amount_recognition_source = rec.source
+                        amount_recognition_audit = {**rec.audit, "logical_page": visual_page}
+                        if rec.text:
+                            crop_ocr_hits += 1
+                            amount = _normalize_amount_text(rec.text)
                 amount_cells.append(
                     build_cell(
                         row_band=amount_band,
@@ -622,6 +837,7 @@ def reconstruct_repayment_micro_grid_from_lines(
                 "attempts": crop_ocr_attempts,
                 "hits": crop_ocr_hits,
             },
+            "visual_month_geometry": visual_geometry_audit,
         },
     )
     return RepaymentExtraction(
@@ -639,6 +855,7 @@ def extract_credit_repayment_records(
     page_width: float | None = None,
     page_height: float | None = None,
     page_image: Any | None = None,
+    page_image_resolver: Any | None = None,
     enable_cell_ocr: bool = False,
     grid_index: int = 0,
 ) -> dict[str, Any]:
@@ -649,6 +866,7 @@ def extract_credit_repayment_records(
         page_width=page_width,
         page_height=page_height,
         page_image=page_image,
+        page_image_resolver=page_image_resolver,
         enable_cell_ocr=enable_cell_ocr,
         grid_index=grid_index,
     )
@@ -730,12 +948,18 @@ def records_from_micro_grid_dict(grid: dict[str, Any]) -> list[dict[str, Any]]:
         elif "overdue_amount" in roles:
             amount_rows.append([cell for cell in row if isinstance(cell, dict)])
 
-    amount_by_col: dict[int, str] = {}
+    amount_by_row_col: dict[tuple[int, int], str] = {}
+    amount_row_indices: list[int] = []
     for row in amount_rows:
+        row_idx = next(
+            (int(cell.get("row_index") or 0) for cell in row if str(cell.get("role") or "") == "overdue_amount"),
+            0,
+        )
+        amount_row_indices.append(row_idx)
         for cell in row:
             text = str(cell.get("text") or "").strip()
             if text:
-                amount_by_col[int(cell.get("col_index") or 0)] = text
+                amount_by_row_col[(row_idx, int(cell.get("col_index") or 0))] = text
 
     years_by_row = _years_by_status_row_index(grid)
     records: list[dict[str, Any]] = []
@@ -745,6 +969,7 @@ def records_from_micro_grid_dict(grid: dict[str, Any]) -> list[dict[str, Any]]:
             0,
         )
         row_year = years_by_row.get(row_idx)
+        amount_row_idx = next((index for index in sorted(amount_row_indices) if index > row_idx), None)
         for cell in status_row:
             if str(cell.get("role") or "") != "status":
                 continue
@@ -758,7 +983,9 @@ def records_from_micro_grid_dict(grid: dict[str, Any]) -> list[dict[str, Any]]:
                 year = next((y for y, m in valid_months if m == month), None)
             if year is None or (year, month) not in valid_months:
                 continue
-            amount = amount_by_col.get(col_idx, "0") or "0"
+            amount = (
+                amount_by_row_col.get((amount_row_idx, col_idx), "0") if amount_row_idx is not None else "0"
+            ) or "0"
             bbox = cell.get("bbox")
             record: dict[str, Any] = {
                 "year": year,
@@ -775,6 +1002,14 @@ def records_from_micro_grid_dict(grid: dict[str, Any]) -> list[dict[str, Any]]:
                 ],
                 "confidence": float(cell.get("confidence") or 0.7),
             }
+            recognition_source = str(cell.get("recognition_source") or "tokens")
+            recognition_audit = dict(cell.get("recognition_audit") or {})
+            if recognition_source != "tokens":
+                record["recognition_source"] = recognition_source
+            if recognition_audit:
+                record["audit"] = recognition_audit
+            if cell.get("crop_ocr_text") is not None:
+                record["raw_status"] = str(cell.get("crop_ocr_text") or "")
             if isinstance(bbox, list) and len(bbox) == 4:
                 record["status_bbox"] = list(bbox)
             records.append(record)
@@ -797,7 +1032,11 @@ def records_from_micro_grid_dict(grid: dict[str, Any]) -> list[dict[str, Any]]:
         record["audit"] = {"reason": "status_geometry_reused_across_years"}
     for record in records:
         status = str(record.get("status") or "")
-        if status.isdigit():
+        visually_confirmed = (
+            str(record.get("recognition_source") or "") == "cell_crop_consensus"
+            and int((record.get("audit") or {}).get("consensus_count") or 0) >= 2
+        )
+        if status.isdigit() and not visually_confirmed:
             record["raw_status"] = status
             record["status"] = "unknown"
             record["overdue_amount"] = None
