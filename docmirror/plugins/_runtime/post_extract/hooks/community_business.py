@@ -569,7 +569,22 @@ def _source_quality(result: ParseResult) -> float:
 
 def _evidence_quality(result: ParseResult, data: dict[str, Any]) -> dict[str, Any]:
     fields = data.get("fields") if isinstance(data.get("fields"), dict) else {}
-    records = data.get("records") if isinstance(data.get("records"), list) else []
+    records = list(data.get("records") or []) if isinstance(data.get("records"), list) else []
+    if not records:
+        for collection_name in (
+            "credit_accounts",
+            "credit_lines",
+            "repayment_records",
+            "overdue_records",
+            "inquiry_records",
+            "public_records",
+            "residence_records",
+            "employment_records",
+            "repayment_liability_records",
+        ):
+            collection = data.get(collection_name)
+            if isinstance(collection, list):
+                records.extend(item for item in collection if isinstance(item, dict))
     field_metadata = data.get("field_metadata") if isinstance(data.get("field_metadata"), dict) else {}
     field_details = data.get("field_details") if isinstance(data.get("field_details"), dict) else {}
     sourced_fields = sum(
@@ -583,7 +598,13 @@ def _evidence_quality(result: ParseResult, data: dict[str, Any]) -> dict[str, An
         1
         for record in records
         if isinstance(record, dict)
-        and bool(record.get("source") or record.get("source_fact_ids") or record.get("evidence_ids"))
+        and bool(
+            record.get("source")
+            or record.get("source_refs")
+            or record.get("source_cell_refs")
+            or record.get("source_fact_ids")
+            or record.get("evidence_ids")
+        )
     )
     evidence_ids: set[str] = set()
     for page in getattr(result, "pages", []) or []:

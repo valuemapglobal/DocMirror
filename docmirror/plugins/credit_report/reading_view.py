@@ -79,6 +79,27 @@ _TABLE_SPECS: tuple[dict[str, Any], ...] = (
         "headers": ["查询日期", "查询机构", "查询原因", "查询类型"],
         "section_aliases": ("查询记录",),
     },
+    {
+        "collection": "residence_records",
+        "title": "居住信息",
+        "kind": "collection",
+        "headers": ["居住地址", "居住状况", "信息更新日期"],
+        "section_aliases": ("个人基本信息",),
+    },
+    {
+        "collection": "employment_records",
+        "title": "职业信息",
+        "kind": "collection",
+        "headers": ["工作单位", "职业", "行业", "信息更新日期"],
+        "section_aliases": ("个人基本信息",),
+    },
+    {
+        "collection": "repayment_liability_records",
+        "title": "相关还款责任信息",
+        "kind": "collection",
+        "headers": ["责任类型", "账户标识", "责任金额", "状态"],
+        "section_aliases": ("信贷交易信息明细", "信贷记录明细", "信贷记录"),
+    },
 )
 
 

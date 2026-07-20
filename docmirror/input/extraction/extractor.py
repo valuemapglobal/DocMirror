@@ -931,6 +931,7 @@ class CoreExtractor:
             preferred_rotation=preferred_spread_rotation,
         )
         pages: list[PageLayout] = []
+        page_evidence_bundles: list[dict[str, Any]] = []
         for page in plane.pages:
             if page.page_index not in selected_indices:
                 continue
@@ -985,6 +986,18 @@ class CoreExtractor:
                             page_blocks = blocks + [
                                 replace(block, reading_order=len(blocks) + block.reading_order) for block in page_blocks
                             ]
+                        from .scanned_evidence import build_scanned_page_evidence_bundle
+
+                        page_evidence_bundles.append(
+                            build_scanned_page_evidence_bundle(
+                                page_blocks,
+                                page=ocr_page.page_number,
+                                source_page=source_page_number,
+                                page_width=ocr_page.width,
+                                page_height=ocr_page.height,
+                                page_image=ocr_page.image,
+                            )
+                        )
                         pages.append(
                             _page_layout_from_blocks(
                                 page_blocks,
@@ -1087,6 +1100,8 @@ class CoreExtractor:
         )
         metadata["structure"]["source_page_count"] = len(plane.pages)
         metadata["structure"]["logical_page_count"] = spread_plan.logical_page_count
+        if page_evidence_bundles:
+            metadata["page_evidence_bundles"] = page_evidence_bundles
         if has_scanned:
             metadata["ocr_corrections"] = _collect_ocr_correction_audit(
                 pages,

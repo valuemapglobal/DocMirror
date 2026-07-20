@@ -157,3 +157,29 @@ def test_assembly_reports_collection_evidence_coverage() -> None:
     assert audit["collections"]["public_records"]["count"] == 1
     assert audit["collections"]["public_records"]["evidence_coverage"] == 0.0
     assert "missing_evidence:public_records" in audit["issues"]
+
+
+def test_assembly_quarantines_unresolved_repayment_status_from_ready_contract() -> None:
+    assembled = assemble_credit_report_business(
+        _result(),
+        "个人信用报告 还款记录",
+        report_subtype="personal_detail",
+        content_mode="scanned_ocr",
+        existing_collections={
+            "repayment_records": [
+                {
+                    "year": 2025,
+                    "month": 1,
+                    "status": "unknown",
+                    "source_cell_refs": [{"grid_id": "grid-1", "row": 0, "col": 1}],
+                }
+            ]
+        },
+    )
+
+    audit = assembled["credit_extraction_audit"]
+    repayment = audit["collections"]["repayment_records"]
+    assert repayment["unresolved_status_count"] == 1
+    assert repayment["status_resolution_coverage"] == 0.0
+    assert "unresolved_values:repayment_records.status" in audit["issues"]
+    assert audit["status"] == "review"

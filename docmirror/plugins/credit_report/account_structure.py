@@ -20,13 +20,43 @@ _FIELD_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("loan_amount", ("借款金额", "授信额度", "发放金额", "合同金额")),
     ("business_type", ("业务种类", "业务类型")),
     ("guarantee_type", ("担保方式", "保证方式")),
+    ("repayment_method", ("还款方式",)),
+    ("co_borrower_flag", ("共同借款标志", "共同借款")),
+    ("repayment_frequency", ("还款频率", "还款周期")),
+    ("repayment_periods", ("还款期数", "贷款期数")),
     ("account_status", ("账户状态", "状态")),
+    ("snapshot_date", ("截至日期", "数据截至日期")),
+    ("balance", ("账户余额", "当前余额", "余额")),
+    ("five_tier_class", ("五级分类",)),
+    ("remaining_periods", ("剩余还款期数", "剩余期数")),
+    ("scheduled_payment", ("本月应还款", "本期应还款")),
+    ("actual_payment", ("本月实还款", "本期实还款")),
+    ("scheduled_payment_date", ("应还款日",)),
+    ("last_repayment_date", ("最近一次还款日期", "最近还款日期")),
+    ("current_overdue_periods", ("当前逾期期数",)),
+    ("current_overdue_amount", ("当前逾期总额", "当前逾细总额")),
+    ("overdue_principal_31_60", ("逾期31-60天", "31-60天")),
+    ("overdue_principal_61_90", ("逾期61-90天",)),
+    ("overdue_principal_91_180", ("逾期91-180天",)),
+    ("overdue_principal_over_180", ("逾期180天以上",)),
     ("close_date", ("关闭日期", "结清日期", "账户关闭日期")),
 )
 
 _DATE_RE = re.compile(r"\d{4}[./-]\d{1,2}[./-]\d{1,2}")
 _AMOUNT_RE = re.compile(r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?")
 _ANCHOR_RE = re.compile(r"账户\s*\d+")
+_COMPLETENESS_FIELDS = (
+    "management_institution",
+    "account_identifier",
+    "open_date",
+    "currency",
+    "due_date",
+    "loan_amount",
+    "business_type",
+    "guarantee_type",
+    "account_status",
+    "close_date",
+)
 
 
 def extract_credit_accounts_from_local_structure_evidence(
@@ -147,7 +177,7 @@ def _account_from_field_grid(structure: dict[str, Any], *, page: int) -> dict[st
     return finalize_partial_record(
         account,
         field_count=field_count,
-        expected_fields=[field_key for field_key, _aliases in _FIELD_ALIASES],
+        expected_fields=list(_COMPLETENESS_FIELDS),
         mapped_fields=mapped_fields,
         base_confidence=float(structure.get("confidence") or 0.0),
         anchor_present=bool(_ANCHOR_RE.search(anchor_text)),
@@ -314,7 +344,7 @@ def _account_from_label_value_graph(structure: dict[str, Any], *, page: int) -> 
     return finalize_partial_record(
         account,
         field_count=field_count,
-        expected_fields=[field_key for field_key, _aliases in _FIELD_ALIASES],
+        expected_fields=list(_COMPLETENESS_FIELDS),
         mapped_fields=mapped_fields,
         base_confidence=float(structure.get("confidence") or 0.0),
         anchor_present=bool(_ANCHOR_RE.search(anchor_text)),
@@ -409,10 +439,20 @@ def _field_value(
 
 def _normalize_value(raw: str, field_key: str) -> str:
     compact = _compact_text(raw)
-    if field_key in {"open_date", "due_date", "close_date"}:
+    if field_key in {"open_date", "due_date", "close_date", "snapshot_date", "last_repayment_date"}:
         match = _DATE_RE.search(compact)
         return match.group(0).replace("/", ".").replace("-", ".") if match else raw
-    if field_key == "loan_amount":
+    if field_key in {
+        "loan_amount",
+        "balance",
+        "scheduled_payment",
+        "actual_payment",
+        "current_overdue_amount",
+        "overdue_principal_31_60",
+        "overdue_principal_61_90",
+        "overdue_principal_91_180",
+        "overdue_principal_over_180",
+    }:
         normalized = compact.replace("，", ",")
         comma_matches = list(re.finditer(r"\d{1,3}(?:,\d{3})+", normalized))
         if comma_matches:
@@ -425,6 +465,9 @@ def _normalize_value(raw: str, field_key: str) -> str:
         return match.group(0).replace(",", "") if match else raw
     if field_key == "currency":
         return "人民币" if "人民币" in compact else raw
+    if field_key in {"repayment_periods", "remaining_periods", "current_overdue_periods"}:
+        match = re.search(r"\d+", compact)
+        return match.group(0) if match else raw
     if field_key in {"management_institution", "business_type", "account_identifier"}:
         collapsed = _collapse_ocr_stutter(raw)
         if field_key == "management_institution":

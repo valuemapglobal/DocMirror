@@ -126,6 +126,10 @@ def validate_domain_schema(
     audit_key = str(collection_commitments.get("audit") or "")
     if audit_key and not isinstance(data.get(audit_key), dict):
         report.missing_collections.append(audit_key)
+    elif audit_key and collection_commitments.get("audit_must_pass") is True:
+        audit_value = data.get(audit_key) or {}
+        if str(audit_value.get("status") or "") != "pass":
+            report.missing_collections.append(f"{audit_key}:status")
     report.required_records_passed = not missing_recs and not report.missing_collections
 
     # ── Evidence check (heuristic) ──

@@ -440,6 +440,10 @@ def enrich_credit_report_output(
         detect_credit_report_subtype,
         recover_credit_report_header_fields,
     )
+    from docmirror.plugins.credit_report.scanned_business import (
+        extract_scanned_credit_business,
+        link_repayment_records_to_accounts,
+    )
 
     data = output.setdefault("data", {})
     fields = data.setdefault("fields", {})
@@ -497,6 +501,34 @@ def enrich_credit_report_output(
     if sections:
         data["sections"] = sections
         document["archetype"] = "report_document"
+    from docmirror.plugins.credit_report.source_content import build_credit_source_content
+
+    source_content = build_credit_source_content(parse_result)
+    if source_content.get("pages"):
+        data["source_content"] = source_content
+
+    scanned_business: dict[str, Any] = {}
+    if content_mode in {"scanned_ocr", "mixed"}:
+        scanned_business = extract_scanned_credit_business(parse_result, full_text)
+        subject_profile = dict(scanned_business.get("subject_profile") or {})
+        for profile_key, field_key in (("subject_name", "subject_name"), ("id_number", "id_number")):
+            if fields.get(field_key) and profile_key not in subject_profile:
+                subject_profile[profile_key] = {
+                    "value": fields[field_key],
+                    "raw": fields[field_key],
+                    "source_refs": [{"source": "credit_report_header"}],
+                }
+        if subject_profile:
+            data["subject_profile"] = subject_profile
+        for collection in (
+            "residence_records",
+            "employment_records",
+            "repayment_liability_records",
+            "statements",
+            "annotations",
+        ):
+            data[collection] = list(scanned_business.get(collection) or [])
+
     repayment_records = list(domain_specific.get("credit_repayment_records") or [])
     if not repayment_records and (
         content_mode in {"scanned_ocr", "mixed"} or _has_credit_repayment_structures(parse_result)
@@ -505,11 +537,30 @@ def enrich_credit_report_output(
     if repayment_records:
         data["repayment_records"] = repayment_records
 
-    credit_accounts = _canonicalize_credit_accounts(list(domain_specific.get("credit_accounts") or []))
+    credit_accounts = _canonicalize_credit_accounts(list(scanned_business.get("credit_accounts") or []))
+    if not credit_accounts:
+        credit_accounts = _canonicalize_credit_accounts(list(domain_specific.get("credit_accounts") or []))
     if not credit_accounts:
         credit_accounts = _canonicalize_credit_accounts(
             _extract_credit_accounts_from_local_structure_evidence(parse_result)
         )
+
+    from docmirror.models.mirror.domain_access import micro_grid_structures_from_domain_specific
+
+    repayment_records = link_repayment_records_to_accounts(
+        repayment_records,
+        credit_accounts,
+        micro_grid_structures_from_domain_specific(domain_specific),
+    )
+
+    existing_inquiries = [
+        *list(data.get("inquiry_records") or []),
+        *list(scanned_business.get("inquiry_records") or []),
+    ]
+    existing_summary = {
+        **dict(data.get("credit_summary") or {}),
+        **dict(scanned_business.get("credit_summary") or {}),
+    }
 
     assembled = assemble_credit_report_business(
         parse_result,
@@ -521,10 +572,10 @@ def enrich_credit_report_output(
             "credit_lines": list(data.get("credit_lines") or []),
             "repayment_records": repayment_records,
             "overdue_records": list(data.get("overdue_records") or []),
-            "inquiry_records": list(data.get("inquiry_records") or []),
+            "inquiry_records": existing_inquiries,
             "public_records": list(data.get("public_records") or []),
         },
-        existing_summary=dict(data.get("credit_summary") or {}),
+        existing_summary=existing_summary,
     )
     for data_key in (
         "credit_accounts",
@@ -548,6 +599,12 @@ def enrich_credit_report_output(
         data["credit_summary"] = credit_summary
     credit_audit = assembled.get("credit_extraction_audit")
     if isinstance(credit_audit, dict):
+        # Rebuild after repayment-grid materialization so the Community source
+        # view carries every persisted grid and its cell-level provenance.
+        source_content = build_credit_source_content(parse_result)
+        if source_content.get("pages"):
+            data["source_content"] = source_content
+            credit_audit["source_conservation"] = dict(source_content.get("conservation_audit") or {})
         data["credit_extraction_audit"] = credit_audit
         domain_specific["credit_extraction_audit"] = credit_audit
 
@@ -746,14 +803,24 @@ def _ensure_credit_repayment_records(parse_result: Any) -> list[dict[str, Any]]:
     if existing:
         return list(existing)
 
+    # Registration and materialization are deliberately performed here, after
+    # the document has been classified as a credit report.  The extractor only
+    # persists OCR evidence and never needs to import a finance plugin.
+    import docmirror.plugins.credit_report.micro_grid_materialize  # noqa: F401
     from docmirror.models.mirror.domain_access import micro_grid_structures_from_domain_specific
+    from docmirror.models.mirror.page_evidence_bundles import materialize_micro_grids_from_bundles
     from docmirror.models.mirror.vnext_access import iter_structures
+    from docmirror.plugins.credit_report.micro_grid_materialize import (
+        augment_credit_repayment_evidence_bundles,
+    )
     from docmirror.plugins.credit_report.repayment_grid import (
         dedupe_repayment_records,
         records_from_micro_grid_dict,
     )
 
     records: list[dict[str, Any]] = []
+    augment_credit_repayment_evidence_bundles(domain_specific)
+    materialize_micro_grids_from_bundles(domain_specific)
     for grid in micro_grid_structures_from_domain_specific(domain_specific):
         projected = records_from_micro_grid_dict(grid)
         if projected:

@@ -26,8 +26,8 @@ from docmirror.ocr.micro_grid.reconstruct import (
 )
 
 _RANGE_RE = re.compile(r"(20\d{2})年\s*(\d{1,2})月\s*[-—一至~～]\s*(20\d{2})年\s*(\d{1,2})月.*还款记录")
-_YEAR_RE = re.compile(r"^20\d{2}$")
-_STATUS_CHARS = {"N", "C", "1", "2", "3", "4", "5", "6", "7"}
+_YEAR_RE = re.compile(r"^20\d{2}(?=\s|$)")
+_STATUS_CHARS = {"*", "N", "C", "1", "2", "3", "4", "5", "6", "7"}
 
 
 @dataclass(frozen=True)
@@ -157,7 +157,7 @@ def _nearest_year_lines(lines: list[dict[str, Any]], anchor: dict[str, Any]) -> 
     candidates = [
         line
         for line in lines
-        if _YEAR_RE.match(line["text"].strip()) and line["bbox"][1] > ay1 and line["bbox"][1] < ay1 + 160
+        if _YEAR_RE.match(line["text"].strip()) and line["bbox"][1] > ay1 and line["bbox"][1] < ay1 + 300
     ]
     return candidates[:4]
 
@@ -233,6 +233,20 @@ def _line_after(
     return candidates[0] if candidates else None
 
 
+def _find_month_header(lines: list[dict[str, Any]], anchor: dict[str, Any]) -> dict[str, Any] | None:
+    _ax0, ay0, _ax1, ay1 = anchor["bbox"]
+    candidates: list[tuple[int, dict[str, Any]]] = []
+    for line in lines:
+        _lx0, ly0, _lx1, ly1 = line["bbox"]
+        if ly1 < ay0 or ly0 > ay1 + 40.0:
+            continue
+        months = [int(value) for value in re.findall(r"(?<!\d)(?:1[0-2]|[1-9])(?!\d)", line["text"])]
+        score = len(set(months) & set(range(1, 13)))
+        if score >= 8:
+            candidates.append((score, line))
+    return max(candidates, key=lambda item: (item[0], -float(item[1]["bbox"][1])))[1] if candidates else None
+
+
 def _line_before(
     lines: list[dict[str, Any]], y: float, *, x_min: float, x_max: float, max_gap: float = 55.0
 ) -> dict[str, Any] | None:
@@ -256,6 +270,7 @@ def reconstruct_repayment_micro_grid_from_lines(
     page_height: float | None = None,
     page_image: Any | None = None,
     enable_cell_ocr: bool = False,
+    grid_index: int = 0,
 ) -> RepaymentExtraction:
     """Reconstruct a credit repayment grid from OCR line-level geometry."""
     line_items = _line_items(lines)
@@ -280,7 +295,9 @@ def reconstruct_repayment_micro_grid_from_lines(
 
     anchor, (start_year, start_month, end_year, end_month) = found
     ax0, ay0, ax1, ay1 = anchor["bbox"]
-    header_line = _line_after(line_items, ay1, x_min=ax0 - 220, x_max=ax1 + 260, max_gap=35.0)
+    header_line = _find_month_header(line_items, anchor) or _line_after(
+        line_items, ay1, x_min=ax0 - 220, x_max=ax1 + 260, max_gap=35.0
+    )
     if header_line is None:
         return RepaymentExtraction(None, [], {"reason": "month_header_not_found", "anchor": anchor})
 
@@ -368,7 +385,10 @@ def reconstruct_repayment_micro_grid_from_lines(
     crop_ocr_hits = 0
 
     for year_line in years:
-        year = int(year_line["text"])
+        year_match = _YEAR_RE.match(year_line["text"].strip())
+        if year_match is None:
+            continue
+        year = int(year_match.group(0))
         status_line = _line_before(
             line_items, year_line["bbox"][1], x_min=grid_x0 - 10, x_max=grid_x1 + 10, max_gap=55.0
         )
@@ -378,13 +398,9 @@ def reconstruct_repayment_micro_grid_from_lines(
             )
         if status_line is None:
             continue
-        amount_line = _line_after(
-            line_items, status_line["bbox"][1], x_min=grid_x0 - 10, x_max=grid_x1 + 10, max_gap=35.0
-        )
-        if amount_line and _YEAR_RE.match(amount_line["text"].strip()):
-            amount_line = _line_after(
-                line_items, amount_line["bbox"][1], x_min=grid_x0 - 10, x_max=grid_x1 + 10, max_gap=35.0
-            )
+        # Credit-report grids render the calendar year in the first cell of
+        # the overdue-amount row.  The immediately preceding row is status.
+        amount_line = year_line
 
         status_band = _row_band(status_line, "status", x0=grid_x0, x1=grid_x1)
         status_band["index"] = len(row_bands)
@@ -412,26 +428,45 @@ def reconstruct_repayment_micro_grid_from_lines(
             )
         ]
         amount_cells: list[MicroGridCell] = []
-        raw_status_text = status_line["text"].replace(" ", "")
+        normalized_status_text = status_line["text"].replace("★", "*").replace("#", "*")
+        raw_status_text = normalized_status_text.replace(" ", "")
         status_chars = [ch for ch in raw_status_text if ch in _STATUS_CHARS]
+        active_months = [month for yy, month in sorted(record_months) if yy == year]
+        if year == end_year and len(status_chars) == 2 and set(status_chars) == {"N", "C"}:
+            status_by_month = {active_months[0]: "N", active_months[1]: "C"} if len(active_months) == 2 else {}
+        elif len(status_chars) == 12:
+            status_by_month = dict(zip(range(1, 13), status_chars))
+        elif len(status_chars) == len(active_months):
+            status_by_month = dict(zip(active_months, status_chars))
         # Domain correction: closed credit-report rows commonly render the final
         # month as C. If OCR collapsed a two-month N/C row into "CN", use the
         # anchor date range and visual convention to place C on the final month.
-        if year == end_year and len(status_chars) == 2 and set(status_chars) == {"N", "C"}:
-            active_months = [month for yy, month in sorted(record_months) if yy == year]
-            if len(active_months) == 2:
-                status_by_month = {active_months[0]: "N", active_months[1]: "C"}
-            else:
-                status_by_month = {}
         else:
             status_by_month = {}
 
-        status_assignments = _assign_row(synthetic_tokens, status_band, month_cols)
-        amount_assignments = _assign_row(synthetic_tokens, amount_band, month_cols) if amount_band is not None else {}
+        status_row_tokens = _expand_line_to_char_tokens(
+            {**status_line, "text": normalized_status_text},
+            page=page,
+            prefix=f"ocr_p{page}_repay_status_{year}",
+        )
+        amount_row_tokens = _expand_line_to_char_tokens(
+            amount_line,
+            page=page,
+            prefix=f"ocr_p{page}_repay_amount_{year}",
+        )
+        status_assignments = _assign_row(status_row_tokens, status_band, month_cols)
+        amount_assignments = _assign_row(amount_row_tokens, amount_band, month_cols) if amount_band is not None else {}
 
         for col in month_cols:
             month = int(col["header"])
             st_tokens = status_assignments.get(month, [])
+            status_center_y = (float(status_line["bbox"][1]) + float(status_line["bbox"][3])) / 2.0
+            amount_center_y = (float(amount_line["bbox"][1]) + float(amount_line["bbox"][3])) / 2.0
+            st_tokens = [
+                token
+                for token in st_tokens
+                if abs(token.center[1] - status_center_y) <= abs(token.center[1] - amount_center_y)
+            ]
             status = normalize_allowlist_text(
                 status_by_month.get(month) or _token_text(st_tokens), _STATUS_CHARS, max_chars=1
             )
@@ -523,14 +558,19 @@ def reconstruct_repayment_micro_grid_from_lines(
             if (year, month) in record_months and status:
                 status_ref = {
                     "page": page,
-                    "grid_id": f"mg_p{page}_repayment_0",
+                    "grid_id": f"mg_p{page}_repayment_{grid_index}",
                     "row": st_cell.row_index,
                     "col": month,
                 }
                 refs = [status_ref]
                 if amount_band is not None:
                     refs.append(
-                        {"page": page, "grid_id": f"mg_p{page}_repayment_0", "row": amount_band["index"], "col": month}
+                        {
+                            "page": page,
+                            "grid_id": f"mg_p{page}_repayment_{grid_index}",
+                            "row": amount_band["index"],
+                            "col": month,
+                        }
                     )
                 records.append(
                     {
@@ -548,9 +588,6 @@ def reconstruct_repayment_micro_grid_from_lines(
         if amount_cells:
             cell_rows.append(amount_cells)
 
-    if not records:
-        return RepaymentExtraction(None, [], {"reason": "no_records_projected", "anchor": anchor})
-
     all_y = [anchor["bbox"][1], header_line["bbox"][1]]
     all_y.extend(b["bbox"][1] for b in row_bands)
     all_y.extend(b["bbox"][3] for b in row_bands)
@@ -558,7 +595,7 @@ def reconstruct_repayment_micro_grid_from_lines(
     all_y.extend(float(year_line["bbox"][3]) for year_line in years)
     grid_bbox = (grid_x0, min(all_y), grid_x1, max(all_y))
     micro_grid = MicroGrid(
-        grid_id=f"mg_p{page}_repayment_0",
+        grid_id=f"mg_p{page}_repayment_{grid_index}",
         page=page,
         bbox=grid_bbox,
         anchor_text=anchor["text"],
@@ -587,7 +624,11 @@ def reconstruct_repayment_micro_grid_from_lines(
             },
         },
     )
-    return RepaymentExtraction(micro_grid, records, {"reason": "ok", "record_count": len(records)})
+    return RepaymentExtraction(
+        micro_grid,
+        records,
+        {"reason": "ok" if records else "grid_materialized_without_status_cells", "record_count": len(records)},
+    )
 
 
 def extract_credit_repayment_records(
@@ -599,6 +640,7 @@ def extract_credit_repayment_records(
     page_height: float | None = None,
     page_image: Any | None = None,
     enable_cell_ocr: bool = False,
+    grid_index: int = 0,
 ) -> dict[str, Any]:
     extraction = reconstruct_repayment_micro_grid_from_lines(
         lines,
@@ -608,6 +650,7 @@ def extract_credit_repayment_records(
         page_height=page_height,
         page_image=page_image,
         enable_cell_ocr=enable_cell_ocr,
+        grid_index=grid_index,
     )
     return {
         "micro_grid": extraction.micro_grid.to_dict() if extraction.micro_grid else None,
@@ -648,10 +691,11 @@ def _years_by_status_row_index(grid: dict[str, Any]) -> dict[int, int]:
         if year_cell is None or status_cell is None:
             continue
         text = str(year_cell.get("text") or "").strip()
-        if not _YEAR_RE.match(text):
+        match = _YEAR_RE.match(text)
+        if match is None:
             continue
         row_idx = int(status_cell.get("row_index") or year_cell.get("row_index") or 0)
-        out[row_idx] = int(text)
+        out[row_idx] = int(match.group(0))
     return out
 
 
@@ -734,6 +778,56 @@ def records_from_micro_grid_dict(grid: dict[str, Any]) -> list[dict[str, Any]]:
             if isinstance(bbox, list) and len(bbox) == 4:
                 record["status_bbox"] = list(bbox)
             records.append(record)
+    bbox_years: dict[tuple[float, ...], set[int]] = {}
+    for record in records:
+        bbox = record.get("status_bbox")
+        if isinstance(bbox, list) and len(bbox) == 4:
+            bbox_years.setdefault(tuple(float(value) for value in bbox), set()).add(int(record["year"]))
+    reused_bboxes = {bbox for bbox, years in bbox_years.items() if len(years) > 1}
+    for record in records:
+        bbox = record.get("status_bbox")
+        key = tuple(float(value) for value in bbox) if isinstance(bbox, list) and len(bbox) == 4 else None
+        if key not in reused_bboxes:
+            continue
+        record["raw_status"] = record.get("status")
+        record["status"] = "unknown"
+        record["overdue_amount"] = None
+        record["confidence"] = 0.0
+        record["extraction_status"] = "review"
+        record["audit"] = {"reason": "status_geometry_reused_across_years"}
+    for record in records:
+        status = str(record.get("status") or "")
+        if status.isdigit():
+            record["raw_status"] = status
+            record["status"] = "unknown"
+            record["overdue_amount"] = None
+            record["confidence"] = 0.0
+            record["extraction_status"] = "review"
+            record["audit"] = {"reason": "numeric_status_requires_cell_ocr_confirmation"}
+    existing_months = {(int(record.get("year") or 0), int(record.get("month") or 0)) for record in records}
+    for year, month in sorted(valid_months - existing_months):
+        records.append(
+            {
+                "repayment_id": f"{grid_id}:{year:04d}-{month:02d}",
+                "grid_id": grid_id,
+                "year": year,
+                "month": month,
+                "status": "unknown",
+                "overdue_amount": None,
+                "source": "repayment_grid_date_range_placeholder",
+                "source_cell_refs": [
+                    {
+                        "page": page,
+                        "grid_id": grid_id,
+                        "row": 0,
+                        "col": month,
+                        "geometry_status": "unresolved",
+                    }
+                ],
+                "confidence": 0.0,
+                "extraction_status": "review",
+            }
+        )
     return records
 
 

@@ -163,6 +163,7 @@ def test_personal_detail_scanned_report_profile(fixture: Path) -> None:
     assert fields["report_time"]
     assert data["sections"]
     assert_community_reading_view(data)
-    assert output["validation"]["domain_contract"]["status"] == "pass"
+    assert output["validation"]["domain_contract"]["status"] == "partial"
+    assert "credit_extraction_audit:status" in output["validation"]["domain_contract"]["missing_collections"]
     assert output["quality"]["readiness"] == "review"
     assert "precision:document_truncated" in output["status"]["warnings"]
