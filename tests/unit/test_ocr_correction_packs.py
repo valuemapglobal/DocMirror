@@ -169,11 +169,11 @@ def test_offline_evaluator_reports_false_positives_and_misses():
 
 def test_ocr_correction_cli_validate_explain_and_evaluate(tmp_path):
     runner = CliRunner()
-    validate_result = runner.invoke(main, ["ocr-correction", "validate"])
+    validate_result = runner.invoke(main, ["ocr", "check"])
     explain_result = runner.invoke(
         main,
         [
-            "ocr-correction",
+            "ocr",
             "explain",
             "应收账款周转牢",
             "--role",
@@ -198,7 +198,7 @@ def test_ocr_correction_cli_validate_explain_and_evaluate(tmp_path):
         ),
         encoding="utf-8",
     )
-    evaluate_result = runner.invoke(main, ["ocr-correction", "evaluate", str(samples), "--fail-on-regression"])
+    evaluate_result = runner.invoke(main, ["ocr", "eval", str(samples), "--fail-on-regression"])
 
     assert validate_result.exit_code == 0
     assert "finance.receivables_turnover_rate" in explain_result.output

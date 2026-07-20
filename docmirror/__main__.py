@@ -575,6 +575,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="DocMirror - The Trust Layer for Commercial Documents. Parse. Prove. Trust."
     )
+    from docmirror import __version__
+
+    parser.add_argument("-v", "--version", action="version", version=f"DocMirror {__version__}")
     parser.add_argument("file", nargs="?", help="Path to a document, directory, or glob")
     parser.add_argument(
         "--format", "-f", default="json", help="Output formats: json,csv,markdown,chunks,html,parquet,all"
@@ -593,7 +596,7 @@ def main() -> None:
         default="read-write",
         help="Cache policy: read-write/read-only/refresh/off",
     )
-    parser.add_argument("--pages", default=None, help="Page ranges, 1-based: 1-3,8,10-")
+    parser.add_argument("--pages", "-p", default=None, help="Page ranges, 1-based: 1-3,8,10-")
     parser.add_argument("--max-pages", type=int, default=None, help="Maximum pages after applying --pages")
     parser.add_argument("--workers", "-j", default=None, help="Total worker budget for this command (int or auto)")
     parser.add_argument(
@@ -625,24 +628,21 @@ def main() -> None:
         choices=["auto", "off", "force"],
         help="Split scanned two-page spreads before OCR",
     )
+    parser.add_argument("--all", dest="all_editions", action="store_true", help="Write every licensed edition")
     parser.add_argument(
-        "--editions",
-        default=None,
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--mirror",
+        "--audit",
         action="store_true",
-        help="Also persist the canonical _mirror.json diagnostic artifact",
+        help="Write all licensed editions and the complete audit artifact pack",
     )
-    parser.add_argument("--doc-type", default=None, help="Manual document type")
+    parser.add_argument("--community", dest="community_only", action="store_true", help="Write Community JSON only")
+    parser.add_argument("--doc-type", "-t", default=None, help="Manual document type")
     parser.add_argument(
         "--doc-type-policy",
         default="prefer",
         choices=["prefer", "force"],
         help="How strongly to apply --doc-type",
     )
-    parser.add_argument("--recursive", action="store_true", help="Recursively parse directory/glob inputs")
+    parser.add_argument("--recursive", "-r", action="store_true", help="Recursively parse directory/glob inputs")
     parser.add_argument(
         "--exclude",
         action="append",
@@ -665,33 +665,42 @@ def main() -> None:
         choices=["none", "page", "block", "token", "full"],
         help=argparse.SUPPRESS,
     )
-    parser.add_argument(
-        "--log-level",
-        default="info",
-        choices=["debug", "info", "warning", "error"],
-        help="Logging level",
-    )
+    verbosity = parser.add_mutually_exclusive_group()
+    verbosity.add_argument("--verbose", action="store_true", help="Show detailed pipeline logs")
+    verbosity.add_argument("--quiet", "-q", action="store_true", help="Suppress informational pipeline logs")
     parser.add_argument(
         "--overwrite", action="store_true", help="Allow overwriting an explicit --run-id output directory"
     )
     parser.add_argument("--run-id", default=None, help="Explicit run/task id for output directory")
-    parser.add_argument(
-        "--artifact-pack",
-        action="store_true",
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--profile",
-        default=None,
-        choices=["community", "default", "editions", "quickstart", "ga_full", "full", "forensic", "compact"],
-        help="Output profile. Profiles with audit/debug artifacts imply --artifact-pack.",
-    )
     # --slm flag removed in v1.1 — superseded by LlmDocumentRestorer
 
     args = parser.parse_args()
-    if args.mirror:
-        args.editions = "mirror,community" if args.editions is None else f"mirror,{args.editions}"
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
+    selectors = [
+        name
+        for name, selected in (
+            ("--all", args.all_editions),
+            ("--audit", args.audit),
+            ("--community", args.community_only),
+        )
+        if selected
+    ]
+    if len(selectors) > 1:
+        parser.error(f"output selectors are mutually exclusive: {', '.join(selectors)}")
+    if args.all_editions or args.audit:
+        from docmirror.framework.edition_defaults import licensed_cli_editions
+
+        selected_editions = licensed_cli_editions()
+    elif args.community_only:
+        selected_editions = ("community",)
+    else:
+        from docmirror.framework.edition_defaults import default_cli_editions
+
+        selected_editions = default_cli_editions()
+    if args.audit:
+        args.mirror_level = args.mirror_level or "forensic"
+        args.geometry = args.geometry or "full"
+    resolved_log_level = "error" if args.quiet else ("debug" if args.verbose else "info")
+    logging.basicConfig(level=getattr(logging, resolved_log_level.upper(), logging.INFO))
     resolved_skip_cache = args.cache_policy in {"refresh", "off"}
 
     # args.slm removed in v1.1 — superseded by LlmDocumentRestorer
@@ -727,19 +736,13 @@ def main() -> None:
         from docmirror.configs.runtime.performance import resolve_worker_budget
         from docmirror.input.entry.options import ResourceControl, normalize_parse_control
 
-        profile_editions = args.editions
-        if args.profile is not None and profile_editions is None:
-            from docmirror.configs.output_profile import resolve_profile
-
-            profile_editions = resolve_profile(args.profile).editions
-
         control = normalize_parse_control(
             pages=args.pages,
             max_pages=args.max_pages,
             workers=args.workers,
             mode=args.mode,
             formats=args.format,
-            editions=profile_editions,
+            editions=selected_editions,
             mirror_level=args.mirror_level,
             geometry=args.geometry,
             include_geometry=None,
@@ -817,8 +820,8 @@ def main() -> None:
                             _per_file_control.output.mirror_level,
                             editions=control.output.editions,
                             overwrite=args.overwrite,
-                            artifact_pack=args.artifact_pack,
-                            output_profile=args.profile,
+                            artifact_pack=args.audit,
+                            output_profile=None,
                         )
                 except Exception as e:
                     console.print(f"[bold red][{idx}/{total}][/bold red] ❌ {name}: {e}")
@@ -845,7 +848,7 @@ def main() -> None:
                 workers=args.workers,
                 mode=args.mode,
                 formats=args.format,
-                editions=args.editions,
+                editions=selected_editions,
                 cache_policy=args.cache_policy,
                 doc_type=args.doc_type,
                 doc_type_policy=args.doc_type_policy,
@@ -861,8 +864,8 @@ def main() -> None:
                 include_geometry=None,
                 run_id=args.run_id,
                 overwrite=args.overwrite,
-                debug_artifact=args.artifact_pack,
-                output_profile=args.profile,
+                debug_artifact=args.audit,
+                output_profile=None,
             )
         )
 

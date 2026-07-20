@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- A concise primary CLI including `docmirror -v`, `-p/--pages`, `-t/--doc-type`, `-r/--recursive`, and `-q/--quiet`.
+- Simple `--community`, license-aware `--all`, and complete `--audit` output modes.
+- Top-level `license` and `ocr` commands, default plugin listing, and `--help-all` for advanced parse options.
+
+### Changed
+- Bare file CLI invocations now persist both canonical Mirror and Community JSON while API and SDK defaults remain unchanged.
+- Finance and Enterprise outputs selected by `--all` are limited to editions authorized by the active license and installed extension packages.
+- Superseded compatibility commands and output-selection flags were removed so the public CLI has one canonical syntax.
+
 ## [1.0.8] — 2026-07-19
 
 This Python distribution release consolidates the backward-compatible Mirror

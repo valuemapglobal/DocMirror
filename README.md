@@ -61,19 +61,21 @@ trust=confidence:0.96 evidence_coverage:1.00 review_required:true
 field=invoice_number value=INV-2026-001 confidence=0.99 page=1 bbox=[88, 112, 236, 132] source_ref=synthetic_invoice_001#page=1&bbox=88,112,236,132 status=ok
 ```
 
-Parse your own document. Community JSON is the default output:
+Parse your own document. Mirror and Community JSON are the default outputs:
 
 ```bash
 pip install "docmirror[pdf,ocr,office]"
 docmirror statement.pdf --output-dir ./output
 ```
 
-Request the canonical Mirror alone with `--mirror`, or use the public quickstart
-profile when you need diagnostics, audit evidence, and support artifacts:
+Use `--community` for only the consumer projection, `--all` for every installed
+edition allowed by the active license, or `--audit` for the complete diagnostic
+artifact pack:
 
 ```bash
-docmirror statement.pdf --mirror
-docmirror statement.pdf --profile quickstart
+docmirror statement.pdf --community
+docmirror statement.pdf --all
+docmirror statement.pdf --audit
 ```
 
 Scanned OCR uses deterministic safe correction by default. Use
@@ -84,10 +86,10 @@ Locale-aware correction packs can be selected with `--ocr-language`,
 Maintain packs without parsing a document:
 
 ```bash
-docmirror ocr-correction validate
-docmirror ocr-correction list-packs
-docmirror ocr-correction explain "Micros0ft" --language en --role text_line
-docmirror ocr-correction evaluate ./tests/fixtures/ocr_correction --fail-on-regression
+docmirror ocr check
+docmirror ocr packs
+docmirror ocr explain "Micros0ft" --language en --role text_line
+docmirror ocr eval ./tests/fixtures/ocr_correction --fail-on-regression
 ```
 
 Project or customer packs can be loaded from paths listed in
@@ -100,6 +102,7 @@ Default output:
 
 ```text
 output/<run_id>/
+  001_mirror.json
   001_community.json
 ```
 
@@ -123,7 +126,7 @@ run through the `generic` plugin. It adaptively recovers KV facts, typed and
 normalized values, identity semantics, tables, outlines, and repeated row structures
 when table geometry is unavailable; it no longer returns an empty success shell.
 
-Diagnostic output with `--profile quickstart`:
+Diagnostic output with `--audit`:
 
 ```text
 output/<run_id>/
@@ -194,9 +197,10 @@ The key contract is simple: parsed fields should be accompanied by evidence and 
 
 ```bash
 docmirror document.pdf
-docmirror document.pdf --mirror --format markdown,chunks --debug-artifact
-docmirror ./documents --recursive --output-dir ./output
-docmirror plugins list
+docmirror document.pdf --all
+docmirror document.pdf --audit
+docmirror ./documents -r -j 8 -o ./output
+docmirror plugins
 ```
 
 ### API Server

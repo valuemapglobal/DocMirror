@@ -61,19 +61,20 @@ trust=confidence:0.96 evidence_coverage:1.00 review_required:true
 field=invoice_number value=INV-2026-001 confidence=0.99 page=1 bbox=[88, 112, 236, 132] source_ref=synthetic_invoice_001#page=1&bbox=88,112,236,132 status=ok
 ```
 
-解析你自己的文件。默认只输出 Community JSON：
+解析你自己的文件。默认同时输出 Mirror 和 Community JSON：
 
 ```bash
 pip install "docmirror[pdf,ocr,office]"
 docmirror statement.pdf --output-dir ./output
 ```
 
-仅需要 Mirror 时使用 `--mirror`；需要排错、审计及完整支持产物时使用公开
-quickstart profile：
+仅需要消费者结果时使用 `--community`；使用 `--all` 输出当前许可证和已安装扩展
+允许的全部 editions；需要完整审计产物时使用 `--audit`：
 
 ```bash
-docmirror statement.pdf --mirror
-docmirror statement.pdf --profile quickstart
+docmirror statement.pdf --community
+docmirror statement.pdf --all
+docmirror statement.pdf --audit
 ```
 
 扫描件 OCR 默认启用确定性的安全纠错。使用 `--ocr-correction suggest`
@@ -82,10 +83,10 @@ docmirror statement.pdf --profile quickstart
 `--ocr-correction-pack` 选择语言、国家及客户规则包。规则维护不需要执行文档解析：
 
 ```bash
-docmirror ocr-correction validate
-docmirror ocr-correction list-packs
-docmirror ocr-correction explain "应收账款周转牢" --locale zh-CN --domain financial_report --role field_label
-docmirror ocr-correction evaluate ./tests/fixtures/ocr_correction --fail-on-regression
+docmirror ocr check
+docmirror ocr packs
+docmirror ocr explain "应收账款周转牢" --locale zh-CN --domain financial_report --role field_label
+docmirror ocr eval ./tests/fixtures/ocr_correction --fail-on-regression
 ```
 
 项目或客户私有规则包可通过 `DOCMIRROR_OCR_CORRECTION_PACKS` 指定目录；设置
@@ -96,6 +97,7 @@ docmirror ocr-correction evaluate ./tests/fixtures/ocr_correction --fail-on-regr
 
 ```text
 output/<run_id>/
+  001_mirror.json
   001_community.json
 ```
 
@@ -127,7 +129,7 @@ HTML 等展示层根据 `document`、`business`、`quality`、`datasets` 和 `da
 旋转双页，避免直立报告产生稀疏逻辑页码。示例：
 
 ```bash
-docmirror scanned-report.pdf --profile community --mode accurate --ocr force \
+docmirror scanned-report.pdf --community --mode accurate --ocr force \
   --ocr-language zh --ocr-locale zh-CN --ocr-correction safe --page-split auto
 ```
 
@@ -136,7 +138,7 @@ docmirror scanned-report.pdf --profile community --mode accurate --ocr force \
 命令行完成后会直接显示实际插件、文档类型、Community 质量分、readiness、警告数量及前三项
 复核提示；JSON 的字段层级和数据流程不因此改变。
 
-使用 `--profile quickstart` 时的诊断输出：
+使用 `--audit` 时的诊断输出：
 
 ```text
 output/<run_id>/
@@ -207,9 +209,10 @@ DocMirror 的 Mirror 输出是 document-shaped，并且保留 evidence / quality
 
 ```bash
 docmirror document.pdf
-docmirror document.pdf --mirror --format markdown,chunks --debug-artifact
-docmirror ./documents --recursive --output-dir ./output
-docmirror plugins list
+docmirror document.pdf --all
+docmirror document.pdf --audit
+docmirror ./documents -r -j 8 -o ./output
+docmirror plugins
 ```
 
 ### API Server

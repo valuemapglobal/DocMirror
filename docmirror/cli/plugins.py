@@ -14,15 +14,16 @@ enterprise and finance editions unlock additional structured output paths.
 
 Commands::
 
-    docmirror plugins list
+    docmirror plugins
+    docmirror plugins ls
     docmirror plugins enable <name>
     docmirror plugins disable <name>
     docmirror plugins info <name>
     docmirror plugins search <keyword>
     docmirror plugins community
-    docmirror plugins license show
-    docmirror plugins license activate <key>
-    docmirror plugins license deactivate
+    docmirror license
+    docmirror license activate <key>
+    docmirror license deactivate
     docmirror plugins stats
 """
 
@@ -42,18 +43,20 @@ from docmirror.plugins import license_manager, plugin_manager
 from docmirror.plugins._runtime.licensing.offline import offline_license_manager
 
 
-@click.group()
-def plugins():
-    """Plugin management commands."""
-    pass
+@click.group(invoke_without_command=True)
+@click.pass_context
+def plugins(ctx: click.Context):
+    """Plugin management commands; list installed plugins when omitted."""
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(list_plugins)
 
 
-@plugins.command()
+@plugins.command("ls")
 @click.option("--enabled", is_flag=True, help="Show only enabled plugins")
 @click.option("--disabled", is_flag=True, help="Show only disabled plugins")
 @click.option("--all", "show_all", is_flag=True, help="Include all registered enterprise/finance domains")
 @click.option("--format", "fmt", type=click.Choice(["table", "json"]), default="table", help="Output format")
-def list(enabled: bool, disabled: bool, show_all: bool, fmt: str):
+def list_plugins(enabled: bool, disabled: bool, show_all: bool, fmt: str):
     """List plugins (default: community 6+1; use --all for full registry)."""
     all_plugins = plugin_manager.list_all() if show_all else plugin_manager.list_community()
 
@@ -228,10 +231,12 @@ def search(keyword: str, show_all: bool):
     console.print(table)
 
 
-@plugins.group()
-def license():
-    """License management commands."""
-    pass
+@click.group("license", invoke_without_command=True)
+@click.pass_context
+def license(ctx: click.Context):
+    """License management commands; show the active license when omitted."""
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(show)
 
 
 @license.command()
@@ -248,7 +253,7 @@ def show():
         console.print(
             Panel(
                 "[yellow]No active license[/yellow]\n\n"
-                "Load offline: [cyan]docmirror plugins license load company.lic[/cyan]\n"
+                "Load offline: [cyan]docmirror license load company.lic[/cyan]\n"
                 "Online activation requires an operator-configured endpoint.\n\n"
                 "License guidance: [cyan]https://valuemapglobal.github.io/DocMirror/[/cyan]",
                 title="License Status",
@@ -491,6 +496,5 @@ def stats(show_all: bool):
 # License signing requires RSA private key — not available in open-source build.
 # Use offline .lic files supplied directly by an authorized operator.
 
-
 # Export for integration
-__all__ = ["plugins"]
+__all__ = ["license", "plugins"]

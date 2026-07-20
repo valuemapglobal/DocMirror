@@ -36,7 +36,7 @@ Parse your own document:
 ```bash
 pip install "docmirror[pdf,ocr,office]"
 docmirror statement.pdf --output-dir ./output
-docmirror statement.pdf --profile quickstart
+docmirror statement.pdf --audit
 ```
 
 ## Product Promise

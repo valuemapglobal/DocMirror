@@ -21,3 +21,21 @@ def test_community_defaults_are_consistent():
     units = WorkUnitPlanner.plan("task_default", "001", "digest", profile="compact")
     projected = [unit.scope["edition"] for unit in units if unit.unit_type == "edition_project"]
     assert projected == ["community"]
+
+
+def test_cli_default_adds_mirror_without_changing_programmatic_defaults():
+    assert edition_defaults.default_cli_editions() == ("mirror", "community")
+    assert edition_defaults.default_editions() == ("community",)
+    assert OutputControl().editions == ("community",)
+
+
+def test_cli_licensed_edition_matrix():
+    assert edition_defaults.licensed_cli_editions("community") == ("mirror", "community")
+    assert edition_defaults.licensed_cli_editions("enterprise") == ("mirror", "community", "enterprise")
+    assert edition_defaults.licensed_cli_editions("finance") == (
+        "mirror",
+        "community",
+        "enterprise",
+        "finance",
+    )
+    assert edition_defaults.licensed_cli_editions("unknown") == ("mirror", "community")

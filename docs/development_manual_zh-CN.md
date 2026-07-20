@@ -65,7 +65,7 @@ python3 examples/trust_quickstart.py
 
 ```bash
 docmirror statement.pdf --output-dir ./output
-docmirror statement.pdf --profile quickstart
+docmirror statement.pdf --audit
 ```
 
 启动 API 服务：
@@ -184,11 +184,13 @@ CLI：
 
 ```bash
 docmirror document.pdf
-docmirror document.pdf --mirror --format markdown,chunks --debug-artifact
+docmirror document.pdf --all
+docmirror document.pdf --audit
 ```
 
-开源版默认只持久化 `001_community.json`。`--mirror` 是常用的显式 Mirror
-开关；高级调用仍可通过 output profile 或 `output.editions` 精确控制产物。
+文件 CLI 默认持久化 `001_mirror.json` 和 `001_community.json`。`--all` 按有效
+许可证和已安装扩展选择全部 editions，`--audit` 再生成完整审计包；API/SDK 默认值
+仍可独立控制，高级调用可通过 output profile 或 `output.editions` 精确选择产物。
 
 REST：
 
@@ -780,9 +782,9 @@ pip install "docmirror[server]"
 尝试：
 
 ```bash
-docmirror scan.pdf --mirror --mode accurate --ocr force --debug-artifact
+docmirror scan.pdf --audit --mode accurate --ocr force
 docmirror scan.pdf --ocr-locale zh-CN --ocr-correction-pack customer.finance
-docmirror scan.pdf --profile forensic --geometry full --debug-artifact
+docmirror scan.pdf --audit --geometry full
 ```
 
 纠错策略可选 `safe`（唯一、可验证候选自动应用）、`suggest`（只记录候选）和
@@ -795,11 +797,11 @@ docmirror scan.pdf --profile forensic --geometry full --debug-artifact
 对其他客户请求自动生效。维护和回放命令：
 
 ```bash
-docmirror ocr-correction validate
-docmirror ocr-correction list-packs
-docmirror ocr-correction explain "营业牧入" --locale zh-CN --domain financial_report --role field_label
-docmirror ocr-correction evaluate ./golden_samples --fail-on-regression
-docmirror ocr-correction export-candidates mirror.json review.jsonl
+docmirror ocr check
+docmirror ocr packs
+docmirror ocr explain "营业牧入" --locale zh-CN --domain financial_report --role field_label
+docmirror ocr eval ./golden_samples --fail-on-regression
+docmirror ocr export mirror.json review.jsonl
 ```
 
 新增规则必须同时提供正例、反例和幂等测试。格式校验器只能报告合法性；只有存在可靠
@@ -816,7 +818,7 @@ docmirror ocr-correction export-candidates mirror.json review.jsonl
 
 检查：
 
-- 是否请求了 edition：高级兼容参数 `--editions enterprise,finance` 或 API `editions=all`。
+- CLI 是否使用了 `--all` 或 `--audit`；API 是否请求了 `editions=all`。
 - 是否安装了 `docmirror_enterprise` / `docmirror_finance`。
 - license/entitlement 是否满足。
 - `manifest.json` 的 `edition_availability`。
