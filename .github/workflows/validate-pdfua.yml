@@ -13,6 +13,7 @@
    push:
      branches: [main, dev]
      paths:
+       - ".github/workflows/validate-pdfua.yml"
        - "docmirror/output/exporters/pdfua*"
        - "docmirror/output/exporters/pdfua/**"
        - "docmirror/cli/pdfua.py"
@@ -20,9 +21,11 @@
        - "scripts/validate_pdfua.py"
    pull_request:
      paths:
+       - ".github/workflows/validate-pdfua.yml"
        - "docmirror/output/exporters/pdfua*"
        - "docmirror/output/exporters/pdfua/**"
        - "docmirror/cli/pdfua.py"
+       - "docmirror/server/api.py"
        - "scripts/validate_pdfua.py"
 
  jobs:
@@ -37,7 +40,7 @@
 
        - name: Install dependencies
          run: |
-           pip install -e ".[pdfua,test]"
+           pip install -e ".[pdf,dev]"
 
        - name: Run PDF/UA unit tests
          run: |
