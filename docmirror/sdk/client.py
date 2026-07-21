@@ -17,10 +17,10 @@ from pathlib import Path
 from typing import Any
 
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
-from docmirror.input.entry.options import normalize_parse_control
+from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.sdk.integration.errors import ErrorEnvelope
 from docmirror.sdk.integration.observability import build_observability_context
-from docmirror.server.edition_outputs import write_four_files
+from docmirror.server.edition_outputs import write_outputs
 from docmirror.server.task_result import TaskResult, task_result_from_manifest
 
 logger = logging.getLogger(__name__)
@@ -49,16 +49,13 @@ async def parse_to_task(
     output_dir: str | Path = "output",
     *,
     options: PerceiveOptions | None = None,
-    editions: tuple[str, ...] | None = None,
 ) -> TaskResult:
     """One-shot async parse that writes artifacts and returns a ``TaskResult``."""
     result = await perceive_document(file_path, options or PerceiveOptions())
-    task_id, _written = write_four_files(
+    task_id, _written = write_outputs(
         result,
         Path(output_dir),
         file_path=str(file_path),
-        full_text=getattr(result, "full_text", "") or "",
-        editions=editions,
     )
     return task_result_from_manifest(Path(output_dir) / task_id / "manifest.json")
 
@@ -69,7 +66,7 @@ class DocMirrorClient:
     Usage::
 
         client = DocMirrorClient()
-        task = client.parse("sample.pdf", profile="full")
+        task = client.parse("sample.pdf")
         chunks = client.load_chunks(task)
     """
 
@@ -80,10 +77,7 @@ class DocMirrorClient:
         self,
         file_path: str | Path,
         *,
-        profile: str = "full",
         mode: str = "auto",
-        formats: list[str] | None = None,
-        editions: list[str] | None = None,
         pages: str | None = None,
         doc_type: str | None = None,
         ocr_correction: str = "safe",
@@ -97,10 +91,7 @@ class DocMirrorClient:
 
         Args:
             file_path: Path to the document.
-            profile: Output profile — ``compact``, ``full``, ``forensic``.
             mode: Parse mode — ``auto``, ``fast``, ``balanced``, ``accurate``, ``forensic``.
-            formats: Output formats to generate.
-            editions: Output editions to generate.
             pages: Page selection string.
             doc_type: Document type hint.
             ocr_correction: Deterministic OCR correction policy — ``safe``, ``suggest``, or ``off``.
@@ -116,10 +107,7 @@ class DocMirrorClient:
         return _run_async(
             self._parse_async(
                 file_path,
-                profile=profile,
                 mode=mode,
-                formats=formats,
-                editions=editions,
                 pages=pages,
                 doc_type=doc_type,
                 ocr_correction=ocr_correction,
@@ -135,10 +123,7 @@ class DocMirrorClient:
         self,
         file_path: str | Path,
         *,
-        profile: str = "full",
         mode: str = "auto",
-        formats: list[str] | None = None,
-        editions: list[str] | None = None,
         pages: str | None = None,
         doc_type: str | None = None,
         ocr_correction: str = "safe",
@@ -153,20 +138,10 @@ class DocMirrorClient:
         if not path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        obs = build_observability_context(profile=profile, entry="sdk")
+        obs = build_observability_context(profile="fixed", entry="sdk")
         request_id = obs.request_id
-        if editions is None:
-            from docmirror.framework.edition_defaults import default_editions
-
-            editions_tuple = default_editions()
-        else:
-            editions_tuple = tuple(editions)
-        formats_tuple = tuple(formats or ["json", "markdown", "evidence"])
-
-        control = normalize_parse_control(
+        policy = normalize_parse_policy(
             mode=mode,
-            formats=",".join(formats_tuple),
-            editions=editions_tuple,
             pages=pages,
             doc_type_hint=doc_type,
             ocr_correction=ocr_correction,
@@ -175,7 +150,7 @@ class DocMirrorClient:
             ocr_locale=ocr_locale,
             ocr_correction_packs=ocr_correction_packs,
         )
-        options = PerceiveOptions(control=control)
+        options = PerceiveOptions(policy=policy)
 
         try:
             result = await perceive_document(path, options)
@@ -190,13 +165,10 @@ class DocMirrorClient:
                 errors=[envelope.to_dict()],
             )
 
-        full_text = getattr(result, "full_text", "") or ""
-        task_id, written = write_four_files(
+        task_id, written = write_outputs(
             result,
             self.output_dir,
             file_path=str(path),
-            full_text=full_text,
-            editions=editions_tuple,
         )
 
         manifest_path = self.output_dir / task_id / "manifest.json"
@@ -262,7 +234,7 @@ class AsyncDocMirrorClient:
     Usage::
 
         async with AsyncDocMirrorClient() as client:
-            task = await client.parse("sample.pdf", profile="full")
+            task = await client.parse("sample.pdf")
     """
 
     def __init__(self, output_dir: str | Path = "output"):
@@ -278,20 +250,14 @@ class AsyncDocMirrorClient:
         self,
         file_path: str | Path,
         *,
-        profile: str = "full",
         mode: str = "auto",
-        formats: list[str] | None = None,
-        editions: list[str] | None = None,
         pages: str | None = None,
         doc_type: str | None = None,
         raise_on_error: bool = False,
     ) -> TaskResult:
         return await self._sync._parse_async(
             file_path,
-            profile=profile,
             mode=mode,
-            formats=formats,
-            editions=editions,
             pages=pages,
             doc_type=doc_type,
             raise_on_error=raise_on_error,

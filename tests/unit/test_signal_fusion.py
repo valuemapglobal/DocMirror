@@ -4,10 +4,10 @@ from __future__ import annotations
 import pytest
 
 from docmirror.tables.signal_fusion import (
+    FUSION_CONFIG,
+    SIGNAL_WEIGHTS,
     fuse_column_signals,
     should_use_fusion,
-    SIGNAL_WEIGHTS,
-    FUSION_CONFIG,
 )
 
 

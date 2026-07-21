@@ -12,17 +12,19 @@ import json as _json
 
 import pytest
 
-from docmirror.models.visual_evidence import VisualNode, VisualEdge, VisualEvidenceGraph
 from docmirror.evidence.diff_canonicalizer import (
-    canonicalize_visual_graph,
-    canonicalize_source_span_ledger,
     canonicalize_quality_decision,
+    canonicalize_source_span_ledger,
+    canonicalize_visual_graph,
 )
 from docmirror.evidence.diff_engine import DiffChange, DiffReport, diff_graphs
-from docmirror.evidence.source_span import (
-    SourceSpanEntry, SourceSpanLedger, UnresolvedField,
-)
 from docmirror.evidence.quality_decision import QualityDecisionReport, ReviewItem
+from docmirror.evidence.source_span import (
+    SourceSpanEntry,
+    SourceSpanLedger,
+    UnresolvedField,
+)
+from docmirror.models.visual_evidence import VisualEdge, VisualEvidenceGraph, VisualNode
 
 
 def _base_graph() -> dict:

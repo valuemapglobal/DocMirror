@@ -12,7 +12,7 @@ with WeChat-specific column registry, scene keywords, identity field specs, and 
 row normalization (trade number cleanup, direction mapping).
 
 Pipeline role: one of six premium plugins discovered by ``community`` and executed
-via ``runner._run_community_extract`` → ``extract_from_mirror``.
+via ``runner._run_community_recognition`` → ``recognize``.
 
 Archetype: ``table_document``; domain: ``cashflow_payment``; support level: L2.
 
@@ -97,11 +97,11 @@ WECHAT_SCENE_KEYWORDS = (
 
 WECHAT_DEFAULT_COLUMNS = list(WECHAT_COLUMN_REGISTRY.keys())
 
-_MIRROR_DATE_RE = re.compile(r"^20\d{2}-\d{2}-\d{2}$")
-_MIRROR_TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
-_MIRROR_AMOUNT_RE = re.compile(r"^-?\d[\d,]*\.\d{2}$")
-_MIRROR_DIRECTIONS = frozenset({"收入", "支出", "其他"})
-_MIRROR_HEADERS = (
+_EVIDENCE_DATE_RE = re.compile(r"^20\d{2}-\d{2}-\d{2}$")
+_EVIDENCE_TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
+_EVIDENCE_AMOUNT_RE = re.compile(r"^-?\d[\d,]*\.\d{2}$")
+_EVIDENCE_DIRECTIONS = frozenset({"收入", "支出", "其他"})
+_EVIDENCE_HEADERS = (
     "交易单号",
     "交易时间",
     "交易类型",
@@ -144,8 +144,8 @@ class WeChatPaymentPlugin(BaseTableParser):
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return WECHAT_IDENTITY_FIELDS
 
-    def _recover_identity_from_mirror(self, parse_result) -> dict[str, dict[str, object]]:
-        atoms_by_page = self._mirror_text_atoms_by_page(parse_result)
+    def _recover_identity_from_evidence(self, parse_result) -> dict[str, dict[str, object]]:
+        atoms_by_page = self._evidence_text_atoms_by_page(parse_result)
         if not atoms_by_page:
             return {}
         page_id = sorted(atoms_by_page)[0]
@@ -173,11 +173,11 @@ class WeChatPaymentPlugin(BaseTableParser):
                 continue
             value = " 至 ".join(match.groups()) if field_name == "query_period" else match.group(1).strip()
             if value:
-                recovered[field_name] = self._mirror_identity_detail(field_name, label, value, page_id=page_id)
+                recovered[field_name] = self._evidence_identity_detail(field_name, label, value, page_id=page_id)
         return recovered
 
     def build_domain_data(self, metadata, entities):
-        """Lightweight KV projection used when mirror-native extraction is unavailable."""
+        """Lightweight KV projection used when evidence-based extraction is unavailable."""
         from docmirror.plugins._base.dec_builder import build_dec_kv
 
         account_holder = str(entities.get("account_holder", metadata.get("Account holder", "")))
@@ -257,9 +257,9 @@ class WeChatPaymentPlugin(BaseTableParser):
                 )
         return transactions
 
-    def _recover_records_from_mirror(self, parse_result) -> list[dict[str, object]]:
-        """Recover WeChat issuer rows from positioned Mirror text atoms."""
-        atoms_by_page = self._mirror_text_atoms_by_page(parse_result)
+    def _recover_records_from_evidence(self, parse_result) -> list[dict[str, object]]:
+        """Recover WeChat issuer rows from positioned canonical evidence atoms."""
+        atoms_by_page = self._evidence_text_atoms_by_page(parse_result)
         if not atoms_by_page:
             return []
 
@@ -316,7 +316,7 @@ class WeChatPaymentPlugin(BaseTableParser):
                     (float(atom["bbox"][1]), str(atom.get("text") or "").strip(), atom)
                     for atom in atoms
                     if abs(float(atom["bbox"][0]) - date_x) <= 12.0
-                    and _MIRROR_DATE_RE.fullmatch(str(atom.get("text") or "").strip())
+                    and _EVIDENCE_DATE_RE.fullmatch(str(atom.get("text") or "").strip())
                 ),
                 key=lambda item: item[0],
             )
@@ -342,14 +342,14 @@ class WeChatPaymentPlugin(BaseTableParser):
                     return "".join(str(atom.get("text") or "").strip() for atom in column_atoms(column_index))
 
                 direction_atom = next(
-                    (atom for atom in column_atoms(3) if str(atom.get("text") or "").strip() in _MIRROR_DIRECTIONS),
+                    (atom for atom in column_atoms(3) if str(atom.get("text") or "").strip() in _EVIDENCE_DIRECTIONS),
                     None,
                 )
                 amount_atom = next(
                     (
                         atom
                         for atom in column_atoms(5)
-                        if _MIRROR_AMOUNT_RE.fullmatch(str(atom.get("text") or "").strip())
+                        if _EVIDENCE_AMOUNT_RE.fullmatch(str(atom.get("text") or "").strip())
                     ),
                     None,
                 )
@@ -357,7 +357,7 @@ class WeChatPaymentPlugin(BaseTableParser):
                     (
                         atom
                         for atom in column_atoms(1)
-                        if _MIRROR_TIME_RE.fullmatch(str(atom.get("text") or "").strip())
+                        if _EVIDENCE_TIME_RE.fullmatch(str(atom.get("text") or "").strip())
                     ),
                     None,
                 )
@@ -378,7 +378,7 @@ class WeChatPaymentPlugin(BaseTableParser):
                         "交易对方": column_text(6),
                         "商户单号": column_text(7),
                         "_source": {
-                            "source": "mirror_text_atoms",
+                            "source": "canonical_evidence_atoms",
                             "page_id": page_id,
                             "evidence_ids": [
                                 str(atom.get("id") or "") for atom in evidence_atoms if str(atom.get("id") or "")

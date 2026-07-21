@@ -12,8 +12,8 @@ import json as _json
 
 import pytest
 
-from docmirror.models.visual_evidence import VisualNode, VisualEvidenceGraph
 from docmirror.evidence.overlay_manifest import build_overlay_manifest
+from docmirror.models.visual_evidence import VisualEvidenceGraph, VisualNode
 from docmirror.server.artifact_pack import _build_visual_debug_html_v3
 
 
@@ -44,7 +44,7 @@ def test_visual_debug_contains_overlay_manifest_data():
     graph = _minimal_graph()
     overlay = build_overlay_manifest(graph)
 
-    manifest = {"document_id": "doc_test", "task_id": "task_test", "output_profile": "quickstart"}
+    manifest = {"document_id": "doc_test", "task_id": "task_test"}
     html = _build_visual_debug_html_v3(manifest, visual_graph=graph, overlay_manifest=overlay)
 
     # Must embed overlay manifest as window variable
@@ -74,7 +74,7 @@ def test_visual_debug_contains_visual_evidence_graph():
     graph = _minimal_graph()
     overlay = build_overlay_manifest(graph)
 
-    manifest = {"document_id": "doc_test", "task_id": "task_test", "output_profile": "quickstart"}
+    manifest = {"document_id": "doc_test", "task_id": "task_test"}
     html = _build_visual_debug_html_v3(manifest, visual_graph=graph, overlay_manifest=overlay)
 
     assert "window.VISUAL_EVIDENCE_GRAPH" in html, "visual_debug.html must embed VEG"
@@ -93,7 +93,7 @@ def test_visual_debug_has_svg_container():
     graph = _minimal_graph()
     overlay = build_overlay_manifest(graph)
 
-    manifest = {"document_id": "doc_test", "task_id": "task_test", "output_profile": "quickstart"}
+    manifest = {"document_id": "doc_test", "task_id": "task_test"}
     html = _build_visual_debug_html_v3(manifest, visual_graph=graph, overlay_manifest=overlay)
 
     assert '<svg id="overlay-svg"' in html, "Must have SVG overlay element"
@@ -106,7 +106,7 @@ def test_visual_debug_has_layer_bar():
     graph = _minimal_graph()
     overlay = build_overlay_manifest(graph)
 
-    manifest = {"document_id": "doc_test", "task_id": "task_test", "output_profile": "quickstart"}
+    manifest = {"document_id": "doc_test", "task_id": "task_test"}
     html = _build_visual_debug_html_v3(manifest, visual_graph=graph, overlay_manifest=overlay)
 
     assert "layer-bar" in html, "Must have layer bar element"
@@ -117,7 +117,7 @@ def test_visual_debug_not_just_artifact_list():
     graph = _minimal_graph()
     overlay = build_overlay_manifest(graph)
 
-    manifest = {"document_id": "doc_test", "task_id": "task_test", "output_profile": "quickstart"}
+    manifest = {"document_id": "doc_test", "task_id": "task_test"}
     html = _build_visual_debug_html_v3(manifest, visual_graph=graph, overlay_manifest=overlay)
 
     # The HTML must contain structural elements beyond just artifact names

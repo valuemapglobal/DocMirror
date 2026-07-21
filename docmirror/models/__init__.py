@@ -21,7 +21,7 @@ Architecture layers (internal design reference: models layer redesign)::
     ehl.py          Evidence/Hypothesis Layer annex helpers
     errors.py       Canonical error codes and failure ``ParseResult`` builders
 
-Public exports: ``ParseResult``, ``DomainExtractionResult``, ``BaseResult``,
+Public exports: ``ParseResult``, ``DomainExtractionResult``,
 ``Block``, ``PageLayout``, ``Style``, ``TextSpan``, ``Mutation``.
 """
 
@@ -32,7 +32,6 @@ __all__ = [
     "TextSpan",
     "Block",
     "PageLayout",
-    "BaseResult",
     "Mutation",
     "ParseResult",
     "DomainExtractionResult",
@@ -43,7 +42,6 @@ _LAZY_EXPORTS = {
     "TextSpan": ("docmirror.models.entities.domain", "TextSpan"),
     "Block": ("docmirror.models.entities.domain", "Block"),
     "PageLayout": ("docmirror.models.entities.domain", "PageLayout"),
-    "BaseResult": ("docmirror.models.entities.domain", "BaseResult"),
     "Mutation": ("docmirror.models.tracking.mutation", "Mutation"),
     "ParseResult": ("docmirror.models.entities.parse_result", "ParseResult"),
     "DomainExtractionResult": ("docmirror.models.entities.domain_result", "DomainExtractionResult"),

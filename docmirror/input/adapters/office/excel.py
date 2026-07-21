@@ -20,7 +20,6 @@ from datetime import date, datetime, time
 from pathlib import Path
 
 from docmirror.framework.base import BaseParser
-from docmirror.models.entities.domain import BaseResult
 
 logger = logging.getLogger(__name__)
 
@@ -181,15 +180,3 @@ class ExcelAdapter(BaseParser):
                 overall_confidence=1.0,
             ),
         )
-
-    async def to_base_result(self, file_path: Path) -> BaseResult:
-        """
-        Parse .xlsx into BaseResult via the canonical input bridge.
-
-        Delegates to ``to_parse_result()`` then converts down to BaseResult,
-        preserving the Cell-level precision extraction path.
-        """
-        from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
-
-        pr = await self.to_parse_result(file_path)
-        return ParseResultBridge.to_base_result(pr)

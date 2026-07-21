@@ -33,8 +33,8 @@ from docmirror.eval.tqg.gates_eval import eval_gate, resolve_dot_path
 from docmirror.eval.tqg.manifest import TQGCase
 from docmirror.eval.tqg.report import GateReport
 from docmirror.evidence.spe_consumer import mirror_expected_primary_rows
-from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.input.extraction.extractor import CoreExtractor
 from docmirror.plugins._runtime.community import community_plugin_import_path
 from docmirror.tables.access import get_logical_tables
@@ -96,20 +96,17 @@ async def _execute_extract_only(case: TQGCase) -> tuple[Any, dict[str, Any]]:
     try:
         concurrency = int(opts.get("max_page_concurrency", 1))
         extractor = CoreExtractor(max_page_concurrency=concurrency)
-        base = await extractor.extract(case.fixture)
-        result = ParseResultBridge.from_base_result(base)
-        quarantined = base.metadata.get("quarantined_tables") or []
-        audit = (base.metadata.get("perf_breakdown") or {}).get("extraction_audit") or {}
-        if not quarantined and audit.get("quarantined_pages"):
-            quarantined = audit["quarantined_pages"]
+        result = await extractor.extract_parse_result(case.fixture)
+        structure = result.parser_info.structure or {}
+        quarantined = list((result.annex.quarantine if result.annex else {}).get("physical_tables") or [])
         meta: dict[str, Any] = {
-            "base": base,
+            "result": result,
             "quarantined": quarantined,
-            "page_count": base.metadata.get("page_count", 0),
-            "table_count": base.metadata.get("table_count", 0),
-            "document_scene": base.metadata.get("document_scene"),
-            "structure": base.metadata.get("structure"),
-            "ltqg": base.metadata.get("ltqg"),
+            "page_count": result.page_count,
+            "table_count": result.total_tables,
+            "document_scene": result.entities.document_type,
+            "structure": structure,
+            "ltqg": structure.get("ltqg"),
         }
         return result, meta
     finally:
@@ -138,8 +135,10 @@ async def _execute_classify_text(case: TQGCase) -> tuple[Any, dict[str, Any]]:
 async def _execute_perceive(case: TQGCase) -> tuple[Any, dict[str, Any]]:
     opts = case.options
     perceive_opts = PerceiveOptions(
-        enhance_mode=str(opts.get("enhance_mode", "standard")),
-        max_pages=opts.get("max_pages"),
+        policy=normalize_parse_policy(
+            enhance_mode=str(opts.get("enhance_mode", "standard")),
+            max_pages=opts.get("max_pages"),
+        ),
     )
     parse_result = await perceive_document(case.fixture, perceive_opts)
     api = parse_result.to_mirror_json_vnext() if hasattr(parse_result, "to_mirror_json_vnext") else {}
@@ -163,7 +162,7 @@ def _edition_from_plugin(mirror: Any, document_type: str) -> dict[str, Any] | No
         plugin = getattr(mod, "plugin", None)
         if plugin is None:
             return None
-        return plugin.extract_from_mirror(mirror)
+        return plugin.recognize(mirror)
     except ImportError:
         logger.debug("edition plugin not available: %s", module_path)
         return None
@@ -190,10 +189,10 @@ async def _execute_edition(case: TQGCase) -> tuple[dict[str, Any], dict[str, Any
             return {"mirror": mirror, "edition": None}, meta
     edition_payload: dict[str, Any] | None = None
     if edition_name == "community":
-        from docmirror.plugins._runtime.runner import _plugin_document_type, _run_community_extract
+        from docmirror.plugins._runtime.runner import _plugin_document_type, _run_community_recognition
 
         doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
-        edition_payload = _run_community_extract(
+        edition_payload = _run_community_recognition(
             mirror,
             _plugin_document_type(mirror, doc_type),
             getattr(mirror, "full_text", "") or "",
@@ -233,7 +232,7 @@ async def _execute_transport_capability(case: TQGCase) -> tuple[Any, dict[str, A
 
 
 async def _execute_transport_dispatch(case: TQGCase) -> tuple[Any, dict[str, Any]]:
-    from docmirror.framework.dispatcher import ParserDispatcher
+    from docmirror.input.entry.factory import perceive_document
 
     hint = str(case.options.get("path_hint", "file.bin"))
     raw = case.options.get("bytes_hex", "00")
@@ -241,15 +240,16 @@ async def _execute_transport_dispatch(case: TQGCase) -> tuple[Any, dict[str, Any
         data = bytes.fromhex(raw)
     else:
         data = bytes(raw)
+    if len(data) < 128:
+        data = data + bytes(128 - len(data))
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / hint
         path.write_bytes(data)
-        dispatcher = ParserDispatcher()
         if case.options.get("mock_soffice_missing"):
             with patch("shutil.which", return_value=None):
-                result = await dispatcher.process(path)
+                result = await perceive_document(path)
         else:
-            result = await dispatcher.process(path)
+            result = await perceive_document(path)
     error_code = result.error.code if result.error else None
     meta: dict[str, Any] = {
         "dispatch_status": result.status.value,
@@ -260,7 +260,7 @@ async def _execute_transport_dispatch(case: TQGCase) -> tuple[Any, dict[str, Any
 
 async def _execute_e2e_four_file(case: TQGCase) -> tuple[dict[str, Any], dict[str, Any]]:
     from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-    from docmirror.server.edition_outputs import write_four_files
+    from docmirror.server.edition_outputs import write_outputs
 
     mode = str(case.options.get("mode", "synthetic"))
     meta: dict[str, Any] = {}
@@ -269,23 +269,20 @@ async def _execute_e2e_four_file(case: TQGCase) -> tuple[dict[str, Any], dict[st
         if mode == "perceive":
             mirror, perceive_meta = await _execute_perceive(case)
             meta.update(perceive_meta)
-            task_id, written = write_four_files(
+            task_id, written = write_outputs(
                 mirror,
                 out_dir,
                 file_path=str(case.fixture) if case.fixture else "",
-                full_text=getattr(mirror, "full_text", "") or "",
-                editions=("mirror", "community"),
             )
         else:
             doc_type = str(case.options.get("document_type", "business_license"))
             mirror = ParseResult(status=ResultStatus.SUCCESS)
             mirror.entities = DocumentEntities(document_type=doc_type)
-            task_id, written = write_four_files(
+            task_id, written = write_outputs(
                 mirror,
                 out_dir,
                 file_id="001",
                 task_id="test_task_001",
-                editions=("mirror", "community"),
             )
         mirror_path = written.get("mirror")
         community_path = written.get("community")
@@ -312,10 +309,10 @@ async def _execute_e2e_contract(case: TQGCase) -> tuple[dict[str, Any], dict[str
     if contract == "parse_result_projection_boundary":
         result = ParseResult(status=ResultStatus.SUCCESS)
         result.entities = DocumentEntities(document_type="business_license")
-        outputs = build_all_projections(result, editions=("community",))
+        outputs = build_all_projections(result)
         passed = (
             outputs.get("mirror") is not None
-            and (outputs.get("community") or {}).get("edition") == "community"
+            and ((outputs.get("community") or {}).get("schema") or {}).get("edition") == "community"
             and not hasattr(result, "editions")
             and "_edition_outputs" not in (result.entities.domain_specific or {})
         )

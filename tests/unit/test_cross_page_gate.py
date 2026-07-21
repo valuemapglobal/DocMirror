@@ -3,7 +3,7 @@
 """Tests for cross-page quality gate (CROSS_PAGE_CHECK)."""
 
 from docmirror.eval.gates import cross_page_check
-from docmirror.models.entities.parse_result import LogicalTable, ParseResult, RowType, TableRow, CellValue
+from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, RowType, TableRow
 
 
 def test_cross_page_check_passes_high_confidence():

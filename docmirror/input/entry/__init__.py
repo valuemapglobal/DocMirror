@@ -17,19 +17,15 @@ Downstream: Application code and ``entry.factory`` error handling.
 from docmirror.input.entry.exceptions import ExtractionError
 from docmirror.input.entry.options import (
     DocTypeHint,
-    OutputControl,
     PageSelection,
-    ParseControl,
-    ResourceControl,
-    normalize_parse_control,
+    ParsePolicy,
+    normalize_parse_policy,
 )
 
 __all__ = [
     "DocTypeHint",
     "ExtractionError",
-    "OutputControl",
     "PageSelection",
-    "ParseControl",
-    "ResourceControl",
-    "normalize_parse_control",
+    "ParsePolicy",
+    "normalize_parse_policy",
 ]

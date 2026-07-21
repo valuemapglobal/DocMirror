@@ -12,11 +12,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from docmirror.ocr.backends.tesseract import (
+    ALL_TESSERACT_LANGUAGES,
+    LANGUAGE_GROUPS,
     TesseractBackend,
     TesseractOCRResult,
     TesseractPageResult,
-    ALL_TESSERACT_LANGUAGES,
-    LANGUAGE_GROUPS,
     get_installed_languages,
 )
 
@@ -26,9 +26,9 @@ from docmirror.ocr.backends.tesseract import (
 def _create_test_image(text: str = "Hello World", width: int = 400, height: int = 100) -> bytes:
     """Create a simple test image with text rendered on it."""
     try:
-        from PIL import Image, ImageDraw, ImageFont
-
         import io
+
+        from PIL import Image, ImageDraw, ImageFont
         img = Image.new("RGB", (width, height), color="white")
         draw = ImageDraw.Draw(img)
         draw.text((20, 40), text, fill="black")

@@ -29,10 +29,11 @@ def _load_manifest() -> dict[str, Any]:
 
 
 def _wheel_path() -> Path:
-    wheels = sorted((REPO_ROOT / "dist").glob("docmirror-*.whl"))
-    if not wheels:
-        raise SystemExit("No wheel found under dist/. Run python -m build first.")
-    return wheels[-1]
+    version = str(_load_manifest()["version"])
+    wheel = REPO_ROOT / "dist" / f"docmirror-{version}-py3-none-any.whl"
+    if not wheel.is_file():
+        raise SystemExit(f"No wheel found for release {version}: {wheel}. Run python -m build first.")
+    return wheel
 
 
 def _run(command: list[str], *, cwd: Path | None = None, timeout: int = 180) -> subprocess.CompletedProcess[str]:

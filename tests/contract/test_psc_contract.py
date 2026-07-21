@@ -16,27 +16,43 @@ Covers the core invariants defined in the PSC design document:
 Internal GA 1.0 PSC design reference.
 """
 
-import logging
 import io
 import json
+import logging
 
 from docmirror.security.data_classification import (
-    DataClassification, classify_document, classify_value, is_classified_above,
+    DataClassification,
+    classify_document,
+    classify_value,
+    is_classified_above,
 )
-from docmirror.security.privacy_mode import (
-    PrivacyPolicy, resolve_privacy_policy, is_provider_allowed,
-)
-from docmirror.security.egress import EgressGate, EgressBlockedError
-from docmirror.security.redaction import (
-    redact_secrets, redact_pii, redact_text, mask_value, hash_value,
-    redact_dict, classify_redaction,
-)
+from docmirror.security.egress import EgressBlockedError, EgressGate
 from docmirror.security.logging import SafeLoggingFilter, install_safe_logging
-from docmirror.security.security_ledger import (
-    SecurityEvidenceLedger, EgressEvent, ResourceGateDecision, build_security_summary,
+from docmirror.security.privacy_mode import (
+    PrivacyPolicy,
+    is_provider_allowed,
+    resolve_privacy_policy,
+)
+from docmirror.security.redaction import (
+    classify_redaction,
+    hash_value,
+    mask_value,
+    redact_dict,
+    redact_pii,
+    redact_secrets,
+    redact_text,
 )
 from docmirror.security.resource_gate import (
-    check_archive_preflight, check_pdf_preflight, check_image_preflight, check_rest_upload,
+    check_archive_preflight,
+    check_image_preflight,
+    check_pdf_preflight,
+    check_rest_upload,
+)
+from docmirror.security.security_ledger import (
+    EgressEvent,
+    ResourceGateDecision,
+    SecurityEvidenceLedger,
+    build_security_summary,
 )
 
 
@@ -341,7 +357,12 @@ class TestPSCIntegration:
     def test_local_parse_security_summary(self):
         """Simulate a full local parse security summary."""
         from docmirror.security.data_classification import DataClassification
-        from docmirror.security.security_ledger import SecurityEvidenceLedger, EgressEvent, ResourceGateDecision, build_security_summary
+        from docmirror.security.security_ledger import (
+            EgressEvent,
+            ResourceGateDecision,
+            SecurityEvidenceLedger,
+            build_security_summary,
+        )
 
         ledger = SecurityEvidenceLedger(
             request_id="parse-001",

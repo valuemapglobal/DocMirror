@@ -11,8 +11,6 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from docmirror.framework.edition_defaults import default_editions
-
 
 @dataclass
 class InputRef:
@@ -48,21 +46,12 @@ class ParseRequest:
 
     # -- execution control --
     mode: str = "auto"  # auto | fast | balanced | accurate | forensic
-    profile: str | None = None  # compact | full | forensic | ga_full
     sync: bool = True  # False -> task-mode
 
-    # -- page / geometry control --
+    # -- page selection --
     pages: str | None = None  # "1-3,8,10-"
     max_pages: int | None = None
-    geometry: str | None = None  # none | page | block | token | full
-    include_text: bool = False
-    mirror_level: str = "standard"  # standard | forensic
-
-    # -- output control --
-    formats: list[str] = field(default_factory=lambda: ["json"])
-    editions: list[str] = field(default_factory=lambda: list(default_editions()))
     ocr: str = "auto"  # auto | force | off | fallback
-    cache_policy: str = "read-write"  # read-write | read-only | refresh | off
 
     # -- domain hints --
     doc_type: str | None = None

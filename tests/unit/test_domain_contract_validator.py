@@ -169,6 +169,6 @@ def test_credit_v3_contract_checks_profile_collections_and_audit() -> None:
 
     report = validate_domain_schema(payload, "credit_report")
 
-    assert report.contract_id == "credit_report.community.v3"
+    assert report.contract_id == "credit_report.community.v4"
     assert report.required_records_passed is False
     assert report.missing_collections == ["repayment_records", "credit_extraction_audit"]

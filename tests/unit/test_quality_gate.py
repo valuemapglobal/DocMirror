@@ -14,11 +14,11 @@ if str(ROOT) not in sys.path:
 
 # Add scripts/validate to sys.path so audit_core_imports can be imported
 
-from scripts.validate.audit_core_imports import audit_failures, run_audit
 from scripts.release_gate.config import PROFILES, steps_for_profile
 from scripts.release_gate.models import GateReport, StepResult
 from scripts.release_gate.report import format_markdown
 from scripts.release_gate.runner import _run_hygiene
+from scripts.validate.audit_core_imports import audit_failures, run_audit
 
 
 def test_gate_profiles_have_steps():

@@ -9,7 +9,7 @@
 Implements the default parse workflow invoked by the ``docmirror`` console
 script: single-file parsing with Rich progress stages, recursive batch mode
 with configurable concurrency, multi-edition JSON output (mirror, community,
-enterprise, finance), optional cache bypass, and timestamped persistence
+enterprise, finance), and timestamped persistence
 under ``output/``. Argument parsing lives in ``main()``; subcommands such as
 ``classify`` and ``plugins`` are registered separately in ``docmirror.cli.main``.
 """
@@ -26,7 +26,6 @@ import os
 import threading
 import time
 import traceback
-from dataclasses import replace
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -62,6 +61,20 @@ def _community_review_summary(path: Path | None) -> dict[str, object] | None:
         return None
     if not isinstance(payload, dict):
         return None
+    if (payload.get("schema") or {}).get("name") == "docmirror.community":
+        schema = payload.get("schema") or {}
+        document = payload.get("document") or {}
+        warnings = payload.get("warnings") if isinstance(payload.get("warnings"), list) else []
+        actionable = [item for item in warnings if isinstance(item, dict) and item.get("level") in {"warning", "error"}]
+        review_messages = [str(item.get("message") or "") for item in actionable if item.get("message")][:3]
+        return {
+            "plugin": str(schema.get("support_level") or "unknown"),
+            "document_type": str(document.get("type") or schema.get("domain") or "unknown"),
+            "score": 1.0 if not actionable else 0.0,
+            "readiness": "ready" if not actionable else "review",
+            "warning_count": len(actionable),
+            "review_messages": review_messages,
+        }
     plugin = payload.get("plugin") if isinstance(payload.get("plugin"), dict) else {}
     classification = payload.get("classification") if isinstance(payload.get("classification"), dict) else {}
     quality = payload.get("quality") if isinstance(payload.get("quality"), dict) else {}
@@ -188,20 +201,13 @@ def show_authors():
 
 async def parse_document(
     file_path: str,
-    format_out: str,
     output_dir: Path,
     no_save: bool,
-    skip_cache: bool = False,
-    include_text: bool = False,
-    mirror_level: str | None = None,
     *,
     pages: str | None = None,
     max_pages: int | None = None,
     workers: str | int | None = None,
     mode: str | None = None,
-    formats: str | list[str] | tuple[str, ...] | None = None,
-    editions: str | list[str] | tuple[str, ...] | None = None,
-    cache_policy: str | None = None,
     doc_type: str | None = None,
     doc_type_policy: str | None = None,
     doc_type_hint: str | None = None,
@@ -212,17 +218,12 @@ async def parse_document(
     ocr_locale: str | None = None,
     ocr_correction_packs: str | list[str] | tuple[str, ...] | None = None,
     page_split: str | None = None,
-    geometry: str | None = None,
-    include_geometry: bool | None = None,
     run_id: str | None = None,
     overwrite: bool = False,
-    export_parquet: bool = False,
-    split_layers: bool = False,  # noqa: ARG001 — CLI reserved
-    debug_artifact: bool = False,
-    output_profile: str | None = None,
+    all_outputs: bool = False,
 ) -> None:
     from docmirror.input.entry.factory import PerceiveOptions, perceive_document
-    from docmirror.input.entry.options import normalize_parse_control
+    from docmirror.input.entry.options import normalize_parse_policy
 
     path = Path(file_path).resolve()
     if not path.exists():
@@ -234,32 +235,13 @@ async def parse_document(
         )
         return
 
-    requested_formats = formats if formats is not None else format_out
-    if output_profile is not None and editions is None:
-        from docmirror.configs.output_profile import resolve_profile
-
-        editions = resolve_profile(output_profile).editions
-    extra_formats = []
-    if export_parquet:
-        extra_formats.append("parquet")
-    if extra_formats:
-        requested_formats = ",".join([str(requested_formats), *extra_formats])
-    control = normalize_parse_control(
+    policy = normalize_parse_policy(
         pages=pages,
         max_pages=max_pages,
-        workers=workers,
         mode=mode,
-        formats=requested_formats,
-        editions=editions,
-        mirror_level=mirror_level,
-        geometry=geometry,
-        include_geometry=include_geometry,
-        include_text=include_text,
         doc_type=doc_type,
         doc_type_policy=doc_type_policy,
         doc_type_hint=doc_type_hint,
-        cache_policy=cache_policy,
-        skip_cache=skip_cache,
         ocr=ocr,
         ocr_correction=ocr_correction,
         ocr_language=ocr_language,
@@ -268,8 +250,9 @@ async def parse_document(
         ocr_correction_packs=ocr_correction_packs,
         page_split=page_split,
     )
-    mirror_level = control.output.mirror_level
-    include_text = control.output.include_text
+    from docmirror.configs.runtime.performance import resolve_worker_budget
+
+    page_workers = resolve_worker_budget(workers, file_count=1).page_workers_per_file
 
     # ── ProgressBus with live Rich progress bar ──
     from docmirror.runtime import ProgressBus, ProgressSignal
@@ -320,7 +303,7 @@ async def parse_document(
             bus.emit("load_document", 0.0, "Initializing document parser...")
             result = await perceive_document(
                 path,
-                PerceiveOptions(control=control, on_progress=bus.emit),
+                PerceiveOptions(policy=policy, max_workers=page_workers, on_progress=bus.emit),
             )
             _extraction_end = time.monotonic()
 
@@ -328,22 +311,18 @@ async def parse_document(
             bus.emit("community_plugin", 0.0, "Post-processing: building edition outputs...")
             if not no_save:
                 file_id = "001"
-                from docmirror.server.edition_outputs import write_four_files
+                from docmirror.server.edition_outputs import write_outputs
 
-                _saved_task_id, written = write_four_files(
+                _saved_task_id, written = write_outputs(
                     result,
                     output_dir,
                     file_path=str(path),
-                    full_text=result.full_text or "",
                     file_id=file_id,
-                    mirror_level=mirror_level,
-                    include_text=include_text,
-                    editions=control.output.editions,
                     task_id=run_id,
                     overwrite=overwrite,
-                    artifact_pack=debug_artifact,
-                    profile=output_profile,
                     on_progress=bus.emit,
+                    include_mirror=all_outputs,
+                    include_manifest=all_outputs,
                 )
                 saved_path = written.get("mirror") or written.get("community")
 
@@ -385,16 +364,6 @@ async def parse_document(
             if _build_ms > 10:
                 table.add_row("Output Build", f"{_build_ms:,} ms")
 
-            # Detect cached results: internal timing >> wall time
-            is_cached = (
-                result.parser_info
-                and result.parser_info.elapsed_ms > 0
-                and wall_elapsed_ms < result.parser_info.elapsed_ms * 0.5
-                and wall_elapsed_ms < 2000
-            )
-            if is_cached:
-                table.add_row("", "[dim italic]⚡ cached result[/dim italic]")
-
             console.print(table)
 
             # Factual speed metric (no marketing pitch)
@@ -422,127 +391,36 @@ async def parse_document(
             label = "Mirror" if "mirror" in written else "Community output"
             console.print(f"[bold blue]\U0001f4be {label} saved to:[/bold blue] [white]{saved_path}[/white]")
             _show_community_review_summary(written.get("community"))
-            _write_requested_exports(
-                result,
-                saved_path.parent,
-                file_id=file_id,
-                formats=control.output.formats,
-                json_path=saved_path,
-                mirror_path=written.get("mirror"),
-                parse_control=control.to_dict(),
-                parse_control_fingerprint=control.fingerprint(),
-            )
 
     except Exception as e:
         console.print(f"[bold red]Critical Error:[/bold red] {_safe_str(str(e))}")
 
 
-def _save_multi_edition(
+def _save_outputs(
     result,
     path: Path,
     output_dir: Path,
-    include_text: bool = False,
-    mirror_level: str = "standard",
-    editions: tuple[str, ...] | list[str] | None = None,
     task_id: str | None = None,
     overwrite: bool = False,
-    artifact_pack: bool = False,
-    output_profile: str | None = None,
+    all_outputs: bool = False,
 ) -> str:
-    """Save the requested projections to a timestamped subdirectory.
+    """Save the fixed delivery projections to a timestamped subdirectory.
 
     Returns task_id (directory name).
     """
-    from docmirror.server.edition_outputs import write_four_files
+    from docmirror.server.edition_outputs import write_outputs
 
-    task_id, _written = write_four_files(
+    task_id, _written = write_outputs(
         result,
         output_dir,
         file_path=str(path),
-        full_text=getattr(result, "full_text", "") or "",
         file_id="001",
         task_id=task_id,
-        mirror_level=mirror_level,
-        include_text=include_text,
-        editions=editions,
         overwrite=overwrite,
-        artifact_pack=artifact_pack,
-        profile=output_profile,
+        include_mirror=all_outputs,
+        include_manifest=all_outputs,
     )
     return task_id
-
-
-def _write_requested_exports(
-    result,
-    task_dir: Path,
-    *,
-    file_id: str,
-    formats: tuple[str, ...],
-    json_path: Path,
-    mirror_path: Path | None,
-    parse_control: dict,
-    parse_control_fingerprint: str,
-) -> dict[str, str]:
-    """Write non-JSON requested exports and a small artifact manifest."""
-    from docmirror.runtime.serialization import dumps_json
-
-    artifacts: dict[str, str] = {"json": json_path.name}
-    mirror_vnext: dict | None = None
-    for fmt in formats:
-        normalized = fmt.lower().strip()
-        if normalized == "json":
-            continue
-        if normalized == "evidence":
-            evidence_path = task_dir / "005_evidence_bundle.json"
-            if evidence_path.exists():
-                artifacts[normalized] = evidence_path.name
-            continue
-        try:
-            from docmirror.output.exporters.dispatch import export_parse_result
-
-            if mirror_vnext is None and mirror_path is not None and mirror_path.exists():
-                try:
-                    mirror_vnext = json.loads(mirror_path.read_text(encoding="utf-8"))
-                except Exception:
-                    mirror_vnext = {}
-            payload, _media_type, suffix = export_parse_result(result, normalized, mirror_vnext=mirror_vnext)
-            out_path = task_dir / f"{file_id}{suffix}"
-            if isinstance(payload, bytes):
-                out_path.write_bytes(payload)
-            else:
-                out_path.write_text(payload, encoding="utf-8")
-            artifacts[normalized] = out_path.name
-            console.print(f"[cyan]📄 Export:[/cyan] {out_path.name}")
-        except Exception as exc:
-            artifacts[normalized] = f"ERROR: {exc}"
-            console.print(f"[yellow]Export {normalized} skipped:[/yellow] {exc}")
-
-    # Merge with any existing manifest (written by write_four_files with
-    # edition_availability and mirror_completeness) so we never lose info.
-    manifest_path = task_dir / "manifest.json"
-    if set(artifacts) == {"json"} and not manifest_path.exists():
-        return artifacts
-    existing: dict = {}
-    if manifest_path.exists():
-        try:
-            existing = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except Exception:
-            existing = {}
-    # Preserve edition artifacts from write_four_files (mirror, community, enterprise, finance)
-    # while adding/overriding format-specific entries (json, markdown, csv, etc.)
-    existing_artifacts = existing.get("artifacts", {})
-    merged_artifacts = {**existing_artifacts, **artifacts}
-    manifest = {
-        **existing,
-        "file_id": file_id,
-        "formats": list(formats),
-        "artifacts": merged_artifacts,
-        "parse_control": parse_control,
-        "parse_control_fingerprint": parse_control_fingerprint,
-        "implicit_promotions": parse_control.get("implicit_promotions") or [],
-    }
-    manifest_path.write_text(dumps_json(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    return artifacts
 
 
 def main() -> None:
@@ -575,10 +453,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="DocMirror - The Trust Layer for Commercial Documents. Parse. Prove. Trust."
     )
+    from docmirror import __version__
+
+    parser.add_argument("-v", "--version", action="version", version=f"DocMirror {__version__}")
     parser.add_argument("file", nargs="?", help="Path to a document, directory, or glob")
-    parser.add_argument(
-        "--format", "-f", default="json", help="Output formats: json,csv,markdown,chunks,html,parquet,all"
-    )
     parser.add_argument(
         "--output-dir",
         "-o",
@@ -588,12 +466,13 @@ def main() -> None:
     )
     parser.add_argument("--no-save", action="store_true", help="Do not save result to disk")
     parser.add_argument(
-        "--cache-policy",
-        choices=["read-write", "read-only", "refresh", "off"],
-        default="read-write",
-        help="Cache policy: read-write/read-only/refresh/off",
+        "-all",
+        "--all",
+        dest="all_outputs",
+        action="store_true",
+        help="Also write the diagnostic Mirror JSON and manifest",
     )
-    parser.add_argument("--pages", default=None, help="Page ranges, 1-based: 1-3,8,10-")
+    parser.add_argument("--pages", "-p", default=None, help="Page ranges, 1-based: 1-3,8,10-")
     parser.add_argument("--max-pages", type=int, default=None, help="Maximum pages after applying --pages")
     parser.add_argument("--workers", "-j", default=None, help="Total worker budget for this command (int or auto)")
     parser.add_argument(
@@ -625,24 +504,14 @@ def main() -> None:
         choices=["auto", "off", "force"],
         help="Split scanned two-page spreads before OCR",
     )
-    parser.add_argument(
-        "--editions",
-        default=None,
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--mirror",
-        action="store_true",
-        help="Also persist the canonical _mirror.json diagnostic artifact",
-    )
-    parser.add_argument("--doc-type", default=None, help="Manual document type")
+    parser.add_argument("--doc-type", "-t", default=None, help="Manual document type")
     parser.add_argument(
         "--doc-type-policy",
         default="prefer",
         choices=["prefer", "force"],
         help="How strongly to apply --doc-type",
     )
-    parser.add_argument("--recursive", action="store_true", help="Recursively parse directory/glob inputs")
+    parser.add_argument("--recursive", "-r", action="store_true", help="Recursively parse directory/glob inputs")
     parser.add_argument(
         "--exclude",
         action="append",
@@ -652,48 +521,18 @@ def main() -> None:
     )
     parser.add_argument("--include-ext", default=None, help="Comma-separated extensions to include in batch mode")
     parser.add_argument("--authors", action="store_true", help="Show contributors and authors")
-    parser.add_argument("--include-text", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument(
-        "--mirror-level",
-        default=None,
-        choices=["standard", "compact", "forensic"],
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--geometry",
-        default=None,
-        choices=["none", "page", "block", "token", "full"],
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--log-level",
-        default="info",
-        choices=["debug", "info", "warning", "error"],
-        help="Logging level",
-    )
+    verbosity = parser.add_mutually_exclusive_group()
+    verbosity.add_argument("--verbose", action="store_true", help="Show detailed pipeline logs")
+    verbosity.add_argument("--quiet", "-q", action="store_true", help="Suppress informational pipeline logs")
     parser.add_argument(
         "--overwrite", action="store_true", help="Allow overwriting an explicit --run-id output directory"
     )
     parser.add_argument("--run-id", default=None, help="Explicit run/task id for output directory")
-    parser.add_argument(
-        "--artifact-pack",
-        action="store_true",
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--profile",
-        default=None,
-        choices=["community", "default", "editions", "quickstart", "ga_full", "full", "forensic", "compact"],
-        help="Output profile. Profiles with audit/debug artifacts imply --artifact-pack.",
-    )
     # --slm flag removed in v1.1 — superseded by LlmDocumentRestorer
 
     args = parser.parse_args()
-    if args.mirror:
-        args.editions = "mirror,community" if args.editions is None else f"mirror,{args.editions}"
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
-    resolved_skip_cache = args.cache_policy in {"refresh", "off"}
-
+    resolved_log_level = "error" if args.quiet else ("debug" if args.verbose else "info")
+    logging.basicConfig(level=getattr(logging, resolved_log_level.upper(), logging.INFO))
     # args.slm removed in v1.1 — superseded by LlmDocumentRestorer
 
     if args.authors:
@@ -725,30 +564,15 @@ def main() -> None:
         console.print(f"[bold cyan]Batch mode:[/bold cyan] {len(files)} file(s) under [white]{path}[/white]\n")
 
         from docmirror.configs.runtime.performance import resolve_worker_budget
-        from docmirror.input.entry.options import ResourceControl, normalize_parse_control
+        from docmirror.input.entry.options import normalize_parse_policy
 
-        profile_editions = args.editions
-        if args.profile is not None and profile_editions is None:
-            from docmirror.configs.output_profile import resolve_profile
-
-            profile_editions = resolve_profile(args.profile).editions
-
-        control = normalize_parse_control(
+        policy = normalize_parse_policy(
             pages=args.pages,
             max_pages=args.max_pages,
-            workers=args.workers,
             mode=args.mode,
-            formats=args.format,
-            editions=profile_editions,
-            mirror_level=args.mirror_level,
-            geometry=args.geometry,
-            include_geometry=None,
-            include_text=args.include_text,
             doc_type=args.doc_type,
             doc_type_policy=args.doc_type_policy,
             doc_type_hint=None,
-            cache_policy=args.cache_policy,
-            skip_cache=resolved_skip_cache,
             ocr=args.ocr,
             ocr_correction=args.ocr_correction,
             ocr_language=args.ocr_language,
@@ -758,15 +582,8 @@ def main() -> None:
             page_split=args.page_split,
         )
         _cpu_count = multiprocessing.cpu_count()
-        _budget = resolve_worker_budget(control.resource.workers, file_count=len(files), cpu_count=_cpu_count)
+        _budget = resolve_worker_budget(args.workers, file_count=len(files), cpu_count=_cpu_count)
         _semaphore = asyncio.Semaphore(_budget.file_workers)
-        _per_file_control = replace(
-            control,
-            resource=ResourceControl(
-                workers=_budget.page_workers_per_file,
-                page_executor=control.resource.page_executor,
-            ),
-        )
         console.print(
             f"[dim]🔥 Worker budget: total={_budget.total}, files={_budget.file_workers}, "
             f"pages/file={_budget.page_workers_per_file}, layout={_budget.layout_workers} "
@@ -783,7 +600,10 @@ def main() -> None:
                     from docmirror.input.pipeline import perceive_document
 
                     path = fp.resolve()
-                    result = await perceive_document(path, PerceiveOptions(control=_per_file_control))
+                    result = await perceive_document(
+                        path,
+                        PerceiveOptions(policy=policy, max_workers=_budget.page_workers_per_file),
+                    )
 
                     # Handle both MirrorResult (new) and PerceptionResult (raw fallback)
                     if hasattr(result, "to_dict"):
@@ -809,16 +629,12 @@ def main() -> None:
                         console.print(f"[bold yellow][{idx}/{total}][/bold yellow] ⚠️ {name}  → parse returned failure")
 
                     if not args.no_save:
-                        _save_multi_edition(
+                        _save_outputs(
                             result,
                             path,
                             args.output_dir,
-                            _per_file_control.output.include_text,
-                            _per_file_control.output.mirror_level,
-                            editions=control.output.editions,
                             overwrite=args.overwrite,
-                            artifact_pack=args.artifact_pack,
-                            output_profile=args.profile,
+                            all_outputs=args.all_outputs,
                         )
                 except Exception as e:
                     console.print(f"[bold red][{idx}/{total}][/bold red] ❌ {name}: {e}")
@@ -834,19 +650,12 @@ def main() -> None:
         asyncio.run(
             parse_document(
                 str(files[0]),
-                args.format,
                 args.output_dir,
                 args.no_save,
-                resolved_skip_cache,
-                args.include_text,
-                args.mirror_level,
                 pages=args.pages,
                 max_pages=args.max_pages,
                 workers=args.workers,
                 mode=args.mode,
-                formats=args.format,
-                editions=args.editions,
-                cache_policy=args.cache_policy,
                 doc_type=args.doc_type,
                 doc_type_policy=args.doc_type_policy,
                 doc_type_hint=None,
@@ -857,12 +666,9 @@ def main() -> None:
                 ocr_locale=args.ocr_locale,
                 ocr_correction_packs=args.ocr_correction_pack,
                 page_split=args.page_split,
-                geometry=args.geometry,
-                include_geometry=None,
                 run_id=args.run_id,
                 overwrite=args.overwrite,
-                debug_artifact=args.artifact_pack,
-                output_profile=args.profile,
+                all_outputs=args.all_outputs,
             )
         )
 

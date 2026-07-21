@@ -31,6 +31,7 @@ def extract_micro_grid_structures(
     page_width: float | None = None,
     page_height: float | None = None,
     page_image: Any | None = None,
+    page_image_resolver: Callable[[int], Any] | None = None,
     enable_cell_ocr: bool = False,
 ) -> list[dict[str, Any]]:
     """Run registered SMG materializers for one OCR page."""
@@ -44,6 +45,7 @@ def extract_micro_grid_structures(
                 page_width=page_width,
                 page_height=page_height,
                 page_image=page_image,
+                page_image_resolver=page_image_resolver,
                 enable_cell_ocr=enable_cell_ocr,
             )
         except Exception:

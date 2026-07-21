@@ -8,7 +8,7 @@
 Domain plugin registry — ``DomainPlugin`` ABC and ``PluginRegistry`` singleton.
 
 Defines the abstract contract every domain plugin implements (``domain_name``,
-``display_name``, optional ``extract`` / ``extract_from_mirror`` /
+``display_name``, optional ``extract`` / ``recognize`` /
 ``build_domain_data``) and maintains a keyed registry of
 ``(domain_name, edition)`` instances. On first access, auto-discovers community
 plugins via ``community.list_community_plugin_domains`` and optionally loads

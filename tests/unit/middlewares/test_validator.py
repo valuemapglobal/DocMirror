@@ -7,11 +7,18 @@
 """Unit tests for Validator middleware."""
 
 import pytest
-from docmirror.models.entities.parse_result import (
-    ParseResult, PageContent, TableBlock, TableRow, CellValue, TextBlock,
-    TextLevel, ParserInfo,
-)
+
 from docmirror.framework.middlewares.validation.validator import Validator
+from docmirror.models.entities.parse_result import (
+    CellValue,
+    PageContent,
+    ParseResult,
+    ParserInfo,
+    TableBlock,
+    TableRow,
+    TextBlock,
+    TextLevel,
+)
 
 
 @pytest.fixture

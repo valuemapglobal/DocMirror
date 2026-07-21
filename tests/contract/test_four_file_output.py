@@ -22,7 +22,7 @@ from docmirror.models.entities.parse_result import (
     TableRow,
     TextBlock,
 )
-from docmirror.server.edition_outputs import build_all_projections, write_four_files
+from docmirror.server.edition_outputs import build_all_projections, write_outputs
 from tests.contract.test_edition_schema_conformance import check_community
 
 _FORBIDDEN_MIRROR_KEYS = frozenset({"records", "mirror_ref", "edition"})
@@ -36,7 +36,7 @@ def _minimal_mirror(document_type: str = "business_license") -> ParseResult:
 
 def test_mirror_output_has_no_plugin_records():
     result = _minimal_mirror()
-    outputs = build_all_projections(result, full_text="")
+    outputs = build_all_projections(result)
     mirror = outputs["mirror"]
     # Mirror API must not embed edition plugin payloads
     assert "editions" not in mirror.get("data", {})
@@ -46,11 +46,10 @@ def test_mirror_output_has_no_plugin_records():
 def test_written_vnext_mirror_keeps_canonical_top_level_clean(tmp_path):
     result = _minimal_mirror()
 
-    _, written = write_four_files(
+    _, written = write_outputs(
         result,
         tmp_path,
         task_id="task_clean_top",
-        editions=("mirror",),
         overwrite=True,
     )
 
@@ -76,78 +75,6 @@ def test_written_vnext_mirror_keeps_canonical_top_level_clean(tmp_path):
         "task_id": "task_clean_top",
         "file_id": "001",
     }
-
-
-def test_written_mirror_runs_verification_crop_ocr_hook(tmp_path, monkeypatch):
-    import docmirror.geometry.verification.crops as crop_hooks
-    import docmirror.server.edition_outputs as edition_outputs
-
-    result = _minimal_mirror()
-    pdf_path = tmp_path / "source.pdf"
-    pdf_path.write_bytes(b"%PDF-1.4\n")
-
-    mirror_payload = {
-        "mirror": {"schema": "docmirror.mirror_json"},
-        "source": {"provenance": {}},
-        "document": {},
-        "pages": [],
-        "evidence": {"text_atoms": [], "image_atoms": [], "vector_atoms": []},
-        "regions": [],
-        "blocks": [],
-        "graph": {"nodes": [], "edges": []},
-        "semantics": {},
-        "quality": {"verification": {"units": []}, "gates": []},
-        "diagnostics": {"pipeline": []},
-        "assets": {"items": []},
-    }
-
-    def fake_build_all_projections(*_args, **_kwargs):
-        return {"mirror": mirror_payload}
-
-    def fake_attach_crop_assets(mirror, **_kwargs):
-        asset = {
-            "id": "asset:verification_crop:fake",
-            "kind": "verification_unit_crop",
-            "path": "assets/verification_crops/fake.png",
-            "unit_id": "unit:fake",
-        }
-        mirror["assets"]["items"].append(asset)
-        mirror["quality"]["verification"]["crop_artifact_count"] = 1
-        return [asset]
-
-    def fake_attach_crop_ocr(mirror, **_kwargs):
-        mirror["assets"]["items"][0]["ocr"] = {"status": "verified", "engine": "fake", "text": "42"}
-        mirror["quality"]["verification"]["crop_ocr"] = {
-            "status": "ok",
-            "processed_count": 1,
-            "candidate_count": 1,
-            "agreement_count": 1,
-            "conflict_count": 0,
-            "not_evaluated_count": 0,
-        }
-        mirror["quality"]["gates"].append({"id": "gate:verification_crop_ocr", "status": "pass"})
-
-    monkeypatch.setattr(edition_outputs, "build_all_projections", fake_build_all_projections)
-    monkeypatch.setattr(crop_hooks, "attach_verification_crop_assets", fake_attach_crop_assets)
-    monkeypatch.setattr(crop_hooks, "attach_unit_crop_ocr_candidates", fake_attach_crop_ocr)
-
-    _, written = edition_outputs.write_four_files(
-        result,
-        tmp_path,
-        file_path=str(pdf_path),
-        task_id="task_crop_ocr",
-        editions=("mirror",),
-        overwrite=True,
-        artifact_pack=True,
-    )
-
-    mirror = json.loads(written["mirror"].read_text(encoding="utf-8"))
-    manifest = json.loads((tmp_path / "task_crop_ocr" / "manifest.json").read_text(encoding="utf-8"))
-    assert mirror["assets"]["items"][0]["ocr"]["status"] == "verified"
-    assert mirror["quality"]["verification"]["crop_ocr"]["agreement_count"] == 1
-    assert any(gate["id"] == "gate:verification_crop_ocr" and gate["status"] == "pass" for gate in mirror["quality"]["gates"])
-    assert manifest["artifacts"]["verification_crops"] == "assets/verification_crops"
-    assert manifest["verification_crop_count"] == 1
 
 
 def test_mirror_forensic_output_preserves_projection_controls():
@@ -177,14 +104,7 @@ def test_mirror_forensic_output_preserves_projection_controls():
         )
     ]
 
-    outputs = build_all_projections(
-        result,
-        include_text=True,
-        mirror_level="forensic",
-        request_id="req_contract",
-    )
-
-    mirror = outputs["mirror"]
+    mirror = result.to_mirror_json_vnext(mirror_level="forensic")
     page = mirror["pages"][0]
     text_atoms = mirror["evidence"]["text_atoms"]
     text_atom = next(atom for atom in text_atoms if atom["text"] == "Visible title")
@@ -256,7 +176,7 @@ def test_forensic_ehl_includes_bcs_selected_and_rejected_candidates():
         },
     )
 
-    mirror = build_all_projections(result, mirror_level="forensic")["mirror"]
+    mirror = result.to_mirror_json_vnext(mirror_level="forensic")
     assert "meta" not in mirror
     assert mirror["mirror"]["profile"] == "forensic"
     table = next(block for block in mirror["blocks"] if block["type"] == "table")
@@ -264,12 +184,12 @@ def test_forensic_ehl_includes_bcs_selected_and_rejected_candidates():
     assert mirror["source"]["provenance"]["pipeline_debug"]["extraction_audit"]["pages"][0]["picked"] == "pdfplumber_default"
 
 
-def test_bridge_projects_text_span_evidence_into_forensic_ehl():
-    from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
-    from docmirror.models.entities.physical import BaseResult, Block, PageLayout, TextSpan
+def test_canonical_assembler_projects_text_span_evidence_into_forensic_ehl():
+    from docmirror.input.canonical import assemble_parse_result
+    from docmirror.models.entities.physical import Block, PageLayout, TextSpan
 
-    base = BaseResult(
-        pages=(
+    mirror = assemble_parse_result(
+        (
             PageLayout(
                 page_number=1,
                 blocks=(
@@ -287,10 +207,9 @@ def test_bridge_projects_text_span_evidence_into_forensic_ehl():
                 ),
             ),
         ),
-        full_text="hello world",
+        {},
+        "hello world",
     )
-
-    mirror = ParseResultBridge.from_base_result(base)
     api = mirror.to_mirror_json_vnext(mirror_level="forensic")
     assert "meta" not in api
     assert api["mirror"]["profile"] == "forensic"
@@ -306,7 +225,7 @@ def test_community_mirror_document_type_consistency():
     if comm is None:
         pytest.skip("no community output")
     mirror_type = outputs["mirror"].get("document", {}).get("document_type")
-    comm_type = comm.get("document", {}).get("document_type")
+    comm_type = comm.get("document", {}).get("type")
     assert comm_type == mirror_type or comm_type == "business_license"
 
 
@@ -327,7 +246,7 @@ def test_generic_community_envelope_conforms():
     mirror.entities = DocumentEntities(document_type="id_card")
     mirror.entities.domain_specific = {"name": "测试", "id_number": "110101199001011234"}
 
-    out = plugin.extract_from_mirror(mirror)
+    out = plugin.recognize(mirror)
     errors = check_community(out)
     assert errors == [], f"generic envelope errors: {errors}"
     assert out["plugin"]["name"] == "generic"
@@ -372,9 +291,9 @@ def test_generic_fallback_envelope_for_demoted_type():
 
 def test_parse_result_keeps_editions_outside_core():
     result = _minimal_mirror()
-    outputs = build_all_projections(result, editions=("community",))
+    outputs = build_all_projections(result)
 
     assert outputs["mirror"] is not None
-    assert outputs["community"]["edition"] == "community"
+    assert outputs["community"]["schema"]["edition"] == "community"
     assert not hasattr(result, "editions")
     assert "_edition_outputs" not in (result.entities.domain_specific or {})

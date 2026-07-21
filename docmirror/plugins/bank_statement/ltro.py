@@ -4,7 +4,7 @@
 """
 Logical Table Reconstruction Orchestrator (LTRO) for bank statements.
 
-When Mirror physical tables are empty, rebuilds logical ledger grids from full_text
+When canonical physical tables are empty, rebuilds logical ledger grids from full_text
 using ordered strategies: pipe text → spaced OCR → none.
 
 Pipeline role: called from ``build_style_context`` before style detection.
@@ -27,12 +27,12 @@ from docmirror.plugins.bank_statement.pipe_text_table_builder import (
 from docmirror.plugins.bank_statement.text_table_builder import build_tables_from_spaced_ocr_text
 
 SourceKind = Literal[
-    "mirror_table",
+    "canonical_table",
     "pipe_text",
     "spaced_ocr",
     "stacked_text",
     "native_wide_table",
-    "mirror_atom_table",
+    "canonical_evidence_table",
     "ocr_implicit_table",
     "none",
 ]
@@ -50,25 +50,25 @@ class ReconstructionMeta:
 
 
 def reconstruct_tables(
-    mirror_tables: list[list[list[str]]],
+    canonical_tables: list[list[list[str]]],
     full_text: str,
     *,
     page_count: int = 0,
     structure_spe: dict | None = None,
     parse_result: Any | None = None,
 ) -> tuple[list[list[list[str]]], ReconstructionMeta]:
-    """Rebuild logical tables from Mirror tables or full text."""
+    """Rebuild logical tables from canonical tables or full text."""
     spe_primary = (structure_spe or {}).get("primary")
     spe_mode = (structure_spe or {}).get("table_extraction")
 
-    if mirror_tables:
-        expected = _mirror_table_expected_rows(
-            mirror_tables,
+    if canonical_tables:
+        expected = _canonical_table_expected_rows(
+            canonical_tables,
             parse_result=parse_result,
             structure_spe=structure_spe,
         )
-        return mirror_tables, ReconstructionMeta(
-            source="mirror_table",
+        return canonical_tables, ReconstructionMeta(
+            source="canonical_table",
             expected_primary_rows=expected,
             pipe_header_detected=detect_pipe_header_in_text(full_text),
             pages_scanned=page_count,
@@ -84,7 +84,7 @@ def reconstruct_tables(
         pipe_detected = False
     else:
         force_pipe = should_force_ltro(
-            mirror_tables=mirror_tables,
+            mirror_tables=canonical_tables,
             full_text=full_text,
             structure_spe=structure_spe,
         )
@@ -128,8 +128,8 @@ def reconstruct_tables(
     )
 
 
-def _mirror_table_expected_rows(
-    mirror_tables: list[list[list[str]]],
+def _canonical_table_expected_rows(
+    canonical_tables: list[list[list[str]]],
     *,
     parse_result: Any | None = None,
     structure_spe: dict | None = None,
@@ -141,6 +141,6 @@ def _mirror_table_expected_rows(
         expected = mirror_expected_primary_rows(parse_result, structure_spe)
         if expected > 0:
             return expected
-    if mirror_tables:
-        return max((max(len(tbl) - 1, 0) for tbl in mirror_tables if tbl), default=0)
+    if canonical_tables:
+        return max((max(len(tbl) - 1, 0) for tbl in canonical_tables if tbl), default=0)
     return 0

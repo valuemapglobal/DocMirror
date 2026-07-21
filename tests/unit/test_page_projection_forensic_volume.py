@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import json
 
-from docmirror.models.mirror.page_evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult
+from docmirror.models.mirror.page_evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
 
 
 def _large_bundle(page: int = 4) -> dict:

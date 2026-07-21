@@ -6,7 +6,7 @@ DEC helpers for plugin ``build_domain_data`` fallback path.
 
 Utilities to build DEC-compatible dicts from flat entity maps and to extract
 ``data.fields`` for edition output. Used when a plugin implements
-``build_domain_data`` instead of (or in addition to) ``extract_from_mirror``.
+``build_domain_data`` instead of (or in addition to) ``recognize``.
 
 Pipeline role: ``runner._kv_community_payload`` and ``runner._run_extended_extract_async``
 normalize ``build_domain_data`` output through ``dec_fields`` and

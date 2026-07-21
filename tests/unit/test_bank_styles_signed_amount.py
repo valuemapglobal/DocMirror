@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 from docmirror.plugins.bank_statement.context import StyleContext
 from docmirror.plugins.bank_statement.style_detector import BankStyleDetector
 from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
@@ -14,7 +15,6 @@ from docmirror.plugins.bank_statement.styles.signed_amount import (
     parse_signed_amount,
     table_has_signed_amount_cells,
 )
-from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 
 SIGNED_TABLE = [[
     ["交易日期", "摘要", "交易金额", "余额"],

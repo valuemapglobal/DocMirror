@@ -5,8 +5,8 @@
 TQG licensing track — mock license files and entitlement probes.
 
 Builds temporary ``.lic`` fixtures and patches entitlement resolution so TQG
-cases can assert premium-feature gating, lifecycle warnings, and edition
-degradation without requiring real license servers. Used exclusively in tests
+cases can assert premium-feature gating, lifecycle warnings, and projection
+rejection without requiring real license servers. Used exclusively in tests
 and CI gate runs.
 """
 
@@ -98,6 +98,7 @@ async def execute_licensing(case: TQGCase) -> tuple[dict[str, Any], dict[str, An
                 mirror.entities = DocumentEntities(document_type=doc_type)
                 with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=True):
                     out = run_plugin_extract_sync(mirror, edition="enterprise")
+                meta["projection_generated"] = out is not None
                 if out:
                     if meta["is_entitled"] and lc.state in (
                         LicenseLifecycleState.EXPIRING_SOON,
@@ -108,6 +109,7 @@ async def execute_licensing(case: TQGCase) -> tuple[dict[str, Any], dict[str, An
                     meta["edition_warnings"] = status_warnings
                 meta["has_license_warning"] = "_license_warning" in meta["edition_warnings"]
             else:
+                meta["projection_generated"] = False
                 meta["has_license_warning"] = False
 
             return meta, meta

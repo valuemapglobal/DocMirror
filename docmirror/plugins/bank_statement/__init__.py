@@ -9,7 +9,7 @@ canonical record builders, and the registered ``plugin`` singleton consumed by
 ``plugin_registry``.
 
 Pipeline role: ``bank_statement.community_plugin`` is one of six premium community
-plugins; ``runner`` calls ``extract_from_mirror`` which runs StyleDetector → Registry → DEC.
+plugins; ``runner`` calls ``recognize`` which runs StyleDetector → Registry → DEC.
 
 Key exports: ``BankStatementCommunityPlugin``, ``BankStyleDetector``,
 ``BankStyleParserRegistry``, ``StyleContext``, ``StyleDetectionResult``,

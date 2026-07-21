@@ -53,7 +53,7 @@ def logical_table_id(index: int) -> str:
 
 
 def serialize_logical_tables_for_metadata(logical_tables: list[LogicalTable]) -> list[dict[str, Any]]:
-    """Compact JSON-safe payload for BaseResult.metadata transport."""
+    """Compact JSON-safe payload for canonical metadata transport."""
     payload: list[dict[str, Any]] = []
     for lt in logical_tables:
         payload.append(

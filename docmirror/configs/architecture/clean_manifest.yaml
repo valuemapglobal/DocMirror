@@ -91,7 +91,7 @@ public_modules:
 dynamic_modules:
 - module: docmirror.plugins._runtime.post_extract.hooks.credit_sections
   source: docmirror/configs/yaml/post_extract.yaml
-- module: docmirror.plugins._runtime.post_extract.hooks.mirror_table_rebuild
+- module: docmirror.plugins._runtime.post_extract.hooks.edition_table_rebuild
   source: docmirror/configs/yaml/post_extract.yaml
 - module: docmirror.plugins._runtime.post_extract.hooks.trust_projection
   source: docmirror/configs/yaml/post_extract.yaml
@@ -123,4 +123,28 @@ removed_modules:
   replacement: docmirror.plugins._runtime.licensing
 - module: docmirror.plugins.post_extract
   replacement: docmirror.plugins._runtime.post_extract
+- module: docmirror.server.output_selection
+  replacement: fixed delivery contract in docmirror.server.output_builder
+- module: docmirror.configs.output_profile
+  replacement: fixed standard production projection
+- module: docmirror.runtime.profiles
+  replacement: call-scoped runtime controls without output selection
+- module: docmirror.framework.edition_defaults
+  replacement: commercial projectors enforce their own availability boundary
+- module: docmirror.framework.delivery_contract
+  replacement: commercial projectors enforce their own availability boundary
+- module: docmirror.server.edition_access
+  replacement: sealed ParseResult sections and trust facts
+- module: docmirror.models.semantic_store
+  replacement: sealed ParseResult SSOT
+- module: docmirror.topology.document_graph
+  replacement: canonical topology and docmirror.models.mirror.document_structure
+- module: docmirror.domains.registry
+  replacement: canonical domain facts and plugin registry
+- module: docmirror.errors.envelope
+  replacement: docmirror.sdk.integration.errors and docmirror.configs.failure_codes
+- module: docmirror.cli.explainability_commands
+  replacement: no active CLI command
+- module: docmirror.ocr.correction.report
+  replacement: no active OCR reporting path
 quarantine_modules: []

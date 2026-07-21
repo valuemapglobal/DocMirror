@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
-from docmirror.tables.table_column_utils import effective_table_column_count
 from docmirror.models.entities.parse_result import CellValue, TableBlock, TableRow
+from docmirror.tables.table_column_utils import effective_table_column_count
 
 
 def test_pipe_delimited_header_counts_as_multi_column():

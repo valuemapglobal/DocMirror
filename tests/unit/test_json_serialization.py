@@ -11,8 +11,7 @@ from enum import Enum
 
 import pytest
 
-from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
-from docmirror.models.entities.domain import BaseResult
+from docmirror.input.canonical import assemble_parse_result
 from docmirror.models.entities.parse_result import (
     DocumentSection,
     ParseResult,
@@ -60,16 +59,16 @@ def test_to_mirror_json_vnext_always_json_serializable():
     assert api["source"]["provenance"]["sections"][0]["level"] == 1
 
 
-def test_bridge_section_metadata_survives_to_mirror_json_vnext():
-    base = BaseResult(
-        pages=(),
-        metadata={
+def test_canonical_section_metadata_survives_to_mirror_json_vnext():
+    pr = assemble_parse_result(
+        (),
+        {
             "sections": [
                 {"id": "1", "title": "Header", "page_start": 1, "level": 1, "line_count": 3},
             ],
         },
+        "",
     )
-    pr = ParseResultBridge.from_base_result(base)
     api = pr.to_mirror_json_vnext()
     dumps_json(api)
 

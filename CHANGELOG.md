@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.10] — 2026-07-22
+
+### Added
+- A concise primary CLI including `docmirror -v`, `-p/--pages`, `-t/--doc-type`, `-r/--recursive`, and `-q/--quiet`.
+- Top-level `license` and `ocr` commands, default plugin listing, and `--help-all` for advanced parse options.
+- Self-contained Community Bundle datasets with complete `rows`, stable `record_id`, normalized/source-raw values, provenance, and explicit completeness metadata.
+- Schema and conservation gates that verify JSON row counts and ordered record IDs against every companion Dataset CSV before CLI or REST artifacts are published.
+- Canonical scanned-credit-report evidence recovery for local account structures, repayment micro-grids, page imagery, and exact repayment statuses.
+
+### Changed
+- Bare CLI parsing now writes the Community JSON, complete GFM Markdown, and Dataset Bundle by default; `--all` additionally writes Mirror and Manifest support artifacts.
+- CLI, API, SDK, and task execution now share one fixed projection pipeline, while installed and entitled commercial editions remain independently projected from the same sealed result.
+- Superseded compatibility commands and output-selection flags were removed so every public surface has one canonical syntax.
+- Parsing now converges directly from `AcceptedSource` through adapters and the Canonical Pipeline into one sealed `ParseResult`; every Edition projector reads that same result independently.
+- Fact-affecting options are represented only by `ParsePolicy`; worker counts remain call-scoped runtime parameters.
+- Community Bundle 3.0 is corrected from a row-free index to the canonical structured API payload. Markdown remains the complete human review view, and Dataset CSVs remain parallel analysis projections.
+- Markdown tables use pure GitHub Flavored Markdown with no raw `table`, `tr`, `td`, `th`, or `br` tags, while preserving source rows and page markers.
+
+### Fixed
+- Alipay transaction extraction retains `不计收支` records and resolves the header independently for every continued table, preventing valid rows from being silently omitted.
+- Community JSON and CSV projections preserve every logical record without previews or silent truncation, including all 1,267 rows in the full Alipay regression fixture.
+- Multiline identity-card addresses remain complete in structured fields without creating artificial Dataset records.
+- GFM-aware artifact validation counts payment rows as data rather than misclassifying or ignoring them after the Markdown migration.
+- The base package now declares the plugin runtime it imports, so `docmirror --help`, `--version`, and `doctor` work in a clean wheel-only environment.
+- Clean-wheel release smoke checks now use the canonical `docmirror --version` syntax instead of the removed compatibility subcommand.
+
+### Removed
+- The production Bridge/BaseResult path, Projection DAG and visualizer, ParseResult cache and Redis cache extra, and the old Parse/Execution/Resource/Output control wrappers.
+- Requested-output formats, editions, geometry/detail controls, output profiles, and their CLI/API/SDK/task/manifest plumbing.
+
+### Security
+- Local parse outputs, private fixtures, rendered temporary pages, environment files, and commercial packages remain excluded from public source and distribution artifacts.
+- Real identity-card values used during regression diagnosis were replaced with synthetic, checksum-valid test data before publication.
+- Version 1.0.10 uses an owner-approved immediate-release policy that still requires successful pull-request checks, a successful CI run on the exact merged `main` commit, an exact `v1.0.10` tag, and PyPI trusted publishing.
+
 ## [1.0.8] — 2026-07-19
 
 This Python distribution release consolidates the backward-compatible Mirror

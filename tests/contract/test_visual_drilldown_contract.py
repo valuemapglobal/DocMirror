@@ -13,8 +13,8 @@ Internal GA 1.0 trust design reference: W5-04.
 """
 
 from docmirror.quality.observation import (
-    new_observation_event,
     PageOutcome,
+    new_observation_event,
 )
 from docmirror.quality.visual_drilldown import (
     DrilldownSession,

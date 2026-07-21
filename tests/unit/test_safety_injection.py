@@ -224,14 +224,14 @@ class TestInjectionDetectorEnhanced:
 
     def test_shannon_entropy_normal_text(self):
         """Normal English text has entropy below threshold."""
-        from docmirror.security.safety.injection import shannon_entropy, HIGH_ENTROPY_THRESHOLD
+        from docmirror.security.safety.injection import HIGH_ENTROPY_THRESHOLD, shannon_entropy
         text = "This is a normal English sentence with predictable character distribution."
         ent = shannon_entropy(text)
         assert ent < HIGH_ENTROPY_THRESHOLD, f"Normal text entropy too high: {ent}"
 
     def test_shannon_entropy_base64(self):
         """Base64-encoded text has entropy at or above threshold."""
-        from docmirror.security.safety.injection import shannon_entropy, HIGH_ENTROPY_THRESHOLD
+        from docmirror.security.safety.injection import HIGH_ENTROPY_THRESHOLD, shannon_entropy
         b64 = "SGVsbG8gV29ybGQgVGhpcyBpcyBhIHRlc3Qgb2YgYmFzZTY0IGVuY29kZWQ="
         ent = shannon_entropy(b64)
         assert ent >= HIGH_ENTROPY_THRESHOLD, f"Base64 entropy too low: {ent}"

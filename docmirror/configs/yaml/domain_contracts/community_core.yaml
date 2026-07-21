@@ -262,7 +262,7 @@ domains:
   credit_report:
     public_route: core_domain
     support_level: L2
-    domain_contract_version: credit_report.community.v3
+    domain_contract_version: credit_report.community.v4
     dgc_status_source: computed
     p0_commitment:
       fields:
@@ -304,6 +304,7 @@ domains:
           - inquiry_records
           - public_records
         audit: credit_extraction_audit
+        audit_must_pass: true
       sections:
         required:
           - accounts

@@ -9,17 +9,24 @@ profiles:
     raw: []
     standard:
       stages:
-        ENRICH: [EntityExtractor, GeometricReconstructor, LlmDocumentRestorer]
-        CLASSIFY: [EvidenceEngine]
-        CONTEXT: [InstitutionDetector]
-        VALIDATE: [Validator]
-    full:
-      stages:
-        NORMALIZE: [LanguageDetector]
+        RECONSTRUCT: [GeometricReconstructor]
+        RESTORE: [LlmDocumentRestorer]
         STRUCTURE: [HeaderInferrer, HeaderAlignment]
         ENRICH: [EntityExtractor]
         CLASSIFY: [EvidenceEngine]
         CONTEXT: [InstitutionDetector]
+        DOMAIN: [CommunityFactRecognizer]
+        VALIDATE: [Validator]
+    full:
+      stages:
+        NORMALIZE: [LanguageDetector]
+        RECONSTRUCT: [GeometricReconstructor]
+        RESTORE: [LlmDocumentRestorer]
+        STRUCTURE: [HeaderInferrer, HeaderAlignment]
+        ENRICH: [EntityExtractor]
+        CLASSIFY: [EvidenceEngine]
+        CONTEXT: [InstitutionDetector]
+        DOMAIN: [CommunityFactRecognizer]
         VALIDATE: [Validator, AnomalyDetector]
 
   tabular_native:

@@ -22,7 +22,7 @@ class FakeEnterprisePlugin:
     edition = "enterprise"
     requires_license = False
 
-    async def extract(self, document_context: dict[str, Any]) -> dict[str, Any]:
+    async def extract(self, result: ParseResult) -> dict[str, Any]:  # noqa: ARG002
         return {
             "schema_version": "2.0",
             "data": {"records": [{"amount": 1}], "summary": {"total_rows": 1}},

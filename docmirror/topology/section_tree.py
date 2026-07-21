@@ -202,15 +202,11 @@ def _score_heading(text: str, block: dict[str, Any], body_font_size: float) -> f
 
 def build_section_tree(
     all_pages_headings: list[SectionNode],
-    *,
-    all_blocks: list[tuple[int, int, Any]] | None = None,
 ) -> SectionTree:
     """Build hierarchical section tree from detected headings.
 
     Args:
         all_pages_headings: Flat list of SectionNodes from detect_headings across all pages.
-        all_blocks: Optional list of (page_number, block_index, block_dict) for body assignment.
-
     Returns:
         SectionTree with hierarchical structure.
     """

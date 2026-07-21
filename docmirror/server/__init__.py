@@ -9,7 +9,7 @@ HTTP server package for DocMirror REST and shared output builders.
 
 Contains the FastAPI application (``api``), Pydantic response schemas,
 lightweight classification service, and edition-specific output builders used
-by both the API and CLI. Import ``build_community_output`` or
-``build_extended_output`` from ``output_builder`` when assembling structured
-JSON outside the server process.
+by both the API and CLI. Recognition enriches the existing ``ParseResult``
+zones, and edition projectors consume that ParseResult directly when assembling
+outputs outside the server process.
 """

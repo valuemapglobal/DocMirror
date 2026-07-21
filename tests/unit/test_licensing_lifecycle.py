@@ -64,7 +64,7 @@ def test_inject_edition_lifecycle_warnings():
     assert any(w.startswith("_license_expiring_soon:") for w in out["status"]["warnings"])
 
 
-def test_build_api_response_includes_license_delivery_provenance():
+def test_build_api_response_does_not_recheck_or_publish_license_state():
     from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
     from docmirror.server.output_builder import build_api_response
 
@@ -73,11 +73,7 @@ def test_build_api_response_includes_license_delivery_provenance():
     result.entities = DocumentEntities(document_type="alipay_payment")
 
     with patch("docmirror.plugins._runtime.licensing.offline.offline_license_manager._licenses", [lic]):
-        api = build_api_response(result, edition="community")
+        api = build_api_response(result)
 
     assert "meta" not in api
-    license_meta = api["source"]["provenance"]["license"]
-    assert license_meta.get("lifecycle_state") == "expiring_soon"
-    assert license_meta.get("days_remaining") == 15
-    assert license_meta.get("renewal_url")
-    assert license_meta.get("message")
+    assert "license" not in api["source"]["provenance"]

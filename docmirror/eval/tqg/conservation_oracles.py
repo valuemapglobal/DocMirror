@@ -303,7 +303,7 @@ def run_mirror_conservation_oracle(
             report,
             "conservation_require_raw_text",
             bool(doc.get("raw_text")),
-            "expected document.raw_text; set mirror_level=forensic and include_text=true for this check",
+            "expected document.raw_text in the supplied forensic evaluation payload",
         )
 
     if spec.get("require_page_dimensions"):

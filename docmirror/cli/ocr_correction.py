@@ -21,7 +21,7 @@ def ocr_correction() -> None:
     """Maintain deterministic OCR correction packs and golden samples."""
 
 
-@ocr_correction.command("validate")
+@ocr_correction.command("check")
 @click.argument("paths", nargs=-1, type=click.Path(path_type=Path, exists=True))
 def validate_packs(paths: tuple[Path, ...]) -> None:
     """Validate built-in packs or one or more custom pack paths."""
@@ -36,7 +36,7 @@ def validate_packs(paths: tuple[Path, ...]) -> None:
     click.echo(f"OK: {len(registry.packs)} correction pack(s) are valid")
 
 
-@ocr_correction.command("list-packs")
+@ocr_correction.command("packs")
 @click.option("--json-output", is_flag=True, help="Print machine-readable JSON")
 def list_packs(json_output: bool) -> None:
     """List installed correction packs."""
@@ -84,7 +84,7 @@ def explain(
     click.echo(json.dumps(decision.to_dict(), ensure_ascii=False, indent=2))
 
 
-@ocr_correction.command("evaluate")
+@ocr_correction.command("eval")
 @click.argument("samples", type=click.Path(path_type=Path, exists=True))
 @click.option("--fail-on-regression", is_flag=True, help="Exit non-zero when any sample fails")
 def evaluate(samples: Path, fail_on_regression: bool) -> None:
@@ -96,7 +96,7 @@ def evaluate(samples: Path, fail_on_regression: bool) -> None:
         raise click.ClickException(f"{report.total - report.passed} sample(s) failed")
 
 
-@ocr_correction.command("export-candidates")
+@ocr_correction.command("export")
 @click.argument("mirror_json", type=click.Path(path_type=Path, exists=True, dir_okay=False))
 @click.argument("output", type=click.Path(path_type=Path, dir_okay=False))
 def export_candidates(mirror_json: Path, output: Path) -> None:

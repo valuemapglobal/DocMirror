@@ -11,14 +11,14 @@ def test_route_wechat_payment():
     route = route_document("wechat_payment", page_count=219, confidence=0.95)
     assert route.enhance_mode == "full"
     assert "wechat_payment" in route.recommended_plugins
-    assert "chunks" in route.export_formats
+    assert not hasattr(route, "export_formats")
     assert route.layout_profile_hint == "borderless_ledger_wechat"
 
 
 def test_route_bank_statement():
     route = route_document("bank_statement", page_count=5, confidence=0.8)
     assert "bank_statement" in route.recommended_plugins
-    assert "parquet" in route.export_formats
+    assert not hasattr(route, "export_formats")
 
 
 def test_route_generic_low_confidence_note():
@@ -36,7 +36,7 @@ def test_route_large_document_note():
 def test_route_business_license():
     route = route_document("business_license", page_count=1, confidence=0.9)
     assert "business_license" in route.recommended_plugins
-    assert "chunks" in route.export_formats
+    assert not hasattr(route, "export_formats")
 
 
 def test_route_audit_report():

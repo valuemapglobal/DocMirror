@@ -10,7 +10,7 @@ that selects among grid, compact merged, signed amount, borderless OCR, and KV
 identity parsers before building canonical transaction records and DEC output.
 
 Pipeline role: registered as ``plugin`` for ``registry`` discovery; ``runner`` invokes
-``extract_from_mirror`` on matched Mirror tables and OCR text fallback.
+``recognize`` on canonical tables and OCR evidence fallback.
 
 Key exports: ``BankStatementCommunityPlugin``, ``plugin``, column/identity config constants.
 
@@ -125,8 +125,8 @@ class BankStatementCommunityPlugin(BaseTableParser):
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return BANK_IDENTITY_FIELDS
 
-    def _recover_identity_from_mirror(self, parse_result) -> dict[str, dict[str, object]]:
-        atoms_by_page = self._mirror_text_atoms_by_page(parse_result)
+    def _recover_identity_from_evidence(self, parse_result) -> dict[str, dict[str, object]]:
+        atoms_by_page = self._evidence_text_atoms_by_page(parse_result)
         if not atoms_by_page:
             return {}
         page_id = sorted(atoms_by_page)[0]
@@ -153,14 +153,14 @@ class BankStatementCommunityPlugin(BaseTableParser):
                 continue
             value = " 至 ".join(match.groups()) if field_name == "query_period" else match.group(1).strip()
             if value:
-                recovered[field_name] = self._mirror_identity_detail(field_name, label, value, page_id=page_id)
+                recovered[field_name] = self._evidence_identity_detail(field_name, label, value, page_id=page_id)
         title_atom = next(
             (atom for atom in atoms if "账户交易明细表" in str(atom.get("text") or "")),
             None,
         )
         if title_atom is not None:
             title = str(title_atom.get("text") or "").strip()
-            recovered["statement_title"] = self._mirror_identity_detail(
+            recovered["statement_title"] = self._evidence_identity_detail(
                 "statement_title",
                 "document_title",
                 title,
@@ -183,7 +183,7 @@ class BankStatementCommunityPlugin(BaseTableParser):
             },
         )
 
-    def extract_from_mirror(self, parse_result, text: str = ""):
+    def recognize(self, parse_result, text: str = ""):
         """StyleDetector → Registry → v2.0 community output with style metadata."""
         result = run_bank_statement_extract(parse_result, text, self)
         summary = self._build_summary(result.records)

@@ -47,17 +47,17 @@ class VATInvoiceSemanticSolver:
 
         fields = _extract_english_fields(text) if english_vat else _extract_fields(text)
         if not english_vat:
-            mirror_fields = _recover_header_fields_from_mirror(parse_result)
-            if all(mirror_fields.get(key) for key in ("amount_without_tax", "tax_amount", "total_amount")):
+            evidence_fields = _recover_header_fields_from_evidence(parse_result)
+            if all(evidence_fields.get(key) for key in ("amount_without_tax", "tax_amount", "total_amount")):
                 for key in ("amount_without_tax", "tax_amount", "total_amount"):
-                    fields[key] = mirror_fields[key]
-            for key, value in mirror_fields.items():
+                    fields[key] = evidence_fields[key]
+            for key, value in evidence_fields.items():
                 fields.setdefault(key, value)
         line_items = _extract_english_line_items(text) if english_vat else _extract_line_items(text)
         if not english_vat:
-            mirror_line_items = _recover_line_items_from_mirror(parse_result)
-            if mirror_line_items:
-                line_items = mirror_line_items
+            evidence_line_items = _recover_line_items_from_evidence(parse_result)
+            if evidence_line_items:
+                line_items = evidence_line_items
         invariants = _evaluate_invariants(fields, line_items)
         required_failures = [item for item in invariants if item["status"] == "fail" and item.get("required")]
         field_coverage = _field_coverage(fields)
@@ -102,15 +102,11 @@ def _normalize_text(text: str) -> str:
     )
 
 
-def _recover_header_fields_from_mirror(parse_result: Any) -> dict[str, Any]:
-    """Recover right-adjacent VAT header values from positioned Mirror atoms."""
-    mirror = getattr(parse_result, "_runtime_mirror_cache", None)
-    if not isinstance(mirror, dict):
-        return {}
-    evidence = mirror.get("evidence")
-    atoms = evidence.get("text_atoms") if isinstance(evidence, dict) else None
-    if not isinstance(atoms, list):
-        return {}
+def _recover_header_fields_from_evidence(parse_result: Any) -> dict[str, Any]:
+    """Recover right-adjacent VAT header values from canonical evidence atoms."""
+    from docmirror.plugins._runtime.evidence_access import text_atoms
+
+    atoms = text_atoms(parse_result)
 
     usable = [
         atom
@@ -337,12 +333,10 @@ def _joined_split_label_value(
     return _joined_right_line(atoms, label_atom, digits_only=digits_only)
 
 
-def _recover_line_items_from_mirror(parse_result: Any) -> list[dict[str, Any]]:
-    mirror = getattr(parse_result, "_runtime_mirror_cache", None)
-    evidence = mirror.get("evidence") if isinstance(mirror, dict) else None
-    atoms = evidence.get("text_atoms") if isinstance(evidence, dict) else None
-    if not isinstance(atoms, list):
-        return []
+def _recover_line_items_from_evidence(parse_result: Any) -> list[dict[str, Any]]:
+    from docmirror.plugins._runtime.evidence_access import text_atoms
+
+    atoms = text_atoms(parse_result)
     usable = [
         atom
         for atom in atoms

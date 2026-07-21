@@ -12,13 +12,13 @@ GA F1-F6, F10 coverage:
 from __future__ import annotations
 
 import pytest
+
 from docmirror.ocr.formula_ast import (
     ASTNode,
     ASTNodeType,
     LaTeXSymbolTree,
     tokenize_latex,
 )
-
 
 # Shared tree instance — all methods are instance methods
 T = LaTeXSymbolTree()

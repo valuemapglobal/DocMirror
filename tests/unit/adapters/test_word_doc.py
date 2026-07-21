@@ -3,20 +3,21 @@
 
 """Unit tests for WordAdapter .doc handling via dispatcher (TranscodingGate)."""
 
-import pytest
 from pathlib import Path
 from unittest.mock import patch
 
-from docmirror.framework.dispatcher import ParserDispatcher
+import pytest
+
+from docmirror.input.pipeline import perceive_document
 
 
 @pytest.mark.asyncio
 async def test_perceive_doc_without_soffice_returns_recoverable_failure(tmp_path):
     """When file is .doc and soffice is not found, dispatcher returns FORMAT_REQUIRES_CONVERTER."""
     doc = tmp_path / "sample.doc"
-    doc.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1")
+    doc.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 128)
     with patch("shutil.which", return_value=None):
-        result = await ParserDispatcher().process(doc)
+        result = await perceive_document(doc)
     assert result.status.value == "failure"
     assert result.error is not None
     assert result.error.code == "FORMAT_REQUIRES_CONVERTER"

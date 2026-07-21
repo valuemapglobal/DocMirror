@@ -5,8 +5,8 @@
 Parser backend protocol — abstract interface for all parser plugins.
 
 Defines the ``ParserBackend`` protocol (PEP 544) and associated data
-types (``RawParseResult``, ``RawPage``, etc.) that form the canonical
-intermediate format between a parser backend and DocMirror's bridge layer.
+types (``RawParseResult``, ``RawPage``, etc.) that form the evidence/basic-fact
+contract between a parser backend and DocMirror's canonical assembler.
 
 Usage::
 
@@ -115,7 +115,7 @@ class RawPage:
 
 @dataclass
 class RawParseResult:
-    """Backend-agnostic parse output that the bridge layer consumes."""
+    """Backend-agnostic evidence/basic-fact payload for canonical assembly."""
 
     pages: list[RawPage] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -131,7 +131,7 @@ class ParserBackend(Protocol):
 
     A backend knows how to parse a specific format (or multiple formats)
     and returns data in the canonical ``RawParseResult`` format that
-    DocMirror's bridge layer converts to ``ParseResult``.
+    DocMirror's canonical assembler converts it to ``ParseResult``.
 
     The protocol is implicit — any object with the required attributes
     and methods satisfies it (PEP 544 structural subtyping).

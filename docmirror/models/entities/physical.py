@@ -7,18 +7,15 @@
 """
 Physical document models — immutable block graph for extracted content.
 
-Purpose: Defines ``BaseResult``, ``PageLayout``, ``Block``, ``TextSpan``,
-and ``Style`` — the frozen structures that flow through the pipeline before
-bridge conversion.
+Purpose: Defines ``PageLayout``, ``Block``, ``TextSpan``, and ``Style`` —
+immutable physical facts produced inside adapters before canonical assembly.
 
-Main components: ``BaseResult``, ``PageLayout``, ``Block``, ``TextSpan``,
-``Style``.
+Main components: ``PageLayout``, ``Block``, ``TextSpan``, ``Style``.
 
 Upstream: ``pipeline`` assemble/finalize stages, ``segment``, ``extract``,
 ``ocr``.
 
-Downstream: ``bridge.parse_result_bridge``, ``extraction.provenance_stamps``,
-``output.markdown_exporter``.
+Downstream: ``input.canonical.assembler``.
 """
 
 from __future__ import annotations
@@ -102,41 +99,3 @@ class PageLayout:
     is_scanned: bool = False
     source_page_number: int | None = None
     coordinate_transform: dict[str, Any] = dataclasses.field(default_factory=dict)
-
-
-@dataclasses.dataclass(frozen=True)
-class BaseResult:
-    """
-    Core Extraction boundaries \u2014 Immutable structurally accurately.
-    """
-
-    document_id: str = dataclasses.field(default_factory=lambda: str(uuid.uuid4()))
-    pages: tuple[PageLayout, ...] = ()  # frozen requirement
-    metadata: dict[str, Any] = dataclasses.field(default_factory=dict)
-    full_text: str = ""
-
-    @property
-    def page_count(self) -> int:
-        return len(self.pages)
-
-    @property
-    def all_blocks(self) -> list[Block]:
-        """Provides sorted blocks based on reading index."""
-        blocks = []
-        for page in self.pages:
-            blocks.extend(page.blocks)
-        return sorted(blocks, key=lambda b: (b.page, b.reading_order))
-
-    @property
-    def table_blocks(self) -> list[Block]:
-        """Isolates table blocks specifically."""
-        return [b for b in self.all_blocks if b.block_type == "table"]
-
-    @property
-    def entities(self) -> dict[str, str]:
-        """Merges fully logically globally key value outputs."""
-        result: dict[str, str] = {}
-        for b in self.all_blocks:
-            if b.block_type == "key_value" and isinstance(b.raw_content, dict):
-                result.update(b.raw_content)
-        return result

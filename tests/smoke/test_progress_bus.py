@@ -203,7 +203,7 @@ class TestPhaseWeights:
 
     def test_phase_order_is_complete(self):
         """Phase order covers all defined phases."""
-        from docmirror.runtime.progress_bus import _load_phase_weights, _load_phase_order
+        from docmirror.runtime.progress_bus import _load_phase_order, _load_phase_weights
 
         weights = _load_phase_weights()
         order = _load_phase_order()
@@ -289,7 +289,7 @@ class TestPipelinePhaseOrdering:
 
     def test_complete_pipeline_phase_sequence(self, recorder):
         """A complete pipeline goes through all phases in order."""
-        from docmirror.runtime.progress_bus import ProgressBus, _load_phase_weights, _load_phase_order
+        from docmirror.runtime.progress_bus import ProgressBus, _load_phase_order, _load_phase_weights
 
         class _FR:
             def __init__(self):
@@ -340,8 +340,9 @@ class TestPostExtractCatalog:
 
     def test_post_extract_hook_module_paths(self):
         """All hook module paths use the correct _runtime prefix."""
-        from docmirror.configs.paths import POST_EXTRACT_YAML
         import yaml
+
+        from docmirror.configs.paths import POST_EXTRACT_YAML
 
         with open(POST_EXTRACT_YAML) as f:
             data = yaml.safe_load(f) or {}

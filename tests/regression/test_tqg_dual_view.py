@@ -12,8 +12,9 @@ from tests.regression.conftest import _run_and_assert
 pytestmark = [pytest.mark.tier_regression, pytest.mark.track_dual_view]
 
 try:
-    from docmirror.eval.tqg.manifest import TQG_GATES_DIR, load_track_manifest
     from pathlib import Path
+
+    from docmirror.eval.tqg.manifest import TQG_GATES_DIR, load_track_manifest
 
     REPO_ROOT = Path(__file__).resolve().parents[2]
     _DUAL_VIEW_CASES = load_track_manifest(

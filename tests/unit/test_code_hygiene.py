@@ -128,8 +128,8 @@ def test_import_linter_rendered_from_manifest_layers():
                     "import_linter_allow_indirect": True,
                     "import_linter_ignore_imports": [
                         {
-                            "importer": "docmirror.models.bridge",
-                            "imported": "docmirror.input.bridge",
+                            "importer": "docmirror.models.legacy",
+                            "imported": "docmirror.input.legacy",
                             "reason": "raw",
                             "review_by": "2026-08-01",
                         }
@@ -146,7 +146,7 @@ def test_import_linter_rendered_from_manifest_layers():
     assert "    docmirror.models" in rendered
     assert "    docmirror.input" in rendered
     assert "allow_indirect_imports = True" in rendered
-    assert "    docmirror.models.bridge -> docmirror.input.bridge" in rendered
+    assert "    docmirror.models.legacy -> docmirror.input.legacy" in rendered
     assert "docmirror.runtime" not in rendered
 
 

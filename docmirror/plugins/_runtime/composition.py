@@ -1,10 +1,6 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Explicit edition composition rules (Architecture A).
-
-Extended editions (enterprise/finance) may reuse community output only through
-documented composition reasons — not implicit serial dependency.
-"""
+"""Explicit edition projection and degradation annotations."""
 
 from __future__ import annotations
 
@@ -17,7 +13,6 @@ class CompositionReason(str, Enum):
     """Why an extended edition payload was derived from another edition."""
 
     INDEPENDENT_EXTRACT = "independent_extract"
-    LICENSE_DEGRADE = "license_degrade"
     EXTRACT_FALLBACK = "extract_fallback"
     NO_PLUGIN = "no_plugin"
     MIRROR_ONLY = "mirror_only"
@@ -41,40 +36,14 @@ def annotate_composition(
     return payload
 
 
-def apply_license_degrade(
-    community_payload: dict[str, Any],
-    *,
-    edition: str,
-    plugin: Any,
-    license_warning: str = "_license_warning",
-) -> dict[str, Any]:
-    """Wrap community baseline for unlicensed extended edition."""
-    degraded = copy.deepcopy(community_payload)
-    degraded["edition"] = edition
-    degraded.setdefault("status", {}).setdefault("warnings", [])
-    warnings = degraded["status"]["warnings"]
-    if license_warning not in warnings:
-        warnings.insert(0, license_warning)
-    warnings.append(f"license_required:edition={edition},domain={getattr(plugin, 'domain_name', '')}")
-    degraded.setdefault("plugin", {})["license_required"] = True
-    meta = degraded.setdefault("metadata", {})
-    meta["parser"] = f"docmirror-{edition}"
-    return annotate_composition(
-        degraded,
-        edition=edition,
-        reason=CompositionReason.LICENSE_DEGRADE,
-        source_edition="community",
-    )
-
-
 def apply_extract_fallback(
-    community_payload: dict[str, Any],
+    base_payload: dict[str, Any],
     *,
     edition: str,
     plugin: Any | None = None,
 ) -> dict[str, Any]:
-    """Clone community output when extended extract is unavailable."""
-    cloned = copy.deepcopy(community_payload)
+    """Mark a ParseResult-derived base projection as extract fallback."""
+    cloned = copy.deepcopy(base_payload)
     cloned["edition"] = edition
     cloned.setdefault("metadata", {})["parser"] = f"docmirror-{edition}"
     if plugin is not None:
@@ -86,7 +55,7 @@ def apply_extract_fallback(
         cloned,
         edition=edition,
         reason=CompositionReason.EXTRACT_FALLBACK,
-        source_edition="community",
+        source_edition="parse_result",
     )
 
 
@@ -94,5 +63,4 @@ __all__ = [
     "CompositionReason",
     "annotate_composition",
     "apply_extract_fallback",
-    "apply_license_degrade",
 ]

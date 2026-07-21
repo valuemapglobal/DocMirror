@@ -39,7 +39,7 @@ class PostExtractHookSpec:
     module: str
     class_name: str
     when: str = ""
-    mutates_mirror: bool = False
+    mutates_facts: bool = False
     provides: tuple[str, ...] = ()
 
 
@@ -77,7 +77,7 @@ def load_post_extract_catalog() -> dict[str, PostExtractHookSpec]:
             module=str(raw.get("module", "")),
             class_name=str(raw.get("class", hook_id)),
             when=str(raw.get("when") or ""),
-            mutates_mirror=bool(raw.get("mutates_mirror", False)),
+            mutates_facts=bool(raw.get("mutates_facts", False)),
             provides=tuple(raw.get("provides") or ()),
         )
 

@@ -24,7 +24,7 @@ def test_generic_plugin_domain_name():
 
 
 def test_id_card_classified_produces_generic_output():
-    out = plugin.extract_from_mirror(
+    out = plugin.recognize(
         _mirror("id_card", {"name": "张三", "id_number": "110101199001011234"})
     )
     assert out["schema_version"] == "2.0"
@@ -42,7 +42,7 @@ def test_generic_output_collects_key_values():
     page = type("Page", (), {"key_values": [kv], "tables": [], "texts": [], "page_number": 1, "width": 800, "height": 1000})()
     pr.pages = [page]
 
-    out = plugin.extract_from_mirror(pr)
+    out = plugin.recognize(pr)
     assert out["data"]["fields"]["姓名"] == "李四"
 
 
@@ -50,6 +50,6 @@ def test_generic_projection_does_not_mutate_parse_result():
     pr = _mirror("expense_report", {"报销单号": "BX-001", "金额": "1,000.00"})
     before = pr.model_dump(mode="python")
 
-    plugin.extract_from_mirror(pr, "部门：销售部")
+    plugin.recognize(pr, "部门：销售部")
 
     assert pr.model_dump(mode="python") == before

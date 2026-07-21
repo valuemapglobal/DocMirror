@@ -7,7 +7,7 @@ Shared bank statement extract pipeline for Community / Enterprise / Finance.
 Single SSOT for StyleContext → StyleDetector → ParserRegistry → identity enrichment
 → style metadata → LTRO audit warnings.
 
-Pipeline role: called by ``community_plugin.extract_from_mirror`` and extended-edition
+Pipeline role: called by ``community_plugin.recognize`` and extended-edition
 ``extract()`` methods in ``docmirror_enterprise`` / ``docmirror_finance``.
 
 Key exports: ``BankExtractResult``, ``run_bank_statement_extract``,
@@ -167,11 +167,11 @@ def run_bank_statement_extract(
     )
     identity_fields = enrich_identity_fields(identity_fields, ctx.full_text, parse_result)
     try:
-        mirror_identity = plugin._recover_identity_from_mirror(parse_result)
+        evidence_identity = plugin._recover_identity_from_evidence(parse_result)
     except Exception:
-        mirror_identity = {}
-    if mirror_identity:
-        identity_fields.update(mirror_identity)
+        evidence_identity = {}
+    if evidence_identity:
+        identity_fields.update(evidence_identity)
     style_meta = build_style_meta(
         detection,
         reconstruction=ctx.reconstruction,

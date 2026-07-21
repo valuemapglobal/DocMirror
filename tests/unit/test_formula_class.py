@@ -1,11 +1,12 @@
 """Unit tests for formula_class.py — formula display type classification."""
 
 import pytest
+
 from docmirror.ocr.formula_class import (
-    classify_formula,
-    classify_formula_simple,
     FormulaClass,
     FormulaDisplayType,
+    classify_formula,
+    classify_formula_simple,
 )
 
 

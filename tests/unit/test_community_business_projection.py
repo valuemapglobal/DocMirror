@@ -24,7 +24,7 @@ from docmirror.models.entities.parse_result import (
     TextLevel,
 )
 from docmirror.models.schemas.registry import validate_projection_payload
-from docmirror.plugins._runtime.runner import clear_run_cache, run_plugin_extract_sync
+from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 from docmirror.quality.field_details import compact_community_field_projection
 from docmirror.server.output_builder import build_community_output
 
@@ -59,7 +59,6 @@ def _mirror(document_type: str) -> ParseResult:
     ),
 )
 def test_six_core_plugins_emit_consistent_business_layer(domain: str):
-    clear_run_cache()
     out = run_plugin_extract_sync(_mirror(domain), edition="community")
     assert out is not None
     assert out["schema_version"] == "2.2"
@@ -242,7 +241,6 @@ def test_generic_fallback_recovers_repeated_date_led_rows_without_table_geometry
             "1130.00",
         ]
     )
-    clear_run_cache()
     out = build_community_output(result, text)
     assert out is not None
     assert len(out["data"]["records"]) == 3
@@ -252,7 +250,6 @@ def test_generic_fallback_recovers_repeated_date_led_rows_without_table_geometry
 
 
 def test_generic_explicit_currency_is_preserved_in_values_and_dictionary():
-    clear_run_cache()
     result = ParseResult(
         status=ResultStatus.SUCCESS,
         pages=[
@@ -279,7 +276,6 @@ def test_generic_explicit_currency_is_preserved_in_values_and_dictionary():
 
 
 def test_generic_scoped_currency_context_applies_to_following_pages():
-    clear_run_cache()
     result = ParseResult(
         status=ResultStatus.SUCCESS,
         pages=[
@@ -314,7 +310,6 @@ def test_generic_scoped_currency_context_applies_to_following_pages():
 
 
 def test_generic_normalization_rate_counts_typed_cells_not_text_passthrough():
-    clear_run_cache()
     result = ParseResult(
         status=ResultStatus.SUCCESS,
         pages=[
@@ -344,7 +339,6 @@ def test_generic_normalization_rate_counts_typed_cells_not_text_passthrough():
 
 
 def test_generic_normalization_rate_ignores_non_candidate_text_in_typed_column():
-    clear_run_cache()
     result = ParseResult(
         status=ResultStatus.SUCCESS,
         pages=[
@@ -373,7 +367,6 @@ def test_generic_normalization_rate_ignores_non_candidate_text_in_typed_column()
 
 
 def test_generic_header_repair_is_visible_and_requires_review():
-    clear_run_cache()
     result = ParseResult(
         status=ResultStatus.SUCCESS,
         pages=[
@@ -404,7 +397,6 @@ def test_generic_header_repair_is_visible_and_requires_review():
 
 
 def test_generic_many_repaired_headers_are_aggregated_and_penalized():
-    clear_run_cache()
     tables = [
         TableBlock(
             table_id=f"broken_{index}",
@@ -431,7 +423,6 @@ def test_generic_many_repaired_headers_are_aggregated_and_penalized():
 
 
 def test_generic_row_alignment_issue_targets_the_exact_record():
-    clear_run_cache()
     result = ParseResult(
         status=ResultStatus.SUCCESS,
         pages=[
@@ -470,7 +461,6 @@ def test_generic_row_alignment_issue_targets_the_exact_record():
 
 
 def test_generic_promotes_explicit_business_header_row_without_losing_data():
-    clear_run_cache()
     table = TableBlock(
         table_id="subsidiary",
         headers=[],
@@ -524,7 +514,6 @@ def test_generic_promotes_explicit_business_header_row_without_losing_data():
 
 
 def test_generic_does_not_promote_single_merged_header_data_row():
-    clear_run_cache()
     table = TableBlock(
         table_id="merged_depreciation",
         headers=[],
@@ -556,7 +545,6 @@ def test_generic_does_not_promote_single_merged_header_data_row():
 
 
 def test_generic_repairs_only_evidence_backed_first_label_header():
-    clear_run_cache()
     table = TableBlock(
         table_id="expenses",
         headers=["", "本年发生额", "上年发生额"],
@@ -581,7 +569,6 @@ def test_generic_repairs_only_evidence_backed_first_label_header():
 
 
 def test_generic_amount_unit_declaration_is_not_an_amount_column():
-    clear_run_cache()
     table = TableBlock(
         table_id="unit_fragment",
         headers=["金额单位:人民币元"],
@@ -601,7 +588,6 @@ def test_generic_amount_unit_declaration_is_not_an_amount_column():
 
 
 def test_generic_empty_pdf_result_explains_that_ocr_is_required():
-    clear_run_cache()
     result = ParseResult(
         status=ResultStatus.SUCCESS,
         pages=[PageContent(page_number=1)],

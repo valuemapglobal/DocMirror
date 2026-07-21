@@ -8,7 +8,7 @@ Re-exports the registered ``AlipayPaymentPlugin`` singleton and column/identity
 configuration for the Alipay transaction export document type.
 
 Pipeline role: premium community plugin discovered by ``registry``; extract path
-mirrors WeChat via ``BaseTableParser.extract_from_mirror``.
+mirrors WeChat via ``BaseTableParser.recognize``.
 
 Key exports: ``AlipayPaymentPlugin``, ``plugin``, ``ALIPAY_*`` config constants.
 """

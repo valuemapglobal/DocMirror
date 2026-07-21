@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from docmirror.output.markdown_renderer import render_markdown_from_vnext
+
 
 def _blocks_by_id(mirror: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {str(block.get("id")): block for block in mirror.get("blocks", []) if block.get("id")}
@@ -46,16 +48,8 @@ def _block_text(block: dict[str, Any]) -> str:
 
 
 def export_markdown_from_vnext(mirror: dict[str, Any]) -> str:
-    parts: list[str] = []
-    for block in _reading_blocks(mirror):
-        text = _block_text(block)
-        if not text:
-            continue
-        if block.get("type") == "heading" or block.get("role") == "h1":
-            parts.append(f"# {text}")
-        else:
-            parts.append(text)
-    return "\n\n".join(parts)
+    """Compatibility entry point for the shared DMP 1.0 renderer."""
+    return render_markdown_from_vnext(mirror)
 
 
 def export_chunks_from_vnext(mirror: dict[str, Any]) -> list[dict[str, Any]]:

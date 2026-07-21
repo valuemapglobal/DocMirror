@@ -68,6 +68,10 @@ _FIELD_LABELS = {
     "business_term": "营业期限",
     "business_scope": "经营范围",
     "address": "地址",
+    "name": "姓名",
+    "gender": "性别",
+    "ethnicity": "民族",
+    "birth_date": "出生日期",
     "subject_name": "报告主体",
     "id_number": "证件号码",
     "report_time": "报告时间",
@@ -179,7 +183,7 @@ def _infer_type(values: list[Any]) -> str:
         return "object"
     strings = [str(value).strip() for value in sample]
     try:
-        from docmirror.plugins._base.generic_mirror_adapter import _type_detect_column
+        from docmirror.plugins._base.generic_community_adapter import _type_detect_column
 
         inferred, confidence = _type_detect_column(strings)
         return inferred if confidence >= 0.6 else "text"
@@ -569,7 +573,22 @@ def _source_quality(result: ParseResult) -> float:
 
 def _evidence_quality(result: ParseResult, data: dict[str, Any]) -> dict[str, Any]:
     fields = data.get("fields") if isinstance(data.get("fields"), dict) else {}
-    records = data.get("records") if isinstance(data.get("records"), list) else []
+    records = list(data.get("records") or []) if isinstance(data.get("records"), list) else []
+    if not records:
+        for collection_name in (
+            "credit_accounts",
+            "credit_lines",
+            "repayment_records",
+            "overdue_records",
+            "inquiry_records",
+            "public_records",
+            "residence_records",
+            "employment_records",
+            "repayment_liability_records",
+        ):
+            collection = data.get(collection_name)
+            if isinstance(collection, list):
+                records.extend(item for item in collection if isinstance(item, dict))
     field_metadata = data.get("field_metadata") if isinstance(data.get("field_metadata"), dict) else {}
     field_details = data.get("field_details") if isinstance(data.get("field_details"), dict) else {}
     sourced_fields = sum(
@@ -583,7 +602,13 @@ def _evidence_quality(result: ParseResult, data: dict[str, Any]) -> dict[str, An
         1
         for record in records
         if isinstance(record, dict)
-        and bool(record.get("source") or record.get("source_fact_ids") or record.get("evidence_ids"))
+        and bool(
+            record.get("source")
+            or record.get("source_refs")
+            or record.get("source_cell_refs")
+            or record.get("source_fact_ids")
+            or record.get("evidence_ids")
+        )
     )
     evidence_ids: set[str] = set()
     for page in getattr(result, "pages", []) or []:

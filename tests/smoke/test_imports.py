@@ -13,6 +13,7 @@ modules early without requiring heavy dependencies like PyMuPDF or OCR.
 
 import importlib
 import pkgutil
+
 import pytest
 
 pytestmark = [pytest.mark.tier_smoke]
@@ -71,10 +72,10 @@ class TestImports:
     def test_exception_hierarchy(self):
         """Custom exceptions should be importable."""
         from docmirror.input.entry.exceptions import (
-            MultiModalError,
             ExtractionError,
             LayoutAnalysisError,
             MiddlewareError,
+            MultiModalError,
         )
         assert issubclass(ExtractionError, MultiModalError)
         assert issubclass(LayoutAnalysisError, MultiModalError)

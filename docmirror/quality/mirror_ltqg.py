@@ -4,7 +4,7 @@
 """
 Mirror LTQG attachment — sync SPE / domain_specific after ParseResult assembly.
 
-Bridge layer calls ``attach_mirror_ltqg`` so Plugin and API consumers can read
+Canonical assembly calls ``attach_mirror_ltqg`` so Plugin and API consumers can read
 ``mirror_expected_data_rows`` without re-running LTQG.
 """
 

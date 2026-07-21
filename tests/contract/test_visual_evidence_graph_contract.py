@@ -1,8 +1,9 @@
 """W7-01: Visual Evidence Graph contract tests (schema + resolvability)."""
 
 import pytest
-from docmirror.models.visual_evidence import VisualNode, VisualEdge, VisualEvidenceGraph
+
 from docmirror.evidence.visual_graph import build_visual_evidence_graph
+from docmirror.models.visual_evidence import VisualEdge, VisualEvidenceGraph, VisualNode
 
 
 class MockText:
@@ -77,6 +78,7 @@ def test_graph_from_mock_result():
 
     page_node = [n for n in nodes.values() if n["kind"] == "page"][0]
     block_node = [n for n in nodes.values() if n["kind"] == "block"][0]
+    assert page_node["page"] == 1
     assert block_node["bbox"] == [20, 40, 520, 90]
     assert block_node["confidence"] == 0.95
 

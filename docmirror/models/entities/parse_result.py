@@ -26,7 +26,8 @@ Design principles::
     - **Confidence penetration**: Cell → Row → Table → Page → Document.
     - **Separation of concerns**: Content / Entities / Meta are independent zones.
     - **Parser-agnostic**: DocMirror, Docling, PaddleOCR all output this structure.
-    - **Adapter-built**: input adapters construct typed ``ParseResult`` objects.
+    - **Canonical-built**: adapters emit evidence/basic facts; the canonical
+      assembler constructs typed ``ParseResult`` objects.
 
 Usage::
 
@@ -41,12 +42,16 @@ Usage::
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from docmirror.models.mirror.document_flow import DocumentFlowGraph
+from docmirror.models.mirror.vnext import EvidenceAtom, EvidenceStore, SourceInfo
 from docmirror.models.tracking.mutation import Mutation
 
 if TYPE_CHECKING:
@@ -374,6 +379,7 @@ class TableBlock(BaseModel):
     bbox: list[float] | None = None
     confidence: float = 1.0
     caption: str | None = None
+    reading_order: int = 0
     extraction_layer: str = ""
     extraction_confidence: float | None = None
     evidence_ids: list[str] = Field(default_factory=list)
@@ -483,6 +489,8 @@ class TextBlock(BaseModel):
     level: TextLevel = TextLevel.BODY
     confidence: float = 1.0
     bbox: list[float] | None = None
+    reading_order: int = 0
+    role: str = "body"
     slm_entities: dict[str, Any] | None = None
     evidence_ids: list[str] = Field(default_factory=list)
 
@@ -498,6 +506,7 @@ class KeyValuePair(BaseModel):
     value: str = ""
     confidence: float = 1.0
     bbox: list[float] | None = None
+    reading_order: int = 0
     evidence_ids: list[str] = Field(default_factory=list)
 
 
@@ -550,7 +559,7 @@ class DocumentEntities(BaseModel):
 
     domain_specific: dict[str, Any] = Field(
         default_factory=dict,
-        description="Mirror-only metadata (use mirror_metadata alias); not plugin records",
+        description="Parser-owned structured extensions and domain-specific record collections.",
     )
 
     @property
@@ -737,6 +746,120 @@ class MirrorAnnex(BaseModel):
     )
 
 
+class EvidencePageSnapshot(BaseModel):
+    """Serializable page index for the canonical source evidence plane."""
+
+    page_id: str
+    page_index: int
+    page_number: int
+    width: float | None = None
+    height: float | None = None
+    original_rotation: int = 0
+    normalized_rotation: int = 0
+    coordinate_transform: dict[str, Any] = Field(default_factory=dict)
+    normalization_trace: dict[str, Any] = Field(default_factory=dict)
+    content_mode: str = "unknown"
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class CanonicalEvidencePlane(BaseModel):
+    """Cache-safe lossless evidence owned by ``ParseResult``.
+
+    The runtime EvidencePlane is an extraction data structure.  This model is
+    its canonical, serializable representation and therefore survives cache
+    round-trips without requiring Mirror or source-file reconstruction.
+    """
+
+    source: SourceInfo = Field(default_factory=SourceInfo)
+    pages: list[EvidencePageSnapshot] = Field(default_factory=list)
+    evidence: EvidenceStore = Field(default_factory=EvidenceStore)
+    diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+
+    @classmethod
+    def from_runtime(cls, plane: Any | None) -> CanonicalEvidencePlane | None:
+        if plane is None:
+            return None
+        if isinstance(plane, cls):
+            return plane
+        runtime_source = getattr(plane, "source", None)
+        if not isinstance(runtime_source, SourceInfo):
+            runtime_source = SourceInfo.model_validate(runtime_source if isinstance(runtime_source, dict) else {})
+        runtime_evidence = getattr(plane, "evidence", None)
+        if not isinstance(runtime_evidence, EvidenceStore):
+
+            def _atoms(name: str) -> list[EvidenceAtom]:
+                atoms: list[EvidenceAtom] = []
+                for atom in list(getattr(runtime_evidence, name, []) or []):
+                    if isinstance(atom, EvidenceAtom):
+                        atoms.append(atom)
+                        continue
+                    payload = (
+                        atom
+                        if isinstance(atom, dict)
+                        else {
+                            key: getattr(atom, key)
+                            for key in (
+                                "id",
+                                "kind",
+                                "source_kind",
+                                "page_id",
+                                "text",
+                                "bbox",
+                                "source_bbox",
+                                "coordinate_transform",
+                                "confidence",
+                                "style",
+                                "source_refs",
+                                "metadata",
+                            )
+                            if hasattr(atom, key)
+                        }
+                    )
+                    atoms.append(EvidenceAtom.model_validate(payload))
+                return atoms
+
+            runtime_evidence = EvidenceStore(
+                text_atoms=_atoms("text_atoms"),
+                visual_atoms=_atoms("visual_atoms"),
+                image_atoms=_atoms("image_atoms"),
+                vector_atoms=_atoms("vector_atoms"),
+                indexes=dict(getattr(runtime_evidence, "indexes", {}) or {}),
+            )
+        return cls(
+            source=runtime_source,
+            pages=[
+                EvidencePageSnapshot.model_validate(
+                    {
+                        "page_id": str(getattr(page, "page_id", "")),
+                        "page_index": int(getattr(page, "page_index", 0)),
+                        "page_number": int(getattr(page, "page_number", 0)),
+                        "width": getattr(page, "width", None),
+                        "height": getattr(page, "height", None),
+                        "original_rotation": int(getattr(page, "original_rotation", 0) or 0),
+                        "normalized_rotation": int(getattr(page, "normalized_rotation", 0) or 0),
+                        "coordinate_transform": dict(getattr(page, "coordinate_transform", {}) or {}),
+                        "normalization_trace": dict(getattr(page, "normalization_trace", {}) or {}),
+                        "content_mode": str(getattr(page, "content_mode", "unknown") or "unknown"),
+                        "evidence_ids": list(getattr(page, "evidence_ids", []) or []),
+                    }
+                )
+                for page in getattr(plane, "pages", [])
+            ],
+            evidence=runtime_evidence,
+            diagnostics=list(getattr(plane, "diagnostics", []) or []),
+        )
+
+    def to_runtime(self) -> Any:
+        from docmirror.evidence.plane import EvidencePage, EvidencePlane
+
+        return EvidencePlane(
+            source=self.source,
+            pages=[EvidencePage(**page.model_dump(mode="python")) for page in self.pages],
+            evidence=self.evidence,
+            diagnostics=list(self.diagnostics),
+        )
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Top-Level: ParseResult
 # ══════════════════════════════════════════════════════════════════════════════
@@ -748,7 +871,7 @@ class ParseResult(BaseModel):
 
     **The single standard output model for all DocMirror parsers.**
 
-    Five zones + envelope:
+    Five source/trust zones and the envelope:
         - Envelope: ``status``, ``confidence``, ``error``
         - Zone 1 (pages): Content — "What I saw"
         - Zone 2 (entities): Entities — "What I recognized"
@@ -772,10 +895,6 @@ class ParseResult(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    # Output-stage optimization only.  Keeping the projected Mirror private
-    # prevents it from becoming a second public result contract.
-    _runtime_mirror_cache: dict[str, Any] | None = PrivateAttr(default=None)
-
     # ── Envelope ──
     status: ResultStatus = ResultStatus.SUCCESS
     confidence: float = 1.0
@@ -791,6 +910,14 @@ class ParseResult(BaseModel):
     table_operations: list[TableOperation] = Field(
         default_factory=list, description="Cross-page merge/split audit trail (debug / enterprise QA)."
     )
+    document_flow: DocumentFlowGraph | None = Field(
+        default=None,
+        description="Canonical source-complete reading flow consumed by all output projectors.",
+    )
+    evidence_plane: CanonicalEvidencePlane | None = Field(
+        default=None,
+        description="Lossless canonical source evidence; included in cache serialization.",
+    )
 
     # ── Zone 2: Entities ──
     entities: DocumentEntities = Field(default_factory=DocumentEntities)
@@ -805,16 +932,16 @@ class ParseResult(BaseModel):
     provenance: ProvenanceInfo | None = None
 
     # ── Pipeline state (populated by middleware) ──
-    mutations: list[Mutation] = Field(default_factory=list, exclude=True)
+    mutations: list[Mutation] = Field(default_factory=list)
     processing_time: float = Field(default=0.0, exclude=True)
     errors: list[str] = Field(default_factory=list, exclude=True)
-    raw_text: str = Field(default="", exclude=True)
+    raw_text: str = Field(default="")
 
     # ── EHL annex (debug/eval only) ──
-    annex: MirrorAnnex | None = Field(default=None, exclude=True)
+    annex: MirrorAnnex | None = Field(default=None)
 
     # ── Section tree (populated by UDTR section analysis) ──
-    sections: list[DocumentSection] = Field(default_factory=list, exclude=True)
+    sections: list[DocumentSection] = Field(default_factory=list)
 
     @field_validator("sections", mode="before")
     @classmethod
@@ -853,6 +980,16 @@ class ParseResult(BaseModel):
         """Whether parsing succeeded (fully or partially)."""
         return self.status in (ResultStatus.SUCCESS, ResultStatus.PARTIAL)
 
+    def fact_fingerprint(self) -> str:
+        """Return a stable digest used to enforce post-pipeline read-only access."""
+        payload = self.model_dump(
+            mode="json",
+            exclude={"processing_time"},
+            exclude_none=False,
+        )
+        raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
     @property
     def total_tables(self) -> int:
         """Total number of tables across all pages."""
@@ -877,6 +1014,26 @@ class ParseResult(BaseModel):
     def file_path(self) -> str:
         """Source path recorded in provenance, if available."""
         return str(getattr(self.provenance, "file_path", "") or "")
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Temporary mapping compatibility for edition plugins.
+
+        Edition plugins now receive ParseResult directly. Existing commercial
+        plugins historically called ``document_context.get(...)``; this shim
+        keeps those packages working while their signatures migrate without
+        reintroducing a second context object or data source.
+        """
+        if key in {"parse_result", "result"}:
+            return self
+        if key in {"full_text", "text"}:
+            return self.full_text or self.raw_text or default
+        if key in {"file_path", "file"}:
+            return self.file_path or default
+        if key == "tables":
+            return [table.model_dump(mode="json") for table in self.all_tables()]
+        if key == "metadata":
+            return self.entities.model_dump(mode="json", exclude_none=True)
+        return getattr(self, key, default)
 
     def all_tables(self) -> list[TableBlock]:
         """Collect all tables across pages."""
@@ -1069,6 +1226,9 @@ class ParseResult(BaseModel):
 
     def _build_full_text(self) -> str:
         """Reconstruct full document text from page content."""
+        flow_text = self._build_full_text_from_document_flow()
+        if flow_text:
+            return flow_text
         parts: list[str] = []
         for page in self.pages:
             for text in page.texts:
@@ -1087,6 +1247,42 @@ class ParseResult(BaseModel):
                 rendered = self._table_to_markdown(table)
                 if rendered:
                     parts.append(rendered)
+        return "\n\n".join(parts)
+
+    def _build_full_text_from_document_flow(self) -> str:
+        """Render canonical facts in the same source order used by outputs."""
+        flow = self.document_flow
+        reading_flows = list(getattr(flow, "reading_flow", None) or [])
+        nodes = list(getattr(flow, "nodes", None) or [])
+        if not reading_flows or not nodes:
+            return ""
+        node_by_id = {str(node.node_id): node for node in nodes}
+        table_by_id = {
+            str(table.table_id): table for page in self.pages for table in page.tables if str(table.table_id or "")
+        }
+        parts: list[str] = []
+        for node_id in reading_flows[0].node_ids:
+            node = node_by_id.get(str(node_id))
+            if node is None:
+                continue
+            if node.type == "physical_table":
+                table = table_by_id.get(str((node.metadata or {}).get("table_id") or ""))
+                rendered = self._table_to_markdown(table) if table is not None else ""
+                if rendered:
+                    parts.append(rendered)
+                continue
+            if node.role == "key_value":
+                key = str((node.metadata or {}).get("key") or "")
+                value = str((node.metadata or {}).get("value") or "")
+                if key or value:
+                    parts.append(f"**{key}**: {value}")
+                continue
+            text = str(node.text or "")
+            if not text:
+                continue
+            level = str((node.metadata or {}).get("level") or "")
+            prefix = {"title": "# ", "h1": "# ", "h2": "## ", "h3": "### "}.get(level, "")
+            parts.append(prefix + text)
         return "\n\n".join(parts)
 
     @staticmethod

@@ -2,7 +2,6 @@
 
 """Unit tests for table_access unified read layer."""
 
-from docmirror.tables.access import get_logical_tables, table_flatten
 from docmirror.models.entities.parse_result import (
     CellValue,
     LogicalTable,
@@ -12,6 +11,7 @@ from docmirror.models.entities.parse_result import (
     TableBlock,
     TableRow,
 )
+from docmirror.tables.access import get_logical_tables, table_flatten
 
 
 def _result_with_logical() -> ParseResult:

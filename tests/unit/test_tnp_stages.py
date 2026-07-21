@@ -17,10 +17,10 @@ def test_tnp_stage_modules_expose_symbols():
 
 
 def test_tnp_staged_matches_monolith_on_sample():
+    from docmirror.configs.models.extraction_profile import ExtractionProfile
     from docmirror.tables.pipeline import TableNormalizeContext
     from docmirror.tables.pipeline.stage_domain import run_stages
     from docmirror.tables.postprocess import post_process_table
-    from docmirror.configs.models.extraction_profile import ExtractionProfile
 
     rows = [
         ["交易单号", "交易时间", "金额(元)"],

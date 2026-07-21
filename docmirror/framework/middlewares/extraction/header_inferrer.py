@@ -19,6 +19,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from docmirror.framework.middlewares.base import BaseMiddleware
+from docmirror.layout.vocabulary import _is_header_row
 from docmirror.models.entities.parse_result import RowType
 from docmirror.tables.signature import TypeSignatureLibrary
 
@@ -90,6 +91,16 @@ class HeaderInferrerMiddleware(BaseMiddleware):
 
                     table_block.rows[inferred_header_idx].row_type = RowType.HEADER
                     table_block.headers = [c.cleaned or c.text for c in table_block.rows[inferred_header_idx].cells]
+                    metadata = table_block.metadata
+                    source_refs = table_block.rows[inferred_header_idx].source_cell_refs
+                    raw_row_index = (
+                        int(str(source_refs[0].get("raw_row")))
+                        if source_refs and source_refs[0].get("raw_row") is not None
+                        else inferred_header_idx
+                    )
+                    metadata["preserve_headers"] = True
+                    metadata["header_row_index"] = raw_row_index
+                    metadata["header_source"] = "inferred"
 
                     if current_header_idx < 0:
                         table_block.confidence = min(1.0, signature_confidence)
@@ -112,6 +123,9 @@ class HeaderInferrerMiddleware(BaseMiddleware):
                                 new_value=f"inferred_row_{inferred_header_idx}",
                                 reason="Signature inference override",
                             )
+                elif table_block.headers and not _is_header_row([str(value or "") for value in table_block.headers]):
+                    table_block.metadata["preserve_headers"] = False
+                    table_block.metadata["header_source"] = "data_row"
 
                 tables_processed += 1
 
@@ -139,6 +153,8 @@ class HeaderInferrerMiddleware(BaseMiddleware):
         max_candidate_rows = min(3, len(rows) - self.min_data_rows)
 
         for candidate_idx in range(max_candidate_rows):
+            if not _is_header_row([cell.text for cell in rows[candidate_idx].cells]):
+                continue
             # Get data rows below the candidate row
             data_start = candidate_idx + 1
             data_end = min(data_start + self.max_lookback_rows, len(rows))
@@ -275,7 +291,7 @@ class HeaderInferrerMiddleware(BaseMiddleware):
             + agreement_bonus
         )
 
-        return min(1.0, hybrid_confidence)
+        return float(min(1.0, hybrid_confidence))
 
     def _compute_column_consistency(self, table_block) -> float:
         """
@@ -311,6 +327,8 @@ def _has_explicit_header_contract(table_block) -> bool:
         return False
     extraction_layer = str(getattr(table_block, "extraction_layer", "") or "")
     metadata = getattr(table_block, "metadata", None) or {}
-    if metadata.get("preserve_headers"):
+    if metadata.get("header_source") in {"explicit", "inferred", "vocabulary_match"}:
         return True
-    return extraction_layer in {"scanned_ocr_statement_grid"}
+    if extraction_layer in {"scanned_ocr_statement_grid"}:
+        return True
+    return _is_header_row([str(value or "") for value in table_block.headers])

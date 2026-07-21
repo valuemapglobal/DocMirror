@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
-from docmirror.input.entry.options import normalize_parse_control
+from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.input.extraction import extractor as extractor_module
 from docmirror.input.extraction.extractor import CoreExtractor
 from docmirror.input.extraction.page_splitter import DocumentSpreadPlan, PageSplitDecision
@@ -73,11 +73,11 @@ def test_vnext_extractor_respects_page_selection_and_auto_ocr(monkeypatch):
     monkeypatch.setattr(evidence_plane_module, "EvidencePlaneBuilder", FakeEvidencePlaneBuilder)
     monkeypatch.setattr(extractor_module, "_ocr_blocks_for_pdf_page", fake_ocr)
 
-    control = normalize_parse_control(pages="2-3", ocr="auto")
+    policy = normalize_parse_policy(pages="2-3", ocr="auto")
     result = asyncio.run(
-        CoreExtractor().extract(
+        CoreExtractor().extract_parse_result(
             Path("sample.pdf"),
-            options={"parse_control": control},
+            options={"parse_policy": policy},
         )
     )
 
@@ -86,8 +86,8 @@ def test_vnext_extractor_respects_page_selection_and_auto_ocr(monkeypatch):
     assert "native page two" in result.full_text
     assert "ocr page 3" in result.full_text
     assert ocr_calls == [3]
-    assert result.metadata["selected_pages"] == [2, 3]
-    assert result.metadata["ocr_mode"] == "auto"
+    assert result.parser_info.options["selected_pages"] == [2, 3]
+    assert result.parser_info.options["ocr_mode"] == "auto"
 
 
 def test_vnext_extractor_force_ocr_runs_even_with_native_text(monkeypatch):
@@ -106,11 +106,11 @@ def test_vnext_extractor_force_ocr_runs_even_with_native_text(monkeypatch):
     monkeypatch.setattr(evidence_plane_module, "EvidencePlaneBuilder", FakeEvidencePlaneBuilder)
     monkeypatch.setattr(extractor_module, "_ocr_blocks_for_pdf_page", fake_ocr)
 
-    control = normalize_parse_control(pages="2", ocr="force")
+    policy = normalize_parse_policy(pages="2", ocr="force")
     result = asyncio.run(
-        CoreExtractor().extract(
+        CoreExtractor().extract_parse_result(
             Path("sample.pdf"),
-            options={"parse_control": control},
+            options={"parse_policy": policy},
         )
     )
 
@@ -118,7 +118,7 @@ def test_vnext_extractor_force_ocr_runs_even_with_native_text(monkeypatch):
     assert "native page two" in result.full_text
     assert "force ocr page 2" in result.full_text
     assert ocr_calls == [2]
-    assert result.metadata["ocr_mode"] == "force"
+    assert result.parser_info.options["ocr_mode"] == "force"
 
 
 def test_vnext_extractor_suppresses_text_owned_by_scanned_table(monkeypatch):
@@ -168,14 +168,14 @@ def test_vnext_extractor_suppresses_text_owned_by_scanned_table(monkeypatch):
     monkeypatch.setattr(extractor_module, "_ocr_blocks_for_pdf_page", fake_ocr)
     monkeypatch.setattr(extractor_module, "reconstruct_scanned_statement_table", fake_reconstruct)
 
-    control = normalize_parse_control(pages="3", ocr="force")
-    result = asyncio.run(CoreExtractor().extract(Path("sample.pdf"), options={"parse_control": control}))
+    policy = normalize_parse_policy(pages="3", ocr="force")
+    result = asyncio.run(CoreExtractor().extract_parse_result(Path("sample.pdf"), options={"parse_policy": policy}))
 
-    blocks = list(result.pages[0].blocks)
-    assert [block.block_type for block in blocks] == ["text", "table"]
-    assert blocks[0].raw_content == "表格标题"
+    page = result.pages[0]
+    assert [text.content for text in page.texts] == ["表格标题"]
+    assert len(page.tables) == 1
     assert "货币资金" in result.full_text
-    assert all(block.raw_content != "项目" for block in blocks if block.block_type == "text")
+    assert all(text.content != "项目" for text in page.texts)
 
 
 def test_vnext_extractor_expands_one_physical_page_to_two_logical_pages(monkeypatch):
@@ -209,15 +209,15 @@ def test_vnext_extractor_expands_one_physical_page_to_two_logical_pages(monkeypa
     monkeypatch.setattr(extractor_module, "_probe_document_ocr_rotation", lambda *_args, **_kwargs: 270)
     monkeypatch.setattr(extractor_module, "_ocr_logical_pages_for_pdf_page", fake_logical_ocr)
 
-    control = normalize_parse_control(pages="3", ocr="auto", page_split="auto")
-    result = asyncio.run(CoreExtractor().extract(Path("sample.pdf"), options={"parse_control": control}))
+    policy = normalize_parse_policy(pages="3", ocr="auto", page_split="auto")
+    result = asyncio.run(CoreExtractor().extract_parse_result(Path("sample.pdf"), options={"parse_policy": policy}))
 
     assert [page.page_number for page in result.pages] == [3, 4]
     assert [page.source_page_number for page in result.pages] == [3, 3]
-    assert all(page.is_scanned for page in result.pages)
-    assert result.metadata["source_page_count"] == 3
-    assert result.metadata["logical_page_count"] == 4
-    assert result.metadata["selected_source_pages"] == [3]
+    assert all(page.page_mode == "scanned_ocr" for page in result.pages)
+    assert result.parser_info.options["source_page_count"] == 3
+    assert result.parser_info.options["logical_page_count"] == 4
+    assert result.parser_info.options["selected_source_pages"] == [3]
 
 
 def test_ocr_orientation_metrics_trigger_probe_for_garbage_and_reward_early_title():

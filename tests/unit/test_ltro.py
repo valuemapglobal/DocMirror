@@ -16,10 +16,10 @@ SAMPLE_OCR = """
 """
 
 
-def test_mirror_table_short_circuit():
+def test_canonical_table_short_circuit():
     mirror = [[["日期", "金额"], ["2024-01-01", "1.00"]]]
     tables, meta = reconstruct_tables(mirror, "ignored")
-    assert meta.source == "mirror_table"
+    assert meta.source == "canonical_table"
     assert tables == mirror
     assert meta.expected_primary_rows == 1
 
@@ -28,8 +28,8 @@ def test_mirror_table_expected_uses_mirror_ssot_not_raw_max():
     from docmirror.models.entities.parse_result import (
         CellValue,
         LogicalTable,
-        ParserInfo,
         ParseResult,
+        ParserInfo,
         RowType,
         TableRow,
     )
@@ -60,7 +60,6 @@ def test_mirror_table_expected_uses_mirror_ssot_not_raw_max():
         ),
     )
     mirror = [[headers] + [[c.text for c in row.cells] for row in rows]]
-    inflated = [["?", "", ""]] + [["bad"] for _ in range(127)]
     tables, meta = reconstruct_tables(
         mirror,
         "",

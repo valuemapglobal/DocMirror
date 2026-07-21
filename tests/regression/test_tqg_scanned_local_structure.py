@@ -6,7 +6,6 @@ import pytest
 from docmirror.eval.tqg.manifest import TQG_GATES_DIR, load_track_manifest
 from tests.regression.conftest import _run_and_assert
 
-
 _CASES = load_track_manifest(TQG_GATES_DIR / "scanned_local_structure.yaml")
 
 

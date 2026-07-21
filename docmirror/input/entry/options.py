@@ -1,10 +1,9 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Request-scoped parse control contract.
+"""Canonical fact policy for document parsing.
 
-This module is the single normalization point for user-facing parse controls.
-CLI, API, tests, and library callers should converge here before dispatching
-work to adapters.
+Only options that may change ``ParseResult`` facts belong here. Delivery,
+caching, resource limits, and progress reporting are intentionally absent.
 """
 
 from __future__ import annotations
@@ -18,12 +17,7 @@ from typing import Any, Literal
 
 EnhanceMode = Literal["raw", "standard", "full"]
 ParseMode = Literal["auto", "fast", "balanced", "accurate", "forensic"]
-MirrorLevel = Literal["standard", "compact", "forensic"]
-OutputFormat = Literal["json", "markdown", "csv", "chunks", "html", "parquet", "evidence"]
-CachePolicy = Literal["read-write", "read-only", "refresh", "off"]
 DocTypePolicy = Literal["prefer", "force"]
-Edition = Literal["mirror", "community", "enterprise", "finance"]
-GeometryLevel = Literal["none", "page", "block", "token", "full"]
 OcrMode = Literal["auto", "force", "off", "fallback"]
 OcrCorrectionMode = Literal["off", "safe", "suggest"]
 PageSplitMode = Literal["auto", "off", "force"]
@@ -36,33 +30,12 @@ SafetyMode = Literal["off", "low", "medium", "high"]
 - high: Remove hidden text + zero-width chars + flag injections.
 """
 
-_FORMAT_ALIASES = {
-    "text": "markdown",
-    "md": "markdown",
-    "rag": "chunks",
-    "rag_chunks": "chunks",
-}
-_STABLE_FORMATS: tuple[OutputFormat, ...] = ("json", "markdown", "csv", "chunks", "html", "parquet")
-_AUX_FORMATS: tuple[OutputFormat, ...] = ("evidence",)
-_VALID_FORMATS = frozenset((*_STABLE_FORMATS, *_AUX_FORMATS))
 _VALID_MODES = frozenset(("auto", "fast", "balanced", "accurate", "forensic"))
-_VALID_MIRROR_LEVELS = frozenset(("standard", "compact", "forensic"))
-_VALID_CACHE_POLICIES = frozenset(("read-write", "read-only", "refresh", "off"))
 _VALID_DOC_TYPE_POLICIES = frozenset(("prefer", "force"))
-_STABLE_EDITIONS: tuple[Edition, ...] = ("mirror", "community", "enterprise", "finance")
-_VALID_EDITIONS = frozenset(_STABLE_EDITIONS)
-_VALID_GEOMETRY_LEVELS = frozenset(("none", "page", "block", "token", "full"))
 _VALID_OCR_MODES = frozenset(("auto", "force", "off", "fallback"))
 _VALID_OCR_CORRECTION_MODES = frozenset(("off", "safe", "suggest"))
 _VALID_PAGE_SPLIT_MODES = frozenset(("auto", "off", "force"))
 _VALID_SAFETY_MODES = frozenset(("off", "low", "medium", "high"))
-
-
-def _default_editions() -> tuple[Edition, ...]:
-    """License-aware default editions — SSOT via resolve_edition_tier()."""
-    from docmirror.framework.edition_defaults import default_editions
-
-    return default_editions()
 
 
 @dataclass(frozen=True)
@@ -118,45 +91,12 @@ class PageSelection:
 
 
 @dataclass(frozen=True)
-class ResourceControl:
-    """Total worker budget for this parse request."""
-
-    workers: int | Literal["auto"] = "auto"
-    page_executor: Literal["thread", "process", "auto"] = "auto"
-
-
-@dataclass(frozen=True)
-class OutputControl:
-    """Requested output artifacts and mirror verbosity."""
-
-    formats: tuple[OutputFormat, ...] = ("json",)
-    editions: tuple[Edition, ...] = field(default_factory=_default_editions)
-    mirror_level: MirrorLevel = "standard"
-    geometry: GeometryLevel = "none"
-    include_text: bool = False
-
-
-@dataclass(frozen=True)
 class DocTypeHint:
     """Human-provided document type prior."""
 
     value: str
     strength: Literal["prefer", "force"] = "prefer"
     source: Literal["user"] = "user"
-
-
-@dataclass(frozen=True)
-class ExecutionControl:
-    """Execution policies that affect external side effects and pipeline choices."""
-
-    cache_policy: CachePolicy = "read-write"
-    ocr: OcrMode = "auto"
-    ocr_correction: OcrCorrectionMode = "safe"
-    ocr_language: str | None = None
-    ocr_country: str | None = None
-    ocr_locale: str | None = None
-    ocr_correction_packs: tuple[str, ...] = ()
-    page_split: PageSplitMode = "auto"
 
 
 @dataclass(frozen=True)
@@ -168,67 +108,46 @@ class SafetyControl:
 
 
 @dataclass(frozen=True)
-class ParseControl:
-    """Single request-scoped parse control surface."""
+class ParsePolicy:
+    """Fact-affecting parse policy passed to Dispatcher and adapters."""
 
     pages: PageSelection = field(default_factory=PageSelection)
-    resource: ResourceControl = field(default_factory=ResourceControl)
     mode: ParseMode = "auto"
-    execution: ExecutionControl = field(default_factory=ExecutionControl)
-    output: OutputControl = field(default_factory=OutputControl)
+    ocr: OcrMode = "auto"
+    ocr_correction: OcrCorrectionMode = "safe"
+    ocr_language: str | None = None
+    ocr_country: str | None = None
+    ocr_locale: str | None = None
+    ocr_correction_packs: tuple[str, ...] = ()
+    page_split: PageSplitMode = "auto"
     safety: SafetyControl = field(default_factory=SafetyControl)
     doc_type_hint: DocTypeHint | None = None
-    skip_cache: bool = False
     mode_decision: dict[str, Any] = field(default_factory=dict)
-    implicit_promotions: tuple[dict[str, str], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
-        data = asdict(self)
-        if self.doc_type_hint is None:
-            data["doc_type_hint"] = None
-        return data
-
-    def fingerprint(self) -> str:
-        """Stable fingerprint for result-affecting controls.
-
-        Worker count is intentionally excluded: resource budget must not change
-        deterministic output.
-        """
-        payload = {
-            "pages": asdict(self.pages),
-            "mode": self.mode,
-            "execution": {
-                "cache_policy": self.execution.cache_policy,
-                "ocr": self.execution.ocr,
-                "ocr_correction": self.execution.ocr_correction,
-                "ocr_language": self.execution.ocr_language,
-                "ocr_country": self.execution.ocr_country,
-                "ocr_locale": self.execution.ocr_locale,
-                "ocr_correction_packs": list(self.execution.ocr_correction_packs),
-                "page_split": self.execution.page_split,
-            },
-            "safety": {
-                "mode": self.safety.mode,
-            },
-            "output": {
-                "formats": list(self.output.formats),
-                "editions": list(self.output.editions),
-                "mirror_level": self.output.mirror_level,
-                "geometry": self.output.geometry,
-                "include_text": self.output.include_text,
-            },
-            "doc_type_hint": asdict(self.doc_type_hint) if self.doc_type_hint else None,
-        }
-        raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-        return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+        return asdict(self)
 
     @property
     def enhance_mode(self) -> EnhanceMode:
         return mode_to_enhance_mode(self.mode)
 
-    @property
-    def cache_policy(self) -> CachePolicy:
-        return self.execution.cache_policy
+    def fingerprint(self) -> str:
+        """Stable fingerprint containing fact-affecting options only."""
+        payload = {
+            "pages": asdict(self.pages),
+            "mode": self.mode,
+            "ocr": self.ocr,
+            "ocr_correction": self.ocr_correction,
+            "ocr_language": self.ocr_language,
+            "ocr_country": self.ocr_country,
+            "ocr_locale": self.ocr_locale,
+            "ocr_correction_packs": list(self.ocr_correction_packs),
+            "page_split": self.page_split,
+            "safety": asdict(self.safety),
+            "doc_type_hint": asdict(self.doc_type_hint) if self.doc_type_hint else None,
+        }
+        raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 def parse_page_selection(pages: str | None = None, max_pages: int | None = None) -> PageSelection:
@@ -292,89 +211,6 @@ def parse_doc_type(value: str | None, policy: str | None = None) -> DocTypeHint 
     return DocTypeHint(value=doc_type, strength=resolved_policy)  # type: ignore[arg-type]
 
 
-def parse_output_formats(raw: str | list[str] | tuple[str, ...] | None) -> tuple[OutputFormat, ...]:
-    if raw is None:
-        return ("json",)
-    values: list[str] = []
-    if isinstance(raw, str):
-        values = [p.strip() for p in raw.split(",")]
-    else:
-        for item in raw:
-            values.extend(str(item).split(","))
-        values = [p.strip() for p in values]
-    out: list[OutputFormat] = []
-    for item in values:
-        if not item:
-            continue
-        normalized = _FORMAT_ALIASES.get(item.lower(), item.lower())
-        if normalized == "all":
-            for fmt in _STABLE_FORMATS:
-                if fmt not in out:
-                    out.append(fmt)
-            continue
-        if normalized not in _VALID_FORMATS:
-            raise ValueError(f"unsupported output format: {item}")
-        if normalized not in out:
-            out.append(normalized)  # type: ignore[arg-type]
-    return tuple(out or ["json"])  # type: ignore[return-value]
-
-
-def parse_editions(raw: str | list[str] | tuple[str, ...] | None) -> tuple[Edition, ...]:
-    """Normalize explicitly requested delivery editions.
-
-    The stable default is Community-only, while an explicit request is
-    preserved as-is. The projection layer may still build Mirror internally.
-    """
-    if raw is None:
-        return _default_editions()
-    values: list[str] = []
-    if isinstance(raw, str):
-        values = [p.strip() for p in raw.split(",")]
-    else:
-        for item in raw:
-            values.extend(str(item).split(","))
-        values = [p.strip() for p in values]
-    out: list[Edition] = []
-    for item in values:
-        if not item:
-            continue
-        normalized = item.lower()
-        if normalized == "all":
-            for edition in _STABLE_EDITIONS:
-                if edition not in out:
-                    out.append(edition)
-            continue
-        if normalized not in _VALID_EDITIONS:
-            raise ValueError(f"unsupported edition: {item}")
-        if normalized not in out:
-            out.append(normalized)  # type: ignore[arg-type]
-    if not out:
-        return _default_editions()
-    return tuple(out)  # type: ignore[return-value]
-
-
-def parse_cache_policy(raw: str | None = None, *, skip_cache: bool | None = None) -> CachePolicy:
-    if raw is not None:
-        normalized = raw.strip().lower()
-        if normalized not in _VALID_CACHE_POLICIES:
-            raise ValueError(f"unsupported cache policy: {normalized}")
-        return normalized  # type: ignore[return-value]
-    if skip_cache is True:
-        return "refresh"
-    if skip_cache is False:
-        return "read-write"
-    return "read-write"
-
-
-def parse_geometry(raw: str | None = None, *, include_geometry: bool | None = None) -> GeometryLevel:
-    if include_geometry:
-        return "full"
-    normalized = (raw or "none").strip().lower()
-    if normalized not in _VALID_GEOMETRY_LEVELS:
-        raise ValueError(f"unsupported geometry level: {normalized}")
-    return normalized  # type: ignore[return-value]
-
-
 def parse_ocr_mode(raw: str | None = None) -> OcrMode:
     normalized = (raw or "auto").strip().lower()
     if normalized not in _VALID_OCR_MODES:
@@ -413,17 +249,6 @@ def parse_page_split_mode(raw: str | None = None) -> PageSplitMode:
     return normalized  # type: ignore[return-value]
 
 
-def parse_workers(raw: str | int | None) -> int | Literal["auto"]:
-    if raw is None or raw == "":
-        return "auto"
-    if isinstance(raw, str) and raw.strip().lower() == "auto":
-        return "auto"
-    workers = int(raw)
-    if workers < 1:
-        raise ValueError("--workers must be >= 1 or auto")
-    return workers
-
-
 def mode_to_enhance_mode(mode: str | None) -> EnhanceMode:
     normalized = (mode or "auto").strip().lower()
     try:
@@ -441,39 +266,15 @@ def mode_to_enhance_mode(mode: str | None) -> EnhanceMode:
     return "standard"
 
 
-def mode_default_mirror_level(mode: str | None) -> MirrorLevel | None:
-    normalized = (mode or "auto").strip().lower()
-    try:
-        from docmirror.configs.runtime.yaml_loader import config_loader
-
-        configured = config_loader.get(f"parse.modes.{normalized}.mirror_level_default")
-        if configured in _VALID_MIRROR_LEVELS:
-            return configured  # type: ignore[return-value]
-    except Exception:
-        pass
-    if normalized == "forensic":
-        return "forensic"
-    return None
-
-
-def normalize_parse_control(
-    control: ParseControl | None = None,
+def normalize_parse_policy(
+    policy: ParsePolicy | None = None,
     *,
     pages: str | None = None,
     max_pages: int | None = None,
-    workers: str | int | None = None,
     mode: str | None = None,
-    formats: str | list[str] | tuple[str, ...] | None = None,
-    editions: str | list[str] | tuple[str, ...] | None = None,
-    mirror_level: str | None = None,
-    geometry: str | None = None,
-    include_geometry: bool | None = None,
-    include_text: bool | None = None,
     doc_type: str | None = None,
     doc_type_policy: str | None = None,
     doc_type_hint: str | None = None,
-    cache_policy: str | None = None,
-    skip_cache: bool | None = None,
     ocr: str | None = None,
     ocr_correction: str | None = None,
     ocr_language: str | None = None,
@@ -482,9 +283,9 @@ def normalize_parse_control(
     ocr_correction_packs: str | list[str] | tuple[str, ...] | None = None,
     page_split: str | None = None,
     enhance_mode: str | None = None,
-) -> ParseControl:
-    """Return a normalized ParseControl with explicit args applied."""
-    base = control or ParseControl()
+) -> ParsePolicy:
+    """Return one normalized policy containing fact-affecting options only."""
+    base = policy or ParsePolicy()
     resolved_mode = (mode or base.mode or "auto").strip().lower()
     if enhance_mode and not mode:
         enhance = enhance_mode.strip().lower()
@@ -505,87 +306,21 @@ def normalize_parse_control(
         if page_selection.max_pages is None and env_max_pages.isdigit():
             page_selection = PageSelection(page_selection.ranges, int(env_max_pages))
 
-    resource = base.resource
-    if workers is not None:
-        resource = ResourceControl(workers=parse_workers(workers), page_executor=resource.page_executor)
-
-    resolved_cache_policy = base.execution.cache_policy
-    if cache_policy is not None:
-        resolved_cache_policy = parse_cache_policy(cache_policy)
-    elif skip_cache is not None:
-        resolved_cache_policy = parse_cache_policy(skip_cache=bool(skip_cache))
-
     from docmirror.ocr.correction.language import resolve_language_hint
 
     locale_input = (
         ocr_locale
         if ocr_locale is not None
-        else (None if ocr_language is not None or ocr_country is not None else base.execution.ocr_locale)
+        else (None if ocr_language is not None or ocr_country is not None else base.ocr_locale)
     )
     language_context = resolve_language_hint(
         "",
         language=(
-            ocr_language
-            if ocr_language is not None
-            else (None if ocr_locale is not None else base.execution.ocr_language)
+            ocr_language if ocr_language is not None else (None if ocr_locale is not None else base.ocr_language)
         ),
-        country=(
-            ocr_country if ocr_country is not None else (None if ocr_locale is not None else base.execution.ocr_country)
-        ),
+        country=(ocr_country if ocr_country is not None else (None if ocr_locale is not None else base.ocr_country)),
         locale=locale_input,
     )
-    execution = ExecutionControl(
-        cache_policy=resolved_cache_policy,
-        ocr=parse_ocr_mode(ocr) if ocr is not None else base.execution.ocr,
-        ocr_correction=(
-            parse_ocr_correction_mode(ocr_correction) if ocr_correction is not None else base.execution.ocr_correction
-        ),
-        ocr_language=language_context.language,
-        ocr_country=language_context.country,
-        ocr_locale=language_context.locale,
-        ocr_correction_packs=(
-            parse_ocr_correction_packs(ocr_correction_packs)
-            if ocr_correction_packs is not None
-            else base.execution.ocr_correction_packs
-        ),
-        page_split=parse_page_split_mode(page_split) if page_split is not None else base.execution.page_split,
-    )
-
-    output = base.output
-    resolved_editions = parse_editions(editions)
-    if (
-        formats is not None
-        or editions is not None
-        or mirror_level is not None
-        or geometry is not None
-        or include_geometry is not None
-        or include_text is not None
-    ):
-        resolved_formats = parse_output_formats(formats) if formats is not None else output.formats
-        resolved_mirror = (mirror_level or output.mirror_level).strip().lower()
-        if resolved_mirror not in _VALID_MIRROR_LEVELS:
-            raise ValueError(f"unsupported mirror level: {resolved_mirror}")
-        resolved_geometry = (
-            parse_geometry(geometry, include_geometry=include_geometry)
-            if geometry is not None or include_geometry is not None
-            else output.geometry
-        )
-        output = OutputControl(
-            formats=resolved_formats,
-            editions=resolved_editions,
-            mirror_level=resolved_mirror,  # type: ignore[arg-type]
-            geometry=resolved_geometry,
-            include_text=output.include_text if include_text is None else bool(include_text),
-        )
-
-    elif resolved_editions != output.editions:
-        output = OutputControl(
-            formats=output.formats,
-            editions=resolved_editions,
-            mirror_level=output.mirror_level,
-            geometry=output.geometry,
-            include_text=output.include_text,
-        )
     if doc_type is not None:
         hint = parse_doc_type(doc_type, doc_type_policy)
     elif doc_type_hint is not None:
@@ -593,48 +328,24 @@ def normalize_parse_control(
     else:
         hint = base.doc_type_hint
 
-    implicit_promotions = list(base.implicit_promotions)
-    default_mirror = mode_default_mirror_level(resolved_mode)
-    if default_mirror and output.mirror_level != default_mirror and mirror_level is None:
-        output = OutputControl(
-            formats=output.formats,
-            editions=output.editions,
-            mirror_level=default_mirror,
-            geometry=output.geometry,
-            include_text=output.include_text,
-        )
-        implicit_promotions.append(
-            {
-                "from": f"mode={resolved_mode}",
-                "to": f"mirror_level={default_mirror}",
-                "reason": f"{resolved_mode} mode requires {default_mirror} output by default",
-            }
-        )
-    if output.geometry == "full" and output.mirror_level != "forensic":
-        output = OutputControl(
-            formats=output.formats,
-            editions=output.editions,
-            mirror_level="forensic",
-            geometry=output.geometry,
-            include_text=output.include_text,
-        )
-        implicit_promotions.append(
-            {
-                "from": "geometry=full",
-                "to": "mirror_level=forensic",
-                "reason": "full geometry requires forensic mirror output",
-            }
-        )
-
-    return ParseControl(
+    return ParsePolicy(
         pages=page_selection,
-        resource=resource,
         mode=resolved_mode,  # type: ignore[arg-type]
-        execution=execution,
+        ocr=parse_ocr_mode(ocr) if ocr is not None else base.ocr,
+        ocr_correction=(
+            parse_ocr_correction_mode(ocr_correction) if ocr_correction is not None else base.ocr_correction
+        ),
+        ocr_language=language_context.language,
+        ocr_country=language_context.country,
+        ocr_locale=language_context.locale,
+        ocr_correction_packs=(
+            parse_ocr_correction_packs(ocr_correction_packs)
+            if ocr_correction_packs is not None
+            else base.ocr_correction_packs
+        ),
+        page_split=parse_page_split_mode(page_split) if page_split is not None else base.page_split,
         safety=base.safety,
-        output=output,
         doc_type_hint=hint,
-        skip_cache=execution.cache_policy in {"refresh", "off"},
         mode_decision={
             "requested": resolved_mode,
             "resolved_enhance_mode": mode_to_enhance_mode(resolved_mode),
@@ -643,30 +354,20 @@ def normalize_parse_control(
             if resolved_mode == "auto"
             else "explicit mode",
         },
-        implicit_promotions=tuple(implicit_promotions),
     )
 
 
 __all__ = [
     "DocTypeHint",
-    "ExecutionControl",
-    "OutputControl",
     "PageSelection",
-    "ParseControl",
-    "ResourceControl",
-    "parse_cache_policy",
+    "ParsePolicy",
     "parse_doc_type",
     "mode_to_enhance_mode",
-    "mode_default_mirror_level",
-    "normalize_parse_control",
+    "normalize_parse_policy",
     "parse_doc_type_hint",
-    "parse_editions",
-    "parse_geometry",
     "parse_ocr_correction_mode",
     "parse_ocr_correction_packs",
     "parse_ocr_mode",
-    "parse_output_formats",
     "parse_page_split_mode",
     "parse_page_selection",
-    "parse_workers",
 ]

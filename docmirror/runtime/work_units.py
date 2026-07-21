@@ -219,18 +219,12 @@ class WorkUnitPlanner:
         input_digest: str,
         *,
         page_count: int = 1,
-        editions: list[str] | None = None,
         profile: str = "full",
         doc_size: str = "small",
     ) -> list[WorkUnit]:
         """Generate work unit plan for a single file in a task."""
         units: list[WorkUnit] = []
-        if editions is None:
-            from docmirror.framework.edition_defaults import default_editions
-
-            _e = list(default_editions())
-        else:
-            _e = editions
+        editions = ("mirror", "community", "enterprise", "finance")
 
         # 1. input_intake (always)
         intake = WorkUnit(
@@ -331,7 +325,7 @@ class WorkUnitPlanner:
             units.append(chunk)
 
         # 6. edition_project per edition
-        for ed in _e:
+        for ed in editions:
             ep = WorkUnit(
                 work_unit_id=_uid(task_id, file_id, f"ed_{ed}"),
                 task_id=task_id,

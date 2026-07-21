@@ -230,13 +230,15 @@ def field_details_from_community_data(data: dict[str, Any]) -> dict[str, dict[st
 
         raw_value = existing_detail.get("raw")
         if raw_value is None:
-            raw_value = rich_value.get("raw_value", rich_value.get("raw", field_value))
+            raw_value = rich_value.get("raw_value", rich_value.get("raw"))
+        if raw_value is None:
+            raw_value = metadata.get("raw", field_value)
 
         normalized = existing_detail.get("normalized")
         if normalized is None:
             normalized = rich_value.get("normalized_value", rich_value.get("normalized"))
         if normalized is None and key in normalized_fields:
-            normalized = normalized_fields[key]
+            normalized = _preferred_plain_value(normalized_fields[key])
         if normalized is None:
             normalized = _preferred_plain_value(field_value)
 
@@ -245,7 +247,7 @@ def field_details_from_community_data(data: dict[str, Any]) -> dict[str, dict[st
             source_ref = {
                 name: value
                 for name, value in metadata.items()
-                if name not in {"confidence"} and value not in (None, "", [], {})
+                if name not in {"confidence", "raw"} and value not in (None, "", [], {})
             }
             if source_ref:
                 source_refs = [source_ref]

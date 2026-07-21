@@ -47,6 +47,8 @@ REMOVED_REFERENCE_ALLOW_FILES = {
     "scripts/validate/validate_domain_decomposition.py",
     "scripts/validate/validate_structure_shims.py",
     "tests/contract/test_removed_import_paths.py",
+    "tests/unit/test_architecture_a_contract.py",
+    "tests/unit/test_community_default_delivery.py",
 }
 
 

@@ -10,10 +10,10 @@ import pytest
 
 @pytest.mark.integration
 def test_style_matrix_synthetic_split_debit_credit():
+    from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
     from docmirror.plugins.bank_statement.context import StyleContext
     from docmirror.plugins.bank_statement.style_detector import BankStyleDetector
     from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
-    from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 
     ctx = StyleContext(
         tables=[[
@@ -35,10 +35,10 @@ def test_style_matrix_synthetic_split_debit_credit():
 
 @pytest.mark.integration
 def test_style_matrix_synthetic_signed_amount():
+    from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
     from docmirror.plugins.bank_statement.context import StyleContext
     from docmirror.plugins.bank_statement.style_detector import BankStyleDetector
     from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
-    from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
     from tests.unit.test_bank_styles_signed_amount import SIGNED_TABLE
 
     ctx = StyleContext(
@@ -57,10 +57,10 @@ def test_style_matrix_synthetic_signed_amount():
 
 @pytest.mark.integration
 def test_style_matrix_synthetic_borderless_ocr():
+    from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
     from docmirror.plugins.bank_statement.context import StyleContext
     from docmirror.plugins.bank_statement.style_detector import BankStyleDetector
     from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
-    from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
     from tests.unit.test_bank_styles_borderless_ocr import OCR_BORDERLESS_TABLE
 
     ctx = StyleContext(

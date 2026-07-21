@@ -9,7 +9,14 @@ from docmirror.eval.gates import (
     dual_view_consistency_check,
     extract_row_preservation_check,
 )
-from docmirror.models.entities.parse_result import LogicalTable, PageContent, ParseResult, TableBlock, TableRow, CellValue
+from docmirror.models.entities.parse_result import (
+    CellValue,
+    LogicalTable,
+    PageContent,
+    ParseResult,
+    TableBlock,
+    TableRow,
+)
 
 
 def _make_row(cells: list[str], page: int = 1) -> TableRow:

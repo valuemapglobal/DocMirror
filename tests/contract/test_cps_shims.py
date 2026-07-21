@@ -26,9 +26,9 @@ def test_segment_exports_layout_helpers():
 
 
 def test_physical_models_reexport_via_domain_shim():
+    from docmirror.models.entities.domain import Block, PageLayout
     from docmirror.models.entities.physical import Block as CanonBlock
     from docmirror.models.entities.physical import PageLayout as CanonPage
-    from docmirror.models.entities.domain import Block, PageLayout
 
     assert Block is CanonBlock
     assert PageLayout is CanonPage

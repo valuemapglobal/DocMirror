@@ -4,14 +4,14 @@
 """
 Plugin Execution Contract (PEC) — unified plugin runner after Mirror extraction.
 
-Orchestrates community, enterprise, and finance edition extract in one code path:
-match plugin by ``document_type``, run ``extract_from_mirror`` / ``extract`` /
+Orchestrates canonical Community recognition and read-only extended projection:
+match plugin by ``document_type``, run ``recognize`` / ``extract`` /
 ``build_domain_data``, normalize through DEC validation, serialize edition JSON,
-then invoke post-extract hooks (edition enrichment only; Core Mirror is not mutated).
-Does **not** mutate ``ParseResult`` during extract.
+then invoke post-extract hooks. Community recognition enriches the existing
+``ParseResult`` zones; edition projectors read that same ParseResult directly.
 
-Pipeline role: called after Core ``ParseResult`` is ready; ``build_all_projections``
-snapshots Mirror JSON before invoking this runner.
+Pipeline role: Community recognition may enrich ParseResult's existing zones;
+output building invokes requested edition projectors with that ParseResult.
 
 Key exports: ``run_plugin_extract``, ``run_plugin_extract_sync``.
 
@@ -23,7 +23,6 @@ Dependencies: ``community`` (discovery), ``post_extract.runner`` (hooks),
 from __future__ import annotations
 
 import asyncio
-import copy
 import importlib
 import inspect
 import logging
@@ -89,18 +88,6 @@ def _is_edition_plugin_licensed(plugin: Any) -> bool:
     from docmirror.plugins._runtime.licensing.entitlements import is_entitled
 
     return is_entitled(getattr(plugin, "domain_name", "") or "")
-
-
-def _wrap_license_degraded(
-    community_payload: dict[str, Any],
-    *,
-    edition: Edition,
-    plugin: Any,
-) -> dict[str, Any]:
-    """Community baseline for an edition output file with license degradation markers."""
-    from docmirror.plugins._runtime.composition import apply_license_degrade
-
-    return apply_license_degrade(community_payload, edition=edition, plugin=plugin)
 
 
 def _finalize_extract(
@@ -234,49 +221,56 @@ def _edition_package_available(edition: str) -> bool:
     return False
 
 
-def _community_for_fallback(
-    community_baseline: dict[str, Any] | None,
-    result: ParseResult,
-    detected_type: str,
-    full_text: str,
-) -> dict[str, Any] | None:
-    """Reuse finalized community output when extended edition falls back."""
-    if community_baseline is not None:
-        try:
-            return copy.deepcopy(community_baseline)
-        except Exception as exc:
-            logger.warning(
-                "[PluginRunner] deepcopy of community_baseline (detected_type=%s) failed: %s", detected_type, exc
-            )
-    return _run_community_extract(result, detected_type, full_text)
-
-
-# ── Run-scoped plugin extract cache (GA 1.0 DEDUP-01) ──
-_run_cache: dict[tuple[str, str], dict[str, Any]] = {}
-
-
-def clear_run_cache() -> None:
-    """Clear the run-scoped plugin extract cache (GA 1.0 DEDUP-01).
-
-    Called at the start of each document processing run so stale
-    results from a previous document don't cause incorrect hits.
-    """
-    _run_cache.clear()
-
-
-def _run_cache_key(plugin_document_type: str, edition: str) -> tuple[str, str]:
-    """Normalize cache key for consistent lookup."""
-    return (plugin_document_type, edition)
+def _basic_parse_result_projection(result: ParseResult, edition: Edition) -> dict[str, Any]:
+    """Build an explicit degraded edition from ParseResult without an intermediate model."""
+    extension = dict(result.entities.domain_specific or {})
+    fields = {
+        key: value
+        for key, value in extension.items()
+        if not key.startswith("_") and not isinstance(value, (dict, list))
+    }
+    datasets = {
+        key: value
+        for key, value in extension.items()
+        if not key.startswith("_")
+        and isinstance(value, list)
+        and value
+        and all(isinstance(item, dict) for item in value)
+    }
+    return {
+        "schema_version": "2.2.0",
+        "edition": edition,
+        "document": {
+            "document_type": str(result.entities.document_type or "generic"),
+            "document_name": Path(result.file_path).name if result.file_path else "",
+            "page_count": result.page_count,
+        },
+        "data": {
+            "fields": fields,
+            "sections": [section.model_dump(mode="json", exclude_none=True) for section in result.sections],
+            "tables": [],
+            **datasets,
+        },
+        "status": {
+            "success": result.success,
+            "warnings": list(result.parser_info.warnings),
+            "errors": list(result.errors),
+        },
+        "metadata": {"parser": f"docmirror-{edition}", "source": "parse_result"},
+        "plugin": {"name": str(result.entities.document_type or "generic")},
+    }
 
 
 def _attach_source_file_path(result: ParseResult, file_path: str) -> None:
-    """Expose source path to guarded domain candidate recovery without changing schema."""
-    if not file_path or getattr(result, "file_path", None):
+    """Record source path in ParseResult provenance for every projector."""
+    if not file_path or result.file_path:
         return
-    try:
-        object.__setattr__(result, "file_path", file_path)
-    except Exception:
-        logger.debug("[PluginRunner] unable to attach source file path", exc_info=True)
+    from docmirror.models.entities.parse_result import ProvenanceInfo
+
+    if result.provenance is None:
+        result.provenance = ProvenanceInfo(file_path=file_path)
+    else:
+        result.provenance.file_path = file_path
 
 
 async def run_plugin_extract(
@@ -285,15 +279,13 @@ async def run_plugin_extract(
     edition: Edition = "community",
     full_text: str = "",
     file_path: str = "",
-    community_baseline: dict[str, Any] | None = None,
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict[str, Any] | None:
     """
     Match plugin by ``document_type``, run extract, return edition dict.
 
-    Mirror ``ParseResult`` is not mutated during extract; post-extract hooks may apply audited mutations.
+    Community recognition enriches ParseResult; extended editions read ParseResult.
     """
-    _attach_source_file_path(result, file_path)
     detected_type = getattr(result.entities, "document_type", "") or ""
     plugin_document_type = _plugin_document_type(result, detected_type)
     # Community's +1 plugin is the universal safety net, including genuinely
@@ -307,20 +299,19 @@ async def run_plugin_extract(
         logger.debug("[PluginRunner] Edition package not installed: %s", edition)
         return None
 
-    cache_key = _run_cache_key(plugin_document_type, edition)
-    if cache_key in _run_cache:
-        logger.debug("[PluginRunner] Cache hit for (%s, %s)", plugin_document_type, edition)
-        return _run_cache[cache_key]
-
     if edition == "community":
         if on_progress:
             from docmirror.plugins._runtime.plugin_registry import registry
 
             registry.set_progress_callback(on_progress)
-        out = _run_community_extract(result, plugin_document_type, full_text)
+        out = _run_community_recognition(result, plugin_document_type, full_text)
         if out is not None:
             finalized = _finalize_extract(result, out, edition="community", detected_type=detected_type)
-            _run_cache[cache_key] = finalized
+            from docmirror.plugins._runtime.parse_result_enrichment import (
+                merge_plugin_projection_into_parse_result,
+            )
+
+            merge_plugin_projection_into_parse_result(result, finalized)
             return finalized
         return None
 
@@ -329,15 +320,9 @@ async def run_plugin_extract(
             result,
             edition,
             plugin_document_type,
-            full_text,
-            file_path,
-            community_baseline=community_baseline,
         )
         if out is None:
             return None
-        # Cache extended results too
-        _run_cache[cache_key] = out
-
         from docmirror.plugins._runtime import registry
 
         plugin = registry.get(plugin_document_type, edition)
@@ -359,7 +344,6 @@ def run_plugin_extract_sync(
     edition: Edition = "community",
     full_text: str = "",
     file_path: str = "",
-    community_baseline: dict[str, Any] | None = None,
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict[str, Any] | None:
     """Synchronous entry for CLI / output_builder (GA1.0-RUNNER-01).
@@ -397,7 +381,6 @@ def run_plugin_extract_sync(
         edition=edition,
         full_text=full_text,
         file_path=file_path,
-        community_baseline=community_baseline,
         on_progress=on_progress,
     )
 
@@ -437,7 +420,7 @@ def _cancel_all_tasks(loop: asyncio.AbstractEventLoop) -> None:
     loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
 
 
-def _run_community_extract(
+def _run_community_recognition(
     result: ParseResult,
     detected_type: str,
     full_text: str,
@@ -445,10 +428,10 @@ def _run_community_extract(
     matched_plugin, matched_modname = find_premium_community_plugin(detected_type)
 
     if matched_plugin is not None:
-        extract_fn = getattr(matched_plugin, "extract_from_mirror", None)
-        if extract_fn is not None:
+        recognize_fn = getattr(matched_plugin, "recognize", None)
+        if recognize_fn is not None:
             try:
-                result_data = extract_fn(result, full_text)
+                result_data = recognize_fn(result, full_text)
                 data_block = result_data.get("data", {})
                 records = data_block.get("records", [])
                 fields = data_block.get("fields", {})
@@ -460,7 +443,7 @@ def _run_community_extract(
                     return result_data
             except Exception as e:
                 logger.error(
-                    "Community plugin %s extract_from_mirror failed: %s",
+                    "Community plugin %s recognize failed: %s",
                     matched_modname,
                     e,
                 )
@@ -479,7 +462,7 @@ def _run_community_extract(
     if is_community_generic_enabled():
         generic_plugin, _gmod = get_generic_community_plugin()
         if generic_plugin is not None:
-            from docmirror.plugins._base.generic_mirror_adapter import build_generic_community_output
+            from docmirror.plugins._base.generic_community_adapter import build_generic_community_output
 
             try:
                 generic_type = detected_type if detected_type not in {"", "unknown"} else "generic"
@@ -520,10 +503,6 @@ async def _run_extended_extract_async(
     result: ParseResult,
     edition: Edition,
     detected_type: str,
-    full_text: str,
-    file_path: str,
-    *,
-    community_baseline: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     from docmirror.plugins._runtime import registry
 
@@ -533,25 +512,20 @@ async def _run_extended_extract_async(
         return None
 
     if getattr(plugin, "requires_license", False) and not _is_edition_plugin_licensed(plugin):
-        logger.info("[%s] Plugin %s requires license but not entitled — degrading to community", edition, detected_type)
-        community = _community_for_fallback(community_baseline, result, detected_type, full_text)
-        if community is None:
-            community = _mirror_only_payload(result, detected_type, "community")
-        return _wrap_license_degraded(community, edition=edition, plugin=plugin)
+        logger.info(
+            "[%s] Plugin %s requires license but is not entitled — no projection",
+            edition,
+            detected_type,
+        )
+        return None
 
     extract_fn = getattr(plugin, "extract", None)
     if extract_fn is not None:
-        document_context = {
-            "parse_result": result,
-            "full_text": full_text,
-            "detected_type": detected_type,
-            "file_path": file_path or getattr(result, "file_path", "") or "",
-        }
         try:
             if inspect.iscoroutinefunction(extract_fn):
-                extracted = await extract_fn(document_context)
+                extracted = await extract_fn(result)
             else:
-                extracted = extract_fn(document_context)
+                extracted = extract_fn(result)
             if extracted and isinstance(extracted, dict):
                 extracted["edition"] = edition
                 return extracted
@@ -569,48 +543,14 @@ async def _run_extended_extract_async(
                 "[%s] 🔥 extract() EXCEPTION for %s: %s\n%s", edition, detected_type, e, traceback.format_exc()
             )
 
-    extract_mirror = getattr(plugin, "extract_from_mirror", None)
-    if extract_mirror is not None:
-        try:
-            result_data = extract_mirror(result, full_text)
-            data_block = result_data.get("data", {})
-            records = data_block.get("records", [])
-            total_rows = data_block.get("summary", {}).get("total_rows", len(records))
-            if total_rows > 0:
-                result_data["edition"] = edition
-                return result_data
-            logger.info("[%s] extract_from_mirror returned 0 rows for %s", edition, detected_type)
-        except Exception as e:
-            logger.warning("[%s] extract_from_mirror failed: %s", edition, e)
-
     logger.info(
-        "[%s] extract/extract_from_mirror both failed for %s — falling back to community baseline",
+        "[%s] projector failed for %s — using basic ParseResult projection",
         edition,
         detected_type,
     )
-    community = _community_for_fallback(community_baseline, result, detected_type, full_text)
-    if community is not None:
-        cloned = copy.deepcopy(community)
-        cloned["edition"] = edition
-        cloned["metadata"]["parser"] = f"docmirror-{edition}"
-        cloned.setdefault("plugins", {})[plugin.domain_name] = {
-            "display_name": plugin.display_name,
-            "edition": plugin.edition,
-        }
-        return cloned
-
-    try:
-        domain_data = plugin.build_domain_data(
-            getattr(result.entities, "metadata", {}),
-            getattr(result.entities, "entities", {}),
-        )
-    except Exception:
-        domain_data = None
-
-    if domain_data is not None:
-        payload = _kv_community_payload(result, plugin, detected_type, domain_data)
-        payload["edition"] = edition
-        payload["metadata"]["parser"] = f"docmirror-{edition}"
-        return payload
-
-    return None
+    basic = _basic_parse_result_projection(result, edition)
+    basic.setdefault("plugins", {})[plugin.domain_name] = {
+        "display_name": plugin.display_name,
+        "edition": plugin.edition,
+    }
+    return basic

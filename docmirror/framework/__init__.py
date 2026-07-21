@@ -8,11 +8,9 @@
 Framework — MultiModal Backbone Layer
 
 Contains: BaseParser, ParserDispatcher, Orchestrator
-(parse cache module exists but is not on the default pipeline)
 """
 
 from .base import BaseParser, ParserStatus  # noqa: F401
-from .cache import parse_cache  # noqa: F401
 from .dispatcher import ParserDispatcher  # noqa: F401
 from .orchestrator import Orchestrator  # noqa: F401
 
@@ -21,5 +19,4 @@ __all__ = [
     "ParserStatus",
     "ParserDispatcher",
     "Orchestrator",
-    "parse_cache",
 ]

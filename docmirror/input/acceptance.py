@@ -16,8 +16,11 @@ Usage::
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
+
+import filetype
 
 from docmirror.configs.format.resolver import resolve_capability
 from docmirror.configs.runtime.settings import DocMirrorSettings
@@ -25,10 +28,12 @@ from docmirror.configs.support_matrix import support_for_capability
 from docmirror.input.archive_probe import probe_archive
 from docmirror.input.image_probe import probe_image
 from docmirror.input.models import (
+    AcceptedSource,
     CapabilityReport,
     InputAcceptanceReport,
     InputDecisionReport,
     InputProbeReport,
+    InputRejectedError,
     ResourceGateReport,
     SafetyGateReport,
 )
@@ -47,18 +52,19 @@ def _build_input_probe(path: Path) -> InputProbeReport:
     report.extension = path.suffix.lower()
     report.exists = path.is_file()
     if report.exists:
-        import hashlib
-
         stat = path.stat()
         report.size_bytes = stat.st_size
+        detected = filetype.guess(str(path))
+        report.mime_type = detected.mime if detected else ""
         try:
-            with open(path, "rb") as f:
-                head = f.read(4096)
-            partial = hashlib.md5(head).hexdigest()[:8]
-            report.checksum = f"fast:{stat.st_size}:{int(stat.st_mtime)}:{partial}"
+            digest = hashlib.sha256()
+            with open(path, "rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            report.checksum = digest.hexdigest()
+            report.readable = True
         except OSError:
-            pass
-        report.readable = True
+            report.readable = False
     return report
 
 
@@ -131,11 +137,11 @@ def _build_safety_gate(
     return report
 
 
-def _build_capability_report(path: Path) -> CapabilityReport:
+def _build_capability_report(path: Path, known_mime: str = "") -> CapabilityReport:
     """Resolve FCR capability and support matrix info."""
     report = CapabilityReport()
     try:
-        cap = resolve_capability(path, "")
+        cap = resolve_capability(path, known_mime)
         sm = support_for_capability(cap.id)
         report.id = cap.id
         report.transport = cap.transport
@@ -165,9 +171,17 @@ def check_input_acceptance(path: Path) -> InputAcceptanceReport:
             suggestion="Check the file path and retry.",
         )
         return report
+    if not probe_report.readable:
+        report.decision = InputDecisionReport(
+            accepted=False,
+            outcome="reject",
+            reason="FILE_NOT_READABLE",
+            suggestion="Check file permissions and retry.",
+        )
+        return report
 
     # 2. Capability probe
-    cap_report = _build_capability_report(path)
+    cap_report = _build_capability_report(path, probe_report.mime_type)
     report.capability = cap_report
 
     # 3. Resource gate
@@ -235,3 +249,58 @@ def check_input_acceptance(path: Path) -> InputAcceptanceReport:
         suggestion="",
     )
     return report
+
+
+def _detect_forgery(path: Path, transport: str) -> tuple[bool | None, tuple[str, ...]]:
+    """Run transport-specific forgery checks during acceptance, once."""
+    try:
+        if transport == "pdf":
+            from docmirror.framework.security.forgery_detector import detect_pdf_forgery
+
+            forged, reasons = detect_pdf_forgery(path)
+            return forged, tuple(reasons or ())
+        if transport == "image":
+            from docmirror.framework.security.forgery_detector import detect_image_forgery
+
+            forged, reasons = detect_image_forgery(path)
+            return forged, tuple(reasons or ())
+    except Exception as exc:
+        logger.warning("[InputAcceptance] forgery detection error: %s", exc)
+    return None, ()
+
+
+def accept_source(path: str | Path, *, declared_mime: str = "") -> AcceptedSource:
+    """Return the sole immutable input accepted by ``ParserDispatcher``."""
+    resolved = Path(path)
+    report = check_input_acceptance(resolved)
+    if not report.decision.accepted:
+        raise InputRejectedError(report)
+
+    from docmirror.configs.format.loader import load_format_registry
+
+    capabilities, _, _ = load_format_registry()
+    capability = capabilities.get(report.capability.id)
+    if capability is None:
+        report.decision = InputDecisionReport(
+            accepted=False,
+            outcome="reject",
+            reason="UNSUPPORTED_FORMAT",
+            suggestion="Convert to a supported format.",
+        )
+        raise InputRejectedError(report)
+    is_forged, forgery_reasons = _detect_forgery(resolved, capability.transport)
+    return AcceptedSource(
+        path=resolved,
+        original_name=resolved.name,
+        size_bytes=report.input.size_bytes,
+        detected_mime=report.input.mime_type,
+        declared_mime=declared_mime,
+        sha256=report.input.checksum,
+        capability=capability,
+        acceptance=report,
+        is_forged=is_forged,
+        forgery_reasons=forgery_reasons,
+    )
+
+
+__all__ = ["accept_source", "check_input_acceptance"]

@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 from docmirror.domains.vat_invoice import VATInvoiceSemanticSolver
 from docmirror.domains.vat_invoice.solver import (
-    _recover_header_fields_from_mirror,
-    _recover_line_items_from_mirror,
+    _recover_header_fields_from_evidence,
+    _recover_line_items_from_evidence,
 )
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, TextBlock, TextLevel
 from docmirror.plugins.vat_invoice.community_plugin import VATInvoicePlugin, _canonicalize_vat_fields
@@ -144,7 +144,7 @@ def test_vat_invoice_plugin_uses_semantic_solver_before_generic_kv() -> None:
         entities=DocumentEntities(document_type="vat_invoice"),
     )
 
-    out = VATInvoicePlugin().extract_from_mirror(parse_result, VAT_OCR_TEXT)
+    out = VATInvoicePlugin().recognize(parse_result, VAT_OCR_TEXT)
 
     assert out["status"]["success"] is True
     assert out["data"]["fields"]["invoice_code"] == "044002300411"
@@ -172,7 +172,7 @@ def test_vat_public_date_alias_does_not_silently_hide_conflicts() -> None:
     assert warnings == ["vat_invoice_date_conflict"]
 
 
-def test_vat_solver_recovers_split_header_values_from_mirror_atoms() -> None:
+def test_vat_solver_recovers_split_header_values_from_evidence_atoms() -> None:
     atoms = [
         {"page_id": "page:0001", "text": "发票代码:", "bbox": [430.0, 10.0, 475.0, 20.0]},
         {"page_id": "page:0001", "text": "044002300411", "bbox": [475.0, 10.0, 525.0, 20.0]},
@@ -189,7 +189,7 @@ def test_vat_solver_recovers_split_header_values_from_mirror_atoms() -> None:
     ]
     parse_result = SimpleNamespace(
         full_text="",
-        _runtime_mirror_cache={"evidence": {"text_atoms": atoms}},
+        evidence_plane=SimpleNamespace(evidence={"text_atoms": atoms}),
     )
     text_without_header_values = "\n".join(
         line for line in VAT_OCR_TEXT.splitlines() if not line.startswith(("发票代码", "发票号码", "开票日期"))
@@ -203,7 +203,7 @@ def test_vat_solver_recovers_split_header_values_from_mirror_atoms() -> None:
         )
         .canonical_model["fields"]
     )
-    recovered = _recover_header_fields_from_mirror(parse_result)
+    recovered = _recover_header_fields_from_evidence(parse_result)
 
     assert fields["invoice_code"] == "044002300411"
     assert fields["invoice_number"] == "12345678"
@@ -245,9 +245,9 @@ def test_vat_invoice_solver_recovers_every_positioned_line_item_column() -> None
         {"page_id": "page:0001", "text": "9.17", "bbox": [545.0, 50.0, 575.0, 60.0]},
         {"page_id": "page:0001", "text": "合", "bbox": [20.0, 80.0, 30.0, 90.0]},
     ]
-    parse_result = SimpleNamespace(_runtime_mirror_cache={"evidence": {"text_atoms": atoms}})
+    parse_result = SimpleNamespace(evidence_plane=SimpleNamespace(evidence={"text_atoms": atoms}))
 
-    assert _recover_line_items_from_mirror(parse_result) == [
+    assert _recover_line_items_from_evidence(parse_result) == [
         {
             "item_name": "*运输服务*客运服务费",
             "specification": "标准",

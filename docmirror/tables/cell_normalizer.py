@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 _RE_MULTI_SPACE = re.compile(r" +")
 _RE_ID_LIKE = re.compile(r"^[A-Za-z0-9\-_]{8,}$")
+_RE_DATE_TIME_LINES = re.compile(r"^\s*((?:19|20)\d{2}[-/.]\d{1,2}[-/.]\d{1,2})\s*\n\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*$")
 
 
 def _is_id_like_cell(text: str) -> bool:
@@ -39,6 +40,27 @@ def _is_id_like_cell(text: str) -> bool:
     return digit_ratio > 0.5 and len(compact) >= 12
 
 
+def normalize_cell_line_breaks(text: str) -> str:
+    """Remove visual line wrapping without corrupting IDs or datetimes."""
+    value = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    if "\n" not in value:
+        return value
+    datetime_match = _RE_DATE_TIME_LINES.fullmatch(value)
+    if datetime_match:
+        return f"{datetime_match.group(1)} {datetime_match.group(2)}"
+    compact = re.sub(r"\s+", "", value)
+    if _is_id_like_cell(compact):
+        return compact
+    lines = [line.strip() for line in value.splitlines() if line.strip()]
+    if not lines:
+        return ""
+    joined = lines[0]
+    for line in lines[1:]:
+        cjk_boundary = bool(re.search(r"[\u3400-\u9fff]$", joined) and re.match(r"^[\u3400-\u9fff]", line))
+        joined += ("" if cjk_boundary else " ") + line
+    return joined
+
+
 def normalize_cell_text(
     text: str,
     *,
@@ -49,10 +71,7 @@ def normalize_cell_text(
         return ""
     s = str(text)
     if profile and profile.normalize_intracellular_newlines:
-        if _is_id_like_cell(s.replace("\n", "").replace(" ", "")):
-            s = re.sub(r"\s+", "", s)
-        else:
-            s = s.replace("\n", " ")
+        s = normalize_cell_line_breaks(s)
     if profile and profile.collapse_duplicate_spaces:
         s = _RE_MULTI_SPACE.sub(" ", s.strip())
     return s

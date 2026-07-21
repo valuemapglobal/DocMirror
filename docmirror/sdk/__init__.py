@@ -10,6 +10,14 @@ from docmirror.sdk.client import (
     DocMirrorError,
     parse_to_task,
 )
+from docmirror.sdk.community import (
+    CommunityBundle,
+    CommunityColumn,
+    CommunityCompleteness,
+    CommunityDataset,
+    CommunityRecord,
+    CommunitySchema,
+)
 from docmirror.sdk.integration.artifacts import ArtifactManifest, load_artifact_manifest, load_chunks_from_manifest
 from docmirror.sdk.integration.errors import ErrorEnvelope, raise_on_error
 from docmirror.sdk.integration.request import InputRef, ParseRequest
@@ -19,6 +27,12 @@ __all__ = [
     "AsyncDocMirrorClient",
     "DocMirrorError",
     "parse_to_task",
+    "CommunityBundle",
+    "CommunityColumn",
+    "CommunityCompleteness",
+    "CommunityDataset",
+    "CommunityRecord",
+    "CommunitySchema",
     "ArtifactManifest",
     "ErrorEnvelope",
     "InputRef",

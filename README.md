@@ -15,7 +15,7 @@ Most document tools stop at text, tables, or Markdown. DocMirror is designed for
 
 | Need | DocMirror output |
 |---|---|
-| Structured facts | `001_community.json` with the routed Community 6+1 structured output |
+| Structured facts | Community Bundle: semantic JSON, complete Markdown, and analysis-ready CSV |
 | Field evidence | source refs, page numbers, bounding boxes, raw values, and traces |
 | Review decisions | quality status, confidence, warnings, and `needs_review` markers |
 | RAG and agent input | Markdown and structure-aware chunk JSON with source context |
@@ -61,20 +61,17 @@ trust=confidence:0.96 evidence_coverage:1.00 review_required:true
 field=invoice_number value=INV-2026-001 confidence=0.99 page=1 bbox=[88, 112, 236, 132] source_ref=synthetic_invoice_001#page=1&bbox=88,112,236,132 status=ok
 ```
 
-Parse your own document. Community JSON is the default output:
+Parse your own document. The CLI writes the three-part Community bundle by default;
+use `--all` when Mirror and the manifest are also required:
 
 ```bash
 pip install "docmirror[pdf,ocr,office]"
 docmirror statement.pdf --output-dir ./output
+docmirror statement.pdf --output-dir ./output --all
 ```
 
-Request the canonical Mirror alone with `--mirror`, or use the public quickstart
-profile when you need diagnostics, audit evidence, and support artifacts:
-
-```bash
-docmirror statement.pdf --mirror
-docmirror statement.pdf --profile quickstart
-```
+Enterprise and Finance projectors enforce package availability and entitlement at
+their own invocation boundary; only successful projections are written.
 
 Scanned OCR uses deterministic safe correction by default. Use
 `--ocr-correction suggest` to audit candidates without changing output, or
@@ -84,10 +81,10 @@ Locale-aware correction packs can be selected with `--ocr-language`,
 Maintain packs without parsing a document:
 
 ```bash
-docmirror ocr-correction validate
-docmirror ocr-correction list-packs
-docmirror ocr-correction explain "Micros0ft" --language en --role text_line
-docmirror ocr-correction evaluate ./tests/fixtures/ocr_correction --fail-on-regression
+docmirror ocr check
+docmirror ocr packs
+docmirror ocr explain "Micros0ft" --language en --role text_line
+docmirror ocr eval ./tests/fixtures/ocr_correction --fail-on-regression
 ```
 
 Project or customer packs can be loaded from paths listed in
@@ -101,40 +98,30 @@ Default output:
 ```text
 output/<run_id>/
   001_community.json
+  001_content.md
+  001_datasets/
+    <dataset>.csv
+    _audit_cells.csv
 ```
 
-Community `6+1` is consumer-ready rather than a thin field/table dump. The six
-core domains (bank statements, WeChat Pay, Alipay, VAT invoices, business
-licenses, and credit reports) plus the universal fallback consistently expose:
-
-- `business` for an immediate summary, key metrics, and genuinely derived periods, rankings, and reconciliations;
-- `quality` for a scored `ready / review / insufficient` decision, operational issues, and evidence coverage;
-- `data.field_details` for value references, confidence, source refs, review state, and raw text only when it differs from the canonical field value;
-- `data.datasets` for JSON Pointer discovery of transaction, invoice, credit, and generic datasets without copying rows;
-- `data.data_dictionary` for field/dataset labels, types, formats, masking policy, coverage, and nullability;
-- `validation.domain_contract` for an honest domain-contract pass/partial result;
-- `projection_lineage` for compact traceability back to Mirror facts and evidence.
-
-Persisted Community artifacts use the compact 2.2 consumer contract and remain schema-readable alongside 2.0/2.1 payloads. The internal base DEC remains 2.0 and is upgraded atomically only after every required consumer block is complete. `data.fields` is the sole normalized-value location; intermediate field metadata, generic projections, and duplicate VAT aliases/base records are omitted after their information has been incorporated into references, datasets, and dictionaries. Single-plugin outputs use `plugin`; `plugins` is reserved for real compositions.
-HTML and other presentation layers assemble their views from `document`, `business`, `quality`, `datasets`, and `data_dictionary`; UI layout is deliberately excluded from the core JSON contract.
+Community `6+1` uses Bundle schema 3.0. `001_community.json` is the self-contained
+structured API payload with exactly `schema`, `document`, `sections`, `datasets`,
+`files`, and `warnings`. Every Dataset embeds all records in `rows`, including
+normalized values, canonical/source raw values, source evidence, and a stable
+`record_id`; `completeness` makes omissions explicit.
+`001_content.md` follows
+[DMP 1.0](docs/markdown_profile_zh-CN.md) and contains the canonical reading flow
+and every physical table row without derived dataset duplication or preview truncation.
+`001_datasets/` contains a parallel conventional wide CSV per logical dataset:
+one business record per row and one field per column. JSON and CSV use the same
+ordered `record_id` set. `_audit_cells.csv` separately preserves field-level
+normalized/raw values and evidence. Detailed quality and lineage remain available
+through Mirror.
 
 Documents outside the six domains—and genuinely unclassified documents—still
 run through the `generic` plugin. It adaptively recovers KV facts, typed and
 normalized values, identity semantics, tables, outlines, and repeated row structures
 when table geometry is unavailable; it no longer returns an empty success shell.
-
-Diagnostic output with `--profile quickstart`:
-
-```text
-output/<run_id>/
-  001_mirror.json
-  001_community.json
-  005_evidence_bundle.json
-  output.md
-  quality_report.json
-  visual_debug.html
-  manifest.json
-```
 
 ## Python API
 
@@ -194,9 +181,8 @@ The key contract is simple: parsed fields should be accompanied by evidence and 
 
 ```bash
 docmirror document.pdf
-docmirror document.pdf --mirror --format markdown,chunks --debug-artifact
-docmirror ./documents --recursive --output-dir ./output
-docmirror plugins list
+docmirror ./documents -r -j 8 -o ./output
+docmirror plugins
 ```
 
 ### API Server

@@ -47,7 +47,7 @@ class ImageAdapter(BaseParser):
         texts, width, height = ([], None, None) if ocr_mode == "off" else await self._extract_text_blocks(file_path)
         logger.info(f"[ImageAdapter] Completed image parsing for: {file_path}")
 
-        page = PageContent(page_number=0, texts=texts, width=width, height=height, page_mode="scanned_ocr")
+        page = PageContent(page_number=1, texts=texts, width=width, height=height, page_mode="scanned_ocr")
 
         return ParseResult(
             pages=[page],

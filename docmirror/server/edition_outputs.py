@@ -1,18 +1,14 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Multi-edition JSON output writer for CLI and API consumers.
+"""Fixed multi-edition and Community Bundle delivery coordinator.
 
-Implements the four-file contract documented in design 04: given a
-``ParseResult``, builds mirror, community, enterprise, and finance edition
-payloads via ``output_builder`` and writes them to a timestamped task
-directory with stable ``task_id``, ``file_id``, and ``document_id`` fields.
+Every public surface uses the same delivery contract. There are no requested
+formats, edition selectors, geometry modes, or output profiles.
 """
 
 from __future__ import annotations
 
-import importlib
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -20,24 +16,16 @@ from typing import Any
 from uuid import uuid4
 
 from docmirror.models.mirror.completeness import build_mirror_completeness
+from docmirror.models.schemas.registry import validate_projection_payload
 from docmirror.runtime.serialization import dumps_json
+from docmirror.server.artifact_writer import ArtifactWriter
 from docmirror.server.edition_availability import build_edition_availability
 from docmirror.server.output_builder import build_all_projections
 
-__all__ = ["build_all_projections", "write_four_files"]
+__all__ = ["build_all_projections", "write_outputs"]
 
 
 logger = logging.getLogger(__name__)
-
-
-def _verification_crop_hooks() -> tuple[Callable[..., list[dict[str, Any]]], Callable[..., Any]]:
-    """Resolve crop hooks from the canonical geometry verification module."""
-    from docmirror.geometry.verification import crops as canonical
-
-    return (
-        getattr(canonical, "attach_verification_crop_assets"),
-        getattr(canonical, "attach_unit_crop_ocr_candidates"),
-    )
 
 
 def _inject_output_ids(payload: dict[str, Any], *, document_id: str, task_id: str, file_id: str) -> None:
@@ -49,6 +37,9 @@ def _inject_output_ids(payload: dict[str, Any], *, document_id: str, task_id: st
             "file_id": file_id,
         }
         return
+    if (payload.get("schema") or {}).get("name") == "docmirror.community":
+        payload.setdefault("document", {})["id"] = document_id
+        return
     payload.setdefault("document", {})["document_id"] = document_id
     payload.setdefault("metadata", {})
     payload["metadata"]["task_id"] = task_id
@@ -59,26 +50,52 @@ def _inject_output_ids(payload: dict[str, Any], *, document_id: str, task_id: st
             payload["metadata"]["edition"] = edition
 
 
-def write_four_files(
+def _write_community_bundle_files(
+    bundle: Any,
+    task_dir: Path,
+    *,
+    file_id: str,
+    document_id: str,
+) -> dict[str, Path]:
+    """Render and publish the Community index, reading view, and Dataset Bundle."""
+    bundle.set_document_id(document_id)
+    targets = {
+        "community": task_dir / f"{file_id}_community.json",
+        "content": task_dir / f"{file_id}_content.md",
+        "datasets": task_dir / f"{file_id}_datasets",
+    }
+    content = bundle.render_markdown()
+    community_payload = bundle.json_payload()
+    dataset_csvs = bundle.render_dataset_csvs()
+    schema_validation = validate_projection_payload("community", community_payload)
+    if not schema_validation.valid:
+        raise ValueError("Community schema validation failed: " + "; ".join(schema_validation.errors))
+    conservation_issues = bundle.conservation_issues(payload=community_payload, dataset_csvs=dataset_csvs)
+    if conservation_issues:
+        raise ValueError("Community dataset conservation failed: " + "; ".join(conservation_issues))
+    writer = ArtifactWriter(task_dir)
+    writer.write_text(targets["community"].name, dumps_json(community_payload, ensure_ascii=False, indent=2))
+    writer.write_text(targets["content"].name, content)
+    for relative_path, csv_content in dataset_csvs.items():
+        writer.write_text(relative_path, csv_content)
+    writer.write_text(f"{file_id}_datasets/_audit_cells.csv", bundle.render_audit_csv())
+    return targets
+
+
+def write_outputs(
     result,
     output_dir: Path,
     *,
     file_path: str = "",
-    full_text: str = "",
     file_id: str = "001",
     task_id: str | None = None,
-    mirror_level: str = "standard",
-    include_text: bool = False,
-    editions: tuple[str, ...] | list[str] | None = None,
     overwrite: bool = False,
-    request_id: str = "",
-    artifact_pack: bool = False,
-    profile: Any | None = None,
     on_progress: Callable[[str, float, str], None] | None = None,
     artifact_dir: Path | None = None,
+    include_mirror: bool = True,
+    include_manifest: bool = True,
 ) -> tuple[str, dict[str, Path]]:
-    """
-    Write ``001_mirror.json`` and edition files under ``output_dir / task_id /``.
+    """Write delivery projections and optional support artifacts.
 
     ``artifact_dir`` lets a parent batch task isolate each file's complete
     artifact pack while retaining the parent ``task_id`` in output lineage.
@@ -94,114 +111,47 @@ def write_four_files(
     task_dir.mkdir(parents=True, exist_ok=True)
 
     document_id = f"doc_{task_id}_{file_id}"
-    full_text = full_text or getattr(result, "full_text", "") or ""
+    fact_fingerprint = result.fact_fingerprint() if hasattr(result, "fact_fingerprint") else ""
     file_path = file_path or getattr(result, "file_path", "") or ""
-
-    resolved_profile = None
-    if profile is not None:
-        from docmirror.configs.output_profile import OutputProfile, resolve_profile
-
-        resolved_profile = profile if isinstance(profile, OutputProfile) else resolve_profile(str(profile))
-
-    # Edition routing: explicit caller editions take precedence, followed by
-    # the selected output profile. None with no profile falls back to the
-    # stable Community-only default as a safety net.
-    if editions is None:
-        if resolved_profile is not None:
-            requested_editions = resolved_profile.editions
-        else:
-            from docmirror.framework.edition_defaults import default_editions
-
-            requested_editions = default_editions()
-            logger.debug("[EditionOutputs] Default editions=%s (safety net)", requested_editions)
-    else:
-        requested_editions = tuple(editions)
-        if "all" in requested_editions:
-            requested_editions = ("mirror", "community", "enterprise", "finance")
-
-    if resolved_profile is not None:
-        artifact_pack = artifact_pack or bool(
-            resolved_profile.manifest
-            or resolved_profile.markdown
-            or resolved_profile.evidence_bundle
-            or resolved_profile.quality_report
-            or resolved_profile.visual_debug
-        )
-
     projections = build_all_projections(
         result,
-        full_text=full_text,
         file_path=file_path,
-        mirror_level=mirror_level,
-        include_text=include_text,
-        request_id=request_id,
-        editions=requested_editions,
         on_progress=on_progress,
     )
 
     written: dict[str, Path] = {}
-    verification_crop_assets: list[dict[str, Any]] = []
+    writer = ArtifactWriter(task_dir)
 
     mirror_projection = projections.get("mirror")
     if mirror_projection:
         _inject_output_ids(mirror_projection, document_id=document_id, task_id=task_id, file_id=file_id)
-        if artifact_pack and file_path:
-            try:
-                attach_verification_crop_assets, attach_unit_crop_ocr_candidates = _verification_crop_hooks()
-
-                verification_crop_assets = attach_verification_crop_assets(
-                    mirror_projection,
-                    pdf_path=file_path,
-                    task_dir=task_dir,
-                )
-                if verification_crop_assets:
-                    attach_unit_crop_ocr_candidates(
-                        mirror_projection,
-                        task_dir=task_dir,
-                        crop_assets=verification_crop_assets,
-                    )
-            except Exception as exc:
-                logger.warning("[EditionOutputs] verification crop artifacts failed: %s", exc)
-                mirror_projection.setdefault("diagnostics", {}).setdefault("pipeline", []).append(
-                    {
-                        "stage": "verification_crop_artifacts",
-                        "status": "warn",
-                        "reason": f"artifact_generation_failed:{exc}",
-                    }
-                )
-    if "mirror" in requested_editions and mirror_projection:
-        mirror_path = task_dir / f"{file_id}_mirror.json"
-        mirror_path.write_text(dumps_json(mirror_projection, ensure_ascii=False, indent=2), encoding="utf-8")
+    if include_mirror and mirror_projection:
+        mirror_path = writer.write_json(f"{file_id}_mirror.json", mirror_projection)
         written["mirror"] = mirror_path
 
     for edition in ("community", "enterprise", "finance"):
-        if edition not in requested_editions:
-            continue
-        if edition != "community":
-            try:
-                importlib.import_module(f"docmirror_{edition}")
-            except ImportError:
-                logger.warning(
-                    "[EditionOutputs] License grants %s edition but package "
-                    "'docmirror_%s' is not installed. Install it with: "
-                    "pip install docmirror-%s",
-                    edition,
-                    edition,
-                    edition,
-                )
+        if edition == "community":
+            bundle = projections.get("community_bundle")
+            if bundle is None:
+                logger.warning("[EditionOutputs] Community bundle was not built")
                 continue
+            written.update(
+                _write_community_bundle_files(
+                    bundle,
+                    task_dir,
+                    file_id=file_id,
+                    document_id=document_id,
+                )
+            )
+            continue
         payload = projections.get(edition)
         if not payload:
             continue
         _inject_output_ids(payload, document_id=document_id, task_id=task_id, file_id=file_id)
-        out_path = task_dir / f"{file_id}_{edition}.json"
-        out_path.write_text(dumps_json(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        out_path = writer.write_json(f"{file_id}_{edition}.json", payload)
         written[edition] = out_path
 
-    if not artifact_pack:
-        return task_id, written
-
-    # --- Write artifact manifest ---
+    # --- Write the standard manifest ---
     _manifest_entity = getattr(result, "entities", None)
     _manifest_doc_type = getattr(_manifest_entity, "document_type", "") if _manifest_entity else ""
     _manifest_status = getattr(result, "status", "")
@@ -214,76 +164,16 @@ def write_four_files(
         "created_at": datetime.now().isoformat(),
         "artifacts": {edition: path.name for edition, path in written.items()},
         "edition_availability": build_edition_availability(
-            requested=requested_editions,
             written=written,
             projections=projections,
             document_type=_manifest_doc_type,
         ),
         "mirror_completeness": build_mirror_completeness(result),
     }
-    if verification_crop_assets:
-        manifest["artifacts"]["verification_crops"] = "assets/verification_crops"
-        manifest["verification_crop_count"] = len(verification_crop_assets)
-    if artifact_pack:
-        from docmirror.evidence.bundle import build_evidence_bundle
-        from docmirror.evidence.visual import build_visual_overlay
+    if include_manifest:
+        writer.write_json("manifest.json", manifest)
 
-        evidence_bundle = build_evidence_bundle(
-            result, editions=projections, task_id=task_id, document_id=document_id, file_id=file_id
-        )
-        evidence_path = task_dir / "005_evidence_bundle.json"
-        evidence_path.write_text(dumps_json(evidence_bundle, ensure_ascii=False, indent=2), encoding="utf-8")
-        written["evidence_bundle"] = evidence_path
-        manifest["artifacts"]["evidence_bundle"] = evidence_path.name
-        manifest["artifacts"]["evidence"] = evidence_path.name
-
-        markdown_path = task_dir / "output.md"
-        markdown_path.write_text(full_text or getattr(result, "raw_text", "") or "", encoding="utf-8")
-        written["markdown"] = markdown_path
-        manifest["artifacts"]["markdown"] = markdown_path.name
-
-        quality_path = task_dir / "quality_report.json"
-        mirror_quality = (mirror_projection or {}).get("quality", {})
-        quality_path.write_text(
-            dumps_json(
-                {
-                    "status": "ok",
-                    "readiness": {
-                        "status": "ready",
-                        "gate_count": len(mirror_quality.get("gates") or []),
-                        "warning_count": len(mirror_quality.get("warnings") or []),
-                    },
-                    "quality": mirror_quality,
-                },
-                ensure_ascii=False,
-                indent=2,
-            ),
-            encoding="utf-8",
-        )
-        written["quality_report"] = quality_path
-        manifest["artifacts"]["quality_report"] = quality_path.name
-
-        visual_path = task_dir / "visual_debug.html"
-        visual_overlay = build_visual_overlay(result, projections, evidence_bundle)
-        visual_path.write_text(
-            '<!doctype html><meta charset="utf-8"><title>DocMirror Visual Debug</title>'
-            f'<script type="application/json" id="docmirror-visual">{dumps_json(visual_overlay, ensure_ascii=False)}</script>',
-            encoding="utf-8",
-        )
-        written["visual_debug"] = visual_path
-        manifest["artifacts"]["visual_debug"] = visual_path.name
-
-    if resolved_profile is not None:
-        from docmirror.server.artifact_pack import ensure_quickstart_artifact_pack
-
-        manifest = ensure_quickstart_artifact_pack(
-            task_dir,
-            manifest,
-            result=result,
-            profile=resolved_profile,
-            pdf_path=file_path or None,
-        )
-    manifest_path = task_dir / "manifest.json"
-    manifest_path.write_text(dumps_json(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    if fact_fingerprint and result.fact_fingerprint() != fact_fingerprint:
+        raise RuntimeError("Writer boundary violation: ParseResult facts were modified")
 
     return task_id, written

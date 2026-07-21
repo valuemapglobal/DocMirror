@@ -3,8 +3,9 @@
 
 from types import SimpleNamespace
 
-from docmirror.models.entities.parse_result import PageContent, TextBlock
+from docmirror.models.entities.parse_result import CellValue, PageContent, TableBlock, TableRow, TextBlock
 from docmirror.plugins.credit_report.business_records import (
+    _merge_enterprise_accounts,
     derive_overdue_records,
     extract_native_credit_business,
 )
@@ -118,6 +119,85 @@ def test_enterprise_extracts_summary_facilities_accounts_and_public_records() ->
     license_record = next(item for item in business["public_records"] if item["record_type"] == "license")
     assert license_record["authority"] == "示例市生态环境局"
     assert license_record["content"] == "排污许可"
+
+
+def test_enterprise_summary_uses_canonical_table_when_markdown_separates_headers() -> None:
+    table = TableBlock(
+        table_id="summary",
+        headers=[
+            "首次有信贷交易的年份",
+            "发生信贷交易的机构数",
+            "当前有未结清信贷\n交易的机构数",
+            "首次有相关还款\n责任的年份",
+        ],
+        rows=[
+            TableRow(
+                cells=[
+                    CellValue(text="2019"),
+                    CellValue(text="3"),
+                    CellValue(text="2"),
+                    CellValue(text="2024"),
+                ]
+            )
+        ],
+    )
+    balances = TableBlock(
+        table_id="balances",
+        metadata={
+            "raw_rows": [
+                ["借贷交易", "", "担保交易", ""],
+                ["余额", "37311.68", "余额", "6000"],
+                ["其中：被追偿余额", "0", "其中：关注类余额", "0"],
+            ]
+        },
+    )
+    result = SimpleNamespace(pages=[PageContent(page_number=1, tables=[table, balances])])
+
+    business = extract_native_credit_business(
+        result,
+        "| headers |\n| --- |\n| 2019 | 3 | 2 | 2024 |",
+        report_subtype="enterprise",
+        content_mode="native_text",
+    )
+
+    assert {
+        "first_credit_year": 2019,
+        "credit_institution_count": 3,
+        "active_credit_institution_count": 2,
+        "first_repayment_responsibility_year": 2024,
+    }.items() <= business["credit_summary"].items()
+    assert business["credit_summary"]["credit_balance"] == 37311.68
+    assert business["credit_summary"]["guarantee_balance"] == 6000
+    assert business["credit_summary"]["recovered_debt_balance"] == 0
+
+
+def test_enterprise_merge_rejects_truncated_canonical_account_prefix() -> None:
+    canonical = [
+        {
+            "account_identifier": "D10123320H000170060110009",
+            "account_id": "credit_account:D10123320H000170060110009",
+            "source": "canonical_physical_table",
+        }
+    ]
+    narrative = [
+        {
+            "account_identifier": "D10123320H000170060110009026522",
+            "account_id": "credit_account:D10123320H000170060110009026522",
+            "source": "enterprise_account_history",
+        },
+        {
+            "account_identifier": "D10123320H000170060110009027778",
+            "account_id": "credit_account:D10123320H000170060110009027778",
+            "source": "enterprise_account_history",
+        },
+    ]
+
+    merged = _merge_enterprise_accounts(canonical, narrative)
+
+    assert {item["account_identifier"] for item in merged} == {
+        "D10123320H000170060110009026522",
+        "D10123320H000170060110009027778",
+    }
 
 
 def test_enterprise_public_records_support_one_cell_per_text_line() -> None:

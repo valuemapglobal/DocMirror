@@ -7,6 +7,7 @@
 """Unit tests for table extraction classifier (G2 L1 table layer coverage)."""
 
 import pytest
+
 from docmirror.tables.classifier import (
     _compute_table_confidence,
     _tables_look_valid,

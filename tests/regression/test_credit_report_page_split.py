@@ -7,8 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
-from docmirror.input.entry.options import normalize_parse_control
+from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.input.extraction.extractor import CoreExtractor
 
 _FIXTURE = Path("tests/fixtures/credit_report/洪晓鑫征信报告2025.11.05.pdf")
@@ -22,29 +21,29 @@ pytestmark = pytest.mark.slow
 )
 @pytest.mark.skipif(not _FIXTURE.exists(), reason="credit report fixture is not available")
 def test_real_credit_report_rotated_spreads_expand_to_eleven_logical_pages():
-    control = normalize_parse_control(ocr="auto", page_split="auto", cache_policy="off")
-    result = asyncio.run(CoreExtractor().extract(_FIXTURE, options={"parse_control": control}))
+    policy = normalize_parse_policy(ocr="auto", page_split="auto")
+    result = asyncio.run(CoreExtractor().extract_parse_result(_FIXTURE, options={"parse_policy": policy}))
 
-    assert result.metadata["source_page_count"] == 6
-    assert result.metadata["logical_page_count"] == 11
+    structure = result.parser_info.structure or {}
+    assert structure["source_page_count"] == 6
+    assert structure["logical_page_count"] == 11
     assert [page.page_number for page in result.pages] == list(range(1, 12))
     assert [page.source_page_number for page in result.pages] == [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6]
-    assert all(page.is_scanned for page in result.pages)
+    assert all(page.page_mode == "scanned_ocr" for page in result.pages)
     assert all(page.width < page.height for page in result.pages)
     assert all(page.coordinate_transform.get("inverse_matrix") for page in result.pages)
     assert "个人信用报告" in result.full_text
     assert "第11页" in result.full_text.replace(" ", "")
 
     table_pages = {
-        page.page_number for page in result.pages if any(block.block_type == "table" for block in page.blocks)
+        page.page_number for page in result.pages if page.tables
     }
     assert table_pages == set(range(1, 10))
-    assert all(not any(block.block_type == "table" for block in page.blocks) for page in result.pages[9:])
+    assert all(not page.tables for page in result.pages[9:])
 
-    parse_result = ParseResultBridge.from_base_result(result)
-    assert len(parse_result.raw_text) >= 10_000
-    assert len(parse_result.full_text) >= 9_000
-    mirror = parse_result.to_mirror_json_vnext(source_filename=str(_FIXTURE.resolve()))
+    assert len(result.raw_text) >= 10_000
+    assert len(result.full_text) >= 9_000
+    mirror = result.to_mirror_json_vnext(source_filename=str(_FIXTURE.resolve()))
     assert mirror["mirror"]["schema_version"] == "1.0.7"
     assert mirror["source"]["page_count"] == 6
     assert len(mirror["source"]["sha256"]) == 64

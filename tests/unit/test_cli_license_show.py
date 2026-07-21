@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from docmirror.cli.plugins import plugins
+from docmirror.cli.plugins import license
 
 
 def test_license_show_offline_snapshot():
@@ -29,7 +29,7 @@ def test_license_show_offline_snapshot():
         "lifecycle": {},
     }
     with patch("docmirror.plugins._runtime.licensing.snapshot.resolve_license_snapshot", return_value=snapshot):
-        result = runner.invoke(plugins, ["license", "show"])
+        result = runner.invoke(license, ["show"])
     assert result.exit_code == 0
     assert "offline" in result.output.lower() or "Offline" in result.output
     assert "alipay_payment_premium" in result.output
@@ -41,6 +41,6 @@ def test_license_show_no_license():
         "docmirror.plugins._runtime.licensing.snapshot.resolve_license_snapshot",
         return_value={"offline": None, "online": None, "offline_licenses": []},
     ):
-        result = runner.invoke(plugins, ["license", "show"])
+        result = runner.invoke(license, ["show"])
     assert result.exit_code == 0
     assert "No active license" in result.output

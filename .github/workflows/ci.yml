@@ -233,7 +233,6 @@ jobs:
           "$RUNNER_TEMP/docmirror-base-smoke/bin/python" -c "import docmirror; print(docmirror.__version__)"
           "$RUNNER_TEMP/docmirror-base-smoke/bin/docmirror" --help
           "$RUNNER_TEMP/docmirror-base-smoke/bin/docmirror" --version
-          "$RUNNER_TEMP/docmirror-base-smoke/bin/docmirror" version
           "$RUNNER_TEMP/docmirror-base-smoke/bin/docmirror" doctor
       - name: Lightweight optional extras smoke
         run: python scripts/validate/smoke_optional_extras.py --timeout 180

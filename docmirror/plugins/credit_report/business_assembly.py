@@ -40,6 +40,10 @@ _NORMALIZED_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
         ("business_type", ("business_type",)),
         ("account_identifier", ("account_identifier",)),
         ("status", ("account_status", "status")),
+        ("repayment_method", ("repayment_method",)),
+        ("co_borrower_flag", ("co_borrower_flag",)),
+        ("repayment_frequency", ("repayment_frequency",)),
+        ("repayment_periods", ("repayment_periods",)),
         ("open_date", ("open_date",)),
         ("due_date", ("due_date",)),
         ("close_date", ("close_date",)),
@@ -47,6 +51,18 @@ _NORMALIZED_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
         ("credit_limit", ("credit_limit",)),
         ("loan_amount", ("loan_amount",)),
         ("balance", ("balance",)),
+        ("snapshot_date", ("snapshot_date",)),
+        ("remaining_periods", ("remaining_periods",)),
+        ("scheduled_payment", ("scheduled_payment",)),
+        ("actual_payment", ("actual_payment",)),
+        ("scheduled_payment_date", ("scheduled_payment_date",)),
+        ("last_repayment_date", ("last_repayment_date",)),
+        ("current_overdue_periods", ("current_overdue_periods",)),
+        ("current_overdue_amount", ("current_overdue_amount",)),
+        ("overdue_principal_31_60", ("overdue_principal_31_60",)),
+        ("overdue_principal_61_90", ("overdue_principal_61_90",)),
+        ("overdue_principal_91_180", ("overdue_principal_91_180",)),
+        ("overdue_principal_over_180", ("overdue_principal_over_180",)),
         ("used_amount", ("used_amount",)),
         ("overdue_amount", ("overdue_amount",)),
         ("five_tier_class", ("five_tier_class",)),
@@ -108,7 +124,18 @@ _NORMALIZED_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     ),
 }
 
-_DATE_FIELDS = frozenset({"open_date", "due_date", "close_date", "inquiry_date", "start_date", "end_date"})
+_DATE_FIELDS = frozenset(
+    {
+        "open_date",
+        "due_date",
+        "close_date",
+        "snapshot_date",
+        "last_repayment_date",
+        "inquiry_date",
+        "start_date",
+        "end_date",
+    }
+)
 _NUMBER_FIELDS = frozenset(
     {
         "credit_limit",
@@ -121,6 +148,16 @@ _NUMBER_FIELDS = frozenset(
         "available_limit",
         "overdue_months",
         "overdue_level",
+        "repayment_periods",
+        "remaining_periods",
+        "scheduled_payment",
+        "actual_payment",
+        "current_overdue_periods",
+        "current_overdue_amount",
+        "overdue_principal_31_60",
+        "overdue_principal_61_90",
+        "overdue_principal_91_180",
+        "overdue_principal_over_180",
         "sequence",
         "year",
         "month",
@@ -463,14 +500,14 @@ def _document_completeness(parse_result: Any) -> dict[str, Any]:
     else:
         parser_info = getattr(parse_result, "parser_info", None)
         options = getattr(parser_info, "options", None) or {}
-        control = options.get("parse_control") if isinstance(options, dict) else None
-        pages_control = control.get("pages") if isinstance(control, dict) else None
+        policy = options.get("parse_policy") if isinstance(options, dict) else None
+        pages_control = policy.get("pages") if isinstance(policy, dict) else None
         explicitly_selected = bool(
             isinstance(pages_control, dict)
             and any(pages_control.get(key) not in (None, "", [], ()) for key in ("ranges", "max_pages", "last_pages"))
         )
         complete = not explicitly_selected
-        basis = "parse_control_selection" if explicitly_selected else basis
+        basis = "parse_policy_selection" if explicitly_selected else basis
     return {
         "document_complete": complete,
         "parsed_source_page_count": parsed_source_page_count,
@@ -501,6 +538,7 @@ def _quarantined_fields(collections: dict[str, list[dict[str, Any]]]) -> list[di
 def _build_audit(
     *,
     parse_result: Any,
+    full_text: str,
     report_subtype: str,
     content_mode: str,
     collections: dict[str, list[dict[str, Any]]],
@@ -513,20 +551,32 @@ def _build_audit(
     issues: list[str] = []
     for name, records in collections.items():
         with_evidence = sum(bool(record.get("source_refs") or record.get("source_cell_refs")) for record in records)
-        evidence_coverage = round(with_evidence / len(records), 4) if records else 1.0
+        evidence_coverage = round(with_evidence / len(records), 4) if records else None
         collection_conflicts = sum(item.get("collection") == name for item in conflicts)
         collection_audit[name] = {
             "count": len(records),
             "evidence_coverage": evidence_coverage,
             "normalized_coverage": round(sum(bool(record.get("normalized")) for record in records) / len(records), 4)
             if records
-            else 1.0,
+            else None,
             "conflict_count": collection_conflicts,
         }
+        if name == "repayment_records":
+            unresolved = sum(
+                str(_plain(record.get("status")) or "").strip().lower() in {"", "unknown"} for record in records
+            )
+            collection_audit[name]["unresolved_status_count"] = unresolved
+            collection_audit[name]["status_resolution_coverage"] = (
+                round((len(records) - unresolved) / len(records), 4) if records else None
+            )
+            if unresolved:
+                issues.append("unresolved_values:repayment_records.status")
         if records and evidence_coverage < 1.0:
             issues.append(f"missing_evidence:{name}")
     reconciliations: list[dict[str, Any]] = []
-    expected_accounts = credit_summary.get("account_count")
+    expected_accounts = credit_summary.get("reported_account_count")
+    if expected_accounts is None:
+        expected_accounts = credit_summary.get("account_count")
     if expected_accounts is None:
         expected_accounts = credit_summary.get("extracted_account_count")
     if expected_accounts is not None:
@@ -542,6 +592,16 @@ def _build_audit(
         )
         if not matched:
             issues.append("reconciliation_failed:credit_account_count")
+    compact_text = re.sub(r"\s+", "", str(full_text or ""))
+    if report_subtype == "personal_detail":
+        if not collections["credit_accounts"] and (
+            "信贷交易信息明细" in compact_text or re.search(r"账户\s*1", str(full_text or ""))
+        ):
+            issues.append("missing_required_collection:credit_accounts")
+        if not collections["repayment_records"] and "还款记录" in compact_text:
+            issues.append("missing_required_collection:repayment_records")
+        if not collections["inquiry_records"] and "查询记录" in compact_text:
+            issues.append("missing_required_collection:inquiry_records")
     if not completeness["document_complete"]:
         issues.append("document_truncated")
     if conflicts:
@@ -616,6 +676,7 @@ def assemble_credit_report_business(
     }
     audit = _build_audit(
         parse_result=parse_result,
+        full_text=full_text,
         report_subtype=report_subtype,
         content_mode=content_mode,
         collections=collections,

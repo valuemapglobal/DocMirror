@@ -67,7 +67,7 @@ def test_credit_report_sections_hook_attaches_sections_to_edition():
 
 def test_bank_table_rebuild_hook_with_transactions():
     from docmirror.models.entities.parse_result import CellValue, RowType, TableBlock, TableRow
-    from docmirror.plugins._runtime.post_extract.hooks.mirror_table_rebuild import MirrorTableRebuildHook
+    from docmirror.plugins._runtime.post_extract.hooks.edition_table_rebuild import EditionTableRebuildHook
 
     page = PageContent(
         page_number=1,
@@ -94,7 +94,7 @@ def test_bank_table_rebuild_hook_with_transactions():
             ]
         }
     }
-    hook = MirrorTableRebuildHook()
+    hook = EditionTableRebuildHook()
     hook.apply(
         pr,
         extracted=extracted,

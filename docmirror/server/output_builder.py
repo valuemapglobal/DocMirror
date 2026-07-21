@@ -11,7 +11,8 @@ Multi-Edition Output Builder
 Shared logic for building community / enterprise / finance edition outputs
 from a ParseResult. Used by both the CLI (__main__.py) and the REST API.
 
-Output follows the v2.0 schema for community/enterprise and v3.0 for finance.
+ParseResult is the only internal fact source. Community Bundle v3,
+Enterprise, and Finance are independent projections of that result.
 """
 
 from __future__ import annotations
@@ -23,9 +24,37 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
 
-from docmirror.output.dmir import serialize_dmir
-
 logger = logging.getLogger(__name__)
+
+
+def build_community_projection(
+    result,
+    full_text: str = "",
+    *,
+    file_path: str = "",
+    file_id: str = "001",
+    document_id: str = "",
+    on_progress: Callable[[str, float, str], None] | None = None,
+) -> dict | None:
+    """Build the public six-block Community Bundle v3 JSON projection."""
+    from docmirror.models.schemas.registry import validate_projection_payload
+    from docmirror.output.community_bundle import project_community_bundle
+
+    bundle = project_community_bundle(
+        result,
+        file_path=file_path,
+        file_id=file_id,
+        document_id=document_id,
+    )
+    bundle.render_markdown()
+    payload = bundle.json_payload()
+    validation = validate_projection_payload("community", payload)
+    if not validation.valid:
+        raise RuntimeError("Community schema validation failed: " + "; ".join(validation.errors))
+    conservation_issues = bundle.conservation_issues(payload=payload)
+    if conservation_issues:
+        raise RuntimeError("Community dataset conservation failed: " + "; ".join(conservation_issues))
+    return payload
 
 
 def build_community_output(
@@ -35,45 +64,32 @@ def build_community_output(
     file_path: str = "",
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict | None:
-    """Build the final Community v2.1 consumer output without mutating Mirror."""
-    from docmirror.plugins._runtime.community import is_community_premium
-    from docmirror.plugins._runtime.composition import CompositionReason, annotate_composition
+    """Return the legacy plugin envelope for compatibility callers only.
+
+    Community Bundle persistence does not consume this payload; it projects
+    directly from the ParseResult enriched by the plugin runner.
+    """
     from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
-    out = run_plugin_extract_sync(
-        result,
+    projection_input = result.model_copy(deep=True) if hasattr(result, "model_copy") else result
+    output = run_plugin_extract_sync(
+        projection_input,
         edition="community",
         full_text=full_text,
         file_path=file_path,
         on_progress=on_progress,
     )
-    if out is None:
-        from docmirror.plugins._base.generic_mirror_adapter import build_generic_community_output
+    if output is not None:
+        if "composition" not in output:
+            from docmirror.plugins._runtime.composition import CompositionReason, annotate_composition
 
-        detected_type = str(getattr(getattr(result, "entities", None), "document_type", "") or "generic")
-        out = build_generic_community_output(result, detected_type if detected_type else "generic", full_text)
-    if out is None:
-        return None
-
-    plugin_name = (out.get("plugin") or {}).get("name", "")
-    meta = out.setdefault("metadata", {})
-    if plugin_name == "generic":
-        meta["community_tier"] = "generic_fallback"
-        meta["community_route"] = "generic.community_plugin"
-    elif is_community_premium(plugin_name):
-        meta["community_tier"] = "core_domain"
-        meta["community_route"] = plugin_name
-    elif (out.get("status") or {}).get("warnings") and any("mirror_only" in str(w) for w in out["status"]["warnings"]):
-        meta["community_tier"] = "enterprise_only"
-        meta["community_route"] = "mirror_only"
-        annotate_composition(out, edition="community", reason=CompositionReason.MIRROR_ONLY)
-    if "composition" not in out:
-        annotate_composition(out, edition="community", reason=CompositionReason.INDEPENDENT_EXTRACT)
-    # Community JSON is the default standalone business artifact.  Always add
-    # compact source-fact counts and projection lineage, even when callers do
-    # not request the optional Mirror file on disk.
-    _enrich_edition_metadata(out, result, "community", evidence_depth="standard")
-    return out
+            annotate_composition(
+                output,
+                edition="community",
+                reason=CompositionReason.INDEPENDENT_EXTRACT,
+            )
+        _enrich_edition_metadata(output, projection_input, "community", evidence_depth="standard")
+    return output
 
 
 def _patch_edition_compliance(output: dict, edition: str, detected_type: str) -> None:
@@ -147,22 +163,17 @@ def _patch_edition_compliance(output: dict, edition: str, detected_type: str) ->
 def build_extended_output(
     result,
     edition: str,
-    full_text: str = "",
-    file_path: str = "",
     *,
-    community_baseline: dict | None = None,
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict | None:
-    """Build enterprise/finance edition output via PEC plugin runner."""
+    """Build an extended edition directly from ParseResult."""
     from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
-    detected_type = getattr(result.entities, "document_type", "")
+    projection_input = result.model_copy(deep=True) if hasattr(result, "model_copy") else result
+    detected_type = getattr(projection_input.entities, "document_type", "")
     extracted = run_plugin_extract_sync(
-        result,
+        projection_input,
         edition=edition,  # type: ignore[arg-type]
-        full_text=full_text,
-        file_path=file_path,
-        community_baseline=community_baseline,
         on_progress=on_progress,
     )
     if extracted and isinstance(extracted, dict):
@@ -189,107 +200,74 @@ def build_extended_output(
 def build_all_projections(
     result,
     *,
-    full_text: str = "",
     file_path: str = "",
-    mirror_level: str = "standard",
-    include_text: bool = False,
-    request_id: str = "",
-    mirror_schema: str = "config",
-    editions: tuple[str, ...] | None = None,
     on_progress: Callable[[str, float, str], None] | None = None,
-) -> dict[str, dict[str, Any] | None]:
-    """Build mirror + edition payloads from one ``ParseResult`` SSOT.
+) -> dict[str, Any]:
+    """Build the fixed delivery projections from one ``ParseResult`` SSOT.
 
     MirrorCore vNext:
 
-    Phase 1 — build canonical UDTR ``_mirror.json`` before any plugin runs,
-    so the Mirror output is never mutated by post-extract hooks.
+    Phase 1 — serialize canonical UDTR ``_mirror.json`` from ParseResult.
 
-    Phase 2 — edition extracts (community first; extended editions reuse community
-    baseline on fallback paths). Hooks may enrich edition JSON only.
+    Phase 2 — invoke each independent projector with ParseResult. Commercial
+    projectors enforce their own package and entitlement boundary. No edition
+    reads another edition's output.
     """
-    full_text = full_text or getattr(result, "full_text", "") or ""
     file_path = file_path or getattr(result, "file_path", "") or ""
     from docmirror.models.entities.parse_result import ParseResult
-    from docmirror.models.mirror.vnext import MirrorJsonVNext
 
-    mirror_source = result
-    edition_source = result
-    is_parse_result = isinstance(result, ParseResult)
-    want = (("community", "enterprise", "finance") if editions is None else editions or ()) if is_parse_result else ()
+    if not isinstance(result, ParseResult):
+        raise TypeError(f"build_all_projections expects ParseResult; got {type(result).__name__}")
+
     timings: dict[str, float] = {}
     total_t0 = time.perf_counter()
 
-    # Clear run-scoped plugin extract cache so stale results from a previous
-    # document don't cause incorrect hits for this document.
-    from docmirror.plugins._runtime.runner import clear_run_cache
-
-    clear_run_cache()
+    fact_fingerprint = result.fact_fingerprint()
 
     mirror_t0 = time.perf_counter()
     if on_progress:
         on_progress("community_plugin", 0.0, "Serializing core mirror...")
-    if isinstance(result, MirrorJsonVNext):
-        mirror = result.model_dump(by_alias=True, exclude_none=True)
-    elif isinstance(result, dict) and (result.get("mirror") or {}).get("schema") == "docmirror.mirror_json":
-        mirror = dict(result)
-    elif is_parse_result and hasattr(mirror_source, "to_mirror_json_vnext"):
-        mirror = mirror_source.to_mirror_json_vnext(
-            source_filename=file_path if file_path else "",
-            mirror_level=mirror_level,
-        )
-    else:
-        raise TypeError(
-            "build_all_projections expects ParseResult, MirrorJsonVNext, "
-            "or a canonical Mirror JSON dict; "
-            f"got {type(result).__name__}"
-        )
-    if is_parse_result:
-        _attach_runtime_mirror_cache(mirror_source, mirror)
+    mirror = result.to_mirror_json_vnext(
+        source_filename=file_path if file_path else "",
+        mirror_level="standard",
+    )
     timings["mirror_ms"] = (time.perf_counter() - mirror_t0) * 1000
-    # DMIR projection — lossless, versioned LLM framework format (GA1.0-ODL-06)
-    dmir = None
-    if is_parse_result:
-        dmir_t0 = time.perf_counter()
-        if on_progress:
-            on_progress("community_plugin", 25.0, "Building DMIR projection...")
-        dmir = serialize_dmir(mirror_source)
-        timings["dmir_ms"] = (time.perf_counter() - dmir_t0) * 1000
+    community_t0 = time.perf_counter()
+    if on_progress:
+        on_progress("community_plugin", 25.0, "Building Community projection...")
+    from docmirror.output.community_bundle import project_community_bundle
 
-    community: dict[str, Any] | None = None
-    if "community" in want or "enterprise" in want or "finance" in want:
-        community_t0 = time.perf_counter()
-        if on_progress:
-            on_progress("community_plugin", 50.0, "Building community edition output...")
-        community = build_community_output(edition_source, full_text, file_path=file_path)
-        if on_progress:
-            on_progress("community_plugin", 100.0, "Community edition complete")
-        timings["community_ms"] = (time.perf_counter() - community_t0) * 1000
+    community_bundle = project_community_bundle(result, file_path=file_path)
+    # Finalize companion-derived warnings before serializing the public API so
+    # REST and persisted Community JSON expose the same contract.
+    community_bundle.render_markdown()
+    community = community_bundle.json_payload()
+    conservation_issues = community_bundle.conservation_issues(payload=community)
+    if conservation_issues:
+        raise RuntimeError("Community dataset conservation failed: " + "; ".join(conservation_issues))
+    from docmirror.models.schemas.registry import validate_projection_payload
+
+    schema_validation = validate_projection_payload("community", community)
+    if not schema_validation.valid:
+        raise RuntimeError("Community schema validation failed: " + "; ".join(schema_validation.errors))
+    if on_progress:
+        on_progress("community_plugin", 100.0, "Community projection ready")
+    timings["community_ms"] = (time.perf_counter() - community_t0) * 1000
 
     enterprise: dict[str, Any] | None = None
     finance: dict[str, Any] | None = None
-    extended_want = [ed for ed in ("enterprise", "finance") if ed in want]
+    commercial_projectors = ("enterprise", "finance")
 
     def _build_extended_with_timing(edition_name: str) -> tuple[str, dict[str, Any] | None, float]:
         started = time.perf_counter()
         try:
             payload = build_extended_output(
-                edition_source,
+                result,
                 edition_name,
-                full_text,
-                file_path,
-                community_baseline=community,
             )
         except Exception as exc:
             logger.warning("[Projections] %s projection failed: %s", edition_name, exc)
-            payload = {
-                "edition": edition_name,
-                "status": {
-                    "success": False,
-                    "warnings": [],
-                    "errors": [f"projection_failed:{exc}"],
-                },
-            }
+            payload = None
         if payload is not None and "composition" not in payload:
             from docmirror.plugins._runtime.composition import CompositionReason, annotate_composition
 
@@ -301,136 +279,75 @@ def build_all_projections(
                 )
             except Exception as exc:
                 logger.warning("[Projections] %s annotate_composition failed: %s", edition_name, exc)
-                if payload is None:
-                    payload = {
-                        "edition": edition_name,
-                        "status": {
-                            "success": False,
-                            "warnings": [],
-                            "errors": [f"composition_failed:{exc}"],
-                        },
-                    }
+                payload.setdefault("status", {}).setdefault("warnings", []).append(f"composition_failed:{exc}")
         return edition_name, payload, (time.perf_counter() - started) * 1000
 
-    if extended_want:
-        with ThreadPoolExecutor(max_workers=min(2, len(extended_want))) as pool:
-            futures = [pool.submit(_build_extended_with_timing, ed) for ed in extended_want]
-            completed = 0
-            # Timeout prevents a single hanging edition (e.g. asyncio.run hang
-            # in Python 3.12 ThreadPoolExecutor) from blocking the entire
-            # build_all_projections.  Each edition gets 300 s = 5 min.
-            _timeout = 300.0
-            remaining = {future: ed for future, ed in zip(futures, extended_want)}
-            try:
-                for future in as_completed(futures, timeout=_timeout):
-                    edition_name, payload, elapsed_ms = future.result()
-                    remaining.pop(future, None)
-                    timings[f"{edition_name}_ms"] = elapsed_ms
-                    if edition_name == "enterprise":
-                        enterprise = payload
-                    elif edition_name == "finance":
-                        finance = payload
-                    completed += 1
-                    if on_progress:
-                        sub_pct = (completed / len(extended_want)) * 100.0
-                        on_progress("extended_plugins", sub_pct, f"Building {edition_name} edition output...")
-            except TimeoutError:
-                # One or more editions timed out — log which ones, use best-effort
-                # results for what completed, and continue.
-                for fut, ed in remaining.items():
-                    fut.cancel()
-                    logger.warning(
-                        "[Projections] %s edition timed out after %.0f s — skipping",
-                        ed,
-                        _timeout,
-                    )
-            except Exception as exc:
-                logger.error(
-                    "[Projections] Unhandled exception in as_completed loop: %s",
-                    exc,
-                    exc_info=True,
+    with ThreadPoolExecutor(max_workers=len(commercial_projectors)) as pool:
+        futures = [pool.submit(_build_extended_with_timing, ed) for ed in commercial_projectors]
+        completed = 0
+        # Timeout prevents a single hanging edition (e.g. asyncio.run hang
+        # in Python 3.12 ThreadPoolExecutor) from blocking the entire
+        # build_all_projections.  Each edition gets 300 s = 5 min.
+        _timeout = 300.0
+        remaining = {future: ed for future, ed in zip(futures, commercial_projectors)}
+        try:
+            for future in as_completed(futures, timeout=_timeout):
+                edition_name, payload, elapsed_ms = future.result()
+                remaining.pop(future, None)
+                timings[f"{edition_name}_ms"] = elapsed_ms
+                if edition_name == "enterprise":
+                    enterprise = payload
+                elif edition_name == "finance":
+                    finance = payload
+                completed += 1
+                if on_progress:
+                    sub_pct = (completed / len(commercial_projectors)) * 100.0
+                    on_progress("extended_plugins", sub_pct, f"Building {edition_name} edition output...")
+        except TimeoutError:
+            # One or more editions timed out — log which ones, use best-effort
+            # results for what completed, and continue.
+            for fut, ed in remaining.items():
+                fut.cancel()
+                logger.warning(
+                    "[Projections] %s edition timed out after %.0f s — skipping",
+                    ed,
+                    _timeout,
                 )
-                for fut, ed in remaining.items():
-                    fut.cancel()
-                    logger.warning("[Projections] %s cancelled after unhandled exception", ed)
+        except Exception as exc:
+            logger.error(
+                "[Projections] Unhandled exception in as_completed loop: %s",
+                exc,
+                exc_info=True,
+            )
+            for fut, ed in remaining.items():
+                fut.cancel()
+                logger.warning("[Projections] %s cancelled after unhandled exception", ed)
 
-    outputs: dict[str, dict[str, Any] | None] = {
+    outputs: dict[str, Any] = {
         "mirror": mirror,
-        "community": community if "community" in want else None,
+        "community": community,
         "enterprise": enterprise,
         "finance": finance,
-        "dmir": dmir,
     }
+    # Transient renderer owned only by Community persistence. All of its facts
+    # come from ParseResult; it is not an upstream source for other editions.
+    outputs["community_bundle"] = community_bundle
+    if result.fact_fingerprint() != fact_fingerprint:
+        raise RuntimeError("Projector boundary violation: ParseResult facts were modified")
     timings["total_ms"] = (time.perf_counter() - total_t0) * 1000
     logger.info(
         "[Projections] build",
         extra={
             "event": "projection_build",
             "timings": {key: round(value, 2) for key, value in timings.items()},
-            "editions": ["mirror", *list(want)],
+            "produced_projections": [
+                edition
+                for edition in ("mirror", "community", "enterprise", "finance")
+                if outputs.get(edition) is not None
+            ],
         },
     )
     return outputs
-
-
-def _attach_runtime_mirror_cache(parse_result: Any, mirror: dict[str, Any]) -> None:
-    """Expose the already-built vNext Mirror to edition-only recoveries.
-
-    Bank scanned-table recovery reads Mirror blocks to reconstruct implicit
-    ledger grids.  Without this runtime cache it calls ``to_mirror_json_vnext``
-    again during community/enterprise/finance projection, duplicating the most
-    expensive output-stage work.  This is deliberately a transient attribute:
-    it does not rewrite physical ParseResult tables or edition payloads.
-    """
-    if not isinstance(mirror, dict) or not mirror:
-        return
-    try:
-        parse_result._runtime_mirror_cache = mirror
-    except Exception:
-        logger.debug("[Projections] unable to attach runtime mirror cache", exc_info=True)
-
-
-def _resolve_mirror_core_config(mirror_schema: str | None) -> dict[str, str]:
-    from docmirror.configs.runtime.settings import DocMirrorSettings
-
-    settings = DocMirrorSettings.from_env()
-    schema = (mirror_schema or "config").strip().lower()
-    if schema == "config":
-        schema = settings.mirror_core_schema.strip().lower()
-    if schema != "vnext":
-        logger.warning("[MirrorCore] unsupported mirror schema %r; vNext is the only supported mirror schema", schema)
-        schema = "vnext"
-    return {
-        "schema": schema,
-        "profile": settings.mirror_core_profile,
-        "engine_version": settings.mirror_core_engine_version,
-    }
-
-
-def _resolve_vnext_profile(mirror_level: str | None, *, default: str) -> str:
-    level = (mirror_level or "").strip().lower()
-    if level in {"compact", "canonical_compact"}:
-        return "canonical_compact"
-    if level in {"forensic"}:
-        return "forensic"
-    if level in {"full", "standard", "ga_full", "canonical_full"}:
-        return "canonical_full"
-    return default or "canonical_full"
-
-
-def _license_delivery_payload() -> dict[str, Any]:
-    from docmirror.plugins._runtime.licensing.lifecycle import lifecycle_cli_message, resolve_entitlement_lifecycle
-    from docmirror.plugins._runtime.licensing.snapshot import resolve_license_snapshot
-
-    lc = resolve_entitlement_lifecycle()
-    snapshot = resolve_license_snapshot()
-    return {
-        "lifecycle_state": lc.state.value,
-        "days_remaining": lc.days_remaining,
-        "active_channel": snapshot.get("active_channel"),
-        "renewal_url": lc.renewal_url,
-        "message": lifecycle_cli_message(lc),
-    }
 
 
 def _attach_vnext_delivery_context(
@@ -440,14 +357,12 @@ def _attach_vnext_delivery_context(
     task_id: str,
     file_id: str,
     request_id: str,
-    license_payload: dict[str, Any],
 ) -> None:
     if (mirror.get("mirror") or {}).get("schema") != "docmirror.mirror_json":
         mirror["document_id"] = document_id
         mirror.setdefault("metadata", {})
         mirror["metadata"]["task_id"] = task_id
         mirror["metadata"]["file_id"] = file_id
-        mirror.setdefault("meta", {})["license"] = license_payload
         mirror.setdefault("request_id", request_id)
         mirror.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
         return
@@ -459,7 +374,6 @@ def _attach_vnext_delivery_context(
         "file_id": file_id,
         "request_id": request_id,
     }
-    provenance["license"] = license_payload
     mirror.setdefault("diagnostics", {}).setdefault("pipeline", []).append(
         {
             "stage": "api_response_packaging",
@@ -473,26 +387,21 @@ def _attach_vnext_delivery_context(
 
 def build_api_response(
     result,
-    edition: str = "all",
-    include_text: bool = False,
-    mirror_level: str = "standard",
     task_id: str = "",
     file_id: str = "001",
     file_path: str = "",
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict:
-    """Build vNext REST payload with optional multi-edition sidecars.
+    """Build the fixed vNext REST payload and available edition sidecars.
 
     Args:
         result: ParseResult from perceive_document
-        edition: "community", "enterprise", "finance", or "all" (default)
-        include_text: Include full markdown text in mirror output
         task_id: Task identifier (e.g. "20260613_084225_07e4"). Auto-generated if empty.
         file_id: File sequence number within task (default "001")
 
     Returns:
         vNext mirror dict. Delivery identifiers, license state, and optional
-        sidecar payloads are recorded under ``source.provenance`` so the
+        edition sidecars are recorded under ``source.provenance`` so the
         canonical top-level mirror shape remains document-only.
     """
     import uuid as _uuid
@@ -505,46 +414,30 @@ def build_api_response(
 
     document_id = f"doc_{task_id}_{file_id}"
 
-    full_text = getattr(result, "full_text", "") or ""
-
-    if edition == "all":
-        editions_wanted: tuple[str, ...] = ("community", "enterprise", "finance")
-    elif edition in ("community", "enterprise", "finance"):
-        editions_wanted = (edition,)
-    else:
-        editions_wanted = ()
-
     request_id = str(_uuid.uuid4())
     projections = build_all_projections(
         result,
-        full_text=full_text,
         file_path=file_path,
-        mirror_level=mirror_level,
-        include_text=include_text,
-        request_id=request_id,
-        editions=editions_wanted,
         on_progress=on_progress,
     )
     mirror = projections["mirror"]
 
     editions_map = {}
-    for ed in editions_wanted:
+    for ed in ("community", "enterprise", "finance"):
         ed_data = projections.get(ed)
         if ed_data is not None:
-            ed_data.setdefault("document", {})["document_id"] = document_id
-            ed_data.setdefault("metadata", {})
-            ed_data["metadata"]["task_id"] = task_id
-            ed_data["metadata"]["file_id"] = file_id
+            if (ed_data.get("schema") or {}).get("name") == "docmirror.community":
+                ed_data.setdefault("document", {})["id"] = document_id
+            else:
+                ed_data.setdefault("document", {})["document_id"] = document_id
+                ed_data.setdefault("metadata", {})
+                ed_data["metadata"]["task_id"] = task_id
+                ed_data["metadata"]["file_id"] = file_id
             editions_map[ed] = ed_data
 
-    # DMIR output — lossless, versioned LLM framework format
-    dmir_output = projections.get("dmir")
-    if editions_map or dmir_output is not None:
+    if editions_map:
         provenance = mirror.setdefault("source", {}).setdefault("provenance", {})
-        provenance["sidecars"] = {
-            "editions": editions_map,
-            "dmir": dmir_output,
-        }
+        provenance["sidecars"] = {"editions": editions_map}
 
     _attach_vnext_delivery_context(
         mirror,
@@ -552,7 +445,6 @@ def build_api_response(
         task_id=task_id,
         file_id=file_id,
         request_id=request_id,
-        license_payload=_license_delivery_payload(),
     )
 
     return mirror

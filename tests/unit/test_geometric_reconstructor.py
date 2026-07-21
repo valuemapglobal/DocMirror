@@ -15,16 +15,16 @@ import pytest
 
 from docmirror.framework.middlewares.extraction.geometric_reconstructor import (
     GeometricReconstructor,
+    _build_grid,
     _Cell,
     _cluster_y,
     _split_x,
-    _build_grid,
     _to_table,
 )
 from docmirror.models.entities.parse_result import (
     CellValue,
-    ParseResult,
     PageContent,
+    ParseResult,
     TableBlock,
     TableRow,
     TextBlock,

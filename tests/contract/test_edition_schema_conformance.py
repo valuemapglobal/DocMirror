@@ -129,7 +129,7 @@ def check_community(schema: dict, path_hint: str = "") -> list[str]:
         "voucher_document",
         "legal_document",
         "package_document",
-        "generic_mirror",
+        "generic_document",
     ):
         errors.append(f"[C07] document.archetype 不在允许形态中: {doc.get('archetype')}")
 

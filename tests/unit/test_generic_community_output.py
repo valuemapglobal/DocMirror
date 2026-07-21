@@ -18,7 +18,7 @@ from docmirror.models.entities.parse_result import (
     TextBlock,
     TextLevel,
 )
-from docmirror.plugins._base.generic_mirror_adapter import (
+from docmirror.plugins._base.generic_community_adapter import (
     _GENERIC_WARNING,
     _build_normalized_record,
     _collect_sections,
@@ -350,14 +350,14 @@ class TestGenericTextAndTableRecovery:
                     page_number=2,
                     texts=[
                         TextBlock(
-                            content="一、审计意见\n我们审计了相关财务报表。\n二、形成审计意见的基础",
+                            content="一、 审计意见\n我们审计了相关财务报表。\n二、 形成审计意见的基础",
                             bbox=[10, 20, 500, 300],
                         )
                     ],
                 ),
                 PageContent(
                     page_number=49,
-                    texts=[TextBlock(content="六、合并财务报表项目注释\n1、货币资金")],
+                    texts=[TextBlock(content="六、 合并财务报表项目注释\n1、 货币资金")],
                 ),
             ]
         )
@@ -478,7 +478,7 @@ class TestGenericTextAndTableRecovery:
 
         assert out["data"]["fields"]["统一社会信用代码"] == "91330109MA27XQ7P70"
         assert out["data"]["field_metadata"]["统一社会信用代码"] == {
-            "source": "mirror_text",
+            "source": "canonical_text",
             "page": 3,
             "confidence": 0.96,
             "bbox": [10.0, 20.0, 300.0, 40.0],
@@ -594,6 +594,30 @@ class TestGenericTextAndTableRecovery:
         records = _collect_table_records(ParseResult(pages=[PageContent(page_number=1, tables=[table])]))
         assert records[0]["raw"] == {"金额": "1", "金额_2": "2", "col_2": "3"}
         assert records[0]["source"]["header_repaired"] is True
+
+    def test_layout_spacing_inside_chinese_headers_is_normalized_for_records(self):
+        table = TableBlock(
+            table_id="native_table",
+            headers=["项 目", "年末余额", "年初余额"],
+            rows=[
+                TableRow(
+                    cells=[
+                        CellValue(text="银行存款"),
+                        CellValue(text="64,822,045.96"),
+                        CellValue(text="18,410,772.82"),
+                    ]
+                )
+            ],
+        )
+
+        records = _collect_table_records(ParseResult(pages=[PageContent(page_number=49, tables=[table])]))
+
+        assert records[0]["raw"] == {
+            "项目": "银行存款",
+            "年末余额": "64,822,045.96",
+            "年初余额": "18,410,772.82",
+        }
+        assert "header_repaired" not in records[0]["source"]
 
     def test_scanned_multirow_headers_are_promoted_and_removed_from_records(self):
         table = TableBlock(
@@ -1063,3 +1087,21 @@ class TestGenericTextAndTableRecovery:
         records = _collect_table_records(result)
 
         assert records[0]["source"]["table_id"] == "lt_0"
+
+    def test_canonical_domain_collections_do_not_reenter_scalar_fields(self):
+        result = ParseResult(
+            entities=DocumentEntities(
+                document_type="audit_report",
+                domain_specific={
+                    "法定代表人": "许水均",
+                    "line_items": [],
+                    "notes": [],
+                    "summary": {"field_count": 1},
+                    "records": [{"name": "row"}],
+                },
+            )
+        )
+
+        output = build_generic_community_output(result, "audit_report", "")
+
+        assert output["data"]["fields"] == {"法定代表人": "许水均"}

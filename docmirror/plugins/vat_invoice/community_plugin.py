@@ -9,10 +9,10 @@ VAT invoice community domain plugin.
 
 Premium community plugin for Chinese VAT invoices (key-value archetype). Declares
 identity field label specs, builds minimal DEC via ``build_domain_data``, and
-implements ``extract_from_mirror`` with ``extract_kv_community_output`` plus VAT-specific
+implements ``recognize`` with ``extract_kv_community_output`` plus VAT-specific
 OCR field normalization.
 
-Pipeline role: one of six premium plugins; ``runner`` prefers ``extract_from_mirror``
+Pipeline role: one of six premium plugins; ``runner`` invokes ``recognize``
 when it returns records/fields, otherwise falls back to ``build_domain_data``.
 
 Key exports: ``VATInvoicePlugin``, ``plugin``.
@@ -69,7 +69,7 @@ class VATInvoicePlugin(DomainPlugin):
             },
         )
 
-    def extract_from_mirror(self, parse_result, text: str = ""):
+    def recognize(self, parse_result, text: str = ""):
         from pathlib import Path
 
         from docmirror.domains.vat_invoice import VATInvoiceSemanticSolver

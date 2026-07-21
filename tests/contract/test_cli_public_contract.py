@@ -18,10 +18,10 @@ def test_cli_help_is_light_and_positioned():
     assert "Parse. Prove. Trust." in result.output
 
 
-def test_cli_version_command():
-    result = CliRunner().invoke(main, ["version"])
+def test_cli_short_version_flag():
+    result = CliRunner().invoke(main, ["-v"])
     assert result.exit_code == 0, result.output
-    assert result.output.strip() == __version__
+    assert __version__ in result.output
 
 
 def test_cli_doctor_command():
@@ -31,7 +31,7 @@ def test_cli_doctor_command():
     assert "- core:" in result.output
 
 
-def test_cli_root_file_compatibility_routes_to_parse_help():
+def test_cli_root_file_routes_to_document_help():
     result = CliRunner().invoke(main, ["sample.pdf", "--help"])
     assert result.exit_code == 0, result.output
     assert "Parse a document" in result.output

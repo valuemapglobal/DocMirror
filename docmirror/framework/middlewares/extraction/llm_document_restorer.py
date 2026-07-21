@@ -207,9 +207,9 @@ def _inject_fields(result: ParseResult, fields: dict) -> int:
 
 
 class LlmDocumentRestorer(BaseMiddleware):
-    """Restore tables and entities from OCR text using an LLM."""
+    """Conditionally restore missing base facts before semantic enrichment."""
 
-    DEPENDS_ON = ["EvidenceEngine"]
+    DEPENDS_ON = ["GeometricReconstructor"]
     PROVIDES = ["tables", "key_values"]
 
     def should_skip(self, result: ParseResult) -> bool:

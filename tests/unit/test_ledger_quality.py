@@ -5,13 +5,13 @@
 
 from __future__ import annotations
 
+from docmirror.models.entities.parse_result import CellValue, LogicalTable, RowType, TableRow
 from docmirror.tables.compose.ledger_quality import (
     apply_ltqg,
     assess_logical_table,
     should_enable_ltqg,
     sum_passed_data_row_estimates,
 )
-from docmirror.models.entities.parse_result import CellValue, LogicalTable, RowType, TableRow
 
 
 def _bank_profile():

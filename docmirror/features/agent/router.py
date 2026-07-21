@@ -28,7 +28,6 @@ class DocumentRoute(BaseModel):
     layout_profile_hint: str | None = None
     recommended_plugins: list[str] = Field(default_factory=list)
     community_tier: str = GENERIC_FALLBACK_ROUTE
-    export_formats: list[str] = Field(default_factory=lambda: ["json", "udif"])
     notes: list[str] = Field(default_factory=list)
 
 
@@ -38,14 +37,12 @@ _DOMAIN_ROUTES: dict[str, dict] = {
         "layout_profile_hint": "borderless_ledger_bank",
         "plugins": ["bank_statement"],
         "community_tier": CORE_DOMAIN_ROUTE,
-        "exports": ["json", "udif", "csv", "parquet", "chunks"],
     },
     "wechat_payment": {
         "enhance_mode": "full",
         "layout_profile_hint": "borderless_ledger_wechat",
         "plugins": ["wechat_payment"],
         "community_tier": CORE_DOMAIN_ROUTE,
-        "exports": ["json", "udif", "csv", "chunks"],
         "notes": ["Requires cross-page merge; use full enhance mode"],
     },
     "alipay_payment": {
@@ -53,34 +50,29 @@ _DOMAIN_ROUTES: dict[str, dict] = {
         "layout_profile_hint": "borderless_ledger_alipay",
         "plugins": ["alipay_payment"],
         "community_tier": CORE_DOMAIN_ROUTE,
-        "exports": ["json", "udif", "csv", "chunks"],
         "notes": ["Requires cross-page merge; use full enhance mode"],
     },
     "vat_invoice": {
         "enhance_mode": "standard",
         "plugins": ["vat_invoice"],
         "community_tier": CORE_DOMAIN_ROUTE,
-        "exports": ["json", "udif", "chunks"],
     },
     "business_license": {
         "enhance_mode": "standard",
         "plugins": ["business_license"],
         "community_tier": CORE_DOMAIN_ROUTE,
-        "exports": ["json", "udif", "chunks"],
     },
     "credit_report": {
         "enhance_mode": "full",
         "layout_profile_hint": "credit_report_section_dominant",
         "plugins": ["credit_report"],
         "community_tier": CORE_DOMAIN_ROUTE,
-        "exports": ["json", "udif", "chunks"],
         "notes": ["Section-driven layout; L6 graph available"],
     },
     "audit_report": {
         "enhance_mode": "standard",
         "plugins": ["audit_report"],
         "community_tier": ENTERPRISE_ONLY_ROUTE,
-        "exports": ["json", "udif", "chunks"],
         "notes": ["Community edition emits mirror_only envelope"],
     },
 }
@@ -135,6 +127,5 @@ def route_document(
         layout_profile_hint=cfg.get("layout_profile_hint"),
         recommended_plugins=plugins,
         community_tier=community_tier,
-        export_formats=list(cfg.get("exports") or ["json", "udif", "chunks"]),
         notes=notes,
     )

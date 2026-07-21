@@ -34,8 +34,8 @@ class Orchestrator:
     """
     Middleware enhancement orchestrator (Mirror layer only).
 
-    Plugin execution (Community / Enterprise / Finance) happens **after**
-    ``enhance()`` via ``docmirror.plugins._runtime.runner`` — not in this pipeline.
+    Edition recognition and projection happen after ``enhance()`` and consume
+    the finalized ParseResult directly.
     """
 
     def __init__(

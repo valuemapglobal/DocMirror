@@ -31,7 +31,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from docmirror import __version__
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
-from docmirror.input.entry.options import normalize_parse_control
+from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.server.schemas import ParseResponse
 from docmirror.server.task_api import router as task_router
 
@@ -123,15 +123,6 @@ def _verify_api_key(authorization: str | None) -> None:
 async def parse_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="The document file to parse (PDF, PNG, JPEG, DOCX, etc.)"),
-    edition: str = Query(
-        default="all",
-        pattern="^(community|enterprise|finance|all)$",
-        description="Output edition: community, enterprise, finance, or all",
-    ),
-    include_text: bool = Query(default=False, description="Include full markdown text in response"),
-    include_geometry: bool = Query(
-        default=False, description="Include table/cell geometry using forensic mirror output"
-    ),
     pages: str | None = Query(default=None, description="Page ranges, 1-based: 1-3,8,10-"),
     max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
     workers: str | None = Query(default=None, description="Total worker budget for this request"),
@@ -145,7 +136,6 @@ async def parse_document(
     ocr_country: str | None = Query(default=None, description="ISO country hint"),
     ocr_locale: str | None = Query(default=None, description="OCR locale hint"),
     ocr_correction_packs: str | None = Query(default=None, description="Comma-separated correction pack ids"),
-    format: str = Query(default="json", description="Requested output formats for parse control fingerprint"),
     doc_type_hint: str | None = Query(default=None, description="Manual document type hint, optionally type:force"),
     authorization: str | None = Header(default=None),
 ):
@@ -153,11 +143,8 @@ async def parse_document(
     Parse a document using the core MultiModal engine.
     The file is saved temporarily, processed, and then asynchronously cleaned up.
 
-    Supports multi-edition output via the ``edition`` parameter:
-    - ``community`` → Community v2.1 consumer schema (reads legacy v2.0)
-    - ``enterprise`` → enterprise v2.0 schema (requires docmirror-enterprise)
-    - ``finance`` → finance v3.0 schema (requires docmirror-finance)
-    - ``all`` (default) → all available editions
+    Every request receives the same fixed delivery contract. Commercial
+    sidecars appear only when their package and entitlement are available.
     """
     _verify_api_key(authorization)
 
@@ -176,15 +163,10 @@ async def parse_document(
     try:
         from docmirror.server.output_builder import build_api_response
 
-        mirror_level = "forensic" if include_geometry else "standard"
-        control = normalize_parse_control(
+        policy = normalize_parse_policy(
             pages=pages,
             max_pages=max_pages,
-            workers=workers,
             mode=mode,
-            formats=format,
-            mirror_level=mirror_level,
-            include_text=include_text,
             doc_type_hint=doc_type_hint,
             ocr_correction=ocr_correction,
             ocr_language=ocr_language,
@@ -192,13 +174,16 @@ async def parse_document(
             ocr_locale=ocr_locale,
             ocr_correction_packs=ocr_correction_packs,
         )
-        result = await perceive_document(temp_path, PerceiveOptions(control=control))
-        api_payload = build_api_response(
-            result,
-            edition=edition,
-            include_text=include_text,
-            mirror_level=control.output.mirror_level,
+        from docmirror.configs.runtime.performance import resolve_worker_budget
+
+        result = await perceive_document(
+            temp_path,
+            PerceiveOptions(
+                policy=policy,
+                max_workers=resolve_worker_budget(workers, file_count=1).page_workers_per_file,
+            ),
         )
+        api_payload = build_api_response(result)
 
         return JSONResponse(status_code=200, content=api_payload)
 
@@ -211,10 +196,6 @@ async def parse_document(
 async def batch_parse(
     background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(..., description="Multiple document files to parse"),
-    edition: str = Query(default="all", pattern="^(community|enterprise|finance|all)$", description="Output edition"),
-    include_geometry: bool = Query(
-        default=False, description="Include table/cell geometry using forensic mirror output"
-    ),
     pages: str | None = Query(default=None, description="Page ranges, 1-based: 1-3,8,10-"),
     max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
     workers: str | None = Query(default=None, description="Total worker budget for this request"),
@@ -231,19 +212,15 @@ async def batch_parse(
     _verify_api_key(authorization)
 
     import multiprocessing as _mp
-    from dataclasses import replace
 
     from docmirror.configs.runtime.performance import resolve_worker_budget
-    from docmirror.input.entry.options import ResourceControl
     from docmirror.server.output_builder import build_api_response
 
     _cpu_count = _mp.cpu_count()
-    _control = normalize_parse_control(
+    _policy = normalize_parse_policy(
         pages=pages,
         max_pages=max_pages,
-        workers=workers,
         mode=mode,
-        mirror_level="forensic" if include_geometry else "standard",
         doc_type_hint=doc_type_hint,
         ocr_correction=ocr_correction,
         ocr_language=ocr_language,
@@ -251,15 +228,8 @@ async def batch_parse(
         ocr_locale=ocr_locale,
         ocr_correction_packs=ocr_correction_packs,
     )
-    _budget = resolve_worker_budget(_control.resource.workers, file_count=len(files), cpu_count=_cpu_count)
+    _budget = resolve_worker_budget(workers, file_count=len(files), cpu_count=_cpu_count)
     _semaphore = asyncio.Semaphore(_budget.file_workers)
-    _per_file_control = replace(
-        _control,
-        resource=ResourceControl(
-            workers=_budget.page_workers_per_file,
-            page_executor=_control.resource.page_executor,
-        ),
-    )
 
     async def _process_one(f):
         if not f.filename:
@@ -274,12 +244,11 @@ async def batch_parse(
 
         async with _semaphore:
             try:
-                result = await perceive_document(temp_path, PerceiveOptions(control=_per_file_control))
-                payload = build_api_response(
-                    result,
-                    edition=edition,
-                    mirror_level=_per_file_control.output.mirror_level,
+                result = await perceive_document(
+                    temp_path,
+                    PerceiveOptions(policy=_policy, max_workers=_budget.page_workers_per_file),
                 )
+                payload = build_api_response(result)
                 payload["file_name"] = f.filename
                 return payload
             except Exception as e:
@@ -297,11 +266,6 @@ async def batch_parse(
 @app.post("/v1/parse/file", tags=["Parsing"])
 async def parse_file_on_server(
     file_path: str = Body(..., description="Absolute path to a file on the server"),
-    edition: str = Query(default="all", pattern="^(community|enterprise|finance|all)$", description="Output edition"),
-    include_text: bool = Query(default=False, description="Include full markdown text in response"),
-    include_geometry: bool = Query(
-        default=False, description="Include table/cell geometry using forensic mirror output"
-    ),
     pages: str | None = Query(default=None, description="Page ranges, 1-based: 1-3,8,10-"),
     max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
     workers: str | None = Query(default=None, description="Total worker budget for this request"),
@@ -311,7 +275,6 @@ async def parse_file_on_server(
     ocr_country: str | None = Query(default=None),
     ocr_locale: str | None = Query(default=None),
     ocr_correction_packs: str | None = Query(default=None),
-    format: str = Query(default="json", description="Requested output formats for parse control fingerprint"),
     doc_type_hint: str | None = Query(default=None, description="Manual document type hint, optionally type:force"),
     authorization: str | None = Header(default=None),
 ):
@@ -327,14 +290,10 @@ async def parse_file_on_server(
         raise HTTPException(status_code=400, detail=f"Path is not a file: {file_path}")
 
     try:
-        control = normalize_parse_control(
+        policy = normalize_parse_policy(
             pages=pages,
             max_pages=max_pages,
-            workers=workers,
             mode=mode,
-            formats=format,
-            mirror_level="forensic" if include_geometry else "standard",
-            include_text=include_text,
             doc_type_hint=doc_type_hint,
             ocr_correction=ocr_correction,
             ocr_language=ocr_language,
@@ -342,13 +301,16 @@ async def parse_file_on_server(
             ocr_locale=ocr_locale,
             ocr_correction_packs=ocr_correction_packs,
         )
-        result = await perceive_document(path, PerceiveOptions(control=control))
-        api_payload = build_api_response(
-            result,
-            edition=edition,
-            include_text=include_text,
-            mirror_level=control.output.mirror_level,
+        from docmirror.configs.runtime.performance import resolve_worker_budget
+
+        result = await perceive_document(
+            path,
+            PerceiveOptions(
+                policy=policy,
+                max_workers=resolve_worker_budget(workers, file_count=1).page_workers_per_file,
+            ),
         )
+        api_payload = build_api_response(result)
         return JSONResponse(status_code=200, content=api_payload)
     except Exception as e:
         logger.exception("[Server] Parse file failed")
@@ -397,13 +359,13 @@ async def export_pdfua_endpoint(
 
     try:
         from docmirror.input.entry.factory import PerceiveOptions, perceive_document
-        from docmirror.input.entry.options import normalize_parse_control
+        from docmirror.input.entry.options import normalize_parse_policy
         from docmirror.output.dmir import serialize_dmir
         from docmirror.output.exporters.pdfua import PdfUaVersion, export_pdfua
 
         # Parse document
-        control = normalize_parse_control(mode="auto")
-        result = await perceive_document(temp_path, PerceiveOptions(control=control))
+        policy = normalize_parse_policy(mode="auto")
+        result = await perceive_document(temp_path, PerceiveOptions(policy=policy))
 
         # Serialize to DMIR
         dmir = serialize_dmir(result)

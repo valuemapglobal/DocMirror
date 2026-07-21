@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from docmirror.eval.gates import _primary_logical_row_count
-from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParserInfo, ParseResult, RowType, TableRow
+from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, ParserInfo, RowType, TableRow
 
 
 def test_primary_logical_row_count_uses_ltqg_not_raw_max():

@@ -20,10 +20,6 @@ Managed services:
     - ``dispatcher``   → ``ParserDispatcher`` (L0 file routing)
     - ``orchestrator`` → ``Orchestrator`` (middleware pipeline)
 
-Not managed here:
-    - Parse-result cache (``framework/cache.py``) — optional, not wired into
-      the default pipeline; import ``parse_cache`` directly if re-enabled.
-
 Usage::
 
     from docmirror.framework.di import get_dispatcher, get_orchestrator

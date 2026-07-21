@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from docmirror.evidence.spe_consumer import mirror_quarantine_annex_fields
-from docmirror.models.entities.parse_result import ParserInfo, ParseResult
+from docmirror.models.entities.parse_result import ParseResult, ParserInfo
 
 
 def test_quarantine_annex_hidden_in_standard_mode():

@@ -12,8 +12,9 @@ from tests.regression.conftest import _run_and_assert
 pytestmark = [pytest.mark.tier_regression, pytest.mark.track_mirror_structure]
 
 try:
-    from docmirror.eval.tqg.manifest import load_track_manifest, TQG_GATES_DIR
     from pathlib import Path
+
+    from docmirror.eval.tqg.manifest import TQG_GATES_DIR, load_track_manifest
 
     REPO_ROOT = Path(__file__).resolve().parents[2]
     _MIRROR_STRUCTURE_CASES = load_track_manifest(

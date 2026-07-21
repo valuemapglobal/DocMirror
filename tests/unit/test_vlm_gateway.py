@@ -1,9 +1,10 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pytest
-from unittest.mock import patch, MagicMock
 
 from docmirror.configs.runtime.settings import default_settings
 from docmirror.ocr.vlm_gateway import vlm_ocr_provider
@@ -41,13 +42,13 @@ def test_vlm_gateway_dispatches_openai_api(dummy_image):
         mock_post.return_value = mock_response
 
         res = vlm_ocr_provider(dummy_image, page_idx=0)
-        
+
         assert res is not None
         assert res["content_type"] == "general"
         assert res["lines"][0]["text"] == "OpenAI Success Response"
         assert res["page_h"] == 100
         assert res["page_w"] == 200
-        
+
         # Verify request parameters
         mock_post.assert_called_once()
         args, kwargs = mock_post.call_args
@@ -75,10 +76,10 @@ def test_vlm_gateway_dispatches_gemini_api(dummy_image):
         mock_post.return_value = mock_response
 
         res = vlm_ocr_provider(dummy_image, page_idx=1)
-        
+
         assert res is not None
         assert res["lines"][0]["text"] == "Gemini Success Response"
-        
+
         mock_post.assert_called_once()
         args, kwargs = mock_post.call_args
         assert "gemini-1.5-pro" in args[0]
@@ -103,10 +104,10 @@ def test_vlm_gateway_dispatches_anthropic_api(dummy_image):
         mock_post.return_value = mock_response
 
         res = vlm_ocr_provider(dummy_image, page_idx=2)
-        
+
         assert res is not None
         assert res["lines"][0]["text"] == "Claude Success Response"
-        
+
         mock_post.assert_called_once()
         args, kwargs = mock_post.call_args
         assert args[0] == "https://api.anthropic.com/v1/messages"
@@ -132,7 +133,7 @@ def test_vlm_gateway_custom_endpoint(dummy_image):
         mock_post.return_value = mock_response
 
         res = vlm_ocr_provider(dummy_image, page_idx=0)
-        
+
         assert res is not None
         mock_post.assert_called_once()
         args, _ = mock_post.call_args
@@ -154,7 +155,7 @@ def test_vlm_gateway_custom_base_url_appending(dummy_image):
         mock_post.return_value = mock_response
 
         res = vlm_ocr_provider(dummy_image, page_idx=0)
-        
+
         assert res is not None
         mock_post.assert_called_once()
         args, _ = mock_post.call_args
@@ -217,3 +218,4 @@ def test_vlm_gateway_exceptions_caught_gracefully(dummy_image):
         # Should catch exception, log it, and return None gracefully (so pipeline can fallback)
         res = vlm_ocr_provider(dummy_image, page_idx=0)
         assert res is None
+        mock_post.assert_called_once()

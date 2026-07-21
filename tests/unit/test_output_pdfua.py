@@ -15,13 +15,13 @@ import pytest
 
 pytestmark = [pytest.mark.tier_unit]
 
-from docmirror.output.exporters.pdfua import export_pdfua, _ensure_fitz, _ensure_pypdf
-from docmirror.output.exporters.pdfua_types import ExportResult, PdfUaVersion
+from docmirror.output.exporters.pdfua import _ensure_fitz, _ensure_pypdf, export_pdfua
 from docmirror.output.exporters.pdfua_tags import (
+    build_pdfua_struct_tree,
     dmir_to_pdf_tag,
     get_table_structure_tags,
-    build_pdfua_struct_tree,
 )
+from docmirror.output.exporters.pdfua_types import ExportResult, PdfUaVersion
 
 
 def _minimal_dmir() -> dict:
@@ -469,9 +469,10 @@ class TestPdfUaMCIDInjection:
         """BDC/EMC operators exist in output content stream."""
         if not self._have_all_deps():
             pytest.skip("PyMuPDF and/or pypdf not installed")
-        from docmirror.output.exporters.pdfua import export_pdfua
         import tempfile
         from pathlib import Path
+
+        from docmirror.output.exporters.pdfua import export_pdfua
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             output_path = tmp.name
         try:
@@ -500,9 +501,10 @@ class TestPdfUaMCIDInjection:
         """Structure tree has MCR entries."""
         if not self._have_all_deps():
             pytest.skip("PyMuPDF and/or pypdf not installed")
-        from docmirror.output.exporters.pdfua import export_pdfua
         import tempfile
         from pathlib import Path
+
+        from docmirror.output.exporters.pdfua import export_pdfua
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             output_path = tmp.name
         try:
@@ -553,9 +555,10 @@ class TestPdfUaMCIDInjection:
             "evidence": {"ledger": {}, "summary": {"total_events": 0}},
             "meta": {"parser": "DocMirror", "version": "1.0.0", "elapsed_ms": 1, "page_count": 2, "table_count": 0, "row_count": 0, "dmir_version": "1.0"},
         }
-        from docmirror.output.exporters.pdfua import export_pdfua
         import tempfile
         from pathlib import Path
+
+        from docmirror.output.exporters.pdfua import export_pdfua
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             output_path = tmp.name
         try:
@@ -607,9 +610,10 @@ class TestPdfUaMCIDInjection:
             "evidence": {"ledger": {}, "summary": {"total_events": 0}},
             "meta": {"parser": "DocMirror", "version": "1.0.0", "elapsed_ms": 1, "page_count": 1, "table_count": 1, "row_count": 1, "dmir_version": "1.0"},
         }
-        from docmirror.output.exporters.pdfua import export_pdfua
         import tempfile
         from pathlib import Path
+
+        from docmirror.output.exporters.pdfua import export_pdfua
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             output_path = tmp.name
         try:
@@ -639,9 +643,10 @@ class TestPdfUaMCIDInjection:
             "evidence": {"ledger": {}, "summary": {"total_events": 0}},
             "meta": {"parser": "DocMirror", "version": "1.0.0", "elapsed_ms": 0, "page_count": 0, "table_count": 0, "row_count": 0, "dmir_version": "1.0"},
         }
-        from docmirror.output.exporters.pdfua import export_pdfua
         import tempfile
         from pathlib import Path
+
+        from docmirror.output.exporters.pdfua import export_pdfua
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             output_path = tmp.name
         try:

@@ -12,8 +12,7 @@ from pathlib import Path
 import pytest
 
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
-from docmirror.input.entry.options import ExecutionControl, ParseControl, normalize_parse_control
-from docmirror.plugins._runtime.runner import clear_run_cache
+from docmirror.input.entry.options import ParsePolicy, normalize_parse_policy
 from docmirror.server.output_builder import build_community_output
 from tests._community_reading import assert_community_reading_view
 from tests.contract.test_edition_schema_conformance import check_community
@@ -69,12 +68,11 @@ def test_generic_private_audit_report_precision_and_contract():
     if not FIXTURE.exists():
         pytest.skip("private Generic audit-report fixture is unavailable")
 
-    clear_run_cache()
-    control = ParseControl(
+    policy = ParsePolicy(
         mode="balanced",
-        execution=ExecutionControl(cache_policy="off", ocr="off"),
+        ocr="off",
     )
-    result = asyncio.run(perceive_document(FIXTURE, PerceiveOptions(control=control)))
+    result = asyncio.run(perceive_document(FIXTURE, PerceiveOptions(policy=policy)))
     output = build_community_output(
         result,
         result.full_text or "",
@@ -188,17 +186,15 @@ def test_generic_private_scanned_audit_report_precision_and_contract():
     if not SCANNED_FIXTURE.exists():
         pytest.skip("private scanned Generic audit-report fixture is unavailable")
 
-    clear_run_cache()
-    control = normalize_parse_control(
+    policy = normalize_parse_policy(
         mode="accurate",
         ocr="force",
         ocr_language="zh",
         ocr_locale="zh-CN",
         ocr_correction="safe",
         page_split="auto",
-        cache_policy="off",
     )
-    result = asyncio.run(perceive_document(SCANNED_FIXTURE, PerceiveOptions(control=control)))
+    result = asyncio.run(perceive_document(SCANNED_FIXTURE, PerceiveOptions(policy=policy)))
     output = build_community_output(
         result,
         result.full_text or "",

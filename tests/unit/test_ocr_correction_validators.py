@@ -6,6 +6,7 @@ from docmirror.ocr.correction.validators import (
     repair_iban_if_unique,
     repair_uscc_if_unique,
     validate_amount_text,
+    validate_cn_resident_id,
     validate_date_text,
     validate_iban,
     validate_uscc,
@@ -36,6 +37,13 @@ def test_date_and_amount_validators_reject_impossible_values():
     assert not validate_date_text("2026-13-40")
     assert validate_amount_text("1,234.56")
     assert not validate_amount_text("1,23x.56")
+
+
+def test_cn_resident_id_requires_valid_date_and_checksum():
+    assert validate_cn_resident_id("11010519491231002X")
+    assert validate_cn_resident_id("110105-19491231-002X")
+    assert not validate_cn_resident_id("11010519491331002X")
+    assert not validate_cn_resident_id("110105194912310020")
 
 
 def test_typed_amount_substitution_requires_valid_result():

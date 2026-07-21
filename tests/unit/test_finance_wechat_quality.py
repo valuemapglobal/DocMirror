@@ -15,6 +15,7 @@ from docmirror_finance.plugins.wechat_payment.plugin import (
     WeChatPaymentFinancePlugin,
     _is_valid_timestamp,
 )
+
 from tests.contract.test_edition_schema_conformance import check_finance
 
 pytestmark = pytest.mark.unit

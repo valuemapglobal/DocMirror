@@ -211,14 +211,14 @@ def test_enrich_credit_report_recovers_subject_identity_from_query_table_atoms()
         sections=[],
         pages=[],
         entities=SimpleNamespace(domain_specific={}),
-        _runtime_mirror_cache={"evidence": {"text_atoms": atoms}},
+        evidence_plane=SimpleNamespace(evidence={"text_atoms": atoms}),
     )
 
     output = enrich_credit_report_output({"data": {}}, parse_result=result)
 
     assert output["data"]["fields"]["subject_name"] == "张三丰"
     assert output["data"]["fields"]["id_number"] == "123456789012345678"
-    assert output["data"]["field_details"]["subject_name"]["source"] == "mirror_text_atoms"
+    assert output["data"]["field_details"]["subject_name"]["source"] == "canonical_evidence_atoms"
 
 
 def test_enrich_credit_report_promotes_native_business_records_over_positional_rows():

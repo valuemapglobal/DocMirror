@@ -1,6 +1,6 @@
 # DocMirror 研发说明手册
 
-当前发行候选：DocMirror `1.0.8`（兼容性基线：`1.0.0`）
+当前发行候选：DocMirror `1.0.10`（兼容性基线：`1.0.0`）
 适用对象：后续接手 DocMirror 核心研发、插件研发、服务端/API、SDK、测试与发布维护的同事。
 编写日期：2026-06-30
 
@@ -16,7 +16,7 @@ DocMirror 是面向商业凭证的可信解析层，产品定位是 **Commercial
 
 1.0.x 的主要稳定基线包括：
 
-- Python 包当前版本为 `1.0.8`，公共包名为 `docmirror`。
+- Python 包当前版本为 `1.0.10`，公共包名为 `docmirror`。
 - Python 支持 `>=3.10`，测试矩阵覆盖 Python 3.10 到 3.13。
 - 公共 OSS wheel 只打包 `docmirror` 主包；`docmirror_enterprise`、`docmirror_finance`、`tests`、`scripts`、`docs`、`sdks` 等不进入公共 wheel。
 - Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.7`。
@@ -65,7 +65,6 @@ python3 examples/trust_quickstart.py
 
 ```bash
 docmirror statement.pdf --output-dir ./output
-docmirror statement.pdf --profile quickstart
 ```
 
 启动 API 服务：
@@ -90,9 +89,9 @@ docker run --rm -p 8000:8000 docmirror:latest
 | MEP | Middleware Execution Platform，Mirror 层中间件增强管线 | `docmirror/configs/yaml/middleware_catalog.yaml`、`enhancement_profiles.yaml` |
 | MOC | Mirror Object Contract，所有 adapter 产出的核心 `ParseResult` 合同 | `docmirror/models/entities/parse_result.py` |
 | UDTR | vNext Mirror 主线，文档拓扑、页面、证据、阅读流和语义投影 | `docmirror/models/mirror/`、`docmirror/topology/` |
-| PEC | Plugin Execution Contract，核心 Mirror 之后的 edition 插件执行合同 | `docmirror/plugins/_runtime/runner.py` |
+| PEC | Plugin Execution Contract，封存后的 ParseResult 到 edition 的插件执行合同 | `docmirror/plugins/_runtime/runner.py` |
 | DEC | Domain Extraction Contract，领域插件输出的规范化合同 | `docmirror/models/entities/domain_result.py`、`docmirror/models/schemas/` |
-| DMIR | DocMirror Intermediate Representation，供 SDK/LLM/RAG 使用的中间表达 | `docmirror/output/dmir.py` |
+| DMIR | 按需序列化的 DocMirror Intermediate Representation，供 MCP/PDF-UA 等专用场景使用 | `docmirror/output/dmir.py` |
 | TQG | Test Quality Gate，manifest 驱动的质量门平台 | `docmirror/eval/tqg/`、`tests/regression/` |
 | four-file output | CLI/API 持久化的多版本 JSON 输出合同 | `docmirror/server/edition_outputs.py` |
 
@@ -100,7 +99,7 @@ docker run --rm -p 8000:8000 docmirror:latest
 
 ```text
 docmirror/
-  input/             输入入口、ParseControl、adapter、格式桥接
+  input/             输入接纳、ParsePolicy、adapter、Canonical Assembly
   framework/         Dispatcher、Orchestrator、DI、中间件框架
   layout/            布局分析、页面分区、场景证据、机构线索
   topology/          页面拓扑、阅读顺序、区域图、跨页关系
@@ -108,7 +107,7 @@ docmirror/
   tables/            表格检测、重建、标准化、流水类表格逻辑
   models/            ParseResult、Mirror vNext、实体、schema、edition serializer
   plugins/           社区领域插件和插件运行时
-  output/            Mirror/DMIR/Markdown/chunks/CSV/PDFUA 等输出
+  output/            Mirror、Community、专用 DMIR/PDF-UA 等只读输出
   evidence/          证据包、source span、visual overlay、diff
   quality/           质量门、质量聚合、review 信号
   configs/           YAML/JSON schema、运行时设置、格式/中间件/领域配置
@@ -137,26 +136,72 @@ examples/               quickstart 和演示脚本
 
 ```mermaid
 flowchart TD
-    A["CLI / Python API / REST API"] --> B["normalize_parse_control"]
-    B --> C["ParserDispatcher.process"]
-    C --> D["FCR resolve_capability"]
-    D --> E["run_extraction_chain"]
-    E --> F["Adapter.to_parse_result"]
-    F --> G["BaseParser.perceive"]
-    G --> H["Orchestrator.enhance (MEP)"]
-    H --> I["ParseResult SSOT"]
-    I --> J["MirrorCoreVNext projection"]
-    I --> K["PEC edition plugins"]
-    J --> L["内存 Mirror；显式请求时写 001_mirror.json"]
-    K --> M["community / enterprise / finance JSON"]
-    J --> N["evidence bundle / markdown / chunks / quality / visual debug"]
+    subgraph entryLayer["① 入口"]
+        entry["CLI / REST API / Python SDK"]
+        parsePolicy["ParsePolicy<br/>仅包含会改变事实的选项"]
+        entry --> parsePolicy
+    end
+
+    subgraph parseFlow["② 唯一事实主链"]
+        acceptance["InputAcceptance 一次性校验与 FCR"] --> acceptedSource["AcceptedSource 不可变"]
+        acceptedSource --> dispatcher["Dispatcher"]
+        dispatcher --> adapter["Adapter 证据与基础事实"]
+        adapter --> canonical["Canonical Pipeline<br/>唯一事实修改区"]
+        canonical --> parseResult["Sealed ParseResult SSOT"]
+    end
+
+    entry --> acceptance
+    parsePolicy --> dispatcher
+
+    subgraph delivery["③ 只读交付"]
+        mirrorProjector["Mirror Projector"]
+        communityProjector["Community Projector"]
+        enterpriseProjector["Enterprise Projector<br/>内部插件发现与授权"]
+        financeProjector["Finance Projector<br/>内部插件发现与授权"]
+        projectedArtifacts["内存投影产物"]
+        writer["ArtifactWriter<br/>临时文件 + 原子替换"]
+        api["REST Response"]
+        outputs["固定交付文件 + Manifest"]
+        mirrorProjector --> projectedArtifacts
+        communityProjector --> projectedArtifacts
+        enterpriseProjector --> projectedArtifacts
+        financeProjector --> projectedArtifacts
+        projectedArtifacts --> api
+        projectedArtifacts --> writer --> outputs
+    end
+
+    parseResult --> mirrorProjector
+    parseResult --> communityProjector
+    parseResult --> enterpriseProjector
+    parseResult --> financeProjector
 ```
 
 ### 5.2 三个边界要守住
 
-1. Adapter 边界：adapter 只负责把输入格式转成 `ParseResult`，不要写领域业务逻辑。
-2. Mirror 边界：MEP 增强完成后，`ParseResult` 是核心 SSOT；Mirror vNext 是公共 canonical 投影。
-3. Edition 边界：community/enterprise/finance 插件在 Mirror 之后运行，不应反向污染核心 Mirror。
+1. Adapter 只产生证据和基础事实；不得执行 Edition 投影，也不得根据输出选择改变解析。
+2. Canonical Pipeline 是唯一允许修改事实的区域；领域识别、恢复和校验都必须在 `ParseResult` 封存前完成。
+3. Projector 与 Writer 永远只读 `ParseResult`；许可证和包可用性只能决定商业产物是否可交付，不得反向修改事实。
+
+附加硬约束：
+
+- Dispatcher 只接收不可变 `AcceptedSource`，不重复校验、MIME/FCR 解析或 checksum。
+- 生产 PDF 主路径由物理证据直接进入 Canonical Assembly，仓库中不存在第二套中间结果模型。
+- Mirror 只是独立投影，不是任何插件的隐性输入或运行时缓存。
+- 不存在 `ParseResult Cache`、缓存模式或缓存指纹分支；相同输入与 `ParsePolicy` 始终经过同一条事实主链。
+- 不存在 Requested Outputs、OutputControl、OutputPlan 或中央 Edition 可用性决策；Mirror 与 Community 固定生成，商业 Projector 在自己的调用边界检查包和授权，失败即不产生投影。
+- Projector 负责内存投影，`ArtifactWriter` 只负责原子落盘；两者均不接收普通交付选择参数。
+- worker 数和进度回调是调用时运行参数，不建模为核心控制对象；OCR、分页和恢复等会改变结果的选项必须进入 `ParsePolicy`。
+- 不存在 Bridge、BaseResult、Projection DAG 或 Visualizer；所有投影从同一个封存后的 `ParseResult` 直接扇出。
+- DMIR 不属于普通交付投影，只在 MCP、PDF-UA 等明确调用的专用接口中按需从 `ParseResult` 序列化。
+
+Canonical Pipeline 内部必须保持以下语义顺序，但这些步骤不再膨胀主架构图：
+
+```text
+Canonical Assembly → Normalize → Geometric Reconstruction
+→ 可选 LLM Restoration → Structure → Entity Extraction
+→ Evidence Classification → Institution/Scene Context
+→ Domain Facts → Validation/Mutation Audit → Seal
+```
 
 这三个边界对应的关键文件：
 
@@ -164,7 +209,9 @@ flowchart TD
 - `docmirror/framework/dispatcher.py`
 - `docmirror/framework/orchestrator.py`
 - `docmirror/input/pipeline/__init__.py`
+- `docmirror/input/canonical/assembler.py`
 - `docmirror/server/output_builder.py`
+- `docmirror/server/artifact_writer.py`
 - `docmirror/plugins/_runtime/runner.py`
 
 ## 6. 输入与解析管线
@@ -184,11 +231,12 @@ CLI：
 
 ```bash
 docmirror document.pdf
-docmirror document.pdf --mirror --format markdown,chunks --debug-artifact
 ```
 
-开源版默认只持久化 `001_community.json`。`--mirror` 是常用的显式 Mirror
-开关；高级调用仍可通过 output profile 或 `output.editions` 精确控制产物。
+文件 CLI 默认持久化 Community 三件套；`--all` 额外持久化 `001_mirror.json` 和
+`manifest.json`。当商业扩展已安装且授权有效时，完整模式可以追加
+Enterprise 或 Finance；CLI、API、SDK 不提供 `formats`、`editions`、`geometry`、
+`include_text`、`mirror_level` 等普通交付参数。
 
 REST：
 
@@ -204,36 +252,32 @@ curl -F "file=@document.pdf" http://localhost:8000/v1/parse
 - `docmirror/__main__.py` 实现 CLI parse 工作流和输出持久化。
 - `docmirror/server/api.py` 暴露 FastAPI 路由。
 
-### 6.2 ParseControl
+### 6.2 ParsePolicy 与固定交付
 
-所有 CLI/API/库调用的用户意图都应汇入 `normalize_parse_control()`，不要在业务代码里重复解析命令参数。
+所有会改变事实的用户意图都应汇入 `normalize_parse_policy()`，不要在业务代码里重复解析命令参数。worker 数不属于 `ParsePolicy`；输出选择已从公共契约删除。
 
 关键字段：
 
 | 字段 | 说明 |
 |---|---|
 | `pages` | `1-3,8,10-`、`first:N`、`last:N` 等页码范围 |
-| `resource.workers` | `auto` 或明确 worker 数；不进入 deterministic fingerprint |
 | `mode` | `auto`、`fast`、`balanced`、`accurate`、`forensic` |
-| `execution.cache_policy` | `read-write`、`read-only`、`refresh`、`off` |
-| `execution.ocr` | `auto`、`force`、`off`、`fallback` |
-| `execution.ocr_correction` | `safe`、`suggest`、`off` |
-| `execution.ocr_language/country/locale` | OCR 纠错语言和国家地区提示 |
-| `execution.ocr_correction_packs` | 显式启用的 opt-in 规则包 ID |
-| `output.formats` | `json`、`markdown`、`csv`、`chunks`、`html`、`parquet`、`evidence` |
-| `output.editions` | `mirror`、`community`、`enterprise`、`finance`；开源默认仅 `community` |
-| `output.mirror_level` | `standard`、`compact`、`forensic` |
-| `output.geometry` | `none`、`page`、`block`、`token`、`full` |
+| `ocr` | `auto`、`force`、`off`、`fallback` |
+| `ocr_correction` | `safe`、`suggest`、`off` |
+| `ocr_language/country/locale` | OCR 纠错语言和国家地区提示 |
+| `ocr_correction_packs` | 显式启用的 opt-in 规则包 ID |
+| `page_split` | `auto`、`off`、`force` |
 | `doc_type_hint` | 用户给出的 document type hint，可 `prefer` 或 `force` |
 | `safety.mode` | `off`、`low`、`medium`、`high` |
+
+交付边界不接收 `formats`、`editions`、`mirror_level`、`geometry` 或
+`include_text`。生产 Mirror 固定为 standard 完整事实投影；worker 数与进度回调只影响调度。
 
 注意：
 
 - `mode=fast` 映射到 `enhance_mode=raw`。
 - `mode=accurate` 和 `mode=forensic` 映射到 `enhance_mode=full`。
-- `mode=forensic` 默认提升到 `mirror_level=forensic`。
-- `geometry=full` 会隐式提升到 `mirror_level=forensic`。
-- `ParseControl.fingerprint()` 不包含 worker 数，避免资源预算影响确定性输出。
+- `ParsePolicy.fingerprint()` 只包含事实选项，用于审计和可重复性，不用于缓存。
 
 ### 6.3 FCR 格式路由
 
@@ -350,42 +394,37 @@ docmirror/configs/schemas/mirror.schema.json
 
 ### 8.2 Edition 输出
 
-CLI/API 持久化输出由 `write_four_files()` 统一处理：
+CLI/API 持久化输出由 `write_outputs()` 统一处理：
 
 ```text
 docmirror/server/edition_outputs.py
 docmirror/server/output_builder.py
 ```
 
-典型目录：
+文件 CLI 的默认交付目录：
 
 ```text
 output/<task_id>/
   001_community.json
-  001_mirror.json          # 仅显式请求 Mirror 时
-  001_enterprise.json      # 仅相应扩展可用且被请求时
-  001_finance.json         # 仅相应扩展可用且被请求时
-  005_evidence_bundle.json # 仅 artifact pack/profile 请求时
-  output.md                # 仅相应 format/profile 请求时
-  quality_report.json      # 仅 artifact pack/profile 请求时
-  visual_debug.html        # 仅 artifact pack/profile 请求时
-  manifest.json            # 仅 artifact pack/profile 请求时
+  001_content.md
+  001_datasets/
+    <dataset>.csv
+    _audit_cells.csv
 ```
 
-实际写哪些文件取决于：
+`--all` 在上述目录中追加 Mirror、Manifest，以及扩展已安装且授权有效时可用的
+Enterprise / Finance。Projector 在自身边界完成插件发现与授权检查；未安装、未授权或
+不支持当前文档时返回无投影。Writer 不检查包、不检查授权，只写入已经生成的投影。
 
-- `ParseControl.output.editions`
-- license/entitlement
-- `docmirror_enterprise`、`docmirror_finance` 是否安装
-- `artifact_pack` 或 output profile 是否开启
+各 Projector 都只读同一个 `ParseResult`，不能读取 Mirror 投影。默认与 `--all` 模式中的
+Community 三件套必须一致。
+Manifest 只记录 Projector 的实际结果和已写产物，不重新计算 Edition 可用性，也不记录 requested formats/editions。
 
-Mirror 是否在内存中构建与 `_mirror.json` 是否持久化是两个独立决策：插件和
-支持产物可以只读使用内存 Mirror；只有 editions 包含 `mirror` 或 profile 设置
-`mirror=True` 时才写 `_mirror.json`。
+### 8.3 按需专用序列化
 
-### 8.3 轻量导出
+DMIR 不参与 `build_all_projections()`、REST 普通 sidecar 或默认落盘。它仅由 MCP、PDF-UA 和显式 exporter 调用，从封存后的 `ParseResult` 按需只读序列化。
 
-`docmirror/output/exporters/dispatch.py` 管理导出格式：
+`docmirror/output/exporters/dispatch.py` 管理这些专用导出格式：
 
 - `json`
 - `dmir`
@@ -395,7 +434,11 @@ Mirror 是否在内存中构建与 `_mirror.json` 是否持久化是两个独立
 - `parquet`
 - `html`，当前是占位空输出
 
-Markdown 和 chunks 优先从 Mirror vNext reading flow 投影，避免回退到低保真 `ParseResult` 文本拼接。
+Markdown 遵循 [DMP 1.0](markdown_profile_zh-CN.md)。Community Bundle、通用 exporter 和
+Mirror vNext exporter 共用 `docmirror/output/markdown_renderer.py`，统一执行阅读流、分页、
+上下文转义、复杂表格白名单和图片省略规则。Markdown 只投影源内容与物理表格；领域恢复和
+跨页合并后的逻辑数据完整进入 Community JSON/CSV，不重复追加到正文。chunks 继续优先读取
+Mirror vNext reading flow。
 
 ## 9. 插件与领域能力
 
@@ -411,7 +454,11 @@ Community 当前核心结构化插件：
 - `credit_report`
 - `generic` fallback
 
-标准落盘输出采用 Community 2.2 消费契约，并在同一 Schema 中兼容读取 2.0/2.1。插件和 `edition_serializer` 先生成内部 DEC 2.0 包络，`community_business_projection` 再统一补齐紧凑 `field_details`、`datasets`、`data_dictionary` 和结构化运行问题，清理已被消费层吸收的中间副本后原子升级为 2.2。`data.fields` 是标准值唯一来源；单插件仅输出 `plugin`，`plugins` 仅供组合执行；契约缺失项仅以 `validation.domain_contract` 为事实源；HTML 布局属于独立渲染层，不进入 Community JSON。
+标准落盘输出采用 Community Bundle 3.0。Community 插件的“识别”职责在 Canonical Pipeline 中执行，只补充 `ParseResult` 现有的实体、章节、页面、逻辑表与结构化扩展，并在校验和封存前完成；其“投影”职责只读已收敛的 `ParseResult`。系统不创建 Domain Facts 中间模型。`ParseResult` 是唯一内部事实源，Community、Enterprise、Finance 都直接且独立地从它投影，不读取 Mirror 或其他 Edition 的输出。
+
+Community JSON 是可独立交付给上下游系统的完整结构化 API：保持六个顶层块，并在每个 Dataset 的 `rows` 中保存全部业务记录。每条记录至少包含 `record_id`、`normalized`、`canonical_raw`、`raw` 和 `source`。Dataset 必须包含 `completeness`；`row_count`、`emitted_row_count`、`len(rows)` 与对应宽表 CSV 的行数必须守恒，JSON 与 CSV 的 `record_id` 集合和顺序必须相同。任何预览、分页或静默截断都不属于落盘契约。
+
+`001_content.md` 完整保存供人类审查的阅读流和全部物理表格行；每个逻辑数据集同时进入 `001_datasets/<dataset>.csv` 供统计分析，字段级原始值和证据进入 `001_datasets/_audit_cells.csv`。三类产物用途不同，但都来自同一份 `CommunityDataset` 快照。
 
 配置事实源：
 
@@ -435,9 +482,9 @@ docmirror/plugins/_runtime/community/__init__.py
 - 插件按 `(domain_name, edition)` 注册。
 - Community 插件通过静态 import 注册。
 - Enterprise/Finance 插件通过可选包 `docmirror_enterprise`、`docmirror_finance` 注册。
-- 插件应读取 `ParseResult`/Mirror，不应修改 Core Mirror。
+- 插件只能读取封存后的 `ParseResult`，不能读取或修改 Mirror 投影。
 - 插件输出先归一为 DEC，再通过 `edition_serializer` 生成 edition JSON。
-- post-extract hooks 只能 enrichment edition JSON，不能改变 canonical Mirror 投影。
+- post-extract hooks 只能 enrichment edition JSON，不能改变 `ParseResult` 或其他投影。
 
 ### 9.3 新增领域插件
 
@@ -555,14 +602,7 @@ docmirror/configs/runtime/yaml_loader.py
 | `DOCMIRROR_VLM_MODEL` | VLM model |
 | `DOCMIRROR_VLM_API_KEY` | VLM API key |
 | `DOCMIRROR_VLM_API_BASE` | VLM API base |
-| `REDIS_URL` | Redis parse cache |
 | `OMP_NUM_THREADS` | 限制 OCR/数值库 native 线程 |
-
-缓存说明：
-
-- `ParserDispatcher` 会根据 `cache_policy` 尝试读写 `framework/cache.py` 的 Redis cache。
-- 未设置 `REDIS_URL` 时不会连接 Redis，缓存路径近似空操作。
-- 缓存 key 使用文件 checksum 和 `ParseControl.fingerprint()`。
 
 ## 12. 测试体系
 
@@ -610,6 +650,16 @@ make validate-vnext-1-0
 - 新同事拿不到私有样本时，优先跑 smoke、unit、contract。
 - 涉及真实样本回归时，联系团队获取 fixture 权限。
 
+Community 三件套可使用统一验证程序检查 JSON Schema、完整记录、completeness、CSV
+行数与主键顺序、审计 CSV、Markdown DMP 合同。支付流水还可以检查 Markdown 中不存在
+被错误渲染成表头的交易记录：
+
+```bash
+python3 scripts/validate/validate_community_artifacts.py \
+  output/<task_id>/001_community.json \
+  --payment-markdown-parity
+```
+
 ## 13. 改动类型与推荐验证
 
 | 改动类型 | 重点文件 | 推荐验证 |
@@ -621,6 +671,7 @@ make validate-vnext-1-0
 | 表格逻辑变化 | `tables/`、`ocr/micro_grid/`、相关 plugin | table unit、extract gates、bank/payment regression |
 | API 合同变化 | `server/api.py`、`server/schemas.py`、SDK | OpenAPI、SDK build、e2e API tests |
 | CLI 输出变化 | `cli/main.py`、`__main__.py`、`edition_outputs.py` | CLI contract、four-file output、artifact manifest |
+| Community 三件套变化 | `output/community_bundle.py`、`output/markdown_renderer.py`、Community schema | `test_community_artifact_validator.py`、Community Bundle unit、支付真实样本回归 |
 | 发布/打包变化 | `pyproject.toml`、`Dockerfile`、release scripts | `validate_oss_release.py`、wheel smoke、Docker health |
 
 ## 14. 质量门与发布
@@ -708,13 +759,14 @@ API 部署建议：
 5. 如果需要外部转换器，配置 `binding.transcode`。
 6. 加 unit/contract/e2e 测试。
 
-### 16.2 新增一个 output format
+### 16.2 调整固定交付契约
 
-1. 在 `docmirror/output/exporters/` 实现 exporter。
-2. 在 `dispatch.py` 注册格式名。
-3. 更新 `OutputFormat` 类型和 `parse_output_formats()`。
-4. 更新 CLI/API/SDK 文档。
-5. 加输出 contract 测试。
+固定交付契约属于产品级变更，不通过新增普通请求参数扩展。需要新增产物时：
+
+1. 证明产物对所有调用方式都成立，或属于受授权约束的独立 Edition。
+2. Projector 必须只读 `ParseResult`，不得依赖 Mirror 或其他 Edition。
+3. Writer 只接收已完成的投影并原子写盘。
+4. 同步更新 CLI/API/SDK 契约测试与 Manifest schema。
 
 ### 16.3 调整 Mirror 投影
 
@@ -780,9 +832,8 @@ pip install "docmirror[server]"
 尝试：
 
 ```bash
-docmirror scan.pdf --mirror --mode accurate --ocr force --debug-artifact
+docmirror scan.pdf --mode accurate --ocr force
 docmirror scan.pdf --ocr-locale zh-CN --ocr-correction-pack customer.finance
-docmirror scan.pdf --profile forensic --geometry full --debug-artifact
 ```
 
 纠错策略可选 `safe`（唯一、可验证候选自动应用）、`suggest`（只记录候选）和
@@ -795,11 +846,11 @@ docmirror scan.pdf --profile forensic --geometry full --debug-artifact
 对其他客户请求自动生效。维护和回放命令：
 
 ```bash
-docmirror ocr-correction validate
-docmirror ocr-correction list-packs
-docmirror ocr-correction explain "营业牧入" --locale zh-CN --domain financial_report --role field_label
-docmirror ocr-correction evaluate ./golden_samples --fail-on-regression
-docmirror ocr-correction export-candidates mirror.json review.jsonl
+docmirror ocr check
+docmirror ocr packs
+docmirror ocr explain "营业牧入" --locale zh-CN --domain financial_report --role field_label
+docmirror ocr eval ./golden_samples --fail-on-regression
+docmirror ocr export mirror.json review.jsonl
 ```
 
 新增规则必须同时提供正例、反例和幂等测试。格式校验器只能报告合法性；只有存在可靠
@@ -816,7 +867,6 @@ docmirror ocr-correction export-candidates mirror.json review.jsonl
 
 检查：
 
-- 是否请求了 edition：高级兼容参数 `--editions enterprise,finance` 或 API `editions=all`。
 - 是否安装了 `docmirror_enterprise` / `docmirror_finance`。
 - license/entitlement 是否满足。
 - `manifest.json` 的 `edition_availability`。

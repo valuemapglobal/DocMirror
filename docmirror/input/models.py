@@ -6,7 +6,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+
+from docmirror.configs.format.models import FormatCapability
 
 
 @dataclass
@@ -112,3 +115,40 @@ class InputAcceptanceReport:
                 "suggestion": self.decision.suggestion,
             },
         }
+
+
+@dataclass(frozen=True)
+class AcceptedSource:
+    """Immutable, fully-probed input accepted for parser dispatch."""
+
+    path: Path
+    original_name: str
+    size_bytes: int
+    detected_mime: str
+    sha256: str
+    capability: FormatCapability
+    acceptance: InputAcceptanceReport
+    declared_mime: str = ""
+    is_forged: bool | None = None
+    forgery_reasons: tuple[str, ...] = ()
+
+
+class InputRejectedError(ValueError):
+    """Raised when an input cannot be converted into an AcceptedSource."""
+
+    def __init__(self, report: InputAcceptanceReport):
+        self.report = report
+        self.code = str(report.decision.reason or "INPUT_REJECTED").split(":", 1)[0]
+        super().__init__(str(report.decision.reason or "Input rejected"))
+
+
+__all__ = [
+    "AcceptedSource",
+    "CapabilityReport",
+    "InputAcceptanceReport",
+    "InputDecisionReport",
+    "InputProbeReport",
+    "InputRejectedError",
+    "ResourceGateReport",
+    "SafetyGateReport",
+]

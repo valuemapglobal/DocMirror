@@ -15,6 +15,7 @@ from docmirror_finance.plugins.alipay_payment.plugin import (
     AlipayPaymentFinancePlugin,
     _is_valid_timestamp,
 )
+
 from tests.contract.test_edition_schema_conformance import check_finance
 
 pytestmark = pytest.mark.unit

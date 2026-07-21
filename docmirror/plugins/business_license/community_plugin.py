@@ -11,7 +11,7 @@ Premium community plugin for Chinese business registration certificates (key-val
 archetype). Maps identity labels (company name, USCC, legal representative, etc.),
 validates USCC checksum in enrich step, and emits v2.0 community JSON.
 
-Pipeline role: ``runner._run_community_extract`` invokes ``extract_from_mirror``;
+Pipeline role: ``runner._run_community_recognition`` invokes ``recognize``;
 ``build_domain_data`` provides KV fallback for raw entity paths.
 
 Key exports: ``BusinessLicensePlugin``, ``plugin``.
@@ -80,7 +80,7 @@ class BusinessLicensePlugin(DomainPlugin):
             },
         )
 
-    def extract_from_mirror(self, parse_result, text: str = ""):
+    def recognize(self, parse_result, text: str = ""):
         from docmirror.plugins._base.kv_community_enrich import enrich_business_license_output
         from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
 

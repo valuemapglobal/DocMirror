@@ -404,14 +404,16 @@ def _overdue_from_personal_accounts(accounts: list[dict[str, Any]]) -> list[dict
 def _extract_enterprise(parse_result: Any, full_text: str) -> dict[str, Any]:
     text = _linear(full_text)
     page_texts = _page_texts(parse_result)
-    accounts = _enterprise_accounts(text, page_texts)
+    table_accounts = _enterprise_accounts_from_canonical_tables(parse_result)
+    accounts = _merge_enterprise_accounts(table_accounts, _enterprise_accounts(text, page_texts))
     credit_lines = _enterprise_credit_lines(text, page_texts)
     public_records = _enterprise_public_records(full_text, page_texts)
-    summary = _enterprise_summary(text)
+    summary = _enterprise_summary(text, parse_result=parse_result)
     summary.update(
         {
             "source": "enterprise_native_text",
             "extracted_account_count": len(accounts),
+            "canonical_table_account_count": len(table_accounts),
             "credit_line_count": len(credit_lines),
             "public_record_count": len(public_records),
         }
@@ -426,22 +428,167 @@ def _extract_enterprise(parse_result: Any, full_text: str) -> dict[str, Any]:
     }
 
 
-def _enterprise_summary(text: str) -> dict[str, Any]:
-    summary: dict[str, Any] = {}
+def _enterprise_accounts_from_canonical_tables(parse_result: Any) -> list[dict[str, Any]]:
+    """Extract enterprise account identity/detail fields from physical tables.
+
+    This is intentionally a domain mapper, not a table reconstructor.  It only
+    consumes the canonical ``raw_rows`` and cell provenance already produced by
+    the generic PDF pipeline.
+    """
+    schemas_by_width: dict[int, dict[str, int]] = {}
+    records: dict[str, dict[str, Any]] = {}
+    for page in getattr(parse_result, "pages", []) or []:
+        page_number = int(getattr(page, "page_number", 0) or 0)
+        for table in getattr(page, "tables", []) or []:
+            metadata = dict(getattr(table, "metadata", None) or {})
+            raw_rows = metadata.get("raw_rows") if isinstance(metadata.get("raw_rows"), list) else []
+            rows = [[_compact(str(value or "")) for value in row] for row in raw_rows if isinstance(row, list)]
+            if not rows:
+                continue
+            width = max((len(row) for row in rows), default=0)
+            for row_index, row in enumerate(rows):
+                schema = _enterprise_account_table_schema(row)
+                if schema:
+                    schemas_by_width[width] = schema
+                    continue
+                schema = schemas_by_width.get(width)
+                if not schema:
+                    continue
+                account_col = schema.get("account_identifier", 0)
+                raw_identifier = row[account_col] if account_col < len(row) else ""
+                account_identifier = re.sub(r"[^A-Z0-9]", "", raw_identifier.upper())
+                if len(account_identifier) < 12 or not re.search(r"[A-Z]", account_identifier):
+                    continue
+                values = {field: row[col] if col < len(row) else "" for field, col in schema.items()}
+                record = records.setdefault(
+                    account_identifier,
+                    {
+                        "account_id": f"credit_account:{account_identifier}",
+                        "account_identifier": account_identifier,
+                        "account_type": "enterprise_credit",
+                        "account_status": "active",
+                        "source": "canonical_physical_table",
+                        "source_refs": [],
+                        "confidence": 1.0,
+                    },
+                )
+                source_ref = {
+                    "source": "canonical_physical_table",
+                    "page": page_number,
+                    "table_id": str(getattr(table, "table_id", "") or ""),
+                    "row": row_index,
+                }
+                if source_ref not in record["source_refs"]:
+                    record["source_refs"].append(source_ref)
+                _set_if_value(record, "management_institution", values.get("management_institution"))
+                _set_if_value(record, "business_type", values.get("business_type"))
+                open_date = _iso_date(values.get("open_date", ""))
+                due_date = _iso_date(values.get("due_date", ""))
+                close_date = _iso_date(values.get("close_date", ""))
+                if open_date:
+                    record["open_date"] = open_date
+                if due_date:
+                    record["due_date"] = due_date
+                if close_date:
+                    record["close_date"] = close_date
+                    record["account_status"] = "settled"
+                currency = _currency_code(values.get("currency", ""))
+                if currency:
+                    record["currency"] = currency
+                amount = _number(values.get("loan_amount", ""))
+                if amount is not None:
+                    record["loan_amount"] = amount
+    return list(records.values())
+
+
+def _enterprise_account_table_schema(row: list[str]) -> dict[str, int]:
+    aliases = {
+        "account_identifier": ("账户编号", "账户号"),
+        "management_institution": ("授信机构",),
+        "business_type": ("业务种类", "业务类型"),
+        "open_date": ("开立日期", "开户日期"),
+        "due_date": ("到期日", "到期日期"),
+        "close_date": ("关闭日期", "结清日期"),
+        "currency": ("币种",),
+        "loan_amount": ("借款金额", "贴现金额", "授信金额"),
+    }
+    schema: dict[str, int] = {}
+    for col_index, label in enumerate(row):
+        for field, candidates in aliases.items():
+            if any(candidate in label for candidate in candidates):
+                schema.setdefault(field, col_index)
+    required = {"account_identifier", "open_date", "due_date", "currency", "loan_amount"}
+    return schema if required.issubset(schema) else {}
+
+
+def _merge_enterprise_accounts(
+    canonical: list[dict[str, Any]],
+    narrative: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    narrative_identifiers = {
+        str(item.get("account_identifier") or "") for item in narrative if item.get("account_identifier")
+    }
+    by_identifier: dict[str, dict[str, Any]] = {
+        identifier: dict(item)
+        for item in canonical
+        if (identifier := str(item.get("account_identifier") or ""))
+        and not (
+            identifier not in narrative_identifiers
+            and any(candidate.startswith(identifier) for candidate in narrative_identifiers)
+        )
+    }
+    for item in narrative:
+        identifier = str(item.get("account_identifier") or "")
+        if not identifier or identifier not in by_identifier:
+            if identifier:
+                by_identifier[identifier] = dict(item)
+            continue
+        target = by_identifier[identifier]
+        for key, value in item.items():
+            if key == "source_refs":
+                refs = list(target.get("source_refs") or [])
+                for ref in value or []:
+                    if ref not in refs:
+                        refs.append(ref)
+                target["source_refs"] = refs
+            elif key in {"source", "confidence"}:
+                continue
+            elif value not in (None, "", [], {}) and target.get(key) in (None, "", [], {}):
+                target[key] = value
+            elif key == "account_status" and value:
+                target[key] = value
+    return list(by_identifier.values())
+
+
+def _set_if_value(target: dict[str, Any], key: str, value: Any) -> None:
+    compact = re.sub(r"\s+", "", str(value or ""))
+    if compact and compact != "--":
+        target[key] = compact
+
+
+def _currency_code(value: str) -> str:
+    compact = _compact(value)
+    for label, code in (("人民币", "CNY"), ("美元", "USD"), ("欧元", "EUR"), ("港币", "HKD")):
+        if label in compact:
+            return code
+    return compact if compact and compact != "--" else ""
+
+
+def _enterprise_summary(text: str, *, parse_result: Any | None = None) -> dict[str, Any]:
+    summary = _enterprise_summary_from_canonical_tables(parse_result)
     first_trade = re.search(
         r"首次有信贷交易的年份\s+发生信贷交易的机构数\s+当前有未结清信贷\s*交易的机构数\s+"
         r"首次有相关还款\s*责任的年份\s+(20\d{2})\s+(\d{1,3})\s+(\d{1,3})\s+(20\d{2})",
         text[:30_000],
     )
     if first_trade:
-        summary.update(
-            {
-                "first_credit_year": int(first_trade.group(1)),
-                "credit_institution_count": int(first_trade.group(2)),
-                "active_credit_institution_count": int(first_trade.group(3)),
-                "first_repayment_responsibility_year": int(first_trade.group(4)),
-            }
-        )
+        for key, value in {
+            "first_credit_year": int(first_trade.group(1)),
+            "credit_institution_count": int(first_trade.group(2)),
+            "active_credit_institution_count": int(first_trade.group(3)),
+            "first_repayment_responsibility_year": int(first_trade.group(4)),
+        }.items():
+            summary.setdefault(key, value)
     balances = re.search(
         r"借贷交易担保交易余额([\d.]+)余额([\d.]+)其中[:：]?被追偿余额([\d.]+)",
         _compact(text[:30_000]),
@@ -468,6 +615,74 @@ def _enterprise_summary(text: str) -> dict[str, Any]:
             "enforcements": int(public_counts.group(4)),
             "administrative_penalties": int(public_counts.group(5)),
         }
+    return summary
+
+
+def _enterprise_summary_from_canonical_tables(parse_result: Any | None) -> dict[str, Any]:
+    """Read the enterprise overview row from canonical physical tables."""
+    summary: dict[str, Any] = {}
+    aliases = {
+        "first_credit_year": "首次有信贷交易的年份",
+        "credit_institution_count": "发生信贷交易的机构数",
+        "active_credit_institution_count": "当前有未结清信贷交易的机构数",
+        "first_repayment_responsibility_year": "首次有相关还款责任的年份",
+    }
+    for page in getattr(parse_result, "pages", []) or []:
+        for table in getattr(page, "tables", []) or []:
+            metadata = dict(getattr(table, "metadata", None) or {})
+            raw_rows = metadata.get("raw_rows") if isinstance(metadata.get("raw_rows"), list) else []
+            compact_rows = [[_compact(value) for value in row] for row in raw_rows if isinstance(row, list)]
+            for row_index, row in enumerate(compact_rows[:-1]):
+                if not (any("借贷交易" in value for value in row) and any("担保交易" in value for value in row)):
+                    continue
+                balance_row = compact_rows[row_index + 1]
+                if len(balance_row) >= 4 and balance_row[0] == "余额" and balance_row[2] == "余额":
+                    credit_balance = _number(balance_row[1])
+                    guarantee_balance = _number(balance_row[3])
+                    if credit_balance is not None and guarantee_balance is not None:
+                        summary.update(
+                            {
+                                "credit_balance": credit_balance,
+                                "guarantee_balance": guarantee_balance,
+                                "amount_unit": "CNY_10K",
+                            }
+                        )
+                if row_index + 2 < len(compact_rows):
+                    recovery_row = compact_rows[row_index + 2]
+                    recovered = next(
+                        (
+                            _number(recovery_row[index + 1])
+                            for index, value in enumerate(recovery_row[:-1])
+                            if "被追偿余额" in value
+                        ),
+                        None,
+                    )
+                    if recovered is not None:
+                        summary["recovered_debt_balance"] = recovered
+
+            headers = [_compact(value) for value in (getattr(table, "headers", None) or [])]
+            columns = {
+                field: next((index for index, header in enumerate(headers) if label in header), -1)
+                for field, label in aliases.items()
+            }
+            if any(index < 0 for index in columns.values()):
+                continue
+            for row in getattr(table, "rows", []) or []:
+                values = [_compact(getattr(cell, "text", cell)) for cell in (getattr(row, "cells", []) or [])]
+                projected: dict[str, int] = {}
+                for field, column in columns.items():
+                    value = values[column] if column < len(values) else ""
+                    if not value.isdigit():
+                        projected = {}
+                        break
+                    projected[field] = int(value)
+                if (
+                    projected
+                    and 1900 <= projected["first_credit_year"] <= 2100
+                    and 1900 <= projected["first_repayment_responsibility_year"] <= 2100
+                ):
+                    summary.update(projected)
+                    break
     return summary
 
 

@@ -90,10 +90,10 @@ field_schemas:
     title: Title
     content_summary: Content abstraction or summary
     key_information: Key information
-  generic_mirror:
-    note: Wildcard community fallback — fields from Mirror KV/entities; matched type in classification
+  generic_document:
+    note: Wildcard Community fallback — fields from canonical KV/entities; matched type in classification
     matched_document_type: Preserved real document_type from classifier
-    fields: Dynamic key-value map from Mirror
+    fields: Dynamic key-value map from ParseResult
     records: Optional logical table rows without column standardization
   vat_invoice:
     invoice_number: Invoice number

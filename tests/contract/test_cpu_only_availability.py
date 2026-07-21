@@ -14,16 +14,16 @@ Internal GA 1.0 trust design reference: W4-04.
 
 import pytest
 
-from docmirror.quality.observation import (
-    new_observation_event,
-    observation_to_dict,
-    observation_from_dict,
-)
 from docmirror.quality.aggregator import BucketedMetricsAggregator
 from docmirror.quality.ga_metrics import (
+    PLATFORM_TARGETS,
     build_ga_metrics_report,
     validate_ga_metrics_report_strict,
-    PLATFORM_TARGETS,
+)
+from docmirror.quality.observation import (
+    new_observation_event,
+    observation_from_dict,
+    observation_to_dict,
 )
 
 

@@ -203,8 +203,12 @@ def _precision_credit(output: dict[str, Any]) -> None:
     for issue in audit_issues:
         if issue.startswith("missing_evidence:"):
             _append_warning(output, f"precision:{issue}")
+        elif issue.startswith("missing_required_collection:"):
+            _append_warning(output, f"precision:{issue}")
         elif issue.startswith("reconciliation_failed:"):
             _append_warning(output, f"precision:invariant_failed:{issue}")
+        elif issue.startswith("unresolved_values:"):
+            _append_warning(output, f"precision:{issue}")
     if audit.get("conflicts"):
         _append_warning(output, "precision:candidate_conflicts")
     if audit.get("quarantined_fields"):
@@ -234,6 +238,16 @@ def _precision_credit(output: dict[str, Any]) -> None:
         _append_warning(output, "precision:invalid_format:id_number")
 
     accounts = data.get("credit_accounts") if isinstance(data.get("credit_accounts"), list) else []
+    source_content = data.get("source_content") if isinstance(data.get("source_content"), dict) else {}
+    source_text = "".join(
+        str(page.get("text") or "") for page in source_content.get("pages") or [] if isinstance(page, dict)
+    )
+    if (
+        subtype == "personal_detail"
+        and not accounts
+        and ("信贷交易信息明细" in source_text or re.search(r"账户\s*1", source_text))
+    ):
+        _append_warning(output, "precision:missing_required_collection:credit_accounts")
     if _duplicate_business_ids(accounts, "account_id"):
         _append_warning(output, "precision:duplicate_record:credit_account")
     for account in accounts:

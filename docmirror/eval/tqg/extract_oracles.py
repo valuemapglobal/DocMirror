@@ -114,15 +114,9 @@ def run_quarantine_metadata_oracle(
     track: str = "",
     tier: str = "",
 ) -> GateReport:
-    """P3-2 quarantined_tables metadata on BaseResult."""
+    """P3-2 quarantined-table facts on the canonical result."""
     report = GateReport(case_id=case_id, track=track, tier=tier)
-    base = meta.get("base")
-    if base is None:
-        report.passed = False
-        report.failures.append("quarantine oracle: missing base metadata")
-        return report
-
-    quarantined = base.metadata.get("quarantined_tables") or []
+    quarantined = meta.get("quarantined") or []
     report.metrics["quarantine_count"] = len(quarantined)
     if spec.get("require_nonempty") and not quarantined:
         report.passed = False
@@ -171,19 +165,17 @@ def run_text_snapshot_oracle(
     track: str = "",
     tier: str = "",
 ) -> GateReport:
-    """§9.2 normalized text block snapshot hash from BaseResult."""
+    """§9.2 normalized canonical text snapshot hash."""
     import hashlib
 
     report = GateReport(case_id=case_id, track=track, tier=tier)
-    base = meta.get("base")
-    if base is None:
+    result = meta.get("result") or meta.get("parse_result")
+    if result is None:
         report.passed = False
-        report.failures.append("text_snapshot: missing base metadata")
+        report.failures.append("text_snapshot: missing ParseResult")
         return report
 
-    text_lines = sorted(
-        str(b.raw_content).strip() for pg in base.pages for b in pg.blocks if b.block_type == "text" and b.raw_content
-    )
+    text_lines = sorted(str(block.content).strip() for page in result.pages for block in page.texts if block.content)
     min_lines = int(spec.get("min_text_lines") or 1)
     report.checks["min_text_lines"] = len(text_lines) >= min_lines
     if len(text_lines) < min_lines:

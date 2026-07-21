@@ -5,7 +5,7 @@
 Generic community fallback plugin.
 
 Universal community plugin for classified document types outside the six premium
-domains. Delegates ``extract_from_mirror`` to ``build_generic_community_output``,
+domains. Delegates ``recognize`` to ``build_generic_community_output``,
 mapping Mirror entities, KV pairs, tables, outlines and repeated text rows into
 an adaptive v2.0 envelope with ``community_generic_fallback`` warning.
 
@@ -15,7 +15,7 @@ enterprise-only types; gated by ``community.is_community_generic_enabled`` and
 
 Key exports: ``GenericCommunityPlugin``, ``plugin``.
 
-Dependencies: ``DomainPlugin``, ``generic_mirror_adapter.build_generic_community_output``.
+Dependencies: ``DomainPlugin``, ``generic_community_adapter.build_generic_community_output``.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from docmirror.plugins._base.generic_mirror_adapter import build_generic_community_output
+from docmirror.plugins._base.generic_community_adapter import build_generic_community_output
 from docmirror.plugins._runtime.plugin_registry import DomainPlugin
 
 
@@ -46,7 +46,7 @@ class GenericCommunityPlugin(DomainPlugin):
     def scene_keywords(self) -> Sequence[str]:
         return ()
 
-    def extract_from_mirror(self, parse_result, text: str = "") -> dict[str, Any]:
+    def recognize(self, parse_result, text: str = "") -> dict[str, Any]:
         detected_type = getattr(getattr(parse_result, "entities", None), "document_type", "") or "generic"
         if detected_type in ("", "unknown", "generic"):
             detected_type = "generic"

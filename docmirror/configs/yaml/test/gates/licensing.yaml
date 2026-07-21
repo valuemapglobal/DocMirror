@@ -40,7 +40,7 @@ cases:
     gates:
       is_entitled: { equals: false }
 
-  - id: lic05_expired_degrades_enterprise
+  - id: lic05_expired_rejects_enterprise
     tier: regression
     pipeline: licensing
     editions: [enterprise]
@@ -52,7 +52,8 @@ cases:
       document_type: audit_report
     gates:
       is_entitled: { equals: false }
-      has_license_warning: { equals: true }
+      projection_generated: { equals: false }
+      has_license_warning: { equals: false }
 
   - id: lic06_grace_period_still_entitled
     tier: regression

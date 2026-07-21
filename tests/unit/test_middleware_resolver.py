@@ -30,16 +30,26 @@ def test_fixed_layout_standard_pipeline():
         "InstitutionDetector",
         "Validator",
         "LlmDocumentRestorer",
+        "HeaderInferrer",
+        "HeaderAlignment",
     ]:
         assert required in names
+    assert names.index("GeometricReconstructor") < names.index("LlmDocumentRestorer")
+    assert names.index("LlmDocumentRestorer") < names.index("HeaderInferrer")
+    assert names.index("HeaderInferrer") < names.index("HeaderAlignment")
+    assert names.index("HeaderAlignment") < names.index("EntityExtractor")
     assert names.index("EntityExtractor") < names.index("EvidenceEngine")
-    assert names.index("EvidenceEngine") < names.index("Validator")
+    assert names.index("EvidenceEngine") < names.index("InstitutionDetector")
+    assert names.index("InstitutionDetector") < names.index("Validator")
 
 
 def test_fixed_layout_full_includes_tuh():
     names = resolve_pipeline("fixed_layout_rasterizable", "full", _empty_result())
     assert "LanguageDetector" in names
-    assert "HeaderInferrer" not in names  # no tables
+    assert "GeometricReconstructor" in names
+    assert "LlmDocumentRestorer" in names
+    assert "HeaderInferrer" in names
+    assert names.index("LlmDocumentRestorer") < names.index("HeaderInferrer")
     assert "AnomalyDetector" not in names  # disabled unless DOCMIRROR_ENABLE_ANOMALY=1
 
 
@@ -49,7 +59,7 @@ def test_anomaly_detector_when_env_enabled(monkeypatch):
     assert "AnomalyDetector" in names
 
 
-def test_header_inferrer_when_has_tables():
+def test_header_inferrer_is_resolved_independent_of_initial_table_count():
     from docmirror.models.entities.parse_result import PageContent, TableBlock
 
     pr = _empty_result()

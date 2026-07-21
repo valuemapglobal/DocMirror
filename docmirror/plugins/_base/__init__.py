@@ -4,7 +4,7 @@ Shared helpers for community plugin implementations.
 Provides classification block construction and keyword matching utilities used
 when serializing edition JSON from plugin extract output.
 
-Pipeline role: ``runner._mirror_only_payload`` and ``generic_mirror_adapter`` call
+Pipeline role: the runner and ``generic_community_adapter`` call
 ``build_classification_block`` to populate the user-facing classification section;
 plugins pass scene keywords for optional debug-only ``matched_keywords``.
 

@@ -284,7 +284,6 @@ def test_output_builder_defaults_core_mirror_to_vnext():
     outputs = build_all_projections(
         _sample_parse_result(),
         file_path="/tmp/statement.pdf",
-        editions=(),
     )
 
     mirror = outputs["mirror"]

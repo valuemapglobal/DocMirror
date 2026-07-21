@@ -165,7 +165,7 @@ class BankStyleDetector:
                 return 0.0
             if not table_has_signed_amount_cells(ctx.tables):
                 return 0.0
-            if ctx.reconstruction and ctx.reconstruction.source not in ("spaced_ocr", "mirror_table", None):
+            if ctx.reconstruction and ctx.reconstruction.source not in ("spaced_ocr", "canonical_table", None):
                 return 0.0
             score += 0.45
 

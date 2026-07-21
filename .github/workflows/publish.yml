@@ -44,13 +44,13 @@ jobs:
             echo "Release tag must point to the current main commit" >&2
             exit 1
           }
-      - name: Verify current main CI for the owner-approved 1.0.8 release
-        if: steps.release_version.outputs.package_version == '1.0.8'
+      - name: Verify current main CI for an owner-approved immediate release
+        if: steps.release_version.outputs.package_version == '1.0.8' || steps.release_version.outputs.package_version == '1.0.10'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/validate/validate_release_commit_ci.py
       - name: Verify 14 complete UTC days of green main CI
-        if: steps.release_version.outputs.package_version != '1.0.8'
+        if: steps.release_version.outputs.package_version != '1.0.8' && steps.release_version.outputs.package_version != '1.0.10'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/validate/validate_ci_green_window.py --min-days 14

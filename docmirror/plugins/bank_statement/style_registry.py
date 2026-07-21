@@ -9,7 +9,7 @@ runs the primary parser chain, scores record completeness with CAPS coverage,
 and falls back to ``grid_standard`` / ``borderless_ocr`` when primary is sparse.
 
 Pipeline role: core dispatch layer between ``BankStyleDetector`` and canonical
-record builders inside ``community_plugin.extract_from_mirror``.
+record builders inside ``community_plugin.recognize``.
 
 Key exports: ``BankStyleParserRegistry``.
 
@@ -24,7 +24,7 @@ from typing import Any
 
 from docmirror.plugins.bank_statement.canonical import ensure_canonical_normalized, records_from_raw_transactions
 from docmirror.plugins.bank_statement.context import StyleContext
-from docmirror.plugins.bank_statement.mirror_atom_table_recovery import recover_mirror_atom_bank_tables
+from docmirror.plugins.bank_statement.evidence_atom_table_recovery import recover_evidence_atom_bank_tables
 from docmirror.plugins.bank_statement.ocr_implicit_table_recovery import (
     recover_ocr_implicit_ledger_tables,
     recovered_ocr_implicit_row_count,
@@ -219,7 +219,7 @@ class BankStyleParserRegistry:
         expected = _expected_rows(ctx)
         primary_parser = (detection.parser_chain or ["grid_standard"])[-1]
         primary_score, coverage = _parser_score(transactions, normalize_fn, plugin, expected)
-        atom_tables = recover_mirror_atom_bank_tables(ctx.parse_result)
+        atom_tables = recover_evidence_atom_bank_tables(ctx.parse_result)
         if atom_tables:
             atom_count = sum(max(len(table) - 1, 0) for table in atom_tables)
             atom_expected = max(expected, atom_count)
@@ -240,12 +240,12 @@ class BankStyleParserRegistry:
                 if ctx.reconstruction is not None:
                     ctx.reconstruction = replace(
                         ctx.reconstruction,
-                        source="mirror_atom_table",
+                        source="canonical_evidence_table",
                         expected_primary_rows=atom_expected,
                         pipe_parse_failed=False,
                     )
                 logger.info(
-                    "[BankStyleRegistry] Mirror atom table recovery rows=%d score=%.2f",
+                    "[BankStyleRegistry] canonical evidence table recovery rows=%d score=%.2f",
                     len(atom_batch),
                     atom_score,
                 )

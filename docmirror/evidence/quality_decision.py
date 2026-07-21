@@ -135,7 +135,6 @@ def build_quality_decision(
     document_id: str = "",
     task_id: str = "",
     confidence_policy: str = "ga_default_v1",
-    threshold_auto_ingest: float = 0.85,
     threshold_needs_review: float = 0.50,
 ) -> QualityDecisionReport:
     """Build a Quality Decision Report v2 from evidence sources.
@@ -154,7 +153,6 @@ def build_quality_decision(
         document_id: Document identifier.
         task_id: Task identifier.
         confidence_policy: Policy name (default: ga_default_v1).
-        threshold_auto_ingest: Minimum confidence for auto_ingest.
         threshold_needs_review: Confidence below this triggers needs_review.
 
     Returns:

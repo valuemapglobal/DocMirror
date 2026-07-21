@@ -125,3 +125,68 @@ type ParseOptions struct {
 	Format          string `json:"format,omitempty"`
 	DocTypeHint     string `json:"doc_type_hint,omitempty"`
 }
+
+// ── Community Bundle 3.0 ──
+
+// CommunityBundle is the self-contained Community structured API response.
+type CommunityBundle struct {
+	Schema   CommunitySchema    `json:"schema"`
+	Document map[string]any     `json:"document"`
+	Sections []map[string]any   `json:"sections"`
+	Datasets []CommunityDataset `json:"datasets"`
+	Files    map[string]string  `json:"files"`
+	Warnings []map[string]any   `json:"warnings"`
+}
+
+type CommunitySchema struct {
+	Name         string `json:"name"`
+	Version      string `json:"version"`
+	Edition      string `json:"edition"`
+	Domain       string `json:"domain"`
+	SupportLevel string `json:"support_level"`
+}
+
+type CommunityDataset struct {
+	ID            string                `json:"id"`
+	Name          string                `json:"name"`
+	Label         string                `json:"label"`
+	Type          string                `json:"type"`
+	SectionID     string                `json:"section_id"`
+	CSV           string                `json:"csv"`
+	RowCount      int                   `json:"row_count"`
+	Grain         string                `json:"grain"`
+	PrimaryKey    string                `json:"primary_key"`
+	SchemaVersion string                `json:"schema_version"`
+	Status        string                `json:"status"`
+	Columns       []CommunityColumn     `json:"columns"`
+	Completeness  CommunityCompleteness `json:"completeness"`
+	Rows          []CommunityRecord     `json:"rows"`
+}
+
+type CommunityColumn struct {
+	Key               string `json:"key"`
+	Label             string `json:"label"`
+	Type              string `json:"type"`
+	Unit              string `json:"unit,omitempty"`
+	Nullable          bool   `json:"nullable"`
+	RawAvailable      bool   `json:"raw_available"`
+	EvidenceAvailable bool   `json:"evidence_available"`
+}
+
+type CommunityCompleteness struct {
+	ExpectedRowCount int    `json:"expected_row_count"`
+	EmittedRowCount  int    `json:"emitted_row_count"`
+	OmittedRowCount  int    `json:"omitted_row_count"`
+	Verified         bool   `json:"verified"`
+	Basis            string `json:"basis"`
+}
+
+type CommunityRecord struct {
+	RecordID     string         `json:"record_id"`
+	Normalized   map[string]any `json:"normalized"`
+	CanonicalRaw map[string]any `json:"canonical_raw"`
+	Raw          map[string]any `json:"raw"`
+	Source       map[string]any `json:"source"`
+	Confidence   any            `json:"confidence,omitempty"`
+	Review       map[string]any `json:"review,omitempty"`
+}

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://valuemapglobal.github.io/DocMirror/schemas/community_bundle.schema.json",
+  "title": "DocMirror Community Bundle JSON v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "document", "sections", "datasets", "files", "warnings"],
+  "properties": {
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "edition", "domain", "support_level"],
+      "properties": {
+        "name": {"const": "docmirror.community"},
+        "version": {"const": "3.0.0"},
+        "edition": {"const": "community"},
+        "domain": {"type": "string", "minLength": 1},
+        "support_level": {"enum": ["ga", "beta", "generic", "unsupported"]}
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "title", "page_count", "language", "source_file", "units"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "type": {"type": "string", "minLength": 1},
+        "title": {"type": "string"},
+        "page_count": {"type": "integer", "minimum": 0},
+        "language": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "source_file": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "mime_type", "sha256"],
+          "properties": {
+            "name": {"type": "string"},
+            "mime_type": {"type": "string"},
+            "sha256": {"type": "string"}
+          }
+        },
+        "units": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/section"}
+    },
+    "datasets": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/dataset"}
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_md", "datasets_dir", "dataset_audit_csv"],
+      "properties": {
+        "content_md": {"type": "string", "pattern": "_content\\.md$"},
+        "datasets_dir": {"type": "string", "pattern": "_datasets$"},
+        "dataset_audit_csv": {"type": "string", "pattern": "_datasets/_audit_cells\\.csv$"}
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "level", "message"],
+        "properties": {
+          "code": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
+          "level": {"enum": ["info", "warning", "error"]},
+          "message": {"type": "string"},
+          "section_id": {"type": "string"},
+          "dataset_id": {"type": "string"},
+          "page_range": {"$ref": "#/$defs/pageRange"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "pageRange": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": 1},
+        {"type": "integer", "minimum": 1}
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label", "value", "raw", "type"],
+      "properties": {
+        "key": {"type": "string", "minLength": 1},
+        "label": {"type": "string"},
+        "value": {},
+        "raw": {"type": "string"},
+        "type": {"enum": ["string", "integer", "decimal", "money", "date", "datetime", "boolean", "enum", "text"]},
+        "unit": {"type": "string"}
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label", "items"],
+      "properties": {
+        "key": {"type": "string", "minLength": 1},
+        "label": {"type": "string"},
+        "items": {"type": "array", "items": {"$ref": "#/$defs/item"}}
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "type", "page_range", "items", "groups", "dataset_refs"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "title": {"type": "string"},
+        "type": {"type": "string", "minLength": 1},
+        "page_range": {"$ref": "#/$defs/pageRange"},
+        "items": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+        "groups": {"type": "array", "items": {"$ref": "#/$defs/group"}},
+        "dataset_refs": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label", "type", "nullable", "raw_available", "evidence_available"],
+      "properties": {
+        "key": {"type": "string", "minLength": 1},
+        "label": {"type": "string"},
+        "type": {"enum": ["string", "integer", "decimal", "money", "date", "datetime", "boolean", "enum", "text"]},
+        "unit": {"type": "string"},
+        "nullable": {"type": "boolean"},
+        "raw_available": {"type": "boolean"},
+        "evidence_available": {"type": "boolean"}
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["record_id", "normalized", "canonical_raw", "raw", "source"],
+      "properties": {
+        "record_id": {"type": "string", "minLength": 1},
+        "normalized": {"type": "object", "additionalProperties": true},
+        "canonical_raw": {"type": "object", "additionalProperties": true},
+        "raw": {"type": "object", "additionalProperties": true},
+        "source": {"type": "object", "additionalProperties": true},
+        "confidence": {"type": ["number", "string"]},
+        "review": {"type": "object", "additionalProperties": true}
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_row_count", "emitted_row_count", "omitted_row_count", "verified", "basis"
+      ],
+      "properties": {
+        "expected_row_count": {"type": "integer", "minimum": 0},
+        "emitted_row_count": {"type": "integer", "minimum": 0},
+        "omitted_row_count": {"type": "integer", "minimum": 0},
+        "verified": {"type": "boolean"},
+        "basis": {"type": "string", "minLength": 1}
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "name", "label", "type", "section_id", "csv", "row_count",
+        "grain", "primary_key", "schema_version", "status", "columns", "completeness", "rows"
+      ],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "label": {"type": "string"},
+        "type": {"type": "string", "minLength": 1},
+        "section_id": {"type": "string"},
+        "csv": {"type": "string", "pattern": "_datasets/[0-9a-z_]+\\.csv$"},
+        "row_count": {"type": "integer", "minimum": 0},
+        "grain": {"type": "string", "minLength": 1},
+        "primary_key": {"const": "record_id"},
+        "schema_version": {"const": "1.0"},
+        "status": {"enum": ["complete", "empty", "partial", "failed"]},
+        "columns": {"type": "array", "items": {"$ref": "#/$defs/column"}},
+        "completeness": {"$ref": "#/$defs/completeness"},
+        "rows": {
+          "type": "array",
+          "description": "Complete structured records for self-contained JSON API consumers.",
+          "items": {"$ref": "#/$defs/record"}
+        }
+      }
+    }
+  }
+}

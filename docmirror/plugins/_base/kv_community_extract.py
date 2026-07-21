@@ -9,12 +9,12 @@ key-value (VAT invoice, business license, credit report): match identity labels
 against Mirror KV pairs and entities, collect table records as structured data,
 and serialize via ``edition_serializer``.
 
-Pipeline role: called from domain ``community_plugin.extract_from_mirror`` methods;
+Pipeline role: called from domain ``community_plugin.recognize`` methods;
 ``runner`` may also reach KV output through ``build_domain_data`` + ``dec_builder``.
 
 Key exports: ``extract_kv_community_output``.
 
-Dependencies: ``generic_mirror_adapter`` (field/record collectors),
+Dependencies: ``generic_community_adapter`` (field/record collectors),
 ``models.edition_serializer``, ``models.entities.domain_result``.
 """
 
@@ -28,7 +28,7 @@ from typing import Any
 from docmirror.models.edition_serializer import EditionContext, edition_serializer
 from docmirror.models.entities.domain_result import DomainExtractionResult, DomainQuality
 from docmirror.models.mirror.block_fields import collect_kv_fields_from_blocks
-from docmirror.plugins._base.generic_mirror_adapter import _collect_entity_fields, _collect_table_records
+from docmirror.plugins._base.generic_community_adapter import _collect_entity_fields, _collect_table_records
 
 
 def _match_identity_fields(
@@ -126,7 +126,7 @@ def _collect_identity_field_metadata(
                 if not any(label in raw_key for label in labels):
                     continue
                 item: dict[str, Any] = {
-                    "source": "mirror_key_value",
+                    "source": "canonical_key_value",
                     "source_label": raw_key,
                     "page": page_number,
                     "confidence": round(float(getattr(kv, "confidence", 0.0) or 0.0), 4),

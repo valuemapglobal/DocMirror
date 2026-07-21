@@ -8,7 +8,7 @@ Re-exports the core typed entities used throughout DocMirror:
 
     ParseResult              Unified parser output contract (MOC)
     DomainExtractionResult   Domain plugin output protocol (DEC)
-    BaseResult, Block, PageLayout, Style, TextSpan   Physical layout models
+    Block, PageLayout, Style, TextSpan   Physical adapter fact models
 
 Import from this subpackage for stable public API access without reaching
 into individual module files.
@@ -21,7 +21,6 @@ __all__ = [
     "TextSpan",
     "Block",
     "PageLayout",
-    "BaseResult",
     "DomainExtractionResult",
     "ParseResult",
 ]
@@ -31,7 +30,6 @@ _LAZY_EXPORTS = {
     "TextSpan": ("docmirror.models.entities.domain", "TextSpan"),
     "Block": ("docmirror.models.entities.domain", "Block"),
     "PageLayout": ("docmirror.models.entities.domain", "PageLayout"),
-    "BaseResult": ("docmirror.models.entities.domain", "BaseResult"),
     "DomainExtractionResult": ("docmirror.models.entities.domain_result", "DomainExtractionResult"),
     "ParseResult": ("docmirror.models.entities.parse_result", "ParseResult"),
 }
