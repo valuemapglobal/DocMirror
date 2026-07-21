@@ -53,10 +53,11 @@ def _check_pymupdf_tagging(pdf_path: Path) -> dict:
             "errors": [f"Cannot open PDF: {e}"],
         }
 
-    # Check 1: Structure tree existence
+    # Check 1: Structure tree existence in the document catalog.
     try:
-        struct = doc.pdf_structure()
-        has_struct = struct is not None
+        xref = doc.pdf_catalog()
+        struct_type, struct_value = doc.xref_get_key(xref, "StructTreeRoot")
+        has_struct = struct_type not in {"null", ""} and bool(struct_value)
     except Exception:
         has_struct = False
     checks.append(
@@ -71,7 +72,6 @@ def _check_pymupdf_tagging(pdf_path: Path) -> dict:
 
     # Check 2: MarkInfo / Marked
     try:
-        xref = doc.pdf_catalog()
         mark_info = doc.xref_get_key(xref, "MarkInfo")
         marked = mark_info and "true" in str(mark_info[1]).lower() if mark_info else False
     except Exception:
@@ -86,10 +86,12 @@ def _check_pymupdf_tagging(pdf_path: Path) -> dict:
     if not marked:
         errors.append("MarkInfo.Marked is not set to true — document is not recognized as tagged")
 
-    # Check 3: Language metadata
+    # Check 3: Catalog language. PDF /Lang is not part of the ordinary
+    # document-info metadata exposed by ``doc.metadata``.
     try:
-        lang = doc.metadata.get("language", "") if hasattr(doc, "metadata") else ""
-        has_lang = bool(lang)
+        lang_type, lang_value = doc.xref_get_key(xref, "Lang")
+        lang = str(lang_value).strip("()") if lang_type not in {"null", ""} else ""
+        has_lang = bool(lang.strip())
     except Exception:
         has_lang = False
     checks.append(

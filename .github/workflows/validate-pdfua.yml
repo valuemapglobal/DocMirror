@@ -88,9 +88,9 @@
            version = PdfUaVersion.PDFUA_2 if '${{ matrix.pdfua-version }}' == 'UA-2' else PdfUaVersion.PDFUA_1
            result = export_pdfua(dmir, output_path='/tmp/test_pdfua.pdf',
                                  title='Test Document', language='en-US',
-                                 schema_version=version)
+                                 version=version)
            assert result.success, f'Export failed: {result.errors}'
-           print(f'PDF/UA-{version.value} export: SUCCESS, {result.page_count} pages, {len(result.warnings)} warnings')
+           print(f'{version.value} export: SUCCESS, {result.page_count} pages, {len(result.warnings)} warnings')
            "
 
        - name: Validate PDF/UA compliance

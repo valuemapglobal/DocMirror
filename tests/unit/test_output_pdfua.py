@@ -224,6 +224,7 @@ class TestPdfUaExport:
         try:
             import fitz  # noqa: F401
             import pypdf  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -276,21 +277,23 @@ class TestPdfUaExport:
             pytest.skip("PyMuPDF and/or pypdf not installed")
 
         dmir = _minimal_dmir()
-        dmir["document"]["pages"].append({
-            "page_number": 2,
-            "width_pt": 595.0,
-            "height_pt": 842.0,
-            "texts": [
-                {
-                    "content": "Page 2 Content",
-                    "level": "body",
-                    "reading_order": 0,
-                    "bbox": [50.0, 100.0, 545.0, 120.0],
-                }
-            ],
-            "tables": [],
-            "key_values": [],
-        })
+        dmir["document"]["pages"].append(
+            {
+                "page_number": 2,
+                "width_pt": 595.0,
+                "height_pt": 842.0,
+                "texts": [
+                    {
+                        "content": "Page 2 Content",
+                        "level": "body",
+                        "reading_order": 0,
+                        "bbox": [50.0, 100.0, 545.0, 120.0],
+                    }
+                ],
+                "tables": [],
+                "key_values": [],
+            }
+        )
 
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             output_path = tmp.name
@@ -321,6 +324,11 @@ class TestPdfUaExport:
             assert result.success is True
             assert result.metadata["language"] == "de-DE"
             assert "Custom Report" in result.metadata["title"]
+
+            from scripts.validate_pdfua import _check_pymupdf_tagging
+
+            validation = _check_pymupdf_tagging(Path(output_path))
+            assert validation["passed"] is True, validation["errors"]
         finally:
             Path(output_path).unlink(missing_ok=True)
 
@@ -358,6 +366,7 @@ class TestPdfUaExport:
     def test_export_pdfua_without_deps_raises(self):
         """If deps missing, an ImportError is raised when calling export."""
         import sys
+
         # We can't actually uninstall deps in test; skip this test for now
         # since deps ARE installed. The unit test for _ensure_fitz covers the error case.
         pytest.skip("Dependencies are installed; error path covered by _ensure_fitz")
@@ -397,14 +406,16 @@ class TestPdfUaBuildStructTree:
             pytest.skip("pypdf not installed")
 
         dmir = _minimal_dmir()
-        dmir["document"]["pages"].append({
-            "page_number": 2,
-            "width_pt": 595.0,
-            "height_pt": 842.0,
-            "texts": [{"content": "P2", "level": "body", "reading_order": 0}],
-            "tables": [],
-            "key_values": [],
-        })
+        dmir["document"]["pages"].append(
+            {
+                "page_number": 2,
+                "width_pt": 595.0,
+                "height_pt": 842.0,
+                "texts": [{"content": "P2", "level": "body", "reading_order": 0}],
+                "tables": [],
+                "key_values": [],
+            }
+        )
 
         page_refs = [None, None]
         elements = build_pdfua_struct_tree(dmir, page_refs)
@@ -454,13 +465,22 @@ class TestPdfUaMCIDInjection:
         },
         "quality": {"confidence": 0.9, "trust_score": 0.9},
         "evidence": {"ledger": {}, "summary": {"total_events": 0}},
-        "meta": {"parser": "DocMirror", "version": "1.0.0", "elapsed_ms": 1, "page_count": 1, "table_count": 0, "row_count": 0, "dmir_version": "1.0"},
+        "meta": {
+            "parser": "DocMirror",
+            "version": "1.0.0",
+            "elapsed_ms": 1,
+            "page_count": 1,
+            "table_count": 0,
+            "row_count": 0,
+            "dmir_version": "1.0",
+        },
     }
 
     def _have_all_deps(self):
         try:
             import fitz  # noqa: F401
             import pypdf  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -473,6 +493,7 @@ class TestPdfUaMCIDInjection:
         from pathlib import Path
 
         from docmirror.output.exporters.pdfua import export_pdfua
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             output_path = tmp.name
         try:
@@ -480,18 +501,13 @@ class TestPdfUaMCIDInjection:
             assert result.success, f"Export failed: {result.errors}"
             from pypdf import PdfReader
             from pypdf.generic import ContentStream
+
             reader = PdfReader(output_path)
             for page in reader.pages:
                 cs = ContentStream(page.get("/Contents"), reader)
                 ops = cs.operations
-                has_bdc = any(
-                    isinstance(op, tuple) and len(op) == 2 and op[1] == b"BDC"
-                    for op in ops
-                )
-                has_emc = any(
-                    isinstance(op, tuple) and len(op) == 2 and op[1] == b"EMC"
-                    for op in ops
-                )
+                has_bdc = any(isinstance(op, tuple) and len(op) == 2 and op[1] == b"BDC" for op in ops)
+                has_emc = any(isinstance(op, tuple) and len(op) == 2 and op[1] == b"EMC" for op in ops)
                 assert has_bdc, "No BDC operator on page"
                 assert has_emc, "No EMC operator on page"
         finally:
@@ -505,17 +521,20 @@ class TestPdfUaMCIDInjection:
         from pathlib import Path
 
         from docmirror.output.exporters.pdfua import export_pdfua
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             output_path = tmp.name
         try:
             result = export_pdfua(self._DMIR, output_path=output_path)
             assert result.success, f"Export failed: {result.errors}"
             from pypdf import PdfReader
+
             reader = PdfReader(output_path)
             catalog = reader.trailer["/Root"]
             st = catalog["/StructTreeRoot"].get_object()
             page_kids = st.get("/K", [])
             mcr_found = False
+
             def _walk(kids):
                 nonlocal mcr_found
                 for k in kids:
@@ -524,6 +543,7 @@ class TestPdfUaMCIDInjection:
                         if obj.get("/Type") == "/MCR":
                             mcr_found = True
                         _walk(obj.get("/K", []))
+
             _walk(page_kids)
             assert mcr_found, "No /MCR entries found in structure tree"
         finally:
@@ -539,26 +559,41 @@ class TestPdfUaMCIDInjection:
                 "type": "multipage",
                 "pages": [
                     {
-                        "page_number": 1, "width_pt": 595.0, "height_pt": 842.0,
+                        "page_number": 1,
+                        "width_pt": 595.0,
+                        "height_pt": 842.0,
                         "texts": [{"content": "Page 1", "level": "h1", "reading_order": 0, "bbox": [50, 30, 545, 60]}],
-                        "tables": [], "key_values": [],
+                        "tables": [],
+                        "key_values": [],
                     },
                     {
-                        "page_number": 2, "width_pt": 595.0, "height_pt": 842.0,
+                        "page_number": 2,
+                        "width_pt": 595.0,
+                        "height_pt": 842.0,
                         "texts": [{"content": "Page 2", "level": "h1", "reading_order": 0, "bbox": [50, 30, 545, 60]}],
-                        "tables": [], "key_values": [],
+                        "tables": [],
+                        "key_values": [],
                     },
                 ],
                 "full_text": "Page 1\n\nPage 2",
             },
             "quality": {"confidence": 0.9, "trust_score": 0.9},
             "evidence": {"ledger": {}, "summary": {"total_events": 0}},
-            "meta": {"parser": "DocMirror", "version": "1.0.0", "elapsed_ms": 1, "page_count": 2, "table_count": 0, "row_count": 0, "dmir_version": "1.0"},
+            "meta": {
+                "parser": "DocMirror",
+                "version": "1.0.0",
+                "elapsed_ms": 1,
+                "page_count": 2,
+                "table_count": 0,
+                "row_count": 0,
+                "dmir_version": "1.0",
+            },
         }
         import tempfile
         from pathlib import Path
 
         from docmirror.output.exporters.pdfua import export_pdfua
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             output_path = tmp.name
         try:
@@ -567,14 +602,14 @@ class TestPdfUaMCIDInjection:
             assert result.page_count == 2
             from pypdf import PdfReader
             from pypdf.generic import ContentStream
+
             reader = PdfReader(output_path)
             for i, page in enumerate(reader.pages):
                 cs = ContentStream(page.get("/Contents"), reader)
                 ops = cs.operations
-                assert any(
-                    isinstance(op, tuple) and len(op) == 2 and op[1] == b"BDC"
-                    for op in ops
-                ), f"Page {i+1} has no BDC operator"
+                assert any(isinstance(op, tuple) and len(op) == 2 and op[1] == b"BDC" for op in ops), (
+                    f"Page {i + 1} has no BDC operator"
+                )
         finally:
             Path(output_path).unlink(missing_ok=True)
 
@@ -588,7 +623,9 @@ class TestPdfUaMCIDInjection:
                 "type": "mixed",
                 "pages": [
                     {
-                        "page_number": 1, "width_pt": 595.0, "height_pt": 842.0,
+                        "page_number": 1,
+                        "width_pt": 595.0,
+                        "height_pt": 842.0,
                         "texts": [
                             {"content": "Report Title", "level": "h1", "reading_order": 0, "bbox": [50, 30, 545, 60]},
                         ],
@@ -608,12 +645,21 @@ class TestPdfUaMCIDInjection:
             },
             "quality": {"confidence": 0.9, "trust_score": 0.9},
             "evidence": {"ledger": {}, "summary": {"total_events": 0}},
-            "meta": {"parser": "DocMirror", "version": "1.0.0", "elapsed_ms": 1, "page_count": 1, "table_count": 1, "row_count": 1, "dmir_version": "1.0"},
+            "meta": {
+                "parser": "DocMirror",
+                "version": "1.0.0",
+                "elapsed_ms": 1,
+                "page_count": 1,
+                "table_count": 1,
+                "row_count": 1,
+                "dmir_version": "1.0",
+            },
         }
         import tempfile
         from pathlib import Path
 
         from docmirror.output.exporters.pdfua import export_pdfua
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             output_path = tmp.name
         try:
@@ -621,14 +667,14 @@ class TestPdfUaMCIDInjection:
             assert result.success, f"Export failed: {result.errors}"
             from pypdf import PdfReader
             from pypdf.generic import ContentStream
+
             reader = PdfReader(output_path)
             page = reader.pages[0]
             cs = ContentStream(page.get("/Contents"), reader)
             ops = cs.operations
-            assert any(
-                isinstance(op, tuple) and len(op) == 2 and op[1] == b"BDC"
-                for op in ops
-            ), "No BDC operator in mixed-content page"
+            assert any(isinstance(op, tuple) and len(op) == 2 and op[1] == b"BDC" for op in ops), (
+                "No BDC operator in mixed-content page"
+            )
         finally:
             Path(output_path).unlink(missing_ok=True)
 
@@ -641,12 +687,21 @@ class TestPdfUaMCIDInjection:
             "document": {"type": "empty", "pages": []},
             "quality": {"confidence": 0.0, "trust_score": 0.0},
             "evidence": {"ledger": {}, "summary": {"total_events": 0}},
-            "meta": {"parser": "DocMirror", "version": "1.0.0", "elapsed_ms": 0, "page_count": 0, "table_count": 0, "row_count": 0, "dmir_version": "1.0"},
+            "meta": {
+                "parser": "DocMirror",
+                "version": "1.0.0",
+                "elapsed_ms": 0,
+                "page_count": 0,
+                "table_count": 0,
+                "row_count": 0,
+                "dmir_version": "1.0",
+            },
         }
         import tempfile
         from pathlib import Path
 
         from docmirror.output.exporters.pdfua import export_pdfua
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             output_path = tmp.name
         try:
