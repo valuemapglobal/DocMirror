@@ -159,7 +159,7 @@ type CommunityDataset struct {
 	SchemaVersion string               `json:"schema_version"`
 	Status        string                `json:"status"`
 	Columns       []CommunityColumn     `json:"columns"`
-	Completeness CommunityCompleteness `json:"completeness"`
+	Completeness  CommunityCompleteness `json:"completeness"`
 	Rows          []CommunityRecord     `json:"rows"`
 }
 
