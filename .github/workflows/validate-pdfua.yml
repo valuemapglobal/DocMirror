@@ -13,6 +13,7 @@
    push:
      branches: [main, dev]
      paths:
+       - ".github/workflows/validate-pdfua.yml"
        - "docmirror/output/exporters/pdfua*"
        - "docmirror/output/exporters/pdfua/**"
        - "docmirror/cli/pdfua.py"
@@ -20,9 +21,11 @@
        - "scripts/validate_pdfua.py"
    pull_request:
      paths:
+       - ".github/workflows/validate-pdfua.yml"
        - "docmirror/output/exporters/pdfua*"
        - "docmirror/output/exporters/pdfua/**"
        - "docmirror/cli/pdfua.py"
+       - "docmirror/server/api.py"
        - "scripts/validate_pdfua.py"
 
  jobs:
@@ -37,7 +40,7 @@
 
        - name: Install dependencies
          run: |
-           pip install -e ".[pdfua,test]"
+           pip install -e ".[pdf,dev]"
 
        - name: Run PDF/UA unit tests
          run: |
@@ -85,9 +88,9 @@
            version = PdfUaVersion.PDFUA_2 if '${{ matrix.pdfua-version }}' == 'UA-2' else PdfUaVersion.PDFUA_1
            result = export_pdfua(dmir, output_path='/tmp/test_pdfua.pdf',
                                  title='Test Document', language='en-US',
-                                 schema_version=version)
+                                 version=version)
            assert result.success, f'Export failed: {result.errors}'
-           print(f'PDF/UA-{version.value} export: SUCCESS, {result.page_count} pages, {len(result.warnings)} warnings')
+           print(f'{version.value} export: SUCCESS, {result.page_count} pages, {len(result.warnings)} warnings')
            "
 
        - name: Validate PDF/UA compliance
