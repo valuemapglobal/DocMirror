@@ -130,12 +130,12 @@ type ParseOptions struct {
 
 // CommunityBundle is the self-contained Community structured API response.
 type CommunityBundle struct {
-	Schema   CommunitySchema        `json:"schema"`
-	Document map[string]any         `json:"document"`
-	Sections []map[string]any       `json:"sections"`
-	Datasets []CommunityDataset     `json:"datasets"`
-	Files    map[string]string      `json:"files"`
-	Warnings []map[string]any       `json:"warnings"`
+	Schema   CommunitySchema    `json:"schema"`
+	Document map[string]any     `json:"document"`
+	Sections []map[string]any   `json:"sections"`
+	Datasets []CommunityDataset `json:"datasets"`
+	Files    map[string]string  `json:"files"`
+	Warnings []map[string]any   `json:"warnings"`
 }
 
 type CommunitySchema struct {
@@ -156,7 +156,7 @@ type CommunityDataset struct {
 	RowCount      int                   `json:"row_count"`
 	Grain         string                `json:"grain"`
 	PrimaryKey    string                `json:"primary_key"`
-	SchemaVersion string               `json:"schema_version"`
+	SchemaVersion string                `json:"schema_version"`
 	Status        string                `json:"status"`
 	Columns       []CommunityColumn     `json:"columns"`
 	Completeness  CommunityCompleteness `json:"completeness"`
