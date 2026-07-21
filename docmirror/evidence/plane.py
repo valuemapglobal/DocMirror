@@ -200,6 +200,7 @@ class EvidencePlane:
             "visual_atoms": len(self.evidence.visual_atoms),
             "image_atoms": len(self.evidence.image_atoms),
             "vector_atoms": len(self.evidence.vector_atoms),
+            "table_candidates": len((self.evidence.indexes or {}).get("table_candidates") or []),
         }
 
     def diagnostics_entry(self) -> dict[str, Any]:
@@ -255,6 +256,27 @@ class EvidencePlaneBuilder:
 
     def _from_parse_result(self, source: DocumentSource) -> EvidencePlane:
         result = source.value
+        canonical_plane = getattr(result, "evidence_plane", None)
+        runtime_plane = canonical_plane.to_runtime() if canonical_plane is not None else None
+        if isinstance(runtime_plane, EvidencePlane):
+            runtime_provenance = dict(getattr(runtime_plane.source, "provenance", None) or {})
+            runtime_provenance.update(dict(source.metadata or {}))
+            diagnostics = list(runtime_plane.diagnostics)
+            diagnostics.append(
+                {
+                    "severity": "info",
+                    "message": "reused lossless canonical evidence attached to ParseResult",
+                }
+            )
+            return EvidencePlane(
+                source=source.to_source_info(
+                    page_count=len(runtime_plane.pages),
+                    metadata=runtime_provenance,
+                ),
+                pages=list(runtime_plane.pages),
+                evidence=runtime_plane.evidence,
+                diagnostics=diagnostics,
+            )
         ids = _EvidenceIdFactory()
         pages: list[EvidencePage] = []
         evidence = EvidenceStore()
@@ -688,6 +710,7 @@ class EvidencePlaneBuilder:
         pages: list[EvidencePage] = []
         evidence = EvidenceStore()
         diagnostics: list[dict[str, Any]] = []
+        table_candidates: list[dict[str, Any]] = []
         pdf_provenance = _pypdf_provenance(path, diagnostics)
 
         try:
@@ -736,6 +759,8 @@ class EvidencePlaneBuilder:
                     ),
                     content_mode="native_text",
                 )
+                page_text_start = len(evidence.text_atoms)
+                page_vector_start = len(evidence.vector_atoms)
 
                 for word in page.get_text("words") or []:
                     x0, y0, x1, y1, text, block_no, line_no, word_no = word[:8]
@@ -775,7 +800,11 @@ class EvidencePlaneBuilder:
                         source_bbox=source_bbox,
                         coordinate_transform=coordinate_transform,
                         confidence=1.0,
-                        metadata={"drawing_index": drawing_index, "drawing_type": drawing.get("type", "")},
+                        metadata={
+                            "drawing_index": drawing_index,
+                            "drawing_type": drawing.get("type", ""),
+                            "geometry": _pdf_drawing_geometry(drawing),
+                        },
                     )
                     evidence.vector_atoms.append(atom)
                     page_record.evidence_ids.append(atom.id)
@@ -806,14 +835,34 @@ class EvidencePlaneBuilder:
                     evidence.image_atoms.append(atom)
                     page_record.evidence_ids.append(atom.id)
 
+                from docmirror.tables.native_pdf_candidates import extract_pymupdf_table_candidates
+
+                page_candidates = extract_pymupdf_table_candidates(
+                    page,
+                    page_number=page_number,
+                    page_id=page_id,
+                    normalize_bbox=lambda value: _normalize_bbox(value, page_w, page_h, rotation),
+                    text_atoms=evidence.text_atoms[page_text_start:],
+                    vector_atoms=evidence.vector_atoms[page_vector_start:],
+                )
+                table_candidates.extend(page_candidates)
+
                 if not page_record.evidence_ids:
                     page_record.content_mode = "unknown"
                 pages.append(page_record)
         finally:
             doc.close()
 
+        evidence.indexes["table_candidates"] = table_candidates
         _finalize_indexes(evidence)
         diagnostics.append({"severity": "info", "message": "built evidence plane from PDF native objects"})
+        diagnostics.append(
+            {
+                "severity": "info",
+                "message": "captured native PDF table candidates",
+                "count": len(table_candidates),
+            }
+        )
         return EvidencePlane(
             source=source.to_source_info(page_count=len(pages), metadata=pdf_provenance),
             pages=pages,
@@ -1536,6 +1585,7 @@ def _apply_coordinate_matrix(matrix: list[list[float]], x: float, y: float) -> t
 
 
 def _finalize_indexes(evidence: EvidenceStore) -> None:
+    existing_indexes = dict(evidence.indexes or {})
     by_page: dict[str, list[str]] = {}
     by_source: dict[str, list[str]] = {}
     for atom in [*evidence.text_atoms, *evidence.visual_atoms, *evidence.image_atoms, *evidence.vector_atoms]:
@@ -1543,6 +1593,7 @@ def _finalize_indexes(evidence: EvidenceStore) -> None:
         by_source.setdefault(atom.source_kind, []).append(atom.id)
     same_visual_text_candidates = _same_visual_text_candidates(evidence.text_atoms)
     evidence.indexes = {
+        **existing_indexes,
         "by_page": by_page,
         "by_source": by_source,
         "same_visual_text_candidates": same_visual_text_candidates,
@@ -1553,6 +1604,39 @@ def _finalize_indexes(evidence: EvidenceStore) -> None:
             {candidate["ocr_id"] for candidate in same_visual_text_candidates if candidate.get("ocr_id")}
         ),
     }
+
+
+def _pdf_drawing_geometry(drawing: dict[str, Any]) -> dict[str, Any]:
+    """Serialize PyMuPDF drawing primitives without losing path topology."""
+    return {
+        "items": [_pdf_geometry_value(item) for item in (drawing.get("items") or [])],
+        "stroke": _pdf_geometry_value(drawing.get("color")),
+        "fill": _pdf_geometry_value(drawing.get("fill")),
+        "stroke_width": _float_or_none(drawing.get("width")),
+        "stroke_opacity": _float_or_none(drawing.get("stroke_opacity")),
+        "fill_opacity": _float_or_none(drawing.get("fill_opacity")),
+        "dashes": str(drawing.get("dashes") or ""),
+        "line_cap": _pdf_geometry_value(drawing.get("lineCap")),
+        "line_join": _pdf_geometry_value(drawing.get("lineJoin")),
+        "close_path": bool(drawing.get("closePath", False)),
+        "layer": str(drawing.get("layer") or ""),
+        "sequence_number": _int_or_none(drawing.get("seqno")),
+    }
+
+
+def _pdf_geometry_value(value: Any) -> Any:
+    """Convert fitz Point/Rect/Quad and nested path tuples to JSON-safe data."""
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _pdf_geometry_value(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_pdf_geometry_value(item) for item in value]
+    try:
+        values = list(value)
+    except TypeError:
+        return str(value)
+    return [_pdf_geometry_value(item) for item in values]
 
 
 def _page_id(page_number: int) -> str:

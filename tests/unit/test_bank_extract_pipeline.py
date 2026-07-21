@@ -5,11 +5,11 @@
 
 from __future__ import annotations
 
+from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 from docmirror.plugins.bank_statement.extract_pipeline import (
     enrich_identity_fields,
     run_bank_statement_extract,
 )
-from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 from tests.unit.test_pipe_text_table_builder import _synthetic_boc_text
 
 

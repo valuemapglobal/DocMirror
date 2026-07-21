@@ -17,15 +17,14 @@ import pytest
 
 pytestmark = [pytest.mark.tier_contract]
 
-from docmirror.output.dmir import serialize_dmir, serialize_dmir_json
 from docmirror.models.entities.parse_result import (
     CellValue,
     DataType,
     DocumentEntities,
     ExtractionMethod,
     PageContent,
-    ParserInfo,
     ParseResult,
+    ParserInfo,
     ResultStatus,
     RowType,
     TableBlock,
@@ -34,6 +33,7 @@ from docmirror.models.entities.parse_result import (
     TextLevel,
     TrustResult,
 )
+from docmirror.output.dmir import serialize_dmir, serialize_dmir_json
 
 
 def _full_parse_result() -> ParseResult:
@@ -206,9 +206,11 @@ class TestDMIRDeterminism:
         from docmirror.server.output_builder import build_all_projections
         r1 = _full_parse_result()
         r2 = _full_parse_result()
-        p1 = build_all_projections(r1, full_text="", file_path="test.pdf", mirror_level="standard", include_text=False, request_id="t1")
+        p1 = build_all_projections(r1, file_path="test.pdf")
         serialize_dmir(r2)
-        p2 = build_all_projections(r2, full_text="", file_path="test.pdf", mirror_level="standard", include_text=False, request_id="t1")
+        p2 = build_all_projections(r2, file_path="test.pdf")
+        assert "dmir" not in p1
+        assert "dmir" not in p2
         # Strip non-deterministic fields (timestamp) before comparison
         for d in [p1["mirror"], p2["mirror"]]:
             d.pop("timestamp", None)
@@ -221,13 +223,10 @@ class TestDMIRDeterminism:
         assert dmir["meta"]["dmir_version"] == "1.0"
 
     def test_no_dmir_reference_in_server_code(self):
-        """EDITION outputs must never import serialize_dmir.
-        
-        output_builder.py intentionally references serialize_dmir
-        (DMIR is integrated into build_all_projections + build_api_response).
-        But edition outputs (community/enterprise/finance) are independent
-        projections and must never depend on DMIR.
-        """
+        """Normal delivery must never import the on-demand DMIR serializer."""
         import docmirror.server.edition_outputs as eo
+        import docmirror.server.output_builder as ob
+        src1 = open(ob.__file__).read()
         src2 = open(eo.__file__).read()
+        assert "serialize_dmir" not in src1
         assert "serialize_dmir" not in src2

@@ -10,10 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.plugins._runtime.composition import CompositionReason
 from docmirror.plugins._runtime.runner import (
     _is_edition_plugin_licensed,
-    _wrap_license_degraded,
     run_plugin_extract_sync,
 )
 
@@ -68,13 +66,22 @@ class _LicensedEnterprisePlugin:
     edition = "enterprise"
     requires_license = True
 
-    async def extract(self, document_context):
+    async def extract(self, result):  # noqa: ARG002
         return {
             "schema_version": "2.0",
             "edition": "enterprise",
             "data": {"records": [{"amount": 1}], "summary": {"total_rows": 1}},
             "status": {"success": True, "warnings": [], "errors": []},
         }
+
+
+class _ContextCapturingEnterprisePlugin(_LicensedEnterprisePlugin):
+    def __init__(self) -> None:
+        self.result = None
+
+    async def extract(self, result):
+        self.result = result
+        return await super().extract(result)
 
 
 def test_is_edition_plugin_licensed_false_without_premium_feature():
@@ -96,21 +103,7 @@ def test_is_edition_plugin_licensed_true_with_offline_feature():
         assert _is_edition_plugin_licensed(plugin) is True
 
 
-def test_wrap_license_degraded_adds_warning():
-    payload = {"status": {"warnings": []}, "metadata": {}}
-    wrapped = _wrap_license_degraded(
-        payload,
-        edition="enterprise",
-        plugin=_LicensedEnterprisePlugin(),
-    )
-    assert wrapped["edition"] == "enterprise"
-    assert wrapped["status"]["warnings"][0] == "_license_warning"
-    assert wrapped["plugin"]["license_required"] is True
-    assert wrapped["composition"]["reason"] == CompositionReason.LICENSE_DEGRADE.value
-    assert wrapped["composition"]["source_edition"] == "community"
-
-
-def test_enterprise_reuses_community_baseline_without_reextract():
+def test_unlicensed_enterprise_produces_no_projection():
     mirror = _mirror("business_license")
     community_payload = {
         "schema_version": "2.0",
@@ -124,15 +117,12 @@ def test_enterprise_reuses_community_baseline_without_reextract():
         with patch("docmirror.plugins.registry.get", return_value=_LicensedEnterprisePlugin()):
             with patch("docmirror.plugins._runtime.runner._is_edition_plugin_licensed", return_value=False):
                 with patch(
-                    "docmirror.plugins._runtime.runner._run_community_extract",
+                    "docmirror.plugins._runtime.runner._run_community_recognition",
                     return_value=community_payload,
                 ):
                     out = run_plugin_extract_sync(mirror, edition="enterprise")
 
-    assert out is not None
-    assert out["edition"] == "enterprise"
-    assert "_license_warning" in out["status"]["warnings"]
-    assert out["plugin"]["license_required"] is True
+    assert out is None
 
 
 def test_enterprise_runs_extract_when_licensed():
@@ -149,11 +139,26 @@ def test_enterprise_runs_extract_when_licensed():
     assert "_license_warning" not in out.get("status", {}).get("warnings", [])
 
 
+def test_enterprise_receives_parse_result_directly():
+    mirror = _mirror("bank_statement")
+    plugin = _ContextCapturingEnterprisePlugin()
+    mirror.entities.domain_specific["records"] = [{"amount": "-10.25"}]
+
+    with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=True):
+        with patch("docmirror.plugins.registry.get", return_value=plugin):
+            with patch("docmirror.plugins._runtime.runner._is_edition_plugin_licensed", return_value=True):
+                out = run_plugin_extract_sync(mirror, edition="enterprise")
+
+    assert out is not None
+    assert plugin.result is mirror
+    assert plugin.result.entities.domain_specific["records"][0]["amount"] == "-10.25"
+
+
 @pytest.mark.skipif(
     not __import__("importlib").util.find_spec("docmirror_finance"),
     reason="docmirror_finance not installed",
 )
-def test_finance_degrades_without_license():
+def test_finance_produces_no_projection_without_license():
     mirror = _mirror("alipay_payment")
 
     class _FinancePlugin:
@@ -174,10 +179,9 @@ def test_finance_degrades_without_license():
         with patch("docmirror.plugins.registry.get", return_value=_FinancePlugin()):
             with patch("docmirror.plugins._runtime.runner._is_edition_plugin_licensed", return_value=False):
                 with patch(
-                    "docmirror.plugins._runtime.runner._run_community_extract",
+                    "docmirror.plugins._runtime.runner._run_community_recognition",
                     return_value=community_payload,
                 ):
                     out = run_plugin_extract_sync(mirror, edition="finance")
 
-    assert out is not None
-    assert "_license_warning" in out["status"]["warnings"]
+    assert out is None

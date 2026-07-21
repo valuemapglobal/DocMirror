@@ -42,10 +42,17 @@ def _builtin_specs() -> dict[str, ProjectionSchemaSpec]:
         ),
         ProjectionSchemaSpec(
             name="community",
+            path=_SCHEMAS_DIR / "community_bundle.schema.json",
+            version="3.0.0",
+            description="Self-contained Community JSON API with complete dataset records",
+            compatibility="breaking-successor-to-2.2",
+        ),
+        ProjectionSchemaSpec(
+            name="community_v2",
             path=_SCHEMAS_DIR / "edition_community.schema.json",
             version="2.2",
-            description="Community consumer envelope (DEC v2.2; reads legacy v2.0/v2.1)",
-            compatibility="backward-compatible-with-2.0-and-2.1",
+            description="Internal Community candidate retained for extended-edition fallback",
+            compatibility="internal-only",
         ),
         ProjectionSchemaSpec(
             name="enterprise",
@@ -95,7 +102,8 @@ def validate_projection_payload(name: str, payload: dict[str, Any]) -> Projectio
     minimal environments, this still verifies that the schema exists and all
     top-level required keys are present.
     """
-    schema = load_projection_schema_json(name)
+    resolved_name = "community_v2" if name == "community" and "schema_version" in payload else name
+    schema = load_projection_schema_json(resolved_name)
     if schema is None:
         return ProjectionSchemaValidation(name=name, valid=False, errors=(f"schema not found: {name}",))
     try:

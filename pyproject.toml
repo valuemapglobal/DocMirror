@@ -53,7 +53,7 @@ packages = [
 
 [project]
 name = "docmirror"
-version = "1.0.8"
+version = "1.0.10"
 description = "Commercial Document Trust Layer for verifiable, audit-ready document signals"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
@@ -85,6 +85,7 @@ dependencies = [
     "click>=8.1",
     "pydantic>=2.0",
     "filetype>=1.2",
+    "pluggy>=1.5",
     "python-dotenv>=1.0",
     "PyYAML>=6.0",
     "rich>=13.0.0",
@@ -108,7 +109,6 @@ table = ["rapid-table>=0.2"]
 formula = ["rapid-latex-ocr>=0.0.6"]
 office = ["python-docx>=1.0", "openpyxl>=3.1", "python-pptx>=0.6"]
 security = ["pikepdf>=8.0"]
-cache = ["redis>=5.0"]
 langdetect = ["fast-langdetect>=0.2"]
 server = ["fastapi>=0.100", "uvicorn>=0.23.0", "python-multipart>=0.0.9"]
 langchain = ["langchain-core>=0.2"]
@@ -121,7 +121,7 @@ plugins = ["pluggy>=1.5"]
 ai = ["openai>=1.0", "google-generativeai>=0.8", "requests>=2.31"]
 ocr-tesseract = ["pytesseract>=0.3"]
 all = [
-    "docmirror[pdf,ocr,layout,table,formula,office,security,cache,langdetect,server,archive]",
+    "docmirror[pdf,ocr,layout,table,formula,office,security,langdetect,server,archive]",
     "docmirror[langchain]",
     "docmirror[llamaindex]",
     "docmirror[haystack]",

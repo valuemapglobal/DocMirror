@@ -10,15 +10,17 @@ evidence coverage, confidence thresholds, and outcome events.
 
 import pytest
 
-from docmirror.models.visual_evidence import VisualNode, VisualEdge, VisualEvidenceGraph
-from docmirror.evidence.source_span import (
-    SourceSpanEntry, SourceSpanLedger, UnresolvedField,
-)
 from docmirror.evidence.quality_decision import (
-    ReviewItem,
     QualityDecisionReport,
+    ReviewItem,
     build_quality_decision,
 )
+from docmirror.evidence.source_span import (
+    SourceSpanEntry,
+    SourceSpanLedger,
+    UnresolvedField,
+)
+from docmirror.models.visual_evidence import VisualEdge, VisualEvidenceGraph, VisualNode
 
 
 def _clean_editions():

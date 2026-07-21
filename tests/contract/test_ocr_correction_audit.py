@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
-from docmirror.models.entities.domain import BaseResult, Block, PageLayout, TextSpan
+from docmirror.input.canonical import assemble_parse_result
+from docmirror.models.entities.domain import Block, PageLayout, TextSpan
 from docmirror.models.mirror.core import MirrorCoreVNext
 
 
@@ -48,19 +48,19 @@ def test_mirror_projects_ocr_correction_audit_without_losing_source_text():
         },
         evidence_ids=("ocr:p0001:0001",),
     )
-    base = BaseResult(
-        pages=(PageLayout(page_number=1, blocks=(block,), is_scanned=True),),
-        metadata={
+    result = assemble_parse_result(
+        (PageLayout(page_number=1, blocks=(block,), is_scanned=True),),
+        {
             "parser": "test",
             "extraction_method": "ocr",
             "overall_confidence": 0.8,
             "ocr_correction_mode": "safe",
             "ocr_corrections": audit,
         },
-        full_text="Microsoft Corporation",
+        "Microsoft Corporation",
     )
 
-    payload = MirrorCoreVNext().process(ParseResultBridge.from_base_result(base)).to_dict()
+    payload = MirrorCoreVNext().process(result).to_dict()
 
     assert payload["mirror"]["schema_version"] == "1.0.7"
     assert payload["quality"]["ocr_correction"]["applied_count"] == 1

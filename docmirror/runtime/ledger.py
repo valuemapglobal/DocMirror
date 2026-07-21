@@ -217,8 +217,7 @@ def build_manifest_v2(
     status: str = "running",
     stage: str = "intake",
     inputs: list[dict[str, Any]] | None = None,
-    editions: list[str] | None = None,
-    formats: list[str] | None = None,
+    parse_policy: dict[str, Any] | None = None,
     runtime_control: dict[str, Any] | None = None,
     request_id: str = "",
     profile: str = "full",
@@ -229,11 +228,6 @@ def build_manifest_v2(
 
     Stable with v1: all v1 field names are preserved.
     """
-    if editions is None:
-        from docmirror.framework.edition_defaults import default_editions
-
-        editions = list(default_editions())
-
     manifest: dict[str, Any] = {
         "version": 2,
         "task_id": task_id,
@@ -260,8 +254,7 @@ def build_manifest_v2(
             "token_budget": {},
         },
         "inputs": list(inputs or []),
-        "editions": list(editions),
-        "formats": list(formats or ["json"]),
+        "parse_policy": dict(parse_policy or {}),
         "artifacts": {},
         "intermediate_artifacts": {},
         "edition_availability": {},

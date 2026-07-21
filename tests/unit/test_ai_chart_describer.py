@@ -10,12 +10,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from docmirror.input.adapters.ai.describers.chart_describer import (
-    describe_chart_or_image,
     describe_all_images,
+    describe_chart_or_image,
     enrich_dmir_with_alt_text,
 )
 from docmirror.input.adapters.ai.protocol import AIBackendCapabilities
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
 

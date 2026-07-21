@@ -181,3 +181,69 @@ export interface ParseOptions {
   /** API key (overrides constructor key) */
   api_key?: string;
 }
+
+// ── Community Bundle 3.0 ──
+
+/** Self-contained Community JSON API response. */
+export interface CommunityBundle {
+  schema: CommunitySchema;
+  document: Record<string, unknown>;
+  sections: Array<Record<string, unknown>>;
+  datasets: CommunityDataset[];
+  files: Record<string, string>;
+  warnings: Array<Record<string, unknown>>;
+}
+
+export interface CommunitySchema {
+  name: "docmirror.community";
+  version: "3.0.0";
+  edition: "community";
+  domain: string;
+  support_level: "ga" | "beta" | "generic" | "unsupported";
+}
+
+export interface CommunityDataset {
+  id: string;
+  name: string;
+  label: string;
+  type: string;
+  section_id: string;
+  csv: string;
+  row_count: number;
+  grain: string;
+  primary_key: "record_id";
+  schema_version: "1.0";
+  status: "complete" | "empty" | "partial" | "failed";
+  columns: CommunityColumn[];
+  completeness: CommunityCompleteness;
+  /** Complete records; never a preview or pagination window. */
+  rows: CommunityRecord[];
+}
+
+export interface CommunityColumn {
+  key: string;
+  label: string;
+  type: string;
+  unit?: string;
+  nullable: boolean;
+  raw_available: boolean;
+  evidence_available: boolean;
+}
+
+export interface CommunityCompleteness {
+  expected_row_count: number;
+  emitted_row_count: number;
+  omitted_row_count: number;
+  verified: boolean;
+  basis: string;
+}
+
+export interface CommunityRecord {
+  record_id: string;
+  normalized: Record<string, unknown>;
+  canonical_raw: Record<string, unknown>;
+  raw: Record<string, unknown>;
+  source: Record<string, unknown>;
+  confidence?: number | string;
+  review?: Record<string, unknown>;
+}

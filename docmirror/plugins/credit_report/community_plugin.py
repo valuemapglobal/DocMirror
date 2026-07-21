@@ -67,7 +67,7 @@ class CreditReportPlugin(DomainPlugin):
             },
         )
 
-    def extract_from_mirror(self, parse_result, text: str = ""):
+    def recognize(self, parse_result, text: str = ""):
         from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
         from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
 

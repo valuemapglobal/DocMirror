@@ -53,18 +53,39 @@ def test_projection_schema_registry():
     assert "mirror" in registry
     assert "community" in registry
     assert get_projection_schema("mirror").version == "1.1"
-    assert get_projection_schema("community").version == "2.2"
-    assert get_projection_schema("community").compatibility == "backward-compatible-with-2.0-and-2.1"
+    assert get_projection_schema("community").version == "3.0.0"
+    assert get_projection_schema("community").compatibility == "breaking-successor-to-2.2"
+    assert get_projection_schema("community_v2").version == "2.2"
 
 
 def test_projection_schema_runtime_validation():
     valid = validate_projection_payload(
         "community",
         {
-            "schema_version": "2.0",
-            "edition": "community",
-            "document": {},
-            "data": {},
+            "schema": {
+                "name": "docmirror.community",
+                "version": "3.0.0",
+                "edition": "community",
+                "domain": "generic",
+                "support_level": "generic",
+            },
+            "document": {
+                "id": "doc_test",
+                "type": "generic",
+                "title": "Test",
+                "page_count": 0,
+                "language": ["en"],
+                "source_file": {"name": "", "mime_type": "application/octet-stream", "sha256": ""},
+                "units": {},
+            },
+            "sections": [],
+            "datasets": [],
+            "files": {
+                "content_md": "001_content.md",
+                "datasets_dir": "001_datasets",
+                "dataset_audit_csv": "001_datasets/_audit_cells.csv",
+            },
+            "warnings": [],
         },
     )
     invalid = validate_projection_payload("community", {"edition": "community"})

@@ -5,7 +5,7 @@
 Post-extract hook abstract base class.
 
 Defines the contract for hooks that run after PEC extract completes. Implementations
-receive the Mirror ``ParseResult``, the serialized ``extracted`` edition dict, edition
+receive the canonical ``ParseResult``, the serialized ``extracted`` edition dict, edition
 name, document type, and optional plugin reference.
 
 Pipeline role: subclassed by modules under ``post_extract.hooks``; catalog loader
@@ -23,7 +23,7 @@ from docmirror.models.entities.parse_result import ParseResult
 
 
 class PostExtractHook(ABC):
-    """Run after PEC extract; enrich edition JSON only (must not mutate Core Mirror)."""
+    """Run after PEC extract; enrich edition JSON only and never mutate facts."""
 
     hook_id: str = ""
 

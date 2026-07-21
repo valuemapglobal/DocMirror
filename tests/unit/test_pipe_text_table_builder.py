@@ -5,13 +5,13 @@
 
 from __future__ import annotations
 
-from docmirror.tables.pipe_row_merge import merge_pipe_continuation_rows
 from docmirror.plugins.bank_statement.pipe_text_table_builder import (
     build_tables_from_pipe_text,
     count_expected_primary_rows,
     detect_pipe_header_in_text,
     split_pipe_row,
 )
+from docmirror.tables.pipe_row_merge import merge_pipe_continuation_rows
 
 BOC_HEADER = (
     "|序号|记账日|起息日|交易类型|凭证|         凭证号码/业务编号/用途/摘要         |"

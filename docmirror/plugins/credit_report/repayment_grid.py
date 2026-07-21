@@ -28,7 +28,8 @@ from docmirror.ocr.micro_grid.reconstruct import (
 
 _RANGE_RE = re.compile(r"(20\d{2})年\s*(\d{1,2})月\s*[-—一至~～]\s*(20\d{2})年\s*(\d{1,2})月.*还款记录")
 _YEAR_RE = re.compile(r"^20\d{2}(?=\s|$)")
-_STATUS_CHARS = {"*", "N", "C", "1", "2", "3", "4", "5", "6", "7", "B", "M", "D", "Z", "G", "#"}
+_STATUS_CHARS = {"*", "/", "N", "C", "1", "2", "3", "4", "5", "6", "7", "B", "M", "D", "Z", "G"}
+_ZERO_OVERDUE_STATUSES = {"*", "/", "N", "C"}
 
 
 @dataclass(frozen=True)
@@ -152,6 +153,61 @@ def _normalize_amount_text(text: str) -> str:
     if compact and set(compact) == {"0"}:
         return "0"
     return normalized
+
+
+def _strong_visual_status(recognition: Any) -> bool:
+    """Return whether crop evidence is strong enough to override row OCR."""
+    if not str(getattr(recognition, "text", "") or ""):
+        return False
+    if (
+        str(getattr(recognition, "source", "") or "")
+        not in {
+            "cell_crop_consensus",
+            "unavailable",
+            "none",
+        }
+        and float(getattr(recognition, "confidence", 0.0) or 0.0) >= 0.8
+    ):
+        return True
+    audit = dict(getattr(recognition, "audit", {}) or {})
+    if int(audit.get("consensus_count") or 0) >= 2:
+        return True
+    for vote in audit.get("votes") or []:
+        if not isinstance(vote, dict):
+            continue
+        if (
+            vote.get("variant") in {"glyph_shape", "glyph_shape_n"}
+            and str(vote.get("text") or "") == str(getattr(recognition, "text", "") or "")
+            and float(vote.get("confidence") or 0.0) >= 0.8
+        ):
+            return True
+    return False
+
+
+def _neighbor_status_fallback(statuses: dict[int, str], month: int) -> str:
+    """Repair one unreadable cell only when adjacent row context is decisive."""
+    left = [statuses.get(month - offset, "") for offset in (1, 2)]
+    right = [statuses.get(month + offset, "") for offset in (1, 2)]
+    if left[0] and right[0] and left[0] == right[0] and left[0] in _ZERO_OVERDUE_STATUSES:
+        return left[0]
+    if not left[0] and right[0] and right[0] == right[1] and right[0] in _ZERO_OVERDUE_STATUSES:
+        return right[0]
+    if not right[0] and left[0] and left[0] == left[1] and left[0] in _ZERO_OVERDUE_STATUSES:
+        return left[0]
+    return ""
+
+
+def _template_visual_status(recognition: Any, *, min_confidence: float) -> bool:
+    text = str(getattr(recognition, "text", "") or "")
+    for vote in (getattr(recognition, "audit", {}) or {}).get("votes") or []:
+        if (
+            isinstance(vote, dict)
+            and vote.get("variant") == "document_glyph_template"
+            and str(vote.get("text") or "") == text
+            and float(vote.get("confidence") or 0.0) >= min_confidence
+        ):
+            return True
+    return False
 
 
 def _find_anchor(lines: list[dict[str, Any]]) -> tuple[dict[str, Any], tuple[int, int, int, int]] | None:
@@ -427,9 +483,7 @@ def reconstruct_repayment_micro_grid_from_lines(
 
     month_cols = _month_col_bands(header_line)
     base_visual_context = page_image_resolver(page) if page_image_resolver is not None else None
-    base_visual_image = (
-        base_visual_context.get("image") if isinstance(base_visual_context, dict) else page_image
-    )
+    base_visual_image = base_visual_context.get("image") if isinstance(base_visual_context, dict) else page_image
     base_visual_width = (
         float(base_visual_context.get("page_width") or page_width or 0.0)
         if isinstance(base_visual_context, dict)
@@ -597,11 +651,12 @@ def reconstruct_repayment_micro_grid_from_lines(
             )
         ]
         amount_cells: list[MicroGridCell] = []
-        normalized_status_text = (
-            status_line["text"].replace("★", "*").replace("☆", "*").replace("※", "*")
-        )
+        normalized_status_text = status_line["text"].replace("★", "*").replace("☆", "*").replace("※", "*")
         raw_status_text = normalized_status_text.replace(" ", "")
-        status_chars = [ch for ch in raw_status_text if ch in _STATUS_CHARS]
+        # Preserve an OCR uncertainty marker for positional alignment. It is
+        # never emitted as a credit status, but dropping it here would shift
+        # every later month one cell to the left.
+        status_chars = [ch for ch in raw_status_text if ch in _STATUS_CHARS or ch == "#"]
         active_months = [month for yy, month in sorted(record_months) if yy == year]
         if year == end_year and len(status_chars) == 2 and set(status_chars) == {"N", "C"}:
             status_by_month = {active_months[0]: "N", active_months[1]: "C"} if len(active_months) == 2 else {}
@@ -644,6 +699,14 @@ def reconstruct_repayment_micro_grid_from_lines(
             status_crop = None
             status_recognition_source = "tokens"
             status_recognition_audit: dict[str, Any] = {}
+            neighbor_status = _neighbor_status_fallback(status_by_month, month) if not status else ""
+            if neighbor_status:
+                status = neighbor_status
+                status_recognition_source = "row_neighbor_consensus"
+                status_recognition_audit = {
+                    "reason": "unreadable_cell_with_matching_adjacent_statuses",
+                    "logical_page": int(status_line.get("source_logical_page") or page),
+                }
             visual_status_bbox = _cell_bbox(status_band, year_visual_cols_by_month.get(month, col))
             visual = None
             if enable_cell_ocr and (year, month) in record_months:
@@ -656,11 +719,7 @@ def reconstruct_repayment_micro_grid_from_lines(
                     page_image=page_image,
                     page_image_resolver=page_image_resolver,
                 )
-            if (
-                (not status or status.isdigit())
-                and enable_cell_ocr
-                and (year, month) in record_months
-            ):
+            if enable_cell_ocr and (year, month) in record_months:
                 if visual is not None:
                     crop_ocr_attempts += 1
                     visual_image, visual_bbox, visual_width, visual_height, visual_page = visual
@@ -678,7 +737,23 @@ def reconstruct_repayment_micro_grid_from_lines(
                     status_recognition_audit = {**rec.audit, "logical_page": visual_page}
                     if rec.text:
                         crop_ocr_hits += 1
-                        status = rec.text
+                        consensus_count = int((rec.audit or {}).get("consensus_count") or 0)
+                        weak_cell = not status or status.isdigit()
+                        template_confirmed = _template_visual_status(
+                            rec,
+                            min_confidence=0.9 if status.isdigit() else 0.8,
+                        )
+                        if (weak_cell and (_strong_visual_status(rec) or template_confirmed)) or consensus_count >= 2:
+                            status = rec.text
+            if not status:
+                neighbor_status = _neighbor_status_fallback(status_by_month, month)
+                if neighbor_status:
+                    status = neighbor_status
+                    status_recognition_source = "row_neighbor_consensus"
+                    status_recognition_audit = {
+                        "reason": "unreadable_cell_with_matching_adjacent_statuses",
+                        "logical_page": int(status_line.get("source_logical_page") or page),
+                    }
             if status and not status.isdigit() and visual is not None:
                 visual_image, visual_bbox, visual_width, visual_height, _visual_page = visual
                 template = extract_micro_cell_glyph_template(
@@ -708,26 +783,22 @@ def reconstruct_repayment_micro_grid_from_lines(
             if amount_band is not None:
                 amt_tokens = amount_assignments.get(month, [])
                 amount = _normalize_amount_text(_token_text(amt_tokens))
-                visually_verified_zero = status_recognition_source == "cell_crop_consensus" and status in {
-                    "*",
-                    "N",
-                    "C",
-                }
-                if visually_verified_zero:
+                status_implies_zero = status in _ZERO_OVERDUE_STATUSES
+                if status_implies_zero:
                     # These status codes explicitly mean no overdue balance.
-                    # Do not let a neighbouring month digit or table rule
-                    # override the status/amount invariant.
+                    # Do not let the calendar-year prefix, a neighbouring
+                    # month digit, or a table rule become an overdue amount.
                     amount = "0"
                 amount_bbox = _cell_bbox(amount_band, col)
                 visual_amount_bbox = _cell_bbox(amount_band, year_visual_cols_by_month.get(month, col))
                 amount_crop = None
-                amount_recognition_source = "verified_status_zero" if visually_verified_zero else "tokens"
+                amount_recognition_source = "status_semantic_zero" if status_implies_zero else "tokens"
                 amount_recognition_audit: dict[str, Any] = (
-                    {"reason": "visually_verified_non_overdue_status"} if visually_verified_zero else {}
+                    {"reason": "non_overdue_status_semantics"} if status_implies_zero else {}
                 )
                 if (
                     (not amount or status_recognition_source == "cell_crop_consensus")
-                    and not visually_verified_zero
+                    and not status_implies_zero
                     and enable_cell_ocr
                     and (year, month) in record_months
                 ):

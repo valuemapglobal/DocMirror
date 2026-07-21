@@ -1,6 +1,6 @@
 # Post-Extract Hooks (PEC) — run after plugin extract; enrich edition JSON only.
-# Core Mirror (ParseResult → 001_mirror.json) is serialized before plugins and
-# must not be mutated by these hooks. See Architecture A in output_builder.
+# Canonical ParseResult facts are finalized before projections and must never
+# be mutated by these hooks.
 #
 # credit_report_sections: runs for community + enterprise when splitter available;
 # community credit_report_community also emits lightweight section skeleton in-plugin.
@@ -8,32 +8,32 @@
 version: 1
 
 hooks:
-  mirror_table_rebuild:
-    module: docmirror.plugins._runtime.post_extract.hooks.mirror_table_rebuild
-    class: MirrorTableRebuildHook
+  edition_table_rebuild:
+    module: docmirror.plugins._runtime.post_extract.hooks.edition_table_rebuild
+    class: EditionTableRebuildHook
     when: "document_type == 'bank_statement'"
-    mutates_mirror: false
+    mutates_facts: false
     provides: [enrichment.bank_table_rebuild]
 
   credit_report_sections:
     module: docmirror.plugins._runtime.post_extract.hooks.credit_sections
     class: CreditReportSectionsHook
     when: "document_type == 'credit_report'"
-    mutates_mirror: false
+    mutates_facts: false
     provides: [data.sections]
 
   community_precision:
     module: docmirror.plugins._runtime.post_extract.hooks.community_precision
     class: CommunityPrecisionHook
     when: "edition == 'community'"
-    mutates_mirror: false
+    mutates_facts: false
     provides: [status.warnings]
 
   community_business_projection:
     module: docmirror.plugins._runtime.post_extract.hooks.community_business
     class: CommunityBusinessProjectionHook
     when: "edition == 'community'"
-    mutates_mirror: false
+    mutates_facts: false
     provides:
       - business
       - quality
@@ -47,5 +47,5 @@ hooks:
     module: docmirror.plugins._runtime.post_extract.hooks.trust_projection
     class: PluginTrustProjectionHook
     when: "extracted.get('quality', {}).get('trust_score') or extracted.get('validation', {}).get('trust_score')"
-    mutates_mirror: false
+    mutates_facts: false
     provides: [quality.trust_score]

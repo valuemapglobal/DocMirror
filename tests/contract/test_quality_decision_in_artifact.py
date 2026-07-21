@@ -63,7 +63,8 @@ class TestBuildQualityDecisionBlock:
 
     def test_block_includes_needs_review_items(self):
         from docmirror.evidence.quality_decision import (
-            QualityDecisionReport, ReviewItem,
+            QualityDecisionReport,
+            ReviewItem,
         )
 
         report = QualityDecisionReport(

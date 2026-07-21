@@ -42,8 +42,8 @@ class TestAnalyzeDocumentLayoutParallel:
 
     def test_returns_one_layout_per_page(self, two_page_pdf_path):
         from docmirror.layout.segment.zones import (
-            analyze_document_layout_parallel,
             analyze_document_layout,
+            analyze_document_layout_parallel,
         )
         path = str(Path(two_page_pdf_path).resolve())
         layouts = analyze_document_layout_parallel(path, num_pages=2, max_workers=2)
@@ -54,11 +54,12 @@ class TestAnalyzeDocumentLayoutParallel:
         assert layouts[1].width > 0 and layouts[1].height > 0
 
     def test_parallel_matches_sequential_for_two_pages(self, two_page_pdf_path):
-        from docmirror.layout.segment.zones import (
-            analyze_document_layout_parallel,
-            analyze_document_layout,
-        )
         import fitz
+
+        from docmirror.layout.segment.zones import (
+            analyze_document_layout,
+            analyze_document_layout_parallel,
+        )
         path = str(Path(two_page_pdf_path).resolve())
         parallel_layouts = analyze_document_layout_parallel(path, num_pages=2, max_workers=2)
         doc = fitz.open(path)

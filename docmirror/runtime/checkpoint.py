@@ -4,7 +4,7 @@
 """DRC Checkpoint Ledger — checkpoint path, fingerprint, resume validation.
 
 GA 1.0 §6.4: Checkpoints allow tasks to be safely resumed after interruption.
-Each checkpoint carries input_digest, parse_control_fingerprint, and
+Each checkpoint carries input_digest, parse_policy_fingerprint, and
 runtime_profile_fingerprint to prevent stale artifact reuse.
 """
 
@@ -38,13 +38,13 @@ class CheckpointManager:
         task_dir: Path,
         *,
         input_digest: str = "",
-        parse_control_fingerprint: str = "",
+        parse_policy_fingerprint: str = "",
         runtime_profile_fingerprint: str = "",
     ) -> None:
         self._task_dir = Path(task_dir)
         self._checkpoints_dir = self._task_dir / "checkpoints"
         self._input_digest = input_digest
-        self._parse_control_fingerprint = parse_control_fingerprint
+        self._parse_policy_fingerprint = parse_policy_fingerprint
         self._runtime_profile_fingerprint = runtime_profile_fingerprint
 
     @property
@@ -56,7 +56,7 @@ class CheckpointManager:
         data = json.dumps(
             {
                 "input_digest": self._input_digest,
-                "parse_control": self._parse_control_fingerprint,
+                "parse_policy": self._parse_policy_fingerprint,
                 "runtime_profile": self._runtime_profile_fingerprint,
             },
             sort_keys=True,
@@ -83,7 +83,7 @@ class CheckpointManager:
                 {
                     "file_id": file_id,
                     "input_digest": digest,
-                    "parse_control_fingerprint": self._parse_control_fingerprint,
+                    "parse_policy_fingerprint": self._parse_policy_fingerprint,
                     "runtime_profile_fingerprint": self._runtime_profile_fingerprint,
                     "checkpoint_fingerprint": self.fingerprint(),
                 },
@@ -110,7 +110,7 @@ class CheckpointManager:
             return False
         return (
             data.get("input_digest") == expected_digest
-            and data.get("parse_control_fingerprint") == self._parse_control_fingerprint
+            and data.get("parse_policy_fingerprint") == self._parse_policy_fingerprint
             and data.get("runtime_profile_fingerprint") == self._runtime_profile_fingerprint
         )
 

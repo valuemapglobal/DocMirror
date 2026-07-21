@@ -12,7 +12,7 @@ with Alipay column registry, header marker heuristics, default column ordering f
 headerless tables, and normalized field alignment with finance edition plugins.
 
 Pipeline role: discovered as ``alipay_payment`` premium plugin; ``runner`` calls
-``extract_from_mirror`` after Mirror classification.
+``recognize`` after canonical classification.
 
 Archetype: ``table_document``; domain: ``cashflow_payment``; support level: L2.
 
@@ -36,8 +36,8 @@ logger = logging.getLogger(__name__)
 
 _ALIPAY_KEYWORDS = ("支付宝（中国）网络技术有限公司", "交易流水证明", "Alipay")
 _HEADER_MARKERS = ("收/支", "交易对方", "金额", "交易订单号", "交易时间")
-_DIRECTION_VALUES = frozenset({"支出", "收入", "其他"})
-_MIRROR_HEADERS = (
+_DIRECTION_VALUES = frozenset({"支出", "收入", "其他", "不计收支"})
+_EVIDENCE_HEADERS = (
     "收/支",
     "交易对方",
     "商品说明",
@@ -47,9 +47,9 @@ _MIRROR_HEADERS = (
     "商家订单号",
     "交易时间",
 )
-_MIRROR_DATE_RE = re.compile(r"^20\d{2}-\d{2}-\d{2}$")
-_MIRROR_TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
-_MIRROR_AMOUNT_RE = re.compile(r"^-?\d[\d,]*\.\d{2}$")
+_EVIDENCE_DATE_RE = re.compile(r"^20\d{2}-\d{2}-\d{2}$")
+_EVIDENCE_TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
+_EVIDENCE_AMOUNT_RE = re.compile(r"^-?\d[\d,]*\.\d{2}$")
 _DATETIME_RE = r"20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}"
 _DEFAULT_COLUMNS = [
     "收/支",
@@ -143,8 +143,8 @@ class AlipayPaymentPlugin(BaseTableParser):
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return ALIPAY_IDENTITY_FIELDS
 
-    def _recover_identity_from_mirror(self, parse_result) -> dict[str, dict[str, object]]:
-        atoms_by_page = self._mirror_text_atoms_by_page(parse_result)
+    def _recover_identity_from_evidence(self, parse_result) -> dict[str, dict[str, object]]:
+        atoms_by_page = self._evidence_text_atoms_by_page(parse_result)
         if not atoms_by_page:
             return {}
         page_id = sorted(atoms_by_page)[0]
@@ -173,7 +173,7 @@ class AlipayPaymentPlugin(BaseTableParser):
                 continue
             value = " 至 ".join(match.groups()) if field_name == "query_period" else match.group(1).strip()
             if value:
-                recovered[field_name] = self._mirror_identity_detail(field_name, label, value, page_id=page_id)
+                recovered[field_name] = self._evidence_identity_detail(field_name, label, value, page_id=page_id)
         return recovered
 
     def _detect_headers(
@@ -224,18 +224,38 @@ class AlipayPaymentPlugin(BaseTableParser):
             return self._extract_english_records(tables, header_row_idx)
 
         transactions: list[dict[str, str]] = []
-        has_col_map = bool(col_map)
+        matcher = ColumnMatcher(self.column_registry)
 
         for tbl in tables:
             if not tbl:
                 continue
-            start = header_row_idx + 1 if 0 <= header_row_idx < len(tbl) else 0
+
+            # A header position detected in the first logical table must not be
+            # reused for every continuation table. Quarantined or independently
+            # composed continuation tables commonly start with a real record.
+            # Detect an actual header per table; otherwise consume from row 0
+            # with the canonical headers discovered from the document.
+            start = 0
+            table_headers = raw_headers
+            table_col_map = col_map
+            for row_idx, candidate in enumerate(tbl[:12]):
+                candidate_headers = [str(cell or "").strip() for cell in candidate]
+                candidate_map = matcher.match(candidate_headers)
+                marker_hits = sum(1 for marker in _HEADER_MARKERS if any(marker in cell for cell in candidate_headers))
+                if len(candidate_map) >= 3 or marker_hits >= 3:
+                    start = row_idx + 1
+                    table_headers = candidate_headers
+                    if len(candidate_map) >= 3:
+                        table_col_map = candidate_map
+                    break
+
+            has_col_map = bool(table_col_map)
 
             for row in tbl[start:]:
                 if not row or not any(str(c).strip() for c in row):
                     continue
 
-                first_cell = str(row[0] or "").strip()
+                first_cell = re.sub(r"\s+", "", str(row[0] or ""))
                 if first_cell in ("", "收/支"):
                     continue
                 if first_cell not in _DIRECTION_VALUES:
@@ -243,25 +263,25 @@ class AlipayPaymentPlugin(BaseTableParser):
 
                 if has_col_map:
                     txn: dict[str, str] = {}
-                    for field_name, col_idx in col_map.items():
+                    for field_name, col_idx in table_col_map.items():
                         if col_idx < len(row):
-                            header_key = raw_headers[col_idx] if col_idx < len(raw_headers) else f"col_{col_idx}"
+                            header_key = table_headers[col_idx] if col_idx < len(table_headers) else f"col_{col_idx}"
                             txn[header_key] = str(row[col_idx] or "").strip().replace("\n", "")
                     if any(txn.values()):
                         transactions.append(txn)
                 else:
                     txn = {}
                     for i, cell in enumerate(row):
-                        header_key = raw_headers[i] if i < len(raw_headers) else f"col_{i}"
+                        header_key = table_headers[i] if i < len(table_headers) else f"col_{i}"
                         txn[header_key] = str(cell or "").strip().replace("\n", "")
                     if any(txn.values()):
                         transactions.append(txn)
 
         return transactions
 
-    def _recover_records_from_mirror(self, parse_result) -> list[dict[str, object]]:
-        """Recover issuer-column rows from Mirror atoms when table detection is empty."""
-        atoms_by_page = self._mirror_text_atoms_by_page(parse_result)
+    def _recover_records_from_evidence(self, parse_result) -> list[dict[str, object]]:
+        """Recover issuer-column rows from evidence atoms when table detection is empty."""
+        atoms_by_page = self._evidence_text_atoms_by_page(parse_result)
         if not atoms_by_page:
             return []
 
@@ -269,14 +289,14 @@ class AlipayPaymentPlugin(BaseTableParser):
         for atoms in atoms_by_page.values():
             for atom in atoms:
                 text = str(atom.get("text") or "").strip()
-                if text in _MIRROR_HEADERS and text not in header_atoms:
+                if text in _EVIDENCE_HEADERS and text not in header_atoms:
                     header_atoms[text] = atom
-            if len(header_atoms) == len(_MIRROR_HEADERS):
+            if len(header_atoms) == len(_EVIDENCE_HEADERS):
                 break
-        if len(header_atoms) != len(_MIRROR_HEADERS):
+        if len(header_atoms) != len(_EVIDENCE_HEADERS):
             return []
 
-        starts = [float(header_atoms[header]["bbox"][0]) for header in _MIRROR_HEADERS]
+        starts = [float(header_atoms[header]["bbox"][0]) for header in _EVIDENCE_HEADERS]
         if starts != sorted(starts):
             return []
         bounds = [starts[0] - 1.0, *((left + right) / 2 for left, right in zip(starts, starts[1:])), float("inf")]
@@ -289,7 +309,7 @@ class AlipayPaymentPlugin(BaseTableParser):
                     (float(atom["bbox"][1]), str(atom.get("text") or "").strip(), atom)
                     for atom in atoms
                     if bounds[7] <= float(atom["bbox"][0]) < bounds[8]
-                    and _MIRROR_DATE_RE.fullmatch(str(atom.get("text") or "").strip())
+                    and _EVIDENCE_DATE_RE.fullmatch(str(atom.get("text") or "").strip())
                 ),
                 key=lambda item: item[0],
             )
@@ -325,7 +345,7 @@ class AlipayPaymentPlugin(BaseTableParser):
                     (
                         str(atom.get("text") or "").strip()
                         for atom in amount_atoms
-                        if _MIRROR_AMOUNT_RE.fullmatch(str(atom.get("text") or "").strip())
+                        if _EVIDENCE_AMOUNT_RE.fullmatch(str(atom.get("text") or "").strip())
                     ),
                     "",
                 )
@@ -340,7 +360,7 @@ class AlipayPaymentPlugin(BaseTableParser):
                     (
                         str(atom.get("text") or "").strip()
                         for atom in time_atoms
-                        if _MIRROR_TIME_RE.fullmatch(str(atom.get("text") or "").strip())
+                        if _EVIDENCE_TIME_RE.fullmatch(str(atom.get("text") or "").strip())
                     ),
                     "",
                 )
@@ -348,7 +368,7 @@ class AlipayPaymentPlugin(BaseTableParser):
                     continue
 
                 row_atoms = [
-                    atom for column_index in range(len(_MIRROR_HEADERS)) for atom in column_atoms(column_index)
+                    atom for column_index in range(len(_EVIDENCE_HEADERS)) for atom in column_atoms(column_index)
                 ]
                 evidence_ids = [
                     str(atom.get("id") or "") for atom in [date_atom, *row_atoms] if str(atom.get("id") or "")
@@ -364,7 +384,7 @@ class AlipayPaymentPlugin(BaseTableParser):
                         "商家订单号": column_text(6),
                         "交易时间": f"{date} {time}",
                         "_source": {
-                            "source": "mirror_text_atoms",
+                            "source": "canonical_evidence_atoms",
                             "page_id": page_id,
                             "evidence_ids": evidence_ids,
                         },
@@ -418,7 +438,7 @@ class AlipayPaymentPlugin(BaseTableParser):
         return normalized
 
     def build_domain_data(self, metadata, entities):
-        """Lightweight KV projection used when mirror-native extraction is unavailable."""
+        """Lightweight KV projection used when evidence-based extraction is unavailable."""
         from docmirror.plugins._base.dec_builder import build_dec_kv
 
         transactions = entities.get("transactions", metadata.get("transactions", []))

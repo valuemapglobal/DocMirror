@@ -16,20 +16,19 @@ Main components: ``perceive_document``, ``PerceptionFactory``,
 
 Upstream: Application / API layer.
 
-Downstream: ``framework.dispatcher``, ``bridge.parse_result_bridge``,
-``extraction.extractor``.
+Downstream: ``input.acceptance``, ``framework.dispatcher``, and the canonical pipeline.
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from docmirror.framework.dispatcher import ParserDispatcher
-from docmirror.input.entry.options import ParseControl, normalize_parse_control
+from docmirror.input.entry.options import ParsePolicy, normalize_parse_policy
 
 if TYPE_CHECKING:
     from docmirror.models.entities.parse_result import ParseResult
@@ -45,56 +44,32 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PerceiveOptions:
     """
-    Explicit parsing options — every field is visible and controllable.
+    Request-scoped policy and runtime hooks for ``perceive_document``.
 
     All fields are optional; defaults match the current production behaviour.
 
     Examples::
 
         # First page only (fast preview)
-        PerceiveOptions(max_pages=1)
+        PerceiveOptions(policy=normalize_parse_policy(max_pages=1))
 
         # Full enhancement with progress callback
-        PerceiveOptions(enhance_mode="full", skip_cache=True)
+        PerceiveOptions(policy=normalize_parse_policy(mode="accurate"), on_progress=callback)
     """
 
-    # ── Parsing scope ──
-    max_pages: int | None = None
-    """Limit to first N pages. ``None`` means no limit
-    (fallback to env ``DOCMIRROR_MAX_PAGES`` if set)."""
-
-    # ── Enhancement / classification ──
-    enhance_mode: Literal["raw", "standard", "full"] = "standard"
-    """Processing depth.
-    ``raw`` = extraction only (no classification, no entities).
-    ``standard`` = +classification (EvidenceEngine) + entity extraction.
-    ``full`` = +table structure fix + language detection."""
-
-    # ── Cache ──
-    skip_cache: bool = False
-    """No-op retained for public API stability; parse cache is not in the default pipeline."""
-
-    # ── Callbacks ──
     # ── Callbacks ──
     on_progress: Callable[..., None] | None = None
     """Optional progress callback (compatible with ``ProgressBus.emit``)."""
 
-    # ── Legacy edition convenience option ──
-    editions: list[str] = field(default_factory=list)
-    """Deprecated no-op; select editions through ``ParseControl.output``."""
+    max_workers: int | None = None
+    """Optional runtime page concurrency; never part of fact identity."""
 
-    # ── Unified parse control (new contract) ──
-    control: ParseControl | None = None
-    """Unified request-scoped parse control. Explicit values override convenience fields."""
+    policy: ParsePolicy | None = None
+    """Fact-affecting policy. Runtime and delivery values are not accepted here."""
 
-    def normalized_control(self) -> ParseControl:
-        """Return the effective ParseControl for this request."""
-        return normalize_parse_control(
-            self.control,
-            max_pages=self.max_pages,
-            skip_cache=self.skip_cache,
-            enhance_mode=self.enhance_mode,
-        )
+    def normalized_policy(self) -> ParsePolicy:
+        """Return the effective fact policy for this request."""
+        return normalize_parse_policy(self.policy)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -134,9 +109,9 @@ class PerceptionFactory:
 
 async def perceive_document(
     file_path: str | Path,
-    control: PerceiveOptions | None = None,
+    options: PerceiveOptions | None = None,
 ) -> ParseResult:
     """Public entry point delegated to ``docmirror.input.pipeline``."""
     from docmirror.input.pipeline import perceive_document as _new
 
-    return await _new(file_path, control)
+    return await _new(file_path, options)

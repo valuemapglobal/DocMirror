@@ -9,7 +9,7 @@ Adapters — Format-specific document converters.
 ================================================
 
 Each adapter is responsible for:
-    1. Converting a specific file format into an immutable ``BaseResult``.
+    1. Producing physical evidence and base facts for canonical ``ParseResult`` assembly.
     2. Inheriting ``perceive()`` from ``BaseParser`` for unified pipeline → ``ParseResult``.
 
 Adapters contain NO business logic — all domain-specific enhancement

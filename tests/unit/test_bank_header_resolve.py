@@ -5,12 +5,12 @@
 
 from __future__ import annotations
 
+from docmirror.plugins.bank_statement.community_plugin import BANK_COLUMN_REGISTRY
 from docmirror.plugins.bank_statement.header_resolve import (
     detect_headers,
     normalize_header_cell,
     registry_strict_header_match_count,
 )
-from docmirror.plugins.bank_statement.community_plugin import BANK_COLUMN_REGISTRY
 
 OCR_HEADERS = ["值日", "交易说明", "发生金额", "账面余领"]
 CLEAN_HEADERS = ["交易日期", "摘要", "借方发生额", "贷方发生额", "余额"]

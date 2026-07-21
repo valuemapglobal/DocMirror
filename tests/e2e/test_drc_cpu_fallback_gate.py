@@ -94,13 +94,14 @@ def test_metrics_collector_fallback_tracking():
 def test_checkpoint_manager_cpu_only_scenario():
     """DRC-W5-02: CheckpointManager works without VLM/GPU."""
     import tempfile
+
     from docmirror.runtime.checkpoint import CheckpointManager
 
     with tempfile.TemporaryDirectory() as tmp:
         cm = CheckpointManager(
             task_dir=Path(tmp),
             input_digest="sha256:abc123",
-            parse_control_fingerprint="test_pc_001",
+            parse_policy_fingerprint="test_pc_001",
             runtime_profile_fingerprint="test_rc_001",
         )
         # Save input digest
@@ -134,22 +135,6 @@ def test_runtime_metrics_cpu_only_bucketing():
 # ── P1: Detailed fallback quality impact ────────────────────────────────
 
 
-def test_profile_resolver_cpu_vlm_policies():
-    """DRC-W5-04: Profile resolver sets correct VLM policy per profile."""
-    from docmirror.runtime.profiles import (
-        COMPACT_PROFILE,
-        FULL_PROFILE,
-        FORENSIC_PROFILE,
-    )
-
-    # compact: VLM off
-    assert COMPACT_PROFILE.vlm_policy == "off"
-    # full: VLM optional
-    assert FULL_PROFILE.vlm_policy == "optional"
-    # forensic: VLM optional with strict provenance
-    assert FORENSIC_PROFILE.vlm_policy == "optional_strict"
-
-
 def test_classify_document_size():
     """DRC-W3-02: classify_document_size maps pages to size bucket."""
     from docmirror.runtime.control import classify_document_size
@@ -179,14 +164,13 @@ def test_resolve_task_mode():
 def test_cpu_only_all_modules_accessible():
     """DRC-W6-03: All DRC runtime modules are importable without VLM/GPU."""
     # These imports must succeed without VLM/GPU being available
-    from docmirror.runtime.control import RuntimeControl, classify_document_size, resolve_task_mode
-    from docmirror.runtime.events import ProgressEvent, FallbackEvent, MetricEvent
-    from docmirror.runtime.ledger import EventLedger, build_manifest_v2
-    from docmirror.runtime.profiles import resolve_profile, COMPACT_PROFILE, FULL_PROFILE, FORENSIC_PROFILE
-    from docmirror.runtime.metrics import MetricsCollector, RuntimeMetrics
     from docmirror.runtime.checkpoint import CheckpointManager
-    from docmirror.runtime.work_units import WorkUnit, WorkUnitPlanner, BatchJobLedger, BatchJobEntry
-    from docmirror.runtime.scheduler import SchedulerConfig, RuntimeScheduler
+    from docmirror.runtime.control import RuntimeControl, classify_document_size, resolve_task_mode
+    from docmirror.runtime.events import FallbackEvent, MetricEvent, ProgressEvent
+    from docmirror.runtime.ledger import EventLedger, build_manifest_v2
+    from docmirror.runtime.metrics import MetricsCollector, RuntimeMetrics
+    from docmirror.runtime.scheduler import RuntimeScheduler, SchedulerConfig
+    from docmirror.runtime.work_units import BatchJobEntry, BatchJobLedger, WorkUnit, WorkUnitPlanner
 
     # All imports succeeded — CPU-only path is structurally complete
     assert RuntimeControl is not None
@@ -201,8 +185,9 @@ def test_cpu_only_fallback_ledger_complete():
     """DRC-W6-03: Fallback ledger correctly captures all CPU-only transitions."""
     import tempfile
     from pathlib import Path
-    from docmirror.runtime.ledger import EventLedger
+
     from docmirror.runtime.events import FallbackEvent
+    from docmirror.runtime.ledger import EventLedger
 
     with tempfile.TemporaryDirectory() as tmp:
         ledger = EventLedger(Path(tmp))
@@ -280,8 +265,9 @@ def test_cpu_only_metric_events_generated():
     """DRC-W6-03: Metric events are generated for CPU-only parse timing."""
     import tempfile
     from pathlib import Path
-    from docmirror.runtime.ledger import EventLedger
+
     from docmirror.runtime.events import MetricEvent
+    from docmirror.runtime.ledger import EventLedger
 
     with tempfile.TemporaryDirectory() as tmp:
         ledger = EventLedger(Path(tmp))
@@ -318,13 +304,14 @@ def test_cpu_only_checkpoint_works_without_vlm():
     """DRC-W6-03: CheckpointManager works independently of VLM availability."""
     import tempfile
     from pathlib import Path
+
     from docmirror.runtime.checkpoint import CheckpointManager
 
     with tempfile.TemporaryDirectory() as tmp:
         cm = CheckpointManager(
             task_dir=Path(tmp),
             input_digest="sha256:cpu_only_test",
-            parse_control_fingerprint="cpu_pc_v1",
+            parse_policy_fingerprint="cpu_pc_v1",
             runtime_profile_fingerprint="cpu_rc_v1",
         )
 
@@ -350,24 +337,11 @@ def test_cpu_only_checkpoint_works_without_vlm():
             assert frag.get("ocr_engine") == "RapidOCR"
 
 
-def test_cpu_only_profile_resolver_keeps_fallback_paths():
-    """DRC-W6-03: All profiles maintain valid fallback paths for CPU-only."""
-    from docmirror.runtime.profiles import COMPACT_PROFILE, FULL_PROFILE, FORENSIC_PROFILE
-
-    # Even forensic profile (which prefers VLM) must not crash without VLM
-    for profile in [COMPACT_PROFILE, FULL_PROFILE, FORENSIC_PROFILE]:
-        # Profile must be valid (not crash when accessed)
-        assert profile.profile_name in ("compact", "full", "forensic")
-        assert profile.output_size_guard_bytes > 0
-        assert profile.token_budget_hard_limit > 0
-        # Each profile must define a valid vlm_policy
-        assert profile.vlm_policy in ("off", "optional", "optional_strict")
-
-
 def test_cpu_only_manifest_reflects_fallback_summary():
     """DRC-W6-03: Manifest v2 captures fallback summary for CPU-only execution."""
     import tempfile
     from pathlib import Path
+
     from docmirror.runtime.ledger import EventLedger, build_manifest_v2
 
     with tempfile.TemporaryDirectory() as tmp:

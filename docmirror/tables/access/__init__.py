@@ -13,7 +13,7 @@ fallback to page tables.
 
 Main components: ``get_logical_tables``, ``table_flatten``, ``get_physical_tables``.
 
-Upstream: ``ParseResult`` from bridge (logical + physical tables).
+Upstream: canonical ``ParseResult`` (logical + physical tables).
 
 Downstream: Plugins, benchmarks, and external consumers.
 """

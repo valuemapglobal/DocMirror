@@ -11,13 +11,14 @@ from pathlib import Path
 import pytest
 
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
 from docmirror.plugins._runtime.community import (
     community_plugin_module,
     find_premium_community_plugin,
     get_community_premium_domains,
 )
-from docmirror.plugins._runtime.runner import clear_run_cache, run_plugin_extract_sync
+from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 from docmirror.server.output_builder import build_community_output
 from tests._community_reading import assert_community_reading_view
 from tests.contract.test_edition_schema_conformance import check_community
@@ -79,10 +80,14 @@ def test_unknown_domain_uses_generic_plugin():
 @pytest.mark.parametrize("domain,fixture", FIXTURE_BY_DOMAIN.items())
 def test_public_fixture_can_be_perceived(domain: str, fixture: Path):
     assert fixture.exists(), domain
-    result = asyncio.run(perceive_document(fixture, PerceiveOptions(enhance_mode="standard", max_pages=3)))
+    result = asyncio.run(
+        perceive_document(
+            fixture,
+            PerceiveOptions(policy=normalize_parse_policy(enhance_mode="standard", max_pages=3)),
+        )
+    )
     assert result.pages, domain
     assert result.full_text or result.total_tables >= 0
-    clear_run_cache()
     output = build_community_output(
         result,
         result.full_text or "",

@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Logical table export pipeline — shared SSOT for extractor and bridge fallback.
+Logical table export pipeline shared by extraction and canonical assembly.
 
 Uses merger planning (quarantine skip), LTQG, and export partition so
-``document_profile.compose_logical_tables`` and ``parse_result_bridge`` fallback
+``document_profile.compose_logical_tables`` and canonical assembly
 produce identical logical export contracts.
 """
 
@@ -44,7 +44,7 @@ def resolve_compose_profile(
     scene_hint: str | None = None,
     content_type: str | None = None,
 ) -> Any:
-    """Resolve layout profile for logical compose (extractor host or bridge metadata)."""
+    """Resolve the layout profile used by canonical logical-table composition."""
     if profile is not None:
         return profile
     if layout_profile_id:
@@ -63,7 +63,7 @@ def resolve_compose_profile(
 
 
 def page_content_to_layouts(pages: list[PageContent]) -> list[PageLayout]:
-    """Rebuild PageLayout blocks from ParseResult pages (bridge fallback when layouts lost)."""
+    """Rebuild physical layouts from canonical pages for table recomposition."""
     layouts: list[PageLayout] = []
     for page in pages:
         blocks: list[Block] = []

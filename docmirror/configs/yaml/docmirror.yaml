@@ -64,16 +64,12 @@ business:
   fail_strategy: skip
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Parse Control Plane
-# User intent modes mapped to pipeline depth. CLI/API explicit values override
-# these defaults, but the names remain stable public contract.
+# Parse Policy
+# User intent modes mapped only to fact-producing pipeline depth.
 # ═══════════════════════════════════════════════════════════════════════════════
 
 parse:
   mode: auto
-  formats: [json]
-  mirror_level: standard
-  workers: auto
   modes:
     auto:
       enhance_mode: standard
@@ -97,7 +93,6 @@ parse:
       slm: optional
     forensic:
       enhance_mode: full
-      mirror_level_default: forensic
       layout_model: auto
       table_sampling: on
       slm: optional
@@ -220,29 +215,6 @@ formula:
   # Model render DPI
   render_dpi: 200
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Cache Configuration
-# ═══════════════════════════════════════════════════════════════════════════════
-
-cache:
-  # Enable caching
-  enabled: true
-  
-  # Redis URL (use environment variable for security)
-  redis_url: ${REDIS_URL}
-  
-  # Cache TTL (seconds)
-  ttl: 86400
-  
-  # Circuit breaker settings
-  circuit_breaker:
-    # Number of failures before opening circuit
-    failure_threshold: 3
-    
-    # Cooldown period (seconds)
-    cooldown_seconds: 60
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # Seal Detection
 # ═══════════════════════════════════════════════════════════════════════════════
 

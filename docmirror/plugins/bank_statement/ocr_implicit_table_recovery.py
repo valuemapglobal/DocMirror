@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Recover OCR implicit ledger tables from vNext Mirror table blocks."""
+"""Recover OCR implicit ledger tables from canonical facts and evidence."""
 
 from __future__ import annotations
 
@@ -25,22 +25,22 @@ _CACHE_KEY = "_bank_ocr_implicit_recovery"
 
 
 def recover_ocr_implicit_ledger_tables(parse_result: Any, full_text: str = "") -> list[list[list[str]]]:
-    """Build bank ledger tables from OCR implicit table blocks in Mirror vNext."""
+    """Build bank ledger tables from canonical tables and positioned text."""
     cached = _cached_tables(parse_result)
     if cached is not None:
         logger.debug("[BankOCRImplicitRecovery] cache hit rows=%d", _recovered_row_count(cached))
         return cached
 
-    mirror = _mirror_payload(parse_result)
-    tables = _extract_mirror_tables(mirror)
+    canonical = _canonical_payload(parse_result)
+    tables = _extract_canonical_tables(canonical)
     recovered: list[list[list[str]]] = []
-    recovered.extend(_extract_paragraph_ledger_tables(mirror))
+    recovered.extend(_extract_paragraph_ledger_tables(canonical))
     for table in tables:
         normalized = _normalize_implicit_table(table)
         if len(normalized) > 1:
             recovered.append(normalized)
     if recovered:
-        _store_cache(parse_result, recovered, source="mirror_vnext")
+        _store_cache(parse_result, recovered, source="canonical_facts")
         logger.info("[BankOCRImplicitRecovery] recovered %d OCR implicit table(s)", len(recovered))
         return recovered
     recovered = _recover_from_text(full_text)
@@ -96,27 +96,46 @@ def _recovered_row_count(tables: list[list[list[str]]]) -> int:
     return sum(max(len(table) - 1, 0) for table in tables)
 
 
-def _mirror_payload(parse_result: Any) -> dict[str, Any]:
+def _canonical_payload(parse_result: Any) -> dict[str, Any]:
     if parse_result is None:
         return {}
-    mirror = getattr(parse_result, "_runtime_mirror_cache", None)
-    if mirror is None:
-        mirror = getattr(parse_result, "mirror", None)
-    if isinstance(mirror, dict):
-        return mirror
-    if hasattr(mirror, "model_dump"):
-        return mirror.model_dump(by_alias=True, exclude_none=True)
-    if hasattr(parse_result, "to_mirror_json_vnext"):
-        try:
-            return parse_result.to_mirror_json_vnext()
-        except Exception as exc:
-            logger.debug("[BankOCRImplicitRecovery] vNext mirror projection failed: %s", exc)
-    return {}
+    from docmirror.plugins._runtime.evidence_access import evidence_payload
+
+    blocks: list[dict[str, Any]] = []
+    for page in getattr(parse_result, "pages", []) or []:
+        page_id = f"page:{int(getattr(page, 'page_number', 1) or 1):04d}"
+        for table in getattr(page, "tables", []) or []:
+            cells: list[dict[str, Any]] = []
+            for col, text in enumerate(getattr(table, "headers", []) or []):
+                cells.append({"row": 0, "col": col, "text": str(text)})
+            for row_index, row in enumerate(getattr(table, "rows", []) or [], start=1):
+                for col, cell in enumerate(getattr(row, "cells", []) or []):
+                    cells.append({"row": row_index, "col": col, "text": str(getattr(cell, "text", ""))})
+            if cells:
+                blocks.append(
+                    {
+                        "type": "table",
+                        "page_ids": [page_id],
+                        "content": {"grid": {"cells": cells}},
+                    }
+                )
+        for text in getattr(page, "texts", []) or []:
+            content = str(getattr(text, "content", "") or "").strip()
+            if content:
+                blocks.append(
+                    {
+                        "type": "paragraph",
+                        "page_ids": [page_id],
+                        "bbox": getattr(text, "bbox", None),
+                        "text": content,
+                    }
+                )
+    return {"blocks": blocks, "evidence": evidence_payload(parse_result)}
 
 
-def _extract_mirror_tables(mirror: dict[str, Any]) -> list[list[list[str]]]:
+def _extract_canonical_tables(payload: dict[str, Any]) -> list[list[list[str]]]:
     tables: list[list[list[str]]] = []
-    for block in mirror.get("blocks") or []:
+    for block in payload.get("blocks") or []:
         if not isinstance(block, dict) or block.get("type") != "table":
             continue
         cells = ((block.get("content") or {}).get("grid") or {}).get("cells") or []
@@ -153,7 +172,7 @@ def _normalize_implicit_table(table: list[list[str]]) -> list[list[str]]:
     return out if len(out) > 1 else []
 
 
-def _extract_paragraph_ledger_tables(mirror: dict[str, Any]) -> list[list[list[str]]]:
+def _extract_paragraph_ledger_tables(payload: dict[str, Any]) -> list[list[list[str]]]:
     """Recover ledger rows that vNext kept as paragraph/list/footer text blocks.
 
     Scanned first pages often have valid OCR tokens and bboxes, but fail table-region
@@ -162,7 +181,7 @@ def _extract_paragraph_ledger_tables(mirror: dict[str, Any]) -> list[list[list[s
     uses domain invariants to parse the following text blocks into rows.
     """
     by_page: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for block in mirror.get("blocks") or []:
+    for block in payload.get("blocks") or []:
         if not isinstance(block, dict):
             continue
         page_ids = block.get("page_ids") or []

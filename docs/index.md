@@ -11,7 +11,7 @@ DocMirror does not stop at OCR, raw text, or Markdown. It produces evidence-back
 
 | Layer | Purpose |
 |---|---|
-| Community JSON | default 6+1 routed structured output for application use |
+| Community Bundle | semantic JSON + complete Markdown + universal datasets CSV |
 | Mirror JSON | optional canonical diagnostic facts, structure, pages, blocks, entities |
 | Evidence Bundle | source refs, page numbers, bounding boxes, raw values |
 | Quality Report | quality status, confidence, warnings, review signals |
@@ -36,7 +36,6 @@ Parse your own document:
 ```bash
 pip install "docmirror[pdf,ocr,office]"
 docmirror statement.pdf --output-dir ./output
-docmirror statement.pdf --audit
 ```
 
 ## Product Promise
@@ -57,6 +56,7 @@ Can it enter a downstream system?
 
 - [Installation](installation.md)
 - [Quick Start](quickstart.md)
+- [Markdown Profile 1.0 (zh-CN)](markdown_profile_zh-CN.md)
 - [Development Manual (zh-CN)](development_manual_zh-CN.md)
 - [Deployment](deployment.md)
 - [API Authentication](api-authentication.md)

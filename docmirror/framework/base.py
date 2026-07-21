@@ -10,8 +10,8 @@ BaseParser — Adapter Contract
 
 First-principles design:
 
-    1. ``to_parse_result()`` — pure extraction.  Each adapter controls its own
-       parsing pipeline.  The result MUST have ``provenance`` already filled;
+    1. ``to_parse_result()`` — adapter evidence/basic-fact extraction followed
+       by canonical assembly. The result MUST have ``provenance`` already filled;
        ``perceive()`` no longer re-reads the file just to compute a hash.
 
     2. ``perceive()`` — extraction + middleware enrichment via the shared
@@ -37,7 +37,8 @@ class BaseParser(ABC):
     """
     Abstract base class for all document parsers.
 
-    Adapters implement ``to_parse_result()`` and return a ParseResult with
+    Adapters implement ``to_parse_result()`` by mapping source-specific evidence
+    and basic facts into canonical assembly. The returned ParseResult has
     ``provenance`` already populated (file type, size, checksum).
 
     ``perceive()`` is the shared pipeline: extract → middleware enrichment.
@@ -70,7 +71,7 @@ class BaseParser(ABC):
 
         # ── Safety net: fill provenance if adapter didn't ──
         # We deliberately avoid a full SHA256 here (that was already done
-        # in ParserDispatcher._validate).  A lightweight stat-only fallback
+        # by InputAcceptance).  A lightweight stat-only fallback
         # is sufficient for the safety-net case.
         if pr.provenance is None:
             from docmirror.models.entities.parse_result import ProvenanceInfo

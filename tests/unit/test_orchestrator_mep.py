@@ -31,19 +31,28 @@ def test_orchestrator_standard_fixed_layout_chain():
         "InstitutionDetector",
         "Validator",
         "LlmDocumentRestorer",
+        "HeaderInferrerMiddleware",
+        "HeaderAlignmentMiddleware",
     ]:
         assert required in names
+    assert names.index("GeometricReconstructor") < names.index("LlmDocumentRestorer")
+    assert names.index("LlmDocumentRestorer") < names.index("HeaderInferrerMiddleware")
+    assert names.index("HeaderInferrerMiddleware") < names.index("HeaderAlignmentMiddleware")
+    assert names.index("HeaderAlignmentMiddleware") < names.index("EntityExtractor")
     assert names.index("EntityExtractor") < names.index("EvidenceEngine")
-    assert names.index("EvidenceEngine") < names.index("Validator")
+    assert names.index("EvidenceEngine") < names.index("InstitutionDetector")
+    assert names.index("InstitutionDetector") < names.index("Validator")
 
 
-def test_orchestrator_full_skips_tuh_without_tables(monkeypatch):
+def test_orchestrator_full_keeps_causal_structure_chain(monkeypatch):
     monkeypatch.setenv("DOCMIRROR_ENABLE_ANOMALY", "1")
     orch = Orchestrator()
     mws = orch._build_middlewares("full", "pdf", "fixed_layout_rasterizable", _minimal_result())
     class_names = {type(m).__name__ for m in mws}
     assert "LanguageDetector" in class_names
-    assert "HeaderInferrerMiddleware" not in class_names
+    assert "GeometricReconstructor" in class_names
+    assert "LlmDocumentRestorer" in class_names
+    assert "HeaderInferrerMiddleware" in class_names
     assert "AnomalyDetectorMiddleware" in class_names
 
 

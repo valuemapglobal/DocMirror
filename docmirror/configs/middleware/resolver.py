@@ -36,10 +36,13 @@ logger = logging.getLogger(__name__)
 
 GLOBAL_STAGE_ORDER: tuple[str, ...] = (
     "NORMALIZE",
+    "RECONSTRUCT",
+    "RESTORE",
     "STRUCTURE",
     "ENRICH",
     "CLASSIFY",
     "CONTEXT",
+    "DOMAIN",
     "VALIDATE",
 )
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from docmirror.evidence.spe_consumer import mirror_api_meta_fields
 from docmirror.models.entities.parse_result import (
     CellValue,
     DocumentEntities,
@@ -28,7 +29,6 @@ from docmirror.models.mirror.serialization_contract import (
     logical_table_role,
 )
 from docmirror.models.schemas.registry import validate_projection_payload
-from docmirror.evidence.spe_consumer import mirror_api_meta_fields
 
 
 def _schema_path() -> Path:

@@ -14,6 +14,7 @@ from docmirror.evidence.bundle import build_evidence_bundle
 from docmirror.evidence.ledger import build_evidence_ledger, ledger_summary
 from docmirror.models.entities.parse_result import CellValue, PageContent, ParseResult, TableBlock, TableRow, TextBlock
 
+
 def test_evidence_ledger_builds_from_parse_result():
     """OUT1-5: Ledger collects page, text, table, and cell entries."""
     result = ParseResult(

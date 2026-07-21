@@ -7,11 +7,12 @@
 """Unit tests for docmirror.models.errors (G3 error codes and failure builder)."""
 
 import pytest
+
 from docmirror.models.errors import (
     DocMirrorErrorCode,
+    build_failure_result,
     get_error_meta,
     make_error_detail,
-    build_failure_result,
 )
 
 

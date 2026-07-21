@@ -1,12 +1,12 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared logical export pipeline (extractor + bridge SSOT)."""
+"""Shared logical export pipeline for extraction and canonical assembly."""
 
 from __future__ import annotations
 
-from docmirror.tables.compose.export_pipeline import compose_logical_export_from_layouts
 from docmirror.models.entities.domain import Block, PageLayout
+from docmirror.tables.compose.export_pipeline import compose_logical_export_from_layouts
 
 
 def _page(num: int, rows: list[list[str]]) -> PageLayout:

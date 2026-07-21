@@ -6,12 +6,12 @@
 from __future__ import annotations
 
 from docmirror.eval.tqg.mirror_structure_oracles import run_mirror_structure_oracle
-from docmirror.models.entities.domain import BaseResult
+from docmirror.models.entities.parse_result import ParseResult, ParserInfo
 
 
 def _meta(structure: dict, *, table_count: int = 0):
-    base = BaseResult(pages=(), metadata={"structure": structure})
-    return {"base": base, "table_count": table_count}
+    result = ParseResult(parser_info=ParserInfo(structure=structure))
+    return {"result": result, "table_count": table_count}
 
 
 def test_oracle_passes_table_led_pipe():

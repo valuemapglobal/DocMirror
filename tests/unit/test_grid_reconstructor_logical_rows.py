@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from docmirror.layout.profile.registry import get_profile
 from docmirror.tables.best_candidate import ExtractCandidate, pick_best_candidate
 from docmirror.tables.char.grid_reconstructor import detect_table_via_grid
-from docmirror.layout.profile.registry import get_profile
 
 
 @dataclass

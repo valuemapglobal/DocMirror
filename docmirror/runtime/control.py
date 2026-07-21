@@ -3,9 +3,9 @@
 
 """Document Runtime Contract (DRC) — RuntimeControl, CostProfile, CheckpointControl.
 
-GA 1.0 §6.1: RuntimeControl sits alongside ParseControl and expresses "how to run"
-independently of "how to parse". Cost profiles (compact/full/forensic) control
-output granularity, evidence depth, token budgets, and artifact size targets.
+GA 1.0 §6.1: RuntimeControl sits alongside ParsePolicy and expresses "how to run"
+independently of "how to parse". Runtime presets control scheduling,
+checkpointing, retries, streaming intermediates, and token budgets only.
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from typing import Any, Literal
 
 CostProfileType = Literal["compact", "full", "forensic"]
 TaskMode = Literal["sync", "async", "auto"]
-MirrorLevel = Literal["standard", "forensic"]
 
 
 @dataclass(frozen=True)
@@ -148,7 +147,7 @@ class TokenBudget:
 class RuntimeControl:
     """Top-level runtime contract — controls how a task is executed.
 
-    Sits alongside ``ParseControl`` (which controls how a document is parsed).
+    Sits alongside ``ParsePolicy`` (which controls how a document is parsed).
     Together they form the complete execution contract for any entry point
     (CLI, API, SDK, batch).
     """
@@ -294,7 +293,6 @@ __all__ = [
     "CheckpointControl",
     "CostProfileType",
     "LongDocumentControl",
-    "MirrorLevel",
     "ProgressControl",
     "RetryControl",
     "RuntimeControl",

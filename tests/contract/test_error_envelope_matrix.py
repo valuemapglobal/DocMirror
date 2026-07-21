@@ -4,7 +4,7 @@ Ensures every registered failure code can produce a complete error envelope
 and that envelope fields match the FailureCodeRegistry metadata.
 """
 
-from docmirror.configs.failure_codes import registry, build_error_envelope_from_code
+from docmirror.configs.failure_codes import build_error_envelope_from_code, registry
 
 
 class TestErrorEnvelopeCoverage:

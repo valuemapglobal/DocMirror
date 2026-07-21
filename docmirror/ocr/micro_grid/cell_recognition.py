@@ -346,6 +346,7 @@ def _looks_like_hash(ink: Any, *, np: Any) -> bool:
         return False
     rows = np.where(ink.astype(np.float32).mean(axis=1) >= 0.6)[0]
     cols = np.where(ink.astype(np.float32).mean(axis=0) >= 0.6)[0]
+
     def groups(values: Any) -> list[list[int]]:
         out: list[list[int]] = []
         for value in (int(item) for item in values):
@@ -454,9 +455,7 @@ def _normalize_glyph_template(glyph_white: Any, *, np: Any, cv2: Any) -> Any | N
     return canvas
 
 
-def _match_reference_templates(
-    target: Any, references: dict[str, list[Any]], *, np: Any
-) -> tuple[str, float] | None:
+def _match_reference_templates(target: Any, references: dict[str, list[Any]], *, np: Any) -> tuple[str, float] | None:
     target_norm = float(np.linalg.norm(target))
     if target_norm <= 0:
         return None

@@ -68,7 +68,6 @@ from docmirror.plugins._runtime.composition import (
     CompositionReason,
     annotate_composition,
     apply_extract_fallback,
-    apply_license_degrade,
 )
 from docmirror.plugins._runtime.core_extensions import register_core_extensions  # noqa: F401
 
@@ -135,7 +134,6 @@ __all__ = [
     "CompositionReason",
     "annotate_composition",
     "apply_extract_fallback",
-    "apply_license_degrade",
     # runner
     "run_plugin_extract",
     "run_plugin_extract_sync",

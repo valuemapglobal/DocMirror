@@ -14,8 +14,8 @@ import pytest
 from pypdf import PdfReader
 
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.models.schemas.registry import validate_projection_payload
-from docmirror.plugins._runtime.runner import clear_run_cache
 from docmirror.plugins.credit_report.business_records import extract_native_credit_business
 from docmirror.server.output_builder import build_community_output
 from tests._community_reading import assert_community_reading_view
@@ -44,10 +44,9 @@ def _extract(path: Path, *, max_pages: int | None) -> dict:
     result = asyncio.run(
         perceive_document(
             path,
-            PerceiveOptions(enhance_mode="standard", max_pages=max_pages),
+            PerceiveOptions(policy=normalize_parse_policy(enhance_mode="standard", max_pages=max_pages)),
         )
     )
-    clear_run_cache()
     output = build_community_output(result, result.full_text or "", file_path=str(path))
     assert output is not None
     return output

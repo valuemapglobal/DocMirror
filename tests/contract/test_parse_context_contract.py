@@ -12,8 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.input.entry.factory import PerceiveOptions, PerceptionFactory, perceive_document
 from docmirror.framework.base import BaseParser
+from docmirror.input.entry.factory import PerceiveOptions, PerceptionFactory, perceive_document
+from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.models.entities.parse_result import PageContent, ParseResult, ResultStatus
 
 pytestmark = [pytest.mark.tier_contract]
@@ -39,10 +40,16 @@ class _ContextCapturingParser(BaseParser):
 
 class _CapturingDispatcher:
     def __init__(self) -> None:
-        self.kwargs: dict = {}
+        self.source = None
+        self.policy = None
+        self.max_workers = None
+        self.on_progress = None
 
-    async def process(self, file_path, **kwargs):
-        self.kwargs = kwargs
+    async def process(self, source, policy, *, max_workers=None, on_progress=None):
+        self.source = source
+        self.policy = policy
+        self.max_workers = max_workers
+        self.on_progress = on_progress
         return ParseResult(status=ResultStatus.SUCCESS, pages=[PageContent(page_number=1)])
 
 
@@ -54,7 +61,7 @@ def test_base_parser_forwards_parse_context_and_fills_provenance(tmp_path: Path,
         lambda: _PassthroughOrchestrator(),
     )
     source = tmp_path / "sample.pdf"
-    source.write_bytes(b"%PDF-1.7\n")
+    source.write_bytes(b"%PDF-1.7\n" + b"0" * 128)
     parser = _ContextCapturingParser()
 
     result = asyncio.run(
@@ -83,8 +90,22 @@ def test_base_parser_forwards_parse_context_and_fills_provenance(tmp_path: Path,
 
 
 def test_perceive_options_do_not_mutate_process_env(tmp_path: Path, monkeypatch):
+    from docmirror.configs.format.resolver import resolve_capability
+    from docmirror.input import acceptance as acceptance_module
+    from docmirror.input.models import AcceptedSource, InputAcceptanceReport
+
     source = tmp_path / "sample.pdf"
-    source.write_bytes(b"%PDF-1.7\n")
+    source.write_bytes(b"%PDF-1.7\n" + b"0" * 128)
+    accepted = AcceptedSource(
+        path=source,
+        original_name=source.name,
+        size_bytes=source.stat().st_size,
+        detected_mime="application/pdf",
+        sha256="test-sha256",
+        capability=resolve_capability(source),
+        acceptance=InputAcceptanceReport(),
+    )
+    monkeypatch.setattr(acceptance_module, "accept_source", lambda _path: accepted)
     dispatcher = _CapturingDispatcher()
     monkeypatch.setattr(PerceptionFactory, "get_dispatcher", classmethod(lambda cls: dispatcher))
     monkeypatch.setenv("DOCMIRROR_MAX_PAGES", "77")
@@ -93,13 +114,14 @@ def test_perceive_options_do_not_mutate_process_env(tmp_path: Path, monkeypatch)
     asyncio.run(
         perceive_document(
             source,
-            PerceiveOptions(max_pages=2, enhance_mode="raw"),
+            PerceiveOptions(policy=normalize_parse_policy(max_pages=2, enhance_mode="raw")),
         )
     )
 
-    assert dispatcher.kwargs["max_pages"] == 2
-    assert dispatcher.kwargs["enhance_mode"] == "raw"
-    assert dispatcher.kwargs["skip_cache"] is False
-    assert dispatcher.kwargs["on_progress"] is None
+    assert dispatcher.source.path == source
+    assert dispatcher.policy.pages.max_pages == 2
+    assert dispatcher.policy.enhance_mode == "raw"
+    assert dispatcher.max_workers is None
+    assert dispatcher.on_progress is None
     assert os.environ["DOCMIRROR_MAX_PAGES"] == "77"
     assert os.environ["DOCMIRROR_ENHANCE_MODE"] == "standard"

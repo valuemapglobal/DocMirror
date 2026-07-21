@@ -104,7 +104,7 @@ def build_style_meta(
         expected = record_count
     elif canonical_expected > 0:
         expected = canonical_expected
-    elif parse_result is not None and source in ("mirror_table", ""):
+    elif parse_result is not None and source in ("canonical_table", ""):
         from docmirror.evidence.spe_consumer import mirror_expected_primary_rows
 
         mirror_expected = mirror_expected_primary_rows(parse_result)

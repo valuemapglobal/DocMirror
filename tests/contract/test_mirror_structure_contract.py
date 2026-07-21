@@ -12,7 +12,6 @@ import pytest
 
 pytestmark = [pytest.mark.tier_contract]
 
-from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
 from docmirror.input.extraction.extractor import CoreExtractor
 
 BANK = Path("tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf")
@@ -35,11 +34,11 @@ def _assert_spe_shape(spe: dict) -> None:
 
 
 @pytest.mark.integration
-def test_base_result_metadata_contains_structure():
+def test_parse_result_contains_structure():
     if not BANK.is_file():
         pytest.skip("missing synthetic bank fixture")
-    base = asyncio.run(CoreExtractor(max_page_concurrency=1).extract(BANK))
-    spe = base.metadata.get("structure")
+    result = asyncio.run(CoreExtractor(max_page_concurrency=1).extract_parse_result(BANK))
+    spe = result.parser_info.structure
     _assert_spe_shape(spe)
     assert spe["primary"] in ("table_led", "section_led", "mixed", "prose_led")
     assert isinstance(float(spe["competitors"]["H_pipe_grid"]), float)
@@ -47,11 +46,10 @@ def test_base_result_metadata_contains_structure():
 
 
 @pytest.mark.integration
-def test_parse_result_bridge_preserves_structure():
+def test_parse_result_preserves_structure():
     if not BANK.is_file():
         pytest.skip("missing synthetic bank fixture")
-    base = asyncio.run(CoreExtractor(max_page_concurrency=1).extract(BANK))
-    pr = ParseResultBridge.from_base_result(base)
+    pr = asyncio.run(CoreExtractor(max_page_concurrency=1).extract_parse_result(BANK))
     assert pr.parser_info.structure is not None
     _assert_spe_shape(pr.parser_info.structure)
 
@@ -60,8 +58,8 @@ def test_parse_result_bridge_preserves_structure():
 def test_credit_report_section_spe_not_mismatch():
     if not CREDIT.is_file():
         pytest.skip("missing credit_report fixture")
-    base = asyncio.run(CoreExtractor(max_page_concurrency=1).extract(CREDIT))
-    spe = base.metadata.get("structure")
+    result = asyncio.run(CoreExtractor(max_page_concurrency=1).extract_parse_result(CREDIT))
+    spe = result.parser_info.structure
     _assert_spe_shape(spe)
     assert spe["primary"] == "section_led"
     assert spe.get("table_extraction_skipped_reason") != "route_section_dominant_mismatch"
@@ -71,8 +69,7 @@ def test_credit_report_section_spe_not_mismatch():
 def test_api_meta_exports_structure():
     if not BANK.is_file():
         pytest.skip("missing synthetic bank fixture")
-    base = asyncio.run(CoreExtractor(max_page_concurrency=1).extract(BANK))
-    pr = ParseResultBridge.from_base_result(base)
+    pr = asyncio.run(CoreExtractor(max_page_concurrency=1).extract_parse_result(BANK))
     api = pr.to_mirror_json_vnext()
     assert api["mirror"]["schema"] == "docmirror.mirror_json"
     assert pr.parser_info.structure is not None

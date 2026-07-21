@@ -9,6 +9,7 @@ Unit tests for domain_registry — key normalization and identity resolution.
 """
 
 import pytest
+
 from docmirror.configs.domain.registry import (
     KEY_SYNONYMS,
     normalize_entity_keys,

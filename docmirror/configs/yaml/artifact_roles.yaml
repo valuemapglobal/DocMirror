@@ -8,8 +8,16 @@ roles:
     description: 001_mirror.json — canonical Mirror fact output
   community:
     role: edition_output
+    consumer: machine
+    description: 001_community.json — Community semantic index
+  community_content:
+    role: human_viewable_output
+    consumer: human
+    description: 001_content.md — complete Community reading view
+  community_datasets:
+    role: tabular_output
     consumer: both
-    description: 002_community.json — Community edition output
+    description: 001_datasets/ — one intuitive wide CSV per logical dataset plus field audit
   enterprise:
     role: edition_output
     consumer: both

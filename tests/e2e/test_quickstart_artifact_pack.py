@@ -7,23 +7,24 @@ import json
 from pathlib import Path
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.server.edition_outputs import write_four_files
+from docmirror.server.artifact_pack import ensure_quickstart_artifact_pack
+from docmirror.server.edition_outputs import write_outputs
 
 
 def test_quickstart_artifact_pack_written(tmp_path: Path):
     mirror = ParseResult(status=ResultStatus.SUCCESS)
     mirror.entities = DocumentEntities(document_type="business_license")
-    task_id, _written = write_four_files(
+    task_id, _written = write_outputs(
         mirror,
         tmp_path,
         file_id="001",
         task_id="quickstart_pack",
-        editions=("mirror", "community"),
-        profile="ga_full",
     )
 
     task_dir = tmp_path / task_id
-    manifest = json.loads((task_dir / "manifest.json").read_text(encoding="utf-8"))
+    manifest_path = task_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    ensure_quickstart_artifact_pack(task_dir, manifest, result=mirror)
 
     assert (task_dir / "quality_report.json").is_file()
     assert (task_dir / "visual_debug.html").is_file()

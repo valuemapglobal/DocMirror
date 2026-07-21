@@ -12,9 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.configs.format.resolver import resolve_capability
 from docmirror.configs.format.loader import load_format_registry
-
+from docmirror.configs.format.resolver import resolve_capability
 
 # ── Email (EML) ──
 

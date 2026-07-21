@@ -20,18 +20,14 @@ def run_mirror_structure_oracle(
 ) -> GateReport:
     """Validate ``parser_info.structure`` / metadata SPE fields."""
     report = GateReport(case_id=case_id, track=track, tier=tier)
-    base = meta.get("base")
-    if base is None:
+    result = meta.get("result") or meta.get("parse_result")
+    if result is None:
         report.passed = False
-        report.failures.append("mirror_structure: missing base metadata")
+        report.failures.append("mirror_structure: missing ParseResult")
         return report
 
-    structure = (base.metadata or {}).get("structure")
-    if not isinstance(structure, dict):
-        mirror = meta.get("mirror") or meta.get("result")
-        if mirror is not None:
-            info = getattr(mirror, "parser_info", None)
-            structure = getattr(info, "structure", None) if info else None
+    info = getattr(result, "parser_info", None)
+    structure = getattr(info, "structure", None) if info else None
     if not isinstance(structure, dict):
         structure = meta.get("structure") if isinstance(meta.get("structure"), dict) else None
     if not isinstance(structure, dict):

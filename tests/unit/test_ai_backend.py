@@ -12,11 +12,11 @@ import pytest
 
 from docmirror.input.adapters.ai import get_ai_backend, get_ai_config
 from docmirror.input.adapters.ai.config import (
-    AIConfig,
-    AIBackendType,
     DEFAULT_GEMINI_MODEL,
     DEFAULT_OPENAI_MODEL,
     DEFAULT_RATE_LIMIT,
+    AIBackendType,
+    AIConfig,
 )
 from docmirror.input.adapters.ai.protocol import AIAnalysisResult, AIBackendCapabilities
 

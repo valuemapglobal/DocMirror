@@ -6,7 +6,7 @@ and ``ColumnMatcher`` (fuzzy header row matching). Community plugins configure
 parsing through a registry dict rather than hard-coded column names.
 
 Pipeline role: ``BaseTableParser`` and bank-statement ``header_resolve`` use
-``ColumnMatcher`` during ``extract_from_mirror`` to map Mirror table headers to
+``ColumnMatcher`` during recognition to map canonical table headers to
 canonical transaction fields.
 
 Key exports: ``ColumnMapping``, ``ColumnMatcher``.

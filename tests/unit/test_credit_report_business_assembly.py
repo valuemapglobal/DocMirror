@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from docmirror.models.entities.parse_result import PageContent, ParserInfo
+from docmirror.models.entities.parse_result import PageContent, ParserInfo, TableBlock
 from docmirror.plugins.credit_report.business_assembly import assemble_credit_report_business
 
 
@@ -183,3 +183,42 @@ def test_assembly_quarantines_unresolved_repayment_status_from_ready_contract() 
     assert repayment["status_resolution_coverage"] == 0.0
     assert "unresolved_values:repayment_records.status" in audit["issues"]
     assert audit["status"] == "review"
+
+
+def test_enterprise_accounts_prefer_canonical_physical_table_fields() -> None:
+    result = _result()
+    result.pages[0].tables = [
+        TableBlock(
+            table_id="pt_1_0",
+            extraction_layer="pymupdf_native",
+            metadata={
+                "raw_rows": [
+                    ["账户编号", "授信机构", "业务种类", "开立日期", "到期日", "币种", "借款金额"],
+                    [
+                        "G10323310H0001501014234520070",
+                        "示例银行",
+                        "流动资金贷款",
+                        "2024-12-24",
+                        "2025-12-23",
+                        "人民币元",
+                        "10000",
+                    ],
+                ]
+            },
+        )
+    ]
+
+    assembled = assemble_credit_report_business(
+        result,
+        "企业信用报告 信贷交易信息明细",
+        report_subtype="enterprise",
+        content_mode="native_text",
+    )
+
+    account = assembled["credit_accounts"][0]
+    assert account["open_date"] == "2024-12-24"
+    assert account["due_date"] == "2025-12-23"
+    assert account["currency"] == "CNY"
+    assert account["loan_amount"] == 10000
+    assert account["source_refs"][0]["source"] == "canonical_physical_table"
+    assert assembled["credit_summary"]["canonical_table_account_count"] == 1

@@ -43,13 +43,7 @@ COMMAND_HELP = {
     "plugins": "Plugin management commands.",
 }
 
-_ADVANCED_PARSE_OPTIONS = (
-    ("--mirror-level LEVEL", "Select standard, compact, or forensic Mirror output."),
-    ("--geometry LEVEL", "Select none, page, block, token, or full geometry."),
-    ("--include-text", "Include full text in Mirror output."),
-    ("--cache-policy POLICY", "Select read-write, read-only, refresh, or off."),
-    ("--ocr-correction-pack ID", "Enable a correction pack; may be repeated."),
-)
+_ADVANCED_PARSE_OPTIONS = (("--ocr-correction-pack ID", "Enable a correction pack; may be repeated."),)
 
 
 class LazyGroup(click.Group):
@@ -124,35 +118,6 @@ def _show_help_all(ctx: click.Context, _param: click.Parameter, value: bool) -> 
     ctx.exit()
 
 
-def _resolve_cli_output_editions(
-    *,
-    all_editions: bool,
-    audit: bool,
-    community_only: bool,
-) -> tuple[str, ...]:
-    selectors = [
-        name
-        for name, selected in (
-            ("--all", all_editions),
-            ("--audit", audit),
-            ("--community", community_only),
-        )
-        if selected
-    ]
-    if len(selectors) > 1:
-        raise click.UsageError(f"output selectors are mutually exclusive: {', '.join(selectors)}")
-
-    if all_editions or audit:
-        from docmirror.framework.edition_defaults import licensed_cli_editions
-
-        return licensed_cli_editions()
-    if community_only:
-        return ("community",)
-    from docmirror.framework.edition_defaults import default_cli_editions
-
-    return default_cli_editions()
-
-
 @click.group(cls=LazyGroup, context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
     "--help-all",
@@ -211,6 +176,13 @@ def _find_spec_quiet(module_name: str) -> Any:
     help="Output directory (env: DOCMIRROR_TASK_OUTPUT_DIR or default 'output')",
 )
 @click.option("--no-save", is_flag=True, help="Do not save result to disk")
+@click.option(
+    "-all",
+    "--all",
+    "all_outputs",
+    is_flag=True,
+    help="Also write the diagnostic Mirror JSON and manifest",
+)
 @click.option("--pages", "-p", default=None, help="Page ranges, 1-based: 1-3,8,10-")
 @click.option("--max-pages", type=int, default=None, help="Maximum pages after applying --pages")
 @click.option("--workers", "-j", default=None, help="Total worker budget for this command (int or auto)")
@@ -253,17 +225,6 @@ def _find_spec_quiet(module_name: str) -> Any:
     show_default=True,
     help="Split scanned two-page spreads before OCR",
 )
-@click.option(
-    "--format",
-    "-f",
-    "formats",
-    default="json",
-    show_default=True,
-    help="Output formats: json,csv,markdown,chunks,html,parquet,all",
-)
-@click.option("--all", "all_editions", is_flag=True, help="Write every installed edition allowed by the license")
-@click.option("--audit", is_flag=True, help="Write all licensed editions and the complete audit artifact pack")
-@click.option("--community", "community_only", is_flag=True, help="Write Community JSON only")
 @click.option("--doc-type", "-t", default=None, help="Manual document type")
 @click.option(
     "--doc-type-policy",
@@ -271,29 +232,6 @@ def _find_spec_quiet(module_name: str) -> Any:
     type=click.Choice(["prefer", "force"]),
     show_default=True,
     help="How strongly to apply --doc-type",
-)
-@click.option(
-    "--cache-policy",
-    default="read-write",
-    type=click.Choice(["read-write", "read-only", "refresh", "off"]),
-    show_default=True,
-    hidden=True,
-    help="Cache policy",
-)
-@click.option("--include-text", is_flag=True, hidden=True, help="Include full text in output")
-@click.option(
-    "--mirror-level",
-    default=None,
-    type=click.Choice(["standard", "compact", "forensic"]),
-    hidden=True,
-    help="Mirror output level: standard/compact/forensic",
-)
-@click.option(
-    "--geometry",
-    default=None,
-    type=click.Choice(["none", "page", "block", "token", "full"]),
-    hidden=True,
-    help="Geometry output level",
 )
 @click.option("--recursive", "-r", is_flag=True, help="Recursively parse directory/glob inputs")
 @click.option("--exclude", multiple=True, metavar="SUBSTR", help="Skip files whose path contains SUBSTR")
@@ -306,6 +244,7 @@ def parse(
     file: str,
     output_dir: str,
     no_save: bool,
+    all_outputs: bool,
     pages: str | None,
     max_pages: int | None,
     workers: str | None,
@@ -317,16 +256,8 @@ def parse(
     ocr_locale: str | None,
     ocr_correction_packs: tuple[str, ...],
     page_split: str,
-    formats: str,
-    all_editions: bool,
-    audit: bool,
-    community_only: bool,
     doc_type: str | None,
     doc_type_policy: str,
-    cache_policy: str,
-    include_text: bool,
-    mirror_level: str | None,
-    geometry: str | None,
     recursive: bool,
     exclude: tuple[str, ...],
     include_ext: str | None,
@@ -335,7 +266,7 @@ def parse(
     overwrite: bool,
     run_id: str | None,
 ) -> None:
-    """Parse a document and save Mirror and Community JSON by default."""
+    """Parse a document and save the Community three-part bundle."""
     import asyncio
     import logging
 
@@ -344,8 +275,6 @@ def parse(
         raise click.UsageError("--quiet and --verbose are mutually exclusive")
     resolved_log_level = "error" if quiet else ("debug" if verbose else "info")
     logging.basicConfig(level=getattr(logging, resolved_log_level.upper(), logging.INFO))
-    resolved_skip_cache = cache_policy in {"refresh", "off"}
-
     from docmirror.__main__ import discover_inputs, parse_document
 
     inputs = discover_inputs(file, recursive=recursive, include_ext=include_ext)
@@ -354,35 +283,15 @@ def parse(
     if not inputs:
         raise click.ClickException(f"Path/glob not found or no files matched: {file}")
 
-    requested_editions = _resolve_cli_output_editions(
-        all_editions=all_editions,
-        audit=audit,
-        community_only=community_only,
-    )
-    if audit:
-        mirror_level = mirror_level or "forensic"
-        geometry = geometry or "full"
-
     async def _parse_one(path: Path) -> None:
         await parse_document(
             str(path.resolve()),
-            "json",
             Path(output_dir),
             no_save=no_save,
-            skip_cache=resolved_skip_cache,
-            include_text=include_text,
-            split_layers=False,
-            debug_artifact=audit,
-            export_parquet=False,
-            mirror_level=mirror_level,
             pages=pages,
             max_pages=max_pages,
             workers=workers,
             mode=mode,
-            formats=formats,
-            editions=requested_editions,
-            output_profile=None,
-            cache_policy=cache_policy,
             doc_type=doc_type,
             doc_type_policy=doc_type_policy,
             doc_type_hint=None,
@@ -393,10 +302,9 @@ def parse(
             ocr_locale=ocr_locale,
             ocr_correction_packs=ocr_correction_packs,
             page_split=page_split,
-            geometry=geometry,
-            include_geometry=None,
             run_id=run_id,
             overwrite=overwrite,
+            all_outputs=all_outputs,
         )
 
     async def _parse_many() -> None:

@@ -10,7 +10,7 @@ from docmirror.plugins._runtime.post_extract.catalog import load_post_extract_ca
 
 def test_post_extract_catalog_loads():
     catalog = load_post_extract_catalog()
-    assert "mirror_table_rebuild" in catalog
+    assert "edition_table_rebuild" in catalog
     assert "community_precision" in catalog
     assert "plugin_trust_projection" in catalog
 
@@ -32,4 +32,4 @@ def test_resolve_bank_statement_hooks():
         extracted={"structured_data": {"transactions": []}},
     )
     ids = {h.hook_id for h in hooks}
-    assert "mirror_table_rebuild" in ids
+    assert "edition_table_rebuild" in ids

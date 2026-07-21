@@ -12,10 +12,10 @@ from docmirror.evidence.spe_consumer import (
     spe_ltro_warnings,
 )
 from docmirror.evidence.structure_provenance import apply_logical_tables_spe
-from docmirror.tables.structure_detect import count_primary_pipe_rows, detect_pipe_grid_in_text
-from docmirror.models.entities.parse_result import ParserInfo, ParseResult
+from docmirror.models.entities.parse_result import ParseResult, ParserInfo
 from docmirror.plugins.bank_statement.ltro import reconstruct_tables
 from docmirror.plugins.bank_statement.pipe_text_table_builder import build_tables_from_pipe_text
+from docmirror.tables.structure_detect import count_primary_pipe_rows, detect_pipe_grid_in_text
 from tests.unit.test_pipe_text_table_builder import _synthetic_boc_text
 
 

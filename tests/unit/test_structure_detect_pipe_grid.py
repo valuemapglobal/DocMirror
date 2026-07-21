@@ -55,7 +55,7 @@ def test_no_pipes_zero_signal():
 
 
 def test_header_zone_respects_table_block():
-    from docmirror.models.entities.parse_result import PageContent, ParseResult, TableBlock, TableRow, CellValue
+    from docmirror.models.entities.parse_result import CellValue, PageContent, ParseResult, TableBlock, TableRow
 
     full = "户名 张三\n|序号|记账日|\n| 1 |220401|"
     pr = ParseResult(

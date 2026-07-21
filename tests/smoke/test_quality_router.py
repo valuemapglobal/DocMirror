@@ -12,8 +12,8 @@ import pytest
 
 pytestmark = [pytest.mark.tier_smoke]
 
-import sys
 import os
+import sys
 
 # Ensure project root is on path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

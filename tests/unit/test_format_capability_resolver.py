@@ -9,7 +9,8 @@ import pytest
 
 from docmirror.configs.format.enhancement import resolve_enhancement_profile, transport_to_content_model
 from docmirror.configs.format.resolver import resolve_capability
-from docmirror.framework.dispatcher import ParserDispatcher
+from docmirror.input.acceptance import accept_source
+from docmirror.input.pipeline import perceive_document
 
 
 def test_resolve_pdf_capability():
@@ -57,10 +58,10 @@ def test_transport_to_content_model_ofd():
 
 
 @pytest.mark.asyncio
-async def test_dispatcher_rejects_wps(tmp_path):
+async def test_acceptance_rejects_wps(tmp_path):
     wps = tmp_path / "file.wps"
-    wps.write_bytes(b"\x00\x01")
-    result = await ParserDispatcher().process(wps)
+    wps.write_bytes(b"\x00\x01" * 100)
+    result = await perceive_document(wps)
     assert result.status.value == "failure"
     assert result.error is not None
     assert result.error.code == "UNSUPPORTED_FORMAT"
@@ -69,11 +70,11 @@ async def test_dispatcher_rejects_wps(tmp_path):
 @pytest.mark.asyncio
 async def test_dispatcher_doc_without_soffice_returns_converter_error(tmp_path):
     doc = tmp_path / "raw.doc"
-    doc.write_bytes(b"\xd0\xcf\x11\xe0")
+    doc.write_bytes(b"\xd0\xcf\x11\xe0" + b"\x00" * 128)
     from unittest.mock import patch
 
     with patch("shutil.which", return_value=None):
-        result = await ParserDispatcher().process(doc)
+        result = await perceive_document(doc)
     assert result.status.value == "failure"
     assert result.error is not None
     assert result.error.code == "FORMAT_REQUIRES_CONVERTER"

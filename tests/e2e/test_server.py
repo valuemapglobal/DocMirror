@@ -53,38 +53,9 @@ def test_parse_valid_document(tmp_path):
         assert "message" not in payload
         assert "data" not in payload
 
-def test_parse_with_include_text(tmp_path):
-    """Verify include_text=true still returns vNext mirror JSON."""
-    dummy_file = tmp_path / "test.txt"
-    dummy_file.write_text("Hello DocMirror include_text test")
-
-    with open(dummy_file, "rb") as f:
-        response = client.post(
-            "/v1/parse?include_text=true",
-            files={"file": ("test.txt", f, "text/plain")}
-        )
-
-    assert response.status_code in (200, 422)
-    payload = response.json()
-    if response.status_code == 200:
-        assert payload["mirror"]["schema"] == "docmirror.mirror_json"
-        assert "code" not in payload
-        assert "data" not in payload
-
-def test_parse_without_include_text(tmp_path):
-    """Verify include_text=false returns vNext mirror JSON."""
-    dummy_file = tmp_path / "test.txt"
-    dummy_file.write_text("Hello DocMirror no text test")
-
-    with open(dummy_file, "rb") as f:
-        response = client.post(
-            "/v1/parse",
-            files={"file": ("test.txt", f, "text/plain")}
-        )
-
-    assert response.status_code in (200, 422)
-    payload = response.json()
-    if response.status_code == 200:
-        assert payload["mirror"]["schema"] == "docmirror.mirror_json"
-        assert "code" not in payload
-        assert "data" not in payload
+def test_parse_endpoint_has_no_delivery_selection_parameters():
+    parameters = {
+        parameter["name"]
+        for parameter in client.get("/openapi.json").json()["paths"]["/v1/parse"]["post"].get("parameters", [])
+    }
+    assert not parameters & {"formats", "editions", "geometry", "include_geometry", "include_text", "mirror_level"}

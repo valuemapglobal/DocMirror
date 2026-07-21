@@ -14,7 +14,7 @@ Main components: ``collect_kv_entities``.
 
 Upstream: Extracted ``Block`` lists with ``key_value`` types.
 
-Downstream: ``bridge.parse_result_bridge`` metadata, plugins.
+Downstream: canonical ParseResult assembly and domain recognition.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ def collect_kv_entities(pages: list[PageLayout]) -> dict[str, str]:
     Note: Full entity extraction (regex/bank name/account name/account number etc.)
     has been moved to middlewares.entity_extractor.EntityExtractor middleware.
     This method only performs simple KV block aggregation to ensure
-    BaseResult.metadata has basic entity information.
+    Canonical adapter metadata has basic entity information.
     """
     entities: dict[str, str] = {}
     for page in pages:

@@ -15,7 +15,7 @@ import pytest
 from docmirror.plugins._runtime.licensing.contract import premium_feature
 from docmirror.plugins._runtime.licensing.entitlements import demo_features, is_entitled
 from docmirror.plugins._runtime.licensing.online import LicenseManager
-from docmirror.plugins._runtime.runner import _is_edition_plugin_licensed, _wrap_license_degraded
+from docmirror.plugins._runtime.runner import _is_edition_plugin_licensed
 
 
 def test_lic01_premium_feature_naming():
@@ -44,7 +44,7 @@ def test_lic04_bare_domain_in_lic_features_not_entitled():
         assert is_entitled("alipay_payment") is False
 
 
-def test_lic05_runner_degrade_warning_without_license():
+def test_lic05_runner_rejects_plugin_without_license():
     class _Plugin:
         domain_name = "audit_report"
         requires_license = True
@@ -52,14 +52,6 @@ def test_lic05_runner_degrade_warning_without_license():
     with patch("docmirror.plugins._runtime.licensing.offline.offline_license_manager._licenses", []):
         with patch("docmirror.plugins._runtime.licensing.online.license_manager.is_licensed", return_value=False):
             assert _is_edition_plugin_licensed(_Plugin()) is False
-
-    payload = _wrap_license_degraded(
-        {"status": {"warnings": []}, "metadata": {}},
-        edition="enterprise",
-        plugin=_Plugin(),
-    )
-    assert "_license_warning" in payload["status"]["warnings"]
-
 
 def test_lic05_runner_no_warning_when_entitled():
     class _Plugin:

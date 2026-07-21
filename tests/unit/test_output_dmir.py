@@ -10,7 +10,7 @@ import json
 import pytest
 
 from docmirror.output.dmir import DMIR_VERSION, serialize_dmir, serialize_dmir_json
-from docmirror.output.exporters.dispatch import export_dmir, EXPORTER_REGISTRY
+from docmirror.output.exporters.dispatch import EXPORTER_REGISTRY, export_dmir
 from docmirror.output.projection.engine import (
     ProjectionEngine,
     _resolve_jsonpath,

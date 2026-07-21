@@ -8,7 +8,7 @@ Constructs ``DomainExtractionResult`` instances from table extract steps (identi
 fields, transaction records, summary) and serializes them to v2.0 edition JSON
 with classification metadata. Shared by payment ledger plugins and bank statement.
 
-Pipeline role: ``BaseTableParser.extract_from_mirror`` and
+Pipeline role: ``BaseTableParser.recognize`` and
 ``bank_statement.community_plugin`` call ``build_table_dec`` / ``serialize_table_plugin_output``
 before ``runner._finalize_extract`` validates and runs post-extract hooks.
 

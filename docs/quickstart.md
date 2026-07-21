@@ -49,68 +49,80 @@ pip install "docmirror[all]"      # all public OSS extras
 docmirror statement.pdf --output-dir ./output
 ```
 
-Mirror and Community JSON are persisted by default:
+The default CLI delivery is the three-part Community bundle:
 
 ```text
 output/<run_id>/
-  001_mirror.json
   001_community.json
+  001_content.md
+  001_datasets/
+    <dataset>.csv
+    _audit_cells.csv
 ```
 
-Start with these blocks in `001_community.json`:
+`docmirror document.pdf --all` additionally writes `001_mirror.json` and
+`manifest.json`. The `001_content.md` bytes do not change between the two modes.
+
+Start with these six blocks in `001_community.json`:
 
 | Block | Purpose |
 |---|---|
-| `business` | Human-readable business summary, key metrics, dimensions, and reconciliations |
-| `quality` | Readiness, quality score, structured operational issues, normalization and evidence coverage |
-| `data.field_details` | Canonical value refs, confidence, source refs, review state, and raw text only when different |
-| `data.datasets` | Reference-only catalog for every consumer-visible row collection; rows are never copied |
-| `data.data_dictionary` | Labels, types, formats, masking, coverage, and nullability for fields and dataset columns |
-| `validation.domain_contract` | Community 6+1 contract pass/partial details |
-| `projection_lineage` | Compact fact/evidence lineage |
+| `schema` | Bundle version, edition, domain, and support level |
+| `document` | Source identity, language, page count, hash, and units |
+| `sections` | Ordered semantic sections, items, groups, and dataset references |
+| `datasets` | Complete records, counts, columns, completeness, and wide CSV references |
+| `files` | Companion Markdown and Dataset Bundle paths |
+| `warnings` | Lightweight actionable warnings |
 
-The persisted artifact is Community schema `2.2`; the Schema also accepts 2.0/2.1 payloads. Base plugin envelopes remain `2.0` internally and are promoted only after the complete consumer projection has been generated. Single-plugin results use `plugin`; `plugins` is reserved for compositions.
-Renderers derive HTML from the business, quality, field, dataset, dictionary, and lineage blocks; page-layout instructions are not part of Community JSON.
+The persisted artifact uses Community Bundle schema `3.0.0`. Each Dataset embeds
+every record in `rows`; it is not a preview or pagination window. A record has a
+stable `record_id`, `normalized`, `canonical_raw`, `raw`, and `source` object.
+`row_count`, `completeness.emitted_row_count`, `len(rows)`, and the companion CSV
+row count must agree. Markdown independently contains all parsed content and all
+physical table rows. Each logical dataset is also written as a conventional wide
+CSV under `001_datasets/`, while `_audit_cells.csv` preserves field-level evidence.
+
+```json
+{
+  "name": "transactions",
+  "primary_key": "record_id",
+  "row_count": 1267,
+  "completeness": {
+    "expected_row_count": 1267,
+    "emitted_row_count": 1267,
+    "omitted_row_count": 0,
+    "verified": true,
+    "basis": "physical_payment_rows"
+  },
+  "rows": [
+    {
+      "record_id": "transactions:r000001",
+      "normalized": {},
+      "canonical_raw": {},
+      "raw": {},
+      "source": {"page_range": [1, 1]}
+    }
+  ]
+}
+```
 
 The universal `generic` route is also used for `unknown` documents. It performs
 text KV recovery, type inference, value normalization, identity discovery,
 table/outline extraction, and conservative repeated-row recovery.
 
-Use `--community` when only the consumer projection is needed, `--all` for every
-installed edition allowed by the active license, or `--audit` for review,
-diagnostics, demos, issues, and audit handoff:
-
-```bash
-docmirror statement.pdf --community
-docmirror statement.pdf --all
-docmirror statement.pdf --audit
-```
-
-Diagnostic output:
-
-```text
-output/<run_id>/
-  001_mirror.json
-  001_community.json
-  005_evidence_bundle.json
-  output.md
-  quality_report.json
-  visual_debug.html
-  manifest.json
-```
+Licensed, installed Enterprise or Finance extensions are added automatically in
+the full delivery. Output formats, editions, geometry, and Mirror detail are not
+independent request parameters.
 
 ## 4. Inspect The Trust Artifacts
 
 | Artifact | What to inspect |
 |---|---|
-| `001_mirror.json` | canonical source and diagnostic projection written by default |
-| `001_community.json` | community edition structured output |
-| `001.md` / `output.md` | reading-order text for humans and LLM workflows |
-| `001.chunks.json` | structure-aware chunks for retrieval pipelines |
-| `005_evidence_bundle.json` | source refs, bbox, evidence links, support data |
-| `quality_report.json` | quality gates, warnings, readiness, review signals |
-| `visual_debug.html` | visual evidence overlay for review and demos |
-| `manifest.json` | artifact index, edition availability, parse control fingerprint |
+| `001_mirror.json` | canonical source and diagnostic projection (`--all`) |
+| `001_community.json` | Self-contained Community structured API payload |
+| `001_content.md` | complete reading-order content and every table row |
+| `001_datasets/` | one wide CSV per logical dataset plus `_audit_cells.csv` |
+| `manifest.json` | artifact index, edition availability, and run status (`--all`) |
 
 The Aha Moment is when you can answer:
 

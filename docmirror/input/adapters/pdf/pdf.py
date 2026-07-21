@@ -9,7 +9,7 @@ PDF Adapter — PDF → ParseResult (Registry-Enabled)
 ===================================================
 
 Extracts PDF content via the best available parser backend (from the
-``ParserRegistry``), bridges to ``ParseResult``, then delegates to
+``ParserRegistry``), maps backend facts into ``ParseResult``, then delegates to
 ``BaseParser.perceive()`` for middleware enrichment.
 
 Falls back to ``CoreExtractor`` when no backend is registered.
@@ -58,7 +58,7 @@ class PDFAdapter(BaseParser):
         from docmirror.input.extraction.extractor import CoreExtractor
 
         logger.info(f"[PDFAdapter] Starting extraction for: {file_path}")
-        parse_control = kwargs.get("parse_control")
+        parse_policy = kwargs.get("parse_policy")
         backend_preference = kwargs.get("parser_backend")
 
         # Step 0: Resolve registry (lazy, may be empty)
@@ -68,40 +68,40 @@ class PDFAdapter(BaseParser):
         else:
             backend = _select_backend(registry, backend_preference)
 
-        workers = None
-        if parse_control is not None:
-            workers = getattr(getattr(parse_control, "resource", None), "workers", None)
-            if workers == "auto":
-                workers = None
+        workers = kwargs.get("max_workers")
 
+        pr = None
         if backend is not None:
             try:
                 raw_result = await backend.parse(file_path)
-                pr = _raw_to_parse_result(raw_result, file_path, kwargs)
+                page_layouts, metadata, raw_text = _raw_backend_to_physical_facts(raw_result)
+                from docmirror.input.canonical import assemble_parse_result
+
+                pr = assemble_parse_result(page_layouts, metadata, raw_text)
                 logger.info("[PDFAdapter] Backend %r completed: %s", backend.name, file_path)
-                return pr
             except Exception as exc:
                 logger.warning("Backend %r failed (%s); falling back to CoreExtractor", backend.name, exc)
 
-        # Step 2: Fall back to CoreExtractor
-        extractor = CoreExtractor(max_page_concurrency=workers)
-        pr = await extractor.extract_parse_result(
-            file_path,
-            options={
-                "max_pages": kwargs.get("max_pages"),
-                "enhance_mode": kwargs.get("enhance_mode"),
-                "parse_control": parse_control,
-                "parse_control_dict": kwargs.get("parse_control_dict"),
-                "parse_control_fingerprint": kwargs.get("parse_control_fingerprint"),
-                "doc_type_hint": kwargs.get("doc_type_hint"),
-                "doc_type_hint_strength": kwargs.get("doc_type_hint_strength"),
-                "on_progress": kwargs.get("on_progress"),
-            },
-        )
+        if pr is None:
+            # Step 2: Fall back to CoreExtractor
+            extractor = CoreExtractor(max_page_concurrency=workers)
+            pr = await extractor.extract_parse_result(
+                file_path,
+                options={
+                    "max_pages": kwargs.get("max_pages"),
+                    "enhance_mode": kwargs.get("enhance_mode"),
+                    "parse_policy": parse_policy,
+                    "parse_policy_dict": kwargs.get("parse_policy_dict"),
+                    "parse_policy_fingerprint": kwargs.get("parse_policy_fingerprint"),
+                    "doc_type_hint": kwargs.get("doc_type_hint"),
+                    "doc_type_hint_strength": kwargs.get("doc_type_hint_strength"),
+                    "on_progress": kwargs.get("on_progress"),
+                },
+            )
         logger.info(f"[PDFAdapter] Completed extraction for: {file_path}")
 
         # PDF-specific parser_info
-        pr.parser_info.parser_name = "DocMirror"
+        pr.parser_info.parser_name = pr.parser_info.parser_name or "DocMirror"
         pr.parser_info.table_engine = pr.parser_info.table_engine or "pymupdf_native"
         pr.parser_info.page_count = len(pr.pages)
 
@@ -187,128 +187,96 @@ def _select_backend(registry, preference):
 _registry_singleton = None  # populated by first call to _get_registry()
 
 
-# Bridge: RawParseResult -> ParseResult -------------------------------
+# Adapter fact mapping: RawParseResult -> physical facts --------------
 
 
-def _raw_to_parse_result(raw, file_path, kwargs):
-    """Convert a RawParseResult from any ParserBackend into a ParseResult.
+def _raw_backend_to_physical_facts(raw):
+    """Convert a backend payload into evidence/basic physical facts.
 
-    This bridge enables PDFAdapter to consume output from any registered
-    parser backend (PyMuPDFBackend, OpenDataLoaderBridge, etc.) and produce
-    a valid ParseResult that the Orchestrator middleware can enrich.
-
-    The mapping is intentionally basic but lossless for supported fields.
-    Missing fields (entities, evidence, quality reports) are filled by the
-    middleware pipeline in BaseParser.perceive().
+    The canonical assembler remains the only component that creates the
+    ``ParseResult`` SSOT.
     """
-    from docmirror.models.entities.parse_result import (
-        CellValue,
-        DataType,
-        KeyValuePair,
-        PageContent,
-        ParseResult,
-        ParserInfo,
-        ProvenanceInfo,
-        ResultStatus,
-        RowType,
-        TableBlock,
-        TableRow,
-        TextBlock,
-    )
+    from docmirror.models.entities.physical import Block, PageLayout, Style, TextSpan
 
     pages = []
     for raw_page in raw.pages:
-        texts = [
-            TextBlock(
-                content=t.content,
-                level=_infer_text_level(t),
-                confidence=t.confidence,
-                bbox=t.bbox if t.bbox is not None else None,
-            )
-            for t in raw_page.texts
-        ]
-
-        tables = []
-        for rt in raw_page.tables:
-            rows = []
-            if rt.headers:
-                rows.append(
-                    TableRow(
-                        cells=[CellValue(text=h, data_type=DataType.TEXT) for h in rt.headers],
-                        row_type=RowType.HEADER,
-                    )
-                )
-            for row_data in rt.data_rows:
-                rows.append(
-                    TableRow(
-                        cells=[CellValue(text=c, data_type=DataType.TEXT) for c in row_data],
-                        row_type=RowType.DATA,
-                        confidence=rt.confidence,
-                    )
-                )
-            tables.append(
-                TableBlock(
-                    table_id=rt.table_id,
-                    headers=rt.headers,
-                    rows=rows,
-                    bbox=rt.bbox,
-                    confidence=rt.confidence,
+        blocks = []
+        for text_index, item in enumerate(raw_page.texts):
+            bbox = tuple(float(value) for value in (item.bbox or [0.0, 0.0, 0.0, 0.0]))
+            level = _infer_heading_level(item)
+            blocks.append(
+                Block(
+                    block_id=f"backend:p{raw_page.page_number}:text:{text_index}",
+                    block_type="title" if level == 1 else "text",
+                    spans=(
+                        TextSpan(
+                            text=item.content,
+                            bbox=bbox,
+                            style=Style(font_name=item.font_name or "", font_size=float(item.font_size or 0.0)),
+                        ),
+                    ),
+                    bbox=bbox,
+                    reading_order=int(item.reading_order or text_index),
+                    page=raw_page.page_number,
+                    raw_content=item.content,
+                    attrs={"confidence": float(item.confidence)},
+                    heading_level=level,
                 )
             )
-
-        kvs = [
-            KeyValuePair(key=kv.key, value=kv.value, confidence=kv.confidence, bbox=kv.bbox)
-            for kv in raw_page.key_values
-        ]
-
+        for table_index, table in enumerate(raw_page.tables):
+            raw_rows = [list(table.headers), *[list(row) for row in table.data_rows]]
+            bbox = tuple(float(value) for value in (table.bbox or [0.0, 0.0, 0.0, 0.0]))
+            blocks.append(
+                Block(
+                    block_id=table.table_id or f"backend:p{raw_page.page_number}:table:{table_index}",
+                    block_type="table",
+                    bbox=bbox,
+                    reading_order=int(table.reading_order or len(blocks)),
+                    page=raw_page.page_number,
+                    raw_content=raw_rows,
+                    attrs={
+                        "extraction_layer": str(table.method or "backend"),
+                        "extraction_confidence": float(table.confidence),
+                        "preserve_headers": bool(table.headers),
+                    },
+                )
+            )
+        for kv_index, item in enumerate(raw_page.key_values):
+            bbox = tuple(float(value) for value in (item.bbox or [0.0, 0.0, 0.0, 0.0]))
+            blocks.append(
+                Block(
+                    block_id=f"backend:p{raw_page.page_number}:kv:{kv_index}",
+                    block_type="key_value",
+                    bbox=bbox,
+                    reading_order=int(item.reading_order or len(blocks)),
+                    page=raw_page.page_number,
+                    raw_content={str(item.key): str(item.value)},
+                    attrs={"confidence": float(item.confidence)},
+                )
+            )
         pages.append(
-            PageContent(
+            PageLayout(
                 page_number=raw_page.page_number,
-                width=int(raw_page.width_pt) if raw_page.width_pt else None,
-                height=int(raw_page.height_pt) if raw_page.height_pt else None,
-                texts=texts,
-                tables=tables,
-                key_values=kvs,
-                page_confidence=raw_page.confidence if raw_page.confidence else 1.0,
+                width=float(raw_page.width_pt or 0.0),
+                height=float(raw_page.height_pt or 0.0),
+                blocks=tuple(sorted(blocks, key=lambda block: block.reading_order)),
             )
         )
-
-    full_text = "\n".join(t.content for p in pages for t in p.texts)
-
-    provenance = None
-    try:
-        stat = file_path.stat()
-        provenance = ProvenanceInfo(
-            file_type=kwargs.get("file_type") or "pdf",
-            file_size=int(kwargs.get("file_size") or stat.st_size),
-            checksum=kwargs.get("checksum", ""),
-            mime_type=kwargs.get("mime_type", ""),
-            capability_id=kwargs.get("capability_id", ""),
-            content_model=kwargs.get("content_model", ""),
-        )
-    except OSError:
-        pass
 
     backend_name = raw.metadata.get("backend", "unknown") if raw.metadata else "unknown"
-    parser_info = ParserInfo(
-        parser_name=f"DocMirror/{backend_name}",
-        table_engine=backend_name,
-        page_count=len(pages),
-    )
-
-    return ParseResult(
-        pages=pages,
-        full_text=full_text,
-        status=ResultStatus.SUCCESS,
-        confidence=raw.confidence if raw.confidence else 1.0,
-        trust_score=raw.confidence if raw.confidence else 1.0,
-        parser_info=parser_info,
-        provenance=provenance,
-    )
+    full_text = "\n".join(item.content for page in raw.pages for item in page.texts)
+    metadata = {
+        **dict(raw.metadata or {}),
+        "parser": f"DocMirror/{backend_name}",
+        "table_engine": backend_name,
+        "extraction_method": "digital",
+        "overall_confidence": float(raw.confidence or 1.0),
+    }
+    return tuple(pages), metadata, full_text
 
 
-def _infer_text_level(raw_text):
-    """Infer TextLevel from a RawText object using font size heuristics.
+def _infer_heading_level(raw_text):
+    """Infer canonical heading level from backend font-size hints.
 
     - >= 20pt -> TITLE
     - >= 14pt -> H1
@@ -319,11 +287,11 @@ def _infer_text_level(raw_text):
     font_size = getattr(raw_text, "font_size", None)
     if font_size is not None:
         if font_size >= 20:
-            return TextLevel.TITLE
+            return 1
         if font_size >= 14:
-            return TextLevel.H1
+            return 1
         if font_size >= 12:
-            return TextLevel.H2
+            return 2
         if font_size >= 10:
-            return TextLevel.H3
-    return TextLevel.BODY
+            return 3
+    return None

@@ -12,7 +12,7 @@ from docmirror.models.mirror.page_access import (
     resolve_block_ref,
 )
 from docmirror.models.mirror.page_evidence_bundles import merge_micro_grid_structures_into_bundles
-from docmirror.plugins._base.generic_mirror_adapter import (
+from docmirror.plugins._base.generic_community_adapter import (
     _collect_structure_projected_records,
     build_generic_community_output,
 )

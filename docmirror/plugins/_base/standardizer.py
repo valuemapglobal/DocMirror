@@ -7,7 +7,7 @@ dates to ISO8601, and map Chinese enum labels to English tokens. Does not perfor
 quality scoring, business-rule validation, or redaction.
 
 Pipeline role: ``BaseTableParser`` and bank-statement style parsers call these
-functions while building ``normalized`` row dicts inside ``extract_from_mirror``.
+functions while building ``normalized`` row dicts during recognition.
 
 Key exports: ``normalize_amount``, ``normalize_timestamp``, ``normalize_enum``,
 ``extract_period``.

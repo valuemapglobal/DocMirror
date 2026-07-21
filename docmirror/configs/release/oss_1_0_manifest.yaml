@@ -1,4 +1,4 @@
-version: "1.0.8"
+version: "1.0.10"
 position:
   category: "Commercial Document Trust Layer"
   tagline: "Parse. Prove. Trust."
@@ -12,7 +12,6 @@ install_contract:
     - ["python", "-c", "import docmirror; print(docmirror.__version__)"]
     - ["docmirror", "--help"]
     - ["docmirror", "--version"]
-    - ["docmirror", "version"]
     - ["docmirror", "doctor"]
   public_all_extra_members:
     - pdf
@@ -22,7 +21,6 @@ install_contract:
     - formula
     - office
     - security
-    - cache
     - langdetect
     - server
     - archive
@@ -39,7 +37,6 @@ install_contract:
     - projection
     - archive
     - langdetect
-    - cache
   public_all_must_not_include:
     - "docmirror-enterprise"
     - "docmirror-finance"

@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
+from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, ParserInfo, RowType, TableRow
 from docmirror.quality.mirror_ltqg import attach_mirror_ltqg
-from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParserInfo, ParseResult, RowType, TableRow
 
 
 def test_attach_mirror_ltqg_writes_domain_specific():

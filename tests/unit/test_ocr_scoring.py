@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from docmirror.tables.ocr_scoring import (
-    compute_decay_factor,
-    detect_low_confidence_words,
-    compute_ocr_enhanced_confidence,
     DECAY_CONFIG,
     LOW_CONFIDENCE_THRESHOLD,
+    compute_decay_factor,
+    compute_ocr_enhanced_confidence,
+    detect_low_confidence_words,
 )
 
 

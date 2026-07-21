@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from pathlib import Path
 
@@ -15,7 +16,15 @@ from docmirror.server.api import app
 
 def _mirror(document_type: str = "business_license") -> ParseResult:
     result = ParseResult(status=ResultStatus.SUCCESS)
-    result.entities = DocumentEntities(document_type=document_type)
+    result.entities = DocumentEntities(
+        document_type=document_type,
+        domain_specific={
+            "records": [
+                {"record_id": "api:001", "normalized": {"value": "A"}, "raw": {"value": "原值A"}},
+                {"record_id": "api:002", "normalized": {"value": "B"}, "raw": {"value": "原值B"}},
+            ]
+        },
+    )
     return result
 
 
@@ -28,7 +37,7 @@ def test_task_api_wait_writes_artifacts(tmp_path: Path, monkeypatch):
     monkeypatch.setattr("docmirror.server.task_executor.perceive_document", fake_perceive)
     client = TestClient(app)
     response = client.post(
-        "/v1/tasks?wait=true&formats=json,markdown,evidence&editions=mirror,community",
+        "/v1/tasks?wait=true",
         files={"file": ("sample.pdf", b"PDF", "application/pdf")},
     )
 
@@ -39,11 +48,17 @@ def test_task_api_wait_writes_artifacts(tmp_path: Path, monkeypatch):
     status = client.get(f"/v1/tasks/{task_id}").json()
     assert status["artifacts"]["mirror"] == "001_mirror.json"
     artifacts = client.get(f"/v1/tasks/{task_id}/artifacts").json()["artifacts"]
-    assert "quality_report" in artifacts
-    assert client.get(f"/v1/tasks/{task_id}/artifacts/visual_debug").status_code == 200
+    assert artifacts["community"] == "001_community.json"
+    community_response = client.get(f"/v1/tasks/{task_id}/artifacts/community")
+    assert community_response.status_code == 200
+    community = json.loads(community_response.content)
+    dataset = community["datasets"][0]
+    assert dataset["row_count"] == len(dataset["rows"]) == 2
+    assert [row["record_id"] for row in dataset["rows"]] == ["api:001", "api:002"]
+    assert dataset["rows"][0]["raw"]["value"] == "原值A"
 
 
-def test_task_api_can_deliver_community_without_mirror(tmp_path: Path, monkeypatch):
+def test_task_api_always_uses_fixed_delivery(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DOCMIRROR_TASK_OUTPUT_DIR", str(tmp_path))
 
     async def fake_perceive(_path, _options):
@@ -52,18 +67,29 @@ def test_task_api_can_deliver_community_without_mirror(tmp_path: Path, monkeypat
     monkeypatch.setattr("docmirror.server.task_executor.perceive_document", fake_perceive)
     client = TestClient(app)
     response = client.post(
-        "/v1/tasks?wait=true&formats=json",
+        "/v1/tasks?wait=true",
         files={"file": ("sample.pdf", b"PDF", "application/pdf")},
     )
 
     assert response.status_code == 200
     task = response.json()
     assert task["status"] == "success"
-    assert task["editions"] == ["community"]
     assert task["artifacts"]["community"] == "001_community.json"
-    assert "mirror" not in task["artifacts"]
+    assert task["artifacts"]["mirror"] == "001_mirror.json"
+    assert "editions" not in task
+    assert "formats" not in task
     task_dir = tmp_path / task["task_id"]
-    assert not (task_dir / "001_mirror.json").exists()
+    assert (task_dir / "001_mirror.json").exists()
+
+
+def test_task_api_has_no_delivery_selection_parameters():
+    schema = TestClient(app).get("/openapi.json").json()
+    removed = {"formats", "editions", "geometry", "include_geometry", "include_text", "mirror_level"}
+    for path in ("/v1/tasks", "/v1/tasks/batch"):
+        parameters = {
+            parameter["name"] for parameter in schema["paths"][path]["post"].get("parameters", [])
+        }
+        assert not parameters & removed
 
 
 def test_batch_task_api_preserves_partial_failure(tmp_path: Path, monkeypatch):
@@ -77,7 +103,7 @@ def test_batch_task_api_preserves_partial_failure(tmp_path: Path, monkeypatch):
     monkeypatch.setattr("docmirror.server.task_executor.perceive_document", fake_perceive)
     client = TestClient(app)
     response = client.post(
-        "/v1/tasks/batch?wait=true&formats=json&editions=mirror,community",
+        "/v1/tasks/batch?wait=true",
         files=[
             ("files", ("ok.txt", b"OK", "text/plain")),
             ("files", ("fail.txt", b"FAIL", "text/plain")),
@@ -102,7 +128,7 @@ def test_task_api_accepts_background_work_and_persists_terminal_status(tmp_path:
     monkeypatch.setattr("docmirror.server.task_executor.perceive_document", fake_perceive)
     with TestClient(app) as client:
         response = client.post(
-            "/v1/tasks?formats=json&editions=mirror",
+            "/v1/tasks",
             files={"file": ("sample.pdf", b"PDF", "application/pdf")},
         )
         assert response.status_code == 202

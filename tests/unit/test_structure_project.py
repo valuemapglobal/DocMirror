@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import docmirror.plugins.credit_report.structure_projectors  # noqa: F401 — register projectors
-
 from docmirror.ocr.structure_project import (
     completeness_level,
     finalize_partial_record,

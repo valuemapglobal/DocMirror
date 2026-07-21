@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
+from docmirror.evidence.spe_consumer import mirror_api_meta_fields
 from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, RowType, TableRow
 from docmirror.quality.mirror_ltqg import attach_mirror_ltqg
-from docmirror.evidence.spe_consumer import mirror_api_meta_fields
 from docmirror.tables.compose.ledger_quality import (
     apply_ltqg,
     finalize_logical_tables_for_export,

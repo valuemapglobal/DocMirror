@@ -4,10 +4,10 @@
 
 from __future__ import annotations
 
+from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 from docmirror.plugins.bank_statement.context import StyleContext
 from docmirror.plugins.bank_statement.style_detector import BankStyleDetector
 from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
-from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 
 
 def test_style_registry_extracts_from_valid_table_despite_noisy_full_text():

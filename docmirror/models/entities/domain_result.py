@@ -189,7 +189,7 @@ def _normalize_enterprise_envelope(raw: dict[str, Any]) -> DomainExtractionResul
 
 
 def _normalize_edition_v2(raw: dict[str, Any]) -> DomainExtractionResult:
-    """Map Community v2.x blocks → DEC (table plugins via ``extract_from_mirror``)."""
+    """Map Community v2.x recognition blocks into DEC."""
     doc = raw.get("document") if isinstance(raw.get("document"), dict) else {}
     data = raw["data"]
     status = raw.get("status") if isinstance(raw.get("status"), dict) else {}

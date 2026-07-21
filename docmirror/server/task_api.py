@@ -15,7 +15,7 @@ from uuid import uuid4
 from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from docmirror.input.entry.options import normalize_parse_control
+from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.server.task_executor import (
     execute_parse_task,
     initialize_task_manifest,
@@ -43,8 +43,6 @@ def _verify_api_key(authorization: str | None) -> None:
 async def create_task(
     file: UploadFile = File(..., description="Document to parse"),
     wait: bool = Query(default=False, description="Wait for terminal task status"),
-    formats: str = Query(default="json"),
-    editions: str | None = Query(default=None),
     mode: str = Query(default="auto", pattern="^(auto|fast|balanced|accurate|forensic)$"),
     ocr_correction: str = Query(default="safe", pattern="^(off|safe|suggest)$"),
     ocr_language: str | None = Query(default=None),
@@ -54,27 +52,25 @@ async def create_task(
     pages: str | None = Query(default=None),
     max_pages: int | None = Query(default=None),
     workers: str | None = Query(default=None),
-    include_text: bool = Query(default=False),
     authorization: str | None = Header(default=None),
 ):
     """Create a durable single-file parse task."""
     _verify_api_key(authorization)
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided in upload")
-    control = _parse_control(
-        formats=formats,
-        editions=editions,
+    policy = _parse_policy(
         mode=mode,
         pages=pages,
         max_pages=max_pages,
-        workers=workers,
-        include_text=include_text,
         ocr_correction=ocr_correction,
         ocr_language=ocr_language,
         ocr_country=ocr_country,
         ocr_locale=ocr_locale,
         ocr_correction_packs=ocr_correction_packs,
     )
+    from docmirror.configs.runtime.performance import resolve_worker_budget
+
+    max_workers = resolve_worker_budget(workers, file_count=1).page_workers_per_file
     task_id = _new_task_id()
     output_root = task_output_root()
     task_dir = task_directory(task_id, output_root=output_root)
@@ -83,17 +79,16 @@ async def create_task(
         output_root,
         task_id,
         [_input_entry("001", file.filename)],
-        formats=control.output.formats,
-        editions=control.output.editions,
-        runtime_control=control.to_dict(),
+        parse_policy=policy.to_dict(),
+        max_workers=max_workers,
     )
     return await _start_or_wait(
         files=[(stored[0], file.filename)],
         output_root=output_root,
         task_id=task_id,
-        control=control,
+        policy=policy,
+        max_workers=max_workers,
         wait=wait,
-        include_text=include_text,
     )
 
 
@@ -101,8 +96,6 @@ async def create_task(
 async def create_batch_task(
     files: list[UploadFile] = File(..., description="Documents to parse"),
     wait: bool = Query(default=False, description="Wait for terminal task status"),
-    formats: str = Query(default="json"),
-    editions: str | None = Query(default=None),
     mode: str = Query(default="auto", pattern="^(auto|fast|balanced|accurate|forensic)$"),
     ocr_correction: str = Query(default="safe", pattern="^(off|safe|suggest)$"),
     ocr_language: str | None = Query(default=None),
@@ -112,7 +105,6 @@ async def create_batch_task(
     pages: str | None = Query(default=None),
     max_pages: int | None = Query(default=None),
     workers: str | None = Query(default=None),
-    include_text: bool = Query(default=False),
     authorization: str | None = Header(default=None),
 ):
     """Create a batch task with per-file partial-failure isolation."""
@@ -121,20 +113,19 @@ async def create_batch_task(
         raise HTTPException(status_code=400, detail="At least one file is required")
     if any(not upload.filename for upload in files):
         raise HTTPException(status_code=400, detail="Every upload must have a filename")
-    control = _parse_control(
-        formats=formats,
-        editions=editions,
+    policy = _parse_policy(
         mode=mode,
         pages=pages,
         max_pages=max_pages,
-        workers=workers,
-        include_text=include_text,
         ocr_correction=ocr_correction,
         ocr_language=ocr_language,
         ocr_country=ocr_country,
         ocr_locale=ocr_locale,
         ocr_correction_packs=ocr_correction_packs,
     )
+    from docmirror.configs.runtime.performance import resolve_worker_budget
+
+    max_workers = resolve_worker_budget(workers, file_count=len(files)).page_workers_per_file
     task_id = _new_task_id()
     output_root = task_output_root()
     task_dir = task_directory(task_id, output_root=output_root)
@@ -145,17 +136,16 @@ async def create_batch_task(
         output_root,
         task_id,
         inputs,
-        formats=control.output.formats,
-        editions=control.output.editions,
-        runtime_control=control.to_dict(),
+        parse_policy=policy.to_dict(),
+        max_workers=max_workers,
     )
     return await _start_or_wait(
         files=[(path, upload.filename or "") for path, upload in zip(stored, files, strict=True)],
         output_root=output_root,
         task_id=task_id,
-        control=control,
+        policy=policy,
+        max_workers=max_workers,
         wait=wait,
-        include_text=include_text,
     )
 
 
@@ -199,9 +189,9 @@ async def get_task(
     return _manifest_or_404(task_id)
 
 
-def _parse_control(**kwargs: Any):
+def _parse_policy(**kwargs: Any):
     try:
-        return normalize_parse_control(**kwargs)
+        return normalize_parse_policy(**kwargs)
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -230,18 +220,16 @@ async def _start_or_wait(
     files: list[tuple[Path, str]],
     output_root: Path,
     task_id: str,
-    control: Any,
+    policy: Any,
+    max_workers: int,
     wait: bool,
-    include_text: bool,
 ):
     coroutine = execute_parse_task(
         files,
         output_root=output_root,
         task_id=task_id,
-        control=control,
-        formats=control.output.formats,
-        editions=control.output.editions,
-        include_text=include_text,
+        policy=policy,
+        max_workers=max_workers,
     )
     if wait:
         return await coroutine

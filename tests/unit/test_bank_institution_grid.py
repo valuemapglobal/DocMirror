@@ -5,12 +5,12 @@
 
 from __future__ import annotations
 
+from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 from docmirror.plugins.bank_statement.context import StyleContext
 from docmirror.plugins.bank_statement.institution import match_institution, normalize_table_headers
 from docmirror.plugins.bank_statement.style_detector import BankStyleDetector
 from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
 from docmirror.plugins.bank_statement.styles.grid_standard import normalize_split_debit_credit
-from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 
 
 def test_match_institution_ccb():

@@ -27,7 +27,6 @@ Install optional capabilities as needed:
 | `formula` | rapid-latex-ocr | Formula recognition |
 | `office` | python-docx, openpyxl, python-pptx | Word, Excel, PowerPoint |
 | `security` | pikepdf | PDF inspection and tamper signals |
-| `cache` | redis | Deployment cache integrations |
 | `server` | fastapi, uvicorn, python-multipart | HTTP API server |
 | `archive` | rarfile | Archive format support |
 | `ai` | openai, google-generativeai | Optional AI/VLM integrations |

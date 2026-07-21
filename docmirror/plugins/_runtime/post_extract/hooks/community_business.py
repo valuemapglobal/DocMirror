@@ -68,6 +68,10 @@ _FIELD_LABELS = {
     "business_term": "营业期限",
     "business_scope": "经营范围",
     "address": "地址",
+    "name": "姓名",
+    "gender": "性别",
+    "ethnicity": "民族",
+    "birth_date": "出生日期",
     "subject_name": "报告主体",
     "id_number": "证件号码",
     "report_time": "报告时间",
@@ -179,7 +183,7 @@ def _infer_type(values: list[Any]) -> str:
         return "object"
     strings = [str(value).strip() for value in sample]
     try:
-        from docmirror.plugins._base.generic_mirror_adapter import _type_detect_column
+        from docmirror.plugins._base.generic_community_adapter import _type_detect_column
 
         inferred, confidence = _type_detect_column(strings)
         return inferred if confidence >= 0.6 else "text"

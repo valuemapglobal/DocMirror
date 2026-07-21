@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.models.schemas.registry import validate_projection_payload
-from docmirror.plugins._runtime.runner import clear_run_cache
 from docmirror.server.output_builder import build_community_output
 from tests._community_reading import assert_community_reading_view
 
@@ -65,11 +65,10 @@ def test_real_document_reading_view_contract(
     result = asyncio.run(
         perceive_document(
             fixture,
-            PerceiveOptions(enhance_mode="standard", max_pages=max_pages),
+            PerceiveOptions(policy=normalize_parse_policy(enhance_mode="standard", max_pages=max_pages)),
         )
     )
     result.entities.document_type = domain
-    clear_run_cache()
     output = build_community_output(result, result.full_text or "", file_path=str(fixture))
 
     assert output is not None

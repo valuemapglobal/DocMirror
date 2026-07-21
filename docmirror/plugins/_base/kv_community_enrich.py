@@ -8,7 +8,7 @@ Post-processes plugin extract output with domain-specific normalization: VAT inv
 OCR digit correction, unified social credit code (USCC) checksum validation,
 business license field cleanup, and credit report section heuristics.
 
-Pipeline role: invoked at the end of ``extract_from_mirror`` in
+Pipeline role: invoked at the end of canonical Community ``recognize`` in
 ``vat_invoice``, ``business_license``, and ``credit_report`` community plugins
 after ``extract_kv_community_output`` builds the base envelope.
 
@@ -454,7 +454,7 @@ def enrich_credit_report_output(
         details.setdefault(
             field_name,
             {
-                "source": "mirror_text_atoms",
+                "source": "canonical_evidence_atoms",
                 "page_id": item["page_id"],
                 "evidence_ids": item["evidence_ids"],
             },
@@ -676,13 +676,9 @@ def _canonicalize_credit_accounts(accounts: list[Any]) -> list[dict[str, Any]]:
 
 def _recover_credit_subject_identity(parse_result: Any) -> dict[str, dict[str, Any]]:
     """Recover the subject row from the standard credit-report query table."""
-    mirror = getattr(parse_result, "_runtime_mirror_cache", None)
-    if not isinstance(mirror, dict):
-        return {}
-    evidence = mirror.get("evidence")
-    atoms = evidence.get("text_atoms") if isinstance(evidence, dict) else None
-    if not isinstance(atoms, list):
-        return {}
+    from docmirror.plugins._runtime.evidence_access import text_atoms
+
+    atoms = text_atoms(parse_result)
     usable = [
         atom
         for atom in atoms
@@ -809,7 +805,6 @@ def _ensure_credit_repayment_records(parse_result: Any) -> list[dict[str, Any]]:
     import docmirror.plugins.credit_report.micro_grid_materialize  # noqa: F401
     from docmirror.models.mirror.domain_access import micro_grid_structures_from_domain_specific
     from docmirror.models.mirror.page_evidence_bundles import materialize_micro_grids_from_bundles
-    from docmirror.models.mirror.vnext_access import iter_structures
     from docmirror.plugins.credit_report.micro_grid_materialize import (
         augment_credit_repayment_evidence_bundles,
     )
@@ -835,13 +830,6 @@ def _ensure_credit_repayment_records(parse_result: Any) -> list[dict[str, Any]]:
         projected = records_from_micro_grid_dict(grid)
         if projected:
             records.extend(projected)
-
-    if not records and hasattr(parse_result, "to_mirror_json_vnext"):
-        mirror = parse_result.to_mirror_json_vnext()
-        for grid in iter_structures(mirror if isinstance(mirror, dict) else {}, kind="micro_grid"):
-            projected = records_from_micro_grid_dict(grid)
-            if projected:
-                records.extend(projected)
 
     if records:
         records = dedupe_repayment_records(records)

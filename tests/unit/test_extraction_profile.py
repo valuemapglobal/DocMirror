@@ -88,6 +88,13 @@ def test_cell_normalizer_strips_id_newlines():
     assert " " not in out
 
 
+def test_cell_normalizer_preserves_datetime_boundary_and_joins_cjk_wrap():
+    p = get_profile("borderless_ledger_alipay")
+
+    assert normalize_cell_text("2023-06-11\n23:08:45", profile=p) == "2023-06-11 23:08:45"
+    assert normalize_cell_text("三防热\n敏标签", profile=p) == "三防热敏标签"
+
+
 def test_bcs_picks_pdfplumber_over_inflated_char_layer():
     p = get_profile("borderless_ledger_wechat")
     low = ExtractCandidate(

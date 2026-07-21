@@ -43,4 +43,11 @@ export type {
   HealthResponse,
   // Options
   ParseOptions,
+  // Community Bundle 3.0
+  CommunityBundle,
+  CommunitySchema,
+  CommunityDataset,
+  CommunityColumn,
+  CommunityCompleteness,
+  CommunityRecord,
 } from "./types.js";

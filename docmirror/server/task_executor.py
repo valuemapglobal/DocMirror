@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.input.entry.options import ParsePolicy
 from docmirror.runtime.ledger import EventLedger, build_manifest_v2
-from docmirror.server.edition_outputs import write_four_files
+from docmirror.server.edition_outputs import write_outputs
 
 _TERMINAL_STATUSES = {"success", "partial", "failed"}
 
@@ -38,10 +39,9 @@ def initialize_task_manifest(
     output_root: Path,
     task_id: str,
     inputs: list[dict[str, Any]],
-    formats: list[str] | tuple[str, ...] | None = None,
-    editions: list[str] | tuple[str, ...] | None = None,
     *,
-    runtime_control: dict[str, Any] | None = None,
+    parse_policy: dict[str, Any] | None = None,
+    max_workers: int | None = None,
 ) -> Path:
     """Create the durable manifest before execution starts."""
     task_dir = task_directory(task_id, output_root=output_root)
@@ -49,19 +49,13 @@ def initialize_task_manifest(
     manifest_path = task_dir / "manifest.json"
     if manifest_path.exists():
         raise FileExistsError(f"task already exists: {task_id}")
-    if editions is None:
-        from docmirror.framework.edition_defaults import default_editions
-
-        editions = default_editions()
-
     manifest = build_manifest_v2(
         task_id,
         status="running",
         stage="queued",
         inputs=inputs,
-        formats=list(formats or ["json"]),
-        editions=list(editions),
-        runtime_control=runtime_control,
+        parse_policy=parse_policy,
+        runtime_control={"worker_budget": {"page_workers_per_file": max_workers}} if max_workers else None,
         entry="rest",
     )
     EventLedger(task_dir).write_manifest(manifest)
@@ -79,10 +73,8 @@ async def execute_parse_task(
     *,
     output_root: Path,
     task_id: str,
-    control: Any,
-    formats: tuple[str, ...] | list[str],
-    editions: tuple[str, ...] | list[str],
-    include_text: bool = False,
+    policy: ParsePolicy,
+    max_workers: int | None = None,
     timeout_s: float = 300.0,
 ) -> dict[str, Any]:
     """Parse one or more files and atomically publish a terminal manifest.
@@ -103,9 +95,6 @@ async def execute_parse_task(
     manifest["progress"] = _progress(total=len(files), completed=0, failed=0, running=len(files))
     ledger.write_manifest(manifest)
 
-    requested_formats = tuple(str(value) for value in formats)
-    requested_editions = tuple(str(value) for value in editions)
-    artifact_pack = any(value in {"markdown", "evidence"} for value in requested_formats)
     batch = len(files) > 1
     input_entries = list(manifest.get("inputs") or [])
 
@@ -129,25 +118,23 @@ async def execute_parse_task(
         entry["status"] = "running"
         try:
             result = await asyncio.wait_for(
-                perceive_document(source_path, PerceiveOptions(control=control)),
+                perceive_document(
+                    source_path,
+                    PerceiveOptions(policy=policy, max_workers=max_workers),
+                ),
                 timeout=timeout_s,
             )
             artifact_dir = task_dir / "files" / file_id if batch else task_dir
-            _written_task_id, written = write_four_files(
+            _written_task_id, written = write_outputs(
                 result,
                 output_root,
                 file_path=str(source_path),
-                full_text=getattr(result, "full_text", "") or "",
                 file_id=file_id,
                 task_id=task_id,
-                mirror_level=getattr(control.output, "mirror_level", "standard"),
-                include_text=include_text,
-                editions=requested_editions,
                 overwrite=True,
-                artifact_pack=artifact_pack,
                 artifact_dir=artifact_dir,
             )
-            child_manifest = EventLedger(artifact_dir).read_manifest() if artifact_pack else {}
+            child_manifest = EventLedger(artifact_dir).read_manifest()
             artifacts = dict(child_manifest.get("artifacts") or {})
             if not artifacts:
                 artifacts = {name: path.name for name, path in written.items()}
@@ -249,33 +236,6 @@ async def execute_parse_task(
     return manifest
 
 
-async def run_batch_parse_task(
-    files: list[tuple[Path, str]],
-    output_root: Path,
-    task_id: str,
-    control: Any = None,
-    include_text: bool = False,
-) -> dict[str, Any]:
-    """Backward-compatible wrapper over the durable Task API executor."""
-    formats = tuple(getattr(getattr(control, "output", None), "formats", ("json",)))
-    output_editions = getattr(getattr(control, "output", None), "editions", None)
-    if output_editions is None:
-        from docmirror.framework.edition_defaults import default_editions
-
-        editions = default_editions()
-    else:
-        editions = tuple(output_editions)
-    return await execute_parse_task(
-        files,
-        output_root=output_root,
-        task_id=task_id,
-        control=control,
-        formats=formats,
-        editions=editions,
-        include_text=include_text,
-    )
-
-
 def _parent_artifact_map(
     *,
     task_dir: Path,
@@ -311,7 +271,6 @@ __all__ = [
     "execute_parse_task",
     "initialize_task_manifest",
     "read_task_manifest",
-    "run_batch_parse_task",
     "task_directory",
     "task_output_root",
 ]

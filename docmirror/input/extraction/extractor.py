@@ -5,17 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-CoreExtractor — orchestrates PDF → BaseResult extraction.
+CoreExtractor — orchestrates PDF evidence → canonical facts extraction.
 
 Purpose: Main extraction engine: opens PDFs, iterates pages, runs layout
 segmentation, table extraction (layered tiers), OCR fallback for scanned
-pages, logical table composition, and assembles frozen ``BaseResult``.
+pages and physical facts. The production adapter path assembles ParseResult
+directly; every public extraction entry returns ``ParseResult``.
 
 Main components: ``CoreExtractor``.
 
 Upstream: ``entry.factory``, ``FitzEngine``, ``analyze.pre_analyzer``.
 
-Downstream: ``input.bridge.parse_result_bridge`` and vNext MirrorCore.
+Downstream: ``input.canonical.assembler`` and the canonical middleware pipeline.
 """
 
 from __future__ import annotations
@@ -30,11 +31,10 @@ _clock = time.perf_counter
 from pathlib import Path
 from typing import Any
 
-from docmirror.input.entry.exceptions import ExtractionError
 from docmirror.layout.normalization.transform import invert_matrix, rotation_matrix
 from docmirror.layout.vocabulary import _is_header_row
 from docmirror.layout.watermark import preprocess_document
-from docmirror.models.entities.domain import BaseResult, Block, PageLayout, TextSpan
+from docmirror.models.entities.domain import Block, PageLayout, TextSpan
 from docmirror.runtime.optional_deps import require_optional_module
 from docmirror.tables.classifier import get_last_layer_timings
 
@@ -79,11 +79,11 @@ def _ocr_word_confidence(word: Any, default: float = 1.0) -> float:
     return default
 
 
-def _selected_page_indices(plane: Any, parse_control: Any) -> set[int]:
+def _selected_page_indices(plane: Any, parse_policy: Any) -> set[int]:
     total = len(getattr(plane, "pages", []) or [])
     if total <= 0:
         return set()
-    pages_control = getattr(parse_control, "pages", None) if parse_control is not None else None
+    pages_control = getattr(parse_policy, "pages", None) if parse_policy is not None else None
     if pages_control is None:
         return set(range(total))
     selected = pages_control.resolve(total)
@@ -670,6 +670,131 @@ def _block_full_text(block: Block) -> str:
     return ""
 
 
+def _native_text_blocks(page_atoms: list[Any], *, page_number: int) -> list[Block]:
+    """Group native words by PDF text block and exclude table-owned text.
+
+    PyMuPDF block boundaries preserve multi-line column cards.  Grouping only
+    by line makes a horizontal y-sort interleave the account number, bank and
+    business-type columns, which corrupts the document's logical reading order.
+    """
+    groups: dict[int, list[Any]] = {}
+    for atom in page_atoms:
+        metadata = dict(getattr(atom, "metadata", None) or {})
+        if metadata.get("table_candidate_id"):
+            continue
+        block_no = int(metadata.get("block_no", 0) or 0)
+        groups.setdefault(block_no, []).append(atom)
+
+    blocks: list[Block] = []
+    for block_no, atoms in groups.items():
+        atoms.sort(
+            key=lambda atom: (
+                int((getattr(atom, "metadata", None) or {}).get("line_no", 0) or 0),
+                int((getattr(atom, "metadata", None) or {}).get("word_no", 0) or 0),
+            )
+        )
+        spans: list[TextSpan] = []
+        evidence_ids: list[str] = []
+        boxes: list[tuple[float, float, float, float]] = []
+        words_by_line: dict[int, list[str]] = {}
+        for atom in atoms:
+            metadata = dict(getattr(atom, "metadata", None) or {})
+            bbox = tuple(float(value) for value in (getattr(atom, "bbox", None) or [0.0, 0.0, 0.0, 0.0]))
+            text = str(getattr(atom, "text", "") or "")
+            spans.append(TextSpan(text=text, bbox=bbox))
+            boxes.append(bbox)
+            line_no = int(metadata.get("line_no", 0) or 0)
+            words_by_line.setdefault(line_no, []).append(text)
+            if getattr(atom, "id", ""):
+                evidence_ids.append(str(atom.id))
+        if not words_by_line:
+            continue
+        bbox = (
+            min(value[0] for value in boxes),
+            min(value[1] for value in boxes),
+            max(value[2] for value in boxes),
+            max(value[3] for value in boxes),
+        )
+        blocks.append(
+            Block(
+                block_id=f"native:p{page_number}:b{block_no}",
+                block_type="text",
+                spans=tuple(spans),
+                bbox=bbox,
+                page=page_number,
+                raw_content="\n".join(_join_native_words(words) for _, words in sorted(words_by_line.items())),
+                attrs={"extraction_layer": "pdf_native_text", "confidence": 1.0},
+                evidence_ids=tuple(evidence_ids),
+            )
+        )
+    return blocks
+
+
+def _join_native_words(words: list[str]) -> str:
+    """Join native words while avoiding artificial spaces between CJK runs."""
+    import re
+
+    out = ""
+    for word in words:
+        if not out:
+            out = word
+            continue
+        cjk_boundary = bool(re.search(r"[\u3400-\u9fff]$", out) and re.match(r"^[\u3400-\u9fff]", word))
+        out += ("" if cjk_boundary else " ") + word
+    return out
+
+
+def _native_table_blocks(plane: Any, *, page_id: str, page_number: int) -> list[Block]:
+    """Project EvidencePlane table candidates into physical canonical blocks."""
+    candidates = list((getattr(plane.evidence, "indexes", None) or {}).get("table_candidates") or [])
+    blocks: list[Block] = []
+    for candidate in candidates:
+        if str(candidate.get("page_id") or "") != page_id:
+            continue
+        rows = candidate.get("rows") or []
+        if not isinstance(rows, list) or not rows:
+            continue
+        geometry = dict(candidate.get("geometry") or {})
+        attrs = {
+            "candidate_id": str(candidate.get("candidate_id") or ""),
+            "extraction_layer": str(candidate.get("engine") or "pymupdf_native"),
+            "extraction_confidence": float(candidate.get("confidence", 1.0) or 0.0),
+            "geometry_source": str(geometry.get("geometry_source") or "pymupdf_native_cells"),
+            "geometry_confidence": float(geometry.get("geometry_confidence", 1.0) or 0.0),
+            "preserve_headers": bool(candidate.get("preserve_headers", False)),
+            "source_bbox": candidate.get("source_bbox"),
+            "vector_evidence_ids": list(candidate.get("vector_evidence_ids") or []),
+            "geometry": geometry,
+        }
+        bbox = tuple(float(value) for value in (candidate.get("bbox") or [0.0, 0.0, 0.0, 0.0]))
+        blocks.append(
+            Block(
+                block_id=str(candidate.get("candidate_id") or f"table:p{page_number}:{len(blocks)}"),
+                block_type="table",
+                bbox=bbox,
+                page=page_number,
+                raw_content=[[str(cell or "") for cell in row] for row in rows if isinstance(row, list)],
+                attrs=attrs,
+                evidence_ids=tuple(str(value) for value in (candidate.get("evidence_ids") or []) if value),
+            )
+        )
+    return blocks
+
+
+def _canonical_reading_order(blocks: list[Block]) -> list[Block]:
+    """Return blocks in stable geometry order with contiguous reading indexes."""
+    ordered = sorted(
+        blocks,
+        key=lambda block: (
+            round(float(block.bbox[1]), 2),
+            round(float(block.bbox[0]), 2),
+            0 if block.block_type in {"title", "text", "key_value"} else 1,
+            block.block_id,
+        ),
+    )
+    return [replace(block, reading_order=index) for index, block in enumerate(ordered)]
+
+
 def _correct_ocr_blocks(
     blocks: list[Block],
     *,
@@ -789,13 +914,12 @@ def _collect_ocr_correction_audit(pages: list[PageLayout], *, mode: str) -> dict
 
 class CoreExtractor:
     """
-    Core extractor — generates immutable BaseResult from PDF.
+    Core extractor — generates physical evidence and canonical facts from PDF.
 
     Usage::
 
         extractor = CoreExtractor()
-        result = await extractor.extract(Path("sample.pdf"))
-        # result is frozen BaseResult, immutable
+        result = await extractor.extract_parse_result(Path("sample.pdf"))
 
     All low-level functions come from MultiModal.core submodules (self-contained).
     """
@@ -856,62 +980,34 @@ class CoreExtractor:
         """Convert image to a virtual single-page PDF, pre-scaling large images to max 4096px."""
         return image_to_virtual_pdf(image_path)
 
-    async def extract(self, file_path: Path, *, options: dict | None = None) -> BaseResult:
-        """
-        Main entry point: extract BaseResult from PDF or image.
+    async def extract(self, file_path: Path, *, options: dict | None = None) -> ParseResult:
+        """Alias for the canonical ParseResult extraction entry."""
+        return await self.extract_parse_result(file_path, options=options)
 
-        Extract through the UDTR evidence intake and return a physical BaseResult
-        for older adapter boundaries that still expect one.
-        """
-        file_path = Path(file_path)
-        doc_id = str(uuid.uuid4())
-        logger.info(f"[DocMirror] ▶ extract | file={file_path.name}")
-        try:
-            return await self._extract_base_result_vnext(file_path, doc_id=doc_id, options=options or {})
-        except ExtractionError as e:
-            logger.error(f"[DocMirror] extraction error: {e}", exc_info=True)
-            return BaseResult(
-                document_id=doc_id,
-                metadata={"error": str(e), "error_type": "ExtractionError", "parser": "DocMirror_CoreExtractor"},
-                full_text="",
-            )
-        except Exception as e:
-            logger.error(f"[DocMirror] unexpected error: {e}", exc_info=True)
-            return BaseResult(
-                document_id=doc_id,
-                metadata={"error": str(e), "error_type": type(e).__name__, "parser": "DocMirror_CoreExtractor"},
-                full_text="",
-            )
-
-    async def _extract_base_result_vnext(
+    async def _extract_physical_facts_vnext(
         self,
         file_path: Path,
         *,
         doc_id: str,
         options: dict | None = None,
-    ) -> BaseResult:
+    ) -> tuple[tuple[PageLayout, ...], dict[str, Any], str]:
         import asyncio
 
         from docmirror.evidence.plane import EvidencePlaneBuilder
 
         started_at = _clock()
         options = dict(options or {})
-        parse_control = options.get("parse_control")
-        ocr_mode = getattr(getattr(parse_control, "execution", None), "ocr", "auto") if parse_control else "auto"
-        ocr_correction_mode = (
-            getattr(getattr(parse_control, "execution", None), "ocr_correction", "safe") if parse_control else "safe"
-        )
-        correction_execution = getattr(parse_control, "execution", None)
-        correction_language = getattr(correction_execution, "ocr_language", None)
-        correction_country = getattr(correction_execution, "ocr_country", None)
-        correction_locale = getattr(correction_execution, "ocr_locale", None)
-        correction_pack_ids = tuple(getattr(correction_execution, "ocr_correction_packs", ()) or ())
-        correction_domain = str(getattr(getattr(parse_control, "doc_type_hint", None), "value", "") or "") or None
+        parse_policy = options.get("parse_policy")
+        ocr_mode = getattr(parse_policy, "ocr", "auto")
+        ocr_correction_mode = getattr(parse_policy, "ocr_correction", "safe")
+        correction_language = getattr(parse_policy, "ocr_language", None)
+        correction_country = getattr(parse_policy, "ocr_country", None)
+        correction_locale = getattr(parse_policy, "ocr_locale", None)
+        correction_pack_ids = tuple(getattr(parse_policy, "ocr_correction_packs", ()) or ())
+        correction_domain = str(getattr(getattr(parse_policy, "doc_type_hint", None), "value", "") or "") or None
         plane = await asyncio.to_thread(EvidencePlaneBuilder().build, str(file_path))
-        selected_indices = _selected_page_indices(plane, parse_control)
-        page_split_mode = (
-            getattr(getattr(parse_control, "execution", None), "page_split", "auto") if parse_control else "auto"
-        )
+        selected_indices = _selected_page_indices(plane, parse_policy)
+        page_split_mode = getattr(parse_policy, "page_split", "auto")
         if ocr_mode == "off":
             page_split_mode = "off"
         spread_plan = await asyncio.to_thread(
@@ -942,22 +1038,17 @@ class CoreExtractor:
                 for atom in plane.evidence.text_atoms
                 if atom.page_id == page.page_id and str(atom.text or "").strip()
             ]
-            blocks: list[Block] = []
-            for index, atom in enumerate(page_atoms):
-                bbox = tuple(float(v) for v in (atom.bbox or [0.0, 0.0, 0.0, 0.0]))
-                text = str(atom.text or "")
-                blocks.append(
-                    Block(
-                        block_id=atom.id,
-                        block_type="text",
-                        spans=(TextSpan(text=text, bbox=bbox),),
-                        bbox=bbox,
-                        reading_order=index,
-                        page=logical_start,
-                        raw_content=text,
-                        evidence_ids=(atom.id,),
+            blocks = _native_text_blocks(page_atoms, page_number=logical_start)
+            split_decision = spread_plan.decision_for(source_page_number)
+            if not bool(getattr(split_decision, "should_split", False)):
+                blocks.extend(
+                    _native_table_blocks(
+                        plane,
+                        page_id=page.page_id,
+                        page_number=logical_start,
                     )
                 )
+            blocks = _canonical_reading_order(blocks)
             if _should_ocr_page(ocr_mode, page_atoms):
                 ocr_pages = await asyncio.to_thread(
                     _ocr_logical_pages_for_pdf_page,
@@ -1058,19 +1149,32 @@ class CoreExtractor:
         )
         has_scanned = any(page.is_scanned for page in pages)
         has_native = any(not page.is_scanned for page in pages)
+        native_candidates = list((getattr(plane.evidence, "indexes", None) or {}).get("table_candidates") or [])
+        selected_source_pages = {int(page.page_number) for page in plane.pages if page.page_index in selected_indices}
+        selected_candidate_count = sum(
+            1 for candidate in native_candidates if int(candidate.get("page_number") or 0) in selected_source_pages
+        )
+        warnings = ["low_ocr_confidence"] if has_scanned and overall_confidence < 0.8 else []
+        if selected_candidate_count > 0 and table_count == 0:
+            warnings.append("native_table_evidence_not_reconstructed")
         extraction_method = "hybrid" if has_scanned and has_native else ("ocr" if has_scanned else "digital")
         sample_text = "\n".join(
             text for logical_page in pages for block in logical_page.blocks if (text := _block_full_text(block)).strip()
         )
+        evidence_counts = dict(getattr(plane, "counts", None) or {})
         metadata = {
             "parser": "DocMirror_CoreExtractor",
             "pipeline": "udtr_vnext",
             "elapsed_ms": round((_clock() - started_at) * 1000.0, 3),
             "extraction_method": extraction_method,
             "ocr_engine": "rapidocr_onnxruntime" if has_scanned else None,
-            "table_engine": "scanned_image_line_grid" if table_count and has_scanned else "pymupdf_native",
+            "table_engine": (
+                "scanned_image_line_grid"
+                if table_count and has_scanned
+                else ("pymupdf_native" if table_count else None)
+            ),
             "overall_confidence": round(overall_confidence, 4),
-            "warnings": ["low_ocr_confidence"] if has_scanned and overall_confidence < 0.8 else [],
+            "warnings": warnings,
             "selected_pages": [page.page_number for page in pages],
             "selected_source_pages": [
                 int(page.page_number) for page in plane.pages if page.page_index in selected_indices
@@ -1091,6 +1195,9 @@ class CoreExtractor:
                 else "none",
                 "confidence": spread_plan.confidence,
             },
+            "evidence_counts": evidence_counts,
+            "native_table_candidate_count": selected_candidate_count,
+            "_runtime_evidence_plane": plane,
         }
         metadata["structure"] = self._build_vnext_structure_metadata(
             sample_text=sample_text,
@@ -1100,6 +1207,14 @@ class CoreExtractor:
         )
         metadata["structure"]["source_page_count"] = len(plane.pages)
         metadata["structure"]["logical_page_count"] = spread_plan.logical_page_count
+        metadata["structure"]["source_evidence_counts"] = evidence_counts
+        metadata["structure"]["native_table_candidate_count"] = metadata["native_table_candidate_count"]
+        metadata["structure"]["table_reconstruction_gate"] = {
+            "applicable": selected_candidate_count > 0,
+            "candidate_count": selected_candidate_count,
+            "physical_table_count": table_count,
+            "passed": selected_candidate_count == 0 or table_count > 0,
+        }
         if page_evidence_bundles:
             metadata["page_evidence_bundles"] = page_evidence_bundles
         if has_scanned:
@@ -1107,14 +1222,10 @@ class CoreExtractor:
                 pages,
                 mode=ocr_correction_mode,
             )
-        return BaseResult(
-            document_id=doc_id,
-            pages=tuple(pages),
-            metadata=metadata,
-            full_text="\n".join(
-                text for page in pages for block in page.blocks if (text := _block_full_text(block)).strip()
-            ),
+        full_text = "\n".join(
+            text for page in pages for block in page.blocks if (text := _block_full_text(block)).strip()
         )
+        return tuple(pages), metadata, full_text
 
     @staticmethod
     def _build_vnext_structure_metadata(
@@ -1148,16 +1259,28 @@ class CoreExtractor:
         return spe
 
     async def extract_parse_result(self, file_path: Path, *, options: dict | None = None) -> ParseResult:
-        """
-        Single bridge point: CoreExtractor → ParseResult (MOC Path B).
+        """Production path: physical evidence/facts → ParseResult directly."""
+        file_path = Path(file_path)
+        doc_id = str(uuid.uuid4())
+        try:
+            pages, metadata, full_text = await self._extract_physical_facts_vnext(
+                file_path,
+                doc_id=doc_id,
+                options=options or {},
+            )
+            from docmirror.input.canonical import assemble_parse_result
 
-        Prefer this over ``extract()`` + manual ``ParseResultBridge.from_base_result()``
-        in adapters (design 09 §5 Phase 1).
-        """
-        from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
+            return assemble_parse_result(pages, metadata, full_text)
+        except Exception as exc:
+            logger.error("[DocMirror] canonical extraction error: %s", exc, exc_info=True)
+            from docmirror.models.errors import build_failure_result
 
-        base_result = await self.extract(file_path, options=options or {})
-        return ParseResultBridge.from_base_result(base_result)
+            return build_failure_result(
+                "PARSER_ERROR",
+                str(exc),
+                file_path=str(file_path),
+                file_type=file_path.suffix.lstrip(".").lower(),
+            )
 
     async def _open_document(self, file_path: Path) -> fitz.Document:
         """Open a document (PDF or image). Returns the PyMuPDF document."""
@@ -1178,29 +1301,26 @@ class CoreExtractor:
 
     async def _run_extraction(
         self, fitz_doc: fitz.Document, file_path: Path, doc_id: str, options: dict | None = None
-    ) -> BaseResult:
+    ) -> ParseResult:
         """Core extraction logic, extracted from try block.
 
         Steps:
           1. Pre-analysis
           2. CPU-bound parsing (in thread)
           3. QGE quality gate / direct path for low-quality images
-          4. Assemble BaseResult
+          4. Assemble ParseResult
         """
         import asyncio
 
         t0 = _clock()
         options = dict(options or {})
-        parse_control = options.get("parse_control")
-        ocr_correction_mode = (
-            getattr(getattr(parse_control, "execution", None), "ocr_correction", "safe") if parse_control else "safe"
-        )
-        correction_execution = getattr(parse_control, "execution", None)
-        correction_language = getattr(correction_execution, "ocr_language", None)
-        correction_country = getattr(correction_execution, "ocr_country", None)
-        correction_locale = getattr(correction_execution, "ocr_locale", None)
-        correction_pack_ids = tuple(getattr(correction_execution, "ocr_correction_packs", ()) or ())
-        correction_domain = str(getattr(getattr(parse_control, "doc_type_hint", None), "value", "") or "") or None
+        parse_policy = options.get("parse_policy")
+        ocr_correction_mode = getattr(parse_policy, "ocr_correction", "safe")
+        correction_language = getattr(parse_policy, "ocr_language", None)
+        correction_country = getattr(parse_policy, "ocr_country", None)
+        correction_locale = getattr(parse_policy, "ocr_locale", None)
+        correction_pack_ids = tuple(getattr(parse_policy, "ocr_correction_packs", ()) or ())
+        correction_domain = str(getattr(getattr(parse_policy, "doc_type_hint", None), "value", "") or "") or None
         _on_progress = options.get("on_progress")
         if _on_progress:
             _on_progress("load_document", 1.0, "Analyzing document structure...")
@@ -1309,7 +1429,7 @@ class CoreExtractor:
                             }
                         )
 
-        # Step 6: Assemble BaseResult
+        # Step 6: Assemble ParseResult
         elapsed = (_clock() - t0) * 1000
         total_blocks = sum(len(p.blocks) for p in pages)
         table_count = sum(1 for p in pages for b in p.blocks if b.block_type == "table")
@@ -1348,18 +1468,16 @@ class CoreExtractor:
             "perf_per_page": _page_perf,
         }
         opts = dict(options or {})
-        parse_control = opts.get("parse_control")
-        parse_control_dict = opts.get("parse_control_dict")
-        if parse_control_dict is None and parse_control is not None and hasattr(parse_control, "to_dict"):
-            parse_control_dict = parse_control.to_dict()
-        if parse_control_dict:
-            metadata["parse_control"] = parse_control_dict
-            metadata["parse_control_fingerprint"] = opts.get("parse_control_fingerprint") or (
-                parse_control.fingerprint()
-                if parse_control is not None and hasattr(parse_control, "fingerprint")
-                else ""
+        parse_policy = opts.get("parse_policy")
+        parse_policy_dict = opts.get("parse_policy_dict")
+        if parse_policy_dict is None and parse_policy is not None and hasattr(parse_policy, "to_dict"):
+            parse_policy_dict = parse_policy.to_dict()
+        if parse_policy_dict:
+            metadata["parse_policy"] = parse_policy_dict
+            metadata["parse_policy_fingerprint"] = opts.get("parse_policy_fingerprint") or (
+                parse_policy.fingerprint() if parse_policy is not None and hasattr(parse_policy, "fingerprint") else ""
             )
-            pages_control = parse_control_dict.get("pages") if isinstance(parse_control_dict, dict) else {}
+            pages_control = parse_policy_dict.get("pages") if isinstance(parse_policy_dict, dict) else {}
             if isinstance(pages_control, dict):
                 metadata["selected_pages"] = pages_control
         if opts.get("doc_type_hint"):
@@ -1369,7 +1487,7 @@ class CoreExtractor:
         if stage_timings:
             metadata["perf_stage_timings"] = stage_timings
 
-        # Pass logical tables to bridge layer via metadata
+        # Pass logical tables to canonical assembly via metadata
         if _logical_tables_data:
             metadata["_logical_tables"] = _logical_tables_data
 
@@ -1419,12 +1537,9 @@ class CoreExtractor:
             ltqg_summary=_perf.get("ltqg") if isinstance(_perf, dict) else None,
         )
 
-        result = BaseResult(
-            document_id=doc_id,
-            pages=tuple(pages),
-            metadata=metadata,
-            full_text=full_text,
-        )
+        from docmirror.input.canonical import assemble_parse_result
+
+        result = assemble_parse_result(tuple(pages), metadata, full_text)
 
         logger.info(
             f"[DocMirror] ◀ extract | pages={len(pages)} | blocks={total_blocks} | "

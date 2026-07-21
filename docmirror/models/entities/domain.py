@@ -9,15 +9,14 @@ module re-exports them at the models layer boundary so callers following
 design 09 §4.6 import physical types from ``docmirror.models.entities.domain``
 without depending on the core package path directly.
 
-Exports: ``Style``, ``TextSpan``, ``Block``, ``PageLayout``, ``BaseResult``.
+Exports: ``Style``, ``TextSpan``, ``Block``, ``PageLayout``.
 """
 
 from docmirror.models.entities.physical import (
-    BaseResult,
     Block,
     PageLayout,
     Style,
     TextSpan,
 )
 
-__all__ = ["Style", "TextSpan", "Block", "PageLayout", "BaseResult"]
+__all__ = ["Style", "TextSpan", "Block", "PageLayout"]

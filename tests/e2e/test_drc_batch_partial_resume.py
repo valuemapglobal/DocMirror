@@ -11,20 +11,19 @@ GA 1.0 DRC-W6-02: Proves that batch processing supports:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
-import hashlib
 from pathlib import Path
 
 import pytest
-
 
 # --- Batch Job Ledger -- Full Lifecycle ---
 
 
 def test_batch_ledger_multiple_files_lifecycle():
     """DRC-W6-02: BatchJobLedger handles multi-file lifecycle with mixed outcomes."""
-    from docmirror.runtime.work_units import BatchJobLedger, BatchJobEntry
+    from docmirror.runtime.work_units import BatchJobEntry, BatchJobLedger
 
     ledger = BatchJobLedger(batch_id="batch_w6_001", task_id="batch_w6_task")
 
@@ -79,7 +78,7 @@ def test_batch_ledger_multiple_files_lifecycle():
 
 def test_batch_ledger_resume_skips_succeeded():
     """DRC-W6-02: Resume skips already-succeeded files."""
-    from docmirror.runtime.work_units import BatchJobLedger, BatchJobEntry
+    from docmirror.runtime.work_units import BatchJobEntry, BatchJobLedger
 
     ledger = BatchJobLedger(batch_id="batch_resume_001", task_id="batch_resume_task")
 
@@ -115,7 +114,7 @@ def test_batch_ledger_resume_skips_succeeded():
 
 def test_batch_ledger_add_entry_dedup():
     """DRC-W6-02: Adding duplicate file_id updates existing entry."""
-    from docmirror.runtime.work_units import BatchJobLedger, BatchJobEntry
+    from docmirror.runtime.work_units import BatchJobEntry, BatchJobLedger
 
     ledger = BatchJobLedger(batch_id="batch_dedup_001", task_id="batch_dedup_task")
 
@@ -134,7 +133,7 @@ def test_batch_ledger_add_entry_dedup():
 
 def test_batch_ledger_to_dict_serializable():
     """DRC-W6-02: BatchJobLedger.to_dict() produces JSON-serializable output."""
-    from docmirror.runtime.work_units import BatchJobLedger, BatchJobEntry
+    from docmirror.runtime.work_units import BatchJobEntry, BatchJobLedger
 
     ledger = BatchJobLedger(batch_id="batch_ser_001", task_id="batch_ser_task")
     ledger.add_entry(BatchJobEntry(file_id="001", file_path="test.pdf"))
@@ -157,7 +156,7 @@ def test_checkpoint_save_and_validate_resume():
         cm = CheckpointManager(
             task_dir=Path(tmp),
             input_digest="sha256:abc123",
-            parse_control_fingerprint="pc_fp_001",
+            parse_policy_fingerprint="pc_fp_001",
             runtime_profile_fingerprint="rc_fp_001",
         )
 
@@ -181,7 +180,7 @@ def test_checkpoint_save_and_load_page_fragments():
         cm = CheckpointManager(
             task_dir=Path(tmp),
             input_digest="sha256:def456",
-            parse_control_fingerprint="pc_fp_002",
+            parse_policy_fingerprint="pc_fp_002",
             runtime_profile_fingerprint="rc_fp_002",
         )
 
@@ -211,13 +210,13 @@ def test_checkpoint_fingerprint_changes_with_config():
         cm1 = CheckpointManager(
             task_dir=Path(tmp),
             input_digest="sha256:abc",
-            parse_control_fingerprint="pc_001",
+            parse_policy_fingerprint="pc_001",
             runtime_profile_fingerprint="rc_001",
         )
         cm2 = CheckpointManager(
             task_dir=Path(tmp),
             input_digest="sha256:xyz",
-            parse_control_fingerprint="pc_001",
+            parse_policy_fingerprint="pc_001",
             runtime_profile_fingerprint="rc_001",
         )
         assert cm1.fingerprint() != cm2.fingerprint()
@@ -249,8 +248,8 @@ def test_checkpoint_save_input_source():
 
 def test_event_ledger_batch_progress_lifecycle():
     """DRC-W6-02: EventLedger captures full batch processing progress lifecycle."""
-    from docmirror.runtime.ledger import EventLedger
     from docmirror.runtime.events import ProgressEvent
+    from docmirror.runtime.ledger import EventLedger
 
     with tempfile.TemporaryDirectory() as tmp:
         ledger = EventLedger(Path(tmp))
@@ -356,8 +355,8 @@ def test_event_ledger_compute_progress_from_work_units():
 
 def test_scheduler_config_custom_for_batch():
     """DRC-W6-02: Scheduler config can be tuned for batch workloads."""
-    from docmirror.runtime.scheduler import SchedulerConfig
     from docmirror.runtime.control import RetryControl
+    from docmirror.runtime.scheduler import SchedulerConfig
 
     config = SchedulerConfig(
         max_file_workers=4,
@@ -396,8 +395,6 @@ def test_build_manifest_v2_batch_inputs():
             {"file_id": "002", "file_path": "f2.pdf", "status": "running"},
             {"file_id": "003", "file_path": "f3.pdf", "status": "pending"},
         ],
-        editions=["mirror", "community"],
-        formats=["json", "markdown"],
         profile="full",
         entry="cli_batch",
         request_id="req_batch_001",
@@ -492,7 +489,6 @@ def test_work_unit_planner_batch_scenario():
         file_id="005",
         input_digest=digest,
         page_count=80,
-        editions=["mirror", "community"],
         profile="full",
         doc_size="long",
     )
@@ -520,7 +516,6 @@ def test_work_unit_planner_small_doc_plan():
         file_id="001",
         input_digest=digest,
         page_count=3,
-        editions=["mirror"],
         profile="compact",
         doc_size="small",
     )
@@ -546,7 +541,6 @@ def test_work_unit_planner_forensic_profile():
         file_id="001",
         input_digest=digest,
         page_count=5,
-        editions=["mirror", "community"],
         profile="forensic",
         doc_size="medium",
     )

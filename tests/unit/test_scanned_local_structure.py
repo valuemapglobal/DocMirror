@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from docmirror.ocr.local_structure import extract_local_structure_evidence
-from docmirror.models.mirror.page_evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
+from docmirror.models.mirror.page_evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+from docmirror.ocr.local_structure import extract_local_structure_evidence
 from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
 from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
 

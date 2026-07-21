@@ -8,7 +8,7 @@ Re-exports the registered ``VATInvoicePlugin`` singleton for VAT/special invoice
 document processing in community edition.
 
 Pipeline role: premium KV plugin; ``registry`` registers ``plugin``; extract uses
-``extract_from_mirror`` with OCR enrichment helpers.
+``recognize`` with OCR enrichment helpers.
 
 Key exports: ``VATInvoicePlugin``, ``plugin``.
 """

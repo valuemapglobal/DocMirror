@@ -500,14 +500,14 @@ def _document_completeness(parse_result: Any) -> dict[str, Any]:
     else:
         parser_info = getattr(parse_result, "parser_info", None)
         options = getattr(parser_info, "options", None) or {}
-        control = options.get("parse_control") if isinstance(options, dict) else None
-        pages_control = control.get("pages") if isinstance(control, dict) else None
+        policy = options.get("parse_policy") if isinstance(options, dict) else None
+        pages_control = policy.get("pages") if isinstance(policy, dict) else None
         explicitly_selected = bool(
             isinstance(pages_control, dict)
             and any(pages_control.get(key) not in (None, "", [], ()) for key in ("ranges", "max_pages", "last_pages"))
         )
         complete = not explicitly_selected
-        basis = "parse_control_selection" if explicitly_selected else basis
+        basis = "parse_policy_selection" if explicitly_selected else basis
     return {
         "document_complete": complete,
         "parsed_source_page_count": parsed_source_page_count,

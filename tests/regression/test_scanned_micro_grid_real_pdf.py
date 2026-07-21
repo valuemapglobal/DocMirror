@@ -11,7 +11,6 @@ import pytest
 from docmirror.plugins.credit_report.repayment_grid import extract_credit_repayment_records
 from tests._scanned_ocr_helpers import ocr_page_as_pdf_points
 
-
 _FIXTURE = Path("tests/fixtures/synthetic/credit_report_section_smoke.pdf")
 
 

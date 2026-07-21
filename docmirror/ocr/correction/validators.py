@@ -33,6 +33,8 @@ _JP_CORPORATE_NUMBER_RE = re.compile(r"^\d{13}$")
 _SG_UEN_RE = re.compile(r"^(?:\d{8}[A-Z]|\d{9}[A-Z]|[STF]\d{2}[A-Z]{2}\d{4}[A-Z])$")
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 _PHONE_RE = re.compile(r"^\+?[0-9][0-9 ()-]{5,20}$")
+_CN_RESIDENT_ID_WEIGHTS = (7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2)
+_CN_RESIDENT_ID_CHECKS = "10X98765432"
 
 
 def validate_uscc(code: str) -> bool:
@@ -43,6 +45,23 @@ def validate_uscc(code: str) -> bool:
     total = sum(_USCC_CHARSET.index(char) * _USCC_WEIGHTS[index] for index, char in enumerate(normalized[:17]))
     expected = _USCC_CHARSET[(31 - total % 31) % 31]
     return normalized[-1] == expected
+
+
+def validate_cn_resident_id(value: str) -> bool:
+    """Validate an 18-character PRC resident identity number.
+
+    The date segment and GB 11643 checksum must both be valid. Whitespace and
+    hyphens introduced by OCR/layout reconstruction are ignored.
+    """
+    normalized = re.sub(r"[\s-]+", "", str(value or "")).upper()
+    if not re.fullmatch(r"\d{17}[\dX]", normalized):
+        return False
+    try:
+        date(int(normalized[6:10]), int(normalized[10:12]), int(normalized[12:14]))
+    except ValueError:
+        return False
+    checksum_index = sum(int(char) * weight for char, weight in zip(normalized[:17], _CN_RESIDENT_ID_WEIGHTS)) % 11
+    return normalized[-1] == _CN_RESIDENT_ID_CHECKS[checksum_index]
 
 
 def repair_uscc_if_unique(code: str, *, max_variants: int = 4096) -> str | None:
@@ -176,6 +195,7 @@ __all__ = [
     "repair_iban_if_unique",
     "validate_amount_text",
     "validate_bic",
+    "validate_cn_resident_id",
     "validate_date_text",
     "validate_email_text",
     "validate_eu_vat_format",

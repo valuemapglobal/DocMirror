@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 from docmirror import __version__
-from docmirror.configs.output_profile import OutputProfile, default_profile
 from docmirror.runtime.serialization import dumps_json
 
 _TPL_DIR = Path(__file__).resolve().parent.parent / "evidence" / "templates"
@@ -37,7 +36,7 @@ def _read_template(filename: str) -> str:
 def _build_schema_versions() -> dict[str, str]:
     return {
         "mirror": "1.x",
-        "community": "2.x",
+        "community": "3.x",
         "enterprise": "2.x",
         "finance": "3.x",
         "evidence_bundle": "2.x",
@@ -56,6 +55,8 @@ def _build_artifact_roles(manifest: dict[str, Any]) -> dict[str, str | None]:
     return {
         "mirror": artifacts.get("mirror") or artifacts.get("json"),
         "community": artifacts.get("community"),
+        "community_content": artifacts.get("content"),
+        "community_datasets": artifacts.get("datasets"),
         "enterprise": artifacts.get("enterprise"),
         "finance": artifacts.get("finance"),
         "markdown": artifacts.get("markdown") or artifacts.get("quickstart_markdown"),
@@ -75,7 +76,6 @@ def ensure_quickstart_artifact_pack(
     manifest: dict[str, Any],
     *,
     result: Any | None = None,
-    profile: OutputProfile | None = None,
     visual_graph: Any | None = None,
     overlay_manifest: dict[str, Any] | None = None,
     source_span_ledger: Any | None = None,
@@ -88,11 +88,8 @@ def ensure_quickstart_artifact_pack(
     Contract (XVC) artifact suite.
     """
     task_dir.mkdir(parents=True, exist_ok=True)
-    if profile is None:
-        profile = default_profile()
 
-    # ── GA 1.0 Step 4: Auto-compute quality_decision for ga_full / forensic profiles ──
-    if quality_decision is None and profile.name in ("ga_full", "forensic"):
+    if quality_decision is None:
         try:
             from docmirror.evidence.quality_decision import build_quality_decision
 
@@ -100,7 +97,6 @@ def ensure_quickstart_artifact_pack(
         except Exception:
             pass
 
-    manifest["output_profile"] = profile.name
     manifest["schema_versions"] = _build_schema_versions()
     domain = _document_type_from_result(result) or str(manifest.get("document_type") or "generic")
     try:
@@ -112,8 +108,7 @@ def ensure_quickstart_artifact_pack(
     manifest.setdefault(
         "open_source_commitment",
         {
-            "default_output": "edition_json_only",
-            "artifact_pack": "opt_in",
+            "artifact_pack": "fixed_debug_command",
             "purpose": "human_review_audit_and_issue_reproduction",
         },
     )
@@ -123,7 +118,7 @@ def ensure_quickstart_artifact_pack(
 
     # output.md
     output_md = task_dir / "output.md"
-    if profile.markdown and not output_md.exists():
+    if not output_md.exists():
         markdown_name = artifacts.get("markdown")
         markdown_path = task_dir / markdown_name if isinstance(markdown_name, str) else None
         if markdown_path and markdown_path.is_file():
@@ -138,16 +133,15 @@ def ensure_quickstart_artifact_pack(
         artifacts.setdefault("quickstart_markdown", output_md.name)
 
     # quality_report.json v3
-    if profile.quality_report:
-        quality_report = _build_quality_report_v3(
-            manifest,
-            result=result,
-            quality_decision=quality_decision,
-            source_span_ledger=source_span_ledger,
-        )
-        quality_path = task_dir / "quality_report.json"
-        quality_path.write_text(dumps_json(quality_report, ensure_ascii=False, indent=2), encoding="utf-8")
-        artifacts["quality_report"] = quality_path.name
+    quality_report = _build_quality_report_v3(
+        manifest,
+        result=result,
+        quality_decision=quality_decision,
+        source_span_ledger=source_span_ledger,
+    )
+    quality_path = task_dir / "quality_report.json"
+    quality_path.write_text(dumps_json(quality_report, ensure_ascii=False, indent=2), encoding="utf-8")
+    artifacts["quality_report"] = quality_path.name
 
     # quality_decision.json
     if quality_decision is not None:
@@ -191,14 +185,13 @@ def ensure_quickstart_artifact_pack(
         artifacts["source_span_ledger"] = ssl_path.name
 
     # evidence/
-    if profile.evidence_bundle:
-        evidence_dir = task_dir / "evidence"
-        evidence_dir.mkdir(exist_ok=True)
-        (evidence_dir / "README.md").write_text(
-            "# DocMirror Evidence\n\nThis folder is reserved for crops, overlays, diffs, and minimal repro data.\n",
-            encoding="utf-8",
-        )
-        artifacts.setdefault("evidence_dir", evidence_dir.name)
+    evidence_dir = task_dir / "evidence"
+    evidence_dir.mkdir(exist_ok=True)
+    (evidence_dir / "README.md").write_text(
+        "# DocMirror Evidence\n\nThis folder is reserved for crops, overlays, diffs, and minimal repro data.\n",
+        encoding="utf-8",
+    )
+    artifacts.setdefault("evidence_dir", evidence_dir.name)
 
     # Page images (W2-03) and layout overlay PDF (W2-05)
     if pdf_path and Path(pdf_path).exists():
@@ -212,16 +205,15 @@ def ensure_quickstart_artifact_pack(
             pass
 
     # visual_debug.html (v3 static visualizer)
-    if profile.visual_debug:
-        visual_path = task_dir / "visual_debug.html"
-        html_content = _build_visual_debug_html_v3(
-            manifest,
-            visual_graph=visual_graph,
-            overlay_manifest=overlay_manifest,
-            quality_decision=quality_decision,
-        )
-        visual_path.write_text(html_content, encoding="utf-8")
-        artifacts["visual_debug"] = visual_path.name
+    visual_path = task_dir / "visual_debug.html"
+    html_content = _build_visual_debug_html_v3(
+        manifest,
+        visual_graph=visual_graph,
+        overlay_manifest=overlay_manifest,
+        quality_decision=quality_decision,
+    )
+    visual_path.write_text(html_content, encoding="utf-8")
+    artifacts["visual_debug"] = visual_path.name
 
     # artifact_roles
     roles = _build_artifact_roles(manifest)
@@ -330,7 +322,6 @@ def _build_quality_report_v3(
     quality_summary = manifest.get("quality_summary") or {}
     edition_availability = manifest.get("edition_availability") or {}
     errors = manifest.get("errors") or []
-    output_profile = manifest.get("output_profile", "quickstart")
     artifacts = manifest.get("artifacts") or {}
     parser_options = manifest.get("parser_options", {})
     if result is not None and hasattr(result, "parser_info") and result.parser_info:
@@ -393,7 +384,7 @@ def _build_quality_report_v3(
     integration = {
         "request_id": manifest.get("request_id") or observability.get("request_id", ""),
         "version": observability.get("version", __version__),
-        "profile": observability.get("profile") or manifest.get("output_profile", "full"),
+        "profile": observability.get("profile", "fixed"),
         "entry": observability.get("entry", "unknown"),
     }
 
@@ -402,7 +393,6 @@ def _build_quality_report_v3(
         "task_id": manifest.get("task_id"),
         "document_id": manifest.get("document_id"),
         "request_id": integration["request_id"],
-        "output_profile": output_profile,
         "integration": integration,
         "decision": decision,
         "decision_reason": decision_reason,
@@ -434,7 +424,7 @@ def _build_visual_debug_html_v3(
     """
     doc_id = escape(str(manifest.get("document_id", "")))
     task_id = escape(str(manifest.get("task_id", "")))
-    profile = escape(str(manifest.get("output_profile", "quickstart")))
+    profile = "fixed"
     decision = "not_computed"
     if quality_decision is not None:
         decision = (

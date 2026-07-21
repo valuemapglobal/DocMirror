@@ -41,22 +41,23 @@ def run_post_extract_hooks(
         extracted=extracted,
     ):
         try:
+            if spec.mutates_facts:
+                logger.warning(
+                    "[PostExtract] Hook %s declares mutates_facts=true; skipped because facts are sealed",
+                    spec.hook_id,
+                )
+                continue
             hook_cls = get_hook_class(spec)
             hook = hook_cls()
             hook.hook_id = spec.hook_id
+            projection_input = result.model_copy(deep=True)
             hook.apply(
-                result,
+                projection_input,
                 extracted=extracted,
                 edition=edition,
                 document_type=document_type,
                 plugin=plugin,
             )
-            if spec.mutates_mirror:
-                logger.warning(
-                    "[PostExtract] Hook %s declares mutates_mirror=true but Core Mirror "
-                    "writeback is disabled (Architecture A)",
-                    spec.hook_id,
-                )
             logger.debug("[PostExtract] Applied hook %s", spec.hook_id)
         except Exception as exc:
             logger.warning("[PostExtract] Hook %s failed: %s", spec.hook_id, exc)

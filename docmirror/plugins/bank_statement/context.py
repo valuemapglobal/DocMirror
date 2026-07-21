@@ -8,7 +8,7 @@ Aggregates table cell matrices, full text, institution hints, LTRO reconstructio
 meta, and page count into a single context object passed to ``BankStyleDetector``
 and style parsers.
 
-Pipeline role: first step inside ``bank_statement.community_plugin.extract_from_mirror``
+Pipeline role: first step inside ``bank_statement.community_plugin.recognize``
 before style detection and parser dispatch.
 
 Key exports: ``StyleContext``, ``build_style_context``, ``collect_tables_from_parse_result``.
@@ -65,10 +65,7 @@ def collect_tables_from_parse_result(parse_result: Any) -> list[list[list[str]]]
     tables = _Collector()._collect_tables(parse_result)
     if tables:
         return tables
-    mirror = getattr(parse_result, "_runtime_mirror_cache", None)
-    if mirror is None:
-        mirror = getattr(parse_result, "mirror", None)
-    return _collect_tables_from_vnext_mirror(mirror)
+    return []
 
 
 def _collect_tables_from_vnext_mirror(mirror: Any) -> list[list[list[str]]]:
@@ -110,10 +107,10 @@ def build_style_context(parse_result: Any, full_text: str = "") -> StyleContext:
     institution, authority = resolve_institution_from_context(parse_result, text)
 
     pages = getattr(parse_result, "pages", []) or []
-    mirror_tables = collect_tables_from_parse_result(parse_result)
+    canonical_tables = collect_tables_from_parse_result(parse_result)
     structure_spe = _structure_spe_from_parse_result(parse_result)
     tables, reconstruction = reconstruct_tables(
-        mirror_tables,
+        canonical_tables,
         text,
         page_count=len(pages),
         structure_spe=structure_spe,

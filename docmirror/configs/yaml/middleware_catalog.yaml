@@ -17,8 +17,7 @@ middlewares:
     class: HeaderInferrerMiddleware
     stage: STRUCTURE
     provides: [table_headers]
-    depends_on: []
-    when: "table_count > 0"
+    depends_on: [LlmDocumentRestorer]
     enabled: true
 
   HeaderAlignment:
@@ -27,7 +26,6 @@ middlewares:
     stage: STRUCTURE
     provides: [header_alignment]
     depends_on: [HeaderInferrer]
-    when: "table_count > 0"
     enabled: true
 
   EntityExtractor:
@@ -35,7 +33,7 @@ middlewares:
     class: EntityExtractor
     stage: ENRICH
     provides: [entities, metadata]
-    depends_on: []
+    depends_on: [GeometricReconstructor, LlmDocumentRestorer]
     enabled: true
 
   GenericEntityExtractor:
@@ -57,7 +55,7 @@ middlewares:
   GeometricReconstructor:
     module: docmirror.framework.middlewares.extraction.geometric_reconstructor
     class: GeometricReconstructor
-    stage: ENRICH
+    stage: RECONSTRUCT
     provides: [tables]
     depends_on: []
     enabled: true
@@ -65,9 +63,9 @@ middlewares:
   LlmDocumentRestorer:
     module: docmirror.framework.middlewares.extraction.llm_document_restorer
     class: LlmDocumentRestorer
-    stage: ENRICH
+    stage: RESTORE
     provides: [tables, key_values]
-    depends_on: [EvidenceEngine]
+    depends_on: [GeometricReconstructor]
     enabled: true
 
   InstitutionDetector:
@@ -78,12 +76,20 @@ middlewares:
     depends_on: [EvidenceEngine]
     enabled: true
 
+  CommunityFactRecognizer:
+    module: docmirror.framework.middlewares.extraction.community_fact_recognizer
+    class: CommunityFactRecognizer
+    stage: DOMAIN
+    provides: [domain_entities, domain_records, sections]
+    depends_on: [EvidenceEngine, InstitutionDetector]
+    enabled: true
+
   Validator:
     module: docmirror.framework.middlewares.validation.validator
     class: Validator
     stage: VALIDATE
     provides: [quality_score]
-    depends_on: []
+    depends_on: [EvidenceEngine, InstitutionDetector, CommunityFactRecognizer]
     enabled: true
 
   AnomalyDetector:

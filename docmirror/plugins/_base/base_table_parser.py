@@ -1,19 +1,19 @@
 """
 BaseTableParser — shared base class for cashflow table_document community plugins.
 
-Implements the Mirror → v2.0 community JSON pipeline for ledger-style documents:
+Implements the ParseResult → Community recognition pipeline for ledger-style documents:
 extract identity KV fields, match table headers via ``ColumnMatcher``, normalize
 rows, and serialize through ``table_dec``. Subclasses supply only domain config
 (``column_registry``, ``standard_fields``, ``scene_keywords``, ``identity_fields``).
 
 Pipeline role: extended by ``wechat_payment``, ``alipay_payment``, and partially
-by ``bank_statement`` community plugin; ``runner`` invokes ``extract_from_mirror``
+by ``bank_statement`` community plugin; ``runner`` invokes ``recognize``
 on registered plugin instances.
 
 Key exports: ``BaseTableParser``.
 
 Dependencies: ``DomainPlugin``, ``column_registry``, ``standardizer``, table access
-via Mirror ``ParseResult`` pages/tables.
+via canonical ``ParseResult`` pages/tables and evidence.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ class BaseTableParser(DomainPlugin):
 
     Optional overrides:
     - identity_fields
-    - _recover_records_from_mirror
+    - _recover_records_from_evidence
     - edition (default community)
     """
 
@@ -99,14 +99,14 @@ class BaseTableParser(DomainPlugin):
 
     # ── Public API ──
 
-    def extract_from_mirror(self, parse_result, text: str = "") -> dict[str, Any]:
+    def recognize(self, parse_result, text: str = "") -> dict[str, Any]:
         """Extract and return v2.0 community edition output from ParseResult."""
         # Step 1: Extract KV header area
         identity_fields = self._extract_identity(parse_result)
         try:
-            recovered_identity = self._recover_identity_from_mirror(parse_result)
+            recovered_identity = self._recover_identity_from_evidence(parse_result)
         except Exception:
-            logger.warning("[%s] Mirror identity recovery failed", self.domain_name, exc_info=True)
+            logger.warning("[%s] canonical evidence identity recovery failed", self.domain_name, exc_info=True)
             recovered_identity = {}
         for field_name, detail in recovered_identity.items():
             identity_fields.setdefault(field_name, detail)
@@ -140,9 +140,9 @@ class BaseTableParser(DomainPlugin):
         transactions = self._extract_records(tables, header_row_idx, raw_headers, col_map)
         if not transactions:
             try:
-                transactions = self._recover_records_from_mirror(parse_result)
+                transactions = self._recover_records_from_evidence(parse_result)
             except Exception:
-                logger.warning("[%s] Mirror record recovery failed", self.domain_name, exc_info=True)
+                logger.warning("[%s] canonical evidence record recovery failed", self.domain_name, exc_info=True)
 
         # Step 5: Build records (raw + normalized)
         records = self._build_records(transactions)
@@ -167,7 +167,7 @@ class BaseTableParser(DomainPlugin):
     # ── Step 1: KV header area extraction ──
 
     def _extract_identity(self, parse_result) -> dict[str, dict]:
-        """Extract identity fields from mirror KV pairs.
+        """Extract identity fields from canonical KV pairs.
 
         返回 {field_key: {raw_name, raw_value, normalized_value, data_type}}。
         """
@@ -416,21 +416,21 @@ class BaseTableParser(DomainPlugin):
 
         return transactions
 
-    def _recover_records_from_mirror(self, parse_result) -> list[dict[str, Any]]:
+    def _recover_records_from_evidence(self, parse_result) -> list[dict[str, Any]]:
         """Optional coordinate-aware fallback for documents with no detected table.
 
         The default is deliberately empty.  Payment plugins override this only
         for issuer layouts whose column headers and row anchors are explicit in
-        Mirror text atoms.
+        canonical evidence atoms.
         """
         return []
 
-    def _recover_identity_from_mirror(self, parse_result) -> dict[str, dict[str, Any]]:
+    def _recover_identity_from_evidence(self, parse_result) -> dict[str, dict[str, Any]]:
         """Optional positioned-text recovery for issuer narrative headers."""
         return {}
 
     @staticmethod
-    def _mirror_identity_detail(
+    def _evidence_identity_detail(
         field_name: str,
         raw_name: str,
         value: str,
@@ -444,23 +444,17 @@ class BaseTableParser(DomainPlugin):
             "raw_value": value,
             "normalized_value": value,
             "data_type": "string",
-            "source_refs": [{"source": "mirror_text_atoms", "page_id": page_id}],
+            "source_refs": [{"source": "canonical_evidence_atoms", "page_id": page_id}],
             "evidence_ids": list(evidence_ids or []),
             "field_name": field_name,
         }
 
     @staticmethod
-    def _mirror_text_atoms_by_page(parse_result) -> dict[str, list[dict[str, Any]]]:
-        """Return usable runtime Mirror text atoms grouped by page id."""
-        mirror = getattr(parse_result, "_runtime_mirror_cache", None)
-        if not isinstance(mirror, dict):
-            return {}
-        evidence = mirror.get("evidence")
-        if not isinstance(evidence, dict):
-            return {}
-        atoms = evidence.get("text_atoms")
-        if not isinstance(atoms, list):
-            return {}
+    def _evidence_text_atoms_by_page(parse_result) -> dict[str, list[dict[str, Any]]]:
+        """Return usable canonical evidence atoms grouped by page id."""
+        from docmirror.plugins._runtime.evidence_access import text_atoms
+
+        atoms = text_atoms(parse_result)
 
         grouped: dict[str, list[dict[str, Any]]] = {}
         for atom in atoms:
@@ -481,7 +475,8 @@ class BaseTableParser(DomainPlugin):
 
         每条记录包含：
         - row_index: int
-        - raw: dict (原始值，key 为表头列名)
+        - raw: dict (原始值，key 为来源表头)
+        - canonical_raw: dict (原始值，key 为标准字段名，供字段审计)
         - normalized: dict (标准化值)
         """
         records: list[dict] = []
@@ -489,19 +484,51 @@ class BaseTableParser(DomainPlugin):
         for idx, raw_txn in enumerate(transactions, start=1):
             raw_public = public_record_raw(raw_txn)
             normalized = self._normalize(raw_public)
+            canonical_raw = self._canonical_raw_values(raw_public, normalized)
             source = raw_txn.get("_source")
             if not isinstance(source, dict):
-                source = {"source": "mirror_table", "source_row_index": idx - 1}
+                source = {"source": "canonical_table", "source_row_index": idx - 1}
             records.append(
                 {
                     "row_index": idx,
                     "raw": raw_public,
+                    "canonical_raw": canonical_raw,
                     "normalized": normalized,
                     "source": source,
                 }
             )
 
         return records
+
+    def _canonical_raw_values(
+        self,
+        raw_txn: dict[str, Any],
+        normalized: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Map source values onto canonical field keys before facts are sealed."""
+        canonical_raw: dict[str, Any] = {}
+        for canonical_name, mapping in self.column_registry.items():
+            raw_value: Any = ""
+            for raw_key, candidate in raw_txn.items():
+                if raw_key == canonical_name or raw_key in (mapping.aliases or []):
+                    raw_value = candidate
+                    break
+            if raw_value in (None, ""):
+                for raw_key, candidate in raw_txn.items():
+                    if canonical_name in raw_key or raw_key in canonical_name:
+                        raw_value = candidate
+                        break
+            canonical_raw[mapping.field] = raw_value
+
+        if "amount_cny" in normalized:
+            canonical_raw["amount_cny"] = canonical_raw.get("amount", "")
+        if "original_signed_amount" in normalized:
+            canonical_raw["original_signed_amount"] = canonical_raw.get("amount", "")
+        if "date" in normalized:
+            canonical_raw["date"] = canonical_raw.get("date") or canonical_raw.get("timestamp", "")
+        for key, value in normalized.items():
+            canonical_raw.setdefault(key, raw_txn.get(key, value))
+        return canonical_raw
 
     def _normalize(self, raw_txn: dict[str, str]) -> dict[str, Any]:
         """Normalize a single raw transaction.

@@ -20,7 +20,7 @@ from docmirror.plugins.credit_report.repayment_grid import (
     extract_credit_repayment_records,
     records_from_micro_grid_dict,
 )
-from docmirror.server.edition_outputs import build_all_projections, write_four_files
+from docmirror.server.edition_outputs import build_all_projections, write_outputs
 
 
 def _micro_grid_bundle_domain(
@@ -232,6 +232,18 @@ def test_allowlist_normalization_filters_ocr_noise():
     assert normalize_allowlist_text("O,OOO.50元", set("0123456789.,"), max_chars=16) == "0,000.50"
 
 
+def test_hash_is_uncertainty_not_a_credit_status():
+    assert "#" not in repayment_mod._STATUS_CHARS
+    assert "/" in repayment_mod._STATUS_CHARS
+
+
+def test_unreadable_boundary_cell_uses_two_matching_neighbors_only():
+    statuses = {7: "#", 8: "N", 9: "N", 10: "N", 11: "*", 12: "*"}
+
+    assert repayment_mod._neighbor_status_fallback(statuses, 7) == "N"
+    assert repayment_mod._neighbor_status_fallback({9: "*", 10: "#", 11: "N"}, 10) == ""
+
+
 def test_visually_confirmed_numeric_status_is_not_quarantined():
     grid = {
         "grid_id": "mg_p1_repayment_0",
@@ -439,16 +451,24 @@ def test_four_file_forensic_mirror_includes_plugin_primed_micro_grids_without_se
         )
     )
 
-    outputs = build_all_projections(pr, mirror_level="forensic")
+    from docmirror.framework.middlewares.extraction.community_fact_recognizer import CommunityFactRecognizer
 
-    document = outputs["mirror"]
+    CommunityFactRecognizer().process(pr)
+    outputs = build_all_projections(pr)
+    document = pr.to_mirror_json_vnext(mirror_level="forensic")
     assert "repayment_records" not in document
     grid = _micro_grid_structure_from_document(document)
     assert grid["grid_type_hint"] == "credit_repayment_record"
     assert grid["cells"][0][0]["bbox"]
     page4 = next(p for p in document["pages"] if p.get("page_number") == 4)
     assert any(r.get("kind") == "micro_grid" for r in page4.get("regions") or [])
-    assert outputs["community"]["data"]["repayment_records"][0]["status"] == "N"
+    repayment_index = next(item for item in outputs["community"]["datasets"] if item["name"] == "repayment_records")
+    repayment_dataset = next(
+        item for item in outputs["community_bundle"].datasets if item.public["name"] == "repayment_records"
+    )
+    assert len(repayment_index["rows"]) == len(repayment_dataset.rows)
+    assert repayment_index["row_count"] == len(repayment_dataset.rows)
+    assert repayment_dataset.rows[0]["status"] == "N"
 
 
 def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
@@ -459,7 +479,10 @@ def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
         )
     )
 
-    outputs = build_all_projections(pr, mirror_level="standard")
+    from docmirror.framework.middlewares.extraction.community_fact_recognizer import CommunityFactRecognizer
+
+    CommunityFactRecognizer().process(pr)
+    outputs = build_all_projections(pr)
 
     document = outputs["mirror"]
     grid = _micro_grid_structure_from_document(document)
@@ -478,10 +501,16 @@ def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
     assert status_cell["text"] == "N"
     assert status_cell["bbox"]
     assert "token_ids" not in status_cell
-    assert outputs["community"]["data"]["repayment_records"][0]["status"] == "N"
+    repayment_index = next(item for item in outputs["community"]["datasets"] if item["name"] == "repayment_records")
+    repayment_dataset = next(
+        item for item in outputs["community_bundle"].datasets if item.public["name"] == "repayment_records"
+    )
+    assert len(repayment_index["rows"]) == len(repayment_dataset.rows)
+    assert repayment_index["row_count"] == len(repayment_dataset.rows)
+    assert repayment_dataset.rows[0]["status"] == "N"
 
 
-def test_write_four_files_forensic_mirror_includes_plugin_primed_micro_grids(tmp_path):
+def test_write_outputs_standard_mirror_includes_plugin_primed_micro_grids(tmp_path):
     pr = ParseResult(
         entities=DocumentEntities(
             document_type="credit_report",
@@ -489,12 +518,10 @@ def test_write_four_files_forensic_mirror_includes_plugin_primed_micro_grids(tmp
         )
     )
 
-    _task_id, written = write_four_files(
+    _task_id, written = write_outputs(
         pr,
         tmp_path,
         task_id="task_micro_grid",
-        mirror_level="forensic",
-        editions=("mirror",),
     )
 
     mirror = json.loads(written["mirror"].read_text(encoding="utf-8"))

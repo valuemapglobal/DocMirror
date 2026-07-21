@@ -13,10 +13,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from docmirror.configs.format.resolver import _extension_candidates, resolve_capability
-from docmirror.framework.dispatcher import ParserDispatcher
 from docmirror.framework.extraction_runner import run_extraction_chain
 from docmirror.input.adapters.archive.archive import ArchiveAdapter
 from docmirror.input.adapters.image.image import ImageAdapter
+from docmirror.input.pipeline import perceive_document
 from docmirror.models.entities.parse_result import (
     PageContent,
     ParseResult,
@@ -52,10 +52,20 @@ def test_image_adapter_groups_ocr_words_into_bbox_lines():
 
 
 @pytest.mark.asyncio
+async def test_image_adapter_uses_one_based_delivery_page_number(tmp_path):
+    adapter = ImageAdapter()
+    image = tmp_path / "identity.jpg"
+    with patch.object(adapter, "_extract_text_blocks", AsyncMock(return_value=([], 640, 480))):
+        result = await adapter.to_parse_result(image)
+
+    assert result.pages[0].page_number == 1
+
+
+@pytest.mark.asyncio
 async def test_msg_without_extract_msg_returns_converter_error(tmp_path):
     msg = tmp_path / "sample.msg"
-    msg.write_bytes(b"\xd0\xcf\x11\xe0")
-    result = await ParserDispatcher().process(msg)
+    msg.write_bytes(b"\xd0\xcf\x11\xe0" + b"\x00" * 128)
+    result = await perceive_document(msg)
     assert result.status == ResultStatus.FAILURE
     assert result.error is not None
     assert result.error.code == "FORMAT_REQUIRES_CONVERTER"

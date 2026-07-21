@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from docmirror.models.entities.parse_result import ExtractionMethod, ParserInfo
+from docmirror.plugins.bank_statement.community_plugin import BANK_COLUMN_REGISTRY, BankStatementCommunityPlugin
 from docmirror.plugins.bank_statement.context import StyleContext
 from docmirror.plugins.bank_statement.style_detector import BankStyleDetector
 from docmirror.plugins.bank_statement.style_registry import BankStyleParserRegistry
@@ -17,7 +18,6 @@ from docmirror.plugins.bank_statement.styles.borderless_ocr import (
     strict_header_match_count,
     table_is_borderless_ocr,
 )
-from docmirror.plugins.bank_statement.community_plugin import BANK_COLUMN_REGISTRY, BankStatementCommunityPlugin
 
 OCR_BORDERLESS_TABLE = [[
     ["个人客户交易明细", "", "", ""],

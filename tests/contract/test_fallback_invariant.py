@@ -9,6 +9,7 @@ non-GA domain, and that fallback_reason+support_level are always present.
 """
 
 import pytest
+
 from docmirror.configs.ga_readiness import (
     CORE_DOMAIN_ROUTE,
     ENTERPRISE_ONLY_ROUTE,
@@ -19,7 +20,6 @@ from docmirror.configs.ga_readiness import (
     edition_sku_status,
 )
 from docmirror.server.edition_availability import build_edition_availability
-
 
 # ── Domain route coverage ──
 
@@ -57,39 +57,43 @@ def test_unknown_domain_falls_back_to_generic(domain: str) -> None:
 
 def test_build_edition_availability_always_returns_four_editions() -> None:
     """build_edition_availability must return mirror/community/enterprise/finance."""
-    avail = build_edition_availability(("mirror", "community", "enterprise", "finance"))
+    avail = build_edition_availability()
     for ed in ("mirror", "community", "enterprise", "finance"):
         assert ed in avail, f"missing key: {ed}"
         item = avail[ed]
         assert "status" in item, f"missing status for {ed}"
-        assert "requested" in item, f"missing requested for {ed}"
+        assert "requested" not in item, f"legacy requested state leaked into {ed}"
 
 
 def test_community_always_available() -> None:
     """Community edition must always be available (no license needed)."""
-    avail = build_edition_availability(("community",), document_type="bank_statement")
+    avail = build_edition_availability(document_type="bank_statement")
     community = avail["community"]
     assert community["status"] not in {"unavailable", "degraded"}, (
         f"community unexpectedly {community['status']}"
     )
 
 
-def test_enterprise_missing_package_shows_unavailable() -> None:
-    """When docmirror_enterprise is not installed, enterprise shows unavailable."""
-    avail = build_edition_availability(("enterprise",), document_type="bank_statement")
+def test_enterprise_without_projector_output_is_unavailable() -> None:
+    """Manifest availability reflects the projector outcome, not package state."""
+    avail = build_edition_availability(
+        projections={"mirror": {}, "community": {}},
+        document_type="bank_statement",
+    )
     enterprise = avail["enterprise"]
-    assert enterprise["status"] in {"unavailable", "skipped", "not_requested"}, (
-        f"enterprise status={enterprise['status']}"
+    assert enterprise["status"] == "unavailable"
+    assert enterprise["reason"] == "projector_unavailable"
+
+
+def test_finance_written_projector_output_is_written() -> None:
+    """A written projection is reported as written without a policy re-check."""
+    avail = build_edition_availability(
+        written={"finance": object()},
+        projections={"finance": {"edition": "finance"}},
+        document_type="bank_statement",
     )
-
-
-def test_finance_missing_package_shows_unavailable() -> None:
-    """When docmirror_finance is not installed, finance shows unavailable."""
-    avail = build_edition_availability(("finance",), document_type="bank_statement")
     finance = avail["finance"]
-    assert finance["status"] in {"unavailable", "skipped", "not_requested"}, (
-        f"finance status={finance['status']}"
-    )
+    assert finance["status"] == "written"
 
 
 # ── Domain readiness invariants ──

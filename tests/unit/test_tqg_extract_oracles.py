@@ -16,6 +16,7 @@ from docmirror.models.entities.parse_result import (
     ParseResult,
     TableBlock,
     TableRow,
+    TextBlock,
 )
 
 
@@ -52,19 +53,16 @@ def test_column_fidelity_oracle_passes():
 
 
 def test_quarantine_metadata_oracle_passes():
-    class _Base:
-        metadata = {
-            "quarantined_tables": [
+    report = run_quarantine_metadata_oracle(
+        {
+            "quarantined": [
                 {
                     "page": 219,
                     "reason": "col_count_mismatch",
                     "action": "standalone_physical_table",
                 }
             ]
-        }
-
-    report = run_quarantine_metadata_oracle(
-        {"base": _Base()},
+        },
         {
             "page": 219,
             "reason": "col_count_mismatch",
@@ -78,20 +76,17 @@ def test_quarantine_metadata_oracle_passes():
 def test_text_snapshot_oracle_passes():
     from docmirror.eval.tqg.extract_oracles import run_text_snapshot_oracle
 
-    class _Block:
-        def __init__(self, content: str):
-            self.block_type = "text"
-            self.raw_content = content
-
-    class _Page:
-        def __init__(self):
-            self.blocks = [_Block("ZhangSan"), _Block("110101199001011234")]
-
-    class _Base:
-        pages = [_Page()]
+    result = ParseResult(
+        pages=[
+            PageContent(
+                page_number=1,
+                texts=[TextBlock(content="ZhangSan"), TextBlock(content="110101199001011234")],
+            )
+        ]
+    )
 
     report = run_text_snapshot_oracle(
-        {"base": _Base()},
+        {"result": result},
         {"min_text_lines": 2, "contains": ["ZhangSan"]},
     )
     assert report.passed, report.failures

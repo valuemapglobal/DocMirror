@@ -69,6 +69,7 @@ class EvidenceEngine(BaseMiddleware):
         all_evidence.extend(self._keyword_evidence(classification_text))
         all_evidence.extend(self._credit_report_cover_evidence(cover_text))
         all_evidence.extend(self._bank_statement_frame_evidence(classification_text))
+        all_evidence.extend(self._id_card_frame_evidence(classification_text))
         all_evidence.extend(self._header_evidence(result.all_tables()))
         all_evidence.extend(self._user_hint_evidence(result))
         all_evidence.extend(self._extractor_scene_evidence(result))
@@ -259,6 +260,28 @@ class EvidenceEngine(BaseMiddleware):
                 weight=weight,
                 direction=1,
                 detail=f"bank_statement_frame_signals={sorted(k for k, v in signals.items() if v)}",
+            )
+        ]
+
+    def _id_card_frame_evidence(self, text: str) -> list[Evidence]:
+        """Recognize a PRC identity-card front from its fixed label/value frame."""
+        from docmirror.ocr.correction.validators import validate_cn_resident_id
+
+        compact = re.sub(r"\s+", "", text or "")
+        if not compact:
+            return []
+        labels = tuple(label for label in ("姓名", "性别", "民族", "出生", "住址") if label in compact)
+        candidates = re.findall(r"(?<!\d)\d{17}[\dXx](?![0-9A-Za-z])", compact)
+        valid_ids = [candidate for candidate in candidates if validate_cn_resident_id(candidate)]
+        if len(labels) < 3 or not valid_ids:
+            return []
+        return [
+            Evidence(
+                source="document_frame",
+                category="id_card",
+                weight=0.85 if len(labels) >= 4 else 0.65,
+                direction=1,
+                detail=f"id_card_frame_labels={list(labels)} checksum_valid_id=true",
             )
         ]
 

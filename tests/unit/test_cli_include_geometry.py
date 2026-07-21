@@ -42,25 +42,37 @@ def test_community_review_summary_exposes_existing_quality_contract(tmp_path):
     }
 
 
-def test_click_cli_geometry_full_is_canonical(monkeypatch, tmp_path):
-    from docmirror.cli.main import parse
+def test_community_review_summary_ignores_informational_fallback(tmp_path):
+    import json
 
-    seen = {}
+    from docmirror.__main__ import _community_review_summary
 
-    async def fake_parse_document(*args, **kwargs):
-        seen.update(kwargs)
+    output = tmp_path / "001_community.json"
+    output.write_text(
+        json.dumps(
+            {
+                "schema": {"name": "docmirror.community", "support_level": "generic", "domain": "id_card"},
+                "document": {"type": "id_card"},
+                "warnings": [
+                    {
+                        "code": "COMMUNITY_GENERIC_FALLBACK",
+                        "level": "info",
+                        "message": "community_generic_fallback",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
-    import docmirror.__main__ as main_mod
-
-    monkeypatch.setattr(main_mod, "parse_document", fake_parse_document)
-    src = tmp_path / "sample.txt"
-    src.write_text("hello", encoding="utf-8")
-
-    result = CliRunner().invoke(parse, [str(src), "--geometry", "full"])
-
-    assert result.exit_code == 0, result.output
-    assert seen["geometry"] == "full"
-    assert seen["include_geometry"] is None
+    assert _community_review_summary(output) == {
+        "plugin": "generic",
+        "document_type": "id_card",
+        "score": 1.0,
+        "readiness": "ready",
+        "warning_count": 0,
+        "review_messages": [],
+    }
 
 
 def test_click_cli_help_hides_removed_and_advanced_compatibility_options():
@@ -69,7 +81,7 @@ def test_click_cli_help_hides_removed_and_advanced_compatibility_options():
     result = CliRunner().invoke(parse, ["--help"])
 
     assert result.exit_code == 0, result.output
-    for raw in ("-p, --pages", "-t, --doc-type", "-r, --recursive", "-q, --quiet", "--all", "--audit"):
+    for raw in ("-p, --pages", "-t, --doc-type", "-r, --recursive", "-q, --quiet"):
         assert raw in result.output
     for raw in (
         "--skip-cache",
@@ -90,6 +102,9 @@ def test_click_cli_help_hides_removed_and_advanced_compatibility_options():
         "--cache-policy",
         "--ocr-correction-pack",
         "--log-level",
+        "--format",
+        "--audit",
+        "--community",
     ):
         assert raw not in result.output
 
@@ -101,9 +116,21 @@ def test_click_cli_help_all_shows_advanced_options():
 
     assert result.exit_code == 0, result.output
     assert "Advanced parse options:" in result.output
-    for raw in ("--mirror-level", "--geometry", "--cache-policy", "--ocr-correction-pack"):
-        assert raw in result.output
-    for removed in ("--profile", "--editions", "\n  --mirror ", "--debug-artifact", "--log-level"):
+    assert "--ocr-correction-pack" in result.output
+    for removed in (
+        "--profile",
+        "--editions",
+        "\n  --mirror ",
+        "--debug-artifact",
+        "--cache-policy",
+        "--log-level",
+        "--mirror-level",
+        "--geometry",
+        "--include-text",
+        "--format",
+        "--audit",
+        "--community",
+    ):
         assert removed not in result.output
 
 
@@ -113,7 +140,7 @@ def test_click_cli_short_version_flag():
     result = CliRunner().invoke(main, ["-v"])
 
     assert result.exit_code == 0, result.output
-    assert "1.0.8" in result.output
+    assert "1.0.10" in result.output
 
 
 def test_click_cli_rejects_removed_options(tmp_path):
@@ -125,6 +152,7 @@ def test_click_cli_rejects_removed_options(tmp_path):
     for raw in (
         "--include-geometry",
         "--skip-cache",
+        "--cache-policy",
         "--doc-type-hint",
         "--export-csv",
         "--mirror",
@@ -133,6 +161,12 @@ def test_click_cli_rejects_removed_options(tmp_path):
         "--debug-artifact",
         "--split-layers",
         "--log-level",
+        "--mirror-level",
+        "--geometry",
+        "--include-text",
+        "--format",
+        "--audit",
+        "--community",
     ):
         result = CliRunner().invoke(parse, [str(src), raw])
         assert result.exit_code != 0
@@ -157,8 +191,6 @@ def test_click_cli_passes_converged_contract_options(monkeypatch, tmp_path):
         parse,
         [
             str(src),
-            "--cache-policy",
-            "refresh",
             "--doc-type",
             "bank_statement",
             "--doc-type-policy",
@@ -167,10 +199,6 @@ def test_click_cli_passes_converged_contract_options(monkeypatch, tmp_path):
             "force",
             "--page-split",
             "off",
-            "--geometry",
-            "full",
-            "--mirror-level",
-            "compact",
             "--run-id",
             "test_run",
             "--overwrite",
@@ -178,19 +206,16 @@ def test_click_cli_passes_converged_contract_options(monkeypatch, tmp_path):
     )
 
     assert result.exit_code == 0, result.output
-    assert seen["cache_policy"] == "refresh"
     assert seen["doc_type"] == "bank_statement"
     assert seen["doc_type_policy"] == "force"
-    assert seen["editions"] == ("mirror", "community")
     assert seen["ocr"] == "force"
     assert seen["page_split"] == "off"
-    assert seen["geometry"] == "full"
-    assert seen["mirror_level"] == "compact"
+    assert set(seen).isdisjoint({"formats", "editions", "geometry", "mirror_level", "include_text"})
     assert seen["run_id"] == "test_run"
     assert seen["overwrite"] is True
 
 
-def test_click_cli_default_editions_include_mirror_and_community(monkeypatch, tmp_path):
+def test_click_cli_has_no_output_selection_arguments(monkeypatch, tmp_path):
     from docmirror.cli.main import parse
 
     seen = {}
@@ -207,10 +232,32 @@ def test_click_cli_default_editions_include_mirror_and_community(monkeypatch, tm
     result = CliRunner().invoke(parse, [str(src)])
 
     assert result.exit_code == 0, result.output
-    assert seen["editions"] == ("mirror", "community")
+    assert set(seen).isdisjoint({"formats", "editions", "geometry", "mirror_level", "include_text"})
+    assert seen["all_outputs"] is False
 
 
-def test_click_cli_file_shortcut_writes_mirror_and_community(monkeypatch, tmp_path):
+def test_click_cli_all_enables_support_outputs(monkeypatch, tmp_path):
+    from docmirror.cli.main import parse
+
+    seen = {}
+
+    async def fake_parse_document(*args, **kwargs):
+        seen.update(kwargs)
+
+    import docmirror.__main__ as main_mod
+
+    monkeypatch.setattr(main_mod, "parse_document", fake_parse_document)
+    src = tmp_path / "sample.txt"
+    src.write_text("hello", encoding="utf-8")
+
+    for option in ("--all", "-all"):
+        seen.clear()
+        result = CliRunner().invoke(parse, [str(src), option])
+        assert result.exit_code == 0, result.output
+        assert seen["all_outputs"] is True
+
+
+def test_click_cli_file_shortcut_has_fixed_delivery(monkeypatch, tmp_path):
     from docmirror.cli.main import main
 
     seen = {}
@@ -227,7 +274,7 @@ def test_click_cli_file_shortcut_writes_mirror_and_community(monkeypatch, tmp_pa
     result = CliRunner().invoke(main, [str(src)])
 
     assert result.exit_code == 0, result.output
-    assert seen["editions"] == ("mirror", "community")
+    assert set(seen).isdisjoint({"formats", "editions", "geometry", "mirror_level", "include_text"})
 
 
 def test_click_cli_short_parse_options(monkeypatch, tmp_path):
@@ -254,86 +301,6 @@ def test_click_cli_short_parse_options(monkeypatch, tmp_path):
     assert seen["mode"] == "fast"
     assert seen["doc_type"] == "credit_report"
     assert seen["workers"] == "2"
-
-
-def test_click_cli_all_uses_highest_licensed_installed_edition(monkeypatch, tmp_path):
-    from docmirror.cli.main import parse
-    from docmirror.plugins._runtime.licensing import entitlements
-
-    seen = {}
-
-    async def fake_parse_document(*args, **kwargs):
-        seen.update(kwargs)
-
-    import docmirror.__main__ as main_mod
-
-    monkeypatch.setattr(main_mod, "parse_document", fake_parse_document)
-    monkeypatch.setattr(entitlements, "resolve_edition_tier", lambda: "finance")
-    src = tmp_path / "sample.txt"
-    src.write_text("hello", encoding="utf-8")
-
-    result = CliRunner().invoke(parse, [str(src), "--all"])
-
-    assert result.exit_code == 0, result.output
-    assert seen["editions"] == ("mirror", "community", "enterprise", "finance")
-    assert seen["debug_artifact"] is False
-
-
-def test_click_cli_audit_uses_licensed_editions_and_forensic_artifacts(monkeypatch, tmp_path):
-    from docmirror.cli.main import parse
-    from docmirror.plugins._runtime.licensing import entitlements
-
-    seen = {}
-
-    async def fake_parse_document(*args, **kwargs):
-        seen.update(kwargs)
-
-    import docmirror.__main__ as main_mod
-
-    monkeypatch.setattr(main_mod, "parse_document", fake_parse_document)
-    monkeypatch.setattr(entitlements, "resolve_edition_tier", lambda: "enterprise")
-    src = tmp_path / "sample.txt"
-    src.write_text("hello", encoding="utf-8")
-
-    result = CliRunner().invoke(parse, [str(src), "--audit"])
-
-    assert result.exit_code == 0, result.output
-    assert seen["editions"] == ("mirror", "community", "enterprise")
-    assert seen["debug_artifact"] is True
-    assert seen["mirror_level"] == "forensic"
-    assert seen["geometry"] == "full"
-
-
-def test_click_cli_community_shortcut_is_community_only(monkeypatch, tmp_path):
-    from docmirror.cli.main import parse
-
-    seen = {}
-
-    async def fake_parse_document(*args, **kwargs):
-        seen.update(kwargs)
-
-    import docmirror.__main__ as main_mod
-
-    monkeypatch.setattr(main_mod, "parse_document", fake_parse_document)
-    src = tmp_path / "sample.txt"
-    src.write_text("hello", encoding="utf-8")
-
-    result = CliRunner().invoke(parse, [str(src), "--community"])
-
-    assert result.exit_code == 0, result.output
-    assert seen["editions"] == ("community",)
-
-
-def test_click_cli_rejects_conflicting_output_shortcuts(tmp_path):
-    from docmirror.cli.main import parse
-
-    src = tmp_path / "sample.txt"
-    src.write_text("hello", encoding="utf-8")
-
-    result = CliRunner().invoke(parse, [str(src), "--all", "--community"])
-
-    assert result.exit_code != 0
-    assert "output selectors are mutually exclusive" in result.output
 
 
 def test_click_cli_rejects_conflicting_verbosity(tmp_path):

@@ -5,7 +5,7 @@
 
 GA 1.0 §6: DRC is the unified runtime contract shared by CLI, API, SDK, and
 Task entries. It provides work unit planning, progress event accounting,
-checkpoint persistence, batch scheduling, cost profiles, and runtime metrics.
+checkpoint persistence, batch scheduling, and runtime metrics.
 
 Modules:
 - control: RuntimeControl, CostProfile, CheckpointControl, etc.
@@ -15,7 +15,6 @@ Modules:
 - checkpoint: Checkpoint persistence, fingerprint, resume validation
 - scheduler: Worker budget, parallel execution, retry, backpressure
 - artifacts: Page/chunk intermediate artifact writer and finalizer
-- profiles: Compact/full/forensic profile resolver
 - metrics: Throughput, latency, memory, token, artifact size
 """
 
@@ -51,15 +50,6 @@ from docmirror.runtime.metrics import (
     MetricsCollector,
     RuntimeMetrics,
     estimate_tokens,
-)
-from docmirror.runtime.profiles import (
-    COMPACT_PROFILE,
-    FORENSIC_PROFILE,
-    FULL_PROFILE,
-    ProfileResolution,
-    profile_diff,
-    profile_from_cli,
-    resolve_profile,
 )
 from docmirror.runtime.progress_bus import (
     PhaseWeight,
@@ -108,14 +98,6 @@ __all__ = [
     "ProgressCallback",
     "ProgressSignal",
     "PhaseWeight",
-    # profiles
-    "COMPACT_PROFILE",
-    "FULL_PROFILE",
-    "FORENSIC_PROFILE",
-    "ProfileResolution",
-    "profile_diff",
-    "profile_from_cli",
-    "resolve_profile",
     # scheduler
     "RuntimeScheduler",
     "SchedulerConfig",

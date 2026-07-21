@@ -12,8 +12,8 @@ import pytest
 
 from docmirror.evidence.source_span import (
     SourceSpanEntry,
-    UnresolvedField,
     SourceSpanLedger,
+    UnresolvedField,
     build_source_span_ledger,
 )
 

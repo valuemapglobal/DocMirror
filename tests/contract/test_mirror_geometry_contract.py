@@ -8,14 +8,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from docmirror.input.bridge.parse_result_bridge import ParseResultBridge
 from docmirror.eval.tqg.geometry_oracles import run_mirror_geometry_oracle
-from docmirror.models.entities.domain import BaseResult, Block, PageLayout
+from docmirror.input.canonical import assemble_parse_result
+from docmirror.models.entities.domain import Block, PageLayout
 
 _CORE_MIRROR_GOLDEN = Path(__file__).resolve().parent / "data" / "synthetic_geometry_golden.json"
 
 
-def test_bridge_projects_table_geometry_attrs_to_forensic_cells():
+def test_canonical_assembler_projects_table_geometry_attrs_to_forensic_cells():
     geometry = {
         "coordinate_system": "pdf_points_top_left",
         "cell_bboxes": [
@@ -45,9 +45,7 @@ def test_bridge_projects_table_geometry_attrs_to_forensic_cells():
         page=1,
         attrs={"geometry": geometry, "extraction_layer": "unit", "extraction_confidence": 0.9},
     )
-    base = BaseResult(pages=(PageLayout(page_number=1, width=100, height=40, blocks=(block,)),))
-
-    result = ParseResultBridge.from_base_result(base)
+    result = assemble_parse_result((PageLayout(page_number=1, width=100, height=40, blocks=(block,)),), {}, "")
     api = result.to_mirror_json_vnext(mirror_level="forensic")
     table = api["pages"][0]["tables"][0]
     cell = table["rows"][0]["cells"][0]

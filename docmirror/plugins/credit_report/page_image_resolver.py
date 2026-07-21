@@ -53,16 +53,12 @@ class LogicalPageImageResolver:
             with fitz.open(self._file_path) as document:
                 if source_page > len(document):
                     return None
-                pix = document[source_page - 1].get_pixmap(
-                    matrix=fitz.Matrix(self._zoom, self._zoom), alpha=False
-                )
+                pix = document[source_page - 1].get_pixmap(matrix=fitz.Matrix(self._zoom, self._zoom), alpha=False)
             source_image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
             if pix.n >= 3:
                 source_image = source_image[:, :, :3]
 
-            scale = np.array(
-                [[self._zoom, 0.0, 0.0], [0.0, self._zoom, 0.0], [0.0, 0.0, 1.0]], dtype=np.float64
-            )
+            scale = np.array([[self._zoom, 0.0, 0.0], [0.0, self._zoom, 0.0], [0.0, 0.0, 1.0]], dtype=np.float64)
             inverse_scale = np.array(
                 [[1.0 / self._zoom, 0.0, 0.0], [0.0, 1.0 / self._zoom, 0.0], [0.0, 0.0, 1.0]],
                 dtype=np.float64,
