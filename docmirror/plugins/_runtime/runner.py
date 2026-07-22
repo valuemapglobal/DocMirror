@@ -221,6 +221,30 @@ def _edition_package_available(edition: str) -> bool:
     return False
 
 
+def explain_edition_unavailability(result: ParseResult, edition: Edition) -> str:
+    """Return a stable reason when a commercial projection is absent.
+
+    This reuses the existing package, registry, and entitlement checks; it
+    does not create a second licensing path.
+    """
+    if edition == "community":
+        return "projector_failed"
+    if not _edition_package_available(edition):
+        return "package_not_installed"
+    detected_type = getattr(result.entities, "document_type", "") or ""
+    plugin_document_type = _plugin_document_type(result, detected_type)
+    if plugin_document_type in _GENERIC_TYPES:
+        return "document_type_unsupported"
+    from docmirror.plugins._runtime import registry
+
+    plugin = registry.get(plugin_document_type, edition)
+    if plugin is None:
+        return "document_type_unsupported"
+    if getattr(plugin, "requires_license", False) and not _is_edition_plugin_licensed(plugin):
+        return "license_not_entitled"
+    return "projector_failed"
+
+
 def _basic_parse_result_projection(result: ParseResult, edition: Edition) -> dict[str, Any]:
     """Build an explicit degraded edition from ParseResult without an intermediate model."""
     extension = dict(result.entities.domain_specific or {})

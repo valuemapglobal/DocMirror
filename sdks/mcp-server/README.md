@@ -97,7 +97,7 @@ node /absolute/path/to/DocMirror/sdks/mcp-server/dist/cli.js
 
 ### `parse_document`
 
-Parse a document file and return structured DMIR JSON.
+Parse a document file and return TaskResult JSON.
 
 **Inputs:**
 
@@ -106,7 +106,7 @@ Parse a document file and return structured DMIR JSON.
 | `file_path` | `string` | Yes | Absolute or relative path to the document file |
 | `mode` | `string` | No | Parse mode: `"auto"`, `"fast"`, `"balanced"`, `"accurate"` |
 
-**Output:** DMIR JSON with document sections, pages, tables, quality scores, and evidence ledger.
+**Output:** TaskResult JSON with status, per-file results, quality summary, and stable artifact roles.
 
 ### `parse_document_from_bytes`
 

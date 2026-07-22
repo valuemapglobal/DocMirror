@@ -1,6 +1,6 @@
 # DocMirror 研发说明手册
 
-当前发行候选：DocMirror `1.0.10`（兼容性基线：`1.0.0`）
+当前发行候选：DocMirror `1.0.11`（兼容性基线：`1.0.0`）
 适用对象：后续接手 DocMirror 核心研发、插件研发、服务端/API、SDK、测试与发布维护的同事。
 编写日期：2026-06-30
 
@@ -16,7 +16,7 @@ DocMirror 是面向商业凭证的可信解析层，产品定位是 **Commercial
 
 1.0.x 的主要稳定基线包括：
 
-- Python 包当前版本为 `1.0.10`，公共包名为 `docmirror`。
+- Python 包当前版本为 `1.0.11`，公共包名为 `docmirror`。
 - Python 支持 `>=3.10`，测试矩阵覆盖 Python 3.10 到 3.13。
 - 公共 OSS wheel 只打包 `docmirror` 主包；`docmirror_enterprise`、`docmirror_finance`、`tests`、`scripts`、`docs`、`sdks` 等不进入公共 wheel。
 - Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.7`。
@@ -218,14 +218,18 @@ Canonical Assembly → Normalize → Geometric Reconstruction
 
 ### 6.1 公共入口
 
-Python API：
+面向集成方的 Python SDK：
 
 ```python
-from docmirror import perceive_document
+from docmirror.sdk import DocMirrorClient
 
-result = await perceive_document("statement.pdf")
-mirror = result.to_mirror_json_vnext()
+client = DocMirrorClient(output_dir="output")
+task = client.parse("statement.pdf")
+batch = client.parse_many(["statement.pdf", "license.png"])
 ```
+
+核心开发者仍可直接调用 `perceive_document()` 获取 `ParseResult`，但该对象和
+Mirror JSON 属于解析内部/诊断契约，不作为 REST 或 SDK 的公开返回正文。
 
 CLI：
 
@@ -242,6 +246,7 @@ REST：
 
 ```bash
 curl -F "file=@document.pdf" http://localhost:8000/v1/parse
+curl -F "files=@one.pdf" -F "files=@two.png" http://localhost:8000/v1/tasks
 ```
 
 入口关系：
@@ -523,10 +528,18 @@ docmirror/server/api.py
 | Endpoint | 说明 |
 |---|---|
 | `GET /health` | 健康检查 |
-| `POST /v1/parse` | 上传单文件解析 |
-| `POST /v1/parse/batch` | 多文件批量解析 |
-| `POST /v1/parse/file` | 解析服务端已有文件 |
+| `POST /v1/tasks` | 创建单文件或多文件任务；`wait=true` 可同步等待 |
+| `POST /v1/tasks/batch` | 多文件兼容别名 |
+| `GET /v1/tasks/{task_id}` | 查询统一 `TaskResult` |
+| `GET /v1/tasks/{task_id}/files/{file_id}/artifacts/{role}` | 按文件与角色下载产物 |
+| `POST /v1/parse` | 单文件兼容入口，返回 `TaskResult` |
+| `POST /v1/parse/batch` | 多文件兼容入口，返回一个任务结果 |
+| `POST /v1/parse/file` | 解析服务端已有文件并返回 `TaskResult` |
 | `POST /v1/export/pdfua` | 解析并导出 PDF/UA |
+
+所有解析入口返回精简 `TaskResult`，不返回 Mirror JSON。Community 始终生成；
+Enterprise/Finance 仅在相应包已安装、文档类型受支持且许可有效时追加，并通过
+`edition_availability.reason` 区分包未安装、未授权、类型不支持或投影失败。
 
 鉴权：
 

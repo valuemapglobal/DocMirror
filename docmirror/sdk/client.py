@@ -15,12 +15,14 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
-from docmirror.input.entry.factory import PerceiveOptions, perceive_document
+from docmirror.input.entry.factory import PerceiveOptions
 from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.sdk.integration.errors import ErrorEnvelope
 from docmirror.sdk.integration.observability import build_observability_context
-from docmirror.server.edition_outputs import write_outputs
+from docmirror.sdk.integration.request import InputRef, ParseRequest
+from docmirror.server.task_executor import execute_parse_task
 from docmirror.server.task_result import TaskResult, task_result_from_manifest
 
 logger = logging.getLogger(__name__)
@@ -51,13 +53,18 @@ async def parse_to_task(
     options: PerceiveOptions | None = None,
 ) -> TaskResult:
     """One-shot async parse that writes artifacts and returns a ``TaskResult``."""
-    result = await perceive_document(file_path, options or PerceiveOptions())
-    task_id, _written = write_outputs(
-        result,
-        Path(output_dir),
-        file_path=str(file_path),
+    path = _resolve_path(file_path)
+    effective_options = options or PerceiveOptions()
+    request = _request_for_paths(
+        [path],
+        policy=effective_options.normalized_policy(),
+        workers=effective_options.max_workers,
     )
-    return task_result_from_manifest(Path(output_dir) / task_id / "manifest.json")
+    return await execute_parse_task(
+        request,
+        output_root=Path(output_dir).resolve(),
+        task_id=f"task_{uuid4().hex}",
+    )
 
 
 class DocMirrorClient:
@@ -119,6 +126,28 @@ class DocMirrorClient:
             )
         )
 
+    def parse_many(
+        self,
+        file_paths: list[str | Path],
+        *,
+        mode: str = "auto",
+        pages: str | None = None,
+        doc_type: str | None = None,
+        workers: int | str | None = None,
+        raise_on_error: bool = False,
+    ) -> TaskResult:
+        """Parse heterogeneous local files as one task."""
+        return _run_async(
+            self._parse_many_async(
+                file_paths,
+                mode=mode,
+                pages=pages,
+                doc_type=doc_type,
+                workers=workers,
+                raise_on_error=raise_on_error,
+            )
+        )
+
     async def _parse_async(
         self,
         file_path: str | Path,
@@ -150,43 +179,47 @@ class DocMirrorClient:
             ocr_locale=ocr_locale,
             ocr_correction_packs=ocr_correction_packs,
         )
-        options = PerceiveOptions(policy=policy)
-
-        try:
-            result = await perceive_document(path, options)
-        except Exception as exc:
-            envelope = ErrorEnvelope.from_exception(exc, request_id=request_id)
-            if raise_on_error:
-                raise DocMirrorError(envelope) from exc
-            return TaskResult(
-                task_id=f"error_{request_id}",
-                status="failed",
-                inputs=[{"file_path": str(path)}],
-                errors=[envelope.to_dict()],
-            )
-
-        task_id, written = write_outputs(
-            result,
-            self.output_dir,
-            file_path=str(path),
+        request = _request_for_paths([path], policy=policy)
+        task = await execute_parse_task(
+            request,
+            output_root=self.output_dir,
+            task_id=f"task_{uuid4().hex}",
         )
-
-        manifest_path = self.output_dir / task_id / "manifest.json"
-        if manifest_path.is_file():
-            task = task_result_from_manifest(manifest_path)
-        else:
-            task = TaskResult(
-                task_id=task_id,
-                status="success",
-                inputs=[{"file_path": str(path)}],
-                artifacts={k: v.name if isinstance(v, Path) else v for k, v in written.items() if v},
-            )
+        if raise_on_error and task.errors:
+            raise DocMirrorError(_error_envelope(task.errors[0], request_id=request_id))
 
         # Inject observability into the result
         task_dict = task.model_dump()
         task_dict.setdefault("observability", obs.to_dict())
         task_dict["request_id"] = request_id
         return TaskResult(**{k: v for k, v in task_dict.items() if k in TaskResult.model_fields})
+
+    async def _parse_many_async(
+        self,
+        file_paths: list[str | Path],
+        *,
+        mode: str,
+        pages: str | None,
+        doc_type: str | None,
+        workers: int | str | None,
+        raise_on_error: bool,
+    ) -> TaskResult:
+        paths = [_resolve_path(item) for item in file_paths]
+        if not paths:
+            raise ValueError("At least one file is required")
+        missing = [str(path) for path in paths if not path.is_file()]
+        if missing:
+            raise FileNotFoundError(f"File not found: {missing[0]}")
+        policy = normalize_parse_policy(mode=mode, pages=pages, doc_type_hint=doc_type)
+        request = _request_for_paths(paths, policy=policy, workers=workers)
+        task = await execute_parse_task(
+            request,
+            output_root=self.output_dir,
+            task_id=f"task_{uuid4().hex}",
+        )
+        if raise_on_error and task.errors:
+            raise DocMirrorError(_error_envelope(task.errors[0]))
+        return task
 
     def load_chunks(self, task: TaskResult) -> list[dict[str, Any]]:
         """Load RAG chunks from a completed task's artifacts."""
@@ -263,6 +296,25 @@ class AsyncDocMirrorClient:
             raise_on_error=raise_on_error,
         )
 
+    async def parse_many(
+        self,
+        file_paths: list[str | Path],
+        *,
+        mode: str = "auto",
+        pages: str | None = None,
+        doc_type: str | None = None,
+        workers: int | str | None = None,
+        raise_on_error: bool = False,
+    ) -> TaskResult:
+        return await self._sync._parse_many_async(
+            file_paths,
+            mode=mode,
+            pages=pages,
+            doc_type=doc_type,
+            workers=workers,
+            raise_on_error=raise_on_error,
+        )
+
     async def load_chunks(self, task: TaskResult) -> list[dict[str, Any]]:
         return self._sync.load_chunks(task)
 
@@ -280,3 +332,24 @@ class DocMirrorError(Exception):
     def __init__(self, envelope: ErrorEnvelope):
         self.envelope = envelope
         super().__init__(f"[{envelope.code}] {envelope.message}")
+
+
+def _request_for_paths(paths: list[Path], *, policy, workers: int | str | None = None) -> ParseRequest:
+    return ParseRequest.from_policy(
+        [
+            InputRef(file_path=str(path), file_id=f"{index:03d}", file_name=path.name)
+            for index, path in enumerate(paths, start=1)
+        ],
+        policy,
+        workers=workers,
+    )
+
+
+def _error_envelope(error: dict[str, Any], *, request_id: str | None = None) -> ErrorEnvelope:
+    return ErrorEnvelope(
+        code=str(error.get("code") or "INTERNAL_ERROR"),
+        message=str(error.get("message") or "Parse failed"),
+        recoverable=bool(error.get("recoverable", False)),
+        request_id=request_id,
+        details={k: value for k, value in error.items() if k not in {"code", "message", "recoverable"}},
+    )

@@ -82,7 +82,7 @@ def test_enterprise_without_projector_output_is_unavailable() -> None:
     )
     enterprise = avail["enterprise"]
     assert enterprise["status"] == "unavailable"
-    assert enterprise["reason"] == "projector_unavailable"
+    assert enterprise["reason"] == "projector_failed"
 
 
 def test_finance_written_projector_output_is_written() -> None:

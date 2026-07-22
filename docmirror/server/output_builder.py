@@ -256,10 +256,14 @@ def build_all_projections(
 
     enterprise: dict[str, Any] | None = None
     finance: dict[str, Any] | None = None
+    commercial_availability: dict[str, dict[str, str]] = {}
     commercial_projectors = ("enterprise", "finance")
 
-    def _build_extended_with_timing(edition_name: str) -> tuple[str, dict[str, Any] | None, float]:
+    def _build_extended_with_timing(
+        edition_name: str,
+    ) -> tuple[str, dict[str, Any] | None, float, str | None]:
         started = time.perf_counter()
+        unavailable_reason: str | None = None
         try:
             payload = build_extended_output(
                 result,
@@ -268,6 +272,11 @@ def build_all_projections(
         except Exception as exc:
             logger.warning("[Projections] %s projection failed: %s", edition_name, exc)
             payload = None
+            unavailable_reason = "projector_failed"
+        if payload is None and unavailable_reason is None:
+            from docmirror.plugins._runtime.runner import explain_edition_unavailability
+
+            unavailable_reason = explain_edition_unavailability(result, edition_name)  # type: ignore[arg-type]
         if payload is not None and "composition" not in payload:
             from docmirror.plugins._runtime.composition import CompositionReason, annotate_composition
 
@@ -280,7 +289,7 @@ def build_all_projections(
             except Exception as exc:
                 logger.warning("[Projections] %s annotate_composition failed: %s", edition_name, exc)
                 payload.setdefault("status", {}).setdefault("warnings", []).append(f"composition_failed:{exc}")
-        return edition_name, payload, (time.perf_counter() - started) * 1000
+        return edition_name, payload, (time.perf_counter() - started) * 1000, unavailable_reason
 
     with ThreadPoolExecutor(max_workers=len(commercial_projectors)) as pool:
         futures = [pool.submit(_build_extended_with_timing, ed) for ed in commercial_projectors]
@@ -292,9 +301,14 @@ def build_all_projections(
         remaining = {future: ed for future, ed in zip(futures, commercial_projectors)}
         try:
             for future in as_completed(futures, timeout=_timeout):
-                edition_name, payload, elapsed_ms = future.result()
+                edition_name, payload, elapsed_ms, unavailable_reason = future.result()
                 remaining.pop(future, None)
                 timings[f"{edition_name}_ms"] = elapsed_ms
+                if unavailable_reason:
+                    commercial_availability[edition_name] = {
+                        "status": "unavailable",
+                        "reason": unavailable_reason,
+                    }
                 if edition_name == "enterprise":
                     enterprise = payload
                 elif edition_name == "finance":
@@ -308,6 +322,10 @@ def build_all_projections(
             # results for what completed, and continue.
             for fut, ed in remaining.items():
                 fut.cancel()
+                commercial_availability[ed] = {
+                    "status": "unavailable",
+                    "reason": "projector_timeout",
+                }
                 logger.warning(
                     "[Projections] %s edition timed out after %.0f s — skipping",
                     ed,
@@ -321,6 +339,10 @@ def build_all_projections(
             )
             for fut, ed in remaining.items():
                 fut.cancel()
+                commercial_availability[ed] = {
+                    "status": "unavailable",
+                    "reason": "projector_failed",
+                }
                 logger.warning("[Projections] %s cancelled after unhandled exception", ed)
 
     outputs: dict[str, Any] = {
@@ -328,6 +350,7 @@ def build_all_projections(
         "community": community,
         "enterprise": enterprise,
         "finance": finance,
+        "edition_availability": commercial_availability,
     }
     # Transient renderer owned only by Community persistence. All of its facts
     # come from ParseResult; it is not an upstream source for other editions.
@@ -392,7 +415,11 @@ def build_api_response(
     file_path: str = "",
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict:
-    """Build the fixed vNext REST payload and available edition sidecars.
+    """Build the legacy internal Mirror diagnostic payload.
+
+    Public REST, SDK, and MCP adapters must return ``TaskResult`` instead.
+    This serializer remains for internal compatibility and Mirror contract
+    validation; it is not wired to an HTTP route.
 
     Args:
         result: ParseResult from perceive_document
@@ -400,9 +427,7 @@ def build_api_response(
         file_id: File sequence number within task (default "001")
 
     Returns:
-        vNext mirror dict. Delivery identifiers, license state, and optional
-        edition sidecars are recorded under ``source.provenance`` so the
-        canonical top-level mirror shape remains document-only.
+        vNext Mirror diagnostic dict.
     """
     import uuid as _uuid
 
