@@ -140,7 +140,7 @@ def test_click_cli_short_version_flag():
     result = CliRunner().invoke(main, ["-v"])
 
     assert result.exit_code == 0, result.output
-    assert "1.0.10" in result.output
+    assert "1.0.11" in result.output
 
 
 def test_click_cli_rejects_removed_options(tmp_path):

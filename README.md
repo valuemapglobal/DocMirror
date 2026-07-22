@@ -126,35 +126,25 @@ when table geometry is unavailable; it no longer returns an empty success shell.
 ## Python API
 
 ```python
-import asyncio
-from docmirror import perceive_document
+from docmirror.sdk import DocMirrorClient
 
-async def main():
-    result = await perceive_document("statement.pdf")
-    mirror = result.to_mirror_json_vnext()
+client = DocMirrorClient(output_dir="output")
+task = client.parse("statement.pdf")
+batch = client.parse_many(["statement.pdf", "license.png"])
 
-    print(mirror["mirror"]["schema_version"])
-    print(mirror["document"].get("document_type"))
-    print(mirror["quality"].get("overall", {}))
-
-    for fact in mirror.get("semantics", {}).get("facts", []):
-        evidence = fact.get("evidence") or {}
-        print({
-            "field": fact.get("field") or fact.get("name"),
-            "value": fact.get("value"),
-            "page": evidence.get("page"),
-            "bbox": evidence.get("bbox"),
-            "source_ref": evidence.get("source_ref"),
-            "confidence": fact.get("confidence"),
-            "needs_review": fact.get("needs_review", False),
-        })
-
-asyncio.run(main())
+print(task.status, task.task_id)
+print(task.artifacts["community"])
+print(batch.inputs)
 ```
+
+The SDK, REST API, and task API return the same `TaskResult`. Public responses
+contain artifact roles and quality/status summaries; they never return
+`mirror.json` as the response body. Mirror remains an opt-in CLI diagnostic
+artifact through `docmirror document.pdf --all`.
 
 ## Canonical Output Shape
 
-DocMirror's mirror output is document-shaped and evidence-aware:
+DocMirror's internal/diagnostic mirror output is document-shaped and evidence-aware:
 
 ```json
 {
@@ -190,13 +180,17 @@ docmirror plugins
 ```bash
 pip install "docmirror[server]"
 uvicorn docmirror.server.api:app --host 0.0.0.0 --port 8000
+
+# One or many files use the same task model
+curl -F "file=@document.pdf" "http://localhost:8000/v1/tasks?wait=true"
+curl -F "files=@one.pdf" -F "files=@two.png" "http://localhost:8000/v1/tasks"
 ```
 
 ## Community, Enterprise, Finance
 
 | Edition | Purpose |
 |---|---|
-| Community | Open-source trust layer, public domains, Mirror JSON, evidence, quality, CLI/API |
+| Community | Open-source trust layer, public domains, evidence, quality, CLI/SDK/API |
 | Enterprise | Production batch processing, operations, private deployment, support, governance |
 | Finance | Deep financial document extraction, cash-flow features, counterparty normalization, audit evidence |
 

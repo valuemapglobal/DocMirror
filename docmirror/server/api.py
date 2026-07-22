@@ -7,16 +7,13 @@
 """
 DocMirror REST API — FastAPI application and HTTP endpoints.
 
-Exposes document upload and parse routes, health checks, and optional
-background task hooks. Uploads are written to a temp path, passed through
-``perceive_document()``, and returned as vNext mirror JSON. Multi-edition
-structured outputs can be generated through shared ``output_builder`` helpers
-when requested.
+Public parse routes adapt requests to the same durable task contract used by
+the CLI and Python SDK. Parse internals and Mirror diagnostics are never used
+as the HTTP response body.
 """
 
 from __future__ import annotations
 
-import asyncio
 import glob
 import logging
 import os
@@ -24,16 +21,18 @@ import shutil
 import time
 from pathlib import Path
 from tempfile import NamedTemporaryFile, gettempdir
+from uuid import uuid4
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Body, FastAPI, File, Header, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 
 from docmirror import __version__
-from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.input.entry.options import normalize_parse_policy
-from docmirror.server.schemas import ParseResponse
+from docmirror.sdk.integration.request import InputRef, ParseRequest
 from docmirror.server.task_api import router as task_router
+from docmirror.server.task_api import submit_upload_task
+from docmirror.server.task_executor import execute_parse_task, task_output_root
 
 # Load .env from project root
 _env_root = Path(__file__).resolve().parent.parent.parent
@@ -119,9 +118,8 @@ def _verify_api_key(authorization: str | None) -> None:
         raise HTTPException(status_code=403, detail="Invalid API key")
 
 
-@app.post("/v1/parse", responses={200: {"model": ParseResponse}}, tags=["Parsing"])
+@app.post("/v1/parse", tags=["Parsing"])
 async def parse_document(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="The document file to parse (PDF, PNG, JPEG, DOCX, etc.)"),
     pages: str | None = Query(default=None, description="Page ranges, 1-based: 1-3,8,10-"),
     max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
@@ -140,61 +138,28 @@ async def parse_document(
     authorization: str | None = Header(default=None),
 ):
     """
-    Parse a document using the core MultiModal engine.
-    The file is saved temporarily, processed, and then asynchronously cleaned up.
-
-    Every request receives the same fixed delivery contract. Commercial
-    sidecars appear only when their package and entitlement are available.
+    Parse one document and return the shared public ``TaskResult`` contract.
     """
     _verify_api_key(authorization)
 
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No filename provided in upload")
-
-    # Create a secure temporary file with the correct extension
-    suffix = Path(file.filename).suffix
-    with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-        shutil.copyfileobj(file.file, temp_file)
-        temp_path = Path(temp_file.name)
-
-    # Schedule cleanup
-    background_tasks.add_task(cleanup_file, temp_path)
-
-    try:
-        from docmirror.server.output_builder import build_api_response
-
-        policy = normalize_parse_policy(
-            pages=pages,
-            max_pages=max_pages,
-            mode=mode,
-            doc_type_hint=doc_type_hint,
-            ocr_correction=ocr_correction,
-            ocr_language=ocr_language,
-            ocr_country=ocr_country,
-            ocr_locale=ocr_locale,
-            ocr_correction_packs=ocr_correction_packs,
-        )
-        from docmirror.configs.runtime.performance import resolve_worker_budget
-
-        result = await perceive_document(
-            temp_path,
-            PerceiveOptions(
-                policy=policy,
-                max_workers=resolve_worker_budget(workers, file_count=1).page_workers_per_file,
-            ),
-        )
-        api_payload = build_api_response(result)
-
-        return JSONResponse(status_code=200, content=api_payload)
-
-    except Exception as e:
-        logger.exception("[Server] Parse failed with uncaught exception")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await submit_upload_task(
+        [file],
+        wait=True,
+        mode=mode,
+        pages=pages,
+        max_pages=max_pages,
+        workers=workers,
+        doc_type_hint=doc_type_hint,
+        ocr_correction=ocr_correction,
+        ocr_language=ocr_language,
+        ocr_country=ocr_country,
+        ocr_locale=ocr_locale,
+        ocr_correction_packs=ocr_correction_packs,
+    )
 
 
 @app.post("/v1/parse/batch", tags=["Parsing"])
 async def batch_parse(
-    background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(..., description="Multiple document files to parse"),
     pages: str | None = Query(default=None, description="Page ranges, 1-based: 1-3,8,10-"),
     max_pages: int | None = Query(default=None, description="Maximum pages after applying pages"),
@@ -208,19 +173,15 @@ async def batch_parse(
     doc_type_hint: str | None = Query(default=None, description="Manual document type hint, optionally type:force"),
     authorization: str | None = Header(default=None),
 ):
-    """Batch parse multiple documents concurrently, each with multi-edition output."""
+    """Parse multiple documents as one task with per-file failure isolation."""
     _verify_api_key(authorization)
-
-    import multiprocessing as _mp
-
-    from docmirror.configs.runtime.performance import resolve_worker_budget
-    from docmirror.server.output_builder import build_api_response
-
-    _cpu_count = _mp.cpu_count()
-    _policy = normalize_parse_policy(
+    return await submit_upload_task(
+        files,
+        wait=True,
+        mode=mode,
         pages=pages,
         max_pages=max_pages,
-        mode=mode,
+        workers=workers,
         doc_type_hint=doc_type_hint,
         ocr_correction=ocr_correction,
         ocr_language=ocr_language,
@@ -228,39 +189,6 @@ async def batch_parse(
         ocr_locale=ocr_locale,
         ocr_correction_packs=ocr_correction_packs,
     )
-    _budget = resolve_worker_budget(workers, file_count=len(files), cpu_count=_cpu_count)
-    _semaphore = asyncio.Semaphore(_budget.file_workers)
-
-    async def _process_one(f):
-        if not f.filename:
-            return None
-        suffix = Path(f.filename).suffix
-        with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-            import shutil as _shutil
-
-            _shutil.copyfileobj(f.file, temp_file)
-            temp_path = Path(temp_file.name)
-        background_tasks.add_task(cleanup_file, temp_path)
-
-        async with _semaphore:
-            try:
-                result = await perceive_document(
-                    temp_path,
-                    PerceiveOptions(policy=_policy, max_workers=_budget.page_workers_per_file),
-                )
-                payload = build_api_response(result)
-                payload["file_name"] = f.filename
-                return payload
-            except Exception as e:
-                return {
-                    "file_name": f.filename,
-                    "error": str(e),
-                }
-
-    results = await asyncio.gather(*[_process_one(f) for f in files], return_exceptions=True)
-    results = [r for r in results if r is not None]
-
-    return JSONResponse(content={"results": results})
 
 
 @app.post("/v1/parse/file", tags=["Parsing"])
@@ -281,8 +209,6 @@ async def parse_file_on_server(
     """Parse a file already present on the server filesystem."""
     _verify_api_key(authorization)
 
-    from docmirror.server.output_builder import build_api_response
-
     path = Path(file_path).resolve()
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
@@ -301,17 +227,21 @@ async def parse_file_on_server(
             ocr_locale=ocr_locale,
             ocr_correction_packs=ocr_correction_packs,
         )
-        from docmirror.configs.runtime.performance import resolve_worker_budget
-
-        result = await perceive_document(
-            path,
-            PerceiveOptions(
-                policy=policy,
-                max_workers=resolve_worker_budget(workers, file_count=1).page_workers_per_file,
-            ),
+        request = ParseRequest.from_policy(
+            [InputRef(file_path=str(path), file_id="001", file_name=path.name)],
+            policy,
+            pages=pages,
+            max_pages=max_pages,
+            workers=workers,
         )
-        api_payload = build_api_response(result)
-        return JSONResponse(status_code=200, content=api_payload)
+        result = await execute_parse_task(
+            request,
+            output_root=task_output_root(),
+            task_id=f"task_{uuid4().hex}",
+        )
+        return result.public_dict()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.exception("[Server] Parse file failed")
         raise HTTPException(status_code=500, detail=str(e))

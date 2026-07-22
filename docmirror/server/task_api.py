@@ -16,6 +16,7 @@ from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 from docmirror.input.entry.options import normalize_parse_policy
+from docmirror.sdk.integration.request import InputRef, ParseRequest
 from docmirror.server.task_executor import (
     execute_parse_task,
     initialize_task_manifest,
@@ -23,6 +24,7 @@ from docmirror.server.task_executor import (
     task_directory,
     task_output_root,
 )
+from docmirror.server.task_result import task_result_from_manifest
 
 router = APIRouter(prefix="/v1/tasks", tags=["Tasks"])
 _BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
@@ -41,7 +43,8 @@ def _verify_api_key(authorization: str | None) -> None:
 
 @router.post("")
 async def create_task(
-    file: UploadFile = File(..., description="Document to parse"),
+    file: UploadFile | None = File(default=None, description="One document to parse"),
+    files: list[UploadFile] | None = File(default=None, description="One or more documents to parse"),
     wait: bool = Query(default=False, description="Wait for terminal task status"),
     mode: str = Query(default="auto", pattern="^(auto|fast|balanced|accurate|forensic)$"),
     ocr_correction: str = Query(default="safe", pattern="^(off|safe|suggest)$"),
@@ -52,43 +55,25 @@ async def create_task(
     pages: str | None = Query(default=None),
     max_pages: int | None = Query(default=None),
     workers: str | None = Query(default=None),
+    doc_type_hint: str | None = Query(default=None),
     authorization: str | None = Header(default=None),
 ):
-    """Create a durable single-file parse task."""
+    """Create one task containing one or more heterogeneous documents."""
     _verify_api_key(authorization)
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No filename provided in upload")
-    policy = _parse_policy(
+    uploads = ([file] if file is not None else []) + list(files or [])
+    return await submit_upload_task(
+        uploads,
+        wait=wait,
         mode=mode,
         pages=pages,
         max_pages=max_pages,
+        workers=workers,
+        doc_type_hint=doc_type_hint,
         ocr_correction=ocr_correction,
         ocr_language=ocr_language,
         ocr_country=ocr_country,
         ocr_locale=ocr_locale,
         ocr_correction_packs=ocr_correction_packs,
-    )
-    from docmirror.configs.runtime.performance import resolve_worker_budget
-
-    max_workers = resolve_worker_budget(workers, file_count=1).page_workers_per_file
-    task_id = _new_task_id()
-    output_root = task_output_root()
-    task_dir = task_directory(task_id, output_root=output_root)
-    stored = await _store_uploads(task_dir, [(file, "001")])
-    initialize_task_manifest(
-        output_root,
-        task_id,
-        [_input_entry("001", file.filename)],
-        parse_policy=policy.to_dict(),
-        max_workers=max_workers,
-    )
-    return await _start_or_wait(
-        files=[(stored[0], file.filename)],
-        output_root=output_root,
-        task_id=task_id,
-        policy=policy,
-        max_workers=max_workers,
-        wait=wait,
     )
 
 
@@ -105,47 +90,24 @@ async def create_batch_task(
     pages: str | None = Query(default=None),
     max_pages: int | None = Query(default=None),
     workers: str | None = Query(default=None),
+    doc_type_hint: str | None = Query(default=None),
     authorization: str | None = Header(default=None),
 ):
-    """Create a batch task with per-file partial-failure isolation."""
+    """Compatibility alias for submitting multiple files to one task."""
     _verify_api_key(authorization)
-    if not files:
-        raise HTTPException(status_code=400, detail="At least one file is required")
-    if any(not upload.filename for upload in files):
-        raise HTTPException(status_code=400, detail="Every upload must have a filename")
-    policy = _parse_policy(
+    return await submit_upload_task(
+        files,
+        wait=wait,
         mode=mode,
         pages=pages,
         max_pages=max_pages,
+        workers=workers,
+        doc_type_hint=doc_type_hint,
         ocr_correction=ocr_correction,
         ocr_language=ocr_language,
         ocr_country=ocr_country,
         ocr_locale=ocr_locale,
         ocr_correction_packs=ocr_correction_packs,
-    )
-    from docmirror.configs.runtime.performance import resolve_worker_budget
-
-    max_workers = resolve_worker_budget(workers, file_count=len(files)).page_workers_per_file
-    task_id = _new_task_id()
-    output_root = task_output_root()
-    task_dir = task_directory(task_id, output_root=output_root)
-    upload_specs = [(upload, f"{index:03d}") for index, upload in enumerate(files, start=1)]
-    stored = await _store_uploads(task_dir, upload_specs)
-    inputs = [_input_entry(f"{index:03d}", upload.filename or "") for index, upload in enumerate(files, start=1)]
-    initialize_task_manifest(
-        output_root,
-        task_id,
-        inputs,
-        parse_policy=policy.to_dict(),
-        max_workers=max_workers,
-    )
-    return await _start_or_wait(
-        files=[(path, upload.filename or "") for path, upload in zip(stored, files, strict=True)],
-        output_root=output_root,
-        task_id=task_id,
-        policy=policy,
-        max_workers=max_workers,
-        wait=wait,
     )
 
 
@@ -157,7 +119,8 @@ async def list_task_artifacts(
     """List stable artifact keys and task-relative paths."""
     _verify_api_key(authorization)
     manifest = _manifest_or_404(task_id)
-    return {"task_id": task_id, "status": manifest.get("status"), "artifacts": manifest.get("artifacts") or {}}
+    result = task_result_from_manifest(task_directory(task_id) / "manifest.json")
+    return {"task_id": task_id, "status": manifest.get("status"), "artifacts": result.public_dict()["artifacts"]}
 
 
 @router.get("/{task_id}/artifacts/{artifact_key}")
@@ -168,6 +131,8 @@ async def get_task_artifact(
 ):
     """Download one manifest-declared artifact without exposing arbitrary paths."""
     _verify_api_key(authorization)
+    if not _is_public_artifact_role(artifact_key):
+        raise HTTPException(status_code=404, detail="Artifact not found")
     manifest = _manifest_or_404(task_id)
     relative = (manifest.get("artifacts") or {}).get(artifact_key)
     if not isinstance(relative, str) or not relative:
@@ -179,6 +144,26 @@ async def get_task_artifact(
     return FileResponse(candidate, filename=candidate.name)
 
 
+@router.get("/{task_id}/files/{file_id}/artifacts/{role}")
+async def get_input_artifact(
+    task_id: str,
+    file_id: str,
+    role: str,
+    authorization: str | None = Header(default=None),
+):
+    """Download an artifact by input id and stable role."""
+    _verify_api_key(authorization)
+    if not _is_public_artifact_role(role):
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    manifest = _manifest_or_404(task_id)
+    input_entry = next(
+        (item for item in manifest.get("inputs") or [] if item.get("file_id") == file_id),
+        None,
+    )
+    relative = (input_entry or {}).get("artifacts", {}).get(role)
+    return _artifact_response(task_id, relative)
+
+
 @router.get("/{task_id}")
 async def get_task(
     task_id: str,
@@ -186,7 +171,75 @@ async def get_task(
 ):
     """Return the current durable task manifest."""
     _verify_api_key(authorization)
-    return _manifest_or_404(task_id)
+    _manifest_or_404(task_id)
+    return task_result_from_manifest(task_directory(task_id) / "manifest.json").public_dict()
+
+
+async def submit_upload_task(
+    uploads: list[UploadFile],
+    *,
+    wait: bool,
+    mode: str = "auto",
+    pages: str | None = None,
+    max_pages: int | None = None,
+    workers: str | int | None = None,
+    doc_type_hint: str | None = None,
+    ocr_correction: str = "safe",
+    ocr_language: str | None = None,
+    ocr_country: str | None = None,
+    ocr_locale: str | None = None,
+    ocr_correction_packs: str | None = None,
+):
+    """Store uploads, create the canonical request, and start one task."""
+    if not uploads:
+        raise HTTPException(status_code=400, detail="At least one file is required")
+    if any(not upload.filename for upload in uploads):
+        raise HTTPException(status_code=400, detail="Every upload must have a filename")
+
+    policy = _parse_policy(
+        mode=mode,
+        pages=pages,
+        max_pages=max_pages,
+        doc_type_hint=doc_type_hint,
+        ocr_correction=ocr_correction,
+        ocr_language=ocr_language,
+        ocr_country=ocr_country,
+        ocr_locale=ocr_locale,
+        ocr_correction_packs=ocr_correction_packs,
+    )
+    from docmirror.configs.runtime.performance import resolve_worker_budget
+
+    budget = resolve_worker_budget(workers, file_count=len(uploads))
+    task_id = _new_task_id()
+    output_root = task_output_root()
+    task_dir = task_directory(task_id, output_root=output_root)
+    upload_specs = [(upload, f"{index:03d}") for index, upload in enumerate(uploads, start=1)]
+    stored = await _store_uploads(task_dir, upload_specs)
+    refs = [
+        InputRef(file_path=str(path), file_id=file_id, file_name=upload.filename or "document")
+        for path, (upload, file_id) in zip(stored, upload_specs, strict=True)
+    ]
+    request = ParseRequest.from_policy(
+        refs,
+        policy,
+        pages=pages,
+        max_pages=max_pages,
+        workers=workers,
+    )
+    initialize_task_manifest(
+        output_root,
+        task_id,
+        [_input_entry(ref.file_id, ref.file_name) for ref in refs],
+        parse_policy=policy.to_dict(),
+        max_workers=budget.page_workers_per_file,
+        worker_budget={
+            "total": budget.total,
+            "file_workers": budget.file_workers,
+            "page_workers_per_file": budget.page_workers_per_file,
+            "layout_workers": budget.layout_workers,
+        },
+    )
+    return await _start_or_wait(request=request, output_root=output_root, task_id=task_id, wait=wait)
 
 
 def _parse_policy(**kwargs: Any):
@@ -217,27 +270,23 @@ async def _store_uploads(task_dir: Path, uploads: list[tuple[UploadFile, str]]) 
 
 async def _start_or_wait(
     *,
-    files: list[tuple[Path, str]],
+    request: ParseRequest,
     output_root: Path,
     task_id: str,
-    policy: Any,
-    max_workers: int,
     wait: bool,
 ):
     coroutine = execute_parse_task(
-        files,
+        request,
         output_root=output_root,
         task_id=task_id,
-        policy=policy,
-        max_workers=max_workers,
     )
     if wait:
-        return await coroutine
+        return (await coroutine).public_dict()
     background = asyncio.create_task(coroutine, name=f"docmirror-task:{task_id}")
     _BACKGROUND_TASKS.add(background)
     background.add_done_callback(_BACKGROUND_TASKS.discard)
-    manifest = read_task_manifest(task_id, output_root=output_root)
-    return JSONResponse(status_code=202, content=manifest)
+    result = task_result_from_manifest(task_directory(task_id, output_root=output_root) / "manifest.json")
+    return JSONResponse(status_code=202, content=result.public_dict())
 
 
 def _manifest_or_404(task_id: str) -> dict[str, Any]:
@@ -248,6 +297,16 @@ def _manifest_or_404(task_id: str) -> dict[str, Any]:
     if not manifest:
         raise HTTPException(status_code=404, detail="Task not found")
     return manifest
+
+
+def _artifact_response(task_id: str, relative: Any):
+    if not isinstance(relative, str) or not relative:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    task_dir = task_directory(task_id)
+    candidate = (task_dir / relative).resolve()
+    if not candidate.is_relative_to(task_dir.resolve()) or not candidate.is_file():
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    return FileResponse(candidate, filename=candidate.name)
 
 
 def _new_task_id() -> str:
@@ -264,4 +323,8 @@ def _safe_filename(filename: str) -> str:
     return cleaned or "upload.bin"
 
 
-__all__ = ["router"]
+def _is_public_artifact_role(role: str) -> bool:
+    return role != "mirror" and not role.endswith("_mirror")
+
+
+__all__ = ["router", "submit_upload_task"]

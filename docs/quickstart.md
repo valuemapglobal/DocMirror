@@ -136,31 +136,19 @@ Can this artifact enter a downstream system?
 ## 5. Python API
 
 ```python
-import asyncio
-from docmirror import perceive_document
+from docmirror.sdk import DocMirrorClient
 
-async def main():
-    result = await perceive_document("statement.pdf")
-    mirror = result.to_mirror_json_vnext()
+client = DocMirrorClient(output_dir="output")
+task = client.parse("statement.pdf")
+batch = client.parse_many(["statement.pdf", "business-license.png"])
 
-    print("schema:", mirror["mirror"]["schema_version"])
-    print("document:", mirror["document"].get("document_type"))
-    print("quality:", mirror["quality"].get("overall", {}))
-
-    for fact in mirror.get("semantics", {}).get("facts", []):
-        evidence = fact.get("evidence") or {}
-        print(
-            fact.get("field") or fact.get("name"),
-            fact.get("value"),
-            evidence.get("page"),
-            evidence.get("bbox"),
-            evidence.get("source_ref"),
-            fact.get("confidence"),
-            fact.get("needs_review", False),
-        )
-
-asyncio.run(main())
+print(task.status, task.artifacts.get("community"))
+print(batch.status, [item["file_id"] for item in batch.inputs])
 ```
+
+Both methods return `TaskResult`. Read structured data from the declared
+`community` artifact. Mirror is diagnostic output and is not a public SDK or
+REST response payload.
 
 ## 6. Batch Parse
 
@@ -177,6 +165,10 @@ For production batch queues, monitoring, and team workflows, use the separately 
 ```bash
 pip install "docmirror[server]"
 uvicorn docmirror.server.api:app --host 0.0.0.0 --port 8000
+
+curl -F "file=@statement.pdf" "http://localhost:8000/v1/tasks?wait=true"
+curl -F "files=@statement.pdf" -F "files=@license.png" \
+  "http://localhost:8000/v1/tasks"
 ```
 
 ## 8. Next Steps

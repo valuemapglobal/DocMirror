@@ -56,6 +56,53 @@ class TaskResult(BaseModel):
     diff_report_path: str = Field(default="", description="Path to diff_report.json")
     support_bundle_path: str = Field(default="", description="Path to support_bundle.zip")
 
+    def public_dict(self) -> dict[str, Any]:
+        """Return the compact transport contract shared by CLI/API/SDK.
+
+        Full runtime and diagnostic fields remain available in ``manifest.json``.
+        In particular, the public task representation never exposes Mirror
+        content or diagnostic filesystem paths.
+        """
+        payload = self.model_dump(
+            include={
+                "version",
+                "task_id",
+                "status",
+                "stage",
+                "progress",
+                "inputs",
+                "artifacts",
+                "edition_availability",
+                "quality_summary",
+                "errors",
+            },
+            mode="json",
+        )
+        payload["artifacts"] = {
+            role: path
+            for role, path in payload.get("artifacts", {}).items()
+            if role != "mirror" and not role.endswith("_mirror")
+        }
+        payload["edition_availability"] = _without_mirror(payload.get("edition_availability", {}))
+        for item in payload.get("inputs", []):
+            if isinstance(item.get("artifacts"), dict):
+                item["artifacts"] = {
+                    role: path
+                    for role, path in item["artifacts"].items()
+                    if role != "mirror" and not role.endswith("_mirror")
+                }
+            if isinstance(item.get("edition_availability"), dict):
+                item["edition_availability"] = _without_mirror(item["edition_availability"])
+        return payload
+
+
+def _without_mirror(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _without_mirror(item) for key, item in value.items() if key != "mirror"}
+    if isinstance(value, list):
+        return [_without_mirror(item) for item in value]
+    return value
+
 
 def task_result_from_manifest(path: str | Path) -> TaskResult:
     import json

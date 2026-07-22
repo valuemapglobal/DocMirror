@@ -44,14 +44,13 @@ def test_parse_valid_document(tmp_path):
     assert response.status_code in (200, 422)
     payload = response.json()
     if response.status_code == 200:
-        assert "mirror" in payload
-        assert payload["mirror"]["schema"] == "docmirror.mirror_json"
-        assert "document" in payload
-        assert "pages" in payload
-        assert "quality" in payload
-        assert "code" not in payload
-        assert "message" not in payload
-        assert "data" not in payload
+        assert payload["status"] in {"success", "partial", "failed"}
+        assert "task_id" in payload
+        assert "inputs" in payload
+        assert "artifacts" in payload
+        assert "errors" in payload
+        assert "mirror" not in payload
+        assert "mirror" not in payload["artifacts"]
 
 def test_parse_endpoint_has_no_delivery_selection_parameters():
     parameters = {

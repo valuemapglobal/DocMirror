@@ -3,6 +3,12 @@
 Deploy DocMirror as a local HTTP service for API integrations and internal
 evaluation.
 
+The primary integration endpoint is `POST /v1/tasks`. Send either multipart
+`file` or repeated `files` fields. Add `wait=true` for a synchronous response;
+otherwise poll `GET /v1/tasks/{task_id}`. Both paths return the same compact
+`TaskResult`, never Mirror JSON. Download outputs by stable role from
+`/v1/tasks/{task_id}/files/{file_id}/artifacts/{role}`.
+
 ## Docker Deployment
 
 ```bash

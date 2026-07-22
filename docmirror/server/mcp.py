@@ -15,8 +15,8 @@ Usage:
     python -m docmirror.server.mcp --transport sse --port 8080
 
 Exposed tools:
-    - parse_document(path, mode?) → DMIR JSON
-    - parse_document_from_bytes(data, filename, mode?) → DMIR JSON
+    - parse_document(path, mode?) → TaskResult JSON
+    - parse_document_from_bytes(data, filename, mode?) → TaskResult JSON
 """
 
 from __future__ import annotations
@@ -38,13 +38,11 @@ def _get_core():
     global _core
     if _core is None:
         try:
-            from docmirror.input.entry.factory import PerceiveOptions, perceive_document
-            from docmirror.output.dmir import serialize_dmir
+            from docmirror.sdk import DocMirrorClient
+            from docmirror.server.task_executor import task_output_root
 
             _core = {
-                "perceive_document": perceive_document,
-                "PerceiveOptions": PerceiveOptions,
-                "serialize_dmir": serialize_dmir,
+                "client": DocMirrorClient(output_dir=task_output_root()),
             }
         except ImportError as e:
             raise ImportError("DocMirror core is not installed. Install with: pip install docmirror") from e
@@ -54,9 +52,8 @@ def _get_core():
 _TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "parse_document",
-        "description": "Parse a document file (PDF, image, Office) and return structured DMIR JSON. "
-        "DMIR (DocMirror Intermediate Representation) is a lossless, framework-agnostic format "
-        "that captures tables, texts, key-values, quality scores, and evidence provenance.",
+        "description": "Parse a document file (PDF, image, Office) and return TaskResult JSON "
+        "with status, quality, and stable artifact roles.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -66,7 +63,7 @@ _TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
                 "mode": {
                     "type": "string",
-                    "enum": ["auto", "fast", "balanced", "accurate"],
+                    "enum": ["auto", "fast", "balanced", "accurate", "forensic"],
                     "description": "Parse mode. 'auto' picks based on file type.",
                     "default": "auto",
                 },
@@ -76,8 +73,8 @@ _TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "parse_document_from_bytes",
-        "description": "Parse a document from raw bytes (e.g. from an API response) "
-        "and return structured DMIR JSON. The filename is used to infer the file type.",
+        "description": "Parse a document from raw bytes and return TaskResult JSON. "
+        "The filename is used to infer the file type.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -91,7 +88,7 @@ _TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
                 "mode": {
                     "type": "string",
-                    "enum": ["auto", "fast", "balanced", "accurate"],
+                    "enum": ["auto", "fast", "balanced", "accurate", "forensic"],
                     "description": "Parse mode. 'auto' picks based on file type.",
                     "default": "auto",
                 },
@@ -103,28 +100,26 @@ _TOOL_DEFINITIONS: list[dict[str, Any]] = [
 
 
 def _parse_document_impl(file_path: str, mode: str = "auto") -> str:
-    """Parse a document at *file_path* and return DMIR JSON string.
+    """Parse a document at *file_path* and return TaskResult JSON.
 
     Args:
         file_path: Path to the document file.
         mode: Parse mode.
 
     Returns:
-        DMIR JSON string.
+        Public TaskResult JSON string.
     """
     core = _get_core()
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"Document not found: {file_path}")
 
-    options = core["PerceiveOptions"](parse_mode=mode) if mode != "auto" else core["PerceiveOptions"]()
-    result = core["perceive_document"](path, options)
-    dmir = core["serialize_dmir"](result)
-    return json.dumps(dmir, indent=2, ensure_ascii=False, default=str)
+    task = core["client"].parse(path, mode=mode)
+    return json.dumps(task.public_dict(), indent=2, ensure_ascii=False, default=str)
 
 
 def _parse_bytes_impl(data_b64: str, filename: str, mode: str = "auto") -> str:
-    """Parse a document from base64-encoded bytes and return DMIR JSON string.
+    """Parse base64-encoded bytes and return TaskResult JSON.
 
     Args:
         data_b64: Base64-encoded document bytes.
@@ -132,7 +127,7 @@ def _parse_bytes_impl(data_b64: str, filename: str, mode: str = "auto") -> str:
         mode: Parse mode.
 
     Returns:
-        DMIR JSON string.
+        Public TaskResult JSON string.
     """
     import base64
     import tempfile
@@ -147,10 +142,8 @@ def _parse_bytes_impl(data_b64: str, filename: str, mode: str = "auto") -> str:
         tmp_path = tmp.name
 
     try:
-        options = core["PerceiveOptions"](parse_mode=mode) if mode != "auto" else core["PerceiveOptions"]()
-        result = core["perceive_document"](Path(tmp_path), options)
-        dmir = core["serialize_dmir"](result)
-        return json.dumps(dmir, indent=2, ensure_ascii=False, default=str)
+        task = core["client"].parse(Path(tmp_path), mode=mode)
+        return json.dumps(task.public_dict(), indent=2, ensure_ascii=False, default=str)
     finally:
         os.unlink(tmp_path)
 
@@ -166,7 +159,7 @@ def _build_fastmcp() -> Any:
     mcp = FastMCP(
         "DocMirror",
         instructions="Document parsing server using DocMirror engine. "
-        "Supports PDF, images, and Office documents. Returns DMIR JSON.",
+        "Supports PDF, images, and Office documents. Returns TaskResult JSON.",
     )
 
     @mcp.tool(
@@ -177,7 +170,7 @@ def _build_fastmcp() -> Any:
         file_path: str,
         mode: str = "auto",
     ) -> str:
-        """Parse a document file and return DMIR JSON."""
+        """Parse a document file and return TaskResult JSON."""
         return _parse_document_impl(file_path, mode)
 
     @mcp.tool(

@@ -18,6 +18,7 @@ def build_edition_availability(
 ) -> dict[str, dict[str, Any]]:
     written = written or {}
     projections = projections or {}
+    projector_outcomes = projections.get("edition_availability") or {}
     out: dict[str, dict[str, Any]] = {}
     for edition in ("mirror", "community", "enterprise", "finance"):
         payload = projections.get(edition)
@@ -30,8 +31,10 @@ def build_edition_availability(
             item["status"] = "written"
         elif payload is not None:
             item["status"] = "available"
+        elif isinstance(projector_outcomes.get(edition), dict):
+            item.update(projector_outcomes[edition])
         elif edition in {"enterprise", "finance"}:
-            item.update({"status": "unavailable", "reason": "projector_unavailable"})
+            item.update({"status": "unavailable", "reason": "projector_failed"})
         elif edition in projections:
             item.update({"status": "skipped", "reason": "no_payload"})
         else:

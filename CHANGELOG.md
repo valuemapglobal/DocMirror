@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.11] — 2026-07-22
+
+### Added
+- A canonical multi-input `ParseRequest` that lets one task process heterogeneous documents with stable per-file identifiers, isolated outcomes, and bounded file/page concurrency.
+- Python SDK `parse_many()` support and role-based artifact retrieval through `/v1/tasks/{task_id}/files/{file_id}/artifacts/{role}`.
+- Stable commercial-edition availability reasons for missing packages, missing entitlement, unsupported document types, projector failures, and projector timeouts.
+
+### Changed
+- REST, Python SDK, and MCP adapters now converge on `ParseRequest`, the shared task executor, and a compact `TaskResult` transport contract.
+- `/v1/tasks` accepts either one `file` or repeated `files`; `/v1/tasks/batch`, `/v1/parse`, and `/v1/parse/batch` remain compatibility routes over the same execution path.
+- Public REST, SDK, and MCP results expose task status, per-file outputs, quality summaries, and stable artifact roles instead of returning Mirror or DMIR payloads inline.
+- Task manifests now record the full worker budget, including total, file, page-per-file, and layout allocations.
+- Enterprise and Finance output diagnostics reuse the existing package registry and entitlement checks; the existing Finance tier continues to include Enterprise capabilities.
+
+### Fixed
+- MCP no longer calls the asynchronous parser as if it were synchronous or constructs `PerceiveOptions` with an unsupported argument.
+- Uploaded task inputs are cleaned only when owned by the task store, preventing the SDK from deleting caller-owned source files.
+- Batch artifact maps retain stable task-relative paths while each input exposes unprefixed artifact roles.
+- Public task serialization and artifact routes consistently suppress Mirror artifacts, including legacy manifests and nested batch availability maps.
+
+### Security
+- Internal Mirror diagnostics remain available for explicit CLI `--all` and contract validation, but are no longer exposed through public REST, SDK, MCP, or artifact-download responses.
+- Version 1.0.11 uses an owner-approved immediate-release policy that still requires successful pull-request checks, a successful CI run on the exact merged `main` commit, an exact `v1.0.11` tag, and PyPI trusted publishing.
+
 ## [1.0.10] — 2026-07-22
 
 ### Added

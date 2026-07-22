@@ -101,8 +101,8 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "parse_document",
     description:
-      "Parse a document file (PDF, image, Office) and return structured DMIR JSON. " +
-      "DMIR (DocMirror Intermediate Representation) is a lossless, framework-agnostic format.",
+      "Parse a document file (PDF, image, Office) and return TaskResult JSON " +
+      "with status, quality, and stable artifact roles.",
     inputSchema: {
       type: "object",
       properties: {
@@ -112,7 +112,7 @@ const TOOLS: ToolDefinition[] = [
         },
         mode: {
           type: "string",
-          enum: ["auto", "fast", "balanced", "accurate"],
+          enum: ["auto", "fast", "balanced", "accurate", "forensic"],
           description: "Parse mode. 'auto' picks based on file type.",
         },
       },
@@ -123,7 +123,7 @@ const TOOLS: ToolDefinition[] = [
     name: "parse_document_from_bytes",
     description:
       "Parse a document from raw bytes (e.g. from an API response) " +
-      "and return structured DMIR JSON.",
+      "and return TaskResult JSON.",
     inputSchema: {
       type: "object",
       properties: {
@@ -137,7 +137,7 @@ const TOOLS: ToolDefinition[] = [
         },
         mode: {
           type: "string",
-          enum: ["auto", "fast", "balanced", "accurate"],
+          enum: ["auto", "fast", "balanced", "accurate", "forensic"],
           description: "Parse mode. 'auto' picks based on file type.",
         },
       },
@@ -191,7 +191,7 @@ async function runApiMode(options: McpServerOptions): Promise<void> {
           const response = await fetch(url.toString(), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path: filePath }),
+            body: JSON.stringify(filePath),
           });
 
           const result = await response.json();
@@ -221,9 +221,8 @@ async function runApiMode(options: McpServerOptions): Promise<void> {
 
           const formData = new FormData();
           formData.append("file", blob, filename);
-          formData.append("mode", mode);
-
           const url = new URL(`${apiUrl}/v1/parse`);
+          url.searchParams.set("mode", mode);
 
           const response = await fetch(url.toString(), {
             method: "POST",
