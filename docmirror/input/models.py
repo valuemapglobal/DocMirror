@@ -160,6 +160,14 @@ class AcceptedSource:
         if not self.owns_snapshot:
             return
         try:
+            try:
+                # Windows maps ``chmod(0o400)`` to the read-only file
+                # attribute, which must be cleared before unlinking.  The
+                # snapshot remains immutable throughout its accepted lifetime;
+                # write permission is restored only as part of destruction.
+                self.path.chmod(0o600)
+            except FileNotFoundError:
+                pass
             self.path.unlink(missing_ok=True)
         finally:
             shutil.rmtree(self.path.parent, ignore_errors=True)
