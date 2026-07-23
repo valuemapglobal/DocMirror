@@ -21,10 +21,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from importlib.resources.abc import Traversable
 from pathlib import Path
 
 import yaml
+
+try:
+    from importlib.resources.abc import Traversable
+except ImportError:  # Python 3.10
+    from importlib.abc import Traversable
 
 logger = logging.getLogger(__name__)
 

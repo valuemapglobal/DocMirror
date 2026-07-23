@@ -87,12 +87,7 @@ def reconstruct_scanned_statement_table(
     page_height: float,
     start_order: int = 0,
 ) -> Block | None:
-    """Build one page-level table block from OCR tokens when geometry is strong.
-
-    This is intentionally conservative. It targets scanned financial statement
-    pages where OCR has produced token-level boxes but the native PDF table
-    extractor has no vector/text layer to work with.
-    """
+    """Conservatively build one statement table from strong OCR geometry."""
     if any(block.block_type == "table" for block in blocks):
         return None
     tokens = [_block_to_token(block) for block in blocks]
@@ -193,12 +188,7 @@ def reconstruct_scanned_bordered_tables(
     page_height: float,
     start_order: int = 0,
 ) -> list[Block]:
-    """Reconstruct generic bordered tables from scan lines and OCR token boxes.
-
-    The output is deliberately physical: it records page-local rows, columns,
-    cell boxes, spans and token ownership without assigning business meaning or
-    assuming that the first row is a semantic header.
-    """
+    """Reconstruct physical bordered tables without assigning business meaning."""
     if page_image is None or getattr(page_image, "size", 0) == 0:
         return []
     try:
@@ -247,15 +237,11 @@ def reconstruct_scanned_bordered_tables(
         open_left_column = pixel_bbox[0] < original_x0 - 3
         x0, y0, x1, y1 = pixel_bbox
         x_lines = _projection_line_positions(vertical[y0:y1, x0:x1], axis=0, offset=x0)
-        # The extrapolated label column is intentionally unruled; retain the
-        # original numeric grid width when measuring horizontal row rules.
         y_lines = _projection_line_positions(horizontal[y0:y1, original_x0:x1], axis=1, offset=y0)
         x_lines = _ensure_outer_lines(x_lines, x0, x1)
         y_lines = _ensure_outer_lines(y_lines, y0, y1)
         if len(x_lines) < 3 or len(y_lines) < 3:
             continue
-        # Reject explanatory frames and page borders: a physical table needs at
-        # least two rows and two columns after line extraction.
         if len(x_lines) - 1 < 2 or len(y_lines) - 1 < 2:
             continue
 
@@ -330,10 +316,6 @@ def reconstruct_scanned_bordered_tables(
                 and (
                     len(numeric_rows_in_group) >= 2
                     or len(aligned_numeric_rows) >= 2
-                    # A missing horizontal rule can merge a second-level
-                    # header with the first body amount.  A numeric token in
-                    # the later row plus numeric evidence in another column
-                    # on that same row proves that the row boundary is real.
                     or bool(numeric_rows_aligned_elsewhere)
                 )
             )
@@ -520,9 +502,6 @@ def _projection_line_positions(mask: Any, *, axis: int, offset: int) -> list[int
 
     projection = (mask > 0).mean(axis=axis)
     peak = float(projection.max()) if projection.size else 0.0
-    # Faint photocopied horizontal rules often retain only 20-30% support
-    # after morphology. Scale to the strongest rule in the same candidate,
-    # while keeping an absolute floor so text strokes do not become grid lines.
     threshold = max(0.16, min(0.35, peak * 0.68))
     indices = np.where(projection >= threshold)[0].tolist()
     groups: list[list[int]] = []
@@ -558,14 +537,7 @@ def _merged_cell_groups(
     *,
     preserve_left_column_rows: bool = False,
 ) -> tuple[list[set[tuple[int, int]]], dict[str, int]]:
-    """Return only geometrically valid rectangular merged-cell groups.
-
-    Missing line fragments can connect an L-shaped set of base slots through
-    union-find. Converting such a component to its bounding rectangle creates
-    overlapping canonical cells, so every candidate is validated against the
-    original line masks before it is accepted. Invalid candidates conservatively
-    fall back to independent 1x1 cells.
-    """
+    """Return rectangular merged-cell groups validated against original masks."""
     rows, cols = len(y_lines) - 1, len(x_lines) - 1
     parent = list(range(rows * cols))
 

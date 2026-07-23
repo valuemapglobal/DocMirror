@@ -24,11 +24,15 @@ from __future__ import annotations
 
 from functools import lru_cache
 from importlib.resources import files
-from importlib.resources.abc import Traversable
 from pathlib import PurePosixPath
 from typing import Any
 
 import yaml
+
+try:
+    from importlib.resources.abc import Traversable
+except ImportError:  # Python 3.10
+    from importlib.abc import Traversable
 
 
 @lru_cache(maxsize=1)
