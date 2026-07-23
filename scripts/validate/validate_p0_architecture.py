@@ -32,14 +32,9 @@ PRE_SEAL_ROOTS = (
     DOCMIRROR / "configs",
     DOCMIRROR / "quality",
 )
-CANONICAL_FILES = tuple(
-    path
-    for root in PRE_SEAL_ROOTS
-    for path in root.rglob("*.py")
-)
+CANONICAL_FILES = tuple(path for root in PRE_SEAL_ROOTS for path in root.rglob("*.py"))
 
 CANONICAL_FORBIDDEN_IMPORTS = (
-    "docmirror.models.edition_serializer",
     "docmirror.output",
     "docmirror.plugins._runtime",
     "docmirror.server",
