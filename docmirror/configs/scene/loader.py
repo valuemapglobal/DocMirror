@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Scene keyword loader — merges classification resources declared by plugins.
+ Scene keyword loader — merges Core-owned canonical classification resources.
 
 Loads and caches the classification keyword corpus shared by the EvidenceEngine,
 scene detector middleware, domain plugins, and DTI validators. The YAML structure
@@ -27,8 +27,6 @@ Derived views::
 from __future__ import annotations
 
 import logging
-from importlib.resources import files
-from pathlib import PurePosixPath
 from typing import Any
 
 import yaml
@@ -58,24 +56,16 @@ def _load_raw() -> dict[str, Any]:
         return _cache_raw
 
     raw: dict[str, Any] = {}
-    plugin_root = files("docmirror").joinpath("plugins")
-    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
-        manifest_path = plugin_dir.joinpath("plugin.yaml")
-        if not plugin_dir.is_dir() or not manifest_path.is_file():
-            continue
+    from docmirror.configs.domain.registry import iter_canonical_domain_resources
+
+    for domain_id, resource_text in iter_canonical_domain_resources("scene_keywords"):
         try:
-            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-            relative_text = str(((manifest.get("resources") or {}).get("scene_keywords")) or "").strip()
-            relative_path = PurePosixPath(relative_text)
-            if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
-                continue
-            resource_path = plugin_dir.joinpath(*relative_path.parts)
-            data = yaml.safe_load(resource_path.read_text(encoding="utf-8")) or {}
+            data = yaml.safe_load(resource_text) or {}
             scenes = data.get("scene_keywords", {}) if isinstance(data, dict) else {}
             if isinstance(scenes, dict):
                 raw.update(scenes)
         except Exception as exc:
-            logger.warning("[SceneLoader] Failed plugin scene resource %s: %s", plugin_dir.name, exc)
+            logger.warning("[SceneLoader] Failed canonical scene resource %s: %s", domain_id, exc)
     _cache_raw = raw
     logger.debug("[SceneLoader] Loaded %d scenes from plugin resources", len(raw))
     return _cache_raw
@@ -137,7 +127,7 @@ def get_scene_excludes(*, min_len: int = 2) -> dict[str, list[str]]:
 
 
 def get_plugin_scene_keywords() -> dict[str, tuple[str, ...]]:
-    """Include-only tuples for DomainPlugin.scene_keywords."""
+    """Include-only tuples for provider metadata and diagnostics."""
     global _cache_plugin_includes
     if _cache_plugin_includes is not None:
         return _cache_plugin_includes
@@ -151,20 +141,14 @@ def get_plugin_scene_keywords() -> dict[str, tuple[str, ...]]:
 
 
 def get_scene_aliases() -> dict[str, str]:
-    """Return classification aliases declared by plugin manifests."""
+    """Return classification aliases declared by Core domain manifests."""
     global _cache_aliases
     if _cache_aliases is not None:
         return _cache_aliases
     aliases: dict[str, str] = {}
-    plugin_root = files("docmirror").joinpath("plugins")
-    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
-        manifest_path = plugin_dir.joinpath("plugin.yaml")
-        if not plugin_dir.is_dir() or not manifest_path.is_file():
-            continue
-        try:
-            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-        except Exception:
-            continue
+    from docmirror.configs.domain.registry import list_canonical_domain_manifests
+
+    for manifest in list_canonical_domain_manifests():
         provider = manifest.get("provider") or {}
         domain = str(provider.get("domain_name") or "").strip()
         for alias in (manifest.get("classification") or {}).get("aliases") or []:

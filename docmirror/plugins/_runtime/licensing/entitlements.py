@@ -10,7 +10,7 @@ bypass this check for edition plugins that set ``requires_license=True``.
 ``resolve_edition_tier`` derives the highest edition level from installed
 packages after verifying the license.
 
-Pipeline role: ``runner._is_edition_plugin_licensed`` delegates here before
+Pipeline role: ``output_builder.build_extended_output`` delegates here before
 running enterprise/finance ``extract``; unlicensed plugins degrade to community
 baseline with ``_license_warning`` markers.
 
@@ -140,15 +140,12 @@ def demo_features() -> list[str]:
         try:
             from docmirror.plugins._runtime import registry
 
-            for name in registry.list_plugins():
-                plugin = registry.get(name)
-                if plugin is None:
-                    continue
-                if getattr(plugin, "edition", "") != "enterprise":
-                    continue
+            for plugin in registry.list_projectors("enterprise"):
                 if not getattr(plugin, "requires_license", False):
                     continue
-                domain = getattr(plugin, "domain_name", name) or name
+                domain = str(getattr(plugin, "domain_name", "") or "")
+                if not domain:
+                    continue
                 features.add(premium_feature(domain))
         except Exception as exc:
             logger.debug("[Entitlements] Registry scan for demo features failed: %s", exc)

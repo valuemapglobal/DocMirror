@@ -1,149 +1,39 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Runtime support package — infrastructure internals for the plugin system.
+"""Private plugin runtime package with side-effect-free lazy exports.
 
-Moved here from ``docmirror/plugins/`` top-level to keep the domain-plugin
-namespace clean.  All public symbols are re-exported so that external code can
-import from ``docmirror.plugins._runtime`` instead of the old top-level paths.
-
-Pipeline role: infrastructure modules only — registry, runner, licensing,
-post-extract hooks, community-config, discovery, plugin state, and manager.
-Domain plugins (bank_statement, credit_report, …) stay at the top-level
-``docmirror.plugins.*`` and are **not** re-exported here.
-
-Key re-exports (see each sub-module for docstrings):
-
-* plugin_registry  — ``DomainPlugin``, ``PluginRegistry``, ``registry``
-* runner           — ``run_plugin_extract``, ``run_plugin_extract_sync``
-* state            — ``is_domain_enabled``, ``set_domain_enabled``
-* manager          — ``PluginManager``, ``plugin_manager``
-* composition      — ``CompositionReason``, ``annotate_composition``, …
-* licensing        — ``is_entitled``, ``license_manager``, ``offline_license_manager``, …
-* post_extract     — ``PostExtractHook``, ``run_post_extract_hooks``
-* community        — ``get_community_premium_domains``, ``find_premium_community_plugin``, …
-* discovery        — entry-point plugin discovery
-* hooks            — pluggy hook specifications
-* core_extensions  — extension-point registration
+Importing the package must not discover providers, import bundled plugins, load
+licensing state, or register extension points. Runtime services are loaded only
+when their explicit attribute is requested.
 """
 
 from __future__ import annotations
 
-# ── Hook specs (the module, re-exported so callers can reach hookimpl) ──
-from docmirror.plugins._runtime import hooks as _hooks  # noqa: F401
+from importlib import import_module
+from typing import Any
 
-# ── Community plugin instances (static imports) ─────────────────────────
-from docmirror.plugins._runtime.community import (  # noqa: F401
-    alipay_payment_plugin,
-    bank_statement_plugin,
-    business_license_plugin,
-    credit_report_plugin,
-    generic_plugin,
-    vat_invoice_plugin,
-    wechat_payment_plugin,
-)
+_MODULE_EXPORTS = {
+    "discovery": "docmirror.plugins._runtime.discovery",
+    "hooks": "docmirror.plugins._runtime.hooks",
+}
 
-# ── Community-config helpers ────────────────────────────────────────────
-from docmirror.plugins._runtime.community_config import (  # noqa: F401
-    community_plugin_import_path,
-    community_plugin_module,
-    find_community_plugin,
-    find_premium_community_plugin,
-    get_community_premium_domains,
-    get_generic_community_plugin,
-    invalidate_plugin_capability_cache,
-    is_community_generic_enabled,
-    is_community_premium,
-    is_enterprise_only,
-    list_community_plugin_domains,
-    list_premium_community_modules,
-    load_plugin_capability,
-    normalize_premium_document_type,
-    should_mirror_only,
-)
+_LAZY_EXPORTS: dict[str, tuple[str, str]] = {
+    "PluginRegistry": ("docmirror.plugins._runtime.plugin_registry", "PluginRegistry"),
+    "registry": ("docmirror.plugins._runtime.plugin_registry", "registry"),
+    "resolve_dgc_status": ("docmirror.plugins._runtime.plugin_registry", "resolve_dgc_status"),
+    "CompositionReason": ("docmirror.plugins._runtime.composition", "CompositionReason"),
+    "annotate_composition": ("docmirror.plugins._runtime.composition", "annotate_composition"),
+    "discover_plugins": ("docmirror.plugins._runtime.discovery", "discover_plugins"),
+    "get_plugin_manager": ("docmirror.plugins._runtime.discovery", "get_plugin_manager"),
+    "reset_discovery": ("docmirror.plugins._runtime.discovery", "reset_discovery"),
+    "is_domain_enabled": ("docmirror.plugins._runtime.state", "is_domain_enabled"),
+    "set_domain_enabled": ("docmirror.plugins._runtime.state", "set_domain_enabled"),
+    "PluginManager": ("docmirror.plugins._runtime.manager", "PluginManager"),
+    "plugin_manager": ("docmirror.plugins._runtime.manager", "plugin_manager"),
+}
 
-# ── Composition ─────────────────────────────────────────────────────────
-from docmirror.plugins._runtime.composition import (
-    CompositionReason,
-    annotate_composition,
-    apply_extract_fallback,
-)
-from docmirror.plugins._runtime.core_extensions import register_core_extensions  # noqa: F401
-
-# ── Discovery / Hooks / Core-extensions ─────────────────────────────────
-from docmirror.plugins._runtime.discovery import (  # noqa: F401
-    discover_plugins,
-    get_plugin_manager,
-    reset_discovery,
-)
-
-# ── Licensing (re-export package-level symbols) ─────────────────────────
-from docmirror.plugins._runtime.licensing import (  # noqa: F401
-    FEATURE_SUFFIX,
-    EntitlementLifecycle,
-    LicenseLifecycleState,
-    LicenseManager,
-    OfflineLicenseManager,
-    community_free_domains,
-    demo_features,
-    entitlement_warnings,
-    feature_suffix,
-    inject_edition_lifecycle_warnings,
-    is_community_free,
-    is_entitled,
-    license_manager,
-    lifecycle_cli_message,
-    load_tiers,
-    offline_license_manager,
-    premium_feature,
-    resolve_entitlement_lifecycle,
-    resolve_entitlement_state,
-    resolve_license_snapshot,
-    tier_features,
-)
-from docmirror.plugins._runtime.manager import PluginManager, plugin_manager
-
-# ── Registry ────────────────────────────────────────────────────────────
-from docmirror.plugins._runtime.plugin_registry import (
-    DomainPlugin,
-    PluginRegistry,
-    registry,
-    resolve_dgc_status,
-)
-
-# ── Post-extract ────────────────────────────────────────────────────────
-from docmirror.plugins._runtime.post_extract import (  # noqa: F401
-    PostExtractHook,
-    run_post_extract_hooks,
-)
-
-# ── Runner ──────────────────────────────────────────────────────────────
-from docmirror.plugins._runtime.runner import run_fact_recognition_sync, run_plugin_extract, run_plugin_extract_sync
-
-# ── State / Manager ─────────────────────────────────────────────────────
-from docmirror.plugins._runtime.state import is_domain_enabled, set_domain_enabled
-
-__all__ = [
-    # plugin_registry
-    "DomainPlugin",
-    "PluginRegistry",
-    "registry",
-    "resolve_dgc_status",
-    # composition
-    "CompositionReason",
-    "annotate_composition",
-    "apply_extract_fallback",
-    # runner
-    "run_plugin_extract",
-    "run_plugin_extract_sync",
-    "run_fact_recognition_sync",
-    # state / manager
-    "is_domain_enabled",
-    "set_domain_enabled",
-    "PluginManager",
-    "plugin_manager",
-    # licensing (all from licensing package __init__)
+for _name in (
     "EntitlementLifecycle",
     "FEATURE_SUFFIX",
     "LicenseLifecycleState",
@@ -165,37 +55,21 @@ __all__ = [
     "resolve_entitlement_state",
     "resolve_license_snapshot",
     "tier_features",
-    # post_extract
-    "PostExtractHook",
-    "run_post_extract_hooks",
-    # community_config
-    "community_plugin_module",
-    "community_plugin_import_path",
-    "find_community_plugin",
-    "find_premium_community_plugin",
-    "get_community_premium_domains",
-    "get_generic_community_plugin",
-    "invalidate_plugin_capability_cache",
-    "is_community_generic_enabled",
-    "is_community_premium",
-    "is_enterprise_only",
-    "list_community_plugin_domains",
-    "list_premium_community_modules",
-    "load_plugin_capability",
-    "normalize_premium_document_type",
-    "should_mirror_only",
-    # community plugin instances
-    "alipay_payment_plugin",
-    "bank_statement_plugin",
-    "business_license_plugin",
-    "credit_report_plugin",
-    "generic_plugin",
-    "vat_invoice_plugin",
-    "wechat_payment_plugin",
-    # discovery / hooks / core_extensions
-    "discover_plugins",
-    "get_plugin_manager",
-    "hooks",
-    "register_core_extensions",
-    "reset_discovery",
-]
+):
+    _LAZY_EXPORTS[_name] = ("docmirror.plugins._runtime.licensing", _name)
+
+
+def __getattr__(name: str) -> Any:
+    module_name = _MODULE_EXPORTS.get(name)
+    if module_name is not None:
+        value = import_module(module_name)
+    else:
+        target = _LAZY_EXPORTS.get(name)
+        if target is None:
+            raise AttributeError(name)
+        value = getattr(import_module(target[0]), target[1])
+    globals()[name] = value
+    return value
+
+
+__all__ = sorted((*_MODULE_EXPORTS, *_LAZY_EXPORTS))

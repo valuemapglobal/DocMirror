@@ -15,6 +15,9 @@ build/
 venv/
 env/
 
+## Optional dependency manager state
+uv.lock
+
 ## IDE
 .vscode/
 .idea/

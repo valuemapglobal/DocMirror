@@ -19,7 +19,7 @@ Core types::
 
 Envelope detection helpers (``_is_edition_v2_payload``, ``_is_enterprise_envelope``,
 ``_is_finance_envelope``) identify when plugin output is already a full edition
-JSON envelope and should bypass ``edition_serializer``.
+JSON envelope and may be normalized for validation or diagnostics.
 
 ``normalize_plugin_output`` is the main entry for converting raw plugin dicts
 into validated ``DomainExtractionResult`` instances.
@@ -88,7 +88,7 @@ def _is_edition_v2_payload(raw: dict[str, Any]) -> bool:
 
 
 def _is_edition_envelope_passthrough(raw: dict[str, Any]) -> bool:
-    """True when plugin output must bypass ``edition_serializer`` (full edition envelope)."""
+    """True when a payload is already a complete edition envelope."""
     return _is_edition_v2_payload(raw) or _is_enterprise_envelope(raw) or _is_finance_envelope(raw)
 
 

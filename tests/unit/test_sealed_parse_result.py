@@ -18,7 +18,7 @@ def test_seal_is_idempotent_and_drops_mutable_source_reference():
     assert seal_parse_result(sealed) is sealed
 
     source.entities.document_type = "mutated_after_seal"
-    assert sealed.entities.document_type == "bank_statement"
+    assert sealed.to_read_view().entities.document_type == "bank_statement"
     assert sealed.verify_integrity()
 
 

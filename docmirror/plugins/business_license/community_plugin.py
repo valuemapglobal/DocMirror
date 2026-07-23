@@ -11,12 +11,12 @@ Premium community plugin for Chinese business registration certificates (key-val
 archetype). Maps identity labels (company name, USCC, legal representative, etc.),
 validates USCC checksum in enrich step, and emits v2.0 community JSON.
 
-Pipeline role: ``runner._run_community_recognition`` invokes ``recognize``;
-``build_domain_data`` provides KV fallback for raw entity paths.
+Pipeline role: the canonical runner invokes ``recognize_facts`` and applies the
+returned ``CanonicalPatch`` before sealing.
 
 Key exports: ``BusinessLicensePlugin``, ``plugin``.
 
-Dependencies: ``DomainPlugin``, ``dec_builder``, ``kv_community_extract``,
+Dependencies: ``Core canonical capability``, ``CanonicalPatch``, ``kv_community_extract``,
 ``kv_community_enrich.enrich_business_license_output``.
 """
 
@@ -24,10 +24,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from docmirror.plugin_api import DomainPlugin, FactPatch
+from docmirror.input.canonical.fact_patch import CanonicalPatch
 
 
-class BusinessLicensePlugin(DomainPlugin):
+class BusinessLicensePlugin:
     """Community edition plugin for business license document processing."""
 
     @property
@@ -39,8 +39,8 @@ class BusinessLicensePlugin(DomainPlugin):
         return "Business License (Community)"
 
     @property
-    def edition(self) -> str:
-        return "community"
+    def capability_id(self) -> str:
+        return self.domain_name
 
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
@@ -68,31 +68,7 @@ class BusinessLicensePlugin(DomainPlugin):
             ("special_qualification", ("特殊资质", "Special Qualification")),
         )
 
-    def build_domain_data(self, _metadata, entities):
-        from docmirror.plugins._base.dec_builder import build_dec_kv
-
-        return build_dec_kv(
-            "business_license",
-            {
-                "company_name": entities.get("company_name", ""),
-                "unified_social_credit_code": entities.get("unified_social_credit_code", ""),
-                "legal_representative": entities.get("legal_representative", ""),
-            },
-        )
-
-    def recognize(self, parse_result, text: str = ""):
-        from docmirror.plugins._base.kv_community_enrich import enrich_business_license_output
-        from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
-
-        out = extract_kv_community_output(
-            self,
-            parse_result,
-            identity_specs=self.identity_fields,
-            full_text=text,
-        )
-        return enrich_business_license_output(out, parse_result=parse_result, full_text=text)
-
-    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
         from docmirror.plugins._base.kv_community_extract import extract_kv_fact_patch
 
         return extract_kv_fact_patch(

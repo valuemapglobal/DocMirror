@@ -11,12 +11,11 @@ Premium community plugin for personal brief, personal detail, and enterprise
 credit reports. Extracts identity fields, report subtype/content mode, optional
 lightweight section hints, and table records via shared KV extract helpers.
 
-Pipeline role: ``runner`` community path; ``post_extract.hooks.credit_sections`` may
-attach full sections to Mirror when enterprise splitter is available.
+Pipeline role: canonical fact recognition for the credit-report provider.
 
 Key exports: ``CreditReportPlugin``, ``plugin``.
 
-Dependencies: ``DomainPlugin``, ``dec_builder``, ``kv_community_extract``,
+Dependencies: ``Core canonical capability``, ``dec_builder``, ``kv_community_extract``,
 ``kv_community_enrich.enrich_credit_report_output``.
 """
 
@@ -24,12 +23,12 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from docmirror.plugin_api import DomainPlugin, FactPatch
+from docmirror.input.canonical.fact_patch import CanonicalPatch
 from docmirror.plugins.credit_report import local_structure_supplement as _local_structure_supplement  # noqa: F401
 from docmirror.plugins.credit_report import micro_grid_materialize as _micro_grid_materialize  # noqa: F401
 
 
-class CreditReportPlugin(DomainPlugin):
+class CreditReportPlugin:
     """Community edition plugin for credit report document processing."""
 
     @property
@@ -41,8 +40,8 @@ class CreditReportPlugin(DomainPlugin):
         return "Credit Report (Community)"
 
     @property
-    def edition(self) -> str:
-        return "community"
+    def capability_id(self) -> str:
+        return self.domain_name
 
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
@@ -57,34 +56,7 @@ class CreditReportPlugin(DomainPlugin):
             ("report_number", ("报告编号", "Report No", "NO.")),
         )
 
-    def build_domain_data(self, _metadata, entities):
-        from docmirror.plugins._base.dec_builder import build_dec_kv
-
-        return build_dec_kv(
-            "credit_report",
-            {
-                "subject_name": entities.get("subject_name", entities.get("name", "")),
-                "id_number": entities.get("id_number", ""),
-                "report_time": entities.get("report_time", ""),
-            },
-        )
-
-    def recognize(self, parse_result, text: str = ""):
-        from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
-        from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
-
-        out = extract_kv_community_output(
-            self,
-            parse_result,
-            identity_specs=self.identity_fields,
-            full_text=text,
-            support_level="L2",
-            include_block_kv=False,
-            include_generic_records=False,
-        )
-        return enrich_credit_report_output(out, parse_result=parse_result, full_text=text)
-
-    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
         from docmirror.plugins.credit_report.fact_recognizer import recognize_credit_report_facts
 
         return recognize_credit_report_facts(self, parse_result, text)

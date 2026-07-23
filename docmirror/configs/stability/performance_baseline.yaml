@@ -8,13 +8,20 @@ reference_environment:
 candidate_observations:
   macos-26.5.2-x86_64-python-3.12.3:
     observed_at: "2026-07-23"
-    case: long_credit_report_77_pages
-    p50_ms: 122856.068
-    p95_ms: 127157.381
-    peak_rss_mb: 1016.312
-    fact_fingerprint: e231ed102e4af1e9a1f4d567a6fc1b925386001638565dfb49844af82a7be6d6
+    cases:
+      long_credit_report_77_pages:
+        p50_ms: 144849.622
+        p95_ms: 158496.592
+        peak_rss_mb: 1016.840
+        fact_fingerprint: e231ed102e4af1e9a1f4d567a6fc1b925386001638565dfb49844af82a7be6d6
+      table_dense_bank_3_pages:
+        p50_ms: 3201.632
+        p95_ms: 3311.815
+        peak_rss_mb: 90.031
+        fact_fingerprint: 5a76c86cae6498e563c2a71e320792459c5a5ef90a13ef8b1fb148c37ed18cfe
 cases:
   - id: long_credit_report_77_pages
+    workload_class: long_document
     fixture: tests/fixtures/credit_report/征信报告_本报告由中国人民银行_20250710.pdf
     fixture_sha256: ae5840551306253d95719077b35044fb22145b0c60ba6ef938167157a7cab322
     page_count: 77
@@ -28,3 +35,18 @@ cases:
       p50_ms: 150000
       p95_ms: 180000
       peak_rss_mb: 1500
+  - id: table_dense_bank_3_pages
+    workload_class: table_dense
+    fixture: tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf
+    fixture_sha256: 6129da7b18f7fcdcaba53ab68d29bfb0499b5b417b6eadda2cd3b6dce711401d
+    page_count: 3
+    expected_document_type: bank_statement
+    parse_policy: {mode: balanced, doc_type_hint: "bank_statement:force"}
+    workers: 1
+    warmups: 0
+    repetitions: 3
+    timeout_seconds: 120
+    ceilings:
+      p50_ms: 30000
+      p95_ms: 45000
+      peak_rss_mb: 1000

@@ -8,16 +8,15 @@
 VAT invoice community domain plugin.
 
 Premium community plugin for Chinese VAT invoices (key-value archetype). Declares
-identity field label specs, builds minimal DEC via ``build_domain_data``, and
-implements ``recognize`` with ``extract_kv_community_output`` plus VAT-specific
-OCR field normalization.
+identity field label specs and implements ``recognize_facts`` with
+``extract_kv_fact_patch`` plus VAT-specific OCR field normalization.
 
-Pipeline role: one of six premium plugins; ``runner`` invokes ``recognize``
-when it returns records/fields, otherwise falls back to ``build_domain_data``.
+Pipeline role: discovered by ``PluginRegistry`` and executed by the canonical
+runner through ``recognize_facts``.
 
 Key exports: ``VATInvoicePlugin``, ``plugin``.
 
-Dependencies: ``DomainPlugin``, ``dec_builder``, ``kv_community_extract``,
+Dependencies: ``Core canonical capability``, ``CanonicalPatch``, ``kv_community_extract``,
 ``kv_community_enrich.enrich_vat_invoice_output``.
 """
 
@@ -26,10 +25,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from docmirror.plugin_api import DomainPlugin, FactPatch
+from docmirror.input.canonical.fact_patch import CanonicalPatch
 
 
-class VATInvoicePlugin(DomainPlugin):
+class VATInvoicePlugin:
     """Community edition plugin for VAT invoice document processing."""
 
     @property
@@ -41,8 +40,8 @@ class VATInvoicePlugin(DomainPlugin):
         return "VAT Invoice (Community)"
 
     @property
-    def edition(self) -> str:
-        return "community"
+    def capability_id(self) -> str:
+        return self.domain_name
 
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
@@ -55,104 +54,7 @@ class VATInvoicePlugin(DomainPlugin):
             ("invoice_date", ("开票日期", "Date", "日期")),
         )
 
-    def build_domain_data(self, _metadata, entities):
-        from docmirror.plugins._base.dec_builder import build_dec_kv
-
-        return build_dec_kv(
-            "vat_invoice",
-            {
-                "invoice_number": entities.get("invoice_number", ""),
-                "invoice_code": entities.get("invoice_code", ""),
-                "seller_name": entities.get("seller_name", ""),
-                "buyer_name": entities.get("buyer_name", ""),
-                "total_amount": entities.get("total_amount", ""),
-            },
-        )
-
-    def recognize(self, parse_result, text: str = ""):
-        from pathlib import Path
-
-        from docmirror.models.edition_serializer import EditionContext, edition_serializer
-        from docmirror.models.entities.domain_result import DomainExtractionResult, DomainQuality
-        from docmirror.plugins._base.kv_community_enrich import enrich_vat_invoice_output
-        from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
-        from docmirror.plugins.vat_invoice.semantic_solver import VATInvoiceSemanticSolver
-
-        solution = VATInvoiceSemanticSolver().solve(full_text=text, parse_result=parse_result)
-        fields, canonical_warnings = _canonicalize_vat_fields(
-            dict((solution.canonical_model or {}).get("fields") or {})
-        )
-        fields.update(_vat_visual_facts(parse_result))
-        if fields:
-            line_items = list((solution.canonical_model or {}).get("line_items") or [])
-            summary = dict((solution.canonical_model or {}).get("summary") or {})
-            issues = [*_solution_issues(solution), *(f"warning:{warning}" for warning in canonical_warnings)]
-            field_provenance = _build_field_provenance(parse_result, fields)
-            dec = DomainExtractionResult(
-                document_type=self.domain_name,
-                properties={},
-                entities=fields,
-                structured_data={
-                    "records": [],
-                    "line_items": line_items,
-                    "sections": [],
-                    "tables": [
-                        {
-                            "table_id": "vat_invoice_line_items",
-                            "title": "发票明细",
-                            "row_count": len(line_items),
-                        }
-                    ]
-                    if line_items
-                    else [],
-                    "summary": summary or {"total_rows": len(line_items)},
-                    "field_metadata": field_provenance,
-                },
-                quality=DomainQuality(
-                    validation_passed=solution.status == "success",
-                    issues=issues,
-                    confidence=solution.confidence,
-                ),
-                metadata={
-                    "solver": {
-                        "name": "vat_invoice_text_solver_p0",
-                        "status": solution.status,
-                        "confidence": solution.confidence,
-                        "invariants": list(solution.invariant_results),
-                    },
-                    "field_provenance": field_provenance,
-                    "field_provenance_status": _field_provenance_status(parse_result, fields, field_provenance),
-                    "extract_status": "ok" if solution.status == "success" else solution.status,
-                },
-            )
-            file_path = getattr(parse_result, "file_path", "") or ""
-            ctx = EditionContext(
-                edition="community",
-                detected_type=self.domain_name,
-                full_text=text,
-                document_name=Path(file_path).name if file_path else self.display_name,
-                page_count=len(getattr(parse_result, "pages", []) or []),
-                archetype="key_value_document",
-                domain=self.domain_name,
-                match_method="vat_invoice_semantic_solver",
-                plugin_name=self.domain_name,
-                plugin_display_name=self.display_name,
-                plugin_version="community-2.0",
-                support_level="L1",
-                parser_label="docmirror-community",
-                source_format="image" if _is_image_parse(parse_result) else "pdf",
-            )
-            return enrich_vat_invoice_output(edition_serializer(dec, context=ctx))
-
-        out = extract_kv_community_output(
-            self,
-            parse_result,
-            identity_specs=self.identity_fields,
-            full_text=text,
-        )
-        return enrich_vat_invoice_output(out)
-
-    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
         """Run the VAT semantic solver and return facts without an edition."""
         from docmirror.plugins._base.kv_community_extract import extract_kv_fact_patch
         from docmirror.plugins.vat_invoice.semantic_solver import VATInvoiceSemanticSolver
@@ -183,8 +85,8 @@ class VATInvoicePlugin(DomainPlugin):
             *canonical_warnings,
             *(issue.split(":", 1)[-1] for issue in _solution_issues(solution)),
         ]
-        return FactPatch(
-            provider_id=self.domain_name,
+        return CanonicalPatch(
+            capability_id=self.domain_name,
             document_type=self.domain_name,
             entity_fields={"document_date": fields["invoice_date"]} if fields.get("invoice_date") else {},
             domain_facts={

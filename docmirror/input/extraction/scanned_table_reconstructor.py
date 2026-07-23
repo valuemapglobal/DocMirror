@@ -9,8 +9,6 @@ import re
 import statistics
 from dataclasses import dataclass
 from functools import lru_cache
-from importlib.resources import files
-from pathlib import PurePosixPath
 from typing import Any
 
 import yaml
@@ -23,22 +21,14 @@ _SHORT_NOISE_RE = re.compile(r"^[A-Za-z0-9]{1,3}$")
 
 @lru_cache(maxsize=1)
 def _statement_profile() -> dict[str, Any]:
-    """Load the installed plugin-owned scanned statement extraction profile."""
-    plugin_root = files("docmirror").joinpath("plugins")
-    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
-        manifest_path = plugin_dir.joinpath("plugin.yaml")
-        if not plugin_dir.is_dir() or not manifest_path.is_file():
-            continue
-        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-        relative_text = str(((manifest.get("resources") or {}).get("scanned_statement_profile")) or "").strip()
-        relative_path = PurePosixPath(relative_text)
-        if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
-            continue
-        resource_path = plugin_dir.joinpath(*relative_path.parts)
-        if resource_path.is_file():
-            payload = yaml.safe_load(resource_path.read_text(encoding="utf-8")) or {}
-            if isinstance(payload.get("profile"), dict):
-                return dict(payload["profile"])
+    """Load the Core-owned scanned statement extraction profile."""
+    from docmirror.configs.domain.registry import iter_canonical_domain_resources
+
+    resources = iter_canonical_domain_resources("scanned_statement_profile")
+    if resources:
+        payload = yaml.safe_load(resources[0][1]) or {}
+        if isinstance(payload.get("profile"), dict):
+            return dict(payload["profile"])
     return {}
 
 

@@ -5,21 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Plugin manager — registry-driven enable/disable lifecycle for domain plugins.
+Plugin manager — registry-driven lifecycle for post-seal projector plugins.
 
 Exposes CLI-friendly list/status/enable/disable operations over domains registered
-in ``registry``. Enable flags persist in ``.plugin_state.json`` beside this package
-(via ``state``); disabled domains are skipped by ``community`` discovery and
-``runner`` extract.
+in ``registry``. Enable flags persist in ``.plugin_state.json`` beside this
+package and affect projections only.
 
-Pipeline role: administrative layer only — does not run extract. ``list_community``
-covers the six premium plus generic fallback; ``list_all`` includes enterprise/finance
-plugins when those packages are installed.
+Pipeline role: administrative layer only — it is unreachable from canonical
+parse execution.
 
 Key exports: ``PluginManager``, ``plugin_manager``.
 
-Dependencies: ``community.list_community_plugin_domains``, ``state`` (persistence),
-``registry`` (domain metadata and edition list).
+Dependencies: ``state`` (persistence), ``registry`` (projector metadata).
 """
 
 from __future__ import annotations
@@ -27,7 +24,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from docmirror.plugins._runtime.community import list_community_plugin_domains
 from docmirror.plugins._runtime.state import is_domain_enabled, set_domain_enabled
 
 logger = logging.getLogger(__name__)
@@ -36,12 +32,8 @@ logger = logging.getLogger(__name__)
 class PluginManager:
     """Manage enable/disable flags for plugins registered in ``registry``."""
 
-    def list_community(self) -> list[dict[str, Any]]:
-        """List community 6 premium + 1 generic plugins."""
-        return self._build_rows(domain_names=list_community_plugin_domains())
-
     def list_all(self) -> list[dict[str, Any]]:
-        """List every domain registered in ``registry`` (includes enterprise/finance)."""
+        """List every domain with an installed post-seal projector."""
         from docmirror.plugins._runtime import registry
 
         registry._ensure_discovered()
@@ -72,15 +64,20 @@ class PluginManager:
         if not editions:
             return None
 
-        plugin = registry.get(domain_name, "community") or registry.get_first(domain_name)
+        projectors = [
+            projector
+            for projector in registry.list_projectors()
+            if str(getattr(projector, "domain_name", "")) == domain_name
+        ]
+        plugin = projectors[0] if projectors else None
         if plugin is None:
             return None
 
         return {
             "name": domain_name,
-            "display_name": plugin.display_name,
+            "display_name": str(getattr(plugin, "display_name", domain_name)),
             "enabled": is_domain_enabled(domain_name),
-            "type": "builtin",
+            "type": "post-seal",
             "editions": sorted(editions),
             "version": "unknown",
         }

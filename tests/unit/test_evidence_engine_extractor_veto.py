@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from docmirror.layout.scene.evidence_engine import Evidence, EvidenceEngine
-from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
+from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ProvenanceInfo
 
 
 def test_extractor_hint_shields_bank_statement_from_keyword_veto():
@@ -42,8 +42,8 @@ def test_extractor_hint_shields_bank_statement_from_keyword_veto():
     assert classified.entities.document_type == "bank_statement"
 
 
-def test_plugin_document_type_falls_back_to_extractor_hint():
-    from docmirror.plugins._runtime.runner import _plugin_document_type
+def test_canonical_document_type_falls_back_to_extractor_hint():
+    from docmirror.framework.middlewares.extraction.community_fact_recognizer import _canonical_document_type
 
     result = ParseResult(
         entities=DocumentEntities(document_type="generic"),
@@ -52,7 +52,7 @@ def test_plugin_document_type_falls_back_to_extractor_hint():
         "extractor_scene_hint": "bank_statement",
         "extractor_scene_confidence": 0.87,
     }
-    assert _plugin_document_type(result, "generic") == "bank_statement"
+    assert _canonical_document_type(result, "generic") == "bank_statement"
 
 
 def test_filename_evidence_boosts_bank_statement():
@@ -60,10 +60,8 @@ def test_filename_evidence_boosts_bank_statement():
     result = ParseResult(
         full_text="sample",
         entities=DocumentEntities(document_type="unknown"),
+        provenance=ProvenanceInfo(file_path="/tmp/ZHAO YA_银行流水_20251104.pdf"),
     )
-    result.entities.domain_specific = {
-        "source_file_name": "ZHAO YA_银行流水_20251104.pdf",
-    }
     evidence = engine._filename_evidence(result)
     assert evidence and evidence[0].category == "bank_statement"
     protected = engine._protected_extractor_categories(result)

@@ -20,20 +20,16 @@ def _mirror(document_type: str, domain_specific: dict | None = None) -> ParseRes
 
 def test_generic_plugin_domain_name():
     assert plugin.domain_name == "generic"
-    assert plugin.edition == "community"
+    assert callable(plugin.recognize_facts)
 
 
-def test_id_card_classified_produces_generic_output():
-    out = plugin.recognize(
+def test_id_card_classified_produces_generic_facts():
+    patch = plugin.recognize_facts(
         _mirror("id_card", {"name": "张三", "id_number": "110101199001011234"})
     )
-    assert out["schema_version"] == "2.0"
-    assert out["plugin"]["name"] == "generic"
-    assert out["plugin"]["support_level"] == "generic"
-    assert out["classification"]["matched_document_type"] == "id_card"
-    assert out["document"]["document_type"] == "id_card"
-    assert out["data"]["fields"]["name"] == "张三"
-    assert "community_generic_fallback" in out["status"]["warnings"]
+    assert patch.capability_id == "generic"
+    assert patch.document_type == "id_card"
+    assert patch.domain_facts["name"] == "张三"
 
 
 def test_generic_output_collects_key_values():
@@ -42,14 +38,14 @@ def test_generic_output_collects_key_values():
     page = type("Page", (), {"key_values": [kv], "tables": [], "texts": [], "page_number": 1, "width": 800, "height": 1000})()
     pr.pages = [page]
 
-    out = plugin.recognize(pr)
-    assert out["data"]["fields"]["姓名"] == "李四"
+    patch = plugin.recognize_facts(pr)
+    assert patch.domain_facts["姓名"] == "李四"
 
 
 def test_generic_projection_does_not_mutate_parse_result():
     pr = _mirror("expense_report", {"报销单号": "BX-001", "金额": "1,000.00"})
     before = pr.model_dump(mode="python")
 
-    plugin.recognize(pr, "部门：销售部")
+    plugin.recognize_facts(pr, "部门：销售部")
 
     assert pr.model_dump(mode="python") == before

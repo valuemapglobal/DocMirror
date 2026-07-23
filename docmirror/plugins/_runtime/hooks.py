@@ -49,89 +49,11 @@ PROJECT_NAME = "docmirror"
 
 
 @hookspec
-def docmirror_plugin_manifest() -> dict[str, Any]:
-    """Return plugin metadata.
-
-    Returns:
-        A dict with keys: ``name``, ``version``, ``domain``,
-        ``display_name``, ``edition``, ``author``, ``description``,
-        ``supported_types``.
-        Return {} or None to indicate the plugin is not ready.
-    """
-
-
-@hookspec
 def docmirror_plugin_provider() -> Any:
     """Return a :class:`docmirror.plugin_api.PluginProvider` runtime manifest.
 
-    This is the only third-party execution registration hook. Other pluggy
-    hooks are compatibility metadata/explicit-export hooks and do not form a
-    second fact or projection pipeline.
-    """
-
-
-@hookspec
-def docmirror_augment_dmir(
-    dmir: dict[str, Any],
-    document_type: str,
-) -> dict[str, Any] | None:
-    """Augment DMIR with domain-specific data.
-
-    Called after the initial DMIR is serialized from ParseResult.
-    Plugins can add domain-specific fields, quality adjustments,
-    or enrichment data.
-
-    Args:
-        dmir: The DMIR dict (to be mutated in-place or returned modified).
-        document_type: The classified document type (e.g. "bank_statement").
-
-    Returns:
-        Augmented DMIR dict, or None to skip.
-    """
-
-
-@hookspec
-def docmirror_classify_document(
-    metadata: dict[str, Any],
-    text_sample: str,
-) -> str | None:
-    """Classify a document type from metadata and text sample.
-
-    Args:
-        metadata: Document-level metadata (organization, subject, filename).
-        text_sample: First 500 chars of the full text for classification.
-
-    Returns:
-        A document type string (e.g. "bank_statement"), or None to skip.
-    """
-
-
-@hookspec
-def docmirror_validate_result(
-    dmir: dict[str, Any],
-) -> list[dict[str, Any]]:
-    """Validate a parse result and return warnings.
-
-    Args:
-        dmir: The DMIR dict.
-
-    Returns:
-        List of warning dicts with ``field``, ``message``, ``severity`` keys,
-        or empty list if validation passes.
-    """
-
-
-@hookspec(firstresult=True)
-def docmirror_get_quality_gates(
-    document_type: str,
-) -> dict[str, float] | None:
-    """Return quality gate thresholds for a document type.
-
-    Args:
-        document_type: The classified document type.
-
-    Returns:
-        Dict with metric->threshold mappings, or None to use defaults.
+    This is the only third-party registration hook. Pluggy is discovery
+    transport; execution is owned exclusively by post-seal projectors.
     """
 
 
@@ -139,10 +61,5 @@ __all__ = [
     "hookspec",
     "hookimpl",
     "PROJECT_NAME",
-    "docmirror_plugin_manifest",
     "docmirror_plugin_provider",
-    "docmirror_augment_dmir",
-    "docmirror_classify_document",
-    "docmirror_validate_result",
-    "docmirror_get_quality_gates",
 ]

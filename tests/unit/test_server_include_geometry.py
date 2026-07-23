@@ -6,10 +6,11 @@ from __future__ import annotations
 import json
 
 from docmirror.models.entities.parse_result import CellValue, PageContent, ParseResult, TableBlock, TableRow
-from docmirror.server.output_builder import build_api_response
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 
 
-def test_build_api_response_uses_fixed_standard_mirror_contract():
+def test_mirror_projector_uses_fixed_canonical_contract():
     result = ParseResult(
         pages=[
             PageContent(
@@ -37,7 +38,7 @@ def test_build_api_response_uses_fixed_standard_mirror_contract():
         ]
     )
 
-    standard = build_api_response(result)
+    standard = project_mirror(seal_parse_result(result), mirror_level="standard")
 
     assert "code" not in standard
     assert "message" not in standard
@@ -47,7 +48,7 @@ def test_build_api_response_uses_fixed_standard_mirror_contract():
     assert "request_id" not in standard
     assert "timestamp" not in standard
     assert standard["mirror"]["schema"] == "docmirror.mirror_json"
-    assert standard["source"]["provenance"]["output_ids"]["request_id"]
+    assert standard["source"]["provenance"]["page_count"] == 1
     assert standard["mirror"]["profile"] == "canonical_full"
     serialized = json.dumps(standard)
     assert '"dmir"' not in serialized

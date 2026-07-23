@@ -13,9 +13,6 @@ from docmirror.configs.middleware.catalog import validate_catalog
 
 def main() -> int:
     errors = validate_catalog()
-    from docmirror.plugins._runtime.post_extract.catalog import validate_post_extract_catalog
-
-    errors.extend(validate_post_extract_catalog())
     if errors:
         print("MEP catalog validation FAILED:", file=sys.stderr)
         for err in errors:

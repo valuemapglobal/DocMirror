@@ -9,9 +9,11 @@ from pathlib import Path
 
 import pytest
 
+from docmirror.framework.middlewares.extraction.community_fact_recognizer import run_canonical_enrichment
+from docmirror.input.canonical.fact_patch import apply_canonical_patch
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.server.output_builder import build_community_output
-from tests.contract.test_edition_schema_conformance import check_community
+from docmirror.models.sealed import seal_parse_result
+from docmirror.server.output_builder import build_community_projection
 
 pytestmark = [
     pytest.mark.integration,
@@ -101,15 +103,17 @@ def test_generic_public_text_sample_precision(document_type: str):
         entities=DocumentEntities(document_type=document_type),
     )
 
-    output = build_community_output(
-        result,
-        full_text,
-        file_path=str(fixture),
-    )
+    patch = run_canonical_enrichment(result, full_text=full_text)
+    result = apply_canonical_patch(result, patch)
+    output = build_community_projection(seal_parse_result(result), file_path=str(fixture))
 
     assert output is not None
-    assert output["plugin"]["name"] == "generic"
-    assert output["classification"]["matched_document_type"] == document_type
-    assert output["data"]["fields"] == EXPECTED_FIELDS[document_type]
-    assert output["schema_version"] == "2.2"
-    assert not check_community(output)
+    facts = result.entities.domain_specific
+    for key, expected in EXPECTED_FIELDS[document_type].items():
+        if isinstance(expected, float):
+            normalized = facts["normalized_fields"][key]
+            assert normalized["value"] == expected
+        else:
+            assert facts[key] == expected
+    assert output["document"]["type"] == document_type
+    assert output["schema"]["version"] == "3.0.0"

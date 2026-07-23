@@ -11,8 +11,8 @@ Premium community plugin for Alipay transaction proof PDFs. Extends ``BaseTableP
 with Alipay column registry, header marker heuristics, default column ordering for
 headerless tables, and normalized field alignment with finance edition plugins.
 
-Pipeline role: discovered as ``alipay_payment`` premium plugin; ``runner`` calls
-``recognize`` after canonical classification.
+Pipeline role: discovered as an ``alipay_payment`` recognizer; the canonical
+runner calls ``recognize_facts`` after classification.
 
 Archetype: ``table_document``; domain: ``cashflow_payment``; support level: L2.
 
@@ -31,7 +31,6 @@ from typing import Any
 
 from docmirror.plugins._base.base_table_parser import BaseTableParser
 from docmirror.plugins._base.column_registry import ColumnMapping, ColumnMatcher
-from docmirror.plugins._base.standardizer import normalize_amount
 
 logger = logging.getLogger(__name__)
 
@@ -465,36 +464,6 @@ class AlipayPaymentPlugin(BaseTableParser):
             normalized["amount"] = abs(amount)
             normalized["amount_cny"] = abs(amount)
         return normalized
-
-    def build_domain_data(self, metadata, entities):
-        """Lightweight KV projection used when evidence-based extraction is unavailable."""
-        from docmirror.plugins._base.dec_builder import build_dec_kv
-
-        transactions = entities.get("transactions", metadata.get("transactions", []))
-        total_income = 0.0
-        total_expense = 0.0
-        total_transactions = len(transactions) if isinstance(transactions, list) else 0
-
-        if isinstance(transactions, list):
-            for txn in transactions:
-                direction = txn.get("收/支", "")
-                amount_str = txn.get("金额", "0")
-                amt = normalize_amount(amount_str) or 0.0
-                if direction == "收入":
-                    total_income += amt
-                elif direction == "支出":
-                    total_expense += amt
-
-        return build_dec_kv(
-            "alipay_payment",
-            {
-                "account_holder": str(entities.get("account_holder", metadata.get("Account holder", ""))),
-                "account_number": str(entities.get("account_number", metadata.get("Account number", ""))),
-                "total_transactions": total_transactions,
-                "total_income": total_income,
-                "total_expense": total_expense,
-            },
-        )
 
 
 plugin = AlipayPaymentPlugin()

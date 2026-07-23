@@ -3,7 +3,6 @@ schema_version: 1
 provider:
   id: business_license
   domain_name: business_license
-  edition: community
   version: community-1
   implementation: docmirror.plugins.business_license.community_plugin:plugin
 
@@ -24,7 +23,6 @@ resources:
   scene_keywords: resources/scene_keywords.yaml
   domain_contract: resources/domain_contract.yaml
   ocr_corrections: resources/ocr_corrections.yaml
-  post_extract: resources/post_extract.yaml
 
 fact_outputs:
   document_type: business_license

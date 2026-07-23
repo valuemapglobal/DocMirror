@@ -10,7 +10,6 @@ from docmirror.plugins._base.mirror_source_refs import (
     compact_source_ref_metadata,
     embed_full_source_refs,
 )
-from docmirror.server.output_builder import _enrich_edition_metadata
 
 
 def test_embed_full_source_refs_only_for_ga_profiles():
@@ -49,52 +48,3 @@ def test_compact_projection_lineage_source_refs():
     assert "source_fact_ids" not in el
     assert el["source_fact_id_count"] == 1
     assert el["source_facts_ref"] == "001_mirror.json"
-
-
-def test_enrich_edition_metadata_compacts_by_default():
-    output = {
-        "edition": "community",
-        "plugin": {"name": "bank_statement"},
-        "data": {"fields": {}, "records": []},
-        "metadata": {},
-    }
-
-    class _Page:
-        tables = []
-
-    class _Result:
-        pages = [_Page()]
-
-    _enrich_edition_metadata(output, _Result(), "community", evidence_depth="standard")
-
-    meta = output["metadata"]
-    assert "source_fact_ids" not in meta or meta.get("source_fact_id_count") is not None
-    if "source_fact_id_count" in meta:
-        assert "source_fact_ids" not in meta
-        assert meta["source_facts_ref"] == "001_mirror.json"
-    el = output["projection_lineage"]["edition_lineage"]
-    assert "source_fact_ids" not in el or "source_fact_id_count" in el
-
-
-def test_enrich_edition_metadata_keeps_full_lists_for_ga_full():
-    output = {
-        "edition": "community",
-        "plugin": {"name": "generic"},
-        "data": {"fields": {"x": "1"}, "records": []},
-        "metadata": {},
-    }
-
-    class _Page:
-        page_number = 1
-        texts = []
-        tables = []
-
-    class _Result:
-        pages = [_Page()]
-
-    _enrich_edition_metadata(output, _Result(), "community", evidence_depth="full")
-
-    meta = output["metadata"]
-    assert isinstance(meta.get("source_fact_ids"), list)
-    assert meta["source_fact_ids"]
-    assert isinstance(meta.get("evidence_ids"), list)

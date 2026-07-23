@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import inspect
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
+from docmirror.models.sealed import seal_parse_result
 from docmirror.plugins._runtime.composition import CompositionReason
-from docmirror.plugins._runtime.post_extract.runner import run_post_extract_hooks
 from docmirror.server.output_builder import build_all_projections
 
 _REMOVED_DELIVERY_PARAMETERS = {
@@ -33,11 +33,9 @@ def test_delivery_functions_have_no_output_selection_parameters():
     from docmirror.__main__ import parse_document
     from docmirror.sdk.client import AsyncDocMirrorClient, DocMirrorClient
     from docmirror.server.edition_outputs import write_outputs
-    from docmirror.server.output_builder import build_api_response
 
     functions = (
         build_all_projections,
-        build_api_response,
         write_outputs,
         parse_document,
         DocMirrorClient.parse,
@@ -62,51 +60,22 @@ def test_mirror_snapshot_before_editions():
         side_effect=lambda *_a, **_kw: order.append("mirror") or {"mirror": {}},
     ):
 
-        def _recognize(target, **_kwargs):
-            order.append("community")
-            return {"edition": "community"}
-
-        with patch("docmirror.plugins._runtime.runner.run_plugin_extract_sync", side_effect=_recognize):
-            with patch("docmirror.server.output_builder.build_extended_output", side_effect=_extended):
-                build_all_projections(result)
+        with patch("docmirror.server.output_builder.build_extended_output", side_effect=_extended):
+            build_all_projections(seal_parse_result(result))
 
     assert order[0] == "mirror"
-    assert "community" not in order
     assert set(order[1:]) == {"enterprise", "finance"}
-
-
-def test_post_extract_does_not_require_mirror_mutation():
-    result = ParseResult(status=ResultStatus.SUCCESS)
-    extracted = {"edition": "community", "data": {}}
-    before_pages = len(result.pages)
-
-    hook = MagicMock()
-    hook.apply = MagicMock()
-
-    with patch(
-        "docmirror.plugins._runtime.post_extract.runner.resolve_post_extract_hooks",
-        return_value=[],
-    ):
-        run_post_extract_hooks(
-            result,
-            extracted=extracted,
-            edition="community",
-            document_type="bank_statement",
-        )
-
-    assert len(result.pages) == before_pages
 
 
 def test_extended_projection_has_composition_reason():
     result = ParseResult(status=ResultStatus.SUCCESS)
     result.entities = DocumentEntities(document_type="business_license")
 
-    with patch("docmirror.server.output_builder.build_community_output", return_value={"edition": "community"}):
-        with patch(
-            "docmirror.server.output_builder.build_extended_output",
-            return_value={"edition": "enterprise", "metadata": {}, "status": {"warnings": []}},
-        ):
-            outputs = build_all_projections(result)
+    with patch(
+        "docmirror.server.output_builder.build_extended_output",
+        return_value={"edition": "enterprise", "metadata": {}, "status": {"warnings": []}},
+    ):
+        outputs = build_all_projections(seal_parse_result(result))
 
     assert outputs["enterprise"] is not None
     assert outputs["enterprise"]["composition"]["reason"] == CompositionReason.INDEPENDENT_EXTRACT.value
@@ -200,15 +169,16 @@ def test_projection_path_cannot_run_fact_recognition_or_attach_mirror_cache():
     method = inspect.getsource(build_all_projections)
     assert "run_plugin_extract_sync" not in method
     assert "_runtime_mirror_cache" not in source
-    assert "seal_parse_result" in method
+    assert "expects SealedParseResult" in method
+    assert "seal_parse_result" not in method
     assert "sealed.to_read_view()" in method
     assert "sealed.verify_integrity()" in method
     assert "serialize_dmir" not in source
     assert "available_editions" not in source
 
 
-def test_projection_builder_accepts_parse_result_only():
-    with pytest.raises(TypeError, match="expects ParseResult"):
+def test_projection_builder_accepts_sealed_parse_result_only():
+    with pytest.raises(TypeError, match="expects SealedParseResult"):
         build_all_projections({"mirror": {"schema": "docmirror.mirror_json"}})
 
 

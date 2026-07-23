@@ -6,26 +6,22 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 from pathlib import Path
 
 import pytest
 
+from docmirror.configs.domain.registry import get_canonical_premium_domains
+from docmirror.framework.middlewares.extraction.community_fact_recognizer import run_canonical_enrichment
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.plugins._runtime.community import (
-    community_plugin_module,
-    find_premium_community_plugin,
-    get_community_premium_domains,
-)
-from docmirror.plugins._runtime.runner import run_plugin_extract_sync
-from docmirror.server.output_builder import build_community_output
-from tests._community_reading import assert_community_reading_view
-from tests.contract.test_edition_schema_conformance import check_community
+from docmirror.models.schemas.registry import validate_projection_payload
+from docmirror.server.output_builder import build_community_projection
 
 pytestmark = [pytest.mark.integration]
 
-PREMIUM_DOMAINS = get_community_premium_domains()
+PREMIUM_DOMAINS = get_canonical_premium_domains()
 
 FIXTURE_BY_DOMAIN: dict[str, Path] = {
     "bank_statement": Path("tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf"),
@@ -44,37 +40,25 @@ def _mirror(document_type: str) -> ParseResult:
 
 
 @pytest.mark.parametrize("domain", PREMIUM_DOMAINS)
-def test_premium_plugin_registered(domain: str):
-    plugin, modname = find_premium_community_plugin(domain)
-    assert plugin is not None, domain
-    assert modname == community_plugin_module(domain)
-    assert plugin.domain_name == domain
+def test_premium_capability_is_core_owned(domain: str):
+    capability = importlib.import_module(f"docmirror.plugins.{domain}.community_plugin").plugin
+    assert capability.domain_name == domain
 
 
 @pytest.mark.parametrize("domain", PREMIUM_DOMAINS)
-def test_premium_community_extract_plugin_name(domain: str):
-    out = run_plugin_extract_sync(_mirror(domain), edition="community")
-    if out is None:
-        pytest.skip(f"no community output for {domain} on minimal mirror")
-    if domain in ("alipay_payment", "wechat_payment", "bank_statement"):
-        pytest.skip(f"{domain} requires mirror tables for minimal extract")
-    assert out["plugin"]["name"] == domain
-    assert out["classification"]["matched_document_type"] == domain
-    errors = check_community(out)
-    assert not errors, errors
-    assert_community_reading_view(out["data"])
+def test_premium_recognizer_returns_fact_patch(domain: str):
+    patch = run_canonical_enrichment(_mirror(domain))
+
+    assert patch.capability_id == domain
+    assert patch.document_type in {None, domain}
 
 
 def test_unknown_domain_uses_generic_plugin():
     mirror = _mirror("id_card")
-    out = run_plugin_extract_sync(mirror, edition="community", full_text="")
-    assert out is not None
-    assert out["plugin"]["name"] == "generic"
-    assert out["classification"]["matched_document_type"] == "id_card"
-    assert "community_generic_fallback" in out["status"]["warnings"]
-    errors = check_community(out)
-    assert not errors, errors
-    assert_community_reading_view(out["data"])
+    patch = run_canonical_enrichment(mirror, full_text="")
+
+    assert patch.capability_id == "generic"
+    assert "community_generic_fallback" in patch.warnings
 
 
 @pytest.mark.parametrize("domain,fixture", FIXTURE_BY_DOMAIN.items())
@@ -86,17 +70,14 @@ def test_public_fixture_can_be_perceived(domain: str, fixture: Path):
             PerceiveOptions(policy=normalize_parse_policy(enhance_mode="standard", max_pages=3)),
         )
     )
-    assert result.pages, domain
-    assert result.full_text or result.total_tables >= 0
-    output = build_community_output(
+    view = result.to_read_view()
+    assert view.pages, domain
+    assert view.full_text or view.total_tables >= 0
+    output = build_community_projection(
         result,
-        result.full_text or "",
         file_path=str(fixture),
     )
     assert output is not None, domain
-    assert output["business"]["summary"], domain
-    assert output["quality"]["readiness"] in {"ready", "review"}, domain
-    data = output["data"]
-    assert data["fields"] or data["records"] or data["sections"], domain
-    assert_community_reading_view(data)
-    assert not check_community(output), domain
+    assert set(output) == {"schema", "document", "sections", "datasets", "files", "warnings"}
+    assert output["sections"], domain
+    assert validate_projection_payload("community", output).valid, domain

@@ -2,27 +2,31 @@
 
 from __future__ import annotations
 
-from docmirror.plugin_api import FactPatch, PluginProvider, hookimpl
+from docmirror.plugin_api import PluginProvider, hookimpl
 
 
-class ReferenceRecognizer:
-    provider_id = "reference-provider"
+class ReferenceProjector:
     domain_name = "reference_document"
+    edition = "enterprise"
 
-    def recognize_facts(self, result, text: str = "") -> FactPatch:
-        return FactPatch(
-            provider_id=self.provider_id,
-            document_type=self.domain_name,
-            domain_facts={"reference_word_count": len((text or result.full_text).split())},
-            reason="reference external recognizer",
-        )
+    def project(self, result):
+        view = result.to_read_view()
+        reference_word_count = len((view.full_text or view.raw_text).split())
+        return {
+            "edition": self.edition,
+            "document": {"document_type": view.entities.document_type},
+            "data": {"reference_word_count": reference_word_count},
+            "sealed_fact_fingerprint": result.fact_fingerprint(),
+        }
 
 
 @hookimpl
 def docmirror_plugin_provider() -> PluginProvider:
     return PluginProvider(
         provider_id="reference-provider",
-        version="0.1.0",
-        api_version="1",
-        recognizers=(ReferenceRecognizer(),),
+        version="2.0.0",
+        api_version="2",
+        projectors=(ReferenceProjector(),),
+        resource_package="docmirror_reference_provider",
+        resources={"output_template": "resources/classification.yaml"},
     )

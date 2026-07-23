@@ -29,18 +29,6 @@ logger = logging.getLogger(__name__)
 PROJECTOR_TIMEOUT_SECONDS = max(0.01, float(os.getenv("DOCMIRROR_PROJECTOR_TIMEOUT_S", "300")))
 
 
-def _projection_read_view(result):
-    """Return an isolated ParseResult view for exactly one projector."""
-    from docmirror.models.entities.parse_result import ParseResult
-    from docmirror.models.sealed import SealedParseResult, seal_parse_result
-
-    if isinstance(result, SealedParseResult):
-        return result.to_read_view()
-    if isinstance(result, ParseResult):
-        return seal_parse_result(result).to_read_view()
-    raise TypeError(f"projection expects ParseResult or SealedParseResult; got {type(result).__name__}")
-
-
 def build_community_projection(
     result,
     full_text: str = "",
@@ -52,11 +40,13 @@ def build_community_projection(
 ) -> dict | None:
     """Build the public six-block Community Bundle v3 JSON projection."""
     from docmirror.models.schemas.registry import validate_projection_payload
-    from docmirror.models.sealed import seal_parse_result
+    from docmirror.models.sealed import SealedParseResult
     from docmirror.output.community_bundle import project_community_bundle
 
+    if not isinstance(result, SealedParseResult):
+        raise TypeError(f"build_community_projection expects SealedParseResult; got {type(result).__name__}")
     bundle = project_community_bundle(
-        seal_parse_result(result),
+        result,
         file_path=file_path,
         file_id=file_id,
         document_id=document_id,
@@ -70,42 +60,6 @@ def build_community_projection(
     if conservation_issues:
         raise RuntimeError("Community dataset conservation failed: " + "; ".join(conservation_issues))
     return payload
-
-
-def build_community_output(
-    result,
-    full_text: str = "",
-    *,
-    file_path: str = "",
-    on_progress: Callable[[str, float, str], None] | None = None,
-) -> dict | None:
-    """Return the deprecated legacy plugin envelope for compatibility callers.
-
-    No production delivery path calls this function. Community persistence
-    projects directly from the sealed ParseResult. This symbol remains until
-    the registered DocMirror 2.0 compatibility review.
-    """
-    from docmirror.plugins._runtime.runner import run_plugin_extract_sync
-
-    projection_input = _projection_read_view(result)
-    output = run_plugin_extract_sync(
-        projection_input,
-        edition="community",
-        full_text=full_text,
-        file_path=file_path,
-        on_progress=on_progress,
-    )
-    if output is not None:
-        if "composition" not in output:
-            from docmirror.plugins._runtime.composition import CompositionReason, annotate_composition
-
-            annotate_composition(
-                output,
-                edition="community",
-                reason=CompositionReason.INDEPENDENT_EXTRACT,
-            )
-        _enrich_edition_metadata(output, projection_input, "community", evidence_depth="standard")
-    return output
 
 
 def _patch_edition_compliance(output: dict, edition: str, detected_type: str) -> None:
@@ -182,25 +136,34 @@ def build_extended_output(
     *,
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict | None:
-    """Build an extended edition directly from ParseResult."""
-    from docmirror.models.sealed import seal_parse_result
+    """Build one post-seal edition projection."""
+    from docmirror.models.sealed import SealedParseResult
     from docmirror.plugins._runtime.plugin_registry import registry
-    from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
-    sealed = seal_parse_result(result)
-    detected_type = str(getattr(sealed.entities, "document_type", "") or "")
-    projector = registry.get_projector(detected_type, edition)
-    if projector is not None:
-        extracted = projector.project(sealed)
-        if extracted is not None and not isinstance(extracted, dict):
-            raise TypeError(f"{detected_type}:{edition} projector must return dict or None")
-    else:
-        projection_input = sealed.to_read_view()
-        extracted = run_plugin_extract_sync(
-            projection_input,
-            edition=edition,  # type: ignore[arg-type]
-            on_progress=on_progress,
-        )
+    if not isinstance(result, SealedParseResult):
+        raise TypeError(f"build_extended_output expects SealedParseResult; got {type(result).__name__}")
+    sealed = result
+    if not sealed.verify_integrity():
+        raise RuntimeError("Projector boundary violation: invalid sealed snapshot")
+    read_view = sealed.to_read_view()
+    detected_type = str(read_view.entities.document_type or "")
+    projector = registry.get_projector(
+        detected_type,
+        edition,
+        sealed_schema=sealed.schema_version,
+    )
+    if projector is None:
+        return None
+    if getattr(projector, "requires_license", False):
+        from docmirror.plugins._runtime.licensing.entitlements import is_entitled
+
+        if not is_entitled(detected_type):
+            return None
+    extracted = projector.project(sealed)
+    if not sealed.verify_integrity():
+        raise RuntimeError("Projector boundary violation: sealed snapshot changed")
+    if extracted is not None and not isinstance(extracted, dict):
+        raise TypeError(f"{detected_type}:{edition} projector must return dict or None")
     if extracted and isinstance(extracted, dict):
         from docmirror.plugins._runtime.composition import CompositionReason, annotate_composition
 
@@ -214,12 +177,34 @@ def build_extended_output(
                 )
         except Exception as exc:
             logger.warning(
-                "[Projections] %s post-extract patch/composition failed: %s",
+                "[Projections] %s compliance/composition failed: %s",
                 edition,
                 exc,
             )
-            extracted.setdefault("status", {}).setdefault("warnings", []).append(f"post_extract_patch_failed:{exc}")
+            extracted.setdefault("status", {}).setdefault("warnings", []).append(f"projection_compliance_failed:{exc}")
     return extracted
+
+
+def _projector_unavailability_reason(
+    document_type: str,
+    edition: str,
+    sealed_schema: str,
+) -> str:
+    from docmirror.plugins._runtime.plugin_registry import registry
+
+    projector = registry.get_projector(
+        document_type,
+        edition,
+        sealed_schema=sealed_schema,
+    )
+    if projector is None:
+        return "package_not_installed" if not registry.list_projectors(edition) else "document_type_unsupported"
+    if getattr(projector, "requires_license", False):
+        from docmirror.plugins._runtime.licensing.entitlements import is_entitled
+
+        if not is_entitled(document_type):
+            return "license_not_entitled"
+    return "projector_failed"
 
 
 def build_all_projections(
@@ -238,12 +223,11 @@ def build_all_projections(
     sealed snapshot. No projector receives the mutable canonical instance and
     no edition reads another edition's output.
     """
-    from docmirror.models.entities.parse_result import ParseResult
-    from docmirror.models.sealed import SealedParseResult, seal_parse_result
+    from docmirror.models.sealed import SealedParseResult
 
-    if not isinstance(result, (ParseResult, SealedParseResult)):
-        raise TypeError(f"build_all_projections expects ParseResult or SealedParseResult; got {type(result).__name__}")
-    sealed = seal_parse_result(result)
+    if not isinstance(result, SealedParseResult):
+        raise TypeError(f"build_all_projections expects SealedParseResult; got {type(result).__name__}")
+    sealed = result
     file_path = file_path or getattr(sealed, "file_path", "") or ""
 
     timings: dict[str, float] = {}
@@ -302,10 +286,10 @@ def build_all_projections(
             payload = None
             unavailable_reason = "projector_failed"
         if payload is None and unavailable_reason is None:
-            from docmirror.plugins._runtime.runner import explain_edition_unavailability
-
-            unavailable_reason = explain_edition_unavailability(  # type: ignore[arg-type]
-                sealed.to_read_view(), edition_name
+            unavailable_reason = _projector_unavailability_reason(
+                str(sealed.to_read_view().entities.document_type or ""),
+                edition_name,
+                sealed.schema_version,
             )
         if payload is not None and "composition" not in payload:
             from docmirror.plugins._runtime.composition import CompositionReason, annotate_composition
@@ -407,177 +391,3 @@ def build_all_projections(
         },
     )
     return outputs
-
-
-def _attach_vnext_delivery_context(
-    mirror: dict[str, Any],
-    *,
-    document_id: str,
-    task_id: str,
-    file_id: str,
-    request_id: str,
-) -> None:
-    if (mirror.get("mirror") or {}).get("schema") != "docmirror.mirror_json":
-        mirror["document_id"] = document_id
-        mirror.setdefault("metadata", {})
-        mirror["metadata"]["task_id"] = task_id
-        mirror["metadata"]["file_id"] = file_id
-        mirror.setdefault("request_id", request_id)
-        mirror.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
-        return
-
-    mirror.setdefault("document", {})["document_id"] = document_id
-    provenance = mirror.setdefault("source", {}).setdefault("provenance", {})
-    provenance["output_ids"] = {
-        "task_id": task_id,
-        "file_id": file_id,
-        "request_id": request_id,
-    }
-    mirror.setdefault("diagnostics", {}).setdefault("pipeline", []).append(
-        {
-            "stage": "api_response_packaging",
-            "status": "ok",
-            "task_id": task_id,
-            "file_id": file_id,
-            "request_id": request_id,
-        }
-    )
-
-
-def build_api_response(
-    result,
-    task_id: str = "",
-    file_id: str = "001",
-    file_path: str = "",
-    on_progress: Callable[[str, float, str], None] | None = None,
-) -> dict:
-    """Build the legacy internal Mirror diagnostic payload.
-
-    Public REST, SDK, and MCP adapters must return ``TaskResult`` instead.
-    This serializer remains for internal compatibility and Mirror contract
-    validation; it is not wired to an HTTP route.
-
-    Args:
-        result: ParseResult from perceive_document
-        task_id: Task identifier (e.g. "20260613_084225_07e4"). Auto-generated if empty.
-        file_id: File sequence number within task (default "001")
-
-    Returns:
-        vNext Mirror diagnostic dict.
-    """
-    import uuid as _uuid
-
-    # Generate task_id if not provided
-    if not task_id:
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        short_id = _uuid.uuid4().hex[:4]
-        task_id = f"{ts}_{short_id}"
-
-    document_id = f"doc_{task_id}_{file_id}"
-
-    request_id = str(_uuid.uuid4())
-    projections = build_all_projections(
-        result,
-        file_path=file_path,
-        on_progress=on_progress,
-    )
-    mirror = projections["mirror"]
-
-    editions_map = {}
-    for ed in ("community", "enterprise", "finance"):
-        ed_data = projections.get(ed)
-        if ed_data is not None:
-            if (ed_data.get("schema") or {}).get("name") == "docmirror.community":
-                ed_data.setdefault("document", {})["id"] = document_id
-            else:
-                ed_data.setdefault("document", {})["document_id"] = document_id
-                ed_data.setdefault("metadata", {})
-                ed_data["metadata"]["task_id"] = task_id
-                ed_data["metadata"]["file_id"] = file_id
-            editions_map[ed] = ed_data
-
-    if editions_map:
-        provenance = mirror.setdefault("source", {}).setdefault("provenance", {})
-        provenance["sidecars"] = {"editions": editions_map}
-
-    _attach_vnext_delivery_context(
-        mirror,
-        document_id=document_id,
-        task_id=task_id,
-        file_id=file_id,
-        request_id=request_id,
-    )
-
-    return mirror
-
-
-def _enrich_edition_metadata(
-    output: dict,
-    result,
-    edition: str,
-    *,
-    evidence_depth: str = "standard",
-) -> None:
-    """Enrich edition output with source-ref and evidence metadata (GA1.0 §8.3 ED-3).
-
-    Adds ``metadata.source_fact_ids`` (or compacted ``source_fact_id_count``),
-    ``metadata.evidence_ids``, ``metadata.source_facts_ref``, and
-    ``projection_lineage.edition_lineage`` to the edition output dict.
-
-    Args:
-        output: Edition output dict (mutated in-place).
-        result: ParseResult from perceive_document.
-        edition: Edition name (``"community"``, ``"enterprise"``, ``"finance"``).
-        evidence_depth: ``"standard"`` (compact lists to counts)
-            or ``"full"`` (keep full ID lists). Defaults to ``"standard"``.
-    """
-    from docmirror.plugins._base.mirror_source_refs import (
-        compact_projection_lineage_source_refs,
-        compact_source_ref_metadata,
-        compute_evidence_ids,
-        compute_source_fact_ids,
-    )
-
-    mirror_ref = "001_mirror.json"
-    meta = output.setdefault("metadata", {})
-    plugin_name = str((output.get("plugin") or {}).get("name") or "")
-    route_type = str(meta.get("community_route_type") or meta.get("community_tier") or "")
-    if route_type == "generic":
-        route_type = "generic_fallback"
-    if route_type == "premium":
-        route_type = "core_domain"
-    if not route_type:
-        if plugin_name == "generic":
-            route_type = "generic_fallback"
-        elif plugin_name:
-            route_type = "core_domain"
-        else:
-            route_type = "generic_fallback"
-    domain_status = route_type
-    if route_type == "core_domain" and plugin_name:
-        from docmirror.configs.ga_readiness import dgc_status_for_domain
-
-        domain_status = dgc_status_for_domain(plugin_name)
-    meta.setdefault("route_type", route_type)
-    meta.setdefault("domain_status", domain_status)
-    meta.setdefault("support_level", "community" if route_type == "core_domain" else route_type)
-    meta.setdefault("community_tier", route_type)
-
-    source_fact_ids = compute_source_fact_ids(result)
-    evidence_ids = compute_evidence_ids(source_fact_ids)
-
-    meta["source_fact_ids"] = source_fact_ids
-    meta["evidence_ids"] = evidence_ids
-
-    # Projection lineage includes edition, field and record granularity where
-    # plugins supplied local refs.  Build it before compacting the document-wide
-    # ID lists so field-level evidence remains independently discoverable.
-    from docmirror.output.projection.resolver import build_projection_lineage
-
-    lineage = build_projection_lineage(output)
-    lineage.setdefault("edition_lineage", {})["projection_id"] = f"proj:{edition}.edition"
-    output["projection_lineage"] = lineage
-
-    if evidence_depth != "full":
-        compact_source_ref_metadata(meta, mirror_ref=mirror_ref)
-        compact_projection_lineage_source_refs(lineage, mirror_ref=mirror_ref)

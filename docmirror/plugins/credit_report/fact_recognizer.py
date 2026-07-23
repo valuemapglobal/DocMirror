@@ -7,17 +7,21 @@ from __future__ import annotations
 
 from typing import Any
 
-from docmirror.plugin_api import FactPatch
+from docmirror.input.canonical.fact_patch import CanonicalPatch
+
+_DEFAULT_RECORD_ID_KEYS = ("record_id", "account_id", "inquiry_id", "public_record_id")
+_REPAYMENT_RECORD_ID_KEYS = ("record_id", "repayment_id")
 
 
 def _records(dataset_id: str, values: Any) -> list[dict[str, Any]]:
     """Give projected business records stable canonical record identities."""
     rows: list[dict[str, Any]] = []
+    id_keys = _REPAYMENT_RECORD_ID_KEYS if dataset_id == "repayment_records" else _DEFAULT_RECORD_ID_KEYS
     for index, value in enumerate(values or (), start=1):
         if not isinstance(value, dict):
             continue
         row = dict(value)
-        identity = row.get("record_id") or row.get("account_id") or row.get("inquiry_id") or row.get("public_record_id")
+        identity = next((row.get(key) for key in id_keys if row.get(key)), None)
         row["record_id"] = str(identity or f"{dataset_id}:r{index:06d}")
         rows.append(row)
     return rows
@@ -42,8 +46,8 @@ def _account_structure_warnings(accounts: list[dict[str, Any]]) -> tuple[str, ..
     return (f"credit:account_structure_collapse:failure_rate={failure_rate:.3f}",)
 
 
-def recognize_credit_report_facts(plugin: Any, parse_result: Any, full_text: str = "") -> FactPatch:
-    """Return identity, profile, section, and business datasets as one FactPatch."""
+def recognize_credit_report_facts(plugin: Any, parse_result: Any, full_text: str = "") -> CanonicalPatch:
+    """Return identity, profile, section, and business datasets as one CanonicalPatch."""
     from docmirror.plugins._base.kv_community_enrich import (
         _canonicalize_credit_accounts,
         _domain_specific,
@@ -167,8 +171,8 @@ def recognize_credit_report_facts(plugin: Any, parse_result: Any, full_text: str
     if domain_facts.get("id_number"):
         entity_fields["subject_id"] = domain_facts["id_number"]
     warnings = tuple(dict.fromkeys((*base.warnings, *_account_structure_warnings(credit_accounts))))
-    return FactPatch(
-        provider_id=base.provider_id,
+    return CanonicalPatch(
+        capability_id=base.capability_id,
         document_type=base.document_type,
         entity_fields=entity_fields,
         domain_facts=domain_facts,

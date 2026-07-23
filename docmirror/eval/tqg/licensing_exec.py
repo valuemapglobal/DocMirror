@@ -26,7 +26,7 @@ from docmirror.plugins._runtime.licensing.lifecycle import (
     inject_edition_lifecycle_warnings,
     resolve_entitlement_lifecycle,
 )
-from docmirror.plugins._runtime.runner import run_plugin_extract_sync
+from docmirror.server.output_builder import build_extended_output
 
 
 def _mock_license(*, features: list[str], days_until_expiry: int = 365, in_grace: bool = False, expired: bool = False):
@@ -96,8 +96,9 @@ async def execute_licensing(case: TQGCase) -> tuple[dict[str, Any], dict[str, An
                 doc_type = str(opts.get("document_type") or domain)
                 mirror = ParseResult(status=ResultStatus.SUCCESS)
                 mirror.entities = DocumentEntities(document_type=doc_type)
-                with patch("docmirror.plugins._runtime.runner._edition_package_available", return_value=True):
-                    out = run_plugin_extract_sync(mirror, edition="enterprise")
+                from docmirror.models.sealed import seal_parse_result
+
+                out = build_extended_output(seal_parse_result(mirror), "enterprise")
                 meta["projection_generated"] = out is not None
                 if out:
                     if meta["is_entitled"] and lc.state in (

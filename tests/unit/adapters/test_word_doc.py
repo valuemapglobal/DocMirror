@@ -18,7 +18,8 @@ async def test_perceive_doc_without_soffice_returns_recoverable_failure(tmp_path
     doc.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 128)
     with patch("shutil.which", return_value=None):
         result = await perceive_document(doc)
-    assert result.status.value == "failure"
-    assert result.error is not None
-    assert result.error.code == "FORMAT_REQUIRES_CONVERTER"
-    assert "LibreOffice" in result.error.message or "soffice" in result.error.message
+    view = result.to_read_view()
+    assert view.status.value == "failure"
+    assert view.error is not None
+    assert view.error.code == "FORMAT_REQUIRES_CONVERTER"
+    assert "LibreOffice" in view.error.message or "soffice" in view.error.message

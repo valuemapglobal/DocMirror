@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Plugin-supplemental local structure candidate detectors."""
+"""Core canonical local structure candidate detectors."""
 
 from __future__ import annotations
 
@@ -31,12 +31,9 @@ def _ensure_supplements_loaded() -> None:
     if _LOADED:
         return
     _LOADED = True
-    # Provider discovery imports built-in and external plugin implementations.
-    # Plugins register any evidence-only supplements through this existing
-    # extension point; Core must not import or register domain detectors.
-    from docmirror.plugins._runtime.plugin_registry import registry
-
-    registry.list_providers()
+    # This import is a fixed Core dependency. It does not perform plugin
+    # discovery and cannot be supplied or replaced by an external package.
+    from docmirror.plugins.credit_report import local_structure_supplement  # noqa: F401
 
 
 def supplement_local_structure_candidates(

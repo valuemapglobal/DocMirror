@@ -1,6 +1,6 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Contract checks for supported compatibility surfaces awaiting retirement."""
+"""The 2.0 compatibility-retirement register must describe a clean runtime."""
 
 from __future__ import annotations
 
@@ -16,46 +16,42 @@ def _load_register() -> dict:
     return yaml.safe_load(REGISTER.read_text(encoding="utf-8")) or {}
 
 
-def test_compatibility_register_has_major_release_guardrails() -> None:
+def test_runtime_has_no_compatibility_only_surface_or_module() -> None:
     register = _load_register()
 
-    assert register["version"] == 1
-    assert register["policy"]["removal_not_before"] == "2.0.0"
-    requirements = register["policy"]["required_before_removal"]
-    assert len(requirements) >= 5
-    assert any("deprecation release" in item for item in requirements)
-    assert any("major-version" in item for item in requirements)
+    assert register["version"] == 2
+    assert register["surfaces"] == []
+    assert register["compatibility_only_modules"] == []
 
 
-def test_every_compatibility_surface_has_owner_replacement_and_status() -> None:
-    surfaces = _load_register()["surfaces"]
-    symbols = [item["symbol"] for item in surfaces]
+def test_retired_surface_history_is_unique_and_actionable() -> None:
+    retired = _load_register()["retired_surfaces"]
+    symbols = [item["symbol"] for item in retired]
 
     assert len(symbols) == len(set(symbols))
     assert symbols
-    for item in surfaces:
-        assert item["owner"]
-        assert item["replacement"]
-        assert item["status"] in {"supported_compatibility", "retained_data_compatibility"}
+    assert all(item["owner"] and item["replacement"] for item in retired)
 
 
-def test_legacy_community_business_modules_are_quarantined_to_compatibility() -> None:
-    register = _load_register()
-    modules = register["compatibility_only_modules"]
+def test_retired_python_surfaces_are_not_reachable() -> None:
+    from docmirror.models.sealed import SealedParseResult
+    from docmirror.plugin_api import __all__ as plugin_api_exports
+    from docmirror.sdk.integration.request import ParseRequest
+    from docmirror.server import output_builder
 
-    assert {item["module"] for item in modules} == {
-        "docmirror.plugins._runtime.post_extract.hooks.community_business",
-        "docmirror.plugins._runtime.post_extract.hooks.community_precision",
-    }
-    assert all(item["reachable_via"].endswith("build_community_output") for item in modules)
+    assert "DomainPlugin" not in plugin_api_exports
+    assert not hasattr(output_builder, "build_community_output")
+    assert not hasattr(output_builder, "build_api_response")
+    assert not hasattr(SealedParseResult, "to_legacy_copy")
+    assert "input" not in ParseRequest.__dataclass_fields__
+    assert "sync" not in ParseRequest.__dataclass_fields__
 
-    production_sources = [
-        path
-        for path in (ROOT / "docmirror").rglob("*.py")
-        if path.as_posix() != (ROOT / "docmirror/server/output_builder.py").as_posix()
-    ]
-    assert not [
-        path
-        for path in production_sources
-        if "build_community_output" in path.read_text(encoding="utf-8")
-    ]
+
+def test_production_does_not_reference_retired_execution_paths() -> None:
+    forbidden = ("build_community_output", "run_plugin_extract_sync", "post_extract")
+    offenders = []
+    for path in (ROOT / "docmirror").rglob("*.py"):
+        source = path.read_text(encoding="utf-8")
+        if any(token in source for token in forbidden):
+            offenders.append(path.relative_to(ROOT).as_posix())
+    assert offenders == []

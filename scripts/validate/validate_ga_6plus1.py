@@ -29,6 +29,8 @@ def _load() -> dict[str, Any]:
 
 def validate_manifest(data: dict[str, Any]) -> list[str]:
     errors: list[str] = []
+    if data.get("schema_version") != "docmirror.ga_6plus1.v2":
+        errors.append("schema_version must be docmirror.ga_6plus1.v2")
     status = str(data.get("status") or "")
     if status not in {"pending_baseline", "frozen"}:
         errors.append("status must be pending_baseline or frozen")
@@ -55,6 +57,11 @@ def validate_manifest(data: dict[str, Any]) -> list[str]:
         policy = case.get("parse_policy")
         if not isinstance(policy, dict) or not policy.get("doc_type_hint"):
             errors.append(f"{case_id}: explicit parse_policy.doc_type_hint is required")
+        automatic_policy = case.get("automatic_classification_policy")
+        if not isinstance(automatic_policy, dict):
+            errors.append(f"{case_id}: automatic_classification_policy is required")
+        elif automatic_policy.get("doc_type_hint"):
+            errors.append(f"{case_id}: automatic classification must not use doc_type_hint")
         if not case.get("expected_document_type"):
             errors.append(f"{case_id}: expected_document_type is required")
         if not case.get("expected_fact_fingerprint"):
@@ -67,7 +74,7 @@ def validate_manifest(data: dict[str, Any]) -> list[str]:
     return errors
 
 
-async def _observe(case: dict[str, Any], workers: int | None) -> dict[str, Any]:
+async def _observe(case: dict[str, Any], workers: int | None, *, automatic: bool = False) -> dict[str, Any]:
     from docmirror.input.entry.factory import PerceiveOptions, perceive_document
     from docmirror.input.entry.options import normalize_parse_policy
 
@@ -77,28 +84,37 @@ async def _observe(case: dict[str, Any], workers: int | None) -> dict[str, Any]:
     actual_sha = hashlib.sha256(fixture.read_bytes()).hexdigest()
     if actual_sha != case["fixture_sha256"]:
         raise ValueError(f"fixture checksum mismatch: {case['id']}: {actual_sha}")
-    policy = normalize_parse_policy(**dict(case["parse_policy"]))
+    policy_key = "automatic_classification_policy" if automatic else "parse_policy"
+    policy = normalize_parse_policy(**dict(case[policy_key]))
     sealed = await perceive_document(fixture, PerceiveOptions(policy=policy, max_workers=workers))
-    document_type = str(sealed.entities.document_type or "")
-    domain_specific = sealed.entities.domain_specific or {}
-    error = sealed.error
+    view = sealed.to_read_view()
+    document_type = str(view.entities.document_type or "")
+    domain_specific = view.entities.domain_specific or {}
+    error = view.error
     return {
         "id": case["id"],
+        "classification_mode": "automatic" if automatic else "forced_golden",
         "workers": workers,
-        "status": sealed.status.value,
+        "status": view.status.value,
         "error_code": str(error.code or "") if error is not None else "",
         "error_message": str(error.message or "") if error is not None else "",
         "document_type": document_type,
         "user_doc_type_hint": domain_specific.get("user_doc_type_hint"),
         "user_doc_type_hint_strength": domain_specific.get("user_doc_type_hint_strength"),
-        "plugin_document_type": domain_specific.get("plugin_document_type"),
+        "canonical_document_type": domain_specific.get("canonical_document_type"),
         "classification_source": domain_specific.get("classification_source"),
         "fact_fingerprint": sealed.fact_fingerprint(),
         "integrity_fingerprint": sealed.integrity_fingerprint,
     }
 
 
-def _observe_isolated(data: dict[str, Any], case: dict[str, Any], workers: int) -> dict[str, Any]:
+def _observe_isolated(
+    data: dict[str, Any],
+    case: dict[str, Any],
+    workers: int,
+    *,
+    automatic: bool = False,
+) -> dict[str, Any]:
     """Run one case in a clean process to isolate caches and peak memory."""
     command = [
         sys.executable,
@@ -108,6 +124,8 @@ def _observe_isolated(data: dict[str, Any], case: dict[str, Any], workers: int) 
         "--workers",
         str(workers),
     ]
+    if automatic:
+        command.append("--_automatic")
     try:
         completed = subprocess.run(
             command,
@@ -138,12 +156,18 @@ def main(argv: list[str] | None = None) -> int:
         help="execute every case at all manifest worker counts and require identical fact fingerprints",
     )
     parser.add_argument(
+        "--classification-matrix",
+        action="store_true",
+        help="also run every case without doc_type_hint and require automatic classification",
+    )
+    parser.add_argument(
         "--case",
         action="append",
         dest="case_ids",
         help="execute only the named case; may be repeated (manifest validation still covers all cases)",
     )
     parser.add_argument("--_observe", dest="child_case", help=argparse.SUPPRESS)
+    parser.add_argument("--_automatic", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     data = _load()
     errors = validate_manifest(data)
@@ -157,7 +181,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"unknown GA case: {args.child_case}", file=sys.stderr)
             return 2
         try:
-            observed = asyncio.run(_observe(selected, args.workers))
+            observed = asyncio.run(_observe(selected, args.workers, automatic=args._automatic))
         except Exception as exc:
             print(str(exc), file=sys.stderr)
             return 1
@@ -205,6 +229,20 @@ def main(argv: list[str] | None = None) -> int:
         fingerprints = {item["fact_fingerprint"] for item in case_observations}
         if args.worker_matrix and len(fingerprints) != 1:
             errors.append(f"{case['id']}: worker matrix produced different fact fingerprints")
+        if args.classification_matrix:
+            try:
+                automatic = _observe_isolated(data, case, 1, automatic=True)
+            except Exception as exc:
+                errors.append(f"{case['id']} automatic classification: {exc}")
+            else:
+                observations.append(automatic)
+                if automatic["status"] == "failure":
+                    errors.append(f"{case['id']} automatic classification failed")
+                if automatic["document_type"] != case["expected_document_type"]:
+                    errors.append(
+                        f"{case['id']} automatic document_type={automatic['document_type']} "
+                        f"expected={case['expected_document_type']}"
+                    )
     if args.print_observed:
         print(json.dumps(observations, ensure_ascii=False, indent=2))
     if errors:

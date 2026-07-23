@@ -115,6 +115,10 @@ class BaseParser(ABC):
             pr.provenance.content_model = pr.provenance.content_model or context.get("content_model", "")
             if not pr.provenance.file_size and context.get("file_size"):
                 pr.provenance.file_size = int(context.get("file_size") or 0)
+        if pr.provenance is not None and context.get("source_file_path"):
+            # Middleware must classify against caller-visible provenance, not the
+            # private accepted snapshot name (for example ``source.pdf``).
+            pr.provenance.file_path = str(context["source_file_path"])
 
         # ── Fill parser version if empty ──
         if not pr.parser_info.parser_version:

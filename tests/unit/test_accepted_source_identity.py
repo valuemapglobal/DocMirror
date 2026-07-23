@@ -51,6 +51,7 @@ def test_dispatcher_rejects_tampered_accepted_content_before_adapter(tmp_path: P
 
     result = asyncio.run(ParserDispatcher().process(accepted))
 
-    assert result.status.value == "failure"
-    assert result.error is not None
-    assert result.error.code == "INPUT_IDENTITY_MISMATCH"
+    view = result.to_read_view()
+    assert view.status.value == "failure"
+    assert view.error is not None
+    assert view.error.code == "INPUT_IDENTITY_MISMATCH"

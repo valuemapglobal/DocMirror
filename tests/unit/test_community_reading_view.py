@@ -14,7 +14,6 @@ from docmirror.plugins._base.community_reading_view import (
     assemble_reading_view,
     finalize_community_reading_view,
 )
-from docmirror.plugins._runtime.post_extract.hooks.community_business import _build_dataset_catalog
 from docmirror.plugins.credit_report.reading_view import build_credit_report_reading_view
 
 
@@ -128,18 +127,6 @@ def test_credit_reading_view_references_business_collections_and_extracts_notes(
     assert "table:credit_accounts" in flow_refs
     assert view["notes"][0]["id"] in flow_refs
     assert "credit_account:1" not in str(view["document_flow"])
-
-
-def test_reading_view_indexes_are_not_published_as_business_datasets() -> None:
-    data = {
-        "credit_accounts": [{"account_id": "credit_account:1"}],
-        "notes": [{"id": "note:1", "content": "说明：测试"}],
-        "document_flow": [{"order": 1, "kind": "note", "ref_id": "note:1"}],
-    }
-
-    datasets = _build_dataset_catalog(data, "credit_report")
-
-    assert [dataset["id"] for dataset in datasets] == ["credit_accounts"]
 
 
 @pytest.mark.parametrize("domain", ["bank_statement", "wechat_payment", "alipay_payment"])

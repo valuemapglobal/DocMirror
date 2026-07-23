@@ -144,24 +144,19 @@ def test_vat_invoice_plugin_uses_semantic_solver_before_generic_kv() -> None:
         entities=DocumentEntities(document_type="vat_invoice"),
     )
 
-    out = VATInvoicePlugin().recognize(parse_result, VAT_OCR_TEXT)
+    patch = VATInvoicePlugin().recognize_facts(parse_result, VAT_OCR_TEXT)
 
-    assert out["status"]["success"] is True
-    assert out["data"]["fields"]["invoice_code"] == "044002300411"
-    assert out["data"]["fields"]["invoice_date"] == "2024-05-27"
-    assert "issue_date" not in out["data"]["fields"]
-    assert out["data"]["fields"]["seller_tax_id"] == "91440101190478645G"
-    assert out["data"]["line_items"][0]["item_name"] == "*运输服务*地铁客运服务费"
-    assert out["metadata"]["solver"]["name"] == "vat_invoice_text_solver_p0"
-    assert out["metadata"]["field_provenance_status"]["source"] == "ocr_text_blocks"
-    assert out["metadata"]["field_provenance_status"]["matched_field_count"] >= 4
-    assert out["metadata"]["field_provenance_status"]["field_level_bbox"] is False
-    assert out["metadata"]["field_provenance"]["invoice_code"]["bbox"] == [60.0, 10.0, 160.0, 24.0]
-    assert out["metadata"]["field_provenance"]["invoice_code"]["line_bbox"] == [10.0, 10.0, 160.0, 24.0]
-    assert out["metadata"]["field_provenance"]["invoice_code"]["evidence_ids"] == ["ocr:p0:w000001"]
-    assert out["metadata"]["field_provenance"]["invoice_code"]["token_match"] == "token_subset"
-    assert out["metadata"]["field_provenance"]["buyer_name"]["page"] == 1
-    assert out["metadata"]["field_provenance"]["buyer_name"]["text"] == "称：卢子不加班（广州）咨询有限公司"
+    assert patch.domain_facts["invoice_code"] == "044002300411"
+    assert patch.domain_facts["invoice_date"] == "2024-05-27"
+    assert "issue_date" not in patch.domain_facts
+    assert patch.domain_facts["seller_tax_id"] == "91440101190478645G"
+    assert patch.datasets["line_items"][0]["item_name"] == "*运输服务*地铁客运服务费"
+    details = patch.domain_facts["field_details"]
+    assert details["invoice_code"]["bbox"] == [60.0, 10.0, 160.0, 24.0]
+    assert details["invoice_code"]["line_bbox"] == [10.0, 10.0, 160.0, 24.0]
+    assert details["invoice_code"]["evidence_ids"] == ["ocr:p0:w000001"]
+    assert details["invoice_code"]["token_match"] == "token_subset"
+    assert details["buyer_name"]["page"] == 1
 
 
 def test_vat_public_date_alias_does_not_silently_hide_conflicts() -> None:

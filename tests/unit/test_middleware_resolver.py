@@ -27,7 +27,7 @@ def test_fixed_layout_standard_pipeline():
         "GenericEntityExtractor",
         "GeometricReconstructor",
         "EvidenceEngine",
-        "CommunityFactRecognizer",
+        "CanonicalDomainEnricher",
         "Validator",
         "LlmDocumentRestorer",
         "HeaderInferrer",
@@ -39,8 +39,8 @@ def test_fixed_layout_standard_pipeline():
     assert names.index("HeaderInferrer") < names.index("HeaderAlignment")
     assert names.index("HeaderAlignment") < names.index("GenericEntityExtractor")
     assert names.index("GenericEntityExtractor") < names.index("EvidenceEngine")
-    assert names.index("EvidenceEngine") < names.index("CommunityFactRecognizer")
-    assert names.index("CommunityFactRecognizer") < names.index("Validator")
+    assert names.index("EvidenceEngine") < names.index("CanonicalDomainEnricher")
+    assert names.index("CanonicalDomainEnricher") < names.index("Validator")
     assert "InstitutionDetector" not in names
 
 

@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 from docmirror.models.entities.parse_result import PageContent, ParserInfo, TableBlock
 from docmirror.plugins.credit_report.business_assembly import assemble_credit_report_business
+from docmirror.plugins.credit_report.fact_recognizer import _records
 
 
 def _result(*, parsed_pages: int = 1, source_pages: int = 1) -> SimpleNamespace:
@@ -18,6 +19,21 @@ def _result(*, parsed_pages: int = 1, source_pages: int = 1) -> SimpleNamespace:
         provenance=None,
         file_path="",
     )
+
+
+def test_canonical_repayment_records_use_repayment_identity_not_account_identity() -> None:
+    records = _records(
+        "repayment_records",
+        [
+            {"account_id": "account-1", "repayment_id": "repayment-2025-01"},
+            {"account_id": "account-1", "repayment_id": "repayment-2025-02"},
+        ],
+    )
+
+    assert [record["record_id"] for record in records] == [
+        "repayment-2025-01",
+        "repayment-2025-02",
+    ]
 
 
 def test_assembly_adds_normalized_view_without_removing_legacy_fields() -> None:

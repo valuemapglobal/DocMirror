@@ -22,15 +22,31 @@ from docmirror.plugins._base.generic_community_adapter import (
     _GENERIC_WARNING,
     _build_normalized_record,
     _collect_sections,
+    _collect_table_descriptors,
     _collect_table_records,
     _collect_text_key_values,
     _extract_identities,
     _infer_generic_type,
     _infer_table_column_types,
+    _select_generic_tables,
     _standardize_value,
     _type_detect_column,
-    build_generic_community_output,
+    recognize_generic_facts,
 )
+
+
+def build_generic_community_output(result, document_type, text=""):
+    """Expose CanonicalPatch contents in the compact shape used by collector tests."""
+    patch = recognize_generic_facts(result, document_type, text)
+    reserved = {"field_details", "summary", "normalized_fields", "field_schema", "columns", "identities"}
+    return {
+        "data": {
+            "fields": {key: value for key, value in patch.domain_facts.items() if key not in reserved},
+            "field_metadata": patch.domain_facts["field_details"],
+            "records": patch.datasets.get("records", []),
+            "tables": _collect_table_descriptors(result, _select_generic_tables(result)),
+        }
+    }
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  _type_detect_column

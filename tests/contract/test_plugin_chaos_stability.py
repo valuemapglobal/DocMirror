@@ -7,29 +7,41 @@ from __future__ import annotations
 
 import time
 
-from docmirror.input.canonical.fact_patch import apply_fact_patch
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 from docmirror.models.sealed import seal_parse_result
+from docmirror.plugin_api import PluginProvider
 
 
 def _result() -> ParseResult:
     return ParseResult(entities=DocumentEntities(document_type="business_license"))
 
 
-def test_missing_recognizer_returns_no_change_patch(monkeypatch):
-    from docmirror.plugins._runtime.plugin_registry import registry
-    from docmirror.plugins._runtime.runner import run_fact_recognition_sync
+def test_provider_discovery_after_seal_does_not_change_facts(monkeypatch):
+    from docmirror.plugins._runtime.plugin_registry import PluginRegistry
 
-    result = _result()
-    before = result.fact_fingerprint()
-    monkeypatch.setattr(registry, "get_recognizer", lambda _domain: None)
+    class _Projector:
+        domain_name = "business_license"
+        edition = "enterprise"
 
-    patch = run_fact_recognition_sync(result)
-    candidate = apply_fact_patch(result, patch)
+        def project(self, sealed):
+            return {"fingerprint": sealed.fact_fingerprint()}
 
-    assert not patch.entity_fields and not patch.domain_facts and not patch.datasets
-    assert result.fact_fingerprint() == before
-    assert candidate.fact_fingerprint() == before
+    provider = PluginProvider(
+        provider_id="chaos",
+        version="2",
+        projectors=(_Projector(),),
+    )
+    monkeypatch.setattr(
+        "docmirror.plugins._runtime.discovery.load_plugin_providers",
+        lambda: [provider],
+    )
+    sealed = seal_parse_result(_result())
+    before = sealed.fact_fingerprint()
+    registry = PluginRegistry()
+
+    assert registry.get_projector("business_license", "enterprise") is provider.projectors[0]
+    assert sealed.fact_fingerprint() == before
+    assert sealed.verify_integrity()
 
 
 def test_commercial_projector_failures_do_not_change_sealed_facts(monkeypatch):

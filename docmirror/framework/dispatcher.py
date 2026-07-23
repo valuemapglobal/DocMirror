@@ -173,6 +173,7 @@ class ParserDispatcher:
         perceive_ctx["doc_type_hint"] = policy.doc_type_hint.value if policy.doc_type_hint else None
         perceive_ctx["doc_type_hint_strength"] = policy.doc_type_hint.strength if policy.doc_type_hint else None
         perceive_ctx["document_type"] = document_type
+        perceive_ctx["source_file_path"] = str(display_path)
         perceive_ctx["on_progress"] = on_progress
 
         try:

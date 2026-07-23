@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Mirror API meta SSOT — LTQG, quarantine, dual_view, plugin_document_type."""
+"""Mirror API meta SSOT — LTQG, quarantine, dual_view, canonical_document_type."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def test_mirror_api_meta_fields_ltqg_and_quarantine():
         entities=DocumentEntities(
             document_type="bank_statement",
             domain_specific={
-                "plugin_document_type": "bank_statement",
+                "canonical_document_type": "bank_statement",
                 "mirror_quarantined_physical_count": 2,
             },
         ),
@@ -36,7 +36,7 @@ def test_mirror_api_meta_fields_ltqg_and_quarantine():
     )
     meta = mirror_api_meta_fields(pr)
     assert meta["dual_view"] is True
-    assert meta["plugin_document_type"] == "bank_statement"
+    assert meta["canonical_document_type"] == "bank_statement"
     assert meta["mirror_expected_data_rows"] == 47
     assert meta["ltqg"]["raw_max_rows"] == 120
     assert meta["quarantine"]["physical_count"] == 2

@@ -1,11 +1,11 @@
 {
   "schema_version": "docmirror.stability_core_manifest.v1",
-  "candidate": "1.0.12",
-  "contract_sha256": "d10561837a2d121a12904fb628f5ad4e46960eb41aa3a92c804118bb61c38672",
+  "candidate": "1.1.0",
+  "contract_sha256": "d02847b1743c822779f29742cb1920b7c78cd91e64f92b602a160f992fac5201",
   "qualification": {
     "status": "qualified",
-    "basis": "current-candidate technical gates",
+    "basis": "1.1.0 contract freeze, 6+1 worker/classification matrix, performance/RSS, plugin chaos, and external projector E2E passed",
     "qualified_at": "2026-07-23",
-    "contract_sha256": "d10561837a2d121a12904fb628f5ad4e46960eb41aa3a92c804118bb61c38672"
+    "contract_sha256": "d02847b1743c822779f29742cb1920b7c78cd91e64f92b602a160f992fac5201"
   }
 }

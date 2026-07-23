@@ -14,7 +14,7 @@ profiles:
         STRUCTURE: [HeaderInferrer, HeaderAlignment]
         ENRICH: [GenericEntityExtractor]
         CLASSIFY: [EvidenceEngine]
-        DOMAIN: [CommunityFactRecognizer]
+        DOMAIN: [CanonicalDomainEnricher]
         VALIDATE: [Validator]
     full:
       stages:
@@ -24,7 +24,7 @@ profiles:
         STRUCTURE: [HeaderInferrer, HeaderAlignment]
         ENRICH: [GenericEntityExtractor]
         CLASSIFY: [EvidenceEngine]
-        DOMAIN: [CommunityFactRecognizer]
+        DOMAIN: [CanonicalDomainEnricher]
         VALIDATE: [Validator, AnomalyDetector]
 
   tabular_native:

@@ -15,7 +15,7 @@ from typing import Any
 MIRROR_PROJECTED_DOMAIN_KEYS: frozenset[str] = frozenset(
     {
         "classification_provenance",
-        "plugin_document_type",
+        "canonical_document_type",
         "extractor_scene_hint",
         "extractor_scene_confidence",
         "pre_analyzer_scene_hint",

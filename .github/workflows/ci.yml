@@ -123,9 +123,6 @@ jobs:
       - name: Validate middleware catalog (MEP)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python scripts/validate/validate_middleware_catalog.py
-      - name: Validate post-extract catalog
-        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python scripts/validate/validate_post_extract.py
       - name: Validate TQG manifests
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python scripts/validate/validate_test_manifest.py

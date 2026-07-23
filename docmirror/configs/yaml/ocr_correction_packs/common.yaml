@@ -1,4 +1,4 @@
-# Locale-neutral additions. The legacy 1.0.2 file remains the compatibility base.
+# Locale-neutral additions layered on the generic provider's base pack.
 pack_id: builtin.common
 version: 1
 priority: -500

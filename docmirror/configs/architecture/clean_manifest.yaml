@@ -85,18 +85,20 @@ public_modules:
 - module: docmirror.plugins
   reason: Public plugin registry API.
 dynamic_modules:
-- module: docmirror.plugins._runtime.post_extract.hooks.credit_sections
-  source: docmirror/configs/yaml/post_extract.yaml
-- module: docmirror.plugins._runtime.post_extract.hooks.edition_table_rebuild
-  source: docmirror/configs/yaml/post_extract.yaml
-- module: docmirror.plugins._runtime.post_extract.hooks.trust_projection
-  source: docmirror/configs/yaml/post_extract.yaml
 - module: docmirror.input.adapters.ai.backends.openai
   source: docmirror/input/adapters/ai/__init__.py
 - module: docmirror.input.adapters.ai.backends.gemini
   source: docmirror/input/adapters/ai/__init__.py
 compatibility_modules: []
 removed_modules:
+- module: docmirror.models.entities.document_type
+  replacement: Core-owned canonical field_schema resources
+- module: docmirror.models.edition_serializer
+  replacement: docmirror.plugin_api.EditionProjector
+- module: docmirror.plugins._base.dec_builder
+  replacement: private CanonicalPatch and direct canonical assembly
+- module: docmirror.plugins._base.table_dec
+  replacement: private CanonicalPatch and direct canonical assembly
 - module: docmirror.core
   replacement: docmirror.layout
 - module: docmirror.structure
@@ -114,11 +116,11 @@ removed_modules:
 - module: docmirror.di
   replacement: docmirror.framework.di
 - module: docmirror.plugins.runner
-  replacement: docmirror.plugins._runtime.runner
+  replacement: fixed Core CanonicalDomainEnricher
 - module: docmirror.plugins.licensing
   replacement: docmirror.plugins._runtime.licensing
 - module: docmirror.plugins.post_extract
-  replacement: docmirror.plugins._runtime.post_extract
+  replacement: docmirror.plugin_api.EditionProjector through PluginRegistry
 - module: docmirror.server.output_selection
   replacement: fixed delivery contract in docmirror.server.output_builder
 - module: docmirror.configs.output_profile

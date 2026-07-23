@@ -42,15 +42,11 @@ class ParseRequest:
     service layer below the surfaces only ever sees ``ParseRequest``.
     """
 
-    # A task may contain one or more heterogeneous documents.  ``input`` is
-    # retained as a compatibility alias for older callers; new code should use
-    # ``inputs`` exclusively.
+    # A task may contain one or more heterogeneous documents.
     inputs: list[InputRef] = field(default_factory=list)
-    input: InputRef | None = None
 
     # -- execution control --
     mode: str = "auto"  # auto | fast | balanced | accurate | forensic
-    sync: bool = True  # Compatibility only; adapters decide whether to wait.
 
     # -- page selection --
     pages: str | None = None  # "1-3,8,10-"
@@ -72,14 +68,6 @@ class ParseRequest:
 
     # -- extras (forward-compatible bag) --
     extras: dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        if self.inputs:
-            if self.input is None:
-                self.input = self.inputs[0]
-            return
-        if self.input is not None:
-            self.inputs = [self.input]
 
     @classmethod
     def from_policy(
@@ -115,6 +103,4 @@ class ParseRequest:
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["inputs"] = [item.to_dict() for item in self.inputs]
-        # Do not serialize the compatibility alias twice.
-        d.pop("input", None)
         return {k: v for k, v in d.items() if v is not None and v != {}}

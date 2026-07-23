@@ -273,8 +273,8 @@ def compact_community_field_projection(
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     """Return canonical field values plus reference-only public field details.
 
-    Plugin-specific rich values and legacy normalization metadata are consumed
-    here, before the post-extract hook removes those intermediate structures.
+    Plugin-specific rich values and normalization metadata are consumed here
+    before delivery projection discards intermediate structures.
     ``data.fields`` becomes the only normalized-value location.  A raw value is
     retained in ``field_details`` only when it materially differs.
     """

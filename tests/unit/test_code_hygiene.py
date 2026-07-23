@@ -64,7 +64,7 @@ def test_allowlist_loads():
 
 def test_is_allowed_suffix():
     allow = {"orphan_modules": ["hooks.credit_sections"]}
-    assert is_allowed("orphan_modules", "docmirror.plugins._runtime.post_extract.hooks.credit_sections", allow)
+    assert is_allowed("orphan_modules", "docmirror.plugins.credit_report.hooks.credit_sections", allow)
 
 
 def test_markdown_report_summary():

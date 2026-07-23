@@ -9,8 +9,8 @@ Plugin management CLI for DocMirror premium and community extensions.
 
 Provides Click commands to list, enable, disable, inspect, and search plugins
 from the local registry, plus license activation and entitlement diagnostics.
-Community edition exposes six premium domain plugins plus one generic fallback;
-enterprise and finance editions unlock additional structured output paths.
+Only post-seal edition projectors appear here. Core canonical domain
+capabilities are not runtime plugins and cannot be enabled or disabled.
 
 Commands::
 
@@ -20,7 +20,6 @@ Commands::
     docmirror plugins disable <name>
     docmirror plugins info <name>
     docmirror plugins search <keyword>
-    docmirror plugins community
     docmirror license
     docmirror license activate <key>
     docmirror license deactivate
@@ -57,8 +56,8 @@ def plugins(ctx: click.Context):
 @click.option("--all", "show_all", is_flag=True, help="Include all registered enterprise/finance domains")
 @click.option("--format", "fmt", type=click.Choice(["table", "json"]), default="table", help="Output format")
 def list_plugins(enabled: bool, disabled: bool, show_all: bool, fmt: str):
-    """List plugins (default: community 6+1; use --all for full registry)."""
-    all_plugins = plugin_manager.list_all() if show_all else plugin_manager.list_community()
+    """List installed post-seal projector plugins."""
+    all_plugins = plugin_manager.list_all()
 
     # Filter
     if enabled:
@@ -94,41 +93,6 @@ def list_plugins(enabled: bool, disabled: bool, show_all: bool, fmt: str):
     enabled_count = sum(1 for p in all_plugins if p["enabled"])
     disabled_count = len(all_plugins) - enabled_count
     console.print(f"\n[dim]Enabled: {enabled_count} | Disabled: {disabled_count}[/dim]")
-
-
-@plugins.command()
-def community():
-    """List community edition plugins (6 premium + 1 generic)."""
-    from docmirror.plugins._runtime import registry
-    from docmirror.plugins._runtime.community import community_plugin_module, get_community_premium_domains
-
-    registry._ensure_discovered()
-    premium = get_community_premium_domains()
-    generic = registry.get("generic", "community")
-
-    table = Table(title="Community 6+1 Plugins")
-    table.add_column("Tier", style="cyan", width=12)
-    table.add_column("Domain", style="green", width=22)
-    table.add_column("Module", style="white", width=30)
-    table.add_column("Display Name", style="yellow", width=35)
-
-    for domain in premium:
-        plugin = registry.get(domain, "community")
-        if plugin is None:
-            table.add_row("premium", domain, community_plugin_module(domain), "(missing)")
-        else:
-            table.add_row("premium", domain, community_plugin_module(domain), plugin.display_name)
-
-    if generic is not None:
-        table.add_row("generic", "generic", community_plugin_module("generic"), generic.display_name)
-    else:
-        table.add_row("generic", "generic", community_plugin_module("generic"), "(missing)")
-
-    console.print(table)
-    console.print(
-        "\n[dim]Premium: structured extract for 6 domains. "
-        "Generic: fallback for all other classified non-enterprise types.[/dim]"
-    )
 
 
 @plugins.command()

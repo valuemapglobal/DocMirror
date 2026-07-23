@@ -8,8 +8,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from functools import lru_cache
-from importlib.resources import files
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, Iterable
 
 import yaml
@@ -74,12 +73,12 @@ class CorrectionPackRegistry:
     def default(cls) -> CorrectionPackRegistry:
         packs: list[CorrectionPack] = []
         issues: list[ConfigIssue] = []
-        for resource_path in _plugin_pack_resources():
-            raw = _read_yaml(resource_path)
-            pack_issues = validate_pack_data(raw, path=str(resource_path))
+        for resource_id, resource_text in _canonical_pack_resources():
+            raw = yaml.safe_load(resource_text) or {}
+            pack_issues = validate_pack_data(raw, path=resource_id)
             issues.extend(pack_issues)
             if isinstance(raw, dict) and not any(issue.level == "error" for issue in pack_issues):
-                packs.append(_pack_from_data(raw, path=resource_path))
+                packs.append(_pack_from_data(raw, path=resource_id))
         if OCR_CORRECTION_PACKS_DIR.is_dir():
             for path in sorted(OCR_CORRECTION_PACKS_DIR.rglob("*.yaml")):
                 raw = _read_yaml(path)
@@ -178,29 +177,14 @@ class CorrectionPackRegistry:
         return [pack.summary() for pack in self.packs]
 
 
-def _plugin_pack_resources() -> list[Any]:
-    """Return OCR correction packs declared by bundled plugin manifests."""
-    resources: list[Any] = []
-    plugin_root = files("docmirror").joinpath("plugins")
-    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
-        manifest_path = plugin_dir.joinpath("plugin.yaml")
-        if not plugin_dir.is_dir() or not manifest_path.is_file():
-            continue
-        manifest = _read_yaml(manifest_path)
-        declared = manifest.get("resources") if isinstance(manifest, dict) else None
-        if not isinstance(declared, dict):
-            continue
-        for resource_name, relative_value in sorted(declared.items()):
-            if not str(resource_name).startswith("ocr_corrections"):
-                continue
-            relative_text = str(relative_value or "").strip()
-            relative_path = PurePosixPath(relative_text)
-            if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
-                continue
-            resource_path = plugin_dir.joinpath(*relative_path.parts)
-            if resource_path.is_file():
-                resources.append(resource_path)
-    return resources
+def _canonical_pack_resources() -> list[tuple[str, str]]:
+    """Return OCR correction packs declared by fixed Core domains."""
+    from docmirror.configs.domain.registry import iter_canonical_domain_resources_by_prefix
+
+    return [
+        (f"{domain_id}:{resource_name}", resource_text)
+        for domain_id, resource_name, resource_text in iter_canonical_domain_resources_by_prefix("ocr_corrections")
+    ]
 
 
 def _pack_from_data(data: dict[str, Any], *, path: Any) -> CorrectionPack:

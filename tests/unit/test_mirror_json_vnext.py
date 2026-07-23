@@ -284,7 +284,7 @@ def test_output_builder_defaults_core_mirror_to_vnext():
     from docmirror.server.output_builder import build_all_projections
 
     outputs = build_all_projections(
-        _sample_parse_result(),
+        seal_parse_result(_sample_parse_result()),
         file_path="/tmp/statement.pdf",
     )
 

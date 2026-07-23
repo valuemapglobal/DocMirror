@@ -1,14 +1,59 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Validate and apply ephemeral plugin ``FactPatch`` values canonically."""
+"""Validate and transactionally apply Core-owned canonical fact patches."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 from docmirror.models.entities.parse_result import DocumentSection, ParseResult
-from docmirror.plugin_api import FactPatch
+
+
+class CanonicalPatch(BaseModel):
+    """Ephemeral facts proposed by one fixed Core canonical capability."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    capability_id: str = Field(min_length=1)
+    document_type: str | None = None
+    entity_fields: dict[str, Any] = Field(default_factory=dict)
+    domain_facts: dict[str, Any] = Field(default_factory=dict)
+    datasets: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    sections: tuple[dict[str, Any], ...] = ()
+    warnings: tuple[str, ...] = ()
+    evidence_ids: tuple[str, ...] = ()
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    replace_paths: frozenset[str] = frozenset()
+    reason: str = "canonical recognition"
+
+    @field_validator("document_type")
+    @classmethod
+    def _normalize_document_type(cls, value: str | None) -> str | None:
+        normalized = str(value or "").strip()
+        return normalized or None
+
+    @field_validator("datasets")
+    @classmethod
+    def _validate_dataset_records(
+        cls,
+        value: dict[str, list[dict[str, Any]]],
+    ) -> dict[str, list[dict[str, Any]]]:
+        for dataset_id, rows in value.items():
+            if not str(dataset_id).strip():
+                raise ValueError("dataset id must not be empty")
+            record_ids: set[str] = set()
+            for row in rows:
+                record_id = str(row.get("record_id") or "")
+                if not record_id:
+                    raise ValueError(f"dataset {dataset_id!r} contains a row without record_id")
+                if record_id in record_ids:
+                    raise ValueError(f"dataset {dataset_id!r} contains duplicate record_id {record_id!r}")
+                record_ids.add(record_id)
+        return value
+
 
 _ENTITY_FIELDS = frozenset(
     {
@@ -22,16 +67,16 @@ _ENTITY_FIELDS = frozenset(
 )
 
 
-def validate_fact_patch(patch: FactPatch) -> FactPatch:
+def validate_canonical_patch(patch: CanonicalPatch) -> CanonicalPatch:
     """Re-validate at the canonical trust boundary and reject output concerns."""
-    validated = FactPatch.model_validate(patch.model_dump(mode="python"))
+    validated = CanonicalPatch.model_validate(patch.model_dump(mode="python"))
     forbidden = {"edition", "schema_version", "artifact", "license", "licensing", "markdown"}
     leaked = forbidden & set(validated.domain_facts)
     if leaked:
-        raise ValueError(f"FactPatch contains delivery-only keys: {sorted(leaked)}")
+        raise ValueError(f"CanonicalPatch contains delivery-only keys: {sorted(leaked)}")
     unknown_entity_fields = set(validated.entity_fields) - _ENTITY_FIELDS
     if unknown_entity_fields:
-        raise ValueError(f"FactPatch contains unsupported entity fields: {sorted(unknown_entity_fields)}")
+        raise ValueError(f"CanonicalPatch contains unsupported entity fields: {sorted(unknown_entity_fields)}")
 
     declared_paths: set[str] = set()
     if validated.document_type:
@@ -44,13 +89,13 @@ def validate_fact_patch(patch: FactPatch) -> FactPatch:
     undeclared_replacements = set(validated.replace_paths) - declared_paths
     if undeclared_replacements:
         raise ValueError(
-            f"FactPatch replace_paths do not correspond to proposed facts: {sorted(undeclared_replacements)}"
+            f"CanonicalPatch replace_paths do not correspond to proposed facts: {sorted(undeclared_replacements)}"
         )
     if validated.replace_paths:
         if not validated.evidence_ids:
-            raise ValueError("FactPatch replacement requires evidence_ids")
-        if validated.reason.strip() == "domain recognition":
-            raise ValueError("FactPatch replacement requires an explicit reason")
+            raise ValueError("CanonicalPatch replacement requires evidence_ids")
+        if validated.reason.strip() == "canonical recognition":
+            raise ValueError("CanonicalPatch replacement requires an explicit reason")
     return validated
 
 
@@ -78,20 +123,20 @@ def _canonical_evidence_ids(result: ParseResult) -> set[str]:
     return identifiers
 
 
-def _replace_allowed(patch: FactPatch, path: str) -> bool:
+def _replace_allowed(patch: CanonicalPatch, path: str) -> bool:
     return path in patch.replace_paths
 
 
 def _record_change(
     result: ParseResult,
-    patch: FactPatch,
+    patch: CanonicalPatch,
     *,
     path: str,
     old_value: Any,
     new_value: Any,
 ) -> None:
     result.record_mutation(
-        middleware_name=f"recognizer:{patch.provider_id}",
+        middleware_name=f"canonical:{patch.capability_id}",
         target_block_id="parse_result",
         field_changed=path,
         old_value=old_value,
@@ -101,7 +146,7 @@ def _record_change(
     )
 
 
-def _apply_entity_field(result: ParseResult, patch: FactPatch, key: str, value: Any) -> None:
+def _apply_entity_field(result: ParseResult, patch: CanonicalPatch, key: str, value: Any) -> None:
     if key not in _ENTITY_FIELDS or value in (None, ""):
         return
     path = f"entities.{key}"
@@ -141,9 +186,9 @@ def _coerce_sections(raw_sections: tuple[dict[str, Any], ...]) -> list[DocumentS
     return sections
 
 
-def _apply_fact_patch_in_place(result: ParseResult, patch: FactPatch) -> None:
+def _apply_canonical_patch_in_place(result: ParseResult, patch: CanonicalPatch) -> None:
     """Apply a validated patch to an isolated candidate result."""
-    patch = validate_fact_patch(patch)
+    patch = validate_canonical_patch(patch)
 
     if patch.document_type:
         path = "entities.document_type"
@@ -199,7 +244,7 @@ def _apply_fact_patch_in_place(result: ParseResult, patch: FactPatch) -> None:
             )
 
 
-def apply_fact_patch(result: ParseResult, patch: FactPatch) -> ParseResult:
+def apply_canonical_patch(result: ParseResult, patch: CanonicalPatch) -> ParseResult:
     """Transactionally apply one patch and return a validated replacement.
 
     The caller-owned result is never modified. All field, dataset, and section
@@ -208,16 +253,16 @@ def apply_fact_patch(result: ParseResult, patch: FactPatch) -> ParseResult:
     unchanged.
     """
     if not isinstance(result, ParseResult):
-        raise TypeError(f"apply_fact_patch expects ParseResult; got {type(result).__name__}")
-    validated_patch = validate_fact_patch(patch)
+        raise TypeError(f"apply_canonical_patch expects ParseResult; got {type(result).__name__}")
+    validated_patch = validate_canonical_patch(patch)
     if validated_patch.replace_paths:
         available_evidence = _canonical_evidence_ids(result)
         missing_evidence = set(validated_patch.evidence_ids) - available_evidence
         if missing_evidence:
-            raise ValueError(f"FactPatch replacement cites unknown evidence_ids: {sorted(missing_evidence)}")
+            raise ValueError(f"CanonicalPatch replacement cites unknown evidence_ids: {sorted(missing_evidence)}")
     candidate = result.model_copy(deep=True)
-    _apply_fact_patch_in_place(candidate, validated_patch)
+    _apply_canonical_patch_in_place(candidate, validated_patch)
     return ParseResult.model_validate(candidate.model_dump(mode="python", exclude_none=False))
 
 
-__all__ = ["apply_fact_patch", "validate_fact_patch"]
+__all__ = ["CanonicalPatch", "apply_canonical_patch", "validate_canonical_patch"]

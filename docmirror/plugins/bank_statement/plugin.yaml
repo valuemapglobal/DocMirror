@@ -3,7 +3,6 @@ schema_version: 1
 provider:
   id: bank_statement
   domain_name: bank_statement
-  edition: community
   version: community-1
   implementation: docmirror.plugins.bank_statement.community_plugin:plugin
 
@@ -37,7 +36,6 @@ resources:
   layout_profiles: resources/layout_profiles.yaml
   confidence_policy: resources/confidence_policy.yaml
   ocr_corrections: resources/ocr_corrections.yaml
-  post_extract: resources/post_extract.yaml
 
 fact_outputs:
   document_type: bank_statement

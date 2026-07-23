@@ -1,78 +1,37 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
-# Author: Adam Lin <adamlin@valuemapglobal.com>
-#
-# This source code is licensed under the Apache 2.0 license found in the
-# LICENSE file in the root directory of this source tree.
+# SPDX-License-Identifier: Apache-2.0
 
-"""
-Domain plugin package — public entry point for DocMirror's plugin system.
+"""Post-seal plugin runtime facade without import-time discovery.
 
-Re-exports the core registry types (``DomainPlugin``, ``PluginRegistry``,
-``registry``) and lazily loads ``license_manager`` and ``plugin_manager`` so
-importing ``docmirror.plugins`` does not pull in licensing or state I/O until
-needed.
-
-Pipeline role: after Mirror produces a ``ParseResult``, callers use
-``runner.run_plugin_extract`` (not imported here) to match a domain plugin and
-emit edition JSON; ``registry`` is the SSOT for registered plugins, while
-``plugin_manager`` controls per-domain enable flags via ``state``.
-
-Key exports: ``DomainPlugin``, ``PluginRegistry``, ``registry``,
-``license_manager``, ``plugin_manager``.
-
-Dependencies: ``plugin_registry`` (registry singleton), ``manager`` (enable/disable),
-``licensing.online`` (lazy license manager).
+External providers import stable contracts from :mod:`docmirror.plugin_api`.
+The bundled canonical domain implementations remain physically colocated in
+this package, but they are fixed Core capabilities and never enter this runtime
+registry.
 """
 
 from __future__ import annotations
 
-# Optional pluggy-based plugin system (GA1.0-EC-01)
-from docmirror.plugins._runtime import (
-    discovery,  # noqa: F401
-    hooks,  # noqa: F401
-)
-from docmirror.plugins._runtime.core_extensions import register_core_extensions
-from docmirror.plugins._runtime.plugin_registry import DomainPlugin, PluginRegistry, registry
+from importlib import import_module
+from typing import Any
 
-register_core_extensions()
-
-_license_manager = None
-_plugin_manager = None
+from docmirror.plugins._runtime.plugin_registry import PluginRegistry, registry
 
 
-def _get_license_manager():
-    global _license_manager
-    if _license_manager is None:
-        from docmirror.plugins._runtime.licensing.online import license_manager as _lm
-
-        _license_manager = _lm
-    return _license_manager
-
-
-def _get_plugin_manager():
-    global _plugin_manager
-    if _plugin_manager is None:
-        from docmirror.plugins._runtime.manager import plugin_manager as _pm
-
-        _plugin_manager = _pm
-    return _plugin_manager
-
-
-def __getattr__(name):
+def __getattr__(name: str) -> Any:
     if name == "license_manager":
-        return _get_license_manager()
+        return getattr(import_module("docmirror.plugins._runtime.licensing.online"), "license_manager")
     if name == "plugin_manager":
-        return _get_plugin_manager()
+        return getattr(import_module("docmirror.plugins._runtime.manager"), "plugin_manager")
+    if name in {"hooks", "discovery"}:
+        return import_module(f"docmirror.plugins._runtime.{name}")
     raise AttributeError(name)
 
 
 __all__ = [
-    "DomainPlugin",
     "PluginRegistry",
     "registry",
     "license_manager",
     "plugin_manager",
-    # Optional pluggy-based plugin system (GA1.0-EC-01)
     "hooks",
     "discovery",
 ]

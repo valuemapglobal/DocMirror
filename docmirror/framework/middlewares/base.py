@@ -39,10 +39,10 @@ def _mutation_covers_fact_path(field_changed: str, fact_path: str) -> bool:
 
 
 def _middleware_owns_mutation(middleware_name: str, actor: str) -> bool:
-    """Recognizers are child actors of the canonical recognizer middleware."""
+    """Canonical capabilities are child actors of the domain enricher."""
     if actor == middleware_name:
         return True
-    return middleware_name == "CommunityFactRecognizer" and actor.startswith("recognizer:")
+    return middleware_name == "CanonicalDomainEnricher" and actor.startswith("canonical:")
 
 
 class BaseMiddleware(ABC):

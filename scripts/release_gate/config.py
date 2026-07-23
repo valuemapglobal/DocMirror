@@ -114,19 +114,11 @@ STEPS: tuple[GateStepDef, ...] = (
     ),
     GateStepDef(
         "validate_middleware_catalog",
-        "Middleware + post-extract catalog (MEP)",
+        "Middleware catalog (MEP)",
         "contracts",
         "shell",
         frozenset({"standard", "full"}),
         ("python3", "scripts/validate/validate_middleware_catalog.py"),
-    ),
-    GateStepDef(
-        "validate_post_extract",
-        "Post-extract catalog",
-        "contracts",
-        "shell",
-        frozenset({"standard", "full"}),
-        ("python3", "scripts/validate/validate_post_extract.py"),
     ),
     GateStepDef(
         "validate_test_manifest",

@@ -22,8 +22,6 @@ from __future__ import annotations
 import logging
 import os
 from functools import lru_cache
-from importlib.resources import files
-from pathlib import PurePosixPath
 from typing import Any
 
 import yaml
@@ -83,51 +81,36 @@ def _resolve_inheritance(raw_profiles: dict[str, dict[str, Any]]) -> dict[str, E
 
 @lru_cache(maxsize=1)
 def load_profiles() -> dict[str, ExtractionProfile]:
-    """Load and cache layout profiles declared by plugin manifests."""
+    """Load and cache Core-owned canonical layout profiles."""
     profiles_raw: dict[str, dict[str, Any]] = {}
-    plugin_root = files("docmirror").joinpath("plugins")
-    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
-        manifest_path = plugin_dir.joinpath("plugin.yaml")
-        if not plugin_dir.is_dir() or not manifest_path.is_file():
-            continue
+    from docmirror.configs.domain.registry import iter_canonical_domain_resources
+
+    for domain_id, resource_text in iter_canonical_domain_resources("layout_profiles"):
         try:
-            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-            relative_text = str(((manifest.get("resources") or {}).get("layout_profiles")) or "").strip()
-            relative_path = PurePosixPath(relative_text)
-            if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
-                continue
-            resource_path = plugin_dir.joinpath(*relative_path.parts)
-            raw = yaml.safe_load(resource_path.read_text(encoding="utf-8")) or {}
+            raw = yaml.safe_load(resource_text) or {}
         except Exception as exc:
-            logger.warning("[LayoutProfile] Failed plugin profile resource %s: %s", plugin_dir.name, exc)
+            logger.warning("[LayoutProfile] Failed canonical profile resource %s: %s", domain_id, exc)
             continue
         plugin_profiles = raw.get("profiles") if isinstance(raw, dict) else None
         if isinstance(plugin_profiles, dict):
             profiles_raw.update(plugin_profiles)
     if "generic" not in profiles_raw:
-        logger.warning("[LayoutProfile] No generic plugin profile — using in-memory fallback")
+        logger.warning("[LayoutProfile] No generic canonical profile — using in-memory fallback")
         return {"generic": ExtractionProfile(profile_id="generic")}
     return _resolve_inheritance(profiles_raw)
 
 
 @lru_cache(maxsize=1)
 def load_table_semantics() -> dict[str, Any]:
-    """Merge plugin-owned, format-neutral table semantic dictionaries."""
+    """Merge Core-owned, format-neutral table semantic dictionaries."""
     merged: dict[str, Any] = {}
-    plugin_root = files("docmirror").joinpath("plugins")
-    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
-        manifest_path = plugin_dir.joinpath("plugin.yaml")
-        if not plugin_dir.is_dir() or not manifest_path.is_file():
-            continue
+    from docmirror.configs.domain.registry import iter_canonical_domain_resources
+
+    for domain_id, resource_text in iter_canonical_domain_resources("layout_profiles"):
         try:
-            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-            relative_text = str(((manifest.get("resources") or {}).get("layout_profiles")) or "").strip()
-            relative = PurePosixPath(relative_text)
-            if not relative_text or relative.is_absolute() or ".." in relative.parts:
-                continue
-            payload = yaml.safe_load(plugin_dir.joinpath(*relative.parts).read_text(encoding="utf-8")) or {}
+            payload = yaml.safe_load(resource_text) or {}
         except Exception as exc:
-            logger.warning("[TableSemantics] Failed plugin layout resource %s: %s", plugin_dir.name, exc)
+            logger.warning("[TableSemantics] Failed canonical layout resource %s: %s", domain_id, exc)
             continue
         semantics = payload.get("table_semantics") if isinstance(payload, dict) else None
         if isinstance(semantics, dict):

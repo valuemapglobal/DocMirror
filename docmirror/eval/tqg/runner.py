@@ -36,16 +36,9 @@ from docmirror.evidence.spe_consumer import mirror_expected_primary_rows
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.input.extraction.extractor import CoreExtractor
-from docmirror.plugins._runtime.community import community_plugin_import_path
 from docmirror.tables.access import get_logical_tables
 
 logger = logging.getLogger(__name__)
-
-_PLUGIN_MODULES: dict[str, str] = {
-    "wechat_payment": community_plugin_import_path("wechat_payment"),
-    "alipay_payment": community_plugin_import_path("alipay_payment"),
-    "bank_statement": community_plugin_import_path("bank_statement"),
-}
 
 
 def _failure_class_from_str(name: str | None) -> FailureClass | None:
@@ -141,6 +134,7 @@ async def _execute_perceive(case: TQGCase) -> tuple[Any, dict[str, Any]]:
         ),
     )
     parse_result = await perceive_document(case.fixture, perceive_opts)
+    read_view = parse_result.to_read_view()
     from docmirror.eval.tqg.mirror_input import mirror_api
 
     api = mirror_api(parse_result)
@@ -148,26 +142,11 @@ async def _execute_perceive(case: TQGCase) -> tuple[Any, dict[str, Any]]:
     blocks = api.get("blocks") if isinstance(api, dict) else None
     meta: dict[str, Any] = {
         "parse_result": parse_result,
-        "page_count": getattr(parse_result, "page_count", None) or len(pages or []),
-        "table_count": getattr(parse_result, "total_tables", None)
+        "page_count": read_view.page_count or len(pages or []),
+        "table_count": read_view.total_tables
         or sum(1 for block in (blocks or []) if isinstance(block, dict) and block.get("type") == "table"),
     }
     return parse_result, meta
-
-
-def _edition_from_plugin(mirror: Any, document_type: str) -> dict[str, Any] | None:
-    module_path = _PLUGIN_MODULES.get(document_type)
-    if not module_path:
-        return None
-    try:
-        mod = importlib.import_module(module_path)
-        plugin = getattr(mod, "plugin", None)
-        if plugin is None:
-            return None
-        return plugin.recognize(mirror)
-    except ImportError:
-        logger.debug("edition plugin not available: %s", module_path)
-        return None
 
 
 def _edition_package_available(edition: str) -> bool:
@@ -191,26 +170,17 @@ async def _execute_edition(case: TQGCase) -> tuple[dict[str, Any], dict[str, Any
             return {"mirror": mirror, "edition": None}, meta
     edition_payload: dict[str, Any] | None = None
     if edition_name == "community":
-        from docmirror.plugins._runtime.runner import _plugin_document_type, _run_community_recognition
+        from docmirror.server.output_builder import build_community_projection
 
-        doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
-        edition_payload = _run_community_recognition(
+        edition_payload = build_community_projection(
             mirror,
-            _plugin_document_type(mirror, doc_type),
-            getattr(mirror, "full_text", "") or "",
+            full_text=getattr(mirror, "full_text", "") or "",
+            file_path=str(getattr(mirror, "file_path", "") or case.fixture),
         )
-        if edition_payload is None:
-            from docmirror.plugins._runtime.runner import run_plugin_extract_sync
-
-            edition_payload = run_plugin_extract_sync(
-                mirror,
-                edition="community",
-                full_text=getattr(mirror, "full_text", "") or "",
-                file_path=str(getattr(mirror, "file_path", "") or case.fixture),
-            )
     else:
-        doc_type = getattr(getattr(mirror, "entities", None), "document_type", "") or ""
-        edition_payload = _edition_from_plugin(mirror, doc_type)
+        from docmirror.server.output_builder import build_extended_output
+
+        edition_payload = build_extended_output(mirror, edition_name)
     meta["edition_payload"] = edition_payload
     meta["edition_name"] = edition_name
     return {"mirror": mirror, "edition": edition_payload}, meta
@@ -252,9 +222,10 @@ async def _execute_transport_dispatch(case: TQGCase) -> tuple[Any, dict[str, Any
                 result = await perceive_document(path)
         else:
             result = await perceive_document(path)
-    error_code = result.error.code if result.error else None
+    view = result.to_read_view()
+    error_code = view.error.code if view.error else None
     meta: dict[str, Any] = {
-        "dispatch_status": result.status.value,
+        "dispatch_status": view.status.value,
         "error_code": error_code,
     }
     return result, meta
@@ -309,9 +280,11 @@ async def _execute_e2e_contract(case: TQGCase) -> tuple[dict[str, Any], dict[str
     contract = str(case.options.get("contract", ""))
     passed = False
     if contract == "parse_result_projection_boundary":
+        from docmirror.models.sealed import seal_parse_result
+
         result = ParseResult(status=ResultStatus.SUCCESS)
         result.entities = DocumentEntities(document_type="business_license")
-        outputs = build_all_projections(result)
+        outputs = build_all_projections(seal_parse_result(result))
         passed = (
             outputs.get("mirror") is not None
             and ((outputs.get("community") or {}).get("schema") or {}).get("edition") == "community"
@@ -319,12 +292,14 @@ async def _execute_e2e_contract(case: TQGCase) -> tuple[dict[str, Any], dict[str
             and "_edition_outputs" not in (result.entities.domain_specific or {})
         )
     elif contract == "enterprise_not_generated":
+        from docmirror.models.sealed import seal_parse_result
+
         mirror = ParseResult(status=ResultStatus.SUCCESS)
         mirror.entities = DocumentEntities(document_type="business_license")
         try:
             importlib.import_module("docmirror_enterprise")
         except ImportError:
-            outputs = build_all_projections(mirror)
+            outputs = build_all_projections(seal_parse_result(mirror))
             passed = outputs.get("enterprise") is None
         else:
             passed = True
@@ -894,19 +869,19 @@ def _resolve_gate_actual(gate_name: str, result: Any, meta: dict[str, Any]) -> A
             edition = result.get("edition")
         props = ((edition or {}).get("document") or {}).get("properties") or {}
         return props.get(gate_name)
-    if gate_name == "plugin_document_type":
+    if gate_name == "canonical_document_type":
         mirror = result.get("mirror") if isinstance(result, dict) else result
         if mirror is not None:
             from docmirror.eval.tqg.mirror_input import mirror_api
 
             api = mirror_api(mirror)
             meta_block = ((api.get("semantics") or {}).get("views") or {}).get("meta") or {}
-            if meta_block.get("plugin_document_type"):
-                return meta_block.get("plugin_document_type")
+            if meta_block.get("canonical_document_type"):
+                return meta_block.get("canonical_document_type")
             entities = getattr(mirror, "entities", None)
             domain = getattr(entities, "domain_specific", None) if entities else None
             if isinstance(domain, dict):
-                return domain.get("plugin_document_type")
+                return domain.get("canonical_document_type")
         return None
     if gate_name == "warning_contains":
         return meta.get("edition_warnings") or []

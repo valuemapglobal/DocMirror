@@ -22,15 +22,21 @@ REQUIRED_FILES = (
     DOCMIRROR / "output/mirror_projector.py",
 )
 
-CANONICAL_FILES = (
-    *tuple((DOCMIRROR / "input/canonical").rglob("*.py")),
-    DOCMIRROR / "framework/middlewares/extraction/community_fact_recognizer.py",
+PRE_SEAL_ROOTS = (
+    DOCMIRROR / "input",
+    DOCMIRROR / "framework",
+    DOCMIRROR / "layout",
+    DOCMIRROR / "ocr",
+    DOCMIRROR / "tables",
+    DOCMIRROR / "models",
+    DOCMIRROR / "configs",
+    DOCMIRROR / "quality",
 )
+CANONICAL_FILES = tuple(path for root in PRE_SEAL_ROOTS for path in root.rglob("*.py"))
 
 CANONICAL_FORBIDDEN_IMPORTS = (
-    "docmirror.models.edition_serializer",
     "docmirror.output",
-    "docmirror.plugins._runtime.licensing",
+    "docmirror.plugins._runtime",
     "docmirror.server",
 )
 
@@ -59,26 +65,25 @@ def main() -> int:
             if any(imported == prefix or imported.startswith(prefix + ".") for prefix in CANONICAL_FORBIDDEN_IMPORTS):
                 errors.append(f"canonical delivery dependency: {path.relative_to(ROOT)} -> {imported}")
 
-    recognizer_source = (DOCMIRROR / "framework/middlewares/extraction/community_fact_recognizer.py").read_text(
+    enrichment_source = (DOCMIRROR / "framework/middlewares/extraction/community_fact_recognizer.py").read_text(
         encoding="utf-8"
     )
-    for required in ("run_fact_recognition_sync", "apply_fact_patch"):
-        if required not in recognizer_source:
-            errors.append(f"CommunityFactRecognizer missing canonical boundary call: {required}")
-    for forbidden in ("run_plugin_extract", "edition_serializer", "merge_plugin_projection"):
-        if forbidden in recognizer_source:
-            errors.append(f"CommunityFactRecognizer contains delivery/write-back path: {forbidden}")
+    for required in ("run_canonical_enrichment", "apply_canonical_patch", "_CANONICAL_CAPABILITIES"):
+        if required not in enrichment_source:
+            errors.append(f"CanonicalDomainEnricher missing Core boundary call: {required}")
+    for forbidden in ("PluginRegistry", "plugin_registry", "PluginProvider", "licensing"):
+        if forbidden in enrichment_source:
+            errors.append(f"CanonicalDomainEnricher contains plugin runtime dependency: {forbidden}")
 
     if (DOCMIRROR / "plugins/_runtime/parse_result_enrichment.py").exists():
         errors.append("legacy edition-payload-to-ParseResult write-back module still exists")
-    if (DOCMIRROR / "plugins/_runtime/legacy_fact_patch.py").exists():
-        errors.append("legacy edition-envelope-to-FactPatch adapter still exists")
-
-    runner_source = (DOCMIRROR / "plugins/_runtime/runner.py").read_text(encoding="utf-8")
-    if "merge_plugin_projection_into_parse_result" in runner_source:
-        errors.append("plugin runner still writes an edition projection into ParseResult")
-    if "legacy_payload_to_fact_patch" in runner_source:
-        errors.append("canonical recognition still adapts an edition envelope")
+    for retired in (
+        DOCMIRROR / "plugins/_runtime/legacy_fact_patch.py",
+        DOCMIRROR / "plugins/_runtime/runner.py",
+        DOCMIRROR / "plugins/_runtime/core_extensions.py",
+    ):
+        if retired.exists():
+            errors.append(f"retired pre-seal plugin runtime still exists: {retired.relative_to(ROOT)}")
 
     parse_result_source = (DOCMIRROR / "models/entities/parse_result.py").read_text(encoding="utf-8")
     for forbidden in ("to_mirror_json_vnext", "MirrorCoreVNext", "project_mirror"):
@@ -97,10 +102,15 @@ def main() -> int:
     fact_patch_source = (DOCMIRROR / "input/canonical/fact_patch.py").read_text(encoding="utf-8")
     for required in ("replacement requires evidence_ids", "cites unknown evidence_ids", "replace_paths"):
         if required not in fact_patch_source:
-            errors.append(f"FactPatch replacement evidence gate missing: {required}")
+            errors.append(f"CanonicalPatch replacement evidence gate missing: {required}")
+
+    plugin_api = (DOCMIRROR / "plugin_api.py").read_text(encoding="utf-8")
+    for forbidden in ("DomainRecognizer", "FactPatch", "recognizers:"):
+        if forbidden in plugin_api:
+            errors.append(f"public Plugin API exposes pre-seal write role: {forbidden}")
 
     output_source = (DOCMIRROR / "server/output_builder.py").read_text(encoding="utf-8")
-    for required in ("seal_parse_result", "project_mirror", "sealed.to_read_view()"):
+    for required in ("SealedParseResult", "project_mirror", "sealed.to_read_view()", "sealed.verify_integrity()"):
         if required not in output_source:
             errors.append(f"projection builder missing sealed boundary: {required}")
 

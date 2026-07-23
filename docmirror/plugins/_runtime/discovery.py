@@ -8,17 +8,7 @@ distributed as PyPI packages. Plugins register themselves via the
 ``docmirror.plugins`` entry point in their ``pyproject.toml``::
 
     [project.entry-points."docmirror.plugins"]
-    bank_statement = "docmirror_plugin_bank_statement.plugin"
-
-Usage::
-
-    from docmirror.plugins._runtime.discovery import discover_plugins, get_plugin_manager
-
-    pm = get_plugin_manager()
-    manifests = pm.hook.docmirror_plugin_manifest()
-    for manifest in manifests:
-        if manifest:
-            print(manifest["name"])
+    enterprise_projection = "docmirror_enterprise.provider"
 
 Design (GA1.0-EC-01 §Component 5):
     - Uses pluggy for hook dispatch (standard Python plugin framework)

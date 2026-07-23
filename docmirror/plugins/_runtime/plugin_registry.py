@@ -1,325 +1,188 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
-# Author: Adam Lin <adamlin@valuemapglobal.com>
-#
-# This source code is licensed under the Apache 2.0 license found in the
-# LICENSE file in the root directory of this source tree.
+# SPDX-License-Identifier: Apache-2.0
 
-"""
-Domain plugin registry — ``DomainPlugin`` ABC and ``PluginRegistry`` singleton.
-
-Defines the abstract contract every domain plugin implements (``domain_name``,
-``display_name``, optional ``extract`` / ``recognize`` /
-``build_domain_data``) and maintains a keyed registry of
-``(domain_name, edition)`` instances. On first access, auto-discovers community
-plugins from package-local ``plugin.yaml`` manifests. It also optionally loads
-``docmirror_enterprise`` / ``docmirror_finance`` extension packages.
-
-Pipeline role: ``runner`` looks up edition-specific plugins through ``registry.get``;
-``manager`` lists registered domains for CLI enable/disable; scene keywords and
-``build_domain_data`` support classification and KV fallback paths.
-
-Key exports: ``DomainPlugin``, ``PluginRegistry``, ``registry``.
-
-Dependencies: package-local plugin manifests, ``configs.scene.loader`` (scene
-keywords), optional ``docmirror_enterprise`` / ``docmirror_finance`` packages.
-"""
+"""Lazy post-seal registry for external edition projectors."""
 
 from __future__ import annotations
 
 import copy
-import importlib
 import logging
 import threading
-import time
-from collections.abc import Sequence
 from importlib.resources import files
 from pathlib import PurePosixPath
 from typing import Any
 
-import yaml
-
-from docmirror.plugin_api import DomainPlugin, PluginProvider
+from docmirror.plugin_api import PluginProvider
 
 logger = logging.getLogger(__name__)
 
 
 class PluginRegistry:
-    """Central registry for domain plugins."""
+    """Central registry for post-seal projector providers."""
 
     def __init__(self):
-        self._plugins: dict[tuple[str, str], DomainPlugin] = {}
         self._providers: dict[str, PluginProvider] = {}
-        self._recognizers: dict[str, Any] = {}
         self._projectors: dict[tuple[str, str], Any] = {}
+        self._projector_providers: dict[tuple[str, str], str] = {}
         self._provider_manifests: dict[str, dict[str, Any]] = {}
+        self._provider_resource_roots: dict[str, Any] = {}
+        self._discovering = False
         self._discovered = False
         self._frozen = False
         self._lock = threading.Lock()
 
-    def register(self, plugin: DomainPlugin, *, override: bool = False) -> None:
-        if self._frozen:
-            raise RuntimeError("PluginRegistry is frozen after discovery")
-        name = plugin.domain_name
-        edition = plugin.edition
-        key = (name, edition)
-        if key in self._plugins and not override:
-            logger.warning(
-                "[PluginRegistry] Plugin '%s' edition '%s' already registered; use override=True to replace",
-                name,
-                edition,
-            )
-            return
-        self._plugins[key] = plugin
-        logger.debug("[PluginRegistry] Registered plugin: %s (%s) [%s]", name, plugin.display_name, edition)
-
-    def register_provider(self, provider: PluginProvider, *, override: bool = False) -> None:
-        """Register all roles from one provider manifest into the runtime SSOT."""
+    def register_provider(
+        self,
+        provider: PluginProvider,
+        *,
+        manifest: dict[str, Any] | None = None,
+        resource_root: Any | None = None,
+        override: bool = False,
+    ) -> None:
+        """Register one projector-only provider."""
         if self._frozen:
             raise RuntimeError("PluginRegistry is frozen after discovery")
         provider = PluginProvider.model_validate(provider)
         if provider.provider_id in self._providers and not override:
             raise ValueError(f"provider already registered: {provider.provider_id}")
-        self._providers[provider.provider_id] = provider
-        for recognizer in provider.recognizers:
-            domain = str(getattr(recognizer, "domain_name", provider.provider_id))
-            if domain in self._recognizers and not override:
-                raise ValueError(f"recognizer already registered for domain: {domain}")
-            self._recognizers[domain] = recognizer
+
+        previous = self._providers.get(provider.provider_id)
+        if previous is not None and override:
+            for projector in previous.projectors:
+                key = self._projector_key(projector, previous.provider_id)
+                if self._projectors.get(key) is projector:
+                    self._projectors.pop(key, None)
+                    self._projector_providers.pop(key, None)
+
+        if resource_root is None and previous is not None:
+            resource_root = self._provider_resource_roots.get(provider.provider_id)
+        if resource_root is None and provider.resource_package:
+            resource_root = files(provider.resource_package)
+        self._validate_provider_resources(provider, resource_root)
+
+        keys: list[tuple[str, str]] = []
         for projector in provider.projectors:
-            domain = str(getattr(projector, "domain_name", provider.provider_id))
-            edition = str(getattr(projector, "edition", "community"))
-            key = (domain, edition)
+            key = self._projector_key(projector, provider.provider_id)
             if key in self._projectors and not override:
-                raise ValueError(f"projector already registered for {domain}:{edition}")
+                raise ValueError(f"projector already registered for {key[0]}:{key[1]}")
+            if not callable(getattr(projector, "project", None)):
+                raise ValueError(f"projector has no callable project(): {provider.provider_id}")
+            keys.append(key)
+
+        self._providers[provider.provider_id] = provider
+        if resource_root is not None:
+            self._provider_resource_roots[provider.provider_id] = resource_root
+        self._provider_manifests[provider.provider_id] = copy.deepcopy(
+            manifest
+            or {
+                "schema_version": 2,
+                "provider": {
+                    "id": provider.provider_id,
+                    "version": provider.version,
+                    "api_version": provider.api_version,
+                    "supported_sealed_schemas": list(provider.supported_sealed_schemas),
+                    "resource_package": provider.resource_package,
+                },
+                "resources": dict(provider.resources),
+            }
+        )
+        for key, projector in zip(keys, provider.projectors, strict=True):
             self._projectors[key] = projector
+            self._projector_providers[key] = provider.provider_id
 
-    def get_recognizer(self, domain_name: str):
-        self._ensure_discovered()
-        return self._recognizers.get(domain_name)
+    @staticmethod
+    def _projector_key(projector: Any, provider_id: str) -> tuple[str, str]:
+        domain = str(getattr(projector, "domain_name", "") or "").strip()
+        edition = str(getattr(projector, "edition", "") or "").strip()
+        if not domain or not edition:
+            raise ValueError(f"projector must declare domain_name and edition: {provider_id}")
+        return domain, edition
 
-    def get_projector(self, domain_name: str, edition: str):
+    def get_projector(
+        self,
+        domain_name: str,
+        edition: str,
+        *,
+        sealed_schema: str | None = None,
+    ):
         self._ensure_discovered()
-        return self._projectors.get((domain_name, edition))
+        key = (domain_name, edition)
+        projector = self._projectors.get(key)
+        if projector is None or sealed_schema is None:
+            return projector
+        provider_id = self._projector_providers[key]
+        provider = self._providers[provider_id]
+        return projector if sealed_schema in provider.supported_sealed_schemas else None
+
+    def list_projectors(self, edition: str | None = None) -> tuple[Any, ...]:
+        self._ensure_discovered()
+        return tuple(
+            projector
+            for (_domain_name, projector_edition), projector in sorted(self._projectors.items())
+            if edition is None or projector_edition == edition
+        )
 
     def list_providers(self) -> tuple[PluginProvider, ...]:
         self._ensure_discovered()
         return tuple(self._providers[key] for key in sorted(self._providers))
 
     def get_provider_manifest(self, provider_id: str) -> dict[str, Any] | None:
-        """Return an isolated copy of a bundled provider's resource manifest."""
         self._ensure_discovered()
         manifest = self._provider_manifests.get(provider_id)
         return copy.deepcopy(manifest) if manifest is not None else None
 
     def list_provider_manifests(self) -> tuple[dict[str, Any], ...]:
-        """Return bundled provider manifests in stable provider-id order."""
         self._ensure_discovered()
         return tuple(copy.deepcopy(self._provider_manifests[key]) for key in sorted(self._provider_manifests))
 
-    def get(self, domain_name: str, edition: str = "community") -> DomainPlugin | None:
+    def read_provider_resource(self, provider_id: str, resource_name: str) -> str | None:
+        """Read a post-seal private resource declared by a projector provider."""
         self._ensure_discovered()
-        return self._plugins.get((domain_name, edition))
-
-    def get_first(self, domain_name: str) -> DomainPlugin | None:
-        self._ensure_discovered()
-        for ed in ("finance", "enterprise", "community"):
-            p = self._plugins.get((domain_name, ed))
-            if p:
-                return p
-        return None
-
-    def list_by_edition(self, edition: str) -> list[DomainPlugin]:
-        self._ensure_discovered()
-        return [p for (_, ed), p in self._plugins.items() if ed == edition]
+        provider = self._providers.get(provider_id)
+        if provider is None:
+            return None
+        relative_path = provider.resources.get(resource_name)
+        if not relative_path or not provider.resource_package:
+            return None
+        package_root = self._provider_resource_roots.get(provider_id) or files(provider.resource_package)
+        resource = package_root.joinpath(*PurePosixPath(relative_path).parts)
+        return resource.read_text(encoding="utf-8")
 
     def list_domains(self) -> dict[str, list[str]]:
         self._ensure_discovered()
         domains: dict[str, list[str]] = {}
-        for (name, ed), _p in self._plugins.items():
-            domains.setdefault(name, []).append(ed)
-        return domains
+        for domain_name, edition in self._projectors:
+            domains.setdefault(domain_name, []).append(edition)
+        return {name: sorted(set(editions)) for name, editions in sorted(domains.items())}
 
-    def list_plugins(self) -> dict[str, str]:
-        self._ensure_discovered()
-        result = {}
-        for (name, _ed), p in sorted(self._plugins.items()):
-            if name not in result:
-                result[name] = p.display_name
-        return result
-
-    def get_all_scene_keywords(self) -> dict[str, Sequence[str]]:
-        self._ensure_discovered()
-        result: dict[str, Sequence[str]] = {}
-        for (name, _ed), p in sorted(self._plugins.items()):
-            if p.scene_keywords and name not in result:
-                result[name] = p.scene_keywords
-        return result
-
-    def build_domain_data(
-        self,
-        domain_name: str,
-        metadata: dict[str, Any],
-        entities: dict[str, Any],
-    ) -> Any | None:
-        plugin = self.get_first(domain_name)
-        if plugin is None:
-            return None
-        return plugin.build_domain_data(metadata, entities)
+    @staticmethod
+    def _validate_provider_resources(provider: PluginProvider, package_root: Any | None) -> None:
+        if not provider.resources:
+            return
+        assert provider.resource_package is not None
+        if package_root is None:
+            raise ValueError(f"resource package is unavailable: {provider.resource_package}")
+        for resource_name, relative_path in provider.resources.items():
+            resource = package_root.joinpath(*PurePosixPath(relative_path).parts)
+            if not resource.is_file():
+                raise ValueError(f"missing plugin resource {provider.provider_id}:{resource_name}: {relative_path}")
 
     def _ensure_discovered(self) -> None:
-        # Fast path: already fully discovered.
         if self._discovered:
             return
-
-        # First thread to enter acquires the lock and runs discovery.
-        # Other threads wait until discovery completes, then return.
         with self._lock:
             if self._discovered:
                 return
-            self._discover_builtin_plugins()
-            self._discover_third_party_providers()
-            self._discovered = True
-            self._frozen = True
-
-    def _discover_builtin_plugins(self) -> None:
-        _discovery_start = time.perf_counter()
-        logger.info("[PluginRegistry] Beginning plugin discovery...")
-        try:
-            manifest_plugins = self._discover_manifest_plugins()
-            for plugin, version, manifest in manifest_plugins:
-                self.register(plugin)
-                self.register_provider(
-                    PluginProvider(
-                        provider_id=plugin.provider_id,
-                        version=version,
-                        recognizers=(plugin,),
-                    )
-                )
-                self._provider_manifests[plugin.provider_id] = manifest
-
-            _community_elapsed = (time.perf_counter() - _discovery_start) * 1000
-            logger.info(
-                "[PluginRegistry] Community plugins registered in %.0f ms (%d plugins)",
-                _community_elapsed,
-                sum(1 for (_name, edition) in self._plugins if edition == "community"),
-            )
-
+            self._discovering = True
             try:
-                _ent_start = time.perf_counter()
-                logger.info("[PluginRegistry] Discovering enterprise plugins...")
-                _pre_ent_count = len(self._plugins)
-                from docmirror_enterprise import enable as enterprise_enable
-
-                enterprise_enable.register_enterprise_plugins(self)
-                _ent_elapsed = (time.perf_counter() - _ent_start) * 1000
-                _ent_count = len(self._plugins) - _pre_ent_count
-                logger.info(
-                    "[PluginRegistry] Enterprise plugins registered in %.0f ms (%d plugins total)",
-                    _ent_elapsed,
-                    _ent_count,
-                )
-            except ImportError:
-                logger.debug("[PluginRegistry] No docmirror-enterprise package found; community edition only")
-            except Exception as e:
-                logger.warning("[PluginRegistry] Error discovering enterprise plugins: %s", e)
-
-            try:
-                _fin_start = time.perf_counter()
-                logger.info("[PluginRegistry] Discovering finance plugins...")
-                from docmirror_finance import enable as finance_enable
-
-                finance_enable.register_finance_plugins(self)
-                _fin_elapsed = (time.perf_counter() - _fin_start) * 1000
-                logger.info(
-                    "[PluginRegistry] Finance plugins registered in %.0f ms (%d plugins total)",
-                    _fin_elapsed,
-                    len(self._plugins),
-                )
-            except ImportError:
-                logger.debug("[PluginRegistry] No docmirror-finance package found; baseline edition only")
-            except Exception as e:
-                logger.warning("[PluginRegistry] Error discovering finance plugins: %s", e)
-        except ImportError:
-            logger.debug("[PluginRegistry] No docmirror.plugins package found")
-        finally:
-            _total_elapsed = (time.perf_counter() - _discovery_start) * 1000
-            logger.info(
-                "[PluginRegistry] Plugin discovery complete in %.0f ms — %d plugins in registry",
-                _total_elapsed,
-                len(self._plugins),
-            )
-
-    def _discover_manifest_plugins(self) -> list[tuple[DomainPlugin, str, dict[str, Any]]]:
-        """Load bundled plugins that declare package-local resource ownership."""
-        plugin_root = files("docmirror").joinpath("plugins")
-        discovered: list[tuple[DomainPlugin, str, dict[str, Any]]] = []
-        seen_provider_ids: set[str] = set()
-
-        for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
-            if not plugin_dir.is_dir():
-                continue
-            manifest_path = plugin_dir.joinpath("plugin.yaml")
-            if not manifest_path.is_file():
-                continue
-
-            raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-            if not isinstance(raw, dict):
-                raise ValueError(f"invalid plugin manifest mapping: {manifest_path}")
-            if raw.get("schema_version") != 1:
-                raise ValueError(f"unsupported plugin manifest schema: {manifest_path}")
-
-            provider = raw.get("provider")
-            if not isinstance(provider, dict):
-                raise ValueError(f"missing provider mapping: {manifest_path}")
-            required = ("id", "domain_name", "edition", "version", "implementation")
-            missing = [key for key in required if not str(provider.get(key) or "").strip()]
-            if missing:
-                raise ValueError(f"missing provider fields {missing}: {manifest_path}")
-
-            provider_id = str(provider["id"])
-            if provider_id in seen_provider_ids:
-                raise ValueError(f"duplicate bundled provider id: {provider_id}")
-            seen_provider_ids.add(provider_id)
-
-            implementation = str(provider["implementation"])
-            module_name, separator, attribute = implementation.partition(":")
-            package_name = f"docmirror.plugins.{plugin_dir.name}"
-            if (
-                not separator
-                or not attribute
-                or not (module_name == package_name or module_name.startswith(f"{package_name}."))
-            ):
-                raise ValueError(f"implementation must stay inside {package_name}: {implementation}")
-
-            module = importlib.import_module(module_name)
-            plugin = getattr(module, attribute, None)
-            if not isinstance(plugin, DomainPlugin):
-                raise ValueError(f"implementation is not a DomainPlugin: {implementation}")
-            if plugin.provider_id != provider_id:
-                raise ValueError(f"provider id mismatch in {manifest_path}")
-            if plugin.domain_name != str(provider["domain_name"]):
-                raise ValueError(f"domain name mismatch in {manifest_path}")
-            if plugin.edition != str(provider["edition"]):
-                raise ValueError(f"edition mismatch in {manifest_path}")
-
-            resources = raw.get("resources") or {}
-            if not isinstance(resources, dict):
-                raise ValueError(f"resources must be a mapping: {manifest_path}")
-            for resource_name, relative_value in resources.items():
-                relative_text = str(relative_value or "").strip()
-                relative_path = PurePosixPath(relative_text)
-                if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
-                    raise ValueError(f"unsafe resource path {resource_name}: {relative_value}")
-                resource_path = plugin_dir.joinpath(*relative_path.parts)
-                if not resource_path.is_file():
-                    raise ValueError(f"missing plugin resource {resource_name}: {resource_path}")
-
-            discovered.append((plugin, str(provider["version"]), raw))
-
-        return discovered
+                self._discover_third_party_providers()
+                self._discovered = True
+                self._frozen = True
+            finally:
+                self._discovering = False
 
     def _discover_third_party_providers(self) -> None:
-        """Load entry-point providers through pluggy discovery transport."""
+        """Load projector providers through pluggy only at the output boundary."""
         try:
             from docmirror.plugins._runtime.discovery import load_plugin_providers
 
@@ -340,4 +203,4 @@ def resolve_dgc_status(domain: str) -> str:
 
 registry = PluginRegistry()
 
-__all__ = ["DomainPlugin", "PluginRegistry", "registry", "resolve_dgc_status"]
+__all__ = ["PluginRegistry", "registry", "resolve_dgc_status"]

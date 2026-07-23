@@ -1,8 +1,8 @@
 {
   "schema_version": "docmirror.stability_evidence.v1",
-  "candidate": "1.0.12",
+  "candidate": "1.1.0",
   "status": "qualified",
-  "qualification_basis": "current-candidate technical gates",
+  "qualification_basis": "exact 1.1.0 technical gates passed on the candidate workspace",
   "qualified_at": "2026-07-23",
   "gates": {
     "core_contract_freeze": "qualified",

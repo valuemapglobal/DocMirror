@@ -7,7 +7,7 @@ Credit report community domain package.
 Re-exports the registered ``CreditReportPlugin`` singleton for personal brief,
 personal detail, and enterprise credit report documents (征信报告).
 
-Pipeline role: premium KV plugin; post-extract ``credit_report_sections`` hook may
+Pipeline role: premium KV recognizer; credit-report fact recognition may
 further populate Mirror sections after extract.
 
 Key exports: ``CreditReportPlugin``, ``plugin``.
