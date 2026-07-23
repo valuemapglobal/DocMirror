@@ -28,7 +28,6 @@ def test_orchestrator_standard_fixed_layout_chain():
         "GenericEntityExtractor",
         "GeometricReconstructor",
         "EvidenceEngine",
-        "CanonicalDomainEnricher",
         "Validator",
         "LlmDocumentRestorer",
         "HeaderInferrerMiddleware",
@@ -40,8 +39,8 @@ def test_orchestrator_standard_fixed_layout_chain():
     assert names.index("HeaderInferrerMiddleware") < names.index("HeaderAlignmentMiddleware")
     assert names.index("HeaderAlignmentMiddleware") < names.index("GenericEntityExtractor")
     assert names.index("GenericEntityExtractor") < names.index("EvidenceEngine")
-    assert names.index("EvidenceEngine") < names.index("CanonicalDomainEnricher")
-    assert names.index("CanonicalDomainEnricher") < names.index("Validator")
+    assert names.index("EvidenceEngine") < names.index("Validator")
+    assert "CanonicalDomainEnricher" not in names
     assert "InstitutionDetector" not in names
 
 

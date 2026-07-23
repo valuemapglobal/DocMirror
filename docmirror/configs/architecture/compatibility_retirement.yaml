@@ -1,6 +1,6 @@
 version: 2
 policy:
-  target: "1.1.0"
+  target: "1.1.1"
   rule: compatibility aliases must not remain reachable from production code
 compatibility_only_modules: []
 surfaces: []
@@ -9,25 +9,25 @@ retired_surfaces:
   replacement: docmirror.plugin_api.EditionProjector
   owner: plugin-platform
 - symbol: docmirror.plugin_api.DomainRecognizer
-  replacement: Core-owned CanonicalDomainEnricher; no external fact extension point
+  replacement: EditionProjector through the unified Post-Seal PluginRegistry
   owner: canonical-core
 - symbol: docmirror.plugin_api.FactPatch
-  replacement: private docmirror.input.canonical.fact_patch.CanonicalPatch
+  replacement: post-seal projector-local ProjectionData
   owner: canonical-core
 - symbol: docmirror.plugin_api.PluginProvider.recognizers
   replacement: PluginProvider.projectors
   owner: plugin-platform
 - symbol: docmirror.plugins._runtime.runner.run_fact_recognition_sync
-  replacement: fixed Core CanonicalDomainEnricher
+  replacement: EditionProjector.project after SealedParseResult
   owner: canonical-core
 - symbol: docmirror.framework.middlewares.extraction.community_fact_recognizer.CommunityFactRecognizer
-  replacement: CanonicalDomainEnricher
+  replacement: unified Post-Seal PluginRegistry
   owner: canonical-core
 - symbol: docmirror.plugins._base.base_table_parser.BaseTableParser.recognize
-  replacement: Core-owned BaseTableParser.recognize_facts
-  owner: canonical-core
+  replacement: BaseTableParser.derive inside a post-seal projector
+  owner: plugin-platform
 - symbol: docmirror.server.output_builder.build_community_output
-  replacement: docmirror.output.community_bundle.project_community_bundle
+  replacement: build_community_projection through the unified Post-Seal PluginRegistry
   owner: delivery
 - symbol: docmirror.server.output_builder.build_api_response
   replacement: public TaskResult adapters and the Mirror projector

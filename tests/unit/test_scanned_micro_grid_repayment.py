@@ -7,7 +7,6 @@ import docmirror.plugins.credit_report.repayment_grid as repayment_mod
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 from docmirror.models.mirror.page_evidence_bundles import (
     domain_specific_with_page_bundles,
-    materialize_micro_grids_from_bundles,
     merge_micro_grid_structures_into_bundles,
     micro_grid_structures_from_bundles,
     page_evidence_bundle,
@@ -18,6 +17,9 @@ from docmirror.ocr.micro_grid.detect import detect_micro_grid_candidates
 from docmirror.ocr.micro_grid.models import OCRToken
 from docmirror.output.mirror_projector import project_mirror
 from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
+from docmirror.plugins.credit_report.micro_grid_materialize import (
+    materialize_credit_repayment_micro_grids_from_bundles,
+)
 from docmirror.plugins.credit_report.repayment_grid import (
     extract_credit_repayment_records,
     records_from_micro_grid_dict,
@@ -51,7 +53,7 @@ def _micro_grid_bundle_domain(
         ),
         **extra,
     )
-    materialize_micro_grids_from_bundles(ds)
+    materialize_credit_repayment_micro_grids_from_bundles(ds)
     return ds
 
 
@@ -437,9 +439,6 @@ def test_four_file_forensic_mirror_includes_plugin_primed_micro_grids_without_se
         )
     )
 
-    from docmirror.framework.middlewares.extraction.community_fact_recognizer import CanonicalDomainEnricher
-
-    pr = CanonicalDomainEnricher().process(pr)
     outputs = build_all_projections(seal_parse_result(pr))
     document = project_mirror(seal_parse_result(pr), mirror_level="forensic")
     assert "repayment_records" not in document
@@ -454,7 +453,7 @@ def test_four_file_forensic_mirror_includes_plugin_primed_micro_grids_without_se
     )
     assert len(repayment_index["rows"]) == len(repayment_dataset.rows)
     assert repayment_index["row_count"] == len(repayment_dataset.rows)
-    assert repayment_dataset.rows[0]["status"] == "N"
+    assert repayment_dataset.rows[0]["normalized"]["status"] == "N"
 
 
 def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
@@ -465,9 +464,6 @@ def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
         )
     )
 
-    from docmirror.framework.middlewares.extraction.community_fact_recognizer import CanonicalDomainEnricher
-
-    pr = CanonicalDomainEnricher().process(pr)
     outputs = build_all_projections(seal_parse_result(pr))
 
     document = outputs["mirror"]
@@ -488,7 +484,7 @@ def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
     )
     assert len(repayment_index["rows"]) == len(repayment_dataset.rows)
     assert repayment_index["row_count"] == len(repayment_dataset.rows)
-    assert repayment_dataset.rows[0]["status"] == "N"
+    assert repayment_dataset.rows[0]["normalized"]["status"] == "N"
 
 
 def test_write_outputs_standard_mirror_includes_plugin_primed_micro_grids(tmp_path):

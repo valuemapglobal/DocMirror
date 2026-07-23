@@ -9,12 +9,12 @@ with a style detection pipeline (``BankStyleDetector`` → ``BankStyleParserRegi
 that selects among grid, compact merged, signed amount, borderless OCR, and KV
 identity parsers before building canonical transaction facts.
 
-Pipeline role: registered as ``plugin`` for registry discovery; the canonical runner
-invokes ``recognize_facts`` on canonical tables and OCR evidence fallback.
+Pipeline role: registered as ``plugin`` for post-seal registry discovery; the projector
+invokes ``derive`` on canonical tables and OCR evidence fallback.
 
 Key exports: ``BankStatementCommunityPlugin``, ``plugin``, column/identity config constants.
 
-Dependencies: ``_base.base_table_parser``, ``bank_statement.extract_pipeline``, ``CanonicalPatch``.
+Dependencies: ``_base.base_table_parser``, ``bank_statement.extract_pipeline``, ``ProjectionData``.
 """
 
 from __future__ import annotations
@@ -22,9 +22,9 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
-from docmirror.input.canonical.fact_patch import CanonicalPatch
 from docmirror.plugins._base.base_table_parser import BaseTableParser
 from docmirror.plugins._base.column_registry import ColumnMapping
+from docmirror.plugins._base.projector import ProjectionData
 from docmirror.plugins.bank_statement.extract_pipeline import run_bank_statement_extract
 
 BANK_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
@@ -163,11 +163,11 @@ class BankStatementCommunityPlugin(BaseTableParser):
             )
         return recovered
 
-    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
-        """Run the style-aware extractor and return canonical facts directly."""
+    def derive(self, parse_result, text: str = "") -> ProjectionData:
+        """Run the style-aware extractor and return projector-local facts."""
         result = run_bank_statement_extract(parse_result, text, self)
         summary = self._build_summary(result.records)
-        patch = self._fact_patch_from_components(
+        projection = self._projection_data_from_components(
             identity_fields=result.identity_fields,
             records=result.records,
             raw_headers=[],
@@ -200,7 +200,7 @@ class BankStatementCommunityPlugin(BaseTableParser):
             )
             if identity_values.get(source)
         }
-        return patch.model_copy(update={"entity_fields": entity_fields})
+        return projection.model_copy(update={"entity_fields": entity_fields})
 
 
 plugin = BankStatementCommunityPlugin()

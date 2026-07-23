@@ -24,15 +24,32 @@ def _manifest() -> dict:
 
 def test_credit_report_golden_manifest_is_private_traceable_and_unambiguous() -> None:
     manifest = _manifest()
+    sources = manifest["sources"]
     cases = manifest["cases"]
     source_hashes = {sha256_file(path) for path in _FIXTURE_DIR.glob("*.pdf")}
+    inventory_hashes = {source["source_sha256"] for source in sources}
+    case_hashes = {case["source_sha256"] for case in cases}
+    source_by_hash = {source["source_sha256"]: source for source in sources}
 
-    assert manifest["schema_version"] == "credit_report.golden.v1"
-    assert len(cases) == len(source_hashes)
+    assert manifest["schema_version"] == "credit_report.golden.v2"
+    assert len(sources) == len(source_hashes)
+    assert len(inventory_hashes) == len(sources)
+    assert inventory_hashes == source_hashes
     assert len({case["case_id"] for case in cases}) == len(cases)
-    assert len({case["source_sha256"] for case in cases}) == len(cases)
-    assert {case["source_sha256"] for case in cases} == source_hashes
+    assert len(case_hashes) == len(cases)
+    assert case_hashes <= inventory_hashes
+    assert all(source["disposition"] in {"golden_candidate", "golden_approved", "inventory_only"} for source in sources)
+    assert all(
+        source_by_hash[case["source_sha256"]]["disposition"]
+        == ("golden_approved" if case["review_status"] == "approved" else "golden_candidate")
+        for case in cases
+    )
+    assert all(
+        source["source_sha256"] not in case_hashes for source in sources if source["disposition"] == "inventory_only"
+    )
+    assert all(source.get("reason") for source in sources if source["disposition"] == "inventory_only")
     assert all("source_file" not in case and "subject_name" not in case for case in cases)
+    assert all("source_file" not in source and "subject_name" not in source for source in sources)
     assert all(case["review_status"] in {"candidate", "approved"} for case in cases)
     assert all(case["review_status"] != "approved" or case["truth_scope"] == "complete" for case in cases)
 

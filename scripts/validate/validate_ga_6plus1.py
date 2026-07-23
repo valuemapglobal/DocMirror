@@ -71,6 +71,11 @@ def validate_manifest(data: dict[str, Any]) -> list[str]:
             len(fingerprint) != 64 or any(char not in "0123456789abcdef" for char in fingerprint)
         ):
             errors.append(f"{case_id}: frozen expected_fact_fingerprint must be sha256")
+        projection_fingerprint = str(case.get("expected_community_projection_fingerprint") or "")
+        if status == "frozen" and (
+            len(projection_fingerprint) != 64 or any(char not in "0123456789abcdef" for char in projection_fingerprint)
+        ):
+            errors.append(f"{case_id}: frozen expected_community_projection_fingerprint must be sha256")
     return errors
 
 
@@ -91,6 +96,15 @@ async def _observe(case: dict[str, Any], workers: int | None, *, automatic: bool
     document_type = str(view.entities.document_type or "")
     domain_specific = view.entities.domain_specific or {}
     error = view.error
+    from docmirror.server.output_builder import build_community_projection
+    from scripts.validate.observe_community_projection import projection_fingerprint
+
+    before_projection = sealed.fact_fingerprint()
+    community = build_community_projection(sealed, file_path=str(fixture))
+    if community is None:
+        raise RuntimeError(f"{case['id']}: Community projector returned no payload")
+    if sealed.fact_fingerprint() != before_projection or not sealed.verify_integrity():
+        raise RuntimeError(f"{case['id']}: Community projector changed the sealed snapshot")
     return {
         "id": case["id"],
         "classification_mode": "automatic" if automatic else "forced_golden",
@@ -104,6 +118,7 @@ async def _observe(case: dict[str, Any], workers: int | None, *, automatic: bool
         "canonical_document_type": domain_specific.get("canonical_document_type"),
         "classification_source": domain_specific.get("classification_source"),
         "fact_fingerprint": sealed.fact_fingerprint(),
+        "community_projection_fingerprint": projection_fingerprint(community),
         "integrity_fingerprint": sealed.integrity_fingerprint,
     }
 
@@ -226,9 +241,15 @@ def main(argv: list[str] | None = None) -> int:
             expected = str(case["expected_fact_fingerprint"])
             if not args.print_observed and observed["fact_fingerprint"] != expected:
                 errors.append(f"{case['id']} workers={workers}: fact fingerprint mismatch")
+            expected_projection = str(case["expected_community_projection_fingerprint"])
+            if not args.print_observed and observed["community_projection_fingerprint"] != expected_projection:
+                errors.append(f"{case['id']} workers={workers}: Community projection fingerprint mismatch")
         fingerprints = {item["fact_fingerprint"] for item in case_observations}
         if args.worker_matrix and len(fingerprints) != 1:
             errors.append(f"{case['id']}: worker matrix produced different fact fingerprints")
+        projection_fingerprints = {item["community_projection_fingerprint"] for item in case_observations}
+        if args.worker_matrix and len(projection_fingerprints) != 1:
+            errors.append(f"{case['id']}: worker matrix produced different Community projections")
         if args.classification_matrix:
             try:
                 automatic = _observe_isolated(data, case, 1, automatic=True)

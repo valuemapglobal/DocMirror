@@ -13,7 +13,6 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
-from docmirror.ocr.local_structure.candidate_supplement import register_local_structure_supplement
 from docmirror.ocr.local_structure.models import LocalStructureCandidate
 from docmirror.ocr.local_structure.utils import union_bbox
 from docmirror.ocr.micro_grid.models import OCRToken
@@ -23,7 +22,6 @@ _CLOSED_MARKERS = re.compile(r"结[清消]|账户关闭|关闭日期")
 _NUMBERED_ACCOUNT_RE = re.compile(r"账户\s*\d+")
 
 
-@register_local_structure_supplement
 def detect_credit_closed_account_blocks(
     items: list[dict[str, Any]],
     *,

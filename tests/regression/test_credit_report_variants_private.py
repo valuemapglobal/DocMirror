@@ -51,9 +51,7 @@ def test_credit_report_subtype_projects_complete_v3(
     )
     result = sealed.to_read_view()
     payload = build_community_projection(sealed, file_path=str(fixture))
-    facts = result.entities.domain_specific
-
-    assert facts["report_subtype"] == subtype
+    assert "report_subtype" not in result.entities.domain_specific
     assert payload is not None
     assert payload["document"]["type"] == public_type
     assert validate_projection_payload("community", payload).valid

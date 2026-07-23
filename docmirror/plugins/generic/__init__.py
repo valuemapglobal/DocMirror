@@ -7,8 +7,8 @@ Generic community fallback domain package.
 Re-exports the ``GenericCommunityPlugin`` singleton used when a document is classified
 but is not one of the six premium community domains and generic fallback is enabled.
 
-Pipeline role: seventh community plugin slot; ``community.get_generic_community_plugin``
-loads ``plugin`` for ``runner`` generic extract path.
+Pipeline role: generic Community projector registered in the shared Post-Seal
+``PluginRegistry`` and selected only after ``SealedParseResult`` exists.
 
 Key exports: ``GenericCommunityPlugin``, ``plugin``.
 """

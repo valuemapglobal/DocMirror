@@ -37,7 +37,6 @@ ALLOWED_IMPORTERS = {
     "docmirror.ocr.aistudio_provider",
     "docmirror.ocr.fallback",
     "docmirror.ocr.local_structure.build",
-    "docmirror.ocr.local_structure.candidate_supplement",
     "docmirror.ocr.micro_grid.models",
     "docmirror.ocr.preprocess",
     "docmirror.ocr.recognize",

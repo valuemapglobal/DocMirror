@@ -9,9 +9,7 @@ Domain Registry — document-type identity fields and multilingual key normaliza
 =====================================================================================
 
  Builds document identity definitions and multilingual key normalization from
-Core-owned canonical domain resources. The resources remain physically colocated
-under ``docmirror.plugins`` for packaging stability, but they are loaded from a
-closed Core inventory and never through ``PluginRegistry``.
+Core-owned canonical domain resources under ``docmirror.configs.domain``.
 
 Identity resolution::
 
@@ -62,18 +60,28 @@ CANONICAL_DOMAIN_IDS = (
 
 @lru_cache(maxsize=1)
 def _canonical_domain_manifest_index() -> dict[str, dict[str, Any]]:
-    """Load the fixed Core domain inventory without plugin discovery."""
+    """Load the fixed Core routing/classification inventory."""
+    manifest_path = files("docmirror.configs.domain").joinpath("core_manifest.yaml")
+    root = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(root, dict) or root.get("schema_version") != 1:
+        raise ValueError(f"invalid canonical domain manifest: {manifest_path}")
+    domains = root.get("domains")
+    if not isinstance(domains, dict):
+        raise ValueError(f"canonical domain manifest has no domains: {manifest_path}")
     manifests: dict[str, dict[str, Any]] = {}
-    package_root = files("docmirror").joinpath("plugins")
     for domain_id in CANONICAL_DOMAIN_IDS:
-        manifest_path = package_root.joinpath(domain_id).joinpath("plugin.yaml")
-        payload = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-        if not isinstance(payload, dict) or payload.get("schema_version") != 1:
-            raise ValueError(f"invalid canonical domain manifest: {manifest_path}")
-        provider = payload.get("provider")
-        if not isinstance(provider, dict) or str(provider.get("domain_name") or "") != domain_id:
-            raise ValueError(f"canonical domain manifest identity mismatch: {manifest_path}")
-        manifests[domain_id] = payload
+        config = domains.get(domain_id)
+        if not isinstance(config, dict):
+            raise ValueError(f"canonical domain missing from Core manifest: {domain_id}")
+        manifests[domain_id] = {
+            "schema_version": 1,
+            "provider": {
+                "id": domain_id,
+                "domain_name": domain_id,
+                "version": "core-1",
+            },
+            **config,
+        }
     return manifests
 
 
@@ -89,7 +97,7 @@ def get_canonical_domain_manifest(domain_id: str) -> dict[str, Any] | None:
 
 
 def read_canonical_domain_resource(domain_id: str, resource_name: str) -> str | None:
-    """Read one declared Core domain resource from its bundled package."""
+    """Read one declared Core domain resource from Core configuration."""
     manifest = _canonical_domain_manifest_index().get(str(domain_id))
     if manifest is None:
         return None
@@ -97,7 +105,7 @@ def read_canonical_domain_resource(domain_id: str, resource_name: str) -> str | 
     relative = PurePosixPath(relative_text)
     if not relative_text or relative.is_absolute() or ".." in relative.parts:
         return None
-    resource = files("docmirror").joinpath("plugins").joinpath(domain_id).joinpath(*relative.parts)
+    resource = files("docmirror.configs.domain").joinpath(*relative.parts)
     return resource.read_text(encoding="utf-8") if resource.is_file() else None
 
 

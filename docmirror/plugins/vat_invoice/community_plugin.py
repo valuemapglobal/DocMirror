@@ -8,15 +8,15 @@
 VAT invoice community domain plugin.
 
 Premium community plugin for Chinese VAT invoices (key-value archetype). Declares
-identity field label specs and implements ``recognize_facts`` with
-``extract_kv_fact_patch`` plus VAT-specific OCR field normalization.
+identity field label specs and implements ``derive`` with
+``extract_kv_projection`` plus VAT-specific OCR field normalization.
 
-Pipeline role: discovered by ``PluginRegistry`` and executed by the canonical
-runner through ``recognize_facts``.
+Pipeline role: discovered by the unified Post-Seal ``PluginRegistry`` and
+executed through ``project``.
 
 Key exports: ``VATInvoicePlugin``, ``plugin``.
 
-Dependencies: ``Core canonical capability``, ``CanonicalPatch``, ``kv_community_extract``,
+Dependencies: ``ProjectionData``, ``kv_projection``,
 ``kv_community_enrich.enrich_vat_invoice_output``.
 """
 
@@ -25,10 +25,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from docmirror.input.canonical.fact_patch import CanonicalPatch
+from docmirror.plugins._base.projector import CommunityProjector, ProjectionData
 
 
-class VATInvoicePlugin:
+class VATInvoicePlugin(CommunityProjector):
     """Community edition plugin for VAT invoice document processing."""
 
     @property
@@ -40,7 +40,7 @@ class VATInvoicePlugin:
         return "VAT Invoice (Community)"
 
     @property
-    def capability_id(self) -> str:
+    def projector_id(self) -> str:
         return self.domain_name
 
     @property
@@ -54,9 +54,9 @@ class VATInvoicePlugin:
             ("invoice_date", ("开票日期", "Date", "日期")),
         )
 
-    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
+    def derive(self, parse_result, text: str = "") -> ProjectionData:
         """Run the VAT semantic solver and return facts without an edition."""
-        from docmirror.plugins._base.kv_community_extract import extract_kv_fact_patch
+        from docmirror.plugins._base.kv_projection import extract_kv_projection
         from docmirror.plugins.vat_invoice.semantic_solver import VATInvoiceSemanticSolver
 
         solution = VATInvoiceSemanticSolver().solve(full_text=text, parse_result=parse_result)
@@ -65,7 +65,7 @@ class VATInvoicePlugin:
         )
         fields.update(_vat_visual_facts(parse_result))
         if not fields:
-            return extract_kv_fact_patch(
+            return extract_kv_projection(
                 self,
                 parse_result,
                 identity_specs=self.identity_fields,
@@ -85,8 +85,8 @@ class VATInvoicePlugin:
             *canonical_warnings,
             *(issue.split(":", 1)[-1] for issue in _solution_issues(solution)),
         ]
-        return CanonicalPatch(
-            capability_id=self.domain_name,
+        return ProjectionData(
+            projector_id=self.domain_name,
             document_type=self.domain_name,
             entity_fields={"document_date": fields["invoice_date"]} if fields.get("invoice_date") else {},
             domain_facts={

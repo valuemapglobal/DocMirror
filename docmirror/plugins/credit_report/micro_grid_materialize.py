@@ -9,7 +9,6 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
-from docmirror.ocr.micro_grid.materialize import register_micro_grid_materializer
 from docmirror.plugins.credit_report.repayment_grid import extract_credit_repayment_records
 
 _RANGE_ANCHOR_RE = re.compile(r"20\d{2}年\s*\d{1,2}月\s*[-—一至~～]\s*20\d{2}年\s*\d{1,2}月.*还款记录")
@@ -127,7 +126,6 @@ def augment_credit_repayment_evidence_bundles(domain_specific: dict[str, Any]) -
         evidence["continuation_logical_pages"] = [next_page]
 
 
-@register_micro_grid_materializer
 def materialize_credit_repayment_micro_grids(
     *,
     lines: Iterable[Any],
@@ -170,3 +168,32 @@ def materialize_credit_repayment_micro_grids(
             if placeholder is not None:
                 grids.append(placeholder)
     return grids
+
+
+def materialize_credit_repayment_micro_grids_from_bundles(
+    domain_specific: dict[str, Any],
+    *,
+    page_image_resolver: Any | None = None,
+    enable_cell_ocr: bool = False,
+) -> list[dict[str, Any]]:
+    """Materialize credit-only grids on a post-seal read view."""
+    from docmirror.models.mirror.page_evidence_bundles import (
+        merge_micro_grid_structures_into_bundles,
+        micro_grid_evidence_needing_reconstruction,
+    )
+
+    materialized: list[dict[str, Any]] = []
+    for evidence in micro_grid_evidence_needing_reconstruction(domain_specific):
+        grids = materialize_credit_repayment_micro_grids(
+            lines=evidence.get("lines") or [],
+            tokens=evidence.get("tokens") or [],
+            page=int(evidence.get("page") or 0),
+            page_width=evidence.get("page_width"),
+            page_height=evidence.get("page_height"),
+            page_image_resolver=page_image_resolver,
+            enable_cell_ocr=enable_cell_ocr,
+        )
+        if grids:
+            merge_micro_grid_structures_into_bundles(domain_specific, grids)
+            materialized.extend(grids)
+    return materialized

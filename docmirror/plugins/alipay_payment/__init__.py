@@ -7,8 +7,8 @@ Alipay payment community domain package.
 Re-exports the registered ``AlipayPaymentPlugin`` singleton and column/identity
 configuration for the Alipay transaction export document type.
 
-Pipeline role: premium community plugin discovered by ``registry``; extract path
-mirrors WeChat via ``BaseTableParser.recognize``.
+Pipeline role: Community projector registered in the shared Post-Seal
+``PluginRegistry``; projection derives JSON from ``SealedParseResult``.
 
 Key exports: ``AlipayPaymentPlugin``, ``plugin``, ``ALIPAY_*`` config constants.
 """

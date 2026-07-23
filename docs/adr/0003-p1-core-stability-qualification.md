@@ -10,18 +10,18 @@ P1 adds no production node or alternate data path. The qualified runtime is:
 
 ```text
 AcceptedSource + ParsePolicy -> Dispatcher -> Adapter -> Canonical Pipeline
-  -> fixed Core canonical enrichment -> Validation -> Seal
+  -> Validation -> Seal
   -> SealedParseResult
-  -> Core projectors and optional post-seal plugin projectors
+  -> Mirror + unified Post-Seal PluginRegistry
+  -> Community / Enterprise / Finance projectors
   -> ArtifactWriter
 ```
 
 ## Qualification invariants
 
-1. Seven bundled canonical capabilities produce private `CanonicalPatch`
-   values and are selected from a fixed Core inventory.
-2. Patch application is transactional; validation or application failure
-   leaves the caller-owned result unchanged.
+1. The Canonical Pipeline has no plugin dependency or plugin-controlled stage.
+2. Seven bundled Community projectors and optional external projectors execute
+   only through the unified Post-Seal PluginRegistry.
 3. Runtime timing, paths, worker counts, licensing, diagnostics, and delivery
    metadata do not participate in the fact fingerprint.
 4. Every projector starts from the same sealed snapshot.

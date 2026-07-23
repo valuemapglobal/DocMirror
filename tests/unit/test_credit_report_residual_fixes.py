@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from docmirror.ocr.local_structure.build import extract_local_structure_evidence
+from docmirror.ocr.local_structure.utils import line_items
 from docmirror.plugins.credit_report.account_structure import _collapse_ocr_stutter
+from docmirror.plugins.credit_report.local_structure_supplement import detect_credit_closed_account_blocks
 from docmirror.plugins.credit_report.repayment_grid import dedupe_repayment_records, extract_credit_repayment_records
 from tests.unit.test_scanned_micro_grid_repayment import _credit_page4_lines, _credit_page4_tokens
 
@@ -28,18 +30,24 @@ def test_repayment_structure_materializes_anchor_and_header():
     assert "还款记录" in anchor_cells[0]["text"]
 
 
-def test_credit_closed_account_block_detected_on_page4():
+def test_credit_closed_account_block_is_detected_only_by_post_seal_plugin_logic():
     evidence = extract_local_structure_evidence(
         _credit_page4_with_account1_lines(),
         tokens=_credit_page4_tokens(),
         page=4,
     )
     structures = evidence.get("structures") or []
-    assert any(
+    assert not any(
         "账户1" in str((structure.get("anchors") or [""])[0])
         for structure in structures
         if structure.get("anchors")
     )
+    candidates = detect_credit_closed_account_blocks(
+        line_items(_credit_page4_with_account1_lines(), page=4),
+        tokens=_credit_page4_tokens(),
+        page=4,
+    )
+    assert candidates and candidates[0].anchors == ("账户1",)
 
 
 def test_collapse_ocr_stutter_removes_repeated_prefix():

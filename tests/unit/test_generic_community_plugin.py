@@ -20,14 +20,15 @@ def _mirror(document_type: str, domain_specific: dict | None = None) -> ParseRes
 
 def test_generic_plugin_domain_name():
     assert plugin.domain_name == "generic"
-    assert callable(plugin.recognize_facts)
+    assert callable(plugin.project)
+    assert callable(plugin.derive)
 
 
 def test_id_card_classified_produces_generic_facts():
-    patch = plugin.recognize_facts(
+    patch = plugin.derive(
         _mirror("id_card", {"name": "张三", "id_number": "110101199001011234"})
     )
-    assert patch.capability_id == "generic"
+    assert patch.projector_id == "generic"
     assert patch.document_type == "id_card"
     assert patch.domain_facts["name"] == "张三"
 
@@ -38,7 +39,7 @@ def test_generic_output_collects_key_values():
     page = type("Page", (), {"key_values": [kv], "tables": [], "texts": [], "page_number": 1, "width": 800, "height": 1000})()
     pr.pages = [page]
 
-    patch = plugin.recognize_facts(pr)
+    patch = plugin.derive(pr)
     assert patch.domain_facts["姓名"] == "李四"
 
 
@@ -46,6 +47,6 @@ def test_generic_projection_does_not_mutate_parse_result():
     pr = _mirror("expense_report", {"报销单号": "BX-001", "金额": "1,000.00"})
     before = pr.model_dump(mode="python")
 
-    plugin.recognize_facts(pr, "部门：销售部")
+    plugin.derive(pr, "部门：销售部")
 
     assert pr.model_dump(mode="python") == before

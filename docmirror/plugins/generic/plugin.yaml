@@ -6,14 +6,6 @@ provider:
   version: community-1
   implementation: docmirror.plugins.generic.community_plugin:plugin
 
-capabilities:
-  premium: false
-  community_order: 999
-  generic_fallback: true
-
-classification:
-  aliases: []
-
 projection:
   dataset_labels: {records: 结构化记录}
   section_type_markers:
@@ -22,19 +14,10 @@ projection:
     审计意见: audit_opinion
 
 resources:
-  key_synonyms: resources/key_synonyms.yaml
   field_schema: resources/field_schema.yaml
-  scene_keywords: resources/scene_keywords.yaml
-  domain_contract: resources/domain_contract.yaml
-  layout_profiles: resources/layout_profiles.yaml
   confidence_policy: resources/confidence_policy.yaml
-  route_overrides: resources/route_overrides.yaml
-  ocr_corrections: resources/ocr_corrections.yaml
-  ocr_corrections_financial: resources/ocr_corrections_financial.yaml
-  scanned_statement_profile: resources/scanned_statement_profile.yaml
-  classification_rules: resources/classification_rules.yaml
 
-fact_outputs:
+projection_outputs:
   document_type: dynamic
   datasets: [records]
   domain_fact_prefix: dynamic

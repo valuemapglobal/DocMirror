@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from docmirror.input.canonical.fact_patch import CanonicalPatch
+from docmirror.plugins._base.projector import ProjectionData
 
 _DEFAULT_RECORD_ID_KEYS = ("record_id", "account_id", "inquiry_id", "public_record_id")
 _REPAYMENT_RECORD_ID_KEYS = ("record_id", "repayment_id")
@@ -46,8 +46,8 @@ def _account_structure_warnings(accounts: list[dict[str, Any]]) -> tuple[str, ..
     return (f"credit:account_structure_collapse:failure_rate={failure_rate:.3f}",)
 
 
-def recognize_credit_report_facts(plugin: Any, parse_result: Any, full_text: str = "") -> CanonicalPatch:
-    """Return identity, profile, section, and business datasets as one CanonicalPatch."""
+def derive_credit_report_projection(plugin: Any, parse_result: Any, full_text: str = "") -> ProjectionData:
+    """Return identity, profile, section, and business datasets as one ProjectionData."""
     from docmirror.plugins._base.kv_community_enrich import (
         _canonicalize_credit_accounts,
         _domain_specific,
@@ -57,7 +57,7 @@ def recognize_credit_report_facts(plugin: Any, parse_result: Any, full_text: str
         _recover_credit_subject_identity,
         build_credit_sections_light,
     )
-    from docmirror.plugins._base.kv_community_extract import extract_kv_fact_patch
+    from docmirror.plugins._base.kv_projection import extract_kv_projection
     from docmirror.plugins.credit_report.business_assembly import assemble_credit_report_business
     from docmirror.plugins.credit_report.report_profile import (
         detect_credit_report_content_mode,
@@ -69,7 +69,7 @@ def recognize_credit_report_facts(plugin: Any, parse_result: Any, full_text: str
         link_repayment_records_to_accounts,
     )
 
-    base = extract_kv_fact_patch(
+    base = extract_kv_projection(
         plugin,
         parse_result,
         identity_specs=plugin.identity_fields,
@@ -171,8 +171,8 @@ def recognize_credit_report_facts(plugin: Any, parse_result: Any, full_text: str
     if domain_facts.get("id_number"):
         entity_fields["subject_id"] = domain_facts["id_number"]
     warnings = tuple(dict.fromkeys((*base.warnings, *_account_structure_warnings(credit_accounts))))
-    return CanonicalPatch(
-        capability_id=base.capability_id,
+    return ProjectionData(
+        projector_id=base.projector_id,
         document_type=base.document_type,
         entity_fields=entity_fields,
         domain_facts=domain_facts,
@@ -181,9 +181,8 @@ def recognize_credit_report_facts(plugin: Any, parse_result: Any, full_text: str
         warnings=warnings,
         evidence_ids=base.evidence_ids,
         confidence=base.confidence,
-        replace_paths=base.replace_paths,
-        reason="native credit-report recognizer facts",
+        reason="post-seal credit-report projection",
     )
 
 
-__all__ = ["recognize_credit_report_facts"]
+__all__ = ["derive_credit_report_projection"]

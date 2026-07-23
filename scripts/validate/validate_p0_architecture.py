@@ -16,10 +16,11 @@ DOCMIRROR = ROOT / "docmirror"
 REQUIRED_FILES = (
     ROOT / "docs/adr/0002-p0-canonical-fact-pipeline.md",
     DOCMIRROR / "plugin_api.py",
-    DOCMIRROR / "input/canonical/fact_patch.py",
     DOCMIRROR / "input/canonical/seal.py",
     DOCMIRROR / "models/sealed.py",
     DOCMIRROR / "output/mirror_projector.py",
+    DOCMIRROR / "plugins/_base/projector.py",
+    DOCMIRROR / "configs/domain/core_manifest.yaml",
 )
 
 PRE_SEAL_ROOTS = (
@@ -36,8 +37,23 @@ CANONICAL_FILES = tuple(path for root in PRE_SEAL_ROOTS for path in root.rglob("
 
 CANONICAL_FORBIDDEN_IMPORTS = (
     "docmirror.output",
-    "docmirror.plugins._runtime",
+    "docmirror.plugins",
     "docmirror.server",
+)
+
+RETIRED_PRE_SEAL_PLUGIN_FILES = (
+    DOCMIRROR / "framework/middlewares/extraction/community_fact_recognizer.py",
+    DOCMIRROR / "input/canonical/fact_patch.py",
+    DOCMIRROR / "ocr/local_structure/candidate_supplement.py",
+    DOCMIRROR / "ocr/micro_grid/materialize.py",
+)
+
+PLUGIN_FORBIDDEN_SYMBOLS = (
+    "CanonicalPatch",
+    "apply_canonical_patch",
+    "recognize_facts",
+    "seal_parse_result",
+    "CanonicalDomainEnricher",
 )
 
 
@@ -61,19 +77,16 @@ def main() -> int:
         errors.append("canonical source scan is empty")
 
     for path in CANONICAL_FILES:
+        source = path.read_text(encoding="utf-8")
+        if "plugin.yaml" in source:
+            errors.append(f"canonical path reads plugin manifest: {path.relative_to(ROOT)}")
         for imported in _imports(path):
             if any(imported == prefix or imported.startswith(prefix + ".") for prefix in CANONICAL_FORBIDDEN_IMPORTS):
                 errors.append(f"canonical delivery dependency: {path.relative_to(ROOT)} -> {imported}")
 
-    enrichment_source = (DOCMIRROR / "framework/middlewares/extraction/community_fact_recognizer.py").read_text(
-        encoding="utf-8"
-    )
-    for required in ("run_canonical_enrichment", "apply_canonical_patch", "_CANONICAL_CAPABILITIES"):
-        if required not in enrichment_source:
-            errors.append(f"CanonicalDomainEnricher missing Core boundary call: {required}")
-    for forbidden in ("PluginRegistry", "plugin_registry", "PluginProvider", "licensing"):
-        if forbidden in enrichment_source:
-            errors.append(f"CanonicalDomainEnricher contains plugin runtime dependency: {forbidden}")
+    for retired in RETIRED_PRE_SEAL_PLUGIN_FILES:
+        if retired.exists():
+            errors.append(f"retired pre-seal plugin bridge still exists: {retired.relative_to(ROOT)}")
 
     if (DOCMIRROR / "plugins/_runtime/parse_result_enrichment.py").exists():
         errors.append("legacy edition-payload-to-ParseResult write-back module still exists")
@@ -99,20 +112,34 @@ def main() -> int:
         if required not in middleware_source:
             errors.append(f"middleware fact-mutation audit missing: {required}")
 
-    fact_patch_source = (DOCMIRROR / "input/canonical/fact_patch.py").read_text(encoding="utf-8")
-    for required in ("replacement requires evidence_ids", "cites unknown evidence_ids", "replace_paths"):
-        if required not in fact_patch_source:
-            errors.append(f"CanonicalPatch replacement evidence gate missing: {required}")
-
     plugin_api = (DOCMIRROR / "plugin_api.py").read_text(encoding="utf-8")
     for forbidden in ("DomainRecognizer", "FactPatch", "recognizers:"):
         if forbidden in plugin_api:
             errors.append(f"public Plugin API exposes pre-seal write role: {forbidden}")
 
     output_source = (DOCMIRROR / "server/output_builder.py").read_text(encoding="utf-8")
-    for required in ("SealedParseResult", "project_mirror", "sealed.to_read_view()", "sealed.verify_integrity()"):
+    for required in (
+        "SealedParseResult",
+        "project_mirror",
+        "registry.get_projector",
+        '"community"',
+        "sealed.to_read_view()",
+        "sealed.verify_integrity()",
+    ):
         if required not in output_source:
             errors.append(f"projection builder missing sealed boundary: {required}")
+
+    catalog_source = (DOCMIRROR / "configs/yaml/middleware_catalog.yaml").read_text(encoding="utf-8")
+    profiles_source = (DOCMIRROR / "configs/yaml/enhancement_profiles.yaml").read_text(encoding="utf-8")
+    for forbidden in ("CanonicalDomainEnricher", "community_fact_recognizer"):
+        if forbidden in catalog_source or forbidden in profiles_source:
+            errors.append(f"pre-seal plugin middleware remains configured: {forbidden}")
+
+    for path in (DOCMIRROR / "plugins").rglob("*.py"):
+        source = path.read_text(encoding="utf-8")
+        for forbidden in PLUGIN_FORBIDDEN_SYMBOLS:
+            if forbidden in source:
+                errors.append(f"plugin exposes Canonical write behavior: {path.relative_to(ROOT)}: {forbidden}")
 
     for path in DOCMIRROR.rglob("*.py"):
         if path == DOCMIRROR / "server/output_builder.py":

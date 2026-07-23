@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""CanonicalPatch extraction helper for key-value domain recognizers."""
+"""ProjectionData derivation helper for post-seal key-value projectors."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from docmirror.input.canonical.fact_patch import CanonicalPatch
 from docmirror.models.mirror.block_fields import collect_kv_fields_from_blocks
 from docmirror.plugins._base.generic_community_adapter import _collect_entity_fields, _collect_table_records
+from docmirror.plugins._base.projector import ProjectionData
 
 
 def _match_identity_fields(
@@ -127,7 +127,7 @@ def _collect_identity_field_metadata(
     return metadata
 
 
-def extract_kv_fact_patch(
+def extract_kv_projection(
     plugin: Any,
     parse_result: Any,
     *,
@@ -135,7 +135,7 @@ def extract_kv_fact_patch(
     full_text: str = "",
     include_block_kv: bool = True,
     include_generic_records: bool = True,
-) -> CanonicalPatch:
+) -> ProjectionData:
     """Extract key-value facts directly without constructing an edition."""
     entity_pool = _collect_entity_fields(parse_result)
     if include_block_kv:
@@ -163,8 +163,8 @@ def extract_kv_fact_patch(
             if str(item)
         )
     )
-    return CanonicalPatch(
-        capability_id=str(plugin.domain_name),
+    return ProjectionData(
+        projector_id=str(plugin.domain_name),
         document_type=str(plugin.domain_name),
         entity_fields={
             key: fields[key]
@@ -175,5 +175,5 @@ def extract_kv_fact_patch(
         datasets={"records": canonical_records} if canonical_records else {},
         warnings=() if fields or canonical_records else ("no_fields_extracted",),
         evidence_ids=evidence_ids,
-        reason="native key-value recognizer facts",
+        reason="post-seal key-value projection",
     )

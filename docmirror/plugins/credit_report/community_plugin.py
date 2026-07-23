@@ -11,11 +11,11 @@ Premium community plugin for personal brief, personal detail, and enterprise
 credit reports. Extracts identity fields, report subtype/content mode, optional
 lightweight section hints, and table records via shared KV extract helpers.
 
-Pipeline role: canonical fact recognition for the credit-report provider.
+Pipeline role: post-seal domain derivation and Community JSON projection.
 
 Key exports: ``CreditReportPlugin``, ``plugin``.
 
-Dependencies: ``Core canonical capability``, ``dec_builder``, ``kv_community_extract``,
+Dependencies: ``ProjectionData``, ``kv_projection``,
 ``kv_community_enrich.enrich_credit_report_output``.
 """
 
@@ -23,12 +23,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from docmirror.input.canonical.fact_patch import CanonicalPatch
-from docmirror.plugins.credit_report import local_structure_supplement as _local_structure_supplement  # noqa: F401
-from docmirror.plugins.credit_report import micro_grid_materialize as _micro_grid_materialize  # noqa: F401
+from docmirror.plugins._base.projector import CommunityProjector, ProjectionData
 
 
-class CreditReportPlugin:
+class CreditReportPlugin(CommunityProjector):
     """Community edition plugin for credit report document processing."""
 
     @property
@@ -40,7 +38,7 @@ class CreditReportPlugin:
         return "Credit Report (Community)"
 
     @property
-    def capability_id(self) -> str:
+    def projector_id(self) -> str:
         return self.domain_name
 
     @property
@@ -56,10 +54,10 @@ class CreditReportPlugin:
             ("report_number", ("报告编号", "Report No", "NO.")),
         )
 
-    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
-        from docmirror.plugins.credit_report.fact_recognizer import recognize_credit_report_facts
+    def derive(self, parse_result, text: str = "") -> ProjectionData:
+        from docmirror.plugins.credit_report.projection import derive_credit_report_projection
 
-        return recognize_credit_report_facts(self, parse_result, text)
+        return derive_credit_report_projection(self, parse_result, text)
 
 
 plugin = CreditReportPlugin()

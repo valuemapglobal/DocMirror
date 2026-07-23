@@ -22,7 +22,7 @@ class _Projector:
         return {"edition": self.edition, "fingerprint": result.fact_fingerprint()}
 
 
-def test_core_domains_are_fixed_and_outside_plugin_registry(monkeypatch) -> None:
+def test_bundled_domains_use_the_unified_post_seal_registry(monkeypatch) -> None:
     monkeypatch.setattr(
         "docmirror.plugins._runtime.discovery.load_plugin_providers",
         lambda: [],
@@ -30,7 +30,8 @@ def test_core_domains_are_fixed_and_outside_plugin_registry(monkeypatch) -> None
     registry = PluginRegistry()
 
     assert len(get_canonical_premium_domains()) == 6
-    assert registry.list_providers() == ()
+    assert len(registry.list_providers()) == 7
+    assert registry.get_projector("bank_statement", "community") is not None
     assert registry.get_projector("bank_statement", "enterprise") is None
 
 

@@ -2,7 +2,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Enforce Core-owned domain resources and post-seal-only plugin runtime."""
+"""Enforce Core routing resources and post-seal-only plugin business logic."""
 
 from __future__ import annotations
 
@@ -56,6 +56,9 @@ def main() -> int:
         declared_provider = manifest.get("provider") or {}
         if declared_provider.get("id") != provider or declared_provider.get("domain_name") != provider:
             errors.append(f"manifest identity mismatch: {provider}")
+        for forbidden_section in ("capabilities", "routing", "classification", "dec_validation"):
+            if forbidden_section in manifest:
+                errors.append(f"pre-seal section remains in plugin manifest: {provider}.{forbidden_section}")
         for name, relative_value in (manifest.get("resources") or {}).items():
             relative = PurePosixPath(str(relative_value or ""))
             if relative.is_absolute() or ".." in relative.parts:
@@ -79,10 +82,8 @@ def main() -> int:
                 errors.append(f"concrete-domain branch remains: {relative}: {domain}")
 
     registry_source = _source("docmirror/plugins/_runtime/plugin_registry.py")
-    for provider in CONCRETE_DOMAINS:
-        static_import = f"docmirror.plugins.{provider}.community_plugin"
-        if static_import in registry_source:
-            errors.append(f"static built-in registration remains: {static_import}")
+    if "_register_bundled_post_seal_providers" not in registry_source:
+        errors.append("bundled projectors are not registered through the Post-Seal PluginRegistry")
 
     correction_source = _source("docmirror/ocr/correction/packs.py")
     if "OCR_CORRECTIONS_YAML" in correction_source:
@@ -110,10 +111,6 @@ def main() -> int:
             "开立日期",
             "借款金额",
         ),
-        "docmirror/ocr/local_structure/candidate_supplement.py": (
-            "docmirror.layout.segment.page_blocks",
-            "detect_pre_grid_field_supplements",
-        ),
         "docmirror/ocr/local_structure/build.py": ("credit_closed_account_block", "还款记录"),
         "docmirror/ocr/field_grid/bands.py": ("账户关闭日期", "还款期数"),
         "docmirror/ocr/field_grid/assemble.py": ("账户关闭日期", "借款金额"),
@@ -139,7 +136,7 @@ def main() -> int:
     required_bank_resources = {
         "institutions",
         "table_styles",
-        "ocr_corrections",
+        "field_schema",
     }
     bank_resources = set((manifests.get("bank_statement", {}).get("resources") or {}).keys())
     missing_bank = required_bank_resources - bank_resources
@@ -147,19 +144,25 @@ def main() -> int:
         errors.append(f"bank vertical resource ownership incomplete: {sorted(missing_bank)}")
 
     generic_resources = set((manifests.get("generic", {}).get("resources") or {}).keys())
-    missing_generic = {"classification_rules", "layout_profiles", "scanned_statement_profile"} - generic_resources
+    missing_generic = {"field_schema", "confidence_policy"} - generic_resources
     if missing_generic:
         errors.append(f"generic plugin resource ownership incomplete: {sorted(missing_generic)}")
-    generic_layout = PLUGIN_ROOT / "generic/resources/layout_profiles.yaml"
-    if generic_layout.is_file():
-        layout_payload = yaml.safe_load(generic_layout.read_text(encoding="utf-8")) or {}
-        semantics = layout_payload.get("table_semantics") or {}
-        for required in ("column_keywords", "pipe_grid", "summary_fields", "value_type_patterns"):
-            if required not in semantics:
-                errors.append(f"generic table semantics missing: {required}")
+    core_manifest = ROOT / "docmirror/configs/domain/core_manifest.yaml"
+    if not core_manifest.is_file():
+        errors.append("Core routing/classification manifest is missing")
+    else:
+        core_payload = yaml.safe_load(core_manifest.read_text(encoding="utf-8")) or {}
+        core_domains = core_payload.get("domains") or {}
+        if set(core_domains) != set(PROVIDERS):
+            errors.append("Core routing/classification inventory does not match bundled domains")
+        for provider in PROVIDERS:
+            resources = (core_domains.get(provider) or {}).get("resources") or {}
+            for required in ("key_synonyms", "scene_keywords", "domain_contract"):
+                if required not in resources:
+                    errors.append(f"Core generic capability resource missing: {provider}.{required}")
 
     credit_manifest = manifests.get("credit_report", {})
-    credit_fact_outputs = set((credit_manifest.get("fact_outputs") or {}).get("datasets") or ())
+    credit_projection_outputs = set((credit_manifest.get("projection_outputs") or {}).get("datasets") or ())
     required_credit_facts = {
         "credit_accounts",
         "credit_lines",
@@ -168,8 +171,8 @@ def main() -> int:
         "inquiry_records",
         "public_records",
     }
-    if missing_credit_facts := required_credit_facts - credit_fact_outputs:
-        errors.append(f"credit CanonicalPatch manifest omits datasets: {sorted(missing_credit_facts)}")
+    if missing_credit_facts := required_credit_facts - credit_projection_outputs:
+        errors.append(f"credit projection manifest omits datasets: {sorted(missing_credit_facts)}")
 
     if errors:
         print("P2 canonical-domain architecture validation FAILED:", file=sys.stderr)

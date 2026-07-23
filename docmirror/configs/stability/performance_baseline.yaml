@@ -7,18 +7,18 @@ reference_environment:
   install_extras: dev,pdf,ocr,langdetect
 candidate_observations:
   macos-26.5.2-x86_64-python-3.12.3:
-    observed_at: "2026-07-23"
+    observed_at: "2026-07-24"
     cases:
       long_credit_report_77_pages:
-        p50_ms: 144849.622
-        p95_ms: 158496.592
-        peak_rss_mb: 1016.840
-        fact_fingerprint: e231ed102e4af1e9a1f4d567a6fc1b925386001638565dfb49844af82a7be6d6
+        p50_ms: 90392.586
+        p95_ms: 90731.599
+        peak_rss_mb: 866.992
+        fact_fingerprint: 204b2db9e384f89b0b110f7dd205ff0ac1d419c7adaf77071e29cc61863073ce
       table_dense_bank_3_pages:
-        p50_ms: 3201.632
-        p95_ms: 3311.815
-        peak_rss_mb: 90.031
-        fact_fingerprint: 5a76c86cae6498e563c2a71e320792459c5a5ef90a13ef8b1fb148c37ed18cfe
+        p50_ms: 756.834
+        p95_ms: 797.759
+        peak_rss_mb: 88.363
+        fact_fingerprint: 58ab75bb2a9e89b5b304764e674df55977dda479aa5bf3f2d3efe23bde2fcefe
 cases:
   - id: long_credit_report_77_pages
     workload_class: long_document

@@ -31,13 +31,13 @@ from docmirror.plugins._base.generic_community_adapter import (
     _select_generic_tables,
     _standardize_value,
     _type_detect_column,
-    recognize_generic_facts,
+    derive_generic_projection,
 )
 
 
 def build_generic_community_output(result, document_type, text=""):
-    """Expose CanonicalPatch contents in the compact shape used by collector tests."""
-    patch = recognize_generic_facts(result, document_type, text)
+    """Expose ProjectionData contents in the compact shape used by collector tests."""
+    patch = derive_generic_projection(result, document_type, text)
     reserved = {"field_details", "summary", "normalized_fields", "field_schema", "columns", "identities"}
     return {
         "data": {

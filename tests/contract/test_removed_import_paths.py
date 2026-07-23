@@ -32,7 +32,6 @@ def test_canonical_replacements_resolve():
         "docmirror.output.exporters",
         "docmirror.sdk.integration",
         "docmirror.framework.di",
-        "docmirror.framework.middlewares.extraction.community_fact_recognizer",
         "docmirror.plugins._runtime.licensing",
         "docmirror.plugin_api",
     ]

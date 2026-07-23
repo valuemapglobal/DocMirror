@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import copy
 import csv
 import hashlib
 import io
@@ -197,17 +198,6 @@ def _source_hash(file_path: str) -> str:
     return f"sha256:{digest.hexdigest()}"
 
 
-def _projection_policy(domain: str) -> dict[str, Any]:
-    from docmirror.configs.domain.registry import get_canonical_domain_manifest
-    from docmirror.configs.scene.loader import get_scene_aliases
-
-    provider_id = get_scene_aliases().get(domain, domain)
-    manifest = get_canonical_domain_manifest(provider_id)
-    if manifest is not None:
-        return dict(manifest.get("projection") or {})
-    return {}
-
-
 def _domain(domain_view: dict[str, Any], projection: dict[str, Any]) -> str:
     document = domain_view.get("document") if isinstance(domain_view.get("document"), dict) else {}
     base = str(document.get("document_type") or document.get("domain") or "generic")
@@ -387,7 +377,7 @@ def _dataset_columns(rows: list[Any], dictionary: dict[str, Any], dataset_id: st
             if _has_evidence(value) or _has_evidence(row):
                 evidence_available.add(key)
     columns: list[dict[str, Any]] = []
-    for key in dict.fromkeys([*declared.keys(), *values.keys()]):
+    for key in sorted(set(declared) | set(values)):
         info = declared.get(key) if isinstance(declared.get(key), dict) else {}
         sample = next((value for value in values.get(key, []) if value not in (None, "")), "")
         col_type = _type_of(sample, info.get("format") or info.get("type"))
@@ -553,8 +543,61 @@ class CommunityBundle:
     warnings: list[dict[str, Any]]
     result: Any
 
+    @classmethod
+    def from_payload(cls, payload: dict[str, Any], result: Any) -> CommunityBundle:
+        """Restore renderer state from a public Community projector payload."""
+        datasets: list[CommunityDataset] = []
+        for raw_dataset in payload.get("datasets") or []:
+            if not isinstance(raw_dataset, dict):
+                continue
+            public = {key: copy.deepcopy(value) for key, value in raw_dataset.items() if key != "rows"}
+            rows = [copy.deepcopy(row) for row in (raw_dataset.get("rows") or []) if isinstance(row, dict)]
+            datasets.append(CommunityDataset(public=public, rows=rows))
+        return cls(
+            schema=copy.deepcopy(dict(payload.get("schema") or {})),
+            document=copy.deepcopy(dict(payload.get("document") or {})),
+            sections=copy.deepcopy(list(payload.get("sections") or [])),
+            datasets=datasets,
+            files=copy.deepcopy(dict(payload.get("files") or {})),
+            warnings=copy.deepcopy(list(payload.get("warnings") or [])),
+            result=result,
+        )
+
     def set_document_id(self, document_id: str) -> None:
         self.document["id"] = document_id
+
+    def apply_delivery_context(
+        self,
+        *,
+        file_path: str = "",
+        file_id: str = "001",
+        document_id: str = "",
+    ) -> None:
+        """Apply request-specific filenames without changing projected facts."""
+        if document_id:
+            self.set_document_id(document_id)
+        if file_path:
+            file_name = Path(file_path).name
+            source_file = self.document.setdefault("source_file", {})
+            source_file.update(
+                {
+                    "name": file_name,
+                    "mime_type": mimetypes.guess_type(file_name)[0] or "application/octet-stream",
+                    "sha256": _source_hash(file_path),
+                }
+            )
+            if not self.document.get("title"):
+                self.document["title"] = Path(file_path).stem
+        self.files.update(
+            {
+                "content_md": f"{file_id}_content.md",
+                "datasets_dir": f"{file_id}_datasets",
+                "dataset_audit_csv": f"{file_id}_datasets/_audit_cells.csv",
+            }
+        )
+        for dataset in self.datasets:
+            dataset_name = str(dataset.public.get("name") or dataset.public.get("id") or "dataset")
+            dataset.public["csv"] = f"{file_id}_datasets/{_slug(dataset_name, 'dataset')}.csv"
 
     def json_payload(self) -> dict[str, Any]:
         sections_by_id = {str(section["id"]): section for section in self.sections}
@@ -772,15 +815,20 @@ def project_community_bundle(
     file_path: str = "",
     file_id: str = "001",
     document_id: str = "",
+    projection_data: dict[str, Any] | None = None,
+    projection_policy: dict[str, Any] | None = None,
 ) -> CommunityBundle:
-    """Project Community Bundle v3 from an isolated sealed-result read view."""
+    """Assemble Community Bundle v3 from Seal and post-seal plugin derivation."""
     from docmirror.models.sealed import SealedParseResult
 
     if not isinstance(result, SealedParseResult):
         raise TypeError(f"project_community_bundle expects SealedParseResult; got {type(result).__name__}")
     result = result.to_read_view()
+    derived = copy.deepcopy(dict(projection_data or {}))
     entities = getattr(result, "entities", None)
     extension = dict(getattr(entities, "domain_specific", None) or {})
+    domain_facts = derived.get("domain_facts") if isinstance(derived.get("domain_facts"), dict) else {}
+    extension.update(domain_facts)
     field_details = extension.get("field_details") if isinstance(extension.get("field_details"), dict) else {}
     dictionary = extension.get("data_dictionary") if isinstance(extension.get("data_dictionary"), dict) else {}
     fields: dict[str, Any] = {}
@@ -800,12 +848,24 @@ def project_community_bundle(
             continue
         if not isinstance(value, (dict, list)):
             fields[key] = value
+    normalized_fields = extension.get("normalized_fields")
+    if isinstance(normalized_fields, dict):
+        for key, descriptor in normalized_fields.items():
+            if not isinstance(descriptor, dict):
+                continue
+            value = descriptor.get("value", descriptor.get("normalized_value"))
+            if value not in (None, ""):
+                fields[str(key)] = value
+    if isinstance(derived.get("entity_fields"), dict):
+        fields.update({str(key): value for key, value in derived["entity_fields"].items() if value not in (None, "")})
 
     raw_sections = [
         section.model_dump(mode="json", exclude_none=True) if hasattr(section, "model_dump") else dict(section)
         for section in (getattr(result, "sections", None) or [])
         if hasattr(section, "model_dump") or isinstance(section, dict)
     ]
+    if isinstance(derived.get("sections"), (list, tuple)) and derived["sections"]:
+        raw_sections = [copy.deepcopy(section) for section in derived["sections"] if isinstance(section, dict)]
     data = {
         key: value
         for key, value in extension.items()
@@ -820,7 +880,11 @@ def project_community_bundle(
             "data_dictionary": dictionary,
         }
     )
-    detected_type = str(getattr(entities, "document_type", None) or "generic")
+    if isinstance(derived.get("datasets"), dict):
+        data.update(
+            {str(key): copy.deepcopy(value) for key, value in derived["datasets"].items() if isinstance(value, list)}
+        )
+    detected_type = str(derived.get("document_type") or getattr(entities, "document_type", None) or "generic")
     properties = {
         key: extension[key]
         for key in ("report_subtype", "content_mode", "units")
@@ -828,6 +892,7 @@ def project_community_bundle(
     }
     source_name = Path(file_path or getattr(result, "file_path", "")).name
     parser_warnings = list(getattr(getattr(result, "parser_info", None), "warnings", None) or [])
+    parser_warnings.extend(str(item) for item in (derived.get("warnings") or ()) if str(item))
     errors = list(getattr(result, "errors", None) or [])
     support_level = str(extension.get("community_support_level") or "")
     if not support_level and detected_type not in {"", "generic", "unknown"}:
@@ -859,7 +924,7 @@ def project_community_bundle(
     domain_document = domain_view.get("document") if isinstance(domain_view.get("document"), dict) else {}
     data = domain_view.get("data") if isinstance(domain_view.get("data"), dict) else {}
     dictionary = data.get("data_dictionary") if isinstance(data.get("data_dictionary"), dict) else {}
-    projection = _projection_policy(detected_type)
+    projection = copy.deepcopy(dict(projection_policy or {}))
     domain = _domain(domain_view, projection)
     page_count = int(domain_document.get("page_count") or len(getattr(result, "pages", []) or []))
     path = Path(file_path) if file_path else None

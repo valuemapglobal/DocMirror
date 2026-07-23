@@ -1,19 +1,18 @@
 """
 BaseTableParser — shared base class for cashflow table_document community plugins.
 
-Implements the ParseResult → Community recognition pipeline for ledger-style documents:
+Implements the sealed read view → Community projection pipeline for ledger-style documents:
 extract identity KV fields, match table headers via ``ColumnMatcher``, normalize
-rows, and return a canonical ``CanonicalPatch``. Subclasses supply only domain config
+rows, and return a canonical ``ProjectionData``. Subclasses supply only domain config
 (``column_registry``, ``standard_fields``, ``scene_keywords``, ``identity_fields``).
 
 Pipeline role: extended by ``wechat_payment``, ``alipay_payment``, and partially
-by ``bank_statement`` community plugin; the canonical runner invokes
-``recognize_facts`` on registered recognizers.
+by ``bank_statement`` Community projectors after the canonical Seal.
 
 Key exports: ``BaseTableParser``.
 
-Dependencies: ``Core canonical capability``, ``column_registry``, ``standardizer``, table access
-via canonical ``ParseResult`` pages/tables and evidence.
+Dependencies: ``column_registry``, ``standardizer``, and read-only access to
+sealed ``ParseResult`` pages/tables and evidence.
 """
 
 from __future__ import annotations
@@ -24,8 +23,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Any
 
-from docmirror.input.canonical.fact_patch import CanonicalPatch
 from docmirror.plugins._base.column_registry import ColumnMapping, ColumnMatcher
+from docmirror.plugins._base.projector import CommunityProjector, ProjectionData
 from docmirror.plugins._base.standardizer import (
     extract_period,
     normalize_amount,
@@ -57,7 +56,7 @@ def _is_summary_row(row: list[str]) -> bool:
     return first_cell in {"收入", "支出"} and any("合计" in cell for cell in cells[1:])
 
 
-class BaseTableParser(ABC):
+class BaseTableParser(CommunityProjector, ABC):
     """Generic statement parser base class.
 
     Subclasses only need to implement these abstract attributes:
@@ -89,7 +88,7 @@ class BaseTableParser(ABC):
     # ── Optional overrides ──
 
     @property
-    def capability_id(self) -> str:
+    def projector_id(self) -> str:
         return self.domain_name
 
     @property
@@ -115,7 +114,7 @@ class BaseTableParser(ABC):
             identity_fields.setdefault(field_name, detail)
         if text:
             try:
-                from docmirror.plugins._base.kv_community_extract import _recover_identity_fields_from_text
+                from docmirror.plugins._base.kv_projection import _recover_identity_fields_from_text
 
                 recovered = _recover_identity_fields_from_text(text, self.identity_fields)
                 for field_name, value in recovered.items():
@@ -149,6 +148,10 @@ class BaseTableParser(ABC):
 
         # Step 5: Build records (raw + normalized)
         records = self._build_records(transactions)
+        existing_domain = getattr(getattr(parse_result, "entities", None), "domain_specific", None)
+        existing_records = existing_domain.get("records") if isinstance(existing_domain, dict) else None
+        if isinstance(existing_records, list) and existing_records:
+            records = [dict(record) for record in existing_records if isinstance(record, dict)]
 
         # Step 6: Summary statistics
         summary = self._build_summary(records)
@@ -158,10 +161,10 @@ class BaseTableParser(ABC):
 
         return identity_fields, records, raw_headers, summary, period
 
-    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
-        """Return canonical facts directly, without an edition envelope."""
+    def derive(self, parse_result, text: str = "") -> ProjectionData:
+        """Derive projector-local facts without changing the sealed snapshot."""
         identity_fields, records, raw_headers, summary, period = self._extract_fact_components(parse_result, text)
-        return self._fact_patch_from_components(
+        return self._projection_data_from_components(
             identity_fields=identity_fields,
             records=records,
             raw_headers=raw_headers,
@@ -169,7 +172,7 @@ class BaseTableParser(ABC):
             period=period,
         )
 
-    def _fact_patch_from_components(
+    def _projection_data_from_components(
         self,
         *,
         identity_fields: dict[str, dict],
@@ -180,8 +183,8 @@ class BaseTableParser(ABC):
         extra_domain_facts: dict[str, Any] | None = None,
         warnings: Sequence[str] = (),
         confidence: float = 1.0,
-    ) -> CanonicalPatch:
-        """Build the shared ledger CanonicalPatch from already extracted facts."""
+    ) -> ProjectionData:
+        """Build the shared ledger ProjectionData from already extracted facts."""
         scalar_fields: dict[str, Any] = {}
         evidence_ids: list[str] = []
         for key, detail in identity_fields.items():
@@ -218,18 +221,18 @@ class BaseTableParser(ABC):
             if period.get("end"):
                 domain_facts["period_end"] = period["end"]
         domain_facts.update(extra_domain_facts or {})
-        patch_warnings = tuple(str(item) for item in warnings if str(item))
+        projection_warnings = tuple(str(item) for item in warnings if str(item))
         if not scalar_fields and not canonical_records:
-            patch_warnings = (*patch_warnings, "no_fields_extracted")
-        return CanonicalPatch(
-            capability_id=self.domain_name,
+            projection_warnings = (*projection_warnings, "no_fields_extracted")
+        return ProjectionData(
+            projector_id=self.domain_name,
             document_type=self.domain_name,
             domain_facts=domain_facts,
             datasets={"records": canonical_records} if canonical_records else {},
-            warnings=patch_warnings,
+            warnings=projection_warnings,
             evidence_ids=tuple(dict.fromkeys(evidence_ids)),
             confidence=confidence,
-            reason="native table recognizer facts",
+            reason="post-seal table projection",
         )
 
     # ── Step 1: KV header area extraction ──
@@ -669,8 +672,16 @@ class BaseTableParser(ABC):
         expense_recs = [r for r in records if r["normalized"].get("direction") == "expense"]
         other_recs = [r for r in records if r["normalized"].get("direction") not in ("income", "expense")]
 
-        income_amounts = [r["normalized"]["amount"] for r in income_recs if r["normalized"].get("amount") is not None]
-        expense_amounts = [r["normalized"]["amount"] for r in expense_recs if r["normalized"].get("amount") is not None]
+        income_amounts = [
+            amount
+            for record in income_recs
+            if (amount := normalize_amount(str(record["normalized"].get("amount") or ""))) is not None
+        ]
+        expense_amounts = [
+            amount
+            for record in expense_recs
+            if (amount := normalize_amount(str(record["normalized"].get("amount") or ""))) is not None
+        ]
 
         total_income = round(sum(income_amounts), 2) if income_amounts else 0.0
         total_expense = round(sum(expense_amounts), 2) if expense_amounts else 0.0

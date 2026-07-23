@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import io
 
-from docmirror.input.canonical.fact_patch import CanonicalPatch, apply_canonical_patch
 from docmirror.models.entities.parse_result import (
     CellValue,
     DocumentEntities,
@@ -19,10 +18,21 @@ from docmirror.models.entities.parse_result import (
 from docmirror.models.schemas.registry import validate_projection_payload
 from docmirror.models.sealed import seal_parse_result
 from docmirror.output.community_bundle import project_community_bundle as _project_community_bundle
+from docmirror.plugins._base.projector import load_projection_policy
+
+_PROJECTIONS: dict[int, dict] = {}
 
 
 def project_community_bundle(result, **kwargs):
-    return _project_community_bundle(seal_parse_result(result), **kwargs)
+    projection_data = _PROJECTIONS.get(id(result))
+    document_type = str((projection_data or {}).get("document_type") or "generic")
+    policy = load_projection_policy(f"docmirror.plugins.{document_type}")
+    return _project_community_bundle(
+        seal_parse_result(result),
+        projection_data=projection_data,
+        projection_policy=policy,
+        **kwargs,
+    )
 
 
 def _candidate(records: list[dict] | None = None) -> dict:
@@ -79,22 +89,23 @@ def _with_projection(result: ParseResult, candidate: dict) -> ParseResult:
             }
             for index, row in enumerate(rows, start=1)
         ]
-    return apply_canonical_patch(
-        result,
-        CanonicalPatch(
-            capability_id="test-fixture",
-            document_type=candidate["document"]["document_type"],
-            entity_fields={"subject_name": fields["subject_name"]} if fields.get("subject_name") else {},
-            domain_facts={
-                **candidate["document"].get("properties", {}),
-                **fields,
-                "field_details": data.get("field_details", {}),
-                "data_dictionary": data.get("data_dictionary", {}),
-            },
-            datasets=datasets,
-            sections=tuple(data.get("sections") or ()),
-        ),
-    )
+    existing_type = str(result.entities.document_type or "")
+    _PROJECTIONS[id(result)] = {
+        "projector_id": "test-fixture",
+        "document_type": existing_type
+        if existing_type not in {"", "generic", "unknown"}
+        else candidate["document"]["document_type"],
+        "entity_fields": {"subject_name": fields["subject_name"]} if fields.get("subject_name") else {},
+        "domain_facts": {
+            **candidate["document"].get("properties", {}),
+            **fields,
+            "field_details": data.get("field_details", {}),
+            "data_dictionary": data.get("data_dictionary", {}),
+        },
+        "datasets": datasets,
+        "sections": tuple(data.get("sections") or ()),
+    }
+    return result
 
 
 def test_public_json_has_exact_six_blocks_and_complete_dataset_rows() -> None:

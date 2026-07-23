@@ -18,14 +18,13 @@ from docmirror.framework.middlewares.base import BaseMiddleware
 
 def test_catalog_loads_all_production_middlewares():
     catalog = load_catalog()
-    assert len(catalog) >= 10
+    assert len(catalog) >= 9
     expected = {
         "LanguageDetector",
         "HeaderInferrer",
         "HeaderAlignment",
         "GenericEntityExtractor",
         "EvidenceEngine",
-        "CanonicalDomainEnricher",
         "Validator",
         "AnomalyDetector",
         # "SLMEntityExtractor",  # removed in v1.1
@@ -48,3 +47,4 @@ def test_domain_plugin_bridge_not_in_catalog():
     catalog = load_catalog()
     assert "DomainPluginBridge" not in catalog
     assert "InstitutionDetector" not in catalog
+    assert "CanonicalDomainEnricher" not in catalog

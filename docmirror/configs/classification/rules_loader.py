@@ -4,7 +4,7 @@
 """
 Classification rules loader — file-sorting categories (design 09 OQ-8).
 
-Loads the ``classification_rules`` resource declared by the generic plugin.
+Loads the Core ``classification_rules`` resource used before sealing.
 The resource defines file-sort categories used upstream of business-scene
 classification. Each category may optionally map to one or more
 ``business_scene`` values via ``maps_to_scenes``.
@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from functools import lru_cache
 from importlib.resources import files
-from pathlib import PurePosixPath
 from typing import Any
 
 import yaml
@@ -37,14 +36,12 @@ except ImportError:  # Python 3.10
 
 @lru_cache(maxsize=1)
 def get_classification_rules_resource() -> Traversable | None:
-    """Resolve the generic plugin's declared classification-rules resource."""
-    plugin_dir = files("docmirror.plugins.generic")
-    manifest = yaml.safe_load(plugin_dir.joinpath("plugin.yaml").read_text(encoding="utf-8")) or {}
-    relative_text = str(((manifest.get("resources") or {}).get("classification_rules")) or "").strip()
-    relative = PurePosixPath(relative_text)
-    if not relative_text or relative.is_absolute() or ".." in relative.parts:
-        return None
-    resource = plugin_dir.joinpath(*relative.parts)
+    """Resolve the Core classification-rules resource."""
+    resource = files("docmirror.configs.domain").joinpath(
+        "resources",
+        "generic",
+        "classification_rules.yaml",
+    )
     return resource if resource.is_file() else None
 
 

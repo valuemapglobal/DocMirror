@@ -10,7 +10,8 @@ import pytest
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.models.schemas.registry import validate_projection_payload
-from docmirror.output.community_bundle import project_community_bundle
+from docmirror.output.community_bundle import CommunityBundle
+from docmirror.server.output_builder import build_community_projection
 from scripts.validate.validate_community_artifacts import PAYMENT_DIRECTIONS, payment_direction_cells
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow, pytest.mark.tier_regression]
@@ -30,8 +31,9 @@ def test_alipay_community_json_and_csv_preserve_all_1267_transactions() -> None:
             PerceiveOptions(policy=normalize_parse_policy(enhance_mode="standard", max_pages=50)),
         )
     )
-    bundle = project_community_bundle(result, file_path=str(FIXTURE), document_id="doc_alipay_full")
-    payload = bundle.json_payload()
+    payload = build_community_projection(result, file_path=str(FIXTURE), document_id="doc_alipay_full")
+    assert payload is not None
+    bundle = CommunityBundle.from_payload(payload, result.to_read_view())
     transactions = next(dataset for dataset in payload["datasets"] if dataset["name"] == "transactions")
     csv_content = bundle.render_dataset_csvs()[transactions["csv"]]
     csv_rows = list(csv.DictReader(io.StringIO(csv_content.lstrip("\ufeff"))))
