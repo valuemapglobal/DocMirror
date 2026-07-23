@@ -8,8 +8,10 @@
 Domain Registry — document-type identity fields and multilingual key normalization.
 =====================================================================================
 
-Builds document identity definitions and multilingual key normalization from
-plugin-owned resources declared in each ``plugin.yaml`` manifest.
+ Builds document identity definitions and multilingual key normalization from
+Core-owned canonical domain resources. The resources remain physically colocated
+under ``docmirror.plugins`` for packaging stability, but they are loaded from a
+closed Core inventory and never through ``PluginRegistry``.
 
 Identity resolution::
 
@@ -36,7 +38,9 @@ Usage::
 
 from __future__ import annotations
 
+import copy
 import logging
+from functools import cache, lru_cache
 from importlib.resources import files
 from pathlib import PurePosixPath
 from typing import Any
@@ -45,31 +49,147 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+CANONICAL_DOMAIN_IDS = (
+    "alipay_payment",
+    "bank_statement",
+    "business_license",
+    "credit_report",
+    "generic",
+    "vat_invoice",
+    "wechat_payment",
+)
+
+
+@lru_cache(maxsize=1)
+def _canonical_domain_manifest_index() -> dict[str, dict[str, Any]]:
+    """Load the fixed Core domain inventory without plugin discovery."""
+    manifests: dict[str, dict[str, Any]] = {}
+    package_root = files("docmirror").joinpath("plugins")
+    for domain_id in CANONICAL_DOMAIN_IDS:
+        manifest_path = package_root.joinpath(domain_id).joinpath("plugin.yaml")
+        payload = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+        if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+            raise ValueError(f"invalid canonical domain manifest: {manifest_path}")
+        provider = payload.get("provider")
+        if not isinstance(provider, dict) or str(provider.get("domain_name") or "") != domain_id:
+            raise ValueError(f"canonical domain manifest identity mismatch: {manifest_path}")
+        manifests[domain_id] = payload
+    return manifests
+
+
+def list_canonical_domain_manifests() -> tuple[dict[str, Any], ...]:
+    """Return isolated manifests for the fixed Core domain capabilities."""
+    manifests = _canonical_domain_manifest_index()
+    return tuple(copy.deepcopy(manifests[domain_id]) for domain_id in CANONICAL_DOMAIN_IDS)
+
+
+def get_canonical_domain_manifest(domain_id: str) -> dict[str, Any] | None:
+    manifest = _canonical_domain_manifest_index().get(str(domain_id))
+    return copy.deepcopy(manifest) if manifest is not None else None
+
+
+def read_canonical_domain_resource(domain_id: str, resource_name: str) -> str | None:
+    """Read one declared Core domain resource from its bundled package."""
+    manifest = _canonical_domain_manifest_index().get(str(domain_id))
+    if manifest is None:
+        return None
+    relative_text = str((manifest.get("resources") or {}).get(resource_name) or "").strip()
+    relative = PurePosixPath(relative_text)
+    if not relative_text or relative.is_absolute() or ".." in relative.parts:
+        return None
+    resource = files("docmirror").joinpath("plugins").joinpath(domain_id).joinpath(*relative.parts)
+    return resource.read_text(encoding="utf-8") if resource.is_file() else None
+
+
+def iter_canonical_domain_resources(resource_name: str) -> tuple[tuple[str, str], ...]:
+    loaded: list[tuple[str, str]] = []
+    for domain_id in CANONICAL_DOMAIN_IDS:
+        text = read_canonical_domain_resource(domain_id, resource_name)
+        if text is not None:
+            loaded.append((domain_id, text))
+    return tuple(loaded)
+
+
+def iter_canonical_domain_resources_by_prefix(prefix: str) -> tuple[tuple[str, str, str], ...]:
+    loaded: list[tuple[str, str, str]] = []
+    for domain_id in CANONICAL_DOMAIN_IDS:
+        manifest = _canonical_domain_manifest_index()[domain_id]
+        for resource_name in sorted(manifest.get("resources") or {}):
+            if not resource_name.startswith(prefix):
+                continue
+            text = read_canonical_domain_resource(domain_id, resource_name)
+            if text is not None:
+                loaded.append((domain_id, resource_name, text))
+    return tuple(loaded)
+
+
+@lru_cache(maxsize=1)
+def load_canonical_domain_capability() -> dict[str, Any]:
+    premium: list[tuple[int, str]] = []
+    aliases: dict[str, str] = {}
+    generic_enabled = False
+    for manifest in list_canonical_domain_manifests():
+        provider = manifest.get("provider") or {}
+        capabilities = manifest.get("capabilities") or {}
+        classification = manifest.get("classification") or {}
+        domain = str(provider.get("domain_name") or "")
+        if bool(capabilities.get("premium")):
+            premium.append((int(capabilities.get("community_order") or 999), domain))
+        if bool(capabilities.get("generic_fallback")):
+            generic_enabled = True
+        for alias in classification.get("aliases") or []:
+            normalized = str(alias or "").strip()
+            if normalized:
+                aliases[normalized] = domain
+    premium.sort(key=lambda item: (item[0], item[1]))
+    return {
+        "premium_domains": tuple(domain for _order, domain in premium),
+        "generic_enabled": generic_enabled,
+        "aliases": aliases,
+    }
+
+
+def get_canonical_premium_domains() -> tuple[str, ...]:
+    return tuple(load_canonical_domain_capability()["premium_domains"])
+
+
+def is_canonical_premium_domain(document_type: str) -> bool:
+    return document_type in get_canonical_premium_domains()
+
+
+def normalize_canonical_document_type(document_type: str) -> str:
+    aliases = load_canonical_domain_capability().get("aliases") or {}
+    return str(aliases.get(document_type, document_type))
+
+
+@cache
+def get_quality_group_domains(group: str) -> tuple[str, ...]:
+    domains: list[str] = []
+    for manifest in list_canonical_domain_manifests():
+        provider = manifest.get("provider") or {}
+        capabilities = manifest.get("capabilities") or {}
+        domain = str(provider.get("domain_name") or "").strip()
+        groups = {str(value).strip() for value in capabilities.get("quality_groups") or ()}
+        if domain and group in groups:
+            domains.append(domain)
+    return tuple(sorted(set(domains)))
+
+
 # ══════════════════════════════════════════════════════════════════════════════
-# Multilingual Key Synonyms — loaded from plugin resources
+# Multilingual Key Synonyms — loaded from Core domain resources
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def load_plugin_domain_resources() -> tuple[dict[str, dict[str, Any]], dict[str, list[tuple[str, ...]]]]:
-    """Load key synonyms and identity definitions without importing plugin code."""
+def load_canonical_domain_resources() -> tuple[dict[str, dict[str, Any]], dict[str, list[tuple[str, ...]]]]:
+    """Load key synonyms and identity definitions without plugin discovery."""
     domains: dict[str, dict[str, Any]] = {}
     identity_fields: dict[str, list[tuple[str, ...]]] = {}
-    plugin_root = files("docmirror").joinpath("plugins")
 
-    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
-        manifest_path = plugin_dir.joinpath("plugin.yaml")
-        if not plugin_dir.is_dir() or not manifest_path.is_file():
-            continue
+    for domain_id, resource_text in iter_canonical_domain_resources("key_synonyms"):
         try:
-            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-            relative_text = str(((manifest.get("resources") or {}).get("key_synonyms")) or "").strip()
-            relative_path = PurePosixPath(relative_text)
-            if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
-                continue
-            resource_path = plugin_dir.joinpath(*relative_path.parts)
-            payload = yaml.safe_load(resource_path.read_text(encoding="utf-8")) or {}
+            payload = yaml.safe_load(resource_text) or {}
         except Exception as exc:
-            logger.warning("Failed to load plugin key synonyms from %s: %s", plugin_dir.name, exc)
+            logger.warning("Failed to load canonical key synonyms from %s: %s", domain_id, exc)
             continue
 
         resource_domains = payload.get("domains") if isinstance(payload, dict) else None
@@ -102,11 +222,11 @@ def _flatten_key_synonyms(domains: dict[str, dict[str, Any]]) -> dict[str, str]:
         for mappings in locales.values():
             if isinstance(mappings, dict):
                 flat.update({str(key): str(value) for key, value in mappings.items()})
-    logger.info("[Config] Loaded %d key synonyms from plugin resources", len(flat))
+    logger.info("[Config] Loaded %d key synonyms from canonical domain resources", len(flat))
     return flat
 
 
-KEY_SYNONYMS_BY_DOMAIN, DOMAIN_IDENTITY = load_plugin_domain_resources()
+KEY_SYNONYMS_BY_DOMAIN, DOMAIN_IDENTITY = load_canonical_domain_resources()
 KEY_SYNONYMS: dict[str, str] = _flatten_key_synonyms(KEY_SYNONYMS_BY_DOMAIN)
 
 

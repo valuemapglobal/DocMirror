@@ -35,17 +35,3 @@ class TestDecValidation:
         dec = DomainExtractionResult(document_type="bank_statement", structured_data=[])
         issues = validate_dec(dec)
         assert any("bank_statement" in i for i in issues)
-
-    def test_runner_finalize_calls_normalize(self):
-        from docmirror.models.entities.parse_result import ParseResult
-        from docmirror.plugins._runtime.runner import _finalize_extract
-
-        pr = ParseResult()
-        payload = {
-            "document_type": "bank_statement",
-            "entities": {"account": "123"},
-            "status": {"success": True, "warnings": [], "errors": []},
-        }
-        out = _finalize_extract(pr, payload, edition="community", detected_type="bank_statement")
-        assert out["schema_version"] == "2.2"
-        assert out["data"]["fields"]["account"] == "123"

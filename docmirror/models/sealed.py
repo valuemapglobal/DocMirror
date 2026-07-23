@@ -40,10 +40,6 @@ class SealedParseResult:
         """Materialize a new mutable copy for one read-only consumer."""
         return ParseResult.model_validate_json(self._canonical_json)
 
-    def to_legacy_copy(self) -> ParseResult:
-        """Compatibility alias; callers receive a detached copy, never the SSOT."""
-        return self.to_read_view()
-
     def fact_fingerprint(self) -> str:
         """Return the deterministic fact digest, distinct from snapshot integrity."""
         return self.to_read_view().fact_fingerprint()
@@ -61,12 +57,6 @@ class SealedParseResult:
 
     def model_dump_json(self, **kwargs: Any) -> str:
         return self.to_read_view().model_dump_json(**kwargs)
-
-    def __getattr__(self, name: str) -> Any:
-        """Read-compatibility shim backed by a fresh detached view per access."""
-        if name.startswith("_"):
-            raise AttributeError(name)
-        return getattr(self.to_read_view(), name)
 
 
 def seal_parse_result(result: ParseResult | SealedParseResult) -> SealedParseResult:

@@ -17,7 +17,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
 
-from docmirror.plugins._runtime.community_config import get_quality_group_domains
+from docmirror.configs.domain.registry import get_quality_group_domains
 from docmirror.quality.evidence_coverage import (
     build_evidence_coverage_summary,
     compute_evidence_coverage,

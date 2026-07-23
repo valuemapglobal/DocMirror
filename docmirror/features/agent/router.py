@@ -11,8 +11,6 @@ plugins, middleware profiles, or re-parse options.
 
 from __future__ import annotations
 
-from importlib.resources import files
-
 import yaml
 from pydantic import BaseModel, Field
 
@@ -34,9 +32,12 @@ class DocumentRoute(BaseModel):
 
 
 def _manifest_route(document_type: str) -> dict:
-    from docmirror.plugins._runtime.plugin_registry import registry
+    from docmirror.configs.domain.registry import (
+        list_canonical_domain_manifests,
+        read_canonical_domain_resource,
+    )
 
-    manifests = registry.list_provider_manifests()
+    manifests = list_canonical_domain_manifests()
     for manifest in manifests:
         provider = manifest.get("provider") or {}
         if provider.get("domain_name") == document_type:
@@ -48,14 +49,9 @@ def _manifest_route(document_type: str) -> dict:
     )
     if not generic_manifest:
         return {}
-    relative_path = str(((generic_manifest.get("resources") or {}).get("route_overrides")) or "")
-    if not relative_path:
-        return {}
     try:
-        resource = files("docmirror").joinpath("plugins").joinpath("generic")
-        for part in relative_path.split("/"):
-            resource = resource.joinpath(part)
-        payload = yaml.safe_load(resource.read_text(encoding="utf-8")) or {}
+        resource_text = read_canonical_domain_resource("generic", "route_overrides")
+        payload = yaml.safe_load(resource_text or "") or {}
     except Exception:
         return {}
     routes = payload.get("routes") if isinstance(payload, dict) else None
@@ -69,9 +65,9 @@ def route_document(
     confidence: float = 0.0,
 ) -> DocumentRoute:
     """Map document type to enhance mode and plugin hints (6 premium + generic fallback)."""
-    from docmirror.plugins._runtime.community import (
-        get_community_premium_domains,
-        is_community_premium,
+    from docmirror.configs.domain.registry import (
+        get_canonical_premium_domains,
+        is_canonical_premium_domain,
     )
 
     doc_type = document_type or "generic"
@@ -80,7 +76,7 @@ def route_document(
     community_tier = cfg.get("community_tier", "")
 
     if not plugins:
-        if is_community_premium(doc_type):
+        if is_canonical_premium_domain(doc_type):
             plugins = [doc_type]
             community_tier = CORE_DOMAIN_ROUTE
         elif doc_type not in ("generic", "unknown", ""):
@@ -88,9 +84,9 @@ def route_document(
             community_tier = GENERIC_FALLBACK_ROUTE
 
     if not community_tier:
-        if is_community_premium(doc_type):
+        if is_canonical_premium_domain(doc_type):
             community_tier = CORE_DOMAIN_ROUTE
-        elif doc_type in get_community_premium_domains():
+        elif doc_type in get_canonical_premium_domains():
             community_tier = CORE_DOMAIN_ROUTE
         elif doc_type not in ("generic", "unknown", ""):
             community_tier = GENERIC_FALLBACK_ROUTE

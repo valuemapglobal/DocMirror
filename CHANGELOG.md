@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-07-23
+
+### Breaking
+- Retired the public `DomainRecognizer`, `FactPatch`, recognizer-bearing
+  `PluginProvider`, and pre-seal plugin runner contracts.
+- `PluginProvider` is now projector-only and `build_community_projection`,
+  `build_extended_output`, and `build_all_projections` require
+  `SealedParseResult`.
+
+### Changed
+- All external plugins are discovered and executed only after the canonical
+  seal and can produce derived artifacts only.
+- The seven bundled domain implementations remain in their existing
+  `docmirror/plugins/<domain>` locations but are selected from a fixed
+  Core-owned inventory, independent of PluginRegistry, package discovery, and
+  licensing.
+- Classification, OCR, layout, synonym, schema, and domain-contract resources
+  are loaded through the closed Core inventory rather than PluginRegistry.
+
+### Added
+- Projector providers declare supported sealed schema versions.
+- Architecture gates reject pre-seal plugin runtime dependencies,
+  recognizer-bearing providers, mutable projection inputs, and plugin-driven
+  Canonical resources.
+
+### Fixed
+- Credit-report repayment datasets now use their repayment identity for the
+  canonical `record_id`, preventing duplicate identifiers for multiple
+  repayment periods on the same account without changing frozen public
+  Golden fingerprints.
+
+### Release policy
+- Version 1.1.0 is an owner-approved compatibility reset for the plugin
+  contracts introduced in 1.0.12. Future public contract removals return to
+  the repository's major-version compatibility policy.
+
 ## [1.0.12] — 2026-07-23
 
 ### Added

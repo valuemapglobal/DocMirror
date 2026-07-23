@@ -20,10 +20,9 @@ MANIFEST = ROOT / "docmirror/configs/stability/core_contract_manifest.json"
 FUNCTIONS = {
     "dispatcher.process": ("docmirror/framework/dispatcher.py", "ParserDispatcher", "process"),
     "canonical.assemble": ("docmirror/input/canonical/assembler.py", None, "assemble_parse_result"),
-    "canonical.apply_patch": ("docmirror/input/canonical/fact_patch.py", None, "apply_fact_patch"),
+    "canonical.apply_patch": ("docmirror/input/canonical/fact_patch.py", None, "apply_canonical_patch"),
     "canonical.seal": ("docmirror/input/canonical/seal.py", None, "seal_canonical_result"),
     "output.build_all": ("docmirror/server/output_builder.py", None, "build_all_projections"),
-    "output.api_response": ("docmirror/server/output_builder.py", None, "build_api_response"),
     "projector.mirror": ("docmirror/output/mirror_projector.py", None, "project_mirror"),
     "projector.community": ("docmirror/output/community_bundle.py", None, "project_community_bundle"),
 }
@@ -78,14 +77,15 @@ def _function_contract(relative: str, class_name: str | None, function_name: str
 
 def build_snapshot() -> dict[str, Any]:
     sys.path.insert(0, str(ROOT))
+    from docmirror.input.canonical.fact_patch import CanonicalPatch
     from docmirror.models.entities.parse_result import ParseResult
-    from docmirror.plugin_api import FactPatch, PluginProvider
+    from docmirror.plugin_api import PluginProvider
 
     return {
         "schema_version": "docmirror.contract_core.v1",
         "models": {
             "ParseResult": ParseResult.model_json_schema(),
-            "FactPatch": FactPatch.model_json_schema(),
+            "CanonicalPatch": CanonicalPatch.model_json_schema(),
             "PluginProvider": {
                 name: {
                     "annotation": str(field.annotation),

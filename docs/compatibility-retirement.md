@@ -6,10 +6,12 @@ surfaces listed in `compatibility_retirement.yaml` still resolve intentionally;
 they are delivery or extension compatibility only and are not nodes in the
 canonical fact pipeline.
 
-No registered surface may be removed before DocMirror 2.0.0. Removal also
-requires a public replacement with contract coverage, migration of every
-in-repository production consumer, a published migration guide and changelog,
-at least one shipped deprecation release, and major-version contract approval.
+DocMirror 1.1.0 is an owner-approved compatibility reset for the pre-seal
+plugin contracts introduced in 1.0.12. The reset retires those contracts so
+the canonical fact pipeline can remain closed before sealing. After 1.1.0,
+removal of a registered public surface again requires a replacement with
+contract coverage, migration of every in-repository production consumer, a
+published migration guide and changelog, and explicit major-version approval.
 
 The current register covers the combined legacy plugin role, legacy plugin and
 output-builder projection calls, singular and synchronous request aliases,

@@ -1,6 +1,6 @@
 # DocMirror 研发说明手册
 
-当前发行候选：DocMirror `1.0.11`（兼容性基线：`1.0.0`）
+当前发行版本：DocMirror `1.1.0`；当前开发基线：`1.1.0`
 适用对象：后续接手 DocMirror 核心研发、插件研发、服务端/API、SDK、测试与发布维护的同事。
 编写日期：2026-06-30
 
@@ -14,13 +14,13 @@ DocMirror 是面向商业凭证的可信解析层，产品定位是 **Commercial
 - Prove：为关键字段、结构、事实和表格保留来源、页码、bbox、置信度、诊断和质量信息。
 - Trust：通过质量报告、证据包、可视化调试和 `needs_review` 等信号，帮助下游决定自动入库、人工复核或拒绝。
 
-1.0.x 的主要稳定基线包括：
+2.0 的主要稳定基线包括：
 
-- Python 包当前版本为 `1.0.11`，公共包名为 `docmirror`。
+- Python 包开发版本为 `1.1.0`，公共包名为 `docmirror`。
 - Python 支持 `>=3.10`，测试矩阵覆盖 Python 3.10 到 3.13。
 - 公共 OSS wheel 只打包 `docmirror` 主包；`docmirror_enterprise`、`docmirror_finance`、`tests`、`scripts`、`docs`、`sdks` 等不进入公共 wheel。
 - Canonical 输出是 Mirror JSON vNext，schema 标识为 `docmirror.mirror_json`，当前 schema version 为 `1.0.7`。
-- CLI、REST API、Python API 和 edition 输出最终都围绕同一个 `ParseResult`/Mirror 投影链路工作。
+- CLI、REST API、Python API 共用唯一输入到 Seal 主链；所有 edition 输出从同一个 `SealedParseResult` 投影。
 
 ## 2. 快速上手
 
@@ -89,8 +89,7 @@ docker run --rm -p 8000:8000 docmirror:latest
 | MEP | Middleware Execution Platform，Mirror 层中间件增强管线 | `docmirror/configs/yaml/middleware_catalog.yaml`、`enhancement_profiles.yaml` |
 | MOC | Mirror Object Contract，所有 adapter 产出的核心 `ParseResult` 合同 | `docmirror/models/entities/parse_result.py` |
 | UDTR | vNext Mirror 主线，文档拓扑、页面、证据、阅读流和语义投影 | `docmirror/models/mirror/`、`docmirror/topology/` |
-| PEC | Plugin Execution Contract，封存后的 ParseResult 到 edition 的插件执行合同 | `docmirror/plugins/_runtime/runner.py` |
-| DEC | Domain Extraction Contract，领域插件输出的规范化合同 | `docmirror/models/entities/domain_result.py`、`docmirror/models/schemas/` |
+| PEC | Plugin Execution Contract，唯一合同为 `SealedParseResult → EditionProjector` | `docmirror/plugin_api.py`、`docmirror/plugins/_runtime/plugin_registry.py` |
 | DMIR | 按需序列化的 DocMirror Intermediate Representation，供 MCP/PDF-UA 等专用场景使用 | `docmirror/output/dmir.py` |
 | TQG | Test Quality Gate，manifest 驱动的质量门平台 | `docmirror/eval/tqg/`、`tests/regression/` |
 | four-file output | CLI/API 持久化的多版本 JSON 输出合同 | `docmirror/server/edition_outputs.py` |
@@ -105,8 +104,8 @@ docmirror/
   topology/          页面拓扑、阅读顺序、区域图、跨页关系
   ocr/               OCR、扫描件恢复、微网格、局部结构修复
   tables/            表格检测、重建、标准化、流水类表格逻辑
-  models/            ParseResult、Mirror vNext、实体、schema、edition serializer
-  plugins/           社区领域插件和插件运行时
+  models/            ParseResult、SealedParseResult、Mirror vNext、实体与 schema
+  plugins/           Core 随包领域代码/资源的物理目录，以及 Seal 后 PluginRegistry 运行时
   output/            Mirror、Community、专用 DMIR/PDF-UA 等只读输出
   evidence/          证据包、source span、visual overlay、diff
   quality/           质量门、质量聚合、review 信号
@@ -135,52 +134,39 @@ examples/               quickstart 和演示脚本
 ### 5.1 主调用链
 
 ```mermaid
-flowchart TD
-    subgraph entryLayer["① 入口"]
-        entry["CLI / REST API / Python SDK"]
-        parsePolicy["ParsePolicy<br/>仅包含会改变事实的选项"]
-        entry --> parsePolicy
+flowchart LR
+    subgraph entryLayer["入口层"]
+        entry["CLI / REST API / Python SDK"] --> request["ParseRequest + ParsePolicy"]
     end
 
-    subgraph parseFlow["② 唯一事实主链"]
-        acceptance["InputAcceptance 一次性校验与 FCR"] --> acceptedSource["AcceptedSource 不可变"]
-        acceptedSource --> dispatcher["Dispatcher"]
-        dispatcher --> adapter["Adapter 证据与基础事实"]
-        adapter --> canonical["Canonical Pipeline<br/>唯一事实修改区"]
-        canonical --> parseResult["Sealed ParseResult SSOT"]
+    subgraph coreLayer["Core：唯一事实主链"]
+        request --> acceptance["InputAcceptance + FCR"]
+        acceptance --> source["AcceptedSource"]
+        source --> dispatcher["Dispatcher"]
+        dispatcher --> adapter["Adapter"]
+        adapter --> canonical["Canonical Pipeline"]
+        canonical --> sealed["SealedParseResult SSOT"]
     end
 
-    entry --> acceptance
-    parsePolicy --> dispatcher
-
-    subgraph delivery["③ 只读交付"]
-        mirrorProjector["Mirror Projector"]
-        communityProjector["Community Projector"]
-        enterpriseProjector["Enterprise Projector<br/>内部插件发现与授权"]
-        financeProjector["Finance Projector<br/>内部插件发现与授权"]
-        projectedArtifacts["内存投影产物"]
-        writer["ArtifactWriter<br/>临时文件 + 原子替换"]
-        api["REST Response"]
-        outputs["固定交付文件 + Manifest"]
-        mirrorProjector --> projectedArtifacts
-        communityProjector --> projectedArtifacts
-        enterpriseProjector --> projectedArtifacts
-        financeProjector --> projectedArtifacts
-        projectedArtifacts --> api
-        projectedArtifacts --> writer --> outputs
+    subgraph deliveryLayer["只读交付层"]
+        sealed --> mirror["Mirror Projector"]
+        sealed --> community["Community Projector"]
+        sealed --> registry["PluginProvider 加载 + PluginRegistry 选择"]
+        registry --> commercial["Enterprise / Finance / Scenario Projector"]
+        mirror --> artifacts["内存投影产物"]
+        community --> artifacts
+        commercial --> artifacts
+        artifacts --> response["REST / SDK TaskResult"]
+        artifacts --> writer["ArtifactWriter"]
+        writer --> files["固定产物 + Manifest"]
     end
-
-    parseResult --> mirrorProjector
-    parseResult --> communityProjector
-    parseResult --> enterpriseProjector
-    parseResult --> financeProjector
 ```
 
 ### 5.2 三个边界要守住
 
 1. Adapter 只产生证据和基础事实；不得执行 Edition 投影，也不得根据输出选择改变解析。
-2. Canonical Pipeline 是唯一允许修改事实的区域；领域识别、恢复和校验都必须在 `ParseResult` 封存前完成。
-3. Projector 与 Writer 永远只读 `ParseResult`；许可证和包可用性只能决定商业产物是否可交付，不得反向修改事实。
+2. Canonical Pipeline 是唯一允许修改事实的区域；七类随 Core 发布的固定能力在这里完成领域事实收敛。
+3. 所有 Plugins 在 Seal 后加载和执行，只能读取 `SealedParseResult`；许可证和包可用性只能决定派生产物是否可交付。
 
 附加硬约束：
 
@@ -212,7 +198,9 @@ Canonical Assembly → Normalize → Geometric Reconstruction
 - `docmirror/input/canonical/assembler.py`
 - `docmirror/server/output_builder.py`
 - `docmirror/server/artifact_writer.py`
-- `docmirror/plugins/_runtime/runner.py`
+- `docmirror/framework/middlewares/extraction/community_fact_recognizer.py`
+- `docmirror/input/canonical/fact_patch.py`
+- `docmirror/plugins/_runtime/plugin_registry.py`
 
 ## 6. 输入与解析管线
 
@@ -228,7 +216,8 @@ task = client.parse("statement.pdf")
 batch = client.parse_many(["statement.pdf", "license.png"])
 ```
 
-核心开发者仍可直接调用 `perceive_document()` 获取 `ParseResult`，但该对象和
+核心开发者仍可直接调用 `perceive_document()` 获取 `SealedParseResult`，并通过
+`to_read_view()` 显式取得隔离读视图；该对象和
 Mirror JSON 属于解析内部/诊断契约，不作为 REST 或 SDK 的公开返回正文。
 
 CLI：
@@ -443,11 +432,11 @@ Mirror vNext exporter 共用 `docmirror/output/markdown_renderer.py`，统一执
 跨页合并后的逻辑数据完整进入 Community JSON/CSV，不重复追加到正文。chunks 继续优先读取
 Mirror vNext reading flow。
 
-## 9. 插件与领域能力
+## 9. Canonical 领域能力与 Plugins
 
-### 9.1 Community 6+1
+### 9.1 Core Canonical 6+1
 
-Community 当前核心结构化插件：
+Core 当前固定结构化能力：
 
 - `bank_statement`
 - `wechat_payment`
@@ -457,7 +446,7 @@ Community 当前核心结构化插件：
 - `credit_report`
 - `generic` fallback
 
-标准落盘输出采用 Community Bundle 3.0。Community 插件的“识别”职责在 Canonical Pipeline 中执行，只补充 `ParseResult` 现有的实体、章节、页面、逻辑表与结构化扩展，并在校验和封存前完成；其“投影”职责只读已收敛的 `ParseResult`。系统不创建 Domain Facts 中间模型。`ParseResult` 是唯一内部事实源，Community、Enterprise、Finance 都直接且独立地从它投影，不读取 Mirror 或其他 Edition 的输出。
+标准落盘输出采用 Community Bundle 3.0。上述七类代码和资源为降低迁移风险仍物理保留在 `docmirror/plugins/<domain>`，但架构所有权属于 Core：通过固定清单加载，不进入 `PluginProvider`，不接受 entry point 覆盖，也不受许可证和插件开关影响。它们在 Canonical Pipeline 内补充实体、章节、逻辑表与结构化扩展，并在校验后封存。`SealedParseResult` 是唯一事实 SSOT，Community、Enterprise、Finance 都直接且独立地从它投影。
 
 Community JSON 是可独立交付给上下游系统的完整结构化 API：保持六个顶层块，并在每个 Dataset 的 `rows` 中保存全部业务记录。每条记录至少包含 `record_id`、`normalized`、`canonical_raw`、`raw` 和 `source`。Dataset 必须包含 `completeness`；`row_count`、`emitted_row_count`、`len(rows)` 与对应宽表 CSV 的行数必须守恒，JSON 与 CSV 的 `record_id` 集合和顺序必须相同。任何预览、分页或静默截断都不属于落盘契约。
 
@@ -472,35 +461,32 @@ docmirror/plugins/<domain>/resources/scene_keywords.yaml
 docmirror/plugins/generic/resources/classification_rules.yaml
 ```
 
-插件运行时：
+Canonical 能力运行时：
 
 ```text
-docmirror/plugins/_runtime/plugin_registry.py
-docmirror/plugins/_runtime/runner.py
-docmirror/plugins/_runtime/community/__init__.py
+docmirror/framework/middlewares/extraction/community_fact_recognizer.py
+docmirror/input/canonical/fact_patch.py
+docmirror/configs/domain/registry.py
 ```
 
 ### 9.2 插件执行原则
 
-- 插件按 `(domain_name, edition)` 注册。
-- Community 插件通过静态 import 注册。
-- Enterprise/Finance 插件通过可选包 `docmirror_enterprise`、`docmirror_finance` 注册。
-- 插件只能读取封存后的 `ParseResult`，不能读取或修改 Mirror 投影。
-- 插件输出先归一为 DEC，再通过 `edition_serializer` 生成 edition JSON。
-- post-extract hooks 只能 enrichment edition JSON，不能改变 `ParseResult` 或其他投影。
+- 所有商业和第三方插件只提交 Projector-only `PluginProvider`，并由唯一的 `PluginRegistry` 在 Seal 后注册。
+- `EditionProjector` 只接收 `SealedParseResult`；商业 Projector 在自己的交付边界检查授权和 Sealed schema 兼容性。
+- Plugin 资源只能服务输出模板、展示映射和 edition 校验，不得向 Core 提供分类、OCR、布局、同义词或 Canonical schema。
+- 插件不得读取 Mirror、其他 Edition 产物或可变 Core 对象，也不得把派生结果写回 Canonical。
+- `DomainRecognizer`、公共 `FactPatch`、recognizer runner 和双角色 Provider 均已退役。
 
-### 9.3 新增领域插件
+### 9.3 新增业务场景插件
 
 最小流程：
 
-1. 在插件清单声明的 `resources/scene_keywords.yaml` 添加 document type 的 include/exclude 关键词。
-2. 必要时在所属插件资源中添加分类规则或 category 映射；通用文件归档规则位于 `generic/resources/classification_rules.yaml`。
-3. 在插件清单声明的 `resources/domain_contract.yaml` 定义 P0 字段、records、quality、failure 和 gates。
-4. 在 `docmirror/plugins/<domain>/community_plugin.py` 实现 `DomainPlugin` 或复用 `BaseTableParser`。
-5. 在 `docmirror/plugins/_runtime/community/__init__.py` 静态导入插件。
-6. 如果是 community premium 域，在插件自己的 `plugin.yaml` 中声明 `capabilities.premium` 与 `community_order`。
-7. 添加 DEC/schema 相关验证和 TQG manifest case。
-8. 跑分类、提取、edition schema、证据和失败路径测试。
+1. 外部包实现 `EditionProjector.project(SealedParseResult)`。
+2. 通过 `docmirror.plugins` entry point 返回 Projector-only `PluginProvider`。
+3. 声明支持的 Sealed schema version、domain、edition 和可选输出资源。
+4. 添加 build、wheel install、lazy discovery、projection、validation、write 全生命周期测试。
+5. 添加超时、异常、非法返回值和 sealed fingerprint 不变性测试。
+6. 如果场景缺少 Canonical 事实，提交 Core capability/schema proposal；不得在插件中重建第二事实模型。
 
 建议命令：
 
@@ -924,7 +910,8 @@ docmirror/server/api.py
 docmirror/server/output_builder.py
 docmirror/server/edition_outputs.py
 docmirror/plugins/_runtime/plugin_registry.py
-docmirror/plugins/_runtime/runner.py
+docmirror/framework/middlewares/extraction/community_fact_recognizer.py
+docmirror/input/canonical/fact_patch.py
 docmirror/configs/yaml/format_capabilities.yaml
 docmirror/configs/yaml/middleware_catalog.yaml
 docmirror/configs/yaml/enhancement_profiles.yaml

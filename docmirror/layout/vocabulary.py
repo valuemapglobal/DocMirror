@@ -25,8 +25,6 @@ import re
 import unicodedata
 from collections import deque
 from collections.abc import Iterable
-from importlib.resources import files
-from pathlib import PurePosixPath
 
 import yaml
 
@@ -47,26 +45,19 @@ _RE_JUNK_PATTERNS = re.compile(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Structure-specific vocabulary — aggregated from plugin layout resources.
+# Structure-specific vocabulary — aggregated from canonical domain resources.
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def _load_plugin_header_vocabulary() -> dict[str, frozenset[str]]:
+def _load_canonical_header_vocabulary() -> dict[str, frozenset[str]]:
     categories: dict[str, set[str]] = {}
-    plugin_root = files("docmirror").joinpath("plugins")
-    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
-        manifest_path = plugin_dir.joinpath("plugin.yaml")
-        if not plugin_dir.is_dir() or not manifest_path.is_file():
-            continue
+    from docmirror.configs.domain.registry import iter_canonical_domain_resources
+
+    for domain_id, resource_text in iter_canonical_domain_resources("layout_profiles"):
         try:
-            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-            relative_text = str(((manifest.get("resources") or {}).get("layout_profiles")) or "").strip()
-            relative = PurePosixPath(relative_text)
-            if not relative_text or relative.is_absolute() or ".." in relative.parts:
-                continue
-            payload = yaml.safe_load(plugin_dir.joinpath(*relative.parts).read_text(encoding="utf-8")) or {}
+            payload = yaml.safe_load(resource_text) or {}
         except Exception as exc:
-            logger.warning("[Vocabulary] Failed plugin layout resource %s: %s", plugin_dir.name, exc)
+            logger.warning("[Vocabulary] Failed canonical layout resource %s: %s", domain_id, exc)
             continue
         raw_categories = payload.get("table_header_vocabulary") if isinstance(payload, dict) else None
         if not isinstance(raw_categories, dict):
@@ -79,7 +70,7 @@ def _load_plugin_header_vocabulary() -> dict[str, frozenset[str]]:
     return {category: frozenset(words) for category, words in categories.items()}
 
 
-VOCAB_BY_CATEGORY: dict[str, frozenset[str]] = _load_plugin_header_vocabulary()
+VOCAB_BY_CATEGORY: dict[str, frozenset[str]] = _load_canonical_header_vocabulary()
 
 # Stable union of all category vocabularies
 KNOWN_HEADER_WORDS: frozenset = frozenset().union(*VOCAB_BY_CATEGORY.values())

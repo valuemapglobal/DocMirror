@@ -62,9 +62,10 @@ async def test_acceptance_rejects_wps(tmp_path):
     wps = tmp_path / "file.wps"
     wps.write_bytes(b"\x00\x01" * 100)
     result = await perceive_document(wps)
-    assert result.status.value == "failure"
-    assert result.error is not None
-    assert result.error.code == "UNSUPPORTED_FORMAT"
+    view = result.to_read_view()
+    assert view.status.value == "failure"
+    assert view.error is not None
+    assert view.error.code == "UNSUPPORTED_FORMAT"
 
 
 @pytest.mark.asyncio
@@ -75,6 +76,7 @@ async def test_dispatcher_doc_without_soffice_returns_converter_error(tmp_path):
 
     with patch("shutil.which", return_value=None):
         result = await perceive_document(doc)
-    assert result.status.value == "failure"
-    assert result.error is not None
-    assert result.error.code == "FORMAT_REQUIRES_CONVERTER"
+    view = result.to_read_view()
+    assert view.status.value == "failure"
+    assert view.error is not None
+    assert view.error.code == "FORMAT_REQUIRES_CONVERTER"

@@ -14,13 +14,13 @@ def _result() -> ParseResult:
     return result
 
 
-def test_parse_request_normalizes_single_input_alias() -> None:
+def test_parse_request_serializes_canonical_inputs() -> None:
     ref = InputRef(file_path="sample.pdf", file_name="sample.pdf")
-    request = ParseRequest(input=ref)
+    request = ParseRequest(inputs=[ref])
 
     assert request.inputs == [ref]
     assert request.to_dict()["inputs"][0]["file_name"] == "sample.pdf"
-    assert "input" not in request.to_dict()
+    assert set(request.to_dict()).isdisjoint({"input", "sync"})
 
 
 def test_python_sdk_parse_many_uses_public_task_contract(tmp_path: Path, monkeypatch) -> None:

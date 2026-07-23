@@ -1,4 +1,4 @@
-pack_id: builtin.legacy
+pack_id: builtin.base
 version: 1
 priority: -1000
 

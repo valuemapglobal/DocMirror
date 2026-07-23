@@ -4,7 +4,7 @@
 """
 Domain Contract Validator — validates Edition JSON payload against DGAC.
 
-Reads contracts declared by plugin manifests and validates that a community
+Reads contracts declared by Core domain manifests and validates that a community
 Edition JSON payload satisfies the P0 field /
 record / section / quality / failure commitments for a given domain.
 
@@ -17,8 +17,6 @@ Used by: ``scripts/validate/validate_domain_ga_contracts.py``,
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from importlib.resources import files
-from pathlib import PurePosixPath
 from typing import Any
 
 import yaml
@@ -40,21 +38,13 @@ class DomainContractValidationReport:
 
 
 def load_domain_contracts() -> dict[str, Any]:
-    """Merge the domain contracts owned by installed bundled plugins."""
+    """Merge the domain contracts owned by bundled canonical capabilities."""
     contracts: dict[str, Any] = {"version": 1, "edition": "community", "domains": {}}
-    plugin_root = files("docmirror").joinpath("plugins")
-    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
-        manifest_path = plugin_dir.joinpath("plugin.yaml")
-        if not plugin_dir.is_dir() or not manifest_path.is_file():
-            continue
+    from docmirror.configs.domain.registry import iter_canonical_domain_resources
+
+    for _domain_id, resource_text in iter_canonical_domain_resources("domain_contract"):
         try:
-            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-            relative_text = str(((manifest.get("resources") or {}).get("domain_contract")) or "").strip()
-            relative_path = PurePosixPath(relative_text)
-            if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
-                continue
-            resource_path = plugin_dir.joinpath(*relative_path.parts)
-            payload = yaml.safe_load(resource_path.read_text(encoding="utf-8")) or {}
+            payload = yaml.safe_load(resource_text) or {}
         except Exception:
             continue
         domains = payload.get("domains") if isinstance(payload, dict) else None

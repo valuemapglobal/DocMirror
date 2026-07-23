@@ -17,7 +17,6 @@ Architecture layers (internal design reference: models layer redesign)::
     construction/   Builders converting adapter output to ``ParseResult``
     schemas/        DEC validation schemas per document type
     tracking/       Data lineage via ``Mutation`` records
-    edition_serializer   DEC → community/enterprise JSON v2.0
     ehl.py          Evidence/Hypothesis Layer annex helpers
     errors.py       Canonical error codes and failure ``ParseResult`` builders
 

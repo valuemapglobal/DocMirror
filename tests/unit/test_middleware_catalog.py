@@ -25,7 +25,7 @@ def test_catalog_loads_all_production_middlewares():
         "HeaderAlignment",
         "GenericEntityExtractor",
         "EvidenceEngine",
-        "CommunityFactRecognizer",
+        "CanonicalDomainEnricher",
         "Validator",
         "AnomalyDetector",
         # "SLMEntityExtractor",  # removed in v1.1

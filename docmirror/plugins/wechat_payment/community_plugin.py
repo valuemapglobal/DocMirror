@@ -11,8 +11,8 @@ Premium community plugin for WeChat transaction export PDFs. Extends ``BaseTable
 with WeChat-specific column registry, scene keywords, identity field specs, and custom
 row normalization (trade number cleanup, direction mapping).
 
-Pipeline role: one of six premium plugins discovered by ``community`` and executed
-via ``runner._run_community_recognition`` → ``recognize``.
+Pipeline role: discovered by ``PluginRegistry`` and executed by the canonical
+runner through ``recognize_facts``.
 
 Archetype: ``table_document``; domain: ``cashflow_payment``; support level: L2.
 
@@ -30,7 +30,6 @@ from collections.abc import Sequence
 
 from docmirror.plugins._base.base_table_parser import BaseTableParser
 from docmirror.plugins._base.column_registry import ColumnMapping
-from docmirror.plugins._base.standardizer import normalize_amount
 
 logger = logging.getLogger(__name__)
 
@@ -175,41 +174,6 @@ class WeChatPaymentPlugin(BaseTableParser):
             if value:
                 recovered[field_name] = self._evidence_identity_detail(field_name, label, value, page_id=page_id)
         return recovered
-
-    def build_domain_data(self, metadata, entities):
-        """Lightweight KV projection used when evidence-based extraction is unavailable."""
-        from docmirror.plugins._base.dec_builder import build_dec_kv
-
-        account_holder = str(entities.get("account_holder", metadata.get("Account holder", "")))
-        account_number = str(entities.get("account_number", metadata.get("Account number", "")))
-        transactions = entities.get("transactions", metadata.get("transactions", []))
-        total_income = 0.0
-        total_expense = 0.0
-        total_transactions = len(transactions) if isinstance(transactions, list) else 0
-
-        if isinstance(transactions, list):
-            for txn in transactions:
-                try:
-                    amount_str = txn.get("金额(元)", txn.get("金额", "0"))
-                    amt = normalize_amount(amount_str) or 0.0
-                except (ValueError, AttributeError):
-                    continue
-                direction = txn.get("收/支", txn.get("收/支/其他", ""))
-                if "收入" in direction or "存入" in direction:
-                    total_income += amt
-                elif "支出" in direction or "取出" in direction:
-                    total_expense += amt
-
-        return build_dec_kv(
-            "wechat_payment",
-            {
-                "account_holder": account_holder,
-                "account_number": account_number,
-                "total_transactions": total_transactions,
-                "total_income": total_income,
-                "total_expense": total_expense,
-            },
-        )
 
     def _detect_headers(
         self,

@@ -1,13 +1,13 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""FactPatch construction for generic document recognition."""
+"""CanonicalPatch construction for generic document recognition."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from docmirror.plugin_api import FactPatch
+from docmirror.input.canonical.fact_patch import CanonicalPatch
 
 
 def make_generic_fact_patch(
@@ -15,15 +15,15 @@ def make_generic_fact_patch(
     fields: dict[str, Any],
     structured_data: dict[str, Any],
     warnings: list[str],
-) -> FactPatch:
+) -> CanonicalPatch:
     records = structured_data["records"]
     canonical_records = [
         {**dict(record), "record_id": str(record.get("record_id") or f"records:r{index:06d}")}
         for index, record in enumerate(records, start=1)
         if isinstance(record, dict)
     ]
-    return FactPatch(
-        provider_id="generic",
+    return CanonicalPatch(
+        capability_id="generic",
         document_type=detected_type,
         entity_fields={
             key: fields[key]
@@ -46,11 +46,11 @@ def make_generic_fact_patch(
     )
 
 
-def build_generic_fact_patch(parse_result: Any, detected_type: str, full_text: str = "") -> FactPatch:
+def build_generic_fact_patch(parse_result: Any, detected_type: str, full_text: str = "") -> CanonicalPatch:
     """Run generic recognition and return facts without edition serialization."""
-    from docmirror.plugins._base.generic_community_adapter import build_generic_community_output
+    from docmirror.plugins._base.generic_community_adapter import recognize_generic_facts
 
-    patch = build_generic_community_output(parse_result, detected_type, full_text, _fact_patch_only=True)
-    if not isinstance(patch, FactPatch):
-        raise TypeError("generic fact recognition did not return FactPatch")
+    patch = recognize_generic_facts(parse_result, detected_type, full_text)
+    if not isinstance(patch, CanonicalPatch):
+        raise TypeError("generic fact recognition did not return CanonicalPatch")
     return patch

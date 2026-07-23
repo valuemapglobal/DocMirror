@@ -4,9 +4,8 @@
 """
 DEC schema registry loader and validator (design 09 §4.4).
 
-Loads declarative ``dec_validation`` constraints from bundled plugin manifests
-and validates ``DomainExtractionResult`` instances without importing business
-schema modules into Core.
+Loads declarative ``dec_validation`` constraints from bundled Core domain
+manifests and validates ``DomainExtractionResult`` instances.
 
 Functions::
 
@@ -18,9 +17,6 @@ from __future__ import annotations
 
 import logging
 from functools import lru_cache
-from importlib.resources import files
-
-import yaml
 
 from docmirror.models.entities.domain_result import DomainExtractionResult
 
@@ -29,19 +25,16 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
 def load_schema_registry() -> dict[str, dict]:
-    registry: dict[str, dict] = {}
-    plugin_root = files("docmirror").joinpath("plugins")
-    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
-        manifest_path = plugin_dir.joinpath("plugin.yaml")
-        if not plugin_dir.is_dir() or not manifest_path.is_file():
-            continue
-        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+    schemas: dict[str, dict] = {}
+    from docmirror.configs.domain.registry import list_canonical_domain_manifests
+
+    for manifest in list_canonical_domain_manifests():
         provider = manifest.get("provider") or {}
         document_type = str(provider.get("domain_name") or "")
         constraints = manifest.get("dec_validation")
         if document_type and isinstance(constraints, dict):
-            registry[document_type] = dict(constraints)
-    return registry
+            schemas[document_type] = dict(constraints)
+    return schemas
 
 
 def validate_dec(dec: DomainExtractionResult, *, strict: bool = False) -> list[str]:

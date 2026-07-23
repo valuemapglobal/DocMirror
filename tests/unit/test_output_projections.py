@@ -9,6 +9,7 @@ import logging
 from unittest.mock import patch
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
+from docmirror.models.sealed import seal_parse_result
 from docmirror.server.output_builder import build_all_projections
 
 
@@ -16,12 +17,6 @@ def _mirror(document_type: str = "business_license") -> ParseResult:
     pr = ParseResult(status=ResultStatus.SUCCESS)
     pr.entities = DocumentEntities(document_type=document_type)
     return pr
-
-
-def _recognize_community(result: ParseResult, call_order: list[str] | None = None, **_kwargs):
-    if call_order is not None:
-        call_order.append("community")
-    return {"edition": "community"}
 
 
 def test_build_all_projections_serializes_mirror_before_editions():
@@ -36,13 +31,9 @@ def test_build_all_projections_serializes_mirror_before_editions():
         call_order.append("mirror")
         return {"mirror": {"schema_version": "3.0.0"}, "document": {}}
 
-    with patch(
-        "docmirror.plugins._runtime.runner.run_plugin_extract_sync",
-        side_effect=lambda target, **kwargs: _recognize_community(target, call_order, **kwargs),
-    ):
-        with patch("docmirror.server.output_builder.build_extended_output", side_effect=_extended):
-            with patch("docmirror.models.mirror.core.MirrorCoreVNext.process", side_effect=_mirror_result):
-                outputs = build_all_projections(result)
+    with patch("docmirror.server.output_builder.build_extended_output", side_effect=_extended):
+        with patch("docmirror.models.mirror.core.MirrorCoreVNext.process", side_effect=_mirror_result):
+            outputs = build_all_projections(seal_parse_result(result))
 
     assert call_order[0] == "mirror"
     assert "community" not in call_order
@@ -54,13 +45,12 @@ def test_build_all_projections_serializes_mirror_before_editions():
 
 def test_build_all_projections_single_vnext_mirror_call():
     result = _mirror()
-    with patch("docmirror.plugins._runtime.runner.run_plugin_extract_sync", side_effect=_recognize_community):
-        with patch("docmirror.server.output_builder.build_extended_output", return_value=None):
-            with patch(
-                "docmirror.models.mirror.core.MirrorCoreVNext.process",
-                return_value={"mirror": {}, "document": {}},
-            ) as mirror_mock:
-                build_all_projections(result)
+    with patch("docmirror.server.output_builder.build_extended_output", return_value=None):
+        with patch(
+            "docmirror.models.mirror.core.MirrorCoreVNext.process",
+            return_value={"mirror": {}, "document": {}},
+        ) as mirror_mock:
+            build_all_projections(seal_parse_result(result))
 
     mirror_mock.assert_called_once()
     assert not hasattr(result, "_runtime_mirror_cache")
@@ -69,13 +59,12 @@ def test_build_all_projections_single_vnext_mirror_call():
 
 def test_build_all_projections_uses_fixed_standard_mirror_profile():
     result = _mirror()
-    with patch("docmirror.server.output_builder.build_community_output", return_value=None):
-        with patch("docmirror.server.output_builder.build_extended_output", return_value=None):
-            with patch(
-                "docmirror.models.mirror.core.MirrorCoreVNext.process",
-                return_value={"mirror": {}, "document": {}},
-            ) as mirror_mock:
-                build_all_projections(result)
+    with patch("docmirror.server.output_builder.build_extended_output", return_value=None):
+        with patch(
+            "docmirror.models.mirror.core.MirrorCoreVNext.process",
+            return_value={"mirror": {}, "document": {}},
+        ) as mirror_mock:
+            build_all_projections(seal_parse_result(result))
 
     options = mirror_mock.call_args.kwargs["options"]
     assert options.profile == "canonical_full"
@@ -85,8 +74,7 @@ def test_build_all_projections_logs_structured_profile(caplog):
     result = _mirror()
     caplog.set_level(logging.INFO, logger="docmirror.server.output_builder")
 
-    with patch("docmirror.plugins._runtime.runner.run_plugin_extract_sync", return_value={"edition": "community"}):
-        with patch("docmirror.server.output_builder.build_extended_output", return_value=None):
-            build_all_projections(result)
+    with patch("docmirror.server.output_builder.build_extended_output", return_value=None):
+        build_all_projections(seal_parse_result(result))
 
     assert any(record.__dict__.get("event") == "projection_build" for record in caplog.records)

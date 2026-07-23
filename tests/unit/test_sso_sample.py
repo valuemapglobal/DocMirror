@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
+from docmirror.configs.domain.registry import normalize_canonical_document_type
 from docmirror.layout.structure_signals import build_sso_sample_text, sso_sample_page_indices
-from docmirror.plugins._runtime.community import normalize_premium_document_type
 
 
 class _FakePage:
@@ -44,6 +44,6 @@ def test_build_sso_sample_text_concatenates_sample_pages():
 
 
 def test_normalize_premium_document_type_m9():
-    assert normalize_premium_document_type("bank_reconciliation") == "bank_statement"
-    assert normalize_premium_document_type("credit_report_enterprise") == "credit_report"
-    assert normalize_premium_document_type("wechat_payment") == "wechat_payment"
+    assert normalize_canonical_document_type("bank_reconciliation") == "bank_statement"
+    assert normalize_canonical_document_type("credit_report_enterprise") == "credit_report"
+    assert normalize_canonical_document_type("wechat_payment") == "wechat_payment"

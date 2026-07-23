@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import io
 
-from docmirror.input.canonical.fact_patch import apply_fact_patch
+from docmirror.input.canonical.fact_patch import CanonicalPatch, apply_canonical_patch
 from docmirror.models.entities.parse_result import (
     CellValue,
     DocumentEntities,
@@ -19,7 +19,6 @@ from docmirror.models.entities.parse_result import (
 from docmirror.models.schemas.registry import validate_projection_payload
 from docmirror.models.sealed import seal_parse_result
 from docmirror.output.community_bundle import project_community_bundle as _project_community_bundle
-from docmirror.plugin_api import FactPatch
 
 
 def project_community_bundle(result, **kwargs):
@@ -80,10 +79,10 @@ def _with_projection(result: ParseResult, candidate: dict) -> ParseResult:
             }
             for index, row in enumerate(rows, start=1)
         ]
-    return apply_fact_patch(
+    return apply_canonical_patch(
         result,
-        FactPatch(
-            provider_id="test-fixture",
+        CanonicalPatch(
+            capability_id="test-fixture",
             document_type=candidate["document"]["document_type"],
             entity_fields={"subject_name": fields["subject_name"]} if fields.get("subject_name") else {},
             domain_facts={

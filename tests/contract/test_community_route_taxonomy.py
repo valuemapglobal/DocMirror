@@ -3,7 +3,8 @@
 
 from docmirror.features.agent.router import route_document
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
-from docmirror.server.output_builder import build_community_output
+from docmirror.models.sealed import seal_parse_result
+from docmirror.server.output_builder import build_community_projection
 
 
 def test_agent_route_uses_public_core_domain_term():
@@ -11,13 +12,12 @@ def test_agent_route_uses_public_core_domain_term():
     assert route.community_tier == "core_domain"
 
 
-def test_community_output_metadata_uses_route_taxonomy():
+def test_community_projection_uses_public_document_type():
     result = ParseResult(status=ResultStatus.SUCCESS)
     result.entities = DocumentEntities(document_type="business_license")
 
-    payload = build_community_output(result)
+    payload = build_community_projection(seal_parse_result(result))
 
     assert payload is not None
-    metadata = payload.get("metadata") or {}
-    assert metadata["community_tier"] in {"core_domain", "generic_fallback", "enterprise_only"}
-    assert metadata["community_tier"] != "premium"
+    assert payload["schema"]["name"] == "docmirror.community"
+    assert payload["document"]["type"] == "business_license"

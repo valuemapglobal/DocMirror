@@ -66,9 +66,10 @@ async def test_msg_without_extract_msg_returns_converter_error(tmp_path):
     msg = tmp_path / "sample.msg"
     msg.write_bytes(b"\xd0\xcf\x11\xe0" + b"\x00" * 128)
     result = await perceive_document(msg)
-    assert result.status == ResultStatus.FAILURE
-    assert result.error is not None
-    assert result.error.code == "FORMAT_REQUIRES_CONVERTER"
+    view = result.to_read_view()
+    assert view.status == ResultStatus.FAILURE
+    assert view.error is not None
+    assert view.error.code == "FORMAT_REQUIRES_CONVERTER"
 
 
 @pytest.mark.asyncio

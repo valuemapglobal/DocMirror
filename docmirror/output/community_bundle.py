@@ -198,11 +198,11 @@ def _source_hash(file_path: str) -> str:
 
 
 def _projection_policy(domain: str) -> dict[str, Any]:
+    from docmirror.configs.domain.registry import get_canonical_domain_manifest
     from docmirror.configs.scene.loader import get_scene_aliases
-    from docmirror.plugins._runtime.plugin_registry import registry
 
     provider_id = get_scene_aliases().get(domain, domain)
-    manifest = registry.get_provider_manifest(provider_id)
+    manifest = get_canonical_domain_manifest(provider_id)
     if manifest is not None:
         return dict(manifest.get("projection") or {})
     return {}

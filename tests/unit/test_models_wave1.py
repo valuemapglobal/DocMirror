@@ -43,16 +43,6 @@ class TestEditionV2DecNormalization:
         assert dec.properties["region"] == "CN"
         assert any("missing_identity_field" in i for i in dec.quality.issues)
 
-    def test_finalize_extract_accepts_v2(self):
-        from docmirror.plugins._runtime.runner import _finalize_extract
-
-        pr = ParseResult()
-        payload = _sample_v2_payload()
-        out = _finalize_extract(pr, payload, edition="community", detected_type="alipay_payment")
-        assert out is payload
-        assert out["data"]["summary"]["total_rows"] == 1
-
-
 class TestEhlAnnexWave1:
     def test_attach_spans_annex(self):
         pr = ParseResult()

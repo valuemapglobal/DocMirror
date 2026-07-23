@@ -5,9 +5,8 @@
 Generic community fallback plugin.
 
 Universal community plugin for classified document types outside the six premium
-domains. Delegates ``recognize`` to ``build_generic_community_output``,
-mapping Mirror entities, KV pairs, tables, outlines and repeated text rows into
-an adaptive v2.0 envelope with ``community_generic_fallback`` warning.
+domains. Maps canonical entities, KV pairs, tables, outlines and repeated text
+rows into a deterministic ``CanonicalPatch``.
 
 Pipeline role: last community extract attempt before ``mirror_only`` for
 enterprise-only types; gated by ``community.is_community_generic_enabled`` and
@@ -15,20 +14,18 @@ enterprise-only types; gated by ``community.is_community_generic_enabled`` and
 
 Key exports: ``GenericCommunityPlugin``, ``plugin``.
 
-Dependencies: ``DomainPlugin``, ``generic_community_adapter.build_generic_community_output``.
+Dependencies: ``Core canonical capability``, ``generic_fact_patch.build_generic_fact_patch``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
-from docmirror.plugin_api import DomainPlugin, FactPatch
-from docmirror.plugins._base.generic_community_adapter import build_generic_community_output
+from docmirror.input.canonical.fact_patch import CanonicalPatch
 from docmirror.plugins._base.generic_fact_patch import build_generic_fact_patch
 
 
-class GenericCommunityPlugin(DomainPlugin):
+class GenericCommunityPlugin:
     """Universal community fallback for non-premium classified types."""
 
     @property
@@ -40,23 +37,14 @@ class GenericCommunityPlugin(DomainPlugin):
         return "Generic Community"
 
     @property
-    def edition(self) -> str:
-        return "community"
+    def capability_id(self) -> str:
+        return self.domain_name
 
     @property
     def scene_keywords(self) -> Sequence[str]:
         return ()
 
-    def recognize(self, parse_result, text: str = "") -> dict[str, Any]:
-        detected_type = getattr(getattr(parse_result, "entities", None), "document_type", "") or "generic"
-        if detected_type in ("", "unknown", "generic"):
-            detected_type = "generic"
-        output = build_generic_community_output(parse_result, detected_type, text)
-        if not isinstance(output, dict):
-            raise TypeError("generic compatibility projection did not return a dictionary")
-        return output
-
-    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
         detected_type = getattr(getattr(parse_result, "entities", None), "document_type", "") or "generic"
         if detected_type in ("", "unknown"):
             detected_type = "generic"

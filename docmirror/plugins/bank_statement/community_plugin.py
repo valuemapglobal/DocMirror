@@ -7,27 +7,24 @@ Bank statement community plugin — style-aware ledger extract.
 Premium community plugin for ``bank_statement`` documents. Extends ``BaseTableParser``
 with a style detection pipeline (``BankStyleDetector`` → ``BankStyleParserRegistry``)
 that selects among grid, compact merged, signed amount, borderless OCR, and KV
-identity parsers before building canonical transaction records and DEC output.
+identity parsers before building canonical transaction facts.
 
-Pipeline role: registered as ``plugin`` for ``registry`` discovery; ``runner`` invokes
-``recognize`` on canonical tables and OCR evidence fallback.
+Pipeline role: registered as ``plugin`` for registry discovery; the canonical runner
+invokes ``recognize_facts`` on canonical tables and OCR evidence fallback.
 
 Key exports: ``BankStatementCommunityPlugin``, ``plugin``, column/identity config constants.
 
-Dependencies: ``_base.base_table_parser``, ``bank_statement.extract_pipeline``, ``table_dec``.
+Dependencies: ``_base.base_table_parser``, ``bank_statement.extract_pipeline``, ``CanonicalPatch``.
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from pathlib import Path
 
-from docmirror.models.edition_serializer import EditionContext, edition_serializer
-from docmirror.plugin_api import FactPatch
+from docmirror.input.canonical.fact_patch import CanonicalPatch
 from docmirror.plugins._base.base_table_parser import BaseTableParser
 from docmirror.plugins._base.column_registry import ColumnMapping
-from docmirror.plugins._base.table_dec import build_table_dec
 from docmirror.plugins.bank_statement.extract_pipeline import run_bank_statement_extract
 
 BANK_COLUMN_REGISTRY: dict[str, ColumnMapping] = {
@@ -111,10 +108,6 @@ class BankStatementCommunityPlugin(BaseTableParser):
         return "Bank Statement (Community)"
 
     @property
-    def edition(self) -> str:
-        return "community"
-
-    @property
     def column_registry(self) -> dict[str, ColumnMapping]:
         return BANK_COLUMN_REGISTRY
 
@@ -170,63 +163,7 @@ class BankStatementCommunityPlugin(BaseTableParser):
             )
         return recovered
 
-    def build_domain_data(self, _metadata, entities):
-        from docmirror.plugins._base.dec_builder import build_dec_kv
-
-        return build_dec_kv(
-            "bank_statement",
-            {
-                "account_holder": str(entities.get("account_holder", _metadata.get("Account holder", ""))),
-                "account_number": str(entities.get("account_number", _metadata.get("Account number", ""))),
-                "bank_name": str(entities.get("bank_name", "")),
-                "query_period": str(entities.get("query_period", _metadata.get("Query period", ""))),
-                "currency": str(entities.get("currency", "CNY")),
-            },
-        )
-
-    def recognize(self, parse_result, text: str = ""):
-        """StyleDetector → Registry → v2.0 community output with style metadata."""
-        result = run_bank_statement_extract(parse_result, text, self)
-        summary = self._build_summary(result.records)
-        style_props = result.style_meta.to_properties()
-
-        dec = build_table_dec(
-            document_type=self.domain_name,
-            identity_fields=result.identity_fields,
-            records=result.records,
-            summary=summary,
-            properties=style_props,
-            metadata=dict(style_props),
-        )
-        if result.warnings:
-            dec.quality.issues.extend(f"warning:{w}" for w in result.warnings)
-        if result.style_meta.extract_status == "degraded":
-            dec.quality.validation_passed = False
-            dec.quality.issues.append("error:cqf_degraded")
-
-        file_path = getattr(parse_result, "file_path", "") or ""
-        doc_name = Path(file_path).name if file_path else self.display_name
-        page_count = len(getattr(parse_result, "pages", []) or [])
-
-        edition_ctx = EditionContext(
-            edition=self.edition,
-            detected_type=self.domain_name,
-            full_text=text,
-            document_name=doc_name,
-            page_count=page_count,
-            archetype="table_document",
-            domain="cashflow_payment",
-            match_method="style_family",
-            scene_keywords=getattr(self, "scene_keywords", ()) or (),
-            plugin_name=self.domain_name,
-            plugin_display_name=self.display_name,
-            plugin_version="community-2.0",
-            support_level="L2",
-            parser_label="docmirror-community",
-        )
-        return edition_serializer(dec, context=edition_ctx)
-
-    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
         """Run the style-aware extractor and return canonical facts directly."""
         result = run_bank_statement_extract(parse_result, text, self)
         summary = self._build_summary(result.records)

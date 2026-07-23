@@ -437,10 +437,10 @@ def test_four_file_forensic_mirror_includes_plugin_primed_micro_grids_without_se
         )
     )
 
-    from docmirror.framework.middlewares.extraction.community_fact_recognizer import CommunityFactRecognizer
+    from docmirror.framework.middlewares.extraction.community_fact_recognizer import CanonicalDomainEnricher
 
-    pr = CommunityFactRecognizer().process(pr)
-    outputs = build_all_projections(pr)
+    pr = CanonicalDomainEnricher().process(pr)
+    outputs = build_all_projections(seal_parse_result(pr))
     document = project_mirror(seal_parse_result(pr), mirror_level="forensic")
     assert "repayment_records" not in document
     grid = _micro_grid_structure_from_document(document)
@@ -465,10 +465,10 @@ def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
         )
     )
 
-    from docmirror.framework.middlewares.extraction.community_fact_recognizer import CommunityFactRecognizer
+    from docmirror.framework.middlewares.extraction.community_fact_recognizer import CanonicalDomainEnricher
 
-    pr = CommunityFactRecognizer().process(pr)
-    outputs = build_all_projections(pr)
+    pr = CanonicalDomainEnricher().process(pr)
+    outputs = build_all_projections(seal_parse_result(pr))
 
     document = outputs["mirror"]
     grid = _micro_grid_structure_from_document(document)

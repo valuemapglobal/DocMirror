@@ -3,7 +3,6 @@ schema_version: 1
 provider:
   id: generic
   domain_name: generic
-  edition: community
   version: community-1
   implementation: docmirror.plugins.generic.community_plugin:plugin
 
@@ -34,7 +33,6 @@ resources:
   ocr_corrections_financial: resources/ocr_corrections_financial.yaml
   scanned_statement_profile: resources/scanned_statement_profile.yaml
   classification_rules: resources/classification_rules.yaml
-  post_extract: resources/post_extract.yaml
 
 fact_outputs:
   document_type: dynamic

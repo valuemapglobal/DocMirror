@@ -203,12 +203,13 @@ class TestDMIRDeterminism:
         assert json.dumps(dmir1, sort_keys=True) == json.dumps(dmir_final, sort_keys=True)
 
     def test_build_projections_unchanged_after_dmir(self):
+        from docmirror.models.sealed import seal_parse_result
         from docmirror.server.output_builder import build_all_projections
         r1 = _full_parse_result()
         r2 = _full_parse_result()
-        p1 = build_all_projections(r1, file_path="test.pdf")
+        p1 = build_all_projections(seal_parse_result(r1), file_path="test.pdf")
         serialize_dmir(r2)
-        p2 = build_all_projections(r2, file_path="test.pdf")
+        p2 = build_all_projections(seal_parse_result(r2), file_path="test.pdf")
         assert "dmir" not in p1
         assert "dmir" not in p2
         # Strip non-deterministic fields (timestamp) before comparison

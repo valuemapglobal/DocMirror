@@ -55,22 +55,16 @@ def _check_fixtures_available() -> None:
 PROJECT_ROOT = Path(__file__).parent.parent.absolute()
 
 def pytest_sessionstart(session):
-    """Check fixture availability, then validate MEP/post-extract/TQG catalogs."""
+    """Check fixture availability, then validate MEP and TQG catalogs."""
     _check_fixtures_available()
 
     """Fail fast when MEP catalog YAML is inconsistent."""
     from docmirror.configs.middleware.catalog import validate_catalog
-    from docmirror.plugins._runtime.post_extract.catalog import load_post_extract_catalog
 
     errors = validate_catalog()
     if errors:
         msg = "MEP catalog validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
         pytest.exit(msg, returncode=1)
-
-    try:
-        load_post_extract_catalog()
-    except Exception as exc:
-        pytest.exit(f"post_extract catalog load failed: {exc}", returncode=1)
 
     # TQG manifest validation (Design 10) — non-blocking warning
     gates_dir = Path(PROJECT_ROOT) / "docmirror" / "configs" / "yaml" / "test" / "gates"

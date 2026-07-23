@@ -88,30 +88,15 @@ def tier_features(tier: str) -> list[str]:
 
 def _finance_registry_premium_features() -> set[str]:
     """All ``{domain}_premium`` for registered finance plugins (when package installed)."""
-    import logging
-
-    logger = logging.getLogger(__name__)
-    try:
-        import docmirror_finance.enable as finance_enable
-
-        from docmirror.plugins._runtime import registry
-    except ImportError:
-        return set()
-
-    try:
-        finance_enable.register_finance_plugins(registry)
-    except Exception as exc:
-        logger.debug("[TiersLoader] Finance registry scan failed: %s", exc)
-        return set()
+    from docmirror.plugins._runtime import registry
 
     suffix = feature_suffix()
     out: set[str] = set()
-    for name in registry.list_plugins():
-        plugin = registry.get(name, "finance")
-        if plugin is None or getattr(plugin, "edition", "") != "finance":
-            continue
+    for plugin in registry.list_projectors("finance"):
         if not getattr(plugin, "requires_license", False):
             continue
-        domain = getattr(plugin, "domain_name", name) or name
+        domain = str(getattr(plugin, "domain_name", "") or "")
+        if not domain:
+            continue
         out.add(f"{domain}{suffix}")
     return out

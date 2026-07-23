@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""M9: EvidenceEngine plugin_document_type hint for PEC routing."""
+"""M9: EvidenceEngine canonical_document_type hint for PEC routing."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from docmirror.layout.scene.evidence_types import Evidence
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, TextBlock
 
 
-def test_evidence_engine_sets_plugin_document_type_alias():
+def test_evidence_engine_sets_canonical_document_type_alias():
     result = ParseResult(
         full_text="银行对账单 sample",
         entities=DocumentEntities(document_type="unknown"),
@@ -25,11 +25,11 @@ def test_evidence_engine_sets_plugin_document_type_alias():
         out = EvidenceEngine().process(result)
     ds = out.entities.domain_specific or {}
     assert out.entities.document_type == "bank_reconciliation"
-    assert ds.get("plugin_document_type") == "bank_statement"
+    assert ds.get("canonical_document_type") == "bank_statement"
 
 
 def test_evidence_engine_maps_enterprise_credit_to_community_credit_plugin():
-    assert EvidenceEngine._edition_document_type("credit_report_enterprise") == "credit_report"
+    assert EvidenceEngine._canonical_document_type("credit_report_enterprise") == "credit_report"
 
 
 def test_force_hint_clears_stale_plugin_route_and_audits_previous_type():
@@ -37,21 +37,21 @@ def test_force_hint_clears_stale_plugin_route_and_audits_previous_type():
     result.entities.domain_specific = {
         "user_doc_type_hint": "bank_statement",
         "user_doc_type_hint_strength": "force",
-        "plugin_document_type": "alipay_payment",
+        "canonical_document_type": "alipay_payment",
     }
 
     out = EvidenceEngine().process(result)
 
     assert out.entities.document_type == "bank_statement"
-    assert "plugin_document_type" not in out.entities.domain_specific
+    assert "canonical_document_type" not in out.entities.domain_specific
     mutation = next(item for item in out.mutations if item.middleware_name == "EvidenceEngine")
     assert mutation.old_value == "alipay_payment"
     assert mutation.new_value == "bank_statement"
 
-    from docmirror.plugins._runtime.runner import _plugin_document_type
+    from docmirror.framework.middlewares.extraction.community_fact_recognizer import _canonical_document_type
 
-    out.entities.domain_specific["plugin_document_type"] = "alipay_payment"
-    assert _plugin_document_type(out, out.entities.document_type) == "bank_statement"
+    out.entities.domain_specific["canonical_document_type"] = "alipay_payment"
+    assert _canonical_document_type(out, out.entities.document_type) == "bank_statement"
 
 
 def test_enterprise_credit_cover_beats_long_appendix_keyword_conflict():

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 
 from docmirror.framework.middlewares.base import BaseMiddleware
 from docmirror.layout.scene.evidence_types import Evidence
@@ -61,6 +62,7 @@ class EvidenceEngine(BaseMiddleware):
         """Collect evidence, fuse, and set document_type."""
         old_doc_type = result.entities.document_type
         all_evidence: list[Evidence] = []
+        forced_hint = self._forced_user_hint(result)
 
         # Phase 1: Collect evidence from all sources
         classification_text = result.full_text
@@ -73,12 +75,13 @@ class EvidenceEngine(BaseMiddleware):
         all_evidence.extend(self._header_evidence(result.all_tables()))
         all_evidence.extend(self._user_hint_evidence(result))
         all_evidence.extend(self._extractor_scene_evidence(result))
-        all_evidence.extend(self._filename_evidence(result))
+        if not forced_hint:
+            all_evidence.extend(self._filename_evidence(result))
         all_evidence.extend(self._entity_evidence(result.kv_entities))
         all_evidence.extend(self._visual_evidence(result.pages))
 
         # Phase 2: Fuse evidence (extractor scene hint shields its category from keyword veto)
-        protected = self._protected_extractor_categories(result)
+        protected = self._protected_extractor_categories(result, include_filename=not forced_hint)
         verdict, confidence, fused_evidence = self._fuse_evidence(
             all_evidence,
             protected=protected,
@@ -86,7 +89,6 @@ class EvidenceEngine(BaseMiddleware):
 
         # Phase 3: Apply verdict
         doc_type = verdict if confidence >= 0.3 else "generic"
-        forced_hint = self._forced_user_hint(result)
         if forced_hint:
             doc_type = forced_hint
             confidence = max(confidence, 0.99)
@@ -96,14 +98,14 @@ class EvidenceEngine(BaseMiddleware):
         from docmirror.layout.scene.scene_resolver import scene_to_layout_profile_id
 
         refined_profile = scene_to_layout_profile_id(doc_type)
-        plugin_doc_type = self._edition_document_type(doc_type)
+        canonical_doc_type = self._canonical_document_type(doc_type)
         ds = result.entities.domain_specific
         if not isinstance(ds, dict):
             ds = {}
-        if plugin_doc_type != doc_type:
-            ds["plugin_document_type"] = plugin_doc_type
+        if canonical_doc_type != doc_type:
+            ds["canonical_document_type"] = canonical_doc_type
         else:
-            ds.pop("plugin_document_type", None)
+            ds.pop("canonical_document_type", None)
         if refined_profile:
             ds["document_scene_refined"] = doc_type
             ds["layout_profile_id_refined"] = refined_profile
@@ -153,7 +155,7 @@ class EvidenceEngine(BaseMiddleware):
         return result
 
     @staticmethod
-    def _edition_document_type(document_type: str) -> str:
+    def _canonical_document_type(document_type: str) -> str:
         """Map plugin-declared aliases to edition-facing document types."""
         from docmirror.configs.scene.loader import get_scene_aliases
 
@@ -268,23 +270,27 @@ class EvidenceEngine(BaseMiddleware):
                 )
         return evidence
 
-    def _protected_extractor_categories(self, result: ParseResult) -> set[str]:
+    def _protected_extractor_categories(
+        self,
+        result: ParseResult,
+        *,
+        include_filename: bool = True,
+    ) -> set[str]:
         """Categories backed by high-confidence extractor hints skip keyword_exclude veto."""
         protected: set[str] = set()
         scene, confidence = self._extractor_scene_hint(result)
         if scene and confidence >= 0.70:
             protected.add(scene)
-        ds = getattr(result.entities, "domain_specific", None) or {}
-        file_name = str(ds.get("source_file_name") or "")
-        for category, spec in get_scene_evidence_specs().items():
-            if any(str(token) in file_name for token in spec.get("filename_tokens") or []):
-                protected.add(category)
+        if include_filename:
+            file_name = self._source_file_name(result)
+            for category, spec in get_scene_evidence_specs().items():
+                if any(str(token) in file_name for token in spec.get("filename_tokens") or []):
+                    protected.add(category)
         return protected
 
     def _filename_evidence(self, result: ParseResult) -> list[Evidence]:
         """Filename tokens (issuer uploads often encode doc type in the name)."""
-        ds = getattr(result.entities, "domain_specific", None) or {}
-        file_name = str(ds.get("source_file_name") or "")
+        file_name = self._source_file_name(result)
         if not file_name:
             return []
         evidence: list[Evidence] = []
@@ -302,6 +308,15 @@ class EvidenceEngine(BaseMiddleware):
                     )
                 )
         return evidence
+
+    @staticmethod
+    def _source_file_name(result: ParseResult) -> str:
+        """Resolve the original filename from canonical provenance or an explicit override."""
+        ds = getattr(result.entities, "domain_specific", None) or {}
+        file_name = str(ds.get("source_file_name") or "")
+        if file_name:
+            return Path(file_name).name
+        return Path(result.file_path).name if result.file_path else ""
 
     def _extractor_scene_evidence(self, result: ParseResult) -> list[Evidence]:
         """Use extractor/EPO scene hint when extraction already resolved the archetype."""

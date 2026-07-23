@@ -1,7 +1,4 @@
 orphan_modules:
-- docmirror.plugins._runtime.post_extract.hooks.credit_sections
-- docmirror.plugins._runtime.post_extract.hooks.trust_projection
-- docmirror.plugins._runtime.post_extract.hooks.edition_table_rebuild
 - docmirror.framework.middlewares.classification.evidence_engine
 - docmirror.ocr.vision.seal_detector
 vulture:

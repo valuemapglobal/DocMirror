@@ -3,16 +3,16 @@ BaseTableParser — shared base class for cashflow table_document community plug
 
 Implements the ParseResult → Community recognition pipeline for ledger-style documents:
 extract identity KV fields, match table headers via ``ColumnMatcher``, normalize
-rows, and serialize through ``table_dec``. Subclasses supply only domain config
+rows, and return a canonical ``CanonicalPatch``. Subclasses supply only domain config
 (``column_registry``, ``standard_fields``, ``scene_keywords``, ``identity_fields``).
 
 Pipeline role: extended by ``wechat_payment``, ``alipay_payment``, and partially
-by ``bank_statement`` community plugin; ``runner`` invokes ``recognize``
-on registered plugin instances.
+by ``bank_statement`` community plugin; the canonical runner invokes
+``recognize_facts`` on registered recognizers.
 
 Key exports: ``BaseTableParser``.
 
-Dependencies: ``DomainPlugin``, ``column_registry``, ``standardizer``, table access
+Dependencies: ``Core canonical capability``, ``column_registry``, ``standardizer``, table access
 via canonical ``ParseResult`` pages/tables and evidence.
 """
 
@@ -20,11 +20,11 @@ from __future__ import annotations
 
 import logging
 import re
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Any
 
-from docmirror.plugin_api import DomainPlugin, FactPatch
+from docmirror.input.canonical.fact_patch import CanonicalPatch
 from docmirror.plugins._base.column_registry import ColumnMapping, ColumnMatcher
 from docmirror.plugins._base.standardizer import (
     extract_period,
@@ -57,7 +57,7 @@ def _is_summary_row(row: list[str]) -> bool:
     return first_cell in {"收入", "支出"} and any("合计" in cell for cell in cells[1:])
 
 
-class BaseTableParser(DomainPlugin):
+class BaseTableParser(ABC):
     """Generic statement parser base class.
 
     Subclasses only need to implement these abstract attributes:
@@ -70,7 +70,6 @@ class BaseTableParser(DomainPlugin):
     Optional overrides:
     - identity_fields
     - _recover_records_from_evidence
-    - edition (default community)
     """
 
     # ── Abstract attributes that subclasses must implement ──
@@ -90,12 +89,12 @@ class BaseTableParser(DomainPlugin):
     # ── Optional overrides ──
 
     @property
-    def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
-        return ()
+    def capability_id(self) -> str:
+        return self.domain_name
 
     @property
-    def edition(self) -> str:
-        return "community"
+    def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
+        return ()
 
     # ── Public API ──
 
@@ -159,7 +158,7 @@ class BaseTableParser(DomainPlugin):
 
         return identity_fields, records, raw_headers, summary, period
 
-    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
         """Return canonical facts directly, without an edition envelope."""
         identity_fields, records, raw_headers, summary, period = self._extract_fact_components(parse_result, text)
         return self._fact_patch_from_components(
@@ -168,19 +167,6 @@ class BaseTableParser(DomainPlugin):
             raw_headers=raw_headers,
             summary=summary,
             period=period,
-        )
-
-    def recognize(self, parse_result, text: str = "") -> dict[str, Any]:
-        """Compatibility projector for explicit legacy Community callers."""
-        identity_fields, records, raw_headers, summary, period = self._extract_fact_components(parse_result, text)
-        return self._build_output(
-            parse_result,
-            identity_fields,
-            records,
-            raw_headers,
-            summary,
-            period,
-            text=text,
         )
 
     def _fact_patch_from_components(
@@ -194,8 +180,8 @@ class BaseTableParser(DomainPlugin):
         extra_domain_facts: dict[str, Any] | None = None,
         warnings: Sequence[str] = (),
         confidence: float = 1.0,
-    ) -> FactPatch:
-        """Build the shared ledger FactPatch from already extracted facts."""
+    ) -> CanonicalPatch:
+        """Build the shared ledger CanonicalPatch from already extracted facts."""
         scalar_fields: dict[str, Any] = {}
         evidence_ids: list[str] = []
         for key, detail in identity_fields.items():
@@ -235,8 +221,8 @@ class BaseTableParser(DomainPlugin):
         patch_warnings = tuple(str(item) for item in warnings if str(item))
         if not scalar_fields and not canonical_records:
             patch_warnings = (*patch_warnings, "no_fields_extracted")
-        return FactPatch(
-            provider_id=self.domain_name,
+        return CanonicalPatch(
+            capability_id=self.domain_name,
             document_type=self.domain_name,
             domain_facts=domain_facts,
             datasets={"records": canonical_records} if canonical_records else {},
@@ -721,38 +707,6 @@ class BaseTableParser(DomainPlugin):
                 "max_expense": round(max(expense_amounts), 2) if expense_amounts else 0.0,
             },
         }
-
-    # ── Step 8: Build v2.0 output ──
-
-    def _build_output(
-        self,
-        parse_result,
-        identity_fields: dict[str, dict],
-        records: list[dict],
-        _raw_headers: list[str],
-        summary: dict[str, Any],
-        _period: str | dict,
-        *,
-        text: str = "",
-    ) -> dict[str, Any]:
-        """Build edition v2.0 via DEC → ``edition_serializer``."""
-        from docmirror.plugins._base.table_dec import serialize_table_plugin_output
-
-        return serialize_table_plugin_output(
-            self,
-            parse_result,
-            identity_fields=identity_fields,
-            records=records,
-            summary=summary,
-            text=text,
-            domain=self._detect_domain(),
-            match_method="keyword_layout_hybrid",
-        )
-
-    @staticmethod
-    def _detect_domain() -> str:
-        """Detect business domain."""
-        return "cashflow_payment"
 
 
 def public_record_raw(raw: dict) -> dict:

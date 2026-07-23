@@ -37,15 +37,20 @@ def validate_manifest(data: dict[str, Any], *, require_approved: bool = False) -
     if require_approved and data.get("status") != "approved":
         errors.append("performance baseline status must be approved")
     cases = list(data.get("cases") or [])
-    if not cases:
-        errors.append("at least one long-document performance case is required")
+    if len(cases) < 2:
+        errors.append("at least two performance cases are required")
+    workload_classes = {str(case.get("workload_class") or "") for case in cases}
+    if not {"long_document", "table_dense"} <= workload_classes:
+        errors.append("performance cases must cover long_document and table_dense workloads")
     for case in cases:
         case_id = str(case.get("id") or "<missing-id>")
         checksum = str(case.get("fixture_sha256") or "")
         if len(checksum) != 64:
             errors.append(f"{case_id}: invalid fixture_sha256")
-        if int(case.get("page_count") or 0) < 20:
-            errors.append(f"{case_id}: page_count must be at least 20")
+        workload_class = str(case.get("workload_class") or "")
+        minimum_pages = 20 if workload_class == "long_document" else 2
+        if int(case.get("page_count") or 0) < minimum_pages:
+            errors.append(f"{case_id}: page_count must be at least {minimum_pages} for {workload_class}")
         if not case.get("expected_document_type"):
             errors.append(f"{case_id}: expected_document_type is required")
         if int(case.get("repetitions") or 0) < 3:
@@ -91,13 +96,14 @@ async def _run_one(case: dict[str, Any]) -> dict[str, Any]:
         fixture,
         PerceiveOptions(policy=policy, max_workers=int(case.get("workers") or 1)),
     )
+    view = sealed.to_read_view()
     elapsed_ms = (time.perf_counter() - started) * 1000.0
     return {
         "elapsed_ms": round(elapsed_ms, 3),
         "peak_rss_mb": round(_rss_mb(), 3),
-        "document_type": sealed.entities.document_type,
-        "page_count": sealed.page_count,
-        "status": sealed.status.value,
+        "document_type": view.entities.document_type,
+        "page_count": view.page_count,
+        "status": view.status.value,
         "fact_fingerprint": sealed.fact_fingerprint(),
     }
 
@@ -225,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         return 1
-    print(f"Performance/RSS baseline OK ({len(observations)} long-document cases)")
+    print(f"Performance/RSS baseline OK ({len(observations)} workload cases)")
     return 0
 
 

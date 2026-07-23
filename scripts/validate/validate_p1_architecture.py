@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 DOCMIRROR = ROOT / "docmirror"
 
-RECOGNIZERS = (
+CANONICAL_CAPABILITIES = (
     "generic",
     "bank_statement",
     "wechat_payment",
@@ -34,33 +34,40 @@ def main() -> int:
     if not adr.is_file():
         errors.append("P1 stability ADR is missing")
 
-    if (DOCMIRROR / "plugins/_runtime/legacy_fact_patch.py").exists():
-        errors.append("legacy edition-envelope-to-FactPatch adapter exists")
+    for retired in ("legacy_fact_patch.py", "runner.py", "core_extensions.py"):
+        if (DOCMIRROR / "plugins/_runtime" / retired).exists():
+            errors.append(f"retired pre-seal plugin runtime exists: {retired}")
 
-    for domain in RECOGNIZERS:
+    for domain in CANONICAL_CAPABILITIES:
         source = _source(f"docmirror/plugins/{domain}/community_plugin.py")
         inherited = domain in {"wechat_payment", "alipay_payment"}
         if "def recognize_facts(" not in source and not inherited:
-            errors.append(f"{domain}: no native recognize_facts implementation")
+            errors.append(f"{domain}: no fixed canonical enrichment implementation")
 
     plugin_api = _source("docmirror/plugin_api.py")
-    if "-> FactPatch | None" in plugin_api or "-> FactPatch:" not in plugin_api:
-        errors.append("DomainRecognizer contract is not FactPatch-only")
+    for forbidden in ("DomainRecognizer", "FactPatch", "recognizers:"):
+        if forbidden in plugin_api:
+            errors.append(f"public Plugin API exposes pre-seal role: {forbidden}")
+    for required in ("EditionProjector", "SealedParseResult", "projectors:"):
+        if required not in plugin_api:
+            errors.append(f"post-seal Plugin API is missing: {required}")
 
-    runner = _source("docmirror/plugins/_runtime/runner.py")
-    recognition = runner[runner.index("def run_fact_recognition_sync(") : runner.index("def _kv_community_payload(")]
-    for forbidden in ("legacy_payload_to_fact_patch", "_run_community_recognition", "edition_serializer"):
-        if forbidden in recognition:
-            errors.append(f"canonical recognizer runner contains legacy/delivery path: {forbidden}")
+    enrichment = _source("docmirror/framework/middlewares/extraction/community_fact_recognizer.py")
+    for domain in CANONICAL_CAPABILITIES:
+        if f'"{domain}":' not in enrichment:
+            errors.append(f"fixed canonical capability missing from Core map: {domain}")
+    for forbidden in ("plugin_registry", "PluginProvider", "get_recognizer"):
+        if forbidden in enrichment:
+            errors.append(f"canonical enrichment crosses plugin runtime: {forbidden}")
 
     patch_source = _source("docmirror/input/canonical/fact_patch.py")
     for required in (
         "candidate = result.model_copy(deep=True)",
-        "_apply_fact_patch_in_place(candidate",
+        "_apply_canonical_patch_in_place(candidate",
         "ParseResult.model_validate",
     ):
         if required not in patch_source:
-            errors.append(f"FactPatch application is not demonstrably transactional: {required}")
+            errors.append(f"CanonicalPatch application is not demonstrably transactional: {required}")
 
     fingerprint = _source("docmirror/models/fingerprint.py")
     for forbidden_field in ("parser_info", "mutations", "processing_time", "annex"):
@@ -76,6 +83,13 @@ def main() -> int:
     output_builder = _source("docmirror/server/output_builder.py")
     if "project_community_bundle(sealed.to_read_view()" in output_builder:
         errors.append("Output Builder unwraps the sealed result before Community projection")
+    for function_name in ("build_community_projection", "build_extended_output", "build_all_projections"):
+        function_source = output_builder[output_builder.index(f"def {function_name}(") :]
+        next_function = function_source.find("\ndef ", 5)
+        if next_function > 0:
+            function_source = function_source[:next_function]
+        if "expects SealedParseResult" not in function_source:
+            errors.append(f"{function_name} does not reject mutable ParseResult")
 
     publish = _source(".github/workflows/publish.yml")
     if "validate_ci_green_window.py" in publish:
@@ -88,6 +102,8 @@ def main() -> int:
     nightly = _source(".github/workflows/nightly-private.yml")
     if "validate_ga_6plus1.py --worker-matrix" not in nightly:
         errors.append("nightly P1 Golden does not enforce the [1,2,4] worker matrix")
+    if "--classification-matrix" not in nightly:
+        errors.append("nightly P1 Golden does not exercise automatic classification")
     if "validate_performance_baseline.py --require-approved" not in nightly:
         errors.append("nightly P1 gate does not enforce the approved performance/RSS baseline")
 
@@ -96,7 +112,7 @@ def main() -> int:
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         return 1
-    print(f"P1 architecture qualification OK ({len(RECOGNIZERS)} recognizer domains checked)")
+    print(f"P1 architecture qualification OK ({len(CANONICAL_CAPABILITIES)} canonical domains checked)")
     return 0
 
 

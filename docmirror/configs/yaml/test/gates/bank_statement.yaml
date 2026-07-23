@@ -17,13 +17,13 @@ cases:
         forbidden_extract_status: degraded
     tags: [bank, ccb, grid, cqf]
 
-  - id: boc_mirror_plugin_document_type
+  - id: boc_mirror_canonical_document_type
     tier: regression
     fixture: fixtures/bank_statement/中国银行-南京创沃电气设备有限公司_1.pdf
     skip_if_fixture_missing: true
     pipeline: perceive
     gates:
-      plugin_document_type: { equals: bank_statement }
+      canonical_document_type: { equals: bank_statement }
     tags: [bank, mirror, dti]
 
   - id: boc_pipe_mirror_structure
@@ -112,11 +112,11 @@ cases:
           min_expected_data_rows: 40
     tags: [bank, ccb, ltqg, mirror]
 
-  - id: abc_plugin_document_type
+  - id: abc_canonical_document_type
     tier: regression
     fixture: fixtures/bank_statement/农行-上海宏立机械设备租赁有限公司_1.pdf
     skip_if_fixture_missing: true
     pipeline: perceive
     gates:
-      plugin_document_type: { equals: bank_statement }
+      canonical_document_type: { equals: bank_statement }
     tags: [bank, abc, dti]

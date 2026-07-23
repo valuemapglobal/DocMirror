@@ -1,101 +1,103 @@
-# ADR 0002: P0 canonical fact pipeline and sealed projection boundary
+# ADR 0002: P0 canonical fact pipeline and post-seal plugin boundary
 
 - Status: Accepted
-- Date: 2026-07-22
-- Supersedes: informal Architecture A pipeline descriptions
-
-## Context
-
-DocMirror has one factual result, but Community recognition historically produced
-an edition-shaped payload and merged that payload back into `ParseResult`.
-`ParseResult` also exposed Mirror serialization methods and remained mutable while
-projectors executed.  Those compatibility paths made the intended boundary a
-convention rather than an enforceable architecture.
+- Date: 2026-07-23
+- Supersedes: the external `DomainRecognizer -> FactPatch -> Canonical` path
 
 ## Decision
 
-The P0 target pipeline is:
+DocMirror has one mandatory parse path:
 
 ```text
-AcceptedSource (content identity bound) + ParsePolicy
+CLI / REST API / Python SDK
+  -> ParseRequest + ParsePolicy
+  -> InputAcceptance + FCR
+  -> AcceptedSource
   -> Dispatcher
-  -> Adapter (evidence and basic facts)
-  -> Canonical Assembly
-  -> generic Normalize / Structure / Entity
-  -> DomainRecognizer.recognize() -> FactPatch
-  -> validate/apply FactPatch + Mutation Audit
-  -> seal_parse_result() -> SealedParseResult
-  -> independent read-only projectors
+  -> Adapter
+  -> Canonical Pipeline
+  -> SealedParseResult SSOT
+```
+
+Only after `SealedParseResult` exists may delivery execute:
+
+```text
+SealedParseResult
+  -> Mirror / Community projectors
+  -> lazy PluginProvider discovery + PluginRegistry selection
+  -> Enterprise / Finance / scenario projectors
   -> ArtifactWriter / API response
 ```
 
-The following invariants are normative:
+The Canonical Pipeline reuses the existing MEP:
 
-1. `AcceptedSource` binds the bytes consumed by the adapter to the checksum
-   accepted at intake.  A mutable caller-owned path is not a content identity.
-2. A recognizer never returns an edition envelope and never mutates
-   `ParseResult`. It returns a validated, ephemeral `FactPatch`.
-3. `FactPatch` is not a retained model or a second source of truth.  It is
-   applied once inside the canonical mutation boundary and then discarded.
-4. Conflicts are deterministic. Existing non-empty canonical scalar facts win
-   unless the patch declares an explicit replacement and supplies provenance.
-   Dataset record identifiers must be unique and stable.
-5. Every applied fact change creates a mutation-audit entry identifying the
-   provider, target, old value, new value, confidence, and reason.
-6. `seal_parse_result()` creates an immutable content snapshot with no writable
-   reference to the source `ParseResult`. Projectors receive isolated read views
-   derived from this snapshot.
-7. Mirror, Community, Enterprise, and Finance are sibling projectors. No
-   projector may invoke recognition, consume another projector's payload, or
-   write facts back into the sealed result.
-8. `ArtifactWriter` owns persistence mechanics only. It must not recognize,
-   repair, or interpret canonical business facts.
-9. Built-in, commercial, and third-party extensions register through one
-   provider registry. Entry-point/pluggy integration is discovery transport,
-   not a second execution system.
-10. DMIR remains an explicit exporter for MCP, PDF/UA, or an explicitly selected
-    exporter. It is not an intermediate representation in the main pipeline.
+```text
+Normalize -> Structure / Reconstruct -> Evidence / Classification
+  -> CanonicalDomainEnricher -> Validation -> Seal
+```
 
-## Plugin roles
+`CanonicalDomainEnricher` selects one of seven fixed, Core-shipped
+capabilities: generic, bank statement, WeChat payment, Alipay payment, VAT
+invoice, business license, and credit report. Their Python and resource files
+remain physically colocated under `docmirror/plugins/<domain>` for packaging
+stability, but they are Core code: they are loaded from a closed inventory,
+never registered as `PluginProvider`, and cannot be supplied or replaced by an
+external package.
 
-A provider may contribute either or both roles, but the roles are independent:
+## Normative invariants
 
-- `DomainRecognizer`: reads a canonical read view and returns `FactPatch`.
-- `EditionProjector`: reads a `SealedParseResult` snapshot and returns a delivery
-  payload.
+1. `AcceptedSource` binds the bytes consumed by the adapter to intake identity.
+2. The Dispatcher is the only component that completes the final canonical seal.
+3. Automatic classification, OCR, layout, synonyms, schemas, and canonical
+   domain enrichment are Core-owned and independent of installed plugins.
+4. `CanonicalPatch` is a private transactional Core mechanism. It is not part
+   of `docmirror.plugin_api`.
+5. Existing non-empty facts win unless a Core patch declares an evidence-bound
+   replacement. Every applied change is audited.
+6. `PluginProvider` contains projectors only. `DomainRecognizer`, public
+   `FactPatch`, and `recognizers` are retired.
+7. Plugin discovery, entitlement, selection, and execution are unreachable
+   from the canonical path and occur only after a valid sealed snapshot exists.
+8. A projector receives `SealedParseResult`, never mutable `ParseResult`.
+9. Plugin output is derived data. It cannot change document type, canonical
+   entities, evidence, datasets, sections, parse status, or another projection.
+10. Plugin absence, incompatibility, lack of entitlement, timeout, and failure
+    affect only that plugin artifact.
+11. `ArtifactWriter` persists already-built projections and owns no recognition
+    or repair behavior.
 
-Licensing is checked at the projector/provider boundary. Licensing metadata is
-never a canonical fact and is therefore excluded from `FactPatch`.
+## Plugin contract
 
-## Compatibility
+The only public execution role is:
 
-Temporary forwarding APIs may materialize an isolated legacy `ParseResult` read
-copy. They must be marked as compatibility shims, may not expose the mutable
-canonical instance, and must have contract tests proving that mutations cannot
-change the sealed fingerprint.
+```python
+class EditionProjector(Protocol):
+    domain_name: str
+    edition: str
 
-Community schema 3.0 is the current baseline. Older Community shapes, where
-supported, are explicit compatibility exporters rather than shape-detected
-branches in the canonical pipeline.
+    def project(
+        self,
+        result: SealedParseResult,
+    ) -> dict[str, Any] | None: ...
+```
+
+Providers declare supported sealed schema versions. Registration rejects an
+empty provider, an old `recognizers` field, or a projector without
+`domain_name`, `edition`, and callable `project()`.
+
+A scenario needing a fact absent from the sealed model must request a Core
+capability/schema change. It must not create an unofficial second fact model or
+write plugin output back into Canonical.
 
 ## Enforcement
 
-CI must fail when:
+CI fails when:
 
-- a protected source scan is empty;
-- canonical code imports edition serializers, output projectors, or licensing;
-- a projector imports a recognizer execution path;
-- a writer imports `ParseResult` or plugin recognition;
-- a plugin imports private extraction implementations;
-- a new oversized protected module appears or a baselined hotspot grows;
-- a projector changes the sealed fact fingerprint;
-- a public schema breaks without an allowed compatibility decision.
-
-## Consequences
-
-Bundled recognizers implement the public `recognize_facts()` contract directly.
-The canonical runner has no edition-envelope-to-`FactPatch` adapter. Explicit
-legacy Community exporters may remain delivery compatibility surfaces, but they
-are not callable from the canonical fact path. P0 completion requires both
-payload-to-`ParseResult` write-back and projection methods on `ParseResult` to
-remain absent.
+- canonical code imports `docmirror.plugins._runtime`;
+- public Plugin API exposes a pre-seal role;
+- PluginRegistry contains recognizer state or scans bundled canonical manifests;
+- an output builder accepts mutable `ParseResult`;
+- third-party provider code is imported before sealing;
+- plugin installation or licensing changes a canonical fact fingerprint;
+- a projector changes sealed integrity or another projection;
+- a legacy adapter or dual execution path reappears.

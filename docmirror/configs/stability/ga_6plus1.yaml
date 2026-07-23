@@ -1,4 +1,4 @@
-schema_version: docmirror.ga_6plus1.v1
+schema_version: docmirror.ga_6plus1.v2
 status: frozen
 worker_matrix: [1, 2, 4]
 case_timeout_seconds: 900
@@ -18,6 +18,7 @@ cases:
     fixture: tests/fixtures/id_card/沈娟_身份证_2002828.jpg
     fixture_sha256: d8b46380a20e92594ad356afb9070d4f0db9679661ceaa2049251478a48c751e
     parse_policy: {mode: balanced, doc_type_hint: "id_card:force"}
+    automatic_classification_policy: {mode: balanced}
     expected_fact_fingerprint: f6841fbb7f7c6c9cb9f3fcb1e6765a4b1fc8688acc632f15ac11a9fe5e13d465
   - id: bank_statement_real
     domain: bank_statement
@@ -26,6 +27,7 @@ cases:
     fixture: tests/fixtures/bank_statement/陈从兵_银行流水_常熟农商银行_20230830_1.pdf
     fixture_sha256: 5083e8b3e10a1a1d0f3ec2638f93418f1f5ccb3e532412ff6874131fbc7e4945
     parse_policy: {mode: balanced, doc_type_hint: "bank_statement:force"}
+    automatic_classification_policy: {mode: balanced}
     expected_fact_fingerprint: 40a710cea24b33975d825764fd39a527dc1a009161f78f9efda56aa57dd5e919
   - id: wechat_payment_real
     domain: wechat_payment
@@ -34,6 +36,7 @@ cases:
     fixture: tests/fixtures/wechat_payment/黄照荣+微信流水_cleaned.pdf
     fixture_sha256: ebe8daf75bb1c7fae64f8066633e9fa2aaa38409e79663a525d4e1a2bd84bc74
     parse_policy: {mode: balanced, doc_type_hint: "wechat_payment:force"}
+    automatic_classification_policy: {mode: balanced}
     expected_fact_fingerprint: e26ec9b608adaa1fc04e9cb40a12ce9f8aacc7c23f318b9cc9058a3cbe8ef4cd
   - id: alipay_payment_real
     domain: alipay_payment
@@ -42,6 +45,7 @@ cases:
     fixture: tests/fixtures/alipay_payment/支付宝账单_支付宝（中国）网络技术有限公司_20230611.pdf
     fixture_sha256: f31054befef6ebd05a8631c24df7224f8dd08aefb699aa1c6df56e90705cb7ca
     parse_policy: {mode: balanced, doc_type_hint: "alipay_payment:force"}
+    automatic_classification_policy: {mode: balanced}
     expected_fact_fingerprint: 8412c52a7a10220fc358c2c60dfff89c049a666bf1ada85f76b7b9f9114d5912
   - id: vat_invoice_real
     domain: vat_invoice
@@ -50,6 +54,7 @@ cases:
     fixture: tests/fixtures/vat_invoice/1.23京东小食订单-205.47元-73.8元发票.pdf
     fixture_sha256: 5f9c095fc01efae6fa02132249fc0d91e32e31899da8b481dcabb2a8d46a6d48
     parse_policy: {mode: balanced, doc_type_hint: "vat_invoice:force"}
+    automatic_classification_policy: {mode: balanced}
     expected_fact_fingerprint: d1d8e063c079ff73968afe39e566fe92ed1c771575d2e804bfd48e086e445bca
   - id: business_license_real
     domain: business_license
@@ -58,6 +63,7 @@ cases:
     fixture: tests/fixtures/business_license/营业执照_20160725.jpg
     fixture_sha256: 174f768da904a79e8349f351ef5b0f5b0a917ce04dc2ac2b9ee6582af4996628
     parse_policy: {mode: balanced, doc_type_hint: "business_license:force"}
+    automatic_classification_policy: {mode: balanced}
     expected_fact_fingerprint: 5c83d1b9d4bc9edc13a99b87b6f47ee9550957cc35f991ebfb61b3cb821137b5
   - id: credit_report_real
     domain: credit_report
@@ -66,4 +72,5 @@ cases:
     fixture: tests/fixtures/credit_report/征信报告_本报告由中国人民银行_20250710.pdf
     fixture_sha256: ae5840551306253d95719077b35044fb22145b0c60ba6ef938167157a7cab322
     parse_policy: {mode: balanced, doc_type_hint: "credit_report:force"}
+    automatic_classification_policy: {mode: balanced}
     expected_fact_fingerprint: e231ed102e4af1e9a1f4d567a6fc1b925386001638565dfb49844af82a7be6d6

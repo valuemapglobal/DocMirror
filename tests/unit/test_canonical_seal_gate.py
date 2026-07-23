@@ -22,7 +22,7 @@ def test_canonical_seal_revalidates_and_seals_result():
     )
     sealed = seal_canonical_result(result)
     assert sealed.verify_integrity()
-    assert sealed.mutations[0].middleware_name == "GenericEntityExtractor"
+    assert sealed.to_read_view().mutations[0].middleware_name == "GenericEntityExtractor"
 
 
 def test_canonical_seal_rejects_unattributed_mutation():

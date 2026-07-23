@@ -8,49 +8,66 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
-from docmirror.plugin_api import FactPatch, PluginProvider
+from docmirror.configs.domain.registry import (
+    CANONICAL_DOMAIN_IDS,
+    get_canonical_domain_manifest,
+    list_canonical_domain_manifests,
+)
+from docmirror.plugin_api import PluginProvider
 from docmirror.plugins._runtime.plugin_registry import PluginRegistry
-
-
-class _Recognizer:
-    provider_id = "third-party"
-    domain_name = "custom_document"
-
-    def recognize_facts(self, result, text: str = ""):
-        return FactPatch(provider_id=self.provider_id, document_type=self.domain_name)
 
 
 class _Projector:
     domain_name = "custom_document"
-    edition = "community"
+    edition = "enterprise"
+    display_name = "Custom Enterprise"
 
     def project(self, result):
         return {"edition": self.edition, "fingerprint": result.fact_fingerprint()}
 
 
-def test_one_provider_registry_owns_recognizer_and_projector_roles():
+def _provider(provider_id: str = "third-party") -> PluginProvider:
+    return PluginProvider(
+        provider_id=provider_id,
+        version="2.0.0",
+        projectors=(_Projector(),),
+    )
+
+
+def test_provider_registry_owns_projectors_only():
     registry = PluginRegistry()
     registry._discovered = True
-    recognizer = _Recognizer()
-    projector = _Projector()
-    provider = PluginProvider(
-        provider_id="third-party",
-        version="1.2.3",
-        recognizers=(recognizer,),
-        projectors=(projector,),
-    )
+    provider = _provider()
 
     registry.register_provider(provider)
 
-    assert registry.get_recognizer("custom_document") is recognizer
-    assert registry.get_projector("custom_document", "community") is projector
+    assert registry.get_projector("custom_document", "enterprise") is provider.projectors[0]
     assert registry.list_providers() == (provider,)
+    assert registry.list_domains() == {"custom_document": ["enterprise"]}
+
+
+def test_provider_rejects_pre_seal_recognizer_contract():
+    with pytest.raises(ValidationError, match="recognizers"):
+        PluginProvider.model_validate(
+            {
+                "provider_id": "legacy",
+                "version": "1",
+                "recognizers": [object()],
+                "projectors": [_Projector()],
+            }
+        )
+
+
+def test_provider_requires_a_projector():
+    with pytest.raises(ValidationError, match="at least one projector"):
+        PluginProvider(provider_id="empty", version="2")
 
 
 def test_extended_output_uses_registered_projector_with_sealed_result():
     from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
-    from docmirror.models.sealed import SealedParseResult
+    from docmirror.models.sealed import SealedParseResult, seal_parse_result
     from docmirror.server.output_builder import build_extended_output
 
     observed: list[object] = []
@@ -61,47 +78,47 @@ def test_extended_output_uses_registered_projector_with_sealed_result():
 
         def project(self, result):
             observed.append(result)
-            return {"edition": self.edition, "document": {"document_type": result.entities.document_type}}
+            view = result.to_read_view()
+            return {"edition": self.edition, "document": {"document_type": view.entities.document_type}}
 
-    result = ParseResult(entities=DocumentEntities(document_type="custom_document"))
+    sealed = seal_parse_result(ParseResult(entities=DocumentEntities(document_type="custom_document")))
     projector = _EnterpriseProjector()
     with patch(
         "docmirror.plugins._runtime.plugin_registry.registry.get_projector",
         return_value=projector,
     ):
-        with patch("docmirror.plugins._runtime.runner.run_plugin_extract_sync") as legacy_runner:
-            output = build_extended_output(result, "enterprise")
+        output = build_extended_output(sealed, "enterprise")
 
     assert output is not None
     assert output["edition"] == "enterprise"
     assert output["document"]["document_type"] == "custom_document"
     assert output["composition"]["reason"] == "independent_extract"
     assert isinstance(observed[0], SealedParseResult)
-    legacy_runner.assert_not_called()
 
 
-def test_registry_freezes_after_discovery():
+def test_extended_output_rejects_mutable_parse_result():
+    from docmirror.models.entities.parse_result import ParseResult
+    from docmirror.server.output_builder import build_extended_output
+
+    with pytest.raises(TypeError, match="SealedParseResult"):
+        build_extended_output(ParseResult(), "enterprise")
+
+
+def test_registry_freezes_after_discovery(monkeypatch):
     registry = PluginRegistry()
+    monkeypatch.setattr(
+        "docmirror.plugins._runtime.discovery.load_plugin_providers",
+        lambda: [],
+    )
     registry._ensure_discovered()
     with pytest.raises(RuntimeError, match="frozen"):
-        registry.register_provider(PluginProvider(provider_id="late", version="1"))
-
-
-def test_legacy_metadata_registration_is_not_an_execution_fallback():
-    from docmirror.plugins.generic.community_plugin import GenericCommunityPlugin
-
-    registry = PluginRegistry()
-    registry._discovered = True
-    registry.register(GenericCommunityPlugin())
-
-    assert registry.get("generic", "community") is not None
-    assert registry.get_recognizer("generic") is None
+        registry.register_provider(_provider("late"))
 
 
 def test_pluggy_is_discovery_transport_for_provider_hook(monkeypatch):
     from docmirror.plugins._runtime import discovery
 
-    provider = PluginProvider(provider_id="entry-point", version="1")
+    provider = _provider("entry-point")
 
     class _Hook:
         @staticmethod
@@ -115,39 +132,15 @@ def test_pluggy_is_discovery_transport_for_provider_hook(monkeypatch):
     assert discovery.load_plugin_providers() == [provider]
 
 
-def test_builtin_bank_provider_is_loaded_from_package_manifest():
+def test_bundled_canonical_domains_are_not_plugin_providers(monkeypatch):
+    monkeypatch.setattr(
+        "docmirror.plugins._runtime.discovery.load_plugin_providers",
+        lambda: [],
+    )
     registry = PluginRegistry()
 
-    plugin = registry.get("bank_statement", "community")
-    manifest = registry.get_provider_manifest("bank_statement")
-
-    assert plugin is not None
-    assert registry.get_recognizer("bank_statement") is plugin
-    assert manifest is not None
-    assert manifest["provider"]["implementation"] == "docmirror.plugins.bank_statement.community_plugin:plugin"
-    assert manifest["resources"].items() >= {
-        "table_styles": "resources/table_styles.yaml",
-        "institution_overrides": "resources/institution_overrides.yaml",
-        "institutions": "resources/institutions.yaml",
-        "key_synonyms": "resources/key_synonyms.yaml",
-    }.items()
-
-
-def test_bank_manifest_resources_are_wheel_safe_package_data():
-    plugin_root = files("docmirror.plugins.bank_statement")
-
-    assert plugin_root.joinpath("plugin.yaml").is_file()
-    assert plugin_root.joinpath("resources").joinpath("table_styles.yaml").is_file()
-    assert plugin_root.joinpath("resources").joinpath("institution_overrides.yaml").is_file()
-    assert plugin_root.joinpath("resources").joinpath("institutions.yaml").is_file()
-    assert plugin_root.joinpath("resources").joinpath("key_synonyms.yaml").is_file()
-
-
-def test_all_builtin_community_plugins_own_a_manifest():
-    registry = PluginRegistry()
-    manifests = registry.list_provider_manifests()
-
-    assert {manifest["provider"]["id"] for manifest in manifests} == {
+    assert registry.list_providers() == ()
+    assert set(CANONICAL_DOMAIN_IDS) == {
         "alipay_payment",
         "bank_statement",
         "business_license",
@@ -156,21 +149,21 @@ def test_all_builtin_community_plugins_own_a_manifest():
         "vat_invoice",
         "wechat_payment",
     }
-    assert len(registry.list_providers()) == 7
+    assert len(list_canonical_domain_manifests()) == 7
 
 
-def test_plugin_manifest_resources_exist_without_importing_implementations():
-    plugin_root = files("docmirror").joinpath("plugins")
-    registry = PluginRegistry()
+def test_bank_canonical_resources_are_wheel_safe_package_data():
+    capability_root = files("docmirror.plugins.bank_statement")
+    manifest = get_canonical_domain_manifest("bank_statement")
 
-    for manifest in registry.list_provider_manifests():
-        provider_id = manifest["provider"]["id"]
-        provider_root = plugin_root.joinpath(provider_id)
-        for resource_path in (manifest.get("resources") or {}).values():
-            assert provider_root.joinpath(*str(resource_path).split("/")).is_file(), (provider_id, resource_path)
+    assert manifest is not None
+    assert manifest["resources"]["table_styles"] == "resources/table_styles.yaml"
+    assert capability_root.joinpath("plugin.yaml").is_file()
+    assert capability_root.joinpath("resources").joinpath("institutions.yaml").is_file()
+    assert capability_root.joinpath("resources").joinpath("key_synonyms.yaml").is_file()
 
 
-def test_business_resource_ssots_are_not_kept_in_core_configs():
+def test_business_resource_ssots_are_not_duplicated_in_core_configs():
     forbidden = (
         "docmirror/configs/yaml/classification_rules.yaml",
         "docmirror/configs/yaml/document_field_schemas.yaml",
@@ -182,44 +175,8 @@ def test_business_resource_ssots_are_not_kept_in_core_configs():
         "docmirror/configs/yaml/plugin_capability.yaml",
         "docmirror/configs/yaml/scene_keywords.yaml",
     )
-
     assert not [path for path in forbidden if Path(path).exists()]
 
 
-def test_bank_specific_middleware_was_removed_from_core():
-    assert not Path("docmirror/framework/middlewares/detection/institution_detector.py").exists()
-    assert not Path("docmirror/framework/middlewares/extraction/entity_extractor.py").exists()
-    assert not Path("docmirror/layout/scene/institution_hint.py").exists()
-
-
-def test_generic_plugin_owns_cross_domain_classification_and_table_semantics():
-    registry = PluginRegistry()
-    manifest = registry.get_provider_manifest("generic")
-    assert manifest is not None
-    assert manifest["resources"]["classification_rules"] == "resources/classification_rules.yaml"
-    resource = files("docmirror.plugins.generic").joinpath("resources/layout_profiles.yaml")
-    text = resource.read_text(encoding="utf-8")
-    for section in ("table_header_vocabulary:", "table_semantics:", "summary_fields:", "value_type_patterns:"):
-        assert section in text
-
-
-def test_core_classification_and_community_projection_have_no_premium_domain_branches():
-    concrete_domains = (
-        "alipay_payment",
-        "bank_statement",
-        "business_license",
-        "credit_report",
-        "vat_invoice",
-        "wechat_payment",
-    )
-    for relative_path in (
-        "docmirror/layout/scene/evidence_engine.py",
-        "docmirror/output/community_bundle.py",
-    ):
-        source = Path(relative_path).read_text(encoding="utf-8")
-        assert not [domain for domain in concrete_domains if domain in source], relative_path
-
-
-def test_generic_post_extract_catalog_contains_no_domain_guard():
-    source = Path("docmirror/configs/yaml/post_extract.yaml").read_text(encoding="utf-8")
-    assert "document_type ==" not in source
+def test_retired_post_extract_catalog_is_absent():
+    assert not Path("docmirror/configs/yaml/post_extract.yaml").exists()

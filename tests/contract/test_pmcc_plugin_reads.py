@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""PMCC contract — plugins read Mirror via page_access (Design 20 Phase 3)."""
+"""Canonical structure facts remain readable without a Mirror dependency."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from docmirror.models.sealed import seal_parse_result
 from docmirror.output.mirror_projector import project_mirror
 from docmirror.plugins._base.generic_community_adapter import (
     _collect_structure_projected_records,
-    build_generic_community_output,
+    recognize_generic_facts,
 )
 
 
@@ -56,11 +56,10 @@ def test_generic_collects_structure_projected_records():
     )
     projected = _collect_structure_projected_records(pr)
     assert projected
-    out = build_generic_community_output(pr, "unknown_report")
-    data = out.get("data") or {}
-    records = data.get("records") or []
+    patch = recognize_generic_facts(pr, "unknown_report")
+    records = patch.datasets.get("records") or []
     assert any(record.get("record_type") == "structure_projection" for record in records)
-    assert "structure_projected_records" not in data
+    assert "structure_projected_records" not in patch.domain_facts
 
 
 def test_get_page_projection_blocks_present_after_api_dict():

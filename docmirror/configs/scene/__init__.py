@@ -17,7 +17,7 @@ Public API::
     get_scene_specs()           Raw per-scene include/exclude dicts
     get_scene_includes()        Include keywords (EvidenceEngine format)
     get_scene_excludes()        Exclude keywords per scene
-    get_plugin_scene_keywords() Include-only tuples for ``DomainPlugin``
+    get_plugin_scene_keywords() Include-only tuples declared by providers
     compute_keyword_uniqueness()  Rarity weights across scenes
     invalidate_scene_cache()    Clear the merged resource cache
 """

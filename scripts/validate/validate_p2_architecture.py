@@ -2,7 +2,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Enforce P2 plugin-owned business resources without adding a runtime layer."""
+"""Enforce Core-owned domain resources and post-seal-only plugin runtime."""
 
 from __future__ import annotations
 
@@ -88,10 +88,6 @@ def main() -> int:
     if "OCR_CORRECTIONS_YAML" in correction_source:
         errors.append("OCR correction registry still reads the central business pack")
 
-    post_extract = _source("docmirror/configs/yaml/post_extract.yaml")
-    if "document_type ==" in post_extract:
-        errors.append("generic post-extract catalog still contains a business-domain guard")
-
     for obsolete_schema in (
         "bank_statement_schema.py",
         "credit_report_schema.py",
@@ -114,7 +110,6 @@ def main() -> int:
             "开立日期",
             "借款金额",
         ),
-        "docmirror/plugins/_runtime/core_extensions.py": ("docmirror.plugins.credit_report",),
         "docmirror/ocr/local_structure/candidate_supplement.py": (
             "docmirror.layout.segment.page_blocks",
             "detect_pre_grid_field_supplements",
@@ -145,7 +140,6 @@ def main() -> int:
         "institutions",
         "table_styles",
         "ocr_corrections",
-        "post_extract",
     }
     bank_resources = set((manifests.get("bank_statement", {}).get("resources") or {}).keys())
     missing_bank = required_bank_resources - bank_resources
@@ -175,14 +169,14 @@ def main() -> int:
         "public_records",
     }
     if missing_credit_facts := required_credit_facts - credit_fact_outputs:
-        errors.append(f"credit FactPatch manifest omits datasets: {sorted(missing_credit_facts)}")
+        errors.append(f"credit CanonicalPatch manifest omits datasets: {sorted(missing_credit_facts)}")
 
     if errors:
-        print("P2 plugin-first architecture validation FAILED:", file=sys.stderr)
+        print("P2 canonical-domain architecture validation FAILED:", file=sys.stderr)
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         return 1
-    print(f"P2 plugin-first architecture validation OK ({len(manifests)} manifests checked)")
+    print(f"P2 canonical-domain architecture validation OK ({len(manifests)} manifests checked)")
     return 0
 
 

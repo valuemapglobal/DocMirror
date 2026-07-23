@@ -235,9 +235,9 @@ def mirror_api_meta_fields(parse_result: Any) -> dict[str, Any]:
     if expected > 0:
         out["mirror_expected_data_rows"] = expected
 
-    plugin_type = ds.get("plugin_document_type")
-    if plugin_type:
-        out["plugin_document_type"] = plugin_type
+    canonical_type = ds.get("canonical_document_type")
+    if canonical_type:
+        out["canonical_document_type"] = canonical_type
 
     q_phys = int((spe or {}).get("quarantined_physical_count") or ds.get("mirror_quarantined_physical_count") or 0)
     q_log = int((spe or {}).get("quarantined_logical_count") or ds.get("mirror_quarantined_logical_count") or 0)

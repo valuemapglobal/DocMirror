@@ -10,7 +10,7 @@ business license field cleanup, and credit report section heuristics.
 
 Pipeline role: invoked at the end of canonical Community ``recognize`` in
 ``vat_invoice``, ``business_license``, and ``credit_report`` community plugins
-after ``extract_kv_community_output`` builds the base envelope.
+while constructing credit-report facts.
 
 Key exports: ``normalize_vat_fields``, ``validate_uscc``,
 ``enrich_business_license_output``, ``enrich_credit_report_output``,

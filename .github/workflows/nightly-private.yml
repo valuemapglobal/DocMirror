@@ -51,7 +51,7 @@ jobs:
             tests/integration/test_edition_golden.py \
             -v --tb=short
       - name: Run mandatory P1 6+1 real-document Golden
-        run: python scripts/validate/validate_ga_6plus1.py --worker-matrix
+        run: python scripts/validate/validate_ga_6plus1.py --worker-matrix --classification-matrix
 
   p1-performance-baseline:
     name: P1 long-document performance and RSS baseline

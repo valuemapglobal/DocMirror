@@ -35,11 +35,11 @@ jobs:
           python -m pip install -e ".[dev,pdf,ocr,table]"
           python -m pip install -e docmirror_enterprise
           python -m pip install -e docmirror_finance
-      - name: Validate MEP and post-extract catalogs
+      - name: Validate MEP catalog
         run: python scripts/validate/validate_middleware_catalog.py
       - name: Run private edition integration suites
         run: |
           python -m pytest \
-            tests/integration/test_enterprise_pec.py \
             tests/integration/test_finance_pec.py \
+            tests/contract/test_external_plugin_install.py \
             -v --tb=short

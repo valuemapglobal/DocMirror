@@ -9,7 +9,7 @@ from docmirror.models.entities.parse_result import DocumentEntities, KeyValuePai
 from docmirror.models.mirror.block_fields import collect_kv_fields_from_blocks
 from docmirror.models.sealed import seal_parse_result
 from docmirror.output.mirror_projector import project_mirror
-from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
+from docmirror.plugins._base.kv_community_extract import extract_kv_fact_patch
 from docmirror.plugins.vat_invoice.community_plugin import VATInvoicePlugin
 
 
@@ -31,9 +31,8 @@ def test_vat_collects_kv_from_blocks():
     assert fields["价税合计"] == "1000.00"
 
     plugin = VATInvoicePlugin()
-    out = extract_kv_community_output(plugin, pr, identity_specs=plugin.identity_fields)
-    data = out.get("data") or {}
-    assert data.get("invoice_number") == "12345678" or "12345678" in str(data)
+    patch = extract_kv_fact_patch(plugin, pr, identity_specs=plugin.identity_fields)
+    assert patch.domain_facts["invoice_number"] == "12345678"
 
 
 def test_vat_page_blocks_include_s5():

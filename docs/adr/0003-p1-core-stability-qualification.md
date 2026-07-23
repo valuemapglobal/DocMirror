@@ -1,52 +1,46 @@
 # ADR 0003: P1 core stability qualification
 
 - Status: Accepted
-- Date: 2026-07-22
+- Date: 2026-07-23
 - Depends on: ADR 0002
 
 ## Decision
 
-P1 does not add a production node or data path. The normative runtime remains:
+P1 adds no production node or alternate data path. The qualified runtime is:
 
 ```text
-AcceptedSource + ParsePolicy -> Dispatcher -> Adapter -> Canonical Assembly
-  -> generic Normalize / Structure / Entity
-  -> DomainRecognizer -> FactPatch
-  -> Canonical Validation + Mutation Audit
-  -> seal() -> SealedParseResult
-  -> sibling Mirror / Community / Enterprise / Finance projectors
+AcceptedSource + ParsePolicy -> Dispatcher -> Adapter -> Canonical Pipeline
+  -> fixed Core canonical enrichment -> Validation -> Seal
+  -> SealedParseResult
+  -> Core projectors and optional post-seal plugin projectors
   -> ArtifactWriter
 ```
 
-Contract freeze, 6+1 Golden, worker determinism, plugin chaos, performance/RSS,
-external-plugin installation, and evidence aggregation are CI/release controls.
-They never become canonical facts and never write to `ParseResult`.
+## Qualification invariants
 
-## Pre-observation invariants
-
-1. Every bundled recognizer returns `FactPatch` directly. An edition envelope is
-   not adapted into facts.
-2. Applying a patch is transactional: validation or application failure leaves
-   the caller-owned canonical result unchanged.
-3. Snapshot integrity and fact determinism use distinct fingerprints. Runtime
-   timing, paths, worker counts, licensing, diagnostics, and delivery metadata
-   are excluded from the fact digest.
-4. Every projector starts from the sealed result and cannot change another
-   projector's view or the immutable snapshot.
-5. Plugin absence, failure, timeout, and lack of entitlement cannot change core
-   facts. Runtime diagnostics stay outside the fact model.
+1. Seven bundled canonical capabilities produce private `CanonicalPatch`
+   values and are selected from a fixed Core inventory.
+2. Patch application is transactional; validation or application failure
+   leaves the caller-owned result unchanged.
+3. Runtime timing, paths, worker counts, licensing, diagnostics, and delivery
+   metadata do not participate in the fact fingerprint.
+4. Every projector starts from the same sealed snapshot.
+5. External provider code is not imported during parsing.
+6. Plugin installation, absence, failure, timeout, entitlement, and schema
+   incompatibility cannot change Core facts.
 
 ## Formal stability gates
 
-- a frozen semantic core-contract fingerprint for the exact candidate;
-- mandatory 6+1 real/desensitized-real Golden cases, with no missing-fixture skip;
+- frozen semantic Core contract fingerprint;
+- mandatory 6+1 real/desensitized-real Golden cases;
+- forced-hint and automatic-classification coverage;
 - identical fact fingerprints across the approved worker matrix;
-- approved long-document p50/p95, peak RSS, timeout, and OOM baselines;
-- plugin chaos invariants for recognizer and projector failures;
-- a clean-environment external provider install requiring no core source change.
+- approved long-document performance and RSS baselines;
+- post-seal projector failure and timeout isolation;
+- clean-environment external projector build/install/discover/project/write E2E;
+- installed/uninstalled and licensed/unlicensed fact-fingerprint invariance.
 
-Qualification is evidence-based for the current candidate and has no calendar
-waiting period or release-cycle counter. A core contract change invalidates the
-candidate immediately and requires all technical gates to be regenerated for
-the new fingerprint. Publication still requires successful CI for the exact
-release commit.
+Qualification is evidence-based for the exact candidate. A Core contract
+change invalidates the candidate immediately and requires regeneration of all
+technical evidence. Publication requires successful CI for the exact release
+commit.

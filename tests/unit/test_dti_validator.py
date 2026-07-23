@@ -37,9 +37,3 @@ class TestDtiValidator:
         unknown = validate_business_scenes(["wechat_payment", "__fake_scene__"])
         if load_business_scenes():
             assert "__fake_scene__" in unknown
-
-    def test_get_field_schema_bank_statement(self):
-        from docmirror.models.entities.document_type import get_field_schema
-
-        schema = get_field_schema("bank_statement")
-        assert "account_number" in schema

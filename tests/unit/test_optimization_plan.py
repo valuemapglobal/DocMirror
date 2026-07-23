@@ -40,12 +40,12 @@ def test_semantic_worker_budget_boosts_heavy_documents():
 
 def test_domain_specific_partition():
     ds = {
-        "plugin_document_type": "bank_statement",
+        "canonical_document_type": "bank_statement",
         "entity_merge_hints": [{"id": "a"}],
         "custom_field": "x",
     }
     mirror, semantic = partition_domain_specific(ds)
-    assert mirror["plugin_document_type"] == "bank_statement"
+    assert mirror["canonical_document_type"] == "bank_statement"
     assert mirror["custom_field"] == "x"
     assert "entity_merge_hints" in semantic
 

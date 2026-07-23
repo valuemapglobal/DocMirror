@@ -1,14 +1,8 @@
-"""
-Canonical ParseResult → generic Community v2.2 recognition adapter.
+"""Canonical ParseResult to generic CanonicalPatch recognition.
 
-Maps canonical facts into a structured community envelope using heuristic column
+Maps canonical evidence into domain facts using heuristic column
 typing, value standardization, identity discovery, text KV, outline, source
 metadata, and repeated-row recovery fallbacks.
-
-Pipeline role: ``runner._run_community_recognition`` calls ``build_generic_community_output``
-via ``generic.community_plugin`` when generic fallback is enabled.
-
-Key exports: ``build_generic_community_output``.
 
 It uses deterministic local rules and no external models.
 """
@@ -18,19 +12,15 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime
 from difflib import SequenceMatcher
-from pathlib import Path
 from typing import Any
 
-from docmirror.models.edition_serializer import EditionContext, edition_serializer
-from docmirror.models.entities.domain_result import DomainExtractionResult, DomainQuality
 from docmirror.ocr.correction.validators import (
     validate_cn_resident_id,
     validate_date_text,
     validate_phone_text,
 )
-from docmirror.plugins._base import build_classification_block
 from docmirror.plugins._base.standardizer import normalize_amount, normalize_timestamp
 
 _GENERIC_WARNING = "community_generic_fallback"
@@ -130,7 +120,7 @@ _CURRENCY_SYMBOLS = {"¥": "CNY", "$": "USD", "€": "EUR", "£": "GBP", "￥": 
 
 _INTERNAL_ENTITY_KEYS = frozenset(
     {
-        "plugin_document_type",
+        "canonical_document_type",
         "extractor_scene_hint",
         "extractor_scene_confidence",
         "pre_analyzer_scene_hint",
@@ -2406,14 +2396,12 @@ def _generic_precision_warnings(
     return list(dict.fromkeys(warnings))[:50]
 
 
-def build_generic_community_output(
+def recognize_generic_facts(
     parse_result: Any,
     detected_type: str,
     full_text: str = "",
-    *,
-    _fact_patch_only: bool = False,
 ) -> Any:
-    """Build v2.2 adaptive Community JSON from a canonical ParseResult."""
+    """Build a deterministic generic ``CanonicalPatch`` from canonical evidence."""
     recognition_text = _generic_recognition_text(parse_result, full_text)
     ocr_document = _parse_result_has_ocr(parse_result)
     raw_entity_fields = _collect_entity_fields(parse_result)
@@ -2530,8 +2518,6 @@ def build_generic_community_output(
         table_descriptors.append(recovered_table)
 
     # ── Assemble structured data ──
-    file_path = getattr(parse_result, "file_path", "") or ""
-    doc_name = Path(file_path).name if file_path else detected_type
     page_count = len(getattr(parse_result, "pages", []) or [])
     referenced_pages = [
         *[
@@ -2599,66 +2585,6 @@ def build_generic_community_output(
     if identities:
         structured_data["identities"] = identities
 
-    if _fact_patch_only:
-        from docmirror.plugins._base.generic_fact_patch import make_generic_fact_patch
+    from docmirror.plugins._base.generic_fact_patch import make_generic_fact_patch
 
-        return make_generic_fact_patch(detected_type, fields, structured_data, warnings)
-
-    dec = DomainExtractionResult(
-        document_type=detected_type,
-        properties={},
-        entities=fields,
-        structured_data=structured_data,
-        quality=DomainQuality(
-            validation_passed=bool(fields or records),
-            issues=[f"warning:{w}" for w in warnings],
-        ),
-        metadata={
-            "classification": build_classification_block(
-                document_type=detected_type,
-                domain=detected_type,
-                archetype="generic_document",
-                match_method="generic_fallback",
-                text=recognition_text,
-                scene_keywords=(),
-                matched=detected_type not in {"", "unknown", "generic"},
-            ),
-            "plugin": {
-                "name": "generic",
-                "display_name": "Generic Community",
-                "version": "community-2.2",
-                "support_level": "generic",
-            },
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-        },
-    )
-
-    ctx = EditionContext(
-        edition="community",
-        detected_type=detected_type,
-        document_name=doc_name,
-        page_count=page_count,
-        plugin_display_name="Generic Community",
-        scene_keywords=(),
-    )
-
-    output = edition_serializer(dec, context=ctx)
-
-    metadata = output.setdefault("metadata", {})
-    metadata["generic_route"] = "adaptive_structured_fallback"
-    metadata["adaptive_features"] = [
-        "text_kv_recovery",
-        "field_type_inference",
-        "value_normalization",
-        "identity_discovery",
-        "table_schema_inference",
-        "repeated_row_recovery",
-        "document_outline",
-        "source_metadata",
-    ]
-    if col_types:
-        metadata["inferred_columns"] = len(col_types)
-    if identities:
-        metadata["inferred_identities"] = len(identities)
-
-    return output
+    return make_generic_fact_patch(detected_type, fields, structured_data, warnings)

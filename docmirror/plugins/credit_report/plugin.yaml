@@ -3,7 +3,6 @@ schema_version: 1
 provider:
   id: credit_report
   domain_name: credit_report
-  edition: community
   version: community-1
   implementation: docmirror.plugins.credit_report.community_plugin:plugin
 
@@ -68,7 +67,6 @@ resources:
   domain_contract: resources/domain_contract.yaml
   layout_profiles: resources/layout_profiles.yaml
   confidence_policy: resources/confidence_policy.yaml
-  post_extract: resources/post_extract.yaml
 
 fact_outputs:
   document_type: credit_report

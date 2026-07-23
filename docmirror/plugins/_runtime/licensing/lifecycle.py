@@ -8,7 +8,7 @@ Tracks entitlement lifecycle (active, expiring soon, grace period, expired,
 missing) from offline and online license metadata, and injects structured
 warnings into edition JSON for enterprise/finance output.
 
-Pipeline role: ``runner._finalize_extract`` may call ``inject_edition_lifecycle_warnings``
+Pipeline role: commercial projectors may call ``inject_edition_lifecycle_warnings``
 after extended edition extract; CLI uses ``lifecycle_cli_message`` and
 ``resolve_entitlement_lifecycle`` for ``license show`` / renew prompts.
 
