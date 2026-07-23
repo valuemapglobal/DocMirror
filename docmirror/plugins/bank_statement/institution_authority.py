@@ -20,7 +20,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from docmirror.plugins.bank_statement.institution import match_institution
+from docmirror.plugins.bank_statement.institution import detect_registered_institution, match_institution
 
 if TYPE_CHECKING:
     from docmirror.plugins.bank_statement.context import StyleContext
@@ -119,6 +119,10 @@ def resolve_institution_from_context(parse_result: Any, full_text: str) -> tuple
     if filename_bank:
         return filename_bank, "filename.token"
 
+    registered = detect_registered_institution(full_text)
+    if registered:
+        return registered, "plugin.institutions"
+
     if entities is not None:
         domain = getattr(entities, "domain_specific", None) or {}
         inst = domain.get("institution")
@@ -155,6 +159,10 @@ def resolve_institution_hint(
     variant = match_institution(header, None)
     if variant and _looks_like_institution(variant.display_name):
         return variant.display_name, "layout_profile.variant"
+
+    registered = detect_registered_institution(header)
+    if registered:
+        return registered, "plugin.institutions"
 
     if header and keyword_map:
         sorted_banks = sorted(

@@ -135,12 +135,13 @@ def test_click_cli_help_all_shows_advanced_options():
 
 
 def test_click_cli_short_version_flag():
+    from docmirror import __version__
     from docmirror.cli.main import main
 
     result = CliRunner().invoke(main, ["-v"])
 
     assert result.exit_code == 0, result.output
-    assert "1.0.11" in result.output
+    assert __version__ in result.output
 
 
 def test_click_cli_rejects_removed_options(tmp_path):

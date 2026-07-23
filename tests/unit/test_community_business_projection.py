@@ -72,7 +72,7 @@ def test_six_core_plugins_emit_consistent_business_layer(domain: str):
     assert "domain_contract" in out["validation"]
     assert "notes" in out["data"]
     assert "document_flow" in out["data"]
-    assert validate_projection_payload("community", out).valid is True
+    assert validate_projection_payload("community_v2", out).valid is True
 
 
 def test_generic_fallback_recovers_text_kv_tables_outline_and_sources():
@@ -128,7 +128,7 @@ def test_generic_fallback_recovers_text_kv_tables_outline_and_sources():
     assert data["sections"][0]["title"] == "费用明细"
     assert "notes" in data
     assert data["document_flow"]
-    assert validate_projection_payload("community", out).valid is True
+    assert validate_projection_payload("community_v2", out).valid is True
     assert data["columns"]["日期"]["type"] == "date"
     assert data["records"][0]["normalized"]["金额"]["value"] == 1280.5
     assert "currency" not in data["records"][0]["normalized"]["金额"]
@@ -176,7 +176,7 @@ def test_generic_fallback_recovers_text_kv_tables_outline_and_sources():
             "source_refs": detail["source_refs"],
             "review": detail["review"],
         }
-    validation = validate_projection_payload("community", legacy)
+    validation = validate_projection_payload("community_v2", legacy)
     assert validation.valid, validation.errors
 
 

@@ -15,6 +15,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from docmirror.configs.domain.registry import normalize_entity_keys
 from docmirror.features.package.manifest import PackageManifest
 
 
@@ -34,14 +35,16 @@ def _subject_name(entry: Any) -> str | None:
     extra = getattr(entry, "extra", None) or {}
     if not isinstance(extra, dict):
         return None
-    for key in ("subject_name", "户名", "被查询人姓名", "企业名称"):
-        val = extra.get(key)
+    normalized = normalize_entity_keys(extra)
+    for key in ("subject_name", "Name", "Company name", "Account name", "Customer name"):
+        val = normalized.get(key)
         if isinstance(val, str) and val.strip():
             return val.strip()
     entities = extra.get("entities")
     if isinstance(entities, dict):
-        for key in ("subject_name", "户名", "被查询人姓名"):
-            val = entities.get(key)
+        normalized_entities = normalize_entity_keys(entities)
+        for key in ("subject_name", "Name", "Company name", "Account name", "Customer name"):
+            val = normalized_entities.get(key)
             if isinstance(val, str) and val.strip():
                 return val.strip()
     return None
@@ -51,20 +54,16 @@ def _identity_number(entry: Any) -> str | None:
     extra = getattr(entry, "extra", None) or {}
     if not isinstance(extra, dict):
         return None
-    for key in (
-        "identity_number",
-        "证件号码",
-        "身份证号",
-        "统一社会信用代码",
-        "id_number",
-    ):
-        val = extra.get(key)
+    normalized = normalize_entity_keys(extra)
+    for key in ("identity_number", "id_number", "ID number", "USCC"):
+        val = normalized.get(key)
         if isinstance(val, str) and val.strip():
             return val.strip()
     entities = extra.get("entities")
     if isinstance(entities, dict):
-        for key in ("identity_number", "证件号码", "身份证号", "统一社会信用代码"):
-            val = entities.get(key)
+        normalized_entities = normalize_entity_keys(entities)
+        for key in ("identity_number", "id_number", "ID number", "USCC"):
+            val = normalized_entities.get(key)
             if isinstance(val, str) and val.strip():
                 return val.strip()
     return None

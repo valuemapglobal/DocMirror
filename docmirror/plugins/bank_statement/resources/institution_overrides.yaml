@@ -1,0 +1,7 @@
+# Bank plugin institution overrides for style parsers.
+# Column maps are sourced from layout_profiles.yaml (SSOT for Mirror + Plugin).
+version: "1.0"
+source_profile: borderless_ledger_bank
+
+# Optional inline overrides (merged on top of layout profile variants by id):
+overrides: {}

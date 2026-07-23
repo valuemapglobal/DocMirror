@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from docmirror.layout.vocabulary import KNOWN_HEADER_WORDS
 from docmirror.models.entities.domain import Block, PageLayout
 
 logger = logging.getLogger(__name__)
@@ -283,9 +284,7 @@ def _profile_quarantines_standalone(profile: Any | None) -> bool:
 def _profile_quarantines_fragments(profile: Any | None) -> bool:
     if profile is None:
         return False
-    hint = getattr(profile, "document_type_hint", None) or ""
-    profile_id = getattr(profile, "profile_id", "") or ""
-    return hint == "bank_statement" or profile_id == "borderless_ledger_bank"
+    return bool(getattr(profile, "merge_quarantine_fragments", False))
 
 
 def _looks_like_fragment_table(rows: list[Any]) -> bool:
@@ -327,31 +326,10 @@ def _is_header_row(row: Any) -> bool:
 
 
 def _header_score(cells: list[str]) -> int:
-    keywords = {
-        "date",
-        "time",
-        "summary",
-        "description",
-        "amount",
-        "balance",
-        "debit",
-        "credit",
-        "交易",
-        "日期",
-        "时间",
-        "摘要",
-        "借方",
-        "贷方",
-        "余额",
-        "账户",
-        "户名",
-        "凭证",
-        "序号",
-    }
     score = 0
     for cell in cells:
         lower = cell.lower()
-        if any(keyword in lower for keyword in keywords):
+        if any(keyword.lower() in lower for keyword in KNOWN_HEADER_WORDS):
             score += 1
     return score
 

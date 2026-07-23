@@ -12,15 +12,12 @@ from typing import Any
 from docmirror.ocr.field_grid.assemble import (
     _line_char_tokens,
     build_field_cell,
-    first_dotted_date,
     line_has_mixed_semantics,
     merge_in_column_continuations,
-    parse_as_of_date,
     route_semantic_tokens_to_bands,
     score_cell_for_label,
     split_line_into_semantic_tokens,
 )
-from docmirror.ocr.field_grid.assign import cell_bbox
 from docmirror.ocr.field_grid.bands import (
     estimate_col_bands_from_label_rows,
     extract_label_tokens,
@@ -30,7 +27,6 @@ from docmirror.ocr.field_grid.bands import (
 from docmirror.ocr.field_grid.models import FieldCell, LabelToken
 from docmirror.ocr.field_grid.repair import repair_field_cells
 from docmirror.ocr.field_grid.tokens import expand_tokens_to_char_tokens
-from docmirror.ocr.field_grid.type_gate import apply_type_gate
 from docmirror.ocr.grid_materialize import exclusive_assign_tokens_to_grid
 from docmirror.ocr.local_structure.models import LocalStructure, StructureEdge, StructureNode
 from docmirror.ocr.local_structure.utils import union_bbox
@@ -146,76 +142,6 @@ def _collect_section_fragments(
     return fragments, label_tokens, col_bands, next_offset
 
 
-def _find_as_of_date(block_lines: list[dict[str, Any]]) -> str | None:
-    for line in block_lines:
-        parsed = parse_as_of_date(line["text"])
-        if parsed:
-            return parsed
-    return None
-
-
-def _fill_missing_due_date(
-    merged_cells: list[FieldCell],
-    *,
-    col_bands: list[dict[str, Any]],
-    cell_by_label: dict[str, FieldCell],
-    as_of_date: str | None,
-    prefix: str,
-    _page: int,
-) -> list[FieldCell]:
-    due_band = next(
-        (band for band in col_bands if "到期日期" in str(band.get("header") or "")),
-        None,
-    )
-    if due_band is None:
-        return merged_cells
-
-    due_label = str(due_band.get("header") or "")
-    due_cell = cell_by_label.get(due_label)
-    if due_cell is not None and str(due_cell.text or "").strip():
-        return merged_cells
-
-    fill_value = as_of_date
-    if not fill_value:
-        close_cell = next(
-            (cell for label, cell in cell_by_label.items() if "关闭日期" in label),
-            None,
-        )
-        if close_cell is not None:
-            fill_value = first_dotted_date(str(close_cell.text or ""))
-
-    if not fill_value:
-        return merged_cells
-
-    row_band = {
-        "index": 999,
-        "bbox": list(due_band["bbox"]),
-        "role": "value",
-        "source_line_id": f"{prefix}_due_inferred",
-        "geometry_status": "estimated",
-    }
-    inferred = FieldCell(
-        cell_id=f"{prefix}_cell_due_inferred",
-        row_index=999,
-        col_index=int(due_band["index"]),
-        label_text=due_label,
-        text=fill_value,
-        raw_text=fill_value,
-        bbox=cell_bbox(row_band, due_band),
-        token_ids=(),
-        line_ids=(),
-        confidence=0.75,
-        assignment_confidence=0.75,
-        assignment_method="inferred:as_of_or_close_date",
-        geometry_status="estimated",
-        inferred_types=("date",),
-        audit={"inferred_from": "as_of_date" if as_of_date else "close_date"},
-    )
-    inferred = apply_type_gate(inferred)
-    cell_by_label[due_label] = inferred
-    return [*merged_cells, inferred]
-
-
 def build_field_grid_from_block(
     block_lines: list[dict[str, Any]],
     *,
@@ -275,22 +201,12 @@ def build_field_grid_from_block(
             page_height=float(page_height),
         )
 
-    as_of_date = _find_as_of_date(block_lines)
     cell_by_label: dict[str, FieldCell] = {}
     for cell in merged_cells:
         label_key = str(cell.label_text or "")
         existing = cell_by_label.get(label_key)
         if existing is None or score_cell_for_label(cell, label_key) > score_cell_for_label(existing, label_key):
             cell_by_label[label_key] = cell
-    merged_cells = _fill_missing_due_date(
-        merged_cells,
-        col_bands=all_col_bands,
-        cell_by_label=cell_by_label,
-        as_of_date=as_of_date,
-        prefix=prefix,
-        _page=page,
-    )
-
     nodes: list[StructureNode] = [
         StructureNode(
             node_id=f"{prefix}_anchor",

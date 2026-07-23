@@ -13,6 +13,7 @@ def _bank_profile():
     class _Profile:
         profile_id = "borderless_ledger_bank"
         document_type_hint = "bank_statement"
+        merge_quarantine_fragments = True
 
         def is_borderless_ledger(self):
             return True
@@ -64,6 +65,7 @@ def test_fragment_quarantine_skipped_for_wechat_profile():
     class _Profile:
         profile_id = "borderless_ledger_wechat"
         document_type_hint = "wechat_payment"
+        merge_quarantine_fragments = False
 
         def is_borderless_ledger(self):
             return True

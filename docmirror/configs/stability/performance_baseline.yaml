@@ -1,0 +1,30 @@
+schema_version: docmirror.performance_baseline.v1
+status: approved
+reference_environment:
+  os: ubuntu-24.04
+  architecture: x86_64
+  python: "3.12"
+  install_extras: dev,pdf,ocr,langdetect
+candidate_observations:
+  macos-26.5.2-x86_64-python-3.12.3:
+    observed_at: "2026-07-23"
+    case: long_credit_report_77_pages
+    p50_ms: 122856.068
+    p95_ms: 127157.381
+    peak_rss_mb: 1016.312
+    fact_fingerprint: e231ed102e4af1e9a1f4d567a6fc1b925386001638565dfb49844af82a7be6d6
+cases:
+  - id: long_credit_report_77_pages
+    fixture: tests/fixtures/credit_report/征信报告_本报告由中国人民银行_20250710.pdf
+    fixture_sha256: ae5840551306253d95719077b35044fb22145b0c60ba6ef938167157a7cab322
+    page_count: 77
+    expected_document_type: credit_report
+    parse_policy: {mode: balanced, doc_type_hint: "credit_report:force"}
+    workers: 1
+    warmups: 0
+    repetitions: 3
+    timeout_seconds: 900
+    ceilings:
+      p50_ms: 150000
+      p95_ms: 180000
+      peak_rss_mb: 1500

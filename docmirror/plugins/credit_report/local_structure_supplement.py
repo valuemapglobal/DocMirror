@@ -1,10 +1,10 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Credit-report supplemental local structure detection (raw — P4).
+"""Credit-report supplemental local-structure detection.
 
-Prefer ``page_segment.detect_pre_grid_field_supplements`` (registered by default).
-Enable this module only with ``DOCMIRROR_VNEXT_LEGACY_SUPPLEMENT=1``.
+The detector is registered when the credit provider is discovered. It emits
+generic structural reason codes; all credit vocabulary remains plugin-owned.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ def detect_credit_closed_account_blocks(
             page=page,
             bbox=union_bbox(line["bbox"] for line in block),
             anchors=("账户1",),
-            reason_codes=("credit_closed_account_block", "pre_repayment_block"),
+            reason_codes=("force_field_grid", "plugin_supplement"),
             score=0.88,
             source_line_ids=tuple(line["line_id"] for line in block),
         )

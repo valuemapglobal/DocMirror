@@ -1,0 +1,12 @@
+version: 1
+field_schemas:
+  business_license:
+    company_name: Company name
+    unified_social_credit_code: Unified social credit code
+    legal_representative: Legal representative
+    registered_capital: Registered capital
+    establishment_date: Establishment date
+    business_term: Business term
+    registered_address: Registered address
+    business_scope: Business scope
+    company_type: Company Type

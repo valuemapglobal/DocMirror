@@ -1,0 +1,31 @@
+version: 1
+edition: community
+domains:
+  wechat_payment:
+    public_route: core_domain
+    support_level: L2
+    domain_contract_version: wechat_payment.community.v1
+    dgc_status_source: computed
+    p0_commitment:
+      fields:
+        optional: [account_holder, account_number, query_period, currency]
+      records:
+        required: [trade_no, timestamp, amount]
+        conditional: [counter_party, transaction_type, direction]
+        aliases:
+          trade_no: [trade_no, transaction_id, 交易单号]
+          timestamp: [timestamp, date, 交易时间]
+          amount: [amount, amount_cny, 金额, 金额(元)]
+      quality: [primary_logical_rows, column_fidelity, quarantine_pages, drift_ratio]
+      failure:
+        empty_input: empty_input
+        quarantine_not_lost: partial_quarantine
+        column_mismatch: partial_column_mismatch
+        low_ocr_quality: low_quality_input
+    gates:
+      classify: domain.wechat_payment.classify
+      extract: domain.wechat_payment.extract
+      edition_schema: domain.wechat_payment.edition_schema
+      evidence: domain.wechat_payment.evidence
+      failure: domain.wechat_payment.failure
+      fixtures: domain.wechat_payment.fixtures

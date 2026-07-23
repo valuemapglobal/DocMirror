@@ -35,21 +35,6 @@ actions:
     auto_accept: false
     description: "Field lacks evidence and must not be auto-accepted."
 
-per_domain_overrides:
-  # Finance domains have stricter thresholds
-  bank_statement:
-    high: 0.90
-    medium: 0.70
-  vat_invoice:
-    high: 0.90
-    medium: 0.70
-  credit_report:
-    high: 0.90
-    medium: 0.70
-  payment_flow:
-    high: 0.90
-    medium: 0.70
-
 normalize_failure:
   action: preserve_raw
   normalized: null

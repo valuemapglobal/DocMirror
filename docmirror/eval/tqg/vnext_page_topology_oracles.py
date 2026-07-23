@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from docmirror.eval.tqg.mirror_input import mirror_api
 from docmirror.eval.tqg.report import GateReport
 from docmirror.models.mirror.vnext_access import (
     get_page,
@@ -18,9 +19,9 @@ from docmirror.models.mirror.vnext_access import (
 
 
 def _doc(mirror_or_api: Any) -> dict[str, Any]:
-    if hasattr(mirror_or_api, "to_mirror_json_vnext"):
-        api = mirror_or_api.to_mirror_json_vnext()
-        return api if isinstance(api, dict) else {}
+    api = mirror_api(mirror_or_api)
+    if api.get("pages"):
+        return api
     if isinstance(mirror_or_api, dict):
         if mirror_or_api.get("pages"):
             return mirror_or_api

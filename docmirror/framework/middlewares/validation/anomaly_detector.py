@@ -30,7 +30,6 @@ class AnomalyDetectorMiddleware(BaseMiddleware):
     DEPENDS_ON = ["Validator"]
     PROVIDES = ["structural_anomaly_report"]
 
-    CRITICAL_ACCOUNT_KEYS = frozenset({"开立日期", "借款金额", "管理机构"})
     TABLE_COLLAPSE_FAILURE_RATE = 0.3
     TABLE_ROW_EMPTY_RATIO = 0.5
     MIN_TABLE_DATA_ROWS = 3
@@ -41,8 +40,6 @@ class AnomalyDetectorMiddleware(BaseMiddleware):
 
     def process(self, result: ParseResult) -> ParseResult:
         report = self._detect_table_structural_anomalies(result)
-        if report is None:
-            report = self._detect_credit_account_collapse(result)
         if report is not None:
             if result.entities is None:
                 from docmirror.models.entities.parse_result import DocumentEntities
@@ -117,35 +114,6 @@ class AnomalyDetectorMiddleware(BaseMiddleware):
         if misaligned_rate > self.TABLE_COLLAPSE_FAILURE_RATE:
             return True
         return False
-
-    def _detect_credit_account_collapse(self, result: ParseResult) -> dict[str, Any] | None:
-        """Domain-specific fallback for credit report account grids."""
-        if not result.entities or not result.entities.domain_specific:
-            return None
-
-        credit_cards = result.entities.domain_specific.get("credit_accounts", [])
-        if not credit_cards:
-            return None
-
-        anomaly_count = 0
-        for card in credit_cards:
-            missing = [k for k in self.CRITICAL_ACCOUNT_KEYS if not card.get(k)]
-            if len(missing) >= 2:
-                anomaly_count += 1
-
-        failure_rate = anomaly_count / max(len(credit_cards), 1)
-        if failure_rate <= self.TABLE_COLLAPSE_FAILURE_RATE:
-            return None
-
-        logger.error(
-            "[AnomalyDetector] %.1f%% credit accounts structurally collapsed",
-            failure_rate * 100,
-        )
-        return {
-            "type": "credit_account_collapse",
-            "failure_rate": round(failure_rate, 3),
-            "reason": f"Credit extraction collapse (failure rate {failure_rate:.2f})",
-        }
 
     def _route_to_dlq(self, parse_result: ParseResult, reason: str) -> None:
         self.dlq_registry.append(

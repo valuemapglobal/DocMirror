@@ -15,13 +15,19 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-_PIPE_HEADER_ZH = re.compile(r"\|?\s*序号\s*\|.*记账日", re.IGNORECASE)
-_PIPE_HEADER_EN = re.compile(r"\|\s*No\.\s*\|.*Bk\.D\.", re.IGNORECASE)
-_SPLIT_AMOUNT_MARKERS = ("借方发生额", "贷方发生额", "Debit Amount", "Credit Amount")
+from docmirror.layout.profile.registry import load_table_semantics
+
+_PIPE_RULES = load_table_semantics().get("pipe_grid") or {}
+_RAW_HEADER_PATTERNS = tuple(str(pattern) for pattern in _PIPE_RULES.get("header_patterns", ()))
+_COMPILED_HEADER_PATTERNS = tuple(re.compile(pattern, re.IGNORECASE) for pattern in _RAW_HEADER_PATTERNS)
+_NEVER_MATCH = re.compile(r"(?!x)x")
+_PIPE_HEADER_ZH = _COMPILED_HEADER_PATTERNS[0] if _COMPILED_HEADER_PATTERNS else _NEVER_MATCH
+_PIPE_HEADER_EN = _COMPILED_HEADER_PATTERNS[1] if len(_COMPILED_HEADER_PATTERNS) > 1 else _NEVER_MATCH
+_SPLIT_AMOUNT_MARKERS = tuple(str(value) for value in _PIPE_RULES.get("split_amount_markers", ()))
 _PRIMARY_ROW_RE = re.compile(r"^\|\s*\d+\s*\|")
 _HLINE_RE = re.compile(r"^[\s─━\-|]+$")
-_FOOTER_MARKERS = ("借方合计", "Debit Total", "本对账期末余额")
-_HEADER_REPEAT_RE = re.compile(r"\|?\s*序号\s*\|.*记账日")
+_FOOTER_MARKERS = tuple(str(value) for value in _PIPE_RULES.get("footer_markers", ()))
+_HEADER_REPEAT_RE = _PIPE_HEADER_ZH
 # Markdown tables: | col | col | without ledger sequence + split amount headers
 _MARKDOWN_PIPE_ONLY = re.compile(r"^\|\s*[^|]+\|\s*[^|]+\|")
 

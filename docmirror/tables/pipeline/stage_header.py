@@ -83,11 +83,10 @@ def _fix_header_by_vocabulary(
 
 def detect_header_index(rows: list[list[str]], *, categories: list[str] | None = None) -> int:
     """Return header row index or -1 if not found."""
-    cats = categories or ["BANK_STATEMENT"]
     header_row_idx = -1
     best_vocab_score = 0
     for i, row in enumerate(rows[:10]):
-        vs = _score_header_by_vocabulary(row, categories=cats)
+        vs = _score_header_by_vocabulary(row, categories=categories)
         if vs > best_vocab_score:
             best_vocab_score = vs
             header_row_idx = i

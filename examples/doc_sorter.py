@@ -40,6 +40,7 @@ LOG_FILE_NAME = "_sorted_log.json"
 
 # ── Utility functions ──
 
+
 def discover_files(root: Path) -> list[Path]:
     """Recursively collect all files under root (excludes Temp dir and skip names)."""
     files: list[Path] = []
@@ -54,7 +55,7 @@ def discover_files(root: Path) -> list[Path]:
 def ensure_temp_structure(temp_dir: Path) -> None:
     """Create Temp subdirectories for all known scene types."""
     temp_dir.mkdir(parents=True, exist_ok=True)
-    for name in (CLASSIFICATION_CATEGORIES or {}):
+    for name in CLASSIFICATION_CATEGORIES or {}:
         (temp_dir / name).mkdir(parents=True, exist_ok=True)
 
 
@@ -98,7 +99,10 @@ async def process_file(file_path: Path, temp_dir: Path) -> dict:
     except Exception as e:
         return {"file": str(rel_path), "status": "failed", "domain": None, "error": str(e)}
 
-    mirror = result.to_mirror_json_vnext()
+    from docmirror.models.sealed import seal_parse_result
+    from docmirror.output.mirror_projector import project_mirror
+
+    mirror = project_mirror(seal_parse_result(result))
     candidates = mirror.get("document", {}).get("document_type_candidates", [])
     scene = candidates[0]["type"] if candidates else None
     properties = _document_properties(mirror)
@@ -166,7 +170,9 @@ async def sort_documents(target_dir: Path) -> None:
 
         if record["status"] == "matched":
             matched_count += 1
-            progress.update(task, description=f"[green]\u2713[/green] {record['file']} \u2192 {record.get('target', '?')}")
+            progress.update(
+                task, description=f"[green]\u2713[/green] {record['file']} \u2192 {record.get('target', '?')}"
+            )
         elif record["status"] == "unmatched":
             unmatched_count += 1
             progress.update(task, description=f"[yellow]?[/yellow] {record['file']} (unmatched)")
@@ -211,9 +217,7 @@ async def sort_documents(target_dir: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="DocMirror Document Sorter — parse, sort and rename documents by type"
-    )
+    parser = argparse.ArgumentParser(description="DocMirror Document Sorter — parse, sort and rename documents by type")
     parser.add_argument("target_dir", help="Target directory containing documents to sort")
     args = parser.parse_args()
 

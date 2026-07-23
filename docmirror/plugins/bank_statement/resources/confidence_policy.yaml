@@ -1,0 +1,3 @@
+version: 1
+per_domain_overrides:
+  bank_statement: {high: 0.90, medium: 0.70}

@@ -1,0 +1,11 @@
+version: 1
+domains:
+  vat_invoice:
+    zh:
+      销售方名称: Supplier
+      卖方名称: Supplier
+      购买方名称: Buyer
+      买方名称: Buyer
+      价税合计: Total with tax
+      开票日期: Invoice date
+      发票号: Invoice number

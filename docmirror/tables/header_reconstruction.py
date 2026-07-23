@@ -7,8 +7,8 @@
 """
 Header reconstruction — repairs split and multi-row headers.
 
-Purpose: Rejoins vertically split header cells, fixes sticky headers, and
-splits compound semantic header units (e.g. credit report layouts).
+Purpose: Rejoins vertically split header cells and fixes sticky headers using
+format-neutral geometry and structural heuristics.
 
 Main components: ``reconstruct_headers_by_columns``, ``_fix_sticky_headers_heuristic``.
 
@@ -25,17 +25,6 @@ import re
 logger = logging.getLogger(__name__)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Credit report header correction dictionary
-# ═══════════════════════════════════════════════════════════════════════════
-
-CREDIT_REPORT_HEADER_FIXES = {
-    "当前交有易未的结清构信数贷": "当前有未结清信贷交易的机构数",
-    "当前交有易未的结机清构信数贷": "当前有未结清信贷交易的机构数",
-    "首次责有任相的关年还份款": "首次有相关还款责任的年份",
-}
-
-
 def reconstruct_headers_by_columns(headers: list[str], page_chars: list | None = None) -> list[str]:
     """Column-aware header reconstruction algorithm (v11 optimized)
 
@@ -50,28 +39,19 @@ def reconstruct_headers_by_columns(headers: list[str], page_chars: list | None =
         Reconstructed headers list
 
     Algorithm:
-    1. Domain dictionary fast correction (priority)
-    2. Vertical projection analysis (if char coordinates available)
-    3. Heuristic split (fallback)
+    1. Vertical projection analysis (if char coordinates available)
+    2. Heuristic split (fallback)
     """
     if not headers or len(headers) <= 1:
         return headers
 
-    # Step 1: Domain dictionary correction (most reliable)
-    fixed_headers = []
-    for h in headers:
-        if h in CREDIT_REPORT_HEADER_FIXES:
-            corrected = CREDIT_REPORT_HEADER_FIXES[h]
-            logger.debug(f"[HeaderFix] Corrected: '{h}' → '{corrected}'")
-            fixed_headers.append(corrected)
-        else:
-            fixed_headers.append(h)
+    fixed_headers = list(headers)
 
-    # Step 2: If char coordinates available, use vertical projection regrouping
+    # Step 1: If char coordinates available, use vertical projection regrouping
     if page_chars:
         fixed_headers = _reconstruct_by_vertical_projection(fixed_headers, page_chars)
 
-    # Step 3: Heuristic merging detection (fallback)
+    # Step 2: Heuristic merging detection (fallback)
     fixed_headers = _fix_sticky_headers_heuristic(fixed_headers)
 
     return fixed_headers
@@ -180,10 +160,8 @@ def _fix_sticky_headers_heuristic(headers: list[str]) -> list[str]:
     """
     fixed = []
     for h in headers:
-        # Detect unusually long headers (>30 chars with multiple semantic units)
-        if len(h) > 30 and _has_multiple_semantic_units(h):
-            # Attempt to split (based on credit report domain knowledge)
-            split_parts = _split_credit_report_header(h)
+        if len(h) > 30:
+            split_parts = _split_declared_header(h)
             if split_parts:
                 logger.debug(f"[HeuristicFix] Split long header: '{h}' → {split_parts}")
                 fixed.extend(split_parts)
@@ -194,23 +172,17 @@ def _fix_sticky_headers_heuristic(headers: list[str]) -> list[str]:
     return fixed
 
 
-def _has_multiple_semantic_units(text: str) -> bool:
-    """Check whether text contains multiple semantic units"""
-    # Contains multiple keywords: "的", "transaction", "institution", "year", "responsible", etc.
-    keywords = ["的", "交易", "机构", "年份", "责任"]
-    count = sum(1 for kw in keywords if kw in text)
-    return count >= 3
+def _split_declared_header(text: str) -> list[str] | None:
+    """Apply sticky-header repairs declared in plugin scene resources."""
+    from docmirror.configs.scene.loader import get_scene_evidence_specs
 
-
-def _split_credit_report_header(text: str) -> list[str] | None:
-    """Credit-report specific header split (number of institutions, repayment responsibility year, etc.)."""
-    patterns = [
-        (r"当前.*信贷交易.*机构数", ["当前有未结清信贷交易的机构数"]),
-        (r"首次.*还款.*责任.*年份", ["首次有相关还款责任的年份"]),
-    ]
-
-    for pattern, replacement in patterns:
-        if re.search(pattern, text):
-            return replacement
+    for spec in get_scene_evidence_specs().values():
+        for rule in spec.get("header_split_patterns") or []:
+            if not isinstance(rule, dict):
+                continue
+            pattern = str(rule.get("pattern") or "")
+            replacement = [str(value) for value in rule.get("replacement") or []]
+            if pattern and replacement and re.search(pattern, text):
+                return replacement
 
     return None

@@ -11,6 +11,8 @@ from pathlib import Path
 from docmirror.eval.tqg.geometry_oracles import run_mirror_geometry_oracle
 from docmirror.input.canonical import assemble_parse_result
 from docmirror.models.entities.domain import Block, PageLayout
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 
 _CORE_MIRROR_GOLDEN = Path(__file__).resolve().parent / "data" / "synthetic_geometry_golden.json"
 
@@ -46,7 +48,7 @@ def test_canonical_assembler_projects_table_geometry_attrs_to_forensic_cells():
         attrs={"geometry": geometry, "extraction_layer": "unit", "extraction_confidence": 0.9},
     )
     result = assemble_parse_result((PageLayout(page_number=1, width=100, height=40, blocks=(block,)),), {}, "")
-    api = result.to_mirror_json_vnext(mirror_level="forensic")
+    api = project_mirror(seal_parse_result(result), mirror_level="forensic")
     table = api["pages"][0]["tables"][0]
     cell = table["rows"][0]["cells"][0]
 
@@ -239,15 +241,7 @@ def test_mirror_geometry_oracle_rejects_unresolved_logical_source_refs():
                     }
                 ],
                 "logical_tables": [
-                    {
-                        "rows": [
-                            {
-                                "source_cell_refs": [
-                                    {"page": 1, "table_id": "pt_1_0", "row": 99, "col": 0}
-                                ]
-                            }
-                        ]
-                    }
+                    {"rows": [{"source_cell_refs": [{"page": 1, "table_id": "pt_1_0", "row": 99, "col": 0}]}]}
                 ],
             }
         }

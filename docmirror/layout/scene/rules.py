@@ -25,6 +25,11 @@ from pathlib import Path
 
 import yaml
 
+try:
+    from importlib.resources.abc import Traversable
+except ImportError:  # Python 3.10
+    from importlib.abc import Traversable
+
 logger = logging.getLogger(__name__)
 
 
@@ -129,7 +134,7 @@ class ClassificationRules:
 class RuleManager:
     """规则管理器"""
 
-    def __init__(self, rules_path: Path | None = None):
+    def __init__(self, rules_path: Path | Traversable | None = None):
         """
         初始化规则管理器
 
@@ -139,18 +144,18 @@ class RuleManager:
         self.rules_path = rules_path or self._get_default_rules_path()
         self.rules = ClassificationRules()
 
-        if self.rules_path.exists():
+        if self.rules_path is not None and self.rules_path.is_file():
             self._load_rules(self.rules_path)
         else:
             logger.warning(f"[RuleManager] Rules file not found: {self.rules_path}")
 
-    def _get_default_rules_path(self) -> Path:
-        """获取默认规则文件路径"""
-        from docmirror.configs.paths import CLASSIFICATION_RULES_YAML
+    def _get_default_rules_path(self) -> Traversable | None:
+        """获取 generic 插件声明的默认规则资源。"""
+        from docmirror.configs.classification.rules_loader import get_classification_rules_resource
 
-        return CLASSIFICATION_RULES_YAML
+        return get_classification_rules_resource()
 
-    def _load_rules(self, path: Path) -> None:
+    def _load_rules(self, path: Path | Traversable) -> None:
         """
         从YAML文件加载规则
 
@@ -158,7 +163,7 @@ class RuleManager:
             path: YAML文件路径
         """
         try:
-            with open(path, encoding="utf-8") as f:
+            with path.open(encoding="utf-8") as f:
                 config = yaml.safe_load(f)
 
             # 加载分类规则

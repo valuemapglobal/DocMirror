@@ -7,14 +7,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from docmirror.eval.tqg.mirror_input import mirror_api
 from docmirror.eval.tqg.report import GateReport
 from docmirror.models.mirror.page_access import micro_grid_structures_from_document
 from docmirror.models.mirror.vnext_access import iter_structures
 
 
 def _doc(mirror_or_api: Any) -> dict[str, Any]:
-    if hasattr(mirror_or_api, "to_mirror_json_vnext"):
-        api = mirror_or_api.to_mirror_json_vnext()
+    if not isinstance(mirror_or_api, dict):
+        api = mirror_api(mirror_or_api)
         doc = api if isinstance(api, dict) else {}
         entities = getattr(mirror_or_api, "entities", None)
         domain_specific = getattr(entities, "domain_specific", None) if entities is not None else None

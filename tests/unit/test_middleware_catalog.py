@@ -23,10 +23,9 @@ def test_catalog_loads_all_production_middlewares():
         "LanguageDetector",
         "HeaderInferrer",
         "HeaderAlignment",
-        "EntityExtractor",
         "GenericEntityExtractor",
         "EvidenceEngine",
-        "InstitutionDetector",
+        "CommunityFactRecognizer",
         "Validator",
         "AnomalyDetector",
         # "SLMEntityExtractor",  # removed in v1.1
@@ -48,3 +47,4 @@ def test_validate_catalog_ok():
 def test_domain_plugin_bridge_not_in_catalog():
     catalog = load_catalog()
     assert "DomainPluginBridge" not in catalog
+    assert "InstitutionDetector" not in catalog

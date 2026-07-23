@@ -92,12 +92,12 @@ def resolve_document_scene(
 
 
 def scene_to_layout_profile_id(scene: str) -> str | None:
-    """Map classified scene to borderless ledger layout profile when applicable."""
-    mapping = {
-        "wechat_payment": "borderless_ledger_wechat",
-        "alipay_payment": "borderless_ledger_alipay",
-        "bank_statement": "borderless_ledger_bank",
-        # EvidenceEngine scene hints often classify ledgers as bank_reconciliation
-        "bank_reconciliation": "borderless_ledger_bank",
-    }
-    return mapping.get(scene)
+    """Resolve a scene through plugin aliases and profile document-type hints."""
+    from docmirror.configs.scene.loader import get_scene_aliases
+    from docmirror.layout.profile.registry import load_profiles
+
+    normalized = get_scene_aliases().get(scene, scene)
+    for profile_id, profile in load_profiles().items():
+        if profile.document_type_hint == normalized:
+            return profile_id
+    return None

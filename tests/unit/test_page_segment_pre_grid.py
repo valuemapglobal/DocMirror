@@ -1,8 +1,8 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.layout.segment.page_blocks import detect_pre_grid_field_supplements
 from docmirror.ocr.local_structure.utils import line_items
+from docmirror.plugins.credit_report.local_structure_supplement import detect_credit_closed_account_blocks
 
 
 def _account1_prefix_lines():
@@ -34,7 +34,7 @@ def test_pre_grid_field_supplement_infers_account1_anchor():
             score=0.9,
         )
     ]
-    found = detect_pre_grid_field_supplements(items, tokens=tokens, page=4, existing=existing)
+    found = detect_credit_closed_account_blocks(items, tokens=tokens, page=4, existing=existing)
     assert found
     assert "账户1" in found[0].anchors
-    assert "geometric" in found[0].reason_codes[0]
+    assert "plugin_supplement" in found[0].reason_codes

@@ -19,6 +19,8 @@ from docmirror.models.entities.parse_result import (
     TextLevel,
 )
 from docmirror.models.mirror.vnext import mirror_json_vnext_schema
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 
 
 def _sample_parse_result() -> ParseResult:
@@ -92,7 +94,7 @@ def _sample_parse_result() -> ParseResult:
 
 
 def test_mirror_json_vnext_is_document_shaped_not_old_envelope():
-    payload = _sample_parse_result().to_mirror_json_vnext(source_filename="statement.pdf")
+    payload = project_mirror(seal_parse_result(_sample_parse_result()), source_filename="statement.pdf")
 
     assert set(payload) == {
         "mirror",
@@ -123,7 +125,7 @@ def test_mirror_json_vnext_is_document_shaped_not_old_envelope():
 
 
 def test_mirror_json_vnext_preserves_table_grid_and_kv_facts():
-    payload = _sample_parse_result().to_mirror_json_vnext(source_filename="statement.pdf")
+    payload = project_mirror(seal_parse_result(_sample_parse_result()), source_filename="statement.pdf")
 
     table_blocks = [block for block in payload["blocks"] if block["type"] == "table"]
     assert len(table_blocks) == 1
@@ -149,7 +151,7 @@ def test_mirror_json_vnext_preserves_table_grid_and_kv_facts():
     fact_ids = {fact["id"] for fact in payload["semantics"]["facts"]}
     assert any("起始日期" in fid for fid in fact_ids)
     assert any("账户名称" in fid for fid in fact_ids)
-    assert "bank_statement" in payload["semantics"]["views"]
+    assert "tables" in payload["semantics"]["views"]
 
 
 def test_scanned_mirror_uses_conservative_title_and_measured_ocr_quality():
@@ -170,7 +172,7 @@ def test_scanned_mirror_uses_conservative_title_and_measured_ocr_quality():
         ]
     )
 
-    payload = result.to_mirror_json_vnext()
+    payload = project_mirror(seal_parse_result(result))
 
     assert payload["document"]["content_mode"] == "scanned_ocr"
     assert payload["document"]["title"]["text"] == "个人信用报告"
@@ -196,7 +198,7 @@ def test_document_title_does_not_fall_back_to_late_account_status_heading():
         ]
     )
 
-    payload = result.to_mirror_json_vnext()
+    payload = project_mirror(seal_parse_result(result))
 
     assert payload["document"]["title"] is None
     assert payload["document"]["outline_block_ids"] == []
@@ -240,7 +242,7 @@ def test_mirror_json_vnext_preserves_ocr_page_normalization_and_table_provenance
     )
     result = ParseResult(pages=[PageContent(page_number=10, width=842, height=595, tables=[table])])
 
-    payload = result.to_mirror_json_vnext(source_filename="audit.pdf")
+    payload = project_mirror(seal_parse_result(result), source_filename="audit.pdf")
 
     page = payload["pages"][0]
     normalization = page["coordinate_transform"]["page_normalization"]
@@ -268,7 +270,7 @@ def test_mirror_json_vnext_preserves_ocr_page_normalization_and_table_provenance
 
 def test_mirror_json_vnext_schema_exports_and_payload_roundtrips_json():
     schema = mirror_json_vnext_schema()
-    payload = _sample_parse_result().to_mirror_json_vnext(source_filename="statement.pdf")
+    payload = project_mirror(seal_parse_result(_sample_parse_result()), source_filename="statement.pdf")
 
     assert schema["title"] == "MirrorJsonVNext"
     assert "mirror" in schema["properties"]
@@ -302,7 +304,7 @@ def test_mirror_json_vnext_emits_residual_for_empty_page():
         parser_info=ParserInfo(page_count=1),
     )
 
-    payload = result.to_mirror_json_vnext(source_filename="empty.pdf")
+    payload = project_mirror(seal_parse_result(result), source_filename="empty.pdf")
 
     residual_blocks = [block for block in payload["blocks"] if block["type"] == "residual"]
     # Empty ParseResult with no pages may produce 0 or 1 residual blocks
@@ -341,7 +343,7 @@ def test_mirror_json_vnext_emits_residual_for_empty_page():
 def test_mirror_json_vnext_emits_document_residual_when_no_pages_exist():
     result = ParseResult()
 
-    payload = result.to_mirror_json_vnext(source_filename="empty.pdf")
+    payload = project_mirror(seal_parse_result(result), source_filename="empty.pdf")
 
     residual_blocks = [block for block in payload["blocks"] if block["type"] == "residual"]
     # Empty ParseResult with no pages may produce 0 or 1 residual blocks
@@ -371,7 +373,7 @@ def test_mirror_core_vnext_processes_parse_result():
     assert payload["diagnostics"]["pipeline"][0]["stage"] == "evidence_plane_builder"
     assert payload["diagnostics"]["pipeline"][1]["stage"] == "page_topology_segmentation"
     assert payload["document"]["document_type_candidates"][0]["type"] == "bank_statement"
-    assert "bank_statement" in payload["semantics"]["views"]
+    assert "tables" in payload["semantics"]["views"]
     assert any(block["type"] == "table" for block in payload["blocks"])
 
 

@@ -22,6 +22,8 @@ from __future__ import annotations
 import logging
 import re
 
+from docmirror.tables.char.semantic_column_mapper import SemanticColumnMapper
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,12 +65,11 @@ def merge_split_rows(table: list[list[str]]) -> list[list[str]]:
         date_col = -1
         amount_col = -1
 
-        # Scan header to find potential anchor columns
-        for c, h_text in enumerate(header):
-            h_norm = (h_text or "").strip().lower()
-            if any(kw in h_norm for kw in ["日期", "时间", "date"]):
+        # Scan plugin-classified header roles to find potential anchor columns.
+        for c, column_type in enumerate(SemanticColumnMapper().classify_columns(header)):
+            if column_type == "date":
                 date_col = c
-            if any(kw in h_norm for kw in ["发生额", "金额", "支出", "存入", "余额", "amount", "balance"]):
+            if column_type in {"debit", "credit", "balance", "amount"}:
                 amount_col = c
 
         # If header search failed, scan the first 5 data rows

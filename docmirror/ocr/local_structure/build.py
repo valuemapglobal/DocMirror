@@ -345,7 +345,6 @@ def build_local_structures(
 
     items = line_items(lines, page=page)
     token_list = coerce_tokens(tokens, page=page)
-    from docmirror.layout.segment.page_blocks import grid_anchor_top_from_lines, is_lattice_content_line
     from docmirror.ocr.local_structure.candidate_supplement import supplement_local_structure_candidates
     from docmirror.ocr.local_structure.detect import detect_local_structure_candidates
 
@@ -376,23 +375,7 @@ def build_local_structures(
             and line["bbox"][2] <= cbox[2] + 1
             and cbox[1] - 1 <= line["bbox"][1] <= cbox[3] + 1
         ]
-        force_field_grid = any(
-            code in (candidate.reason_codes or ())
-            for code in (
-                "credit_closed_account_block",
-                "geometric_field_block_pre_grid",
-                "geometric_pre_grid_window",
-            )
-        )
-        if force_field_grid:
-            grid_top = grid_anchor_top_from_lines(items)
-            if grid_top is not None:
-                cutoff = grid_top - 4.0
-                block_lines = [
-                    line
-                    for line in block_lines
-                    if float(line["bbox"][3]) <= cutoff and not is_lattice_content_line(str(line.get("text") or ""))
-                ]
+        force_field_grid = "force_field_grid" in (candidate.reason_codes or ())
         if not block_lines:
             continue
         structure_id = f"ls_p{page}_{cand_idx}"

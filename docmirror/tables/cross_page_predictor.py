@@ -19,9 +19,22 @@ from dataclasses import dataclass, field
 from statistics import median
 from typing import Any
 
+from docmirror.layout.profile.registry import load_table_semantics
 from docmirror.models.entities.domain import PageLayout
+from docmirror.tables.char.semantic_column_mapper import SemanticColumnMapper
 
 logger = logging.getLogger(__name__)
+_CONTINUATION_MARKERS = tuple(str(marker).lower() for marker in load_table_semantics().get("continuation_markers", ()))
+
+
+def _predictor_column_type(semantic_type: str) -> str:
+    if semantic_type in {"debit", "credit", "balance", "amount"}:
+        return "currency"
+    if semantic_type == "date":
+        return "date"
+    if semantic_type == "code":
+        return "number"
+    return "text"
 
 
 @dataclass
@@ -324,24 +337,13 @@ class CrossPageTablePredictor:
 
     @staticmethod
     def _infer_col_types_from_header(header_row: list) -> list[str]:
-        col_types = []
-        for cell in header_row:
-            name = str(cell).lower()
-            if any(k in name for k in ("金额", "amount", "余额", "balance")):
-                col_types.append("currency")
-            elif any(k in name for k in ("日期", "date", "时间", "time")):
-                col_types.append("date")
-            elif any(k in name for k in ("序号", "编号", "no", "index")):
-                col_types.append("number")
-            else:
-                col_types.append("text")
-        return col_types
+        return [_predictor_column_type(value) for value in SemanticColumnMapper().classify_columns(header_row)]
 
     @staticmethod
     def _rows_have_continuation_marker(rows: list[list]) -> bool:
         for row in rows[-3:]:
             text = " ".join(str(c) for c in row).lower()
-            if any(m in text for m in ("续", "续表", "...", "…", "continued")):
+            if any(marker in text for marker in _CONTINUATION_MARKERS):
                 return True
         return False
 
@@ -393,7 +395,7 @@ class CrossPageTablePredictor:
         # Check if ending marker is missing
         incomplete_markers = [
             not line.endswith(("。", "；", "）", ")", "」", "】", ".", ";", ")", "]")),
-            line.endswith(("...", "…", "续", "接")),  # continuation marker check
+            line.lower().endswith(_CONTINUATION_MARKERS),
         ]
 
         return any(incomplete_markers)
@@ -405,7 +407,7 @@ class CrossPageTablePredictor:
                 continue
 
             text = block.text.lower()
-            if any(marker in text for marker in ["续", "续表", "...", "…", "continued"]):
+            if any(marker in text for marker in _CONTINUATION_MARKERS):
                 return True
 
         return False
@@ -452,14 +454,8 @@ class CrossPageTablePredictor:
                 col_name = col.get("name", "").lower() if isinstance(col, dict) else str(col).lower()
 
                 # Infer from column names
-                if any(keyword in col_name for keyword in ["金额", "amount", "余额", "balance"]):
-                    col_types.append("currency")
-                elif any(keyword in col_name for keyword in ["日期", "date", "时间", "time"]):
-                    col_types.append("date")
-                elif any(keyword in col_name for keyword in ["序号", "编号", "no", "index"]):
-                    col_types.append("number")
-                else:
-                    col_types.append("text")
+                semantic_type = SemanticColumnMapper().classify_columns([col_name])[0]
+                col_types.append(_predictor_column_type(semantic_type))
 
         return col_types
 

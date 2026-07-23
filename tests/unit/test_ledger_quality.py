@@ -18,6 +18,7 @@ def _bank_profile():
     class _Profile:
         profile_id = "borderless_ledger_bank"
         document_type_hint = "bank_statement"
+        enable_ledger_quality_gate = True
 
         def is_borderless_ledger(self):
             return True
@@ -29,6 +30,7 @@ def _wechat_profile():
     class _Profile:
         profile_id = "borderless_ledger_wechat"
         document_type_hint = "wechat_payment"
+        enable_ledger_quality_gate = False
 
         def is_borderless_ledger(self):
             return True

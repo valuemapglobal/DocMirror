@@ -1,0 +1,82 @@
+schema_version: 1
+
+provider:
+  id: credit_report
+  domain_name: credit_report
+  edition: community
+  version: community-1
+  implementation: docmirror.plugins.credit_report.community_plugin:plugin
+
+capabilities:
+  premium: true
+  community_order: 6
+  generic_fallback: false
+  quality_groups: [finance]
+
+routing:
+  enhance_mode: full
+  notes:
+    - Section-driven layout; L6 graph available
+
+classification:
+  aliases:
+    - credit_report_enterprise
+
+projection:
+  document_variants:
+    field: report_subtype
+    values:
+      enterprise: enterprise_credit_report
+      personal_detail: personal_credit_report_detailed
+      personal_detailed: personal_credit_report_detailed
+      detailed: personal_credit_report_detailed
+      personal: personal_credit_report_detailed
+      personal_brief: personal_credit_report_brief
+      brief: personal_credit_report_brief
+  dataset_labels:
+    credit_accounts: 信贷账户
+    credit_lines: 授信额度明细
+    repayment_records: 还款记录
+    overdue_records: 逾期记录
+    inquiry_records: 查询记录
+    public_records: 公共记录
+    residence_records: 居住信息
+    employment_records: 职业信息
+    repayment_liability_records: 相关还款责任信息
+  summary_facts: {credit_summary: credit_summary}
+  internal_facts: [credit_extraction_audit]
+  section_markers:
+    credit_accounts: [credit]
+    credit_lines: [credit]
+    repayment_records: [credit, repayment]
+    overdue_records: [credit, repayment]
+    public_records: [public]
+    inquiry_records: [inquir]
+  section_type_markers:
+    信息概要: credit_summary
+    基本信息: basic_information
+    身份: identity
+    信贷: credit_details
+    还款: repayment_history
+    公共: public_records
+    查询: inquiries
+
+resources:
+  key_synonyms: resources/key_synonyms.yaml
+  field_schema: resources/field_schema.yaml
+  scene_keywords: resources/scene_keywords.yaml
+  domain_contract: resources/domain_contract.yaml
+  layout_profiles: resources/layout_profiles.yaml
+  confidence_policy: resources/confidence_policy.yaml
+  post_extract: resources/post_extract.yaml
+
+fact_outputs:
+  document_type: credit_report
+  datasets:
+    - credit_accounts
+    - credit_lines
+    - repayment_records
+    - overdue_records
+    - inquiry_records
+    - public_records
+  domain_fact_prefix: credit_report

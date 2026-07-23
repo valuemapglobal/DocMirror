@@ -1,0 +1,19 @@
+pack_id: zh-CN.business-license
+version: 1
+priority: 100
+domains: [business_license]
+validators: [cn.uscc]
+embedded_identifiers:
+  - field_type: uscc
+    country: CN
+
+exact_rules:
+  - id: finance.registered_capital
+    observed: 注册资木
+    canonical: 注册资本
+    roles: [field_label, table_header, unknown]
+
+lexicons:
+  license_fields:
+    roles: [field_label, table_header]
+    terms: [名称, 统一社会信用代码, 法定代表人, 注册资本, 成立日期, 营业期限, 经营范围, 住所, 登记状态, 核准日期, 登记机关]

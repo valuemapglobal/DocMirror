@@ -91,7 +91,14 @@ def assemble_parse_result(
     _attach_page_evidence(result, meta)
 
     _compose_canonical_tables(result, meta, list(page_layouts))
-    _attach_hints(result, meta)
+    attach_parse_policy(
+        result,
+        doc_type_hint=meta.get("doc_type_hint"),
+        doc_type_hint_strength=meta.get("doc_type_hint_strength"),
+        parse_policy=meta.get("parse_policy"),
+        parse_policy_fingerprint=meta.get("parse_policy_fingerprint"),
+    )
+    _attach_scene_hint(result, meta)
     return result
 
 
@@ -125,12 +132,53 @@ def _attach_page_evidence(result: ParseResult, meta: dict[str, Any]) -> None:
     result.entities.domain_specific = domain
 
 
-def _attach_hints(result: ParseResult, meta: dict[str, Any]) -> None:
+def attach_parse_policy(
+    result: ParseResult,
+    *,
+    doc_type_hint: Any = None,
+    doc_type_hint_strength: Any = None,
+    parse_policy: Any = None,
+    parse_policy_fingerprint: Any = None,
+) -> ParseResult:
+    """Attach request policy at the canonical boundary for every adapter.
+
+    Backends are allowed to emit evidence and basic facts only; they do not own
+    request policy propagation. A ``force`` hint is therefore applied here,
+    before generic classification and plugin recognition, so adapter choice can
+    never change the fact-affecting policy semantics.
+    """
     domain = dict(result.entities.domain_specific or {})
-    if meta.get("doc_type_hint"):
-        domain["user_doc_type_hint"] = str(meta["doc_type_hint"])
-        domain["user_doc_type_hint_strength"] = str(meta.get("doc_type_hint_strength") or "prefer")
+    hint = str(doc_type_hint or "").strip()
+    strength = str(doc_type_hint_strength or "prefer").strip().lower()
+    if hint:
+        domain["user_doc_type_hint"] = hint
+        domain["user_doc_type_hint_strength"] = strength
         domain["doc_type_hint_source"] = "user"
+        if strength == "force" and result.entities.document_type != hint:
+            old_type = result.entities.document_type
+            result.entities.document_type = hint
+            result.record_mutation(
+                middleware_name="ParsePolicy",
+                target_block_id="document",
+                field_changed="entities.document_type",
+                old_value=old_type,
+                new_value=hint,
+                confidence=1.0,
+                reason="forced request document type",
+            )
+    if parse_policy is not None:
+        result.parser_info.options["parse_policy"] = parse_policy
+    if parse_policy_fingerprint:
+        result.parser_info.options["parse_policy_fingerprint"] = str(parse_policy_fingerprint)
+    if hint:
+        result.parser_info.options["doc_type_hint"] = hint
+        result.parser_info.options["doc_type_hint_strength"] = strength
+    result.entities.domain_specific = domain
+    return result
+
+
+def _attach_scene_hint(result: ParseResult, meta: dict[str, Any]) -> None:
+    domain = dict(result.entities.domain_specific or {})
     scene = meta.get("document_scene")
     if scene and scene not in {"unknown", "generic"}:
         domain["extractor_scene_hint"] = scene
@@ -191,4 +239,4 @@ def _compose_canonical_tables(
     attach_mirror_ltqg(result, metadata)
 
 
-__all__ = ["assemble_parse_result"]
+__all__ = ["assemble_parse_result", "attach_parse_policy"]

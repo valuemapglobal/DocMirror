@@ -1,0 +1,18 @@
+pack_id: builtin.bank-statement
+version: 1
+priority: -900
+domains: [bank_statement]
+
+exact_rules:
+  - {id: banking.current_deposit, observed: 活川, canonical: 活期, roles: [field_label, table_header, text_line, unknown]}
+  - {id: banking.current_deposit_variant, observed: 活圳, canonical: 活期, roles: [field_label, table_header, text_line, unknown]}
+  - {id: banking.fast_payment, observed: 快提支付, canonical: 快捷支付, roles: [field_label, table_header, text_line, unknown]}
+  - {id: banking.currency_bi, observed: 人民帀, canonical: 人民币, roles: [field_label, table_header, text_line, unknown]}
+  - {id: banking.currency_jin, observed: 人民巾, canonical: 人民币, roles: [field_label, table_header, text_line, unknown]}
+  - {id: banking.debit_card, observed: 借记卞, canonical: 借记卡, roles: [field_label, table_header, text_line, unknown]}
+  - {id: payment.unionpay, observed: 通联支忖, canonical: 通联支付, roles: [field_label, table_header, text_line, unknown]}
+
+lexicons:
+  fields:
+    roles: [field_label, table_header]
+    terms: [交易日期, 交易时间, 交易金额, 账户余额, 对方户名, 对方账号, 交易摘要, 币种]

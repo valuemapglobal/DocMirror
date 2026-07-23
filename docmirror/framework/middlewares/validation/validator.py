@@ -182,7 +182,7 @@ class Validator(BaseMiddleware):
         result.record_mutation(
             middleware_name=self.name,
             target_block_id="document",
-            field_changed="validation",
+            field_changed="trust",
             old_value=None,
             new_value=f"fidelity={total_score:.3f} passed={passed}",
             confidence=1.0,

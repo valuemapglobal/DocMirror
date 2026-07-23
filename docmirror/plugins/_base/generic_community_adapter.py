@@ -1,24 +1,16 @@
 """
 Canonical ParseResult → generic Community v2.2 recognition adapter.
 
-Maps a complete canonical ``ParseResult`` into a structured community envelope with
-heuristic column type detection, value standardization, and identity extraction.
-
-Key capabilities in v2.2:
-  - ``_type_detect_column`` infers column types (date/amount/phone/id/email/enum/text)
-  - ``_standardize_value`` normalizes values by type (amount→float, date→ISO)
-  - ``_extract_identities`` auto-detects name/id/phone/account fields by key pattern
-  - ``records[].normalized`` is populated with typed values (was always empty)
-  - ``columns`` metadata block added to output
-  - ``identities`` block added to output
-  - text KV, outline, source metadata, and repeated-row recovery fallbacks
+Maps canonical facts into a structured community envelope using heuristic column
+typing, value standardization, identity discovery, text KV, outline, source
+metadata, and repeated-row recovery fallbacks.
 
 Pipeline role: ``runner._run_community_recognition`` calls ``build_generic_community_output``
 via ``generic.community_plugin`` when generic fallback is enabled.
 
 Key exports: ``build_generic_community_output``.
 
-Dependencies: stdlib ``re``, ``unicodedata`` only (no external models).
+It uses deterministic local rules and no external models.
 """
 
 from __future__ import annotations
@@ -2418,7 +2410,9 @@ def build_generic_community_output(
     parse_result: Any,
     detected_type: str,
     full_text: str = "",
-) -> dict[str, Any]:
+    *,
+    _fact_patch_only: bool = False,
+) -> Any:
     """Build v2.2 adaptive Community JSON from a canonical ParseResult."""
     recognition_text = _generic_recognition_text(parse_result, full_text)
     ocr_document = _parse_result_has_ocr(parse_result)
@@ -2604,6 +2598,11 @@ def build_generic_community_output(
         structured_data["columns"] = col_types
     if identities:
         structured_data["identities"] = identities
+
+    if _fact_patch_only:
+        from docmirror.plugins._base.generic_fact_patch import make_generic_fact_patch
+
+        return make_generic_fact_patch(detected_type, fields, structured_data, warnings)
 
     dec = DomainExtractionResult(
         document_type=detected_type,

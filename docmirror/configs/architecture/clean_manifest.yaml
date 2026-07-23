@@ -50,10 +50,6 @@ layers:
     - docmirror.cli
     - docmirror.plugins
     import_linter_ignore_imports:
-    - importer: docmirror.models.entities.parse_result
-      imported: docmirror.models.mirror.core
-      reason: ParseResult builds canonical MirrorJson through the model-layer projection core.
-      review_by: '2026-08-01'
     - importer: docmirror.models.mirror.serialization_contract
       imported: docmirror.evidence.structure_provenance
       reason: Serialization contract still includes structure provenance snapshot.
@@ -139,9 +135,9 @@ removed_modules:
   replacement: sealed ParseResult SSOT
 - module: docmirror.topology.document_graph
   replacement: canonical topology and docmirror.models.mirror.document_structure
-- module: docmirror.domains.registry
-  replacement: canonical domain facts and plugin registry
-- module: docmirror.errors.envelope
+- module: docmirror.domains
+  replacement: plugin-owned semantic solvers under docmirror.plugins
+- module: docmirror.errors
   replacement: docmirror.sdk.integration.errors and docmirror.configs.failure_codes
 - module: docmirror.cli.explainability_commands
   replacement: no active CLI command

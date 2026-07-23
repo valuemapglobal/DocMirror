@@ -28,6 +28,23 @@ from docmirror.models.entities.parse_result import ParseResult
 logger = logging.getLogger(__name__)
 
 
+def _mutation_covers_fact_path(field_changed: str, fact_path: str) -> bool:
+    """Return whether an audit target owns a concrete canonical change."""
+    field = str(field_changed or "").strip().strip(".")
+    if not field:
+        return False
+    if field == fact_path:
+        return True
+    return fact_path.startswith(f"{field}.") or fact_path.startswith(f"{field}[")
+
+
+def _middleware_owns_mutation(middleware_name: str, actor: str) -> bool:
+    """Recognizers are child actors of the canonical recognizer middleware."""
+    if actor == middleware_name:
+        return True
+    return middleware_name == "CommunityFactRecognizer" and actor.startswith("recognizer:")
+
+
 class BaseMiddleware(ABC):
     """
     Abstract Base Class for Middlewares.
@@ -105,9 +122,14 @@ class MiddlewarePipeline:
         step_timings: dict[str, float] = {}
 
         for mw in middlewares:
-            self._run_single(mw, result, step_timings)
+            result = self._run_single(mw, result, step_timings)
 
-        result.entities.domain_specific["step_timings"] = step_timings
+        # Execution timings are diagnostics, not domain facts. Keep them in
+        # parser metadata so worker scheduling cannot contaminate fact identity.
+        result.parser_info.structure = {
+            **dict(result.parser_info.structure or {}),
+            "step_timings": step_timings,
+        }
 
         total_mutations = result.mutation_count
         logger.info(
@@ -122,30 +144,67 @@ class MiddlewarePipeline:
         mw: BaseMiddleware,
         result: ParseResult,
         step_timings: dict[str, float],
-    ) -> None:
+    ) -> ParseResult:
         """Execute a single middleware sequentially (original path)."""
         if mw.should_skip(result):
             logger.info(f"[Middleware] {mw.name} \u23ed skipped")
             step_timings[mw.name] = 0.0
-            return
+            return result
 
+        from docmirror.models.fingerprint import canonical_fact_diff, canonical_fact_payload
+
+        before_facts = canonical_fact_payload(result)
+        before_mutation_count = len(result.mutations)
         t0 = time.time()
         try:
             logger.debug(f"[DocMirror] Running {mw.name}...")
             result_new = mw.process(result)
-            # Some middlewares may return a new result; merge key fields
-            if result_new is not result:
-                for attr in ("status",):
-                    if hasattr(result_new, attr):
-                        setattr(result, attr, getattr(result_new, attr))
-                result.entities = result_new.entities
+            if not isinstance(result_new, ParseResult):
+                raise TypeError(f"{mw.name}.process must return ParseResult")
+            after_facts = canonical_fact_payload(result_new)
+            fact_changes = canonical_fact_diff(before_facts, after_facts)
+            new_mutations = result_new.mutations[before_mutation_count:]
+            owned_mutations = [
+                mutation
+                for mutation in new_mutations
+                if _middleware_owns_mutation(mw.name, str(mutation.middleware_name or ""))
+            ]
+            uncovered = [
+                path
+                for path in fact_changes
+                if not any(_mutation_covers_fact_path(mutation.field_changed, path) for mutation in owned_mutations)
+            ]
+            if uncovered:
+                preview = ", ".join(uncovered[:8])
+                if len(uncovered) > 8:
+                    preview += f", ... (+{len(uncovered) - 8})"
+                raise MiddlewareError(
+                    f"canonical mutation audit gap: {preview}",
+                    middleware_name=mw.name,
+                )
+            result = result_new
             elapsed = (time.time() - t0) * 1000
             step_timings[mw.name] = round(elapsed, 1)
             num_mutations = sum(1 for m in result.mutations if m.middleware_name == mw.name)
             logger.info(f"[Middleware] {mw.name} \u25c0 {elapsed:.0f}ms | mutations=+{num_mutations}")
+            return result
         except Exception as e:
             elapsed = (time.time() - t0) * 1000
             step_timings[mw.name] = round(elapsed, 1)
+            if isinstance(e, MiddlewareError) and "canonical mutation audit gap" in str(e):
+                raise
+            leaked_changes = canonical_fact_diff(before_facts, canonical_fact_payload(result))
+            if leaked_changes:
+                preview = ", ".join(list(leaked_changes)[:8])
+                logger.error(
+                    "[Middleware] %s changed canonical facts before failing: %s",
+                    mw.name,
+                    preview,
+                )
+                raise MiddlewareError(
+                    f"middleware failed after changing canonical facts: {preview}",
+                    middleware_name=mw.name,
+                ) from e
             mw_error = MiddlewareError(str(e), middleware_name=mw.name)
             logger.warning(f"[Middleware] {mw_error}", exc_info=True)
             result.add_error(str(mw_error))
@@ -154,3 +213,4 @@ class MiddlewarePipeline:
                 from docmirror.models.entities.parse_result import ResultStatus
 
                 result.status = ResultStatus.FAILURE
+            return result

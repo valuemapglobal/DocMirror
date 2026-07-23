@@ -8,6 +8,6 @@ Re-exports validation helpers that ensure runtime values conform to SSOT
 configuration defined in YAML corpora. Currently contains DTI business-scene
 validators; additional config validators may be added here.
 
-See ``validators/dti.py`` for business_scene validation against
-``scene_keywords.yaml``.
+See ``validators/dti.py`` for business_scene validation against plugin-owned
+classification resources.
 """

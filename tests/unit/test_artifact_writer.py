@@ -29,6 +29,13 @@ def test_artifact_writer_atomically_replaces_target(tmp_path):
     assert not temporary.exists()
 
 
+def test_artifact_writer_fsyncs_content_before_atomic_replace(tmp_path):
+    writer = ArtifactWriter(tmp_path)
+    with patch("docmirror.server.artifact_writer.os.fsync", wraps=__import__("os").fsync) as fsync:
+        writer.write_text("001_community.json", "payload")
+    assert fsync.call_count >= 1
+
+
 def test_artifact_writer_cleans_temporary_file_when_replace_fails(tmp_path):
     writer = ArtifactWriter(tmp_path)
 

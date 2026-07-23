@@ -26,10 +26,12 @@ from docmirror.framework.extraction_runner import (
     build_perceive_context,
     run_extraction_chain,
 )
+from docmirror.input.canonical.seal import seal_canonical_result
 from docmirror.input.entry.options import ParsePolicy
 from docmirror.input.models import AcceptedSource
 from docmirror.input.pipeline.context import ParseContext
 from docmirror.models.entities.parse_result import ParseResult
+from docmirror.models.sealed import SealedParseResult, seal_parse_result
 
 logger = logging.getLogger(__name__)
 
@@ -93,28 +95,41 @@ class ParserDispatcher:
         *,
         max_workers: int | None = None,
         on_progress: Callable[[str, float, str], None] | None = None,
-    ) -> ParseResult:
+    ) -> SealedParseResult:
         if not isinstance(source, AcceptedSource):
             raise TypeError("ParserDispatcher.process accepts AcceptedSource only")
         _t0 = time.time()
         path = source.path
+        display_path = source.display_path
         cap = source.capability
+        if not source.verify_content_identity():
+            return seal_parse_result(
+                build_failure(
+                    "INPUT_IDENTITY_MISMATCH",
+                    "Accepted source bytes no longer match the intake checksum",
+                    _t0,
+                    str(display_path),
+                    file_type=cap.transport,
+                )
+            )
         if cap.status != "supported":
-            return _capability_failure(cap, path, _t0)
+            return seal_parse_result(_capability_failure(cap, display_path, _t0))
 
         policy = policy or ParsePolicy()
         enhance_mode = policy.enhance_mode
         max_pages = policy.pages.max_pages
         document_type = policy.doc_type_hint.value if policy.doc_type_hint else None
         if policy.pages.ranges and cap.transport not in {"pdf", "image"}:
-            return build_failure(
-                "INVALID_OPTIONS",
-                f"--pages is only supported for paged PDF/image inputs, not transport={cap.transport}",
-                _t0,
-                str(path),
-                file_type=cap.transport,
-                is_forged=source.is_forged,
-                forgery_reasons=list(source.forgery_reasons),
+            return seal_parse_result(
+                build_failure(
+                    "INVALID_OPTIONS",
+                    f"--pages is only supported for paged PDF/image inputs, not transport={cap.transport}",
+                    _t0,
+                    str(display_path),
+                    file_type=cap.transport,
+                    is_forged=source.is_forged,
+                    forgery_reasons=list(source.forgery_reasons),
+                )
             )
         perceive_ctx = build_perceive_context(
             path,
@@ -170,18 +185,33 @@ class ParserDispatcher:
             )
         except Exception as exc:
             logger.error("[Dispatcher] Extraction chain error: %s", exc, exc_info=True)
-            return build_failure(
-                "PARSER_ERROR",
-                str(exc),
-                _t0,
-                str(path),
-                file_type=cap.transport,
-                is_forged=source.is_forged,
-                forgery_reasons=list(source.forgery_reasons),
+            return seal_parse_result(
+                build_failure(
+                    "PARSER_ERROR",
+                    str(exc),
+                    _t0,
+                    str(display_path),
+                    file_type=cap.transport,
+                    is_forged=source.is_forged,
+                    forgery_reasons=list(source.forgery_reasons),
+                )
+            )
+
+        if not source.verify_content_identity():
+            return seal_parse_result(
+                build_failure(
+                    "INPUT_IDENTITY_MISMATCH",
+                    "Accepted source bytes changed during adapter processing",
+                    _t0,
+                    str(display_path),
+                    file_type=cap.transport,
+                )
             )
 
         elapsed = int((time.time() - _t0) * 1000)
         result.parser_info.elapsed_ms = elapsed
+        if result.provenance is not None:
+            result.provenance.file_path = str(display_path)
 
         logger.info(
             "[Dispatcher] ◀ process | parser=%s | transport=%s | content_model=%s | "
@@ -194,7 +224,7 @@ class ParserDispatcher:
             result.total_tables,
             elapsed,
         )
-        return result
+        return seal_canonical_result(result)
 
 
 ParserDispatcher._build_failure = staticmethod(build_failure)

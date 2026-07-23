@@ -24,7 +24,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from docmirror.plugins._runtime.plugin_registry import DomainPlugin
+from docmirror.plugin_api import DomainPlugin, FactPatch
+from docmirror.plugins.credit_report import local_structure_supplement as _local_structure_supplement  # noqa: F401
+from docmirror.plugins.credit_report import micro_grid_materialize as _micro_grid_materialize  # noqa: F401
 
 
 class CreditReportPlugin(DomainPlugin):
@@ -81,6 +83,11 @@ class CreditReportPlugin(DomainPlugin):
             include_generic_records=False,
         )
         return enrich_credit_report_output(out, parse_result=parse_result, full_text=text)
+
+    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+        from docmirror.plugins.credit_report.fact_recognizer import recognize_credit_report_facts
+
+        return recognize_credit_report_facts(self, parse_result, text)
 
 
 plugin = CreditReportPlugin()

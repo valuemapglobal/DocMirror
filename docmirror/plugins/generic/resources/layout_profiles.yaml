@@ -1,0 +1,118 @@
+version: 1
+table_header_vocabulary:
+  LEDGER:
+    - date
+    - time
+    - summary
+    - description
+    - amount
+    - balance
+    - debit
+    - credit
+    - 日期
+    - 交易日期
+    - 记账日期
+    - 入账日期
+    - 交易时间
+    - 交易日
+    - 金额
+    - 交易金额
+    - 发生额
+    - 收入金额
+    - 支出金额
+    - 本次余额
+    - 余额
+    - 账户余额
+    - 结存
+    - 可用余额
+    - 摘要
+    - 摘要内容
+    - 交易摘要
+    - 用途
+    - 附言
+    - 备注
+    - 交易类型
+    - 交易类别
+    - 业务摘要
+    - 对方户名
+    - 对方账号
+    - 对手账号
+    - 对手户名
+    - 对方信息
+    - 对方账户
+    - 对方名称
+    - 对方行名
+    - 序号
+    - 账户序号
+    - 账号序号
+    - 凭证类型
+    - 凭证号码
+    - 流水号
+    - 币种
+    - 钞汇
+    - 现/转
+    - 现转
+    - 钞汇标识
+    - 现转标志
+    - 借贷
+    - 借贷状态
+    - 支/收
+    - 收支
+    - 借贷标志
+    - 交易渠道
+    - 交易机构
+    - 交易方式
+    - 交易地点
+    - 被冲账标识
+    - 冲账标识
+    - 交易流水号
+    - 交易备注
+table_semantics:
+  column_keywords:
+    date: [date, posting, value, 交易日期, 起息日, 过账日, 日期, 时间]
+    debit: [debit, 借方, 支出, 支付, 借]
+    credit: [credit, 贷方, 收入, 入账, deposit, 贷]
+    balance: [balance, 余额, bal, 剩余]
+    amount: [amount, 金额, 发生额, sum, 总额]
+    text: [摘要, description, 备注, remark, note, detail, 过账内容, 交易内容, 产品]
+    account: [account, 账号, 户名, name, counterparty, 对方户名, 对方账户]
+    code: [channel, 渠道, id, 编号, 序号, code]
+  sequence_headers: [序号, 交易序号, 编号, no, no., 序列号]
+  continuation_text_headers: [摘要, 交易摘要, 用途, 附言]
+  continuation_markers: [续, 续表, 接, "...", "…", continued]
+  value_type_patterns:
+    account: '^\d[\d\s]{9,18}$'
+    phone: '^1[3-9]\d{9}$'
+    id_number: '^\d{17}[\dXx]$'
+  summary_fields:
+    label_map:
+      借方笔数: debit_count
+      贷方笔数: credit_count
+      借方发生笔数: debit_count
+      贷方发生笔数: credit_count
+      借方发生数: debit_count
+      贷方发生数: credit_count
+      借方金额: debit_amount
+      贷方金额: credit_amount
+      借方发生额: debit_amount
+      贷方发生额: credit_amount
+      余额: balance
+      出单截至日期: cutoff_date
+      截止日期: cutoff_date
+      出单截止日期: cutoff_date
+    metric_markers: [借方, 贷方, 收入, 支出, 发生, 合计, 小计, 总额, 余额]
+    value_markers: [笔数, 金额, 总额, 合计]
+    current_prefix_markers: [当前, 本页]
+    period_prefix_markers: [累计, 本月, 本期]
+  pipe_grid:
+    header_patterns: ['序号.*记账日', 'No\.\s*\|.*Bk\.D\.']
+    preamble_first: [no., no, 序号, bk.d., bk.d]
+    footer_markers: [借方合计, Debit Total, 本对账期末余额, 贷方合计]
+    split_amount_markers: [借方发生额, 贷方发生额, Debit Amount, Credit Amount]
+profiles:
+  generic:
+    force_cross_page_merge: true
+    mirror_skip_cross_page_merge: false
+    sidebar_x_ratio: null
+    preferred_table_methods: []
+    disabled_table_methods: []

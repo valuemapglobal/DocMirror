@@ -18,6 +18,8 @@ from docmirror.models.entities.parse_result import (
     ResultStatus,
     TableOperation,
 )
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 from docmirror.runtime.debug_artifact import build_debug_artifact, write_debug_artifact
 from docmirror.runtime.serialization import assert_json_serializable, dumps_json, to_json_safe
 
@@ -52,7 +54,7 @@ def test_to_mirror_json_vnext_always_json_serializable():
     pr.entities.document_type = "bank_statement"
     pr.entities.domain_specific = {"currency": "CNY", "institution": "中国银行"}
 
-    api = pr.to_mirror_json_vnext()
+    api = project_mirror(seal_parse_result(pr))
     assert_json_serializable(api)
     assert "sections" not in api
     assert "meta" not in api
@@ -69,7 +71,7 @@ def test_canonical_section_metadata_survives_to_mirror_json_vnext():
         },
         "",
     )
-    api = pr.to_mirror_json_vnext()
+    api = project_mirror(seal_parse_result(pr))
     dumps_json(api)
 
 
@@ -98,5 +100,5 @@ def test_failed_parse_result_to_mirror_json_vnext_is_json_safe():
         error=ErrorDetail(code="parse_error", message="boom"),
         sections=[DocumentSection(id="1", title="orphan", page_start=1)],
     )
-    api = pr.to_mirror_json_vnext()
+    api = project_mirror(seal_parse_result(pr))
     dumps_json(api)

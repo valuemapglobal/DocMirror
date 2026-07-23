@@ -43,7 +43,7 @@ def test_vnext_golden_quality_has_minimum_gates():
 def test_vnext_golden_semantics_has_bank_statement_view():
     result = _sample_parse_result()
     mirror = MirrorCoreVNext().process(result).mirror
-    assert "bank_statement" in mirror.semantics.views
+    assert "tables" in mirror.semantics.views
 
 
 def test_vnext_golden_document_title_from_heading():

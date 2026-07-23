@@ -29,6 +29,8 @@ from docmirror.models.mirror.serialization_contract import (
     logical_table_role,
 )
 from docmirror.models.schemas.registry import validate_projection_payload
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import _serialize_cell, project_mirror
 
 
 def _schema_path() -> Path:
@@ -130,9 +132,7 @@ def test_to_mirror_json_vnext_design21_contract_fields():
         page=1,
         metadata={"raw_rows": [["A", "B"], ["1", "2"]]},
     )
-    page_table.rows.append(
-        TableRow(cells=[CellValue(text="1"), CellValue(text="2")], row_type=RowType.DATA)
-    )
+    page_table.rows.append(TableRow(cells=[CellValue(text="1"), CellValue(text="2")], row_type=RowType.DATA))
     pr = ParseResult(
         pages=[PageContent(page_number=1, tables=[page_table])],
         entities=DocumentEntities(
@@ -163,7 +163,7 @@ def test_to_mirror_json_vnext_design21_contract_fields():
             }
         ),
     )
-    api = pr.to_mirror_json_vnext(mirror_level="standard")
+    api = project_mirror(seal_parse_result(pr), mirror_level="standard")
     assert MIRROR_CONTRACT_VERSION == "1.1"
     assert "mirror_profile" not in api
     assert "meta" not in api
@@ -181,7 +181,7 @@ def test_to_mirror_json_vnext_design21_contract_fields():
 
 def test_to_mirror_json_vnext_always_exports_structure_ssot():
     pr = ParseResult()
-    api = pr.to_mirror_json_vnext()
+    api = project_mirror(seal_parse_result(pr))
 
     assert api["mirror"]["schema"] == "docmirror.mirror_json"
     assert "data" not in api
@@ -199,7 +199,7 @@ def test_to_mirror_json_vnext_quarantine_ssot_is_meta_structure():
             }
         ),
     )
-    api = pr.to_mirror_json_vnext(mirror_level="standard")
+    api = project_mirror(seal_parse_result(pr), mirror_level="standard")
 
     assert "meta" not in api
     assert api["source"]["provenance"]["parser_info"]["structure"]["quarantined_physical_count"] == 2
@@ -207,10 +207,9 @@ def test_to_mirror_json_vnext_quarantine_ssot_is_meta_structure():
 
 
 def test_cell_standard_audit_fields():
-    pr = ParseResult()
     cell = CellValue(text="x", geometry_status="exact")
     cell.source_cell_refs = ["c0"]
-    d = pr._serialize_cell(cell, forensic=False)
+    d = _serialize_cell(cell, forensic=False)
     assert d["data_type"] == "text"
     assert d["geometry_status"] == "exact"
     assert d["source_cell_refs"] == ["c0"]

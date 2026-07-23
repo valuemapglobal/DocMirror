@@ -6,7 +6,9 @@ import pytest
 
 from docmirror.evidence.plane import EvidencePlaneBuilder
 from docmirror.input.extraction.extractor import CoreExtractor
+from docmirror.models.sealed import seal_parse_result
 from docmirror.output.community_bundle import project_community_bundle
+from docmirror.output.mirror_projector import project_mirror
 
 
 def _write_vector_table_pdf(path) -> None:
@@ -48,7 +50,7 @@ def test_native_pdf_table_evidence_survives_into_parse_result(tmp_path) -> None:
     assert result.document_flow is not None
     assert any(node.type == "physical_table" for node in result.document_flow.nodes)
 
-    mirror = result.to_mirror_json_vnext(source_filename=str(path))
+    mirror = project_mirror(seal_parse_result(result), source_filename=str(path))
     assert len(mirror["evidence"]["vector_atoms"]) == plane.counts["vector_atoms"]
     assert mirror["evidence"]["indexes"]["table_candidates"]
 
@@ -58,7 +60,7 @@ def test_native_pdf_table_evidence_survives_into_parse_result(tmp_path) -> None:
     assert table_token_ids
     assert not table_token_ids & body_token_ids
 
-    markdown = project_community_bundle(result, document_id="doc_vector").render_markdown()
+    markdown = project_community_bundle(seal_parse_result(result), document_id="doc_vector").render_markdown()
     assert "|" in markdown
     assert "<table>" not in markdown
     assert markdown.count("Alice") == 1

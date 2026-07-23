@@ -31,7 +31,6 @@ _UNORDERED_LIST_RE = re.compile(r"^(\s*)([-+])\s+")
 _ALLOWED_HTML_TAGS: frozenset[str] = frozenset()
 _ALLOWED_HTML_ATTRIBUTES: dict[str, frozenset[str]] = {}
 _REGION_ROLES = frozenset({"header", "footer", "watermark", "stamp", "handwriting", "annotation"})
-_PAYMENT_DIRECTION_VALUES = frozenset({"收入", "支出", "其他", "不计收支"})
 _BLOCK_HTML_TAGS = frozenset(
     {
         "address",
@@ -325,9 +324,6 @@ def _typed_header_index(
     raw_matrix: bool,
 ) -> int:
     if not matrix:
-        return -1
-    first_header = re.sub(r"\s+", "", headers[0]) if headers else ""
-    if first_header in _PAYMENT_DIRECTION_VALUES:
         return -1
     configured = metadata.get("header_row_index")
     if configured is not None:

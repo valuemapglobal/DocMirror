@@ -8,6 +8,8 @@ import os
 
 import pytest
 
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 from docmirror.plugins.bank_statement.community_plugin import BankStatementCommunityPlugin
 from docmirror.plugins.bank_statement.context import StyleContext
 from docmirror.plugins.bank_statement.style_detector import BankStyleDetector
@@ -194,6 +196,6 @@ async def test_bank_synthetic_extracts_transactions():
     records, _ = BankStyleParserRegistry().run(detection, ctx, plugin)
     assert len(records) >= 3
 
-    api = pr.to_mirror_json_vnext()
+    api = project_mirror(seal_parse_result(pr))
     doc = api
     assert len(doc.get("pages") or []) >= 1

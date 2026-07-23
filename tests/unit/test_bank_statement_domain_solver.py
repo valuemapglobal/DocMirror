@@ -5,12 +5,13 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from docmirror.domains.bank_statement import BankStatementSemanticSolver
 from docmirror.plugins.bank_statement.extract_pipeline import enrich_identity_fields
+from docmirror.plugins.bank_statement.institution import detect_registered_institution
 from docmirror.plugins.bank_statement.institution_authority import (
     extract_identity_from_header,
     resolve_institution_from_context,
 )
+from docmirror.plugins.bank_statement.semantic_solver import BankStatementSemanticSolver
 from docmirror.plugins.bank_statement.wide_table_recovery import (
     audit_bank_statement_invariants,
     count_expected_rows_from_bank_footer,
@@ -75,7 +76,17 @@ def test_bank_statement_solver_reconciles_vertical_debit_credit_ledger() -> None
     assert model["identity"]["query_period"] == "2022-01-01 ~ 2022-01-31"
 
     split_table = model["split_table"]
-    assert split_table[0] == ["序号", "交易日期", "交易时间", "摘要", "借方发生额", "贷方发生额", "余额", "对方账户", "对方户名"]
+    assert split_table[0] == [
+        "序号",
+        "交易日期",
+        "交易时间",
+        "摘要",
+        "借方发生额",
+        "贷方发生额",
+        "余额",
+        "对方账户",
+        "对方户名",
+    ]
     assert split_table[1][4] == "10.00"
     assert split_table[2][5] == "5.00"
     assert split_table[3][4] == "2.00"
@@ -249,3 +260,7 @@ def test_transaction_channel_is_not_institution() -> None:
     )
 
     assert resolve_institution_from_context(parse_result, "网上银行 网银结算") == ("中国建设银行", "filename.token")
+
+
+def test_institution_registry_is_owned_by_bank_plugin() -> None:
+    assert detect_registered_institution("中国建设银行 账户交易明细 序号 交易日期") == "中国建设银行"

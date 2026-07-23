@@ -61,6 +61,16 @@ def docmirror_plugin_manifest() -> dict[str, Any]:
 
 
 @hookspec
+def docmirror_plugin_provider() -> Any:
+    """Return a :class:`docmirror.plugin_api.PluginProvider` runtime manifest.
+
+    This is the only third-party execution registration hook. Other pluggy
+    hooks are compatibility metadata/explicit-export hooks and do not form a
+    second fact or projection pipeline.
+    """
+
+
+@hookspec
 def docmirror_augment_dmir(
     dmir: dict[str, Any],
     document_type: str,
@@ -130,6 +140,7 @@ __all__ = [
     "hookimpl",
     "PROJECT_NAME",
     "docmirror_plugin_manifest",
+    "docmirror_plugin_provider",
     "docmirror_augment_dmir",
     "docmirror_classify_document",
     "docmirror_validate_result",

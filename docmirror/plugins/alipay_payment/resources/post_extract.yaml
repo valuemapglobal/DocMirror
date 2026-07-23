@@ -1,0 +1,8 @@
+version: 1
+hooks:
+  alipay_payment_precision:
+    module: docmirror.plugins._runtime.post_extract.hooks.community_precision
+    class: CommunityPrecisionHook
+    when: "edition == 'community' and document_type == 'alipay_payment'"
+    mutates_facts: false
+    provides: [status.warnings]

@@ -4,8 +4,8 @@
 """
 Domain Contract Validator — validates Edition JSON payload against DGAC.
 
-Reads ``docmirror/configs/yaml/domain_contracts/community_core.yaml`` and
-validates that a community Edition JSON payload satisfies the P0 field /
+Reads contracts declared by plugin manifests and validates that a community
+Edition JSON payload satisfies the P0 field /
 record / section / quality / failure commitments for a given domain.
 
 Key exports: ``validate_domain_schema``, ``DomainContractValidationReport``.
@@ -17,7 +17,8 @@ Used by: ``scripts/validate/validate_domain_ga_contracts.py``,
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
+from importlib.resources import files
+from pathlib import PurePosixPath
 from typing import Any
 
 import yaml
@@ -38,14 +39,31 @@ class DomainContractValidationReport:
     warnings: list[str] = field(default_factory=list)
 
 
-_CONTRACTS_PATH = Path(__file__).resolve().parents[2] / "configs" / "yaml" / "domain_contracts" / "community_core.yaml"
-
-
-def _load_contracts() -> dict[str, Any]:
-    if not _CONTRACTS_PATH.exists():
-        return {}
-    with open(_CONTRACTS_PATH, encoding="utf-8") as fh:
-        return yaml.safe_load(fh) or {}
+def load_domain_contracts() -> dict[str, Any]:
+    """Merge the domain contracts owned by installed bundled plugins."""
+    contracts: dict[str, Any] = {"version": 1, "edition": "community", "domains": {}}
+    plugin_root = files("docmirror").joinpath("plugins")
+    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
+        manifest_path = plugin_dir.joinpath("plugin.yaml")
+        if not plugin_dir.is_dir() or not manifest_path.is_file():
+            continue
+        try:
+            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+            relative_text = str(((manifest.get("resources") or {}).get("domain_contract")) or "").strip()
+            relative_path = PurePosixPath(relative_text)
+            if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
+                continue
+            resource_path = plugin_dir.joinpath(*relative_path.parts)
+            payload = yaml.safe_load(resource_path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            continue
+        domains = payload.get("domains") if isinstance(payload, dict) else None
+        if isinstance(domains, dict):
+            contracts["domains"].update(domains)
+        for shared_key in ("failure_taxonomy", "evidence_policy"):
+            if shared_key in payload:
+                contracts[shared_key] = payload[shared_key]
+    return contracts
 
 
 def validate_domain_schema(
@@ -58,14 +76,14 @@ def validate_domain_schema(
 
     Args:
         payload: Edition JSON dict (Community v2.x envelope).
-        domain: Domain name (e.g. ``bank_statement``, ``vat_invoice``).
+        domain: Plugin-owned domain name.
         contracts: Pre-loaded contracts dict (optional; loads from disk if None).
 
     Returns:
         ``DomainContractValidationReport`` with pass/partial/fail status.
     """
     if contracts is None:
-        contracts = _load_contracts()
+        contracts = load_domain_contracts()
 
     report = DomainContractValidationReport(domain=domain)
 
@@ -99,6 +117,7 @@ def validate_domain_schema(
     # ── Records validation ──
     record_commitments = p0.get("records") or {}
     required_records = record_commitments.get("required") or []
+    record_aliases = record_commitments.get("aliases") or {}
 
     missing_recs: list[str] = []
     if required_records:
@@ -106,7 +125,11 @@ def validate_domain_schema(
             missing_recs = list(required_records)
         else:
             for field_name in required_records:
-                if not all(_record_has_field(rec, field_name) for rec in records if isinstance(rec, dict)):
+                if not all(
+                    _record_has_field(rec, field_name, aliases=record_aliases)
+                    for rec in records
+                    if isinstance(rec, dict)
+                ):
                     missing_recs.append(field_name)
 
     report.missing_records = missing_recs
@@ -173,21 +196,16 @@ def _plain_field_value(value: Any) -> Any:
     return None
 
 
-def _record_has_field(record: dict[str, Any], field_name: str) -> bool:
-    """Map DGAC record field names to community v2 record shapes."""
+def _record_has_field(
+    record: dict[str, Any],
+    field_name: str,
+    *,
+    aliases: dict[str, list[str]],
+) -> bool:
+    """Resolve a contract field through aliases declared by its plugin."""
     normalized = record.get("normalized") or {}
     raw = record.get("raw") or {}
-    aliases = {
-        "transaction_date": ("date", "timestamp", "transaction_date", "交易日期", "交易时间"),
-        "amount": ("amount", "amount_cny", "交易金额", "收入金额", "支出金额"),
-        "trade_no": ("trade_no", "transaction_id", "交易单号"),
-        "timestamp": ("timestamp", "date", "交易时间"),
-        "balance": ("balance", "账户余额", "余额"),
-        "counter_party": ("counter_party", "对方户名", "交易对方", "对方账号与户名"),
-        "counter_account": ("counter_account", "对方账号"),
-        "summary": ("summary", "摘要", "交易用途"),
-    }
-    for key in aliases.get(field_name, (field_name,)):
+    for key in aliases.get(field_name, [field_name]):
         if key in normalized and normalized.get(key) not in (None, ""):
             if key in ("amount", "amount_cny") and normalized.get(key) == 0:
                 continue
@@ -231,7 +249,7 @@ def _check_failure_policy(status_block: dict[str, Any], p0: dict[str, Any]) -> b
 def get_domain_contract_version(domain: str, *, contracts: dict[str, Any] | None = None) -> str:
     """Return the ``domain_contract_version`` string for a domain."""
     if contracts is None:
-        contracts = _load_contracts()
+        contracts = load_domain_contracts()
     domain_entry = (contracts.get("domains") or {}).get(domain)
     if not domain_entry:
         return ""

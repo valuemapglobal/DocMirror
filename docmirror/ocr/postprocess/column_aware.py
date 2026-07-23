@@ -114,7 +114,6 @@ class ColumnConstraints:
         "date": DATE,
         "time": DATE,
         "id_number": ID_NUMBER,
-        "id_card": ID_NUMBER,
         "phone": PHONE,
         "mobile": PHONE,
         "text": TEXT,

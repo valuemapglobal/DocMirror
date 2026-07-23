@@ -248,7 +248,7 @@ def normalize_domain_result(raw: Any) -> DomainExtractionResult:
         - DomainExtractionResult (passthrough)
         - Edition JSON v2.0 (``schema_version`` + ``document`` + ``data``)
         - Wrapper dict with ``entities`` key
-        - Flat entity dict (credit_report fast mode)
+        - Flat entity dict (legacy fast mode)
     """
     if isinstance(raw, DomainExtractionResult):
         return raw
@@ -292,7 +292,7 @@ def normalize_domain_result(raw: Any) -> DomainExtractionResult:
             evidence_ids=list(raw.get("evidence_ids") or []),
         )
 
-    # Flat dict form (e.g. credit_report fast mode returns entities directly)
+    # Flat dict form (legacy fast mode returns entities directly)
     quality_raw = raw.get("quality", {})
     entities = {
         k: v

@@ -6,24 +6,22 @@ from __future__ import annotations
 
 import importlib.util
 
+from scripts.code_hygiene.clean_manifest import load_clean_manifest
+
+
+def _find_spec(module: str):
+    """Return no spec when any parent in an already-removed path is absent."""
+    try:
+        return importlib.util.find_spec(module)
+    except (AttributeError, ModuleNotFoundError):
+        return None
+
 
 def test_removed_pre_refactor_import_paths_do_not_resolve():
-    removed = [
-        "docmirror.core",
-        "docmirror.structure",
-        "docmirror.adapters",
-        "docmirror.middlewares",
-        "docmirror.exporters",
-        "docmirror.integration",
-        "docmirror.deployment",
-        "docmirror.di",
-        "docmirror.plugins.runner",
-        "docmirror.plugins.licensing",
-        "docmirror.plugins.post_extract",
-    ]
+    removed = sorted(load_clean_manifest().removed_modules)
 
     for module in removed:
-        assert importlib.util.find_spec(module) is None, module
+        assert _find_spec(module) is None, module
 
 
 def test_canonical_replacements_resolve():
@@ -40,4 +38,4 @@ def test_canonical_replacements_resolve():
     ]
 
     for module in replacements:
-        assert importlib.util.find_spec(module) is not None, module
+        assert _find_spec(module) is not None, module

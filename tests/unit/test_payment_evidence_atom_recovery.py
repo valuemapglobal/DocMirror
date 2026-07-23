@@ -9,7 +9,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from docmirror.plugins.alipay_payment.community_plugin import AlipayPaymentPlugin
+from docmirror.plugins._base.base_table_parser import BaseTableParser
+from docmirror.plugins.alipay_payment.community_plugin import _EVIDENCE_HEADERS, AlipayPaymentPlugin
 from docmirror.plugins.wechat_payment.community_plugin import WeChatPaymentPlugin
 
 pytestmark = pytest.mark.unit
@@ -84,6 +85,35 @@ def test_alipay_recovers_only_complete_issuer_rows_from_evidence_atoms():
     assert built[1]["normalized"]["direction"] == "other"
     assert "_source" not in built[0]["raw"]
     assert built[0]["source"]["source"] == "canonical_evidence_atoms"
+
+
+def test_alipay_prefers_more_complete_evidence_records(monkeypatch):
+    plugin = AlipayPaymentPlugin()
+    parse_result = SimpleNamespace(
+        entities=SimpleNamespace(domain_specific={"mirror_expected_data_rows": 2}),
+    )
+    table_record = {
+        "record_id": "records:r000001",
+        "raw": {"交易订单号": "table-1"},
+        "normalized": {"trade_no": "table-1", "direction": "income", "amount": 1.0},
+        "source": {},
+    }
+    evidence_transactions = [
+        {"交易订单号": "evidence-1", "收/支": "收入", "金额": "1.00"},
+        {"交易订单号": "evidence-2", "收/支": "支出", "金额": "2.00"},
+    ]
+    monkeypatch.setattr(
+        BaseTableParser,
+        "_extract_fact_components",
+        lambda self, result, text="": ({}, [table_record], ["交易订单号"], {}, {}),
+    )
+    monkeypatch.setattr(plugin, "_recover_records_from_evidence", lambda result: evidence_transactions)
+
+    _identity, records, headers, summary, _period = plugin._extract_fact_components(parse_result)
+
+    assert [record["normalized"]["trade_no"] for record in records] == ["evidence-1", "evidence-2"]
+    assert headers == list(_EVIDENCE_HEADERS)
+    assert summary["total_rows"] == 2
 
 
 def test_wechat_recovers_rows_and_ignores_statement_metadata_date():

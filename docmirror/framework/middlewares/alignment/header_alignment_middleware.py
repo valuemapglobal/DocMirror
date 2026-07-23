@@ -21,10 +21,8 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_TYPE_EXPECTATIONS = {
     "日期": "date",
-    "交易日期": "date",
     "时间": "date",
     "金额": "amount",
-    "交易金额": "amount",
     "余额": "amount",
     "序号": "seq",
     "编号": "seq",
@@ -79,7 +77,7 @@ class HeaderAlignmentMiddleware(BaseMiddleware):
                     result.record_mutation(
                         middleware_name=self.name,
                         target_block_id=table.table_id or f"table_{t_idx}",
-                        field_changed=f"pages[{p_idx}].tables[{t_idx}].headers",
+                        field_changed=f"pages[{p_idx}].tables[{t_idx}]",
                         old_value=str(headers[:6]),
                         new_value=str(new_headers[:6]),
                         reason="systematic header/data alignment fix",

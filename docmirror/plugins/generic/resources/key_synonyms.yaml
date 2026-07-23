@@ -1,0 +1,58 @@
+version: 1
+domains:
+  invoice:
+    zh:
+      销售方: Supplier
+      销方: Supplier
+      购买方: Buyer
+      购方: Buyer
+      发票号码: Invoice number
+      发票代码: Invoice number
+      金额: Amount
+      价税合计: Total with tax
+      税额: Tax amount
+      税率: Tax rate
+      开票日期: Invoice date
+    ja:
+      販売者: Supplier
+      購入者: Buyer
+      請求書番号: Invoice number
+      金額: Amount
+      税額: Tax amount
+      発行日: Invoice date
+  contract:
+    zh:
+      甲方: Party A
+      乙方: Party B
+      合同编号: Contract number
+      合同号: Contract number
+      签订日期: Signing date
+      合同金额: Contract amount
+  receipt:
+    zh:
+      商户名称: Merchant name
+      商户: Merchant
+      交易金额: Transaction amount
+      交易日期: Transaction date
+identity_fields:
+  invoice:
+    - [supplier, Supplier, Seller, Invoice issuer]
+    - [buyer, Buyer, Invoice receiver]
+    - [invoice_no, Invoice number, Invoice No]
+    - [amount, Amount, Total amount, Total with tax]
+    - [tax, Tax amount, Tax rate]
+    - [date, Invoice date, Date]
+  contract:
+    - [party_a, Party A]
+    - [party_b, Party B]
+    - [contract_no, Contract number, Contract No]
+    - [sign_date, Signing date]
+    - [amount, Contract amount, Amount]
+  receipt:
+    - [merchant, Merchant name, Merchant]
+    - [amount, Transaction amount, Amount]
+    - [date, Transaction date, Date]
+  "*":
+    - [title, Title]
+    - [date, Date]
+    - [author, Author]

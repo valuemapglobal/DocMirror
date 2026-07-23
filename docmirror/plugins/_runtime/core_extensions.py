@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import os
 import uuid
 from typing import Any
 
@@ -63,15 +62,12 @@ def register_core_extensions() -> None:
 
 
 def _register_parse_time_structure_extensions() -> None:
-    try:
-        import docmirror.plugins.credit_report.micro_grid_materialize  # noqa: F401
-    except ImportError:
-        pass
-    if os.environ.get("DOCMIRROR_VNEXT_LEGACY_SUPPLEMENT") == "1":
-        try:
-            import docmirror.plugins.credit_report.local_structure_supplement  # noqa: F401
-        except ImportError:
-            pass
+    # Discovery imports provider implementations, which register optional
+    # evidence-only structure extensions through the existing Core contracts.
+    # This runtime adapter must never name a concrete business plugin.
+    from docmirror.plugins._runtime.plugin_registry import registry
+
+    registry.list_providers()
 
 
 __all__ = ["collect_plugin_candidates", "register_core_extensions", "resolve_profile_hint"]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 
+from docmirror.input.canonical.fact_patch import apply_fact_patch
 from docmirror.models.entities.parse_result import (
     CellValue,
     DocumentEntities,
@@ -16,8 +17,13 @@ from docmirror.models.entities.parse_result import (
     TextLevel,
 )
 from docmirror.models.schemas.registry import validate_projection_payload
-from docmirror.output.community_bundle import project_community_bundle
-from docmirror.plugins._runtime.parse_result_enrichment import merge_plugin_projection_into_parse_result
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.community_bundle import project_community_bundle as _project_community_bundle
+from docmirror.plugin_api import FactPatch
+
+
+def project_community_bundle(result, **kwargs):
+    return _project_community_bundle(seal_parse_result(result), **kwargs)
 
 
 def _candidate(records: list[dict] | None = None) -> dict:
@@ -61,7 +67,35 @@ def _candidate(records: list[dict] | None = None) -> dict:
 
 
 def _with_projection(result: ParseResult, candidate: dict) -> ParseResult:
-    return merge_plugin_projection_into_parse_result(result, candidate)
+    data = candidate["data"]
+    fields = dict(data.get("fields") or {})
+    datasets: dict[str, list[dict]] = {}
+    for key, rows in data.items():
+        if not isinstance(rows, list) or not rows or not all(isinstance(row, dict) for row in rows):
+            continue
+        datasets[key] = [
+            {
+                **dict(row),
+                "record_id": str(row.get("record_id") or f"{key}:r{index:06d}"),
+            }
+            for index, row in enumerate(rows, start=1)
+        ]
+    return apply_fact_patch(
+        result,
+        FactPatch(
+            provider_id="test-fixture",
+            document_type=candidate["document"]["document_type"],
+            entity_fields={"subject_name": fields["subject_name"]} if fields.get("subject_name") else {},
+            domain_facts={
+                **candidate["document"].get("properties", {}),
+                **fields,
+                "field_details": data.get("field_details", {}),
+                "data_dictionary": data.get("data_dictionary", {}),
+            },
+            datasets=datasets,
+            sections=tuple(data.get("sections") or ()),
+        ),
+    )
 
 
 def test_public_json_has_exact_six_blocks_and_complete_dataset_rows() -> None:
@@ -204,7 +238,7 @@ def test_audit_uses_canonical_field_keys_with_original_source_values() -> None:
     )
     audit_rows = list(csv.DictReader(io.StringIO(bundle.render_audit_csv().lstrip("\ufeff"))))
 
-    assert list(wide_rows[0]) == ["record_id", "_page_start", "_page_end", "direction", "amount"]
+    assert list(wide_rows[0]) == ["record_id", "_page_start", "_page_end", "amount", "direction"]
     direction = next(row for row in audit_rows if row["field_key"] == "direction")
     assert direction["value"] == "expense"
     assert direction["raw"] == "支出"
@@ -232,7 +266,7 @@ def test_different_logical_datasets_are_written_to_different_wide_csvs() -> None
     repayment_header = next(csv.reader(io.StringIO(csvs["001_datasets/repayment_records.csv"].lstrip("\ufeff"))))
     inquiry_header = next(csv.reader(io.StringIO(csvs["001_datasets/inquiry_records.csv"].lstrip("\ufeff"))))
     assert repayment_header == ["record_id", "_page_start", "_page_end", "month", "status"]
-    assert inquiry_header == ["record_id", "_page_start", "_page_end", "query_date", "institution"]
+    assert inquiry_header == ["record_id", "_page_start", "_page_end", "institution", "query_date"]
 
 
 def test_payment_records_use_transaction_business_name() -> None:

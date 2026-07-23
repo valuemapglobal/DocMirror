@@ -87,6 +87,7 @@ def detect_split_amount(
     expense_keywords: set[str],
     amount_like_keywords: set[str],
     data_rows: list[list[str]] | None = None,
+    direction_flag_keywords: set[str] | None = None,
 ) -> tuple[bool, int | None, int | None]:
     """Detects whether an income/expense split column layout exists.
 
@@ -97,24 +98,14 @@ def detect_split_amount(
         expense_keywords: Set of keywords identifying an expense column.
         amount_like_keywords: Set of generic amount-related keywords.
         data_rows: (F-6) Optional data rows for validating split logic viability.
+        direction_flag_keywords: Provider-owned headers for a separate
+            direction column.
 
     Returns:
         A tuple: (has_split_amount, income_col_idx, expense_col_idx)
     """
-    # F-6: Detect Debit/Credit Flag Column \u2014 skip split if flag column exists
-    _DEBIT_CREDIT_FLAGS = {
-        "借贷标志",
-        "借贷",
-        "借/贷",
-        "收支",
-        "支/收",
-        "借贷Status",
-        "收支标志",
-        "DC标志",
-        "Debit/Credit Flag",
-    }
     header_set = {h.strip() for h in headers if h}
-    if header_set & _DEBIT_CREDIT_FLAGS:
+    if header_set & set(direction_flag_keywords or ()):
         logger.info("[AmountSplit] F-6: skipped \u2014 debit/credit flag column found")
         return False, None, None
 

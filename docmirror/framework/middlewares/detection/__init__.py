@@ -5,14 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Detection middleware package — scene, language, and institution identification.
+Detection middleware package — generic scene and language identification.
 
-Re-exports ``InstitutionDetector`` and ``LanguageDetector`` for pipeline
-profiles that run early in the MEP stack to populate ``ParseResult.entities``
-before extraction and validation stages.
+Re-exports ``LanguageDetector`` for pipeline profiles that run early in the MEP
+stack. Domain institution identification belongs to the owning plugin.
 """
 
-from .institution_detector import InstitutionDetector
 from .language_detector import LanguageDetector
 
-__all__ = ["LanguageDetector", "InstitutionDetector"]
+__all__ = ["LanguageDetector"]

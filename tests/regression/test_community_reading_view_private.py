@@ -73,6 +73,6 @@ def test_real_document_reading_view_contract(
 
     assert output is not None
     assert output["plugin"]["name"] == domain
-    assert validate_projection_payload("community", output).valid is True
+    assert validate_projection_payload("community_v2", output).valid is True
     assert output["data"]["document_flow"]
     assert_community_reading_view(output["data"])

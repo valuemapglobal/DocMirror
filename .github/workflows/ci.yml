@@ -129,6 +129,11 @@ jobs:
       - name: Validate TQG manifests
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python scripts/validate/validate_test_manifest.py
+      - name: Validate mandatory 6+1 GA manifest policy
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        run: |
+          python scripts/validate/validate_ga_6plus1.py --manifest-only
+          python scripts/validate/validate_performance_baseline.py --manifest-only
       - name: Validate clean architecture manifest
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: |
@@ -141,7 +146,13 @@ jobs:
         run: python scripts/validate/validate_core_cps_layout.py
       - name: Validate core god-file gate (design 12 §7.2)
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
-        run: python scripts/validate/validate_core_god_files.py
+        run: |
+          python scripts/validate/validate_core_god_files.py
+          python scripts/validate/validate_p0_architecture.py
+          python scripts/validate/validate_p1_architecture.py
+          python scripts/validate/validate_p2_architecture.py
+          python scripts/validate/validate_core_contract_freeze.py
+          python scripts/validate/validate_p1_stability_readiness.py --manifest-only
       - name: vNext removed reference gate
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: python scripts/validate/gate_vnext_removed_refs.py

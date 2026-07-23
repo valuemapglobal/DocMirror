@@ -37,7 +37,7 @@ class LanguageDetector(BaseMiddleware):
         result.record_mutation(
             self.name,
             "doc",
-            "language",
+            "entities.domain_specific.language",
             "",
             lang,
             reason=f"Auto-detected from {len(text)} chars",

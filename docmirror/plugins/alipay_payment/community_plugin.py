@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Sequence
+from typing import Any
 
 from docmirror.plugins._base.base_table_parser import BaseTableParser
 from docmirror.plugins._base.column_registry import ColumnMapping, ColumnMatcher
@@ -142,6 +143,34 @@ class AlipayPaymentPlugin(BaseTableParser):
     @property
     def identity_fields(self) -> Sequence[tuple[str, Sequence[str]]]:
         return ALIPAY_IDENTITY_FIELDS
+
+    def _extract_fact_components(
+        self,
+        parse_result,
+        text: str = "",
+    ) -> tuple[dict[str, dict], list[dict], list[str], dict[str, Any], str | dict]:
+        """Prefer issuer-column evidence only when it yields more complete rows."""
+        identity, records, headers, summary, period = super()._extract_fact_components(parse_result, text)
+        domain_specific = getattr(getattr(parse_result, "entities", None), "domain_specific", {}) or {}
+        try:
+            expected_rows = int(domain_specific.get("mirror_expected_data_rows") or 0)
+        except (TypeError, ValueError):
+            expected_rows = 0
+        try:
+            evidence_records = self._build_records(self._recover_records_from_evidence(parse_result))
+        except Exception:
+            logger.warning("[alipay_payment] completeness evidence recovery failed", exc_info=True)
+            return identity, records, headers, summary, period
+        if len(evidence_records) <= len(records):
+            return identity, records, headers, summary, period
+
+        logger.info(
+            "[alipay_payment] selected evidence records for completeness: table=%d evidence=%d expected=%d",
+            len(records),
+            len(evidence_records),
+            expected_rows,
+        )
+        return identity, evidence_records, list(_EVIDENCE_HEADERS), self._build_summary(evidence_records), period
 
     def _recover_identity_from_evidence(self, parse_result) -> dict[str, dict[str, object]]:
         atoms_by_page = self._evidence_text_atoms_by_page(parse_result)

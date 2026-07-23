@@ -9,7 +9,7 @@ find multi-character column headers, then projects boundaries onto data rows.
 This addresses a fundamental limitation of ``_cluster_x_positions``: for CJK
 text, intra-word character gaps are indistinguishable from inter-word gaps,
 making gap-based clustering unreliable.  By extracting words at font-size
-granularity, multi-character column headers ("借方发生额", "交易日期") are
+granularity, multi-character column headers are
 preserved as single units and their inter-word x-gaps become clean column
 boundaries.
 
@@ -79,7 +79,7 @@ def detect_columns_by_header_guided(page_plum) -> list[list[str]] | None:
     # For CJK text, x_tolerance = font_size gives the most reliable word merging:
     # consecutive characters in the same word have ~1-2pt gaps, while gaps
     # between column headers are typically 0.3-0.5× font_size or larger.
-    # Using 0.7 was too conservative (split "借方发生额" into fragments).
+    # Using 0.7 was too conservative for longer CJK header words.
     x_tol = max(3, font_size * 0.9)
     logger.debug("header-guided: font_size=%.1f x_tolerance=%.1f", font_size, x_tol)
 

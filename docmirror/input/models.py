@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -119,7 +121,11 @@ class InputAcceptanceReport:
 
 @dataclass(frozen=True)
 class AcceptedSource:
-    """Immutable, fully-probed input accepted for parser dispatch."""
+    """Immutable, fully-probed and content-bound input for parser dispatch.
+
+    ``path`` points at the private accepted snapshot when ``owns_snapshot`` is
+    true. ``source_path`` preserves the caller-visible identity for provenance.
+    """
 
     path: Path
     original_name: str
@@ -131,6 +137,40 @@ class AcceptedSource:
     declared_mime: str = ""
     is_forged: bool | None = None
     forgery_reasons: tuple[str, ...] = ()
+    source_path: Path | None = None
+    owns_snapshot: bool = False
+
+    @property
+    def display_path(self) -> Path:
+        return self.source_path or self.path
+
+    def verify_content_identity(self) -> bool:
+        """Verify that the adapter input bytes still match the accepted hash."""
+        digest = hashlib.sha256()
+        try:
+            with self.path.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+        except OSError:
+            return False
+        return digest.hexdigest() == self.sha256
+
+    def cleanup(self) -> None:
+        """Remove an owned private snapshot. Safe to call more than once."""
+        if not self.owns_snapshot:
+            return
+        try:
+            try:
+                # Windows maps ``chmod(0o400)`` to the read-only file
+                # attribute, which must be cleared before unlinking.  The
+                # snapshot remains immutable throughout its accepted lifetime;
+                # write permission is restored only as part of destruction.
+                self.path.chmod(0o600)
+            except FileNotFoundError:
+                pass
+            self.path.unlink(missing_ok=True)
+        finally:
+            shutil.rmtree(self.path.parent, ignore_errors=True)
 
 
 class InputRejectedError(ValueError):

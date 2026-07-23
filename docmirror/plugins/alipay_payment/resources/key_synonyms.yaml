@@ -1,0 +1,14 @@
+version: 1
+domains:
+  alipay_payment:
+    zh:
+      查询时间段: Query period
+      起始日期: Query period
+      终止日期: Query period
+      收/支: Direction
+      商品说明: Description
+      收/付款方式: Payment method
+      收/支方式: Payment method
+      交易订单号: Trade number
+      商家订单号: Merchant order number
+      商户单号: Merchant order number

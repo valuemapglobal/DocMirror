@@ -85,14 +85,23 @@ def score_prose(table_pdf: float, pipe_grid: float, section: float) -> float:
 
 
 def apply_scene_hint_prior(scores: dict[str, float], scene_hint: str | None) -> dict[str, float]:
-    """ADR-M13-08: weak ±delta prior only (from sso.yaml)."""
+    """Apply a weak prior from the plugin-selected structural profile."""
     delta = scene_hint_prior_delta()
     if not scene_hint or scene_hint == "unknown":
         return scores
+
+    from docmirror.layout.profile.registry import get_profile
+    from docmirror.layout.scene.scene_resolver import scene_to_layout_profile_id
+
+    profile_id = scene_to_layout_profile_id(scene_hint)
+    if profile_id is None:
+        return scores
+    segmentation_mode = get_profile(profile_id).segmentation_mode.value
+
     out = dict(scores)
-    if scene_hint == "bank_statement":
+    if segmentation_mode == "full_page_table":
         out["H_pipe_grid"] = min(1.0, out.get("H_pipe_grid", 0) + delta)
         out["H_table_pdf"] = min(1.0, out.get("H_table_pdf", 0) + delta)
-    elif scene_hint == "credit_report":
+    elif segmentation_mode == "section":
         out["H_section"] = min(1.0, out.get("H_section", 0) + delta)
     return out

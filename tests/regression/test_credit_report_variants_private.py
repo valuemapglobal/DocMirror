@@ -59,7 +59,7 @@ def test_personal_brief_native_report_profile(fixture: Path) -> None:
     fields = data["fields"]
 
     assert output["plugin"]["name"] == "credit_report"
-    assert validate_projection_payload("community", output).valid is True
+    assert validate_projection_payload("community_v2", output).valid is True
     assert fields["report_subtype"] == "personal_brief"
     assert fields["content_mode"] == "native_text"
     assert fields["subject_name"]
@@ -90,7 +90,7 @@ def test_enterprise_native_report_profile(fixture: Path) -> None:
     fields = data["fields"]
 
     assert output["plugin"]["name"] == "credit_report"
-    assert validate_projection_payload("community", output).valid is True
+    assert validate_projection_payload("community_v2", output).valid is True
     assert fields["report_subtype"] == "enterprise"
     assert fields["content_mode"] == "native_text"
     assert fields["subject_name"] == fields["company_name"]
@@ -153,7 +153,7 @@ def test_personal_detail_scanned_report_profile(fixture: Path) -> None:
     fields = data["fields"]
 
     assert output["plugin"]["name"] == "credit_report"
-    assert validate_projection_payload("community", output).valid is True
+    assert validate_projection_payload("community_v2", output).valid is True
     assert fields["report_subtype"] == "personal_detail"
     assert fields["content_mode"] == "scanned_ocr"
     assert fields["subject_name"]

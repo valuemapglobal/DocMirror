@@ -1,0 +1,9 @@
+version: 1
+field_schemas:
+  vat_invoice:
+    invoice_number: Invoice number
+    invoice_code: Invoice code
+    total_amount: Total amount with tax
+    seller_name: Seller name
+    buyer_name: Buyer name
+    invoice_date: Invoice date

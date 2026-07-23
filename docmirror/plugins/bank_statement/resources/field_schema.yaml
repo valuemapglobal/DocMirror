@@ -1,0 +1,12 @@
+version: 1
+field_schemas:
+  bank_statement:
+    account_name: Account name
+    account_number: Account number
+    bank_name: Bank name
+    statement_period: Statement period
+    opening_balance: Opening balance
+    closing_balance: Closing balance
+    total_deposits: Total deposits
+    total_withdrawals: Total withdrawals
+    transaction_count: Total transaction count

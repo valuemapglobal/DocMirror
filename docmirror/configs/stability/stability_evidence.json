@@ -1,0 +1,15 @@
+{
+  "schema_version": "docmirror.stability_evidence.v1",
+  "candidate": "1.0.12",
+  "status": "qualified",
+  "qualification_basis": "current-candidate technical gates",
+  "qualified_at": "2026-07-23",
+  "gates": {
+    "core_contract_freeze": "qualified",
+    "ga_6plus1": "qualified",
+    "worker_determinism": "qualified",
+    "performance_rss": "qualified",
+    "plugin_chaos": "qualified",
+    "external_plugin_install": "qualified"
+  }
+}

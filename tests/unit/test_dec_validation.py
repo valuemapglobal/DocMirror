@@ -23,8 +23,9 @@ class TestDecValidation:
 
     def test_registry_loads(self):
         reg = load_schema_registry()
-        assert "credit_report" in reg
         assert "bank_statement" in reg
+        assert "wechat_payment" in reg
+        assert "credit_report" not in reg
 
     def test_validate_dec_unregistered_type_no_issues(self):
         dec = DomainExtractionResult(document_type="passport")

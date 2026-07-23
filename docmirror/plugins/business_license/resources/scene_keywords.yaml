@@ -1,0 +1,22 @@
+version: 1
+scene_keywords:
+  business_license:
+    ocr_domain: business_license
+    ocr_first_column_role: field_label
+    header_signatures:
+      - [统一社会信用代码, 名称, 类型, 住所, 法定代表人]
+      - [注册资本, 成立日期, 营业期限, 经营范围]
+    include:
+      - 营业执照
+      - 统一社会信用代码
+      - Business License
+      - 信用代码
+      - 营业执照副本
+      - 电子营业执照
+      - 工商登记
+      - 营业执照正本
+      - 公司注册
+      - 法人资格
+      - 营业期限
+      - 登记机关
+    exclude: []

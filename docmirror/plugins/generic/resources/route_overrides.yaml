@@ -1,0 +1,8 @@
+version: 1
+routes:
+  audit_report:
+    enhance_mode: standard
+    plugins: [audit_report]
+    community_tier: enterprise_only
+    notes:
+      - Community edition emits mirror_only envelope

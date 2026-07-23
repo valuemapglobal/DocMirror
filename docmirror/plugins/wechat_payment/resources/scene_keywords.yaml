@@ -1,0 +1,32 @@
+version: 1
+scene_keywords:
+  wechat_payment:
+    ambiguity_group: payment_ledger
+    table_noise_markers: [微信支付]
+    header_signatures:
+      - [交易单号, 交易时间, 交易类型, 收/支, 金额]
+      - [交易单号, 交易时间, 收/支/其他, 金额(元)]
+      - [交易单号, 对方, 金额, 时间]
+    include:
+      - 微信支付交易明细证明
+      - 微信流水
+      - WeChat Pay
+      - 微信支付
+      - WeChat Pay流水
+      - 微信转账流水
+      - 财付通支付科技有限公司
+      - 微信账单
+      - 微信零钱明细
+      - 微信商户单号
+      - 微信支付单号
+      - 零钱明细
+      - 扫二维码付款
+      - 微信支付记录
+      - 零钱收支明细
+    exclude:
+      - 交易明细清单
+      - 客户账号
+      - 贵州银行
+      - 银行流水
+      - 活期交易明细
+      - 支付宝（中国）网络技术有限公司

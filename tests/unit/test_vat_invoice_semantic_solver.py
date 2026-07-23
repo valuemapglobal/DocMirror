@@ -5,13 +5,13 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from docmirror.domains.vat_invoice import VATInvoiceSemanticSolver
-from docmirror.domains.vat_invoice.solver import (
+from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, TextBlock, TextLevel
+from docmirror.plugins.vat_invoice.community_plugin import VATInvoicePlugin, _canonicalize_vat_fields
+from docmirror.plugins.vat_invoice.semantic_solver import (
+    VATInvoiceSemanticSolver,
     _recover_header_fields_from_evidence,
     _recover_line_items_from_evidence,
 )
-from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult, TextBlock, TextLevel
-from docmirror.plugins.vat_invoice.community_plugin import VATInvoicePlugin, _canonicalize_vat_fields
 
 VAT_OCR_TEXT = """
 发票代码：044002300411

@@ -1,0 +1,28 @@
+version: 1
+scene_keywords:
+  vat_invoice:
+    ocr_domain: vat_invoice
+    header_signatures:
+      - [发票代码, 发票号码, 开票日期, 购方名称, 销方名称]
+      - [货物或应税劳务名称, 规格型号, 数量, 单价, 金额]
+    entity_signatures:
+      - fields: [invoice_code, invoice_number, buyer, seller, Invoice代码, Invoice number, Buyer, Seller]
+        min_matches: 2
+        base_weight: 0.10
+        per_match_weight: 0.05
+        max_weight: 0.25
+    include:
+      - 增值税发票
+      - Invoice
+      - 发票号码
+      - 发票代码
+      - 价税合计
+      - 专用发票
+      - 普通发票
+      - VAT Invoice
+      - 不含税金额
+      - 增值税专用发票
+      - 增值税普通发票
+      - 开票日期
+      - 增值税电子普通发票
+      - 全电发票

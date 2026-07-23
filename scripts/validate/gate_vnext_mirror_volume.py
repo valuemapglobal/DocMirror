@@ -50,8 +50,11 @@ def _payload_bytes(payload: dict) -> int:
 
 
 def measure() -> dict[str, int]:
+    from docmirror.models.sealed import seal_parse_result
+    from docmirror.output.mirror_projector import project_mirror
+
     pr = _synthetic_parse_result()
-    mirror = pr.to_mirror_json_vnext()
+    mirror = project_mirror(seal_parse_result(pr))
     vnext_forensic = _payload_bytes(mirror)
     vnext_standard = _payload_bytes(mirror)
     return {

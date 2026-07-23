@@ -24,6 +24,8 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from docmirror.layout.profile.registry import load_table_semantics
+
 logger = logging.getLogger(__name__)
 
 
@@ -105,9 +107,9 @@ class TypeSignatureLibrary:
         - date: 日期（多种格式）
         - amount: 金额（含货币符号、千分位、负数）
         - percentage: 百分比
-        - account: 银行账号（10-19位数字）
+        - account: long account/reference identifier
         - phone: 电话号码
-        - id_number: 身份证号
+        - id_number: identity identifier
         - text: 文本（默认类型）
         - number: 普通数字
     """
@@ -129,15 +131,10 @@ class TypeSignatureLibrary:
     # Rationale: supports currency symbols, thousand separators, decimals, negatives, percentages
     AMOUNT_PATTERN = re.compile(r"^[-￥$€£¥]?\s*[\d,]+\.?\d*%?$")
 
-    # --- Account number patterns ---
-    # Rationale: bank account numbers are typically 10-19 digits, may have spaces
-    ACCOUNT_PATTERN = re.compile(r"^\d[\d\s]{9,18}$")
-
-    # --- Phone number patterns ---
-    PHONE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
-
-    # --- ID number patterns ---
-    ID_NUMBER_PATTERN = re.compile(r"^\d{17}[\dXx]$")
+    _VALUE_TYPE_PATTERNS = load_table_semantics().get("value_type_patterns") or {}
+    ACCOUNT_PATTERN = re.compile(str(_VALUE_TYPE_PATTERNS.get("account") or r"(?!x)x"))
+    PHONE_PATTERN = re.compile(str(_VALUE_TYPE_PATTERNS.get("phone") or r"(?!x)x"))
+    ID_NUMBER_PATTERN = re.compile(str(_VALUE_TYPE_PATTERNS.get("id_number") or r"(?!x)x"))
 
     # --- Percentage patterns ---
     PERCENTAGE_PATTERN = re.compile(r"^\d+\.?\d*%$")
@@ -220,7 +217,7 @@ class TypeSignatureLibrary:
 
     @classmethod
     def test_account(cls, value: str) -> str | None:
-        """Test whether value is a bank account number"""
+        """Test whether value matches the plugin-owned account identifier pattern."""
         value = value.strip()
         if cls.ACCOUNT_PATTERN.match(value):
             return value.replace(" ", "")
@@ -236,7 +233,7 @@ class TypeSignatureLibrary:
 
     @classmethod
     def test_id_number(cls, value: str) -> str | None:
-        """Test whether value is a Chinese ID number"""
+        """Test whether value matches the plugin-owned identity pattern."""
         value = value.strip()
         if cls.ID_NUMBER_PATTERN.match(value):
             return value.upper()

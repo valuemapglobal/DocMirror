@@ -5,16 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Extraction middleware package — entity and header enrichment stages.
-
-Re-exports financial entity extractors, generic KV extractors, and header
-inference middleware registered in standard
-parse profiles.
+Extraction middleware package — generic entity and header enrichment stages.
 """
 
-from .entity_extractor import EntityExtractor
 from .generic_entity_extractor import GenericEntityExtractor
 
 # SLMEntityExtractor removed in v1.1 — superseded by LlmDocumentRestorer
 
-__all__ = ["EntityExtractor", "GenericEntityExtractor"]
+__all__ = ["GenericEntityExtractor"]

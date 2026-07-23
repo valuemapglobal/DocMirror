@@ -368,7 +368,7 @@ class BankStyleParserRegistry:
 def _solve_split_debit_credit_tables(full_text: str) -> list[list[list[str]]]:
     """Use vNext domain solver when debit/credit ledger invariants close."""
     try:
-        from docmirror.domains.bank_statement import BankStatementSemanticSolver
+        from docmirror.plugins.bank_statement.semantic_solver import BankStatementSemanticSolver
 
         solution = BankStatementSemanticSolver().solve(full_text=full_text)
     except Exception as exc:

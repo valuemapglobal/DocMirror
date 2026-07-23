@@ -1,0 +1,35 @@
+version: 1
+edition: community
+domains:
+  bank_statement:
+    public_route: core_domain
+    support_level: L2
+    domain_contract_version: bank_statement.community.v1
+    dgc_status_source: computed
+    p0_commitment:
+      fields:
+        required_any: [account_holder, account_number, bank_name]
+        optional: [query_period, currency]
+      records:
+        required: [transaction_date, amount]
+        conditional: [balance, counter_party, counter_account, summary]
+        aliases:
+          transaction_date: [date, timestamp, transaction_date, 交易日期, 交易时间]
+          amount: [amount, amount_cny, 交易金额, 收入金额, 支出金额]
+          balance: [balance, 账户余额, 余额]
+          counter_party: [counter_party, 对方户名, 交易对方, 对方账号与户名]
+          counter_account: [counter_account, 对方账号]
+          summary: [summary, 摘要, 交易用途]
+      quality: [table_quality, row_count, amount_parse_rate, balance_continuity, anomaly_flags]
+      failure:
+        empty_input: empty_input
+        missing_header: partial_missing_required
+        missing_amount_column: partial_missing_required
+        low_ocr_quality: low_quality_input
+    gates:
+      classify: domain.bank_statement.classify
+      extract: domain.bank_statement.extract
+      edition_schema: domain.bank_statement.edition_schema
+      evidence: domain.bank_statement.evidence
+      failure: domain.bank_statement.failure
+      fixtures: domain.bank_statement.fixtures

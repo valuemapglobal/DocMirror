@@ -15,8 +15,16 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from docmirror.evidence.plane import EvidencePage, EvidencePlane
+from docmirror.layout.profile.registry import load_table_semantics
 from docmirror.models.mirror.vnext import EvidenceAtom
 from docmirror.topology.region_graph import produce_region_candidates, solve_region_graph
+
+_SUMMARY_RULES = load_table_semantics().get("summary_fields") or {}
+_SUMMARY_LABEL_MAP = {str(label): str(field) for label, field in (_SUMMARY_RULES.get("label_map") or {}).items()}
+_SUMMARY_METRIC_MARKERS = tuple(str(value) for value in _SUMMARY_RULES.get("metric_markers", ()))
+_SUMMARY_VALUE_MARKERS = tuple(str(value) for value in _SUMMARY_RULES.get("value_markers", ()))
+_SUMMARY_CURRENT_PREFIX_MARKERS = tuple(str(value) for value in _SUMMARY_RULES.get("current_prefix_markers", ()))
+_SUMMARY_PERIOD_PREFIX_MARKERS = tuple(str(value) for value in _SUMMARY_RULES.get("period_prefix_markers", ()))
 
 
 @dataclass
@@ -844,11 +852,6 @@ class PageTopologyBuilder:
                 region.role = level
                 region.diagnostics = {**region.diagnostics, "classification": "heading_pattern"}
                 continue
-            # Bank statement / account identity patterns
-            if _is_account_identity_text(text):
-                region.kind = "heading"
-                region.role = "document_header"
-                region.diagnostics = {**region.diagnostics, "classification": "account_identity"}
 
     def _classify_notice_footnote_text(
         self,
@@ -1437,12 +1440,6 @@ def _append_region_overlap_warning(
     region.diagnostics = {**region.diagnostics, "overlap_warnings": warnings}
 
 
-def _is_account_identity_text(text: str) -> bool:
-    """Detect bank statement account identity text (account name, account number, period)."""
-    primary_markers = ["账户名称", "账号：", "账号:", "起始日期", "终止日期", "对公账户"]
-    return any(kw in text for kw in primary_markers)
-
-
 def _region_text(region: TopologyRegion, atom_by_id: dict[str, EvidenceAtom]) -> str:
     return " ".join(
         str(atom_by_id[atom_id].text or "") for atom_id in region.evidence_ids if atom_id in atom_by_id
@@ -1493,7 +1490,9 @@ def _heading_level_from_text(text: str) -> str | None:
 
 def _is_table_summary_text(text: str) -> bool:
     normalized = re.sub(r"\s+", "", text)
-    return bool(re.search(r"(借方|贷方|收入|支出|发生|合计|小计|总额|余额).{0,8}(笔数|金额|总额|合计)", normalized))
+    return any(metric in normalized for metric in _SUMMARY_METRIC_MARKERS) and any(
+        value in normalized for value in _SUMMARY_VALUE_MARKERS
+    )
 
 
 def _is_footnote_text(text: str) -> bool:
@@ -1507,22 +1506,6 @@ def _is_footnote_text(text: str) -> bool:
 def _extract_summary_kv(text: str) -> dict[str, str]:
     if not text:
         return {}
-    _LM = {
-        "借方笔数": "debit_count",
-        "贷方笔数": "credit_count",
-        "借方发生笔数": "debit_count",
-        "贷方发生笔数": "credit_count",
-        "借方发生数": "debit_count",
-        "贷方发生数": "credit_count",
-        "借方金额": "debit_amount",
-        "贷方金额": "credit_amount",
-        "借方发生额": "debit_amount",
-        "贷方发生额": "credit_amount",
-        "余额": "balance",
-        "出单截至日期": "cutoff_date",
-        "截止日期": "cutoff_date",
-        "出单截止日期": "cutoff_date",
-    }
     fields: dict[str, str] = {}
     for line in text.split("\n"):
         line = line.strip()
@@ -1535,13 +1518,13 @@ def _extract_summary_kv(text: str) -> dict[str, str]:
         label, value = m.group(1).strip(), m.group(2).strip()
         if not label or not value:
             continue
-        for kw, canonical in _LM.items():
+        for kw, canonical in _SUMMARY_LABEL_MAP.items():
             if kw in label:
                 prefix = (
                     "current_"
-                    if any(p in label for p in ("当前", "本页"))
+                    if any(p in label for p in _SUMMARY_CURRENT_PREFIX_MARKERS)
                     else "period_"
-                    if any(p in label for p in ("累计", "本月", "本期"))
+                    if any(p in label for p in _SUMMARY_PERIOD_PREFIX_MARKERS)
                     else ""
                 )
                 fn = prefix + canonical

@@ -2,7 +2,9 @@ from pathlib import Path
 
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult
 from docmirror.models.mirror.page_evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+from docmirror.models.sealed import seal_parse_result
 from docmirror.ocr.local_structure import extract_local_structure_evidence
+from docmirror.output.mirror_projector import project_mirror
 from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
 from docmirror.plugins.credit_report.account_structure import extract_credit_accounts_from_local_structure_evidence
 
@@ -81,10 +83,7 @@ def test_local_structure_continuation_chain_is_preserved_in_account_field():
     assert "J1020222000648287831" in account["account_identifier"]["value"]
     assert len(account["account_identifier"]["source_refs"]["line_ids"]) == 2
     assert account["account_identifier"]["audit"]["continuation_node_ids"]
-    continuation_edges = [
-        edge for edge in evidence["structures"][0]["edges"]
-        if edge["relation"] == "continuation"
-    ]
+    continuation_edges = [edge for edge in evidence["structures"][0]["edges"] if edge["relation"] == "continuation"]
     assert continuation_edges
 
 
@@ -189,8 +188,8 @@ def test_forensic_api_exports_scanned_local_structure_evidence_only():
         )
     )
 
-    standard = pr.to_mirror_json_vnext(mirror_level="standard")
-    forensic = pr.to_mirror_json_vnext(mirror_level="forensic")
+    standard = project_mirror(seal_parse_result(pr), mirror_level="standard")
+    forensic = project_mirror(seal_parse_result(pr), mirror_level="forensic")
 
     assert "scanned_local_structure_evidence" not in standard
     forensic_doc = forensic

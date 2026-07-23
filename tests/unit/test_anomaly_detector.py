@@ -50,7 +50,7 @@ def test_anomaly_detector_healthy():
     assert len(middleware.dlq_registry) == 0
 
 
-def test_anomaly_detector_corrupted():
+def test_anomaly_detector_ignores_domain_specific_credit_completeness():
     mock_result = _create_mock_result([
         {"开立日期": "2022.01", "借款金额": "100", "管理机构": "Bank"},
         {"账户状态": "正常", "余额": "0"},
@@ -60,9 +60,8 @@ def test_anomaly_detector_corrupted():
     middleware = AnomalyDetectorMiddleware()
     result = middleware.process(mock_result)
 
-    assert "REQUIRES_VLM_FALLBACK" in result.errors
-    assert len(middleware.dlq_registry) == 1
-    assert "Credit extraction collapse" in middleware.dlq_registry[0]["reason"]
+    assert "REQUIRES_VLM_FALLBACK" not in result.errors
+    assert len(middleware.dlq_registry) == 0
 
 
 def test_anomaly_detector_table_collapse():

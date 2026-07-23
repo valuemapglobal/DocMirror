@@ -1,0 +1,50 @@
+schema_version: 1
+
+provider:
+  id: wechat_payment
+  domain_name: wechat_payment
+  edition: community
+  version: community-1
+  implementation: docmirror.plugins.wechat_payment.community_plugin:plugin
+
+capabilities:
+  premium: true
+  community_order: 2
+  generic_fallback: false
+  quality_groups: [finance]
+
+routing:
+  enhance_mode: full
+  notes:
+    - Requires cross-page merge; use full enhance mode
+
+classification:
+  aliases: []
+
+projection:
+  dataset_aliases: {records: transactions}
+  dataset_labels: {transactions: 交易流水}
+  dataset_types: {transactions: transaction}
+  section_type_markers: {交易: transactions}
+  completeness:
+    records:
+      basis: physical_marker_rows
+      public_basis: physical_payment_rows
+      first_column_values: [收入, 支出, 其他, 不计收支]
+
+resources:
+  key_synonyms: resources/key_synonyms.yaml
+  scene_keywords: resources/scene_keywords.yaml
+  domain_contract: resources/domain_contract.yaml
+  layout_profiles: resources/layout_profiles.yaml
+  post_extract: resources/post_extract.yaml
+
+fact_outputs:
+  document_type: wechat_payment
+  datasets: [records]
+  domain_fact_prefix: wechat_payment
+
+dec_validation:
+  structured_data: mapping
+  list_fields: [records]
+  optional_mapping_fields: [summary]

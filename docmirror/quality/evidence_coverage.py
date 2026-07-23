@@ -1,7 +1,7 @@
 """Evidence Coverage Denominator — QTC W3-03.
 
 Provides the denominator computation for evidence coverage metrics.
-Key fields are defined per domain from DGAC/DEC schemas.
+Key fields are derived from plugin-owned Domain GA Contracts.
 This module computes:
 - How many key fields are defined for a domain (denominator).
 - How many key fields have evidence (numerator).
@@ -15,12 +15,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-# ── DGAC Key Field Definitions ─────────────────────────────────────────────
-
-# Per-domain key field lists as defined by Domain GA Contracts.
-# Each field has a `field_path` used in Edition JSON (e.g., "account_number")
-# and a `priority` (P0 = must have evidence, P1 = should have evidence).
-
 
 @dataclass
 class KeyFieldDef:
@@ -29,72 +23,6 @@ class KeyFieldDef:
     field_path: str
     priority: str = "P0"  # P0 | P1
     label: str = ""
-
-
-# ── Key fields per domain (from DGAC/DEC schemas) ──────────────────────────
-
-_KEY_FIELDS: dict[str, list[KeyFieldDef]] = {
-    "bank_statement": [
-        KeyFieldDef("account_number", "P0", "Account Number"),
-        KeyFieldDef("account_name", "P0", "Account Name"),
-        KeyFieldDef("statement_period_start", "P0", "Statement Period Start"),
-        KeyFieldDef("statement_period_end", "P0", "Statement Period End"),
-        KeyFieldDef("opening_balance", "P0", "Opening Balance"),
-        KeyFieldDef("closing_balance", "P0", "Closing Balance"),
-        KeyFieldDef("currency", "P1", "Currency"),
-        KeyFieldDef("transaction_count", "P1", "Transaction Count"),
-    ],
-    "vat_invoice": [
-        KeyFieldDef("invoice_number", "P0", "Invoice Number"),
-        KeyFieldDef("invoice_date", "P0", "Invoice Date"),
-        KeyFieldDef("seller_name", "P0", "Seller Name"),
-        KeyFieldDef("seller_tax_id", "P0", "Seller Tax ID"),
-        KeyFieldDef("buyer_name", "P0", "Buyer Name"),
-        KeyFieldDef("buyer_tax_id", "P0", "Buyer Tax ID"),
-        KeyFieldDef("total_amount", "P0", "Total Amount"),
-        KeyFieldDef("tax_amount", "P0", "Tax Amount"),
-        KeyFieldDef("amount_excluding_tax", "P0", "Amount Excluding Tax"),
-        KeyFieldDef("currency", "P1", "Currency"),
-    ],
-    "credit_report": [
-        KeyFieldDef("report_id", "P0", "Report ID"),
-        KeyFieldDef("subject_name", "P0", "Subject Name"),
-        KeyFieldDef("subject_id_number", "P0", "Subject ID Number"),
-        KeyFieldDef("report_date", "P0", "Report Date"),
-        KeyFieldDef("credit_score", "P0", "Credit Score"),
-        KeyFieldDef("total_credit_lines", "P0", "Total Credit Lines"),
-        KeyFieldDef("overdue_record_count", "P0", "Overdue Record Count"),
-    ],
-    "wechat_payment": [
-        KeyFieldDef("transaction_id", "P0", "Transaction ID"),
-        KeyFieldDef("transaction_time", "P0", "Transaction Time"),
-        KeyFieldDef("counterparty", "P0", "Counterparty"),
-        KeyFieldDef("amount", "P0", "Amount"),
-        KeyFieldDef("payment_method", "P1", "Payment Method"),
-        KeyFieldDef("transaction_type", "P1", "Transaction Type"),
-    ],
-    "alipay_payment": [
-        KeyFieldDef("transaction_id", "P0", "Transaction ID"),
-        KeyFieldDef("transaction_time", "P0", "Transaction Time"),
-        KeyFieldDef("counterparty", "P0", "Counterparty"),
-        KeyFieldDef("amount", "P0", "Amount"),
-        KeyFieldDef("payment_method", "P1", "Payment Method"),
-        KeyFieldDef("transaction_type", "P1", "Transaction Type"),
-    ],
-    "business_license": [
-        KeyFieldDef("company_name", "P0", "Company Name"),
-        KeyFieldDef("registration_number", "P0", "Registration Number"),
-        KeyFieldDef("legal_representative", "P0", "Legal Representative"),
-        KeyFieldDef("registered_capital", "P0", "Registered Capital"),
-        KeyFieldDef("establishment_date", "P0", "Establishment Date"),
-        KeyFieldDef("business_scope", "P1", "Business Scope"),
-        KeyFieldDef("validity_period", "P0", "Validity Period"),
-    ],
-    "generic": [
-        KeyFieldDef("document_type", "P1", "Document Type"),
-        KeyFieldDef("title", "P1", "Title"),
-    ],
-}
 
 
 # ── Evidence coverage computation ───────────────────────────────────────────
@@ -118,16 +46,32 @@ class EvidenceCoverageResult:
 def get_key_fields_for_domain(domain: str) -> list[KeyFieldDef]:
     """Return the key field definitions for a domain.
 
-    Falls back to generic key fields when domain is not recognized.
+    Required/required-any commitments are P0; conditional/optional commitments
+    are P1. Unknown domains use the generic plugin contract.
     """
+    from docmirror.configs.scene.loader import get_scene_aliases
+    from docmirror.models.schemas.domain_contract_validator import load_domain_contracts
+
     domain_key = domain.lower().replace("-", "_").replace(" ", "_")
-    if domain_key in _KEY_FIELDS:
-        return _KEY_FIELDS[domain_key]
-    # Try partial match
-    for key in _KEY_FIELDS:
-        if key in domain_key or domain_key in key:
-            return _KEY_FIELDS[key]
-    return _KEY_FIELDS.get("generic", [])
+    domain_key = get_scene_aliases().get(domain_key, domain_key)
+    contracts = load_domain_contracts().get("domains") or {}
+    contract = contracts.get(domain_key) or contracts.get("generic") or {}
+    commitment = contract.get("p0_commitment") or {}
+
+    priorities: dict[str, str] = {}
+    for section_name in ("fields", "records"):
+        section = commitment.get(section_name) or {}
+        for group in ("required", "required_any"):
+            for field_name in section.get(group) or []:
+                priorities[str(field_name)] = "P0"
+        for group in ("conditional", "optional"):
+            for field_name in section.get(group) or []:
+                priorities.setdefault(str(field_name), "P1")
+
+    return [
+        KeyFieldDef(field_path=name, priority=priority, label=name.replace("_", " ").title())
+        for name, priority in priorities.items()
+    ]
 
 
 def compute_evidence_coverage(
@@ -137,7 +81,7 @@ def compute_evidence_coverage(
     """Compute evidence coverage for a domain given a map of field_path → evidence.
 
     Args:
-        domain: Domain identifier (e.g., "bank_statement").
+        domain: Plugin domain identifier.
         field_evidence_map: Mapping of field_path to a dict with evidence info.
             Each value dict should contain at least one of:
             - source_refs (list) — non-empty means has evidence

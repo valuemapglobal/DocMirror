@@ -18,6 +18,7 @@ Enterprise, and Finance are independent projections of that result.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -25,6 +26,19 @@ from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
+PROJECTOR_TIMEOUT_SECONDS = max(0.01, float(os.getenv("DOCMIRROR_PROJECTOR_TIMEOUT_S", "300")))
+
+
+def _projection_read_view(result):
+    """Return an isolated ParseResult view for exactly one projector."""
+    from docmirror.models.entities.parse_result import ParseResult
+    from docmirror.models.sealed import SealedParseResult, seal_parse_result
+
+    if isinstance(result, SealedParseResult):
+        return result.to_read_view()
+    if isinstance(result, ParseResult):
+        return seal_parse_result(result).to_read_view()
+    raise TypeError(f"projection expects ParseResult or SealedParseResult; got {type(result).__name__}")
 
 
 def build_community_projection(
@@ -38,10 +52,11 @@ def build_community_projection(
 ) -> dict | None:
     """Build the public six-block Community Bundle v3 JSON projection."""
     from docmirror.models.schemas.registry import validate_projection_payload
+    from docmirror.models.sealed import seal_parse_result
     from docmirror.output.community_bundle import project_community_bundle
 
     bundle = project_community_bundle(
-        result,
+        seal_parse_result(result),
         file_path=file_path,
         file_id=file_id,
         document_id=document_id,
@@ -64,14 +79,15 @@ def build_community_output(
     file_path: str = "",
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict | None:
-    """Return the legacy plugin envelope for compatibility callers only.
+    """Return the deprecated legacy plugin envelope for compatibility callers.
 
-    Community Bundle persistence does not consume this payload; it projects
-    directly from the ParseResult enriched by the plugin runner.
+    No production delivery path calls this function. Community persistence
+    projects directly from the sealed ParseResult. This symbol remains until
+    the registered DocMirror 2.0 compatibility review.
     """
     from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
-    projection_input = result.model_copy(deep=True) if hasattr(result, "model_copy") else result
+    projection_input = _projection_read_view(result)
     output = run_plugin_extract_sync(
         projection_input,
         edition="community",
@@ -167,15 +183,24 @@ def build_extended_output(
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict | None:
     """Build an extended edition directly from ParseResult."""
+    from docmirror.models.sealed import seal_parse_result
+    from docmirror.plugins._runtime.plugin_registry import registry
     from docmirror.plugins._runtime.runner import run_plugin_extract_sync
 
-    projection_input = result.model_copy(deep=True) if hasattr(result, "model_copy") else result
-    detected_type = getattr(projection_input.entities, "document_type", "")
-    extracted = run_plugin_extract_sync(
-        projection_input,
-        edition=edition,  # type: ignore[arg-type]
-        on_progress=on_progress,
-    )
+    sealed = seal_parse_result(result)
+    detected_type = str(getattr(sealed.entities, "document_type", "") or "")
+    projector = registry.get_projector(detected_type, edition)
+    if projector is not None:
+        extracted = projector.project(sealed)
+        if extracted is not None and not isinstance(extracted, dict):
+            raise TypeError(f"{detected_type}:{edition} projector must return dict or None")
+    else:
+        projection_input = sealed.to_read_view()
+        extracted = run_plugin_extract_sync(
+            projection_input,
+            edition=edition,  # type: ignore[arg-type]
+            on_progress=on_progress,
+        )
     if extracted and isinstance(extracted, dict):
         from docmirror.plugins._runtime.composition import CompositionReason, annotate_composition
 
@@ -203,31 +228,34 @@ def build_all_projections(
     file_path: str = "",
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict[str, Any]:
-    """Build the fixed delivery projections from one ``ParseResult`` SSOT.
+    """Build fixed sibling projections from one immutable canonical snapshot.
 
     MirrorCore vNext:
 
-    Phase 1 — serialize canonical UDTR ``_mirror.json`` from ParseResult.
+    Phase 1 — seal the canonical result and project ``_mirror.json``.
 
-    Phase 2 — invoke each independent projector with ParseResult. Commercial
-    projectors enforce their own package and entitlement boundary. No edition
-    reads another edition's output.
+    Phase 2 — give each independent projector a fresh read view of that same
+    sealed snapshot. No projector receives the mutable canonical instance and
+    no edition reads another edition's output.
     """
-    file_path = file_path or getattr(result, "file_path", "") or ""
     from docmirror.models.entities.parse_result import ParseResult
+    from docmirror.models.sealed import SealedParseResult, seal_parse_result
 
-    if not isinstance(result, ParseResult):
-        raise TypeError(f"build_all_projections expects ParseResult; got {type(result).__name__}")
+    if not isinstance(result, (ParseResult, SealedParseResult)):
+        raise TypeError(f"build_all_projections expects ParseResult or SealedParseResult; got {type(result).__name__}")
+    sealed = seal_parse_result(result)
+    file_path = file_path or getattr(sealed, "file_path", "") or ""
 
     timings: dict[str, float] = {}
     total_t0 = time.perf_counter()
 
-    fact_fingerprint = result.fact_fingerprint()
-
     mirror_t0 = time.perf_counter()
     if on_progress:
         on_progress("community_plugin", 0.0, "Serializing core mirror...")
-    mirror = result.to_mirror_json_vnext(
+    from docmirror.output.mirror_projector import project_mirror
+
+    mirror = project_mirror(
+        sealed,
         source_filename=file_path if file_path else "",
         mirror_level="standard",
     )
@@ -237,7 +265,7 @@ def build_all_projections(
         on_progress("community_plugin", 25.0, "Building Community projection...")
     from docmirror.output.community_bundle import project_community_bundle
 
-    community_bundle = project_community_bundle(result, file_path=file_path)
+    community_bundle = project_community_bundle(sealed, file_path=file_path)
     # Finalize companion-derived warnings before serializing the public API so
     # REST and persisted Community JSON expose the same contract.
     community_bundle.render_markdown()
@@ -266,7 +294,7 @@ def build_all_projections(
         unavailable_reason: str | None = None
         try:
             payload = build_extended_output(
-                result,
+                sealed,
                 edition_name,
             )
         except Exception as exc:
@@ -276,7 +304,9 @@ def build_all_projections(
         if payload is None and unavailable_reason is None:
             from docmirror.plugins._runtime.runner import explain_edition_unavailability
 
-            unavailable_reason = explain_edition_unavailability(result, edition_name)  # type: ignore[arg-type]
+            unavailable_reason = explain_edition_unavailability(  # type: ignore[arg-type]
+                sealed.to_read_view(), edition_name
+            )
         if payload is not None and "composition" not in payload:
             from docmirror.plugins._runtime.composition import CompositionReason, annotate_composition
 
@@ -291,13 +321,14 @@ def build_all_projections(
                 payload.setdefault("status", {}).setdefault("warnings", []).append(f"composition_failed:{exc}")
         return edition_name, payload, (time.perf_counter() - started) * 1000, unavailable_reason
 
-    with ThreadPoolExecutor(max_workers=len(commercial_projectors)) as pool:
+    pool = ThreadPoolExecutor(max_workers=len(commercial_projectors))
+    try:
         futures = [pool.submit(_build_extended_with_timing, ed) for ed in commercial_projectors]
         completed = 0
         # Timeout prevents a single hanging edition (e.g. asyncio.run hang
         # in Python 3.12 ThreadPoolExecutor) from blocking the entire
         # build_all_projections.  Each edition gets 300 s = 5 min.
-        _timeout = 300.0
+        _timeout = PROJECTOR_TIMEOUT_SECONDS
         remaining = {future: ed for future, ed in zip(futures, commercial_projectors)}
         try:
             for future in as_completed(futures, timeout=_timeout):
@@ -344,6 +375,11 @@ def build_all_projections(
                     "reason": "projector_failed",
                 }
                 logger.warning("[Projections] %s cancelled after unhandled exception", ed)
+    finally:
+        # A context-manager shutdown waits for timed-out threads and defeats the
+        # delivery deadline. Projectors only receive detached sealed read views,
+        # so unfinished legacy tasks cannot change facts while winding down.
+        pool.shutdown(wait=False, cancel_futures=True)
 
     outputs: dict[str, Any] = {
         "mirror": mirror,
@@ -355,8 +391,8 @@ def build_all_projections(
     # Transient renderer owned only by Community persistence. All of its facts
     # come from ParseResult; it is not an upstream source for other editions.
     outputs["community_bundle"] = community_bundle
-    if result.fact_fingerprint() != fact_fingerprint:
-        raise RuntimeError("Projector boundary violation: ParseResult facts were modified")
+    if not sealed.verify_integrity():
+        raise RuntimeError("Projector boundary violation: sealed ParseResult integrity failed")
     timings["total_ms"] = (time.perf_counter() - total_t0) * 1000
     logger.info(
         "[Projections] build",

@@ -7,14 +7,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from docmirror.eval.tqg.mirror_input import mirror_api
 from docmirror.eval.tqg.report import GateReport
 from docmirror.geometry.bbox import area, center, contains
 
 
 def _api(mirror_or_api: Any, *, mirror_level: str = "forensic") -> dict[str, Any]:
-    if hasattr(mirror_or_api, "to_mirror_json_vnext"):
-        return mirror_or_api.to_mirror_json_vnext()
-    return mirror_or_api if isinstance(mirror_or_api, dict) else {}
+    return mirror_api(mirror_or_api, mirror_level=mirror_level)
 
 
 def _doc(api: dict[str, Any]) -> dict[str, Any]:

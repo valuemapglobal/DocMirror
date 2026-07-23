@@ -35,6 +35,7 @@ from typing import Any
 
 import pluggy
 
+from docmirror.plugin_api import PluginProvider
 from docmirror.plugins._runtime import hooks
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,19 @@ def get_plugin_manager() -> pluggy.PluginManager:
 def discover_plugins() -> pluggy.PluginManager:
     """Convenience alias for ``get_plugin_manager()``."""
     return get_plugin_manager()
+
+
+def load_plugin_providers() -> list[PluginProvider]:
+    """Return validated runtime providers discovered via entry points."""
+    providers: list[PluginProvider] = []
+    raw_items = get_plugin_manager().hook.docmirror_plugin_provider()
+    for raw in raw_items:
+        if raw is None:
+            continue
+        candidates = raw if isinstance(raw, (list, tuple)) else (raw,)
+        for candidate in candidates:
+            providers.append(PluginProvider.model_validate(candidate))
+    return providers
 
 
 def _discover_entry_point_plugins(pm: pluggy.PluginManager) -> None:
@@ -115,5 +129,6 @@ def reset_discovery() -> None:
 __all__ = [
     "get_plugin_manager",
     "discover_plugins",
+    "load_plugin_providers",
     "reset_discovery",
 ]

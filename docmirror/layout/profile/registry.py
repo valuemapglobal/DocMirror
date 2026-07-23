@@ -22,6 +22,8 @@ from __future__ import annotations
 import logging
 import os
 from functools import lru_cache
+from importlib.resources import files
+from pathlib import PurePosixPath
 from typing import Any
 
 import yaml
@@ -30,8 +32,6 @@ from docmirror.models.entities.extraction_profile import ExtractionProfile
 from docmirror.models.entities.layout_profile import InstitutionVariant, LayoutProfile, LayoutProfileMatchRules
 
 logger = logging.getLogger(__name__)
-
-from docmirror.configs.paths import LAYOUT_PROFILES_YAML as _CONFIG_PATH
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -83,14 +83,69 @@ def _resolve_inheritance(raw_profiles: dict[str, dict[str, Any]]) -> dict[str, E
 
 @lru_cache(maxsize=1)
 def load_profiles() -> dict[str, ExtractionProfile]:
-    """Load and cache all layout profiles from YAML."""
-    if not _CONFIG_PATH.exists():
-        logger.warning("[LayoutProfile] Config not found: %s — using generic only", _CONFIG_PATH)
+    """Load and cache layout profiles declared by plugin manifests."""
+    profiles_raw: dict[str, dict[str, Any]] = {}
+    plugin_root = files("docmirror").joinpath("plugins")
+    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
+        manifest_path = plugin_dir.joinpath("plugin.yaml")
+        if not plugin_dir.is_dir() or not manifest_path.is_file():
+            continue
+        try:
+            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+            relative_text = str(((manifest.get("resources") or {}).get("layout_profiles")) or "").strip()
+            relative_path = PurePosixPath(relative_text)
+            if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
+                continue
+            resource_path = plugin_dir.joinpath(*relative_path.parts)
+            raw = yaml.safe_load(resource_path.read_text(encoding="utf-8")) or {}
+        except Exception as exc:
+            logger.warning("[LayoutProfile] Failed plugin profile resource %s: %s", plugin_dir.name, exc)
+            continue
+        plugin_profiles = raw.get("profiles") if isinstance(raw, dict) else None
+        if isinstance(plugin_profiles, dict):
+            profiles_raw.update(plugin_profiles)
+    if "generic" not in profiles_raw:
+        logger.warning("[LayoutProfile] No generic plugin profile — using in-memory fallback")
         return {"generic": ExtractionProfile(profile_id="generic")}
-    with open(_CONFIG_PATH, encoding="utf-8") as f:
-        raw = yaml.safe_load(f) or {}
-    profiles_raw = raw.get("profiles", {})
     return _resolve_inheritance(profiles_raw)
+
+
+@lru_cache(maxsize=1)
+def load_table_semantics() -> dict[str, Any]:
+    """Merge plugin-owned, format-neutral table semantic dictionaries."""
+    merged: dict[str, Any] = {}
+    plugin_root = files("docmirror").joinpath("plugins")
+    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
+        manifest_path = plugin_dir.joinpath("plugin.yaml")
+        if not plugin_dir.is_dir() or not manifest_path.is_file():
+            continue
+        try:
+            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+            relative_text = str(((manifest.get("resources") or {}).get("layout_profiles")) or "").strip()
+            relative = PurePosixPath(relative_text)
+            if not relative_text or relative.is_absolute() or ".." in relative.parts:
+                continue
+            payload = yaml.safe_load(plugin_dir.joinpath(*relative.parts).read_text(encoding="utf-8")) or {}
+        except Exception as exc:
+            logger.warning("[TableSemantics] Failed plugin layout resource %s: %s", plugin_dir.name, exc)
+            continue
+        semantics = payload.get("table_semantics") if isinstance(payload, dict) else None
+        if isinstance(semantics, dict):
+            merged = _merge_table_semantics(merged, semantics)
+    return merged
+
+
+def _merge_table_semantics(base: dict[str, Any], extra: dict[str, Any]) -> dict[str, Any]:
+    out = dict(base)
+    for key, value in extra.items():
+        current = out.get(key)
+        if isinstance(current, dict) and isinstance(value, dict):
+            out[key] = _merge_table_semantics(current, value)
+        elif isinstance(current, list) and isinstance(value, list):
+            out[key] = list(dict.fromkeys([*current, *value]))
+        else:
+            out[key] = value
+    return out
 
 
 def get_profile(profile_id: str) -> ExtractionProfile:
@@ -158,14 +213,11 @@ def match_layout_profile(
         logger.info("[LayoutProfile] Matched profile=%s (pages=%d)", pid, num_pages)
         return profile
 
-    if scene_hint == "wechat_payment" and "borderless_ledger_wechat" in profiles:
-        return profiles["borderless_ledger_wechat"]
+    from docmirror.layout.scene.scene_resolver import scene_to_layout_profile_id
 
-    if scene_hint == "alipay_payment" and "borderless_ledger_alipay" in profiles:
-        return profiles["borderless_ledger_alipay"]
-
-    if scene_hint in ("bank_statement", "bank_reconciliation") and "borderless_ledger_bank" in profiles:
-        return profiles["borderless_ledger_bank"]
+    mapped = scene_to_layout_profile_id(scene_hint)
+    if mapped and mapped in profiles:
+        return profiles[mapped]
 
     return profiles["generic"]
 
@@ -200,13 +252,6 @@ def should_skip_cross_page_merge(profile: LayoutProfile | None, explicit: bool |
     if profile is None:
         return False
     return profile.mirror_skip_cross_page_merge
-
-
-def is_borderless_ledger_profile(profile: LayoutProfile | None) -> bool:
-    """True for wechat/bank borderless ledger profiles (fast merge + parallel postprocess)."""
-    if profile is None:
-        return False
-    return profile.profile_id.startswith("borderless_ledger")
 
 
 def match_institution_variant(

@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from docmirror.eval.tqg.mirror_input import mirror_api
 from docmirror.eval.tqg.report import GateReport
 
 
@@ -129,8 +130,8 @@ def run_vnext_finance_stability_oracle(
             missing = [a for a in required_anchors if a not in found]
             report.failures.append(f"missing account anchors: {missing}")
 
-    if spec.get("require_vnext_mirror_shape") and hasattr(mirror_or_api, "to_mirror_json_vnext"):
-        api = mirror_or_api.to_mirror_json_vnext()
+    if spec.get("require_vnext_mirror_shape"):
+        api = mirror_api(mirror_or_api)
         pages = api.get("pages") or []
         page = next((p for p in pages if int(p.get("page_number") or 0) == 4), {})
         region_count = len(api.get("regions") or [])

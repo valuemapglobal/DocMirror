@@ -26,10 +26,9 @@ def collect_kv_entities(pages: list[PageLayout]) -> dict[str, str]:
     """
     Collect entities from extracted key_value blocks.
 
-    Note: Full entity extraction (regex/bank name/account name/account number etc.)
-    has been moved to middlewares.entity_extractor.EntityExtractor middleware.
-    This method only performs simple KV block aggregation to ensure
-    Canonical adapter metadata has basic entity information.
+    This method performs format-neutral KV block aggregation so canonical
+    adapter metadata contains basic entity information. Domain recognition is
+    owned by plugins after canonical assembly.
     """
     entities: dict[str, str] = {}
     for page in pages:

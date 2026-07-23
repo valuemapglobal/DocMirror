@@ -5,7 +5,7 @@
 DTI (Document Type Identity) validators — design 09 §4.3.
 
 Validates that ``business_scene`` strings used in plugins, middleware, and API
-responses exist in the SSOT keyword corpus loaded from ``scene_keywords.yaml``.
+responses exist in the SSOT keyword corpus loaded from plugin resources.
 
 Functions::
 
@@ -24,21 +24,13 @@ from __future__ import annotations
 from collections.abc import Iterable
 from functools import lru_cache
 
-import yaml
-
-from docmirror.configs.paths import SCENE_KEYWORDS_YAML
-
 
 @lru_cache(maxsize=1)
 def load_business_scenes() -> frozenset[str]:
-    """Return all valid ``business_scene`` keys from scene_keywords.yaml."""
-    if not SCENE_KEYWORDS_YAML.is_file():
-        return frozenset()
-    data = yaml.safe_load(SCENE_KEYWORDS_YAML.read_text(encoding="utf-8")) or {}
-    keywords = data.get("scene_keywords") or data
-    if isinstance(keywords, dict):
-        return frozenset(keywords.keys())
-    return frozenset()
+    """Return all valid ``business_scene`` keys from plugin resources."""
+    from docmirror.configs.scene.loader import get_scene_specs
+
+    return frozenset(get_scene_specs())
 
 
 def validate_business_scene(scene: str) -> bool:
@@ -65,4 +57,4 @@ def validate_business_scenes(scenes: Iterable[str]) -> list[str]:
 def assert_business_scene(scene: str) -> None:
     """Raise ValueError if scene is not in SSOT."""
     if not validate_business_scene(scene):
-        raise ValueError(f"Unknown business_scene {scene!r}; add to {SCENE_KEYWORDS_YAML.name}")
+        raise ValueError(f"Unknown business_scene {scene!r}; add it to a plugin scene_keywords resource")

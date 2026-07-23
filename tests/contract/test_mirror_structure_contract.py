@@ -10,6 +10,9 @@ from pathlib import Path
 
 import pytest
 
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
+
 pytestmark = [pytest.mark.tier_contract]
 
 from docmirror.input.extraction.extractor import CoreExtractor
@@ -17,12 +20,14 @@ from docmirror.input.extraction.extractor import CoreExtractor
 BANK = Path("tests/fixtures/synthetic/bank_ledger_3page_smoke.pdf")
 CREDIT = Path("tests/fixtures/synthetic/credit_report_section_smoke.pdf")
 
-_REQUIRED_SPE_KEYS = frozenset({
-    "primary",
-    "competitors",
-    "table_extraction",
-    "sso_version",
-})
+_REQUIRED_SPE_KEYS = frozenset(
+    {
+        "primary",
+        "competitors",
+        "table_extraction",
+        "sso_version",
+    }
+)
 
 
 def _assert_spe_shape(spe: dict) -> None:
@@ -70,6 +75,6 @@ def test_api_meta_exports_structure():
     if not BANK.is_file():
         pytest.skip("missing synthetic bank fixture")
     pr = asyncio.run(CoreExtractor(max_page_concurrency=1).extract_parse_result(BANK))
-    api = pr.to_mirror_json_vnext()
+    api = project_mirror(seal_parse_result(pr))
     assert api["mirror"]["schema"] == "docmirror.mirror_json"
     assert pr.parser_info.structure is not None

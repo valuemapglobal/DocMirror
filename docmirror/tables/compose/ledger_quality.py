@@ -21,7 +21,6 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
-from docmirror.layout.profile.registry import is_borderless_ledger_profile
 from docmirror.layout.vocabulary import _is_data_row, _score_header_by_vocabulary
 from docmirror.models.entities.parse_result import LogicalTable, TableRow
 
@@ -124,19 +123,8 @@ def finalize_logical_tables_for_export(
 
 
 def should_enable_ltqg(profile: Any | None) -> bool:
-    """G-BS-01: LTQG only for bank-statement ledger profiles."""
-    if profile is None:
-        return False
-    hint = getattr(profile, "document_type_hint", None) or ""
-    if hint == "bank_statement":
-        return True
-    pid = getattr(profile, "profile_id", "") or ""
-    if pid == "borderless_ledger_bank":
-        return True
-    if is_borderless_ledger_profile(profile) and hint not in ("wechat_payment", "alipay_payment"):
-        if pid.endswith("_bank") or "bank" in pid:
-            return True
-    return False
+    """Enable generic ledger quality scoring only when the profile requests it."""
+    return bool(profile is not None and getattr(profile, "enable_ledger_quality_gate", False))
 
 
 def _normalize_header_cell(text: str) -> str:
@@ -160,7 +148,7 @@ def _header_match_count(lt: LogicalTable) -> int:
     for row in candidates:
         if not row:
             continue
-        best = max(best, _score_header_by_vocabulary(row, categories=["BANK_STATEMENT"]))
+        best = max(best, _score_header_by_vocabulary(row, categories=["LEDGER"]))
     return best
 
 

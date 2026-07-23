@@ -14,6 +14,8 @@ from docmirror.models.mirror.page_evidence_bundles import (
     merge_micro_grid_structures_into_bundles,
     page_evidence_bundle,
 )
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 
 
 def _structure_bundle_domain(page: int = 4) -> dict:
@@ -64,7 +66,7 @@ def test_phase4_standard_mirror_shape():
             domain_specific=ds,
         ),
     )
-    api = pr.to_mirror_json_vnext(mirror_level="standard")
+    api = project_mirror(seal_parse_result(pr), mirror_level="standard")
     doc = api
 
     assert "micro_grids" not in doc
@@ -86,7 +88,7 @@ def test_phase4_forensic_strips_duplicate_evidence_structures():
             domain_specific=_structure_bundle_domain(),
         ),
     )
-    api = pr.to_mirror_json_vnext(mirror_level="forensic", include_text=False)
+    api = project_mirror(seal_parse_result(pr), mirror_level="forensic", include_text=False)
     doc = api
     evidence = (doc.get("scanned_local_structure_evidence") or [])[0]
     assert evidence.get("structures_in_regions") is True

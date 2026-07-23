@@ -1,0 +1,12 @@
+version: 1
+profile:
+  role: financial_statement
+  correction_domain: financial_report
+  first_column_role: field_label
+  keywords: [资产负债表, 利润表, 现金流量表, 所有者权益变动表, 年末余额, 年初余额, 本年发生额, 上年发生额, 金额单位]
+  header_labels: [项目, 附注, 年末余额, 年初余额, 本年发生额, 上年发生额]
+  primary_header_labels: [年末余额, 年初余额, 本年发生额, 上年发生额]
+  secondary_header_labels: [附注]
+  split_header_label: [项, 目]
+  merged_header_label: 项目
+  noise_text: [英, 超, 江, 都, 华, 盖, 身, 品, 凯, 单, A, E, H, ZV]

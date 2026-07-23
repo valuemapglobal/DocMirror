@@ -57,7 +57,6 @@ forbidden_modules =
     docmirror.plugins
 allow_indirect_imports = True
 ignore_imports =
-    docmirror.models.entities.parse_result -> docmirror.models.mirror.core
     docmirror.models.mirror.serialization_contract -> docmirror.evidence.structure_provenance
     docmirror.models.mirror.serialization_contract -> docmirror.tables.compose.ledger_quality
     docmirror.models.mirror.serialization_contract -> docmirror.layout.vocabulary

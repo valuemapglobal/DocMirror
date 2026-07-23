@@ -1,0 +1,27 @@
+version: 1
+edition: community
+domains:
+  vat_invoice:
+    public_route: core_domain
+    support_level: L2
+    domain_contract_version: vat_invoice.community.v1
+    dgc_status_source: manual_target
+    target_status: candidate
+    p0_commitment:
+      fields:
+        required: [invoice_number, total_amount]
+        conditional: [invoice_code, buyer_name, seller_name, amount_without_tax, tax_amount, invoice_date]
+      records:
+        conditional: [line_items]
+      quality: [code_number_validity, amount_consistency, tax_consistency]
+      failure:
+        empty_input: empty_input
+        amount_inconsistent: partial_amount_mismatch
+        low_quality: low_quality_input
+    gates:
+      classify: domain.vat_invoice.classify
+      extract: domain.vat_invoice.extract
+      edition_schema: domain.vat_invoice.edition_schema
+      evidence: domain.vat_invoice.evidence
+      failure: domain.vat_invoice.failure
+      fixtures: domain.vat_invoice.fixtures

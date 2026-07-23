@@ -1,0 +1,15 @@
+version: 1
+hooks:
+  bank_statement_precision:
+    module: docmirror.plugins._runtime.post_extract.hooks.community_precision
+    class: CommunityPrecisionHook
+    when: "edition == 'community' and document_type == 'bank_statement'"
+    mutates_facts: false
+    provides: [status.warnings]
+
+  edition_table_rebuild:
+    module: docmirror.plugins._runtime.post_extract.hooks.edition_table_rebuild
+    class: EditionTableRebuildHook
+    when: "document_type == 'bank_statement'"
+    mutates_facts: false
+    provides: [enrichment.bank_table_rebuild]

@@ -1,0 +1,97 @@
+version: 1
+scene_keywords:
+  bank_reconciliation:
+    include:
+      - 银行对账单
+      - 账户余额
+      - 银行盖章
+      - Reconciliation
+      - Bank Reconciliation
+      - 余额调节
+      - 银行余额
+      - 银行回单
+      - 余额对账
+  bank_statement:
+    ocr_domain: bank_statement
+    filename_tokens: [银行流水]
+    text_signatures:
+      - scope: document
+        source: document_frame
+        signal_groups:
+          - [农村商业银行, 商业银行, 开户行]
+          - [账号, 卡号]
+          - [起止日期, 起始日期, 申请时间]
+          - [交易明细, 交易明细详情]
+          - [余额]
+          - [对方户名, 对方开户行]
+          - [收入/支出金额, 收入, 支出]
+        min_matches: 5
+        weight: 0.55
+        weight_tiers: {6: 0.8}
+    header_signatures:
+      - [交易时间, 金额, 余额, 对方户名, 摘要]
+      - [交易日期, 摘要, 存入, 支出, 余额]
+      - [DATE, DESCRIPTION, DEBITS, CREDITS, BALANCE]
+      - [记账日期, 交易类型, 对方账号, 对方户名, 金额]
+    entity_signatures:
+      - fields: [bank_name]
+        min_matches: 1
+        base_weight: 0.10
+        per_match_weight: 0.05
+        max_weight: 0.15
+      - fields: [Account name, Account number, bank_name, Card number, Query period]
+        min_matches: 2
+        base_weight: 0.10
+        per_match_weight: 0.05
+        max_weight: 0.25
+    include:
+      - 银行流水
+      - 交易明细
+      - 个人客户交易明细
+      - 企业客户交易明细
+      - account statement
+      - bank statement
+      - Bank Statement
+      - 账户流水
+      - 流水账单
+      - Statement of Account
+      - 存取款明细
+      - 活期账号
+      - 期末余额
+      - 本期发生额
+      - 对方户名
+      - 对方账号
+      - 本期收入
+      - 本期支出
+      - 贷方发生额
+      - 借方发生额
+      - 账户明细信息
+      - 中国建设银行账户明细
+      - 建设银行账户明细
+      - 期初余额
+      - DEBITS
+      - CREDITS
+      - BALANCE
+      - Balance Brought Forward
+      - POSTING DATE
+      - VALUE DATE
+      - DESCRIPTION
+      - 银行核算专用章
+      - 银行回单
+      - 流水明细
+      - 交易明细清单
+      - 活期交易明细
+      - 贵州银行
+    exclude:
+      - 微信支付交易明细证明
+      - 财付通支付科技有限公司
+      - 支付宝（中国）网络技术有限公司
+      - 保险单
+      - 保单号
+      - 投保人
+      - 被保险人
+      - 保险金额
+      - 开户许可证
+      - 机动车行驶证
+      - 号牌号码
+      - 品牌型号

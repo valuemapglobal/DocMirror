@@ -19,6 +19,8 @@ Key policy areas::
     enable_best_candidate_selection / bcs_oracle_layer   Multi-engine oracle path
     normalize_intracellular_newlines / collapse_duplicate_spaces   Cell cleanup
     merge_quarantine_on_col_mismatch   Cross-page merge safety
+    merge_quarantine_fragments         Quarantine structurally implausible fragments
+    enable_ledger_quality_gate         Enable generic ledger table quality scoring
     enable_global_grid_tensor  Expensive char-scan signal (auto-disabled for oracle paths)
 
 ``from_layout_profile`` upgrades a base ``LayoutProfile`` to ``ExtractionProfile``
@@ -63,6 +65,8 @@ class ExtractionProfile(LayoutProfile):
     collapse_duplicate_spaces: bool = False
 
     merge_quarantine_on_col_mismatch: bool = True
+    merge_quarantine_fragments: bool = False
+    enable_ledger_quality_gate: bool = False
 
     expected_rows_per_page: float | None = None
     min_row_preservation_ratio: float = 0.995

@@ -26,16 +26,17 @@ import asyncio
 import importlib
 import inspect
 import logging
+import os
 import threading
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
 from docmirror.models.entities.parse_result import ParseResult
+from docmirror.plugin_api import FactPatch
 from docmirror.plugins._base import build_classification_block
 from docmirror.plugins._runtime.community import (
-    find_premium_community_plugin,
-    get_generic_community_plugin,
     is_community_generic_enabled,
     normalize_premium_document_type,
 )
@@ -48,12 +49,16 @@ Edition = Literal["community", "enterprise", "finance"]
 _GENERIC_TYPES = frozenset({"", "unknown", "generic"})
 _LICENSE_WARNING = "_license_warning"
 _MIRROR_ONLY_WARNING = "mirror_only:no_community_plugin"
+RECOGNIZER_TIMEOUT_SECONDS = max(0.01, float(os.getenv("DOCMIRROR_RECOGNIZER_TIMEOUT_S", "300")))
 
 
 def _plugin_document_type(result: ParseResult, detected_type: str) -> str:
     """Resolve PEC plugin domain (M9: MEP hint or alias map)."""
     ds = getattr(result.entities, "domain_specific", None)
     if isinstance(ds, dict):
+        forced = ds.get("user_doc_type_hint")
+        if forced and str(ds.get("user_doc_type_hint_strength") or "prefer") == "force":
+            return normalize_premium_document_type(str(forced))
         hinted = ds.get("plugin_document_type")
         if hinted:
             return str(hinted)
@@ -285,18 +290,6 @@ def _basic_parse_result_projection(result: ParseResult, edition: Edition) -> dic
     }
 
 
-def _attach_source_file_path(result: ParseResult, file_path: str) -> None:
-    """Record source path in ParseResult provenance for every projector."""
-    if not file_path or result.file_path:
-        return
-    from docmirror.models.entities.parse_result import ProvenanceInfo
-
-    if result.provenance is None:
-        result.provenance = ProvenanceInfo(file_path=file_path)
-    else:
-        result.provenance.file_path = file_path
-
-
 async def run_plugin_extract(
     result: ParseResult,
     *,
@@ -308,7 +301,8 @@ async def run_plugin_extract(
     """
     Match plugin by ``document_type``, run extract, return edition dict.
 
-    Community recognition enriches ParseResult; extended editions read ParseResult.
+    Compatibility edition projection. It never writes facts into ``result``;
+    canonical recognition uses ``run_fact_recognition_sync`` instead.
     """
     detected_type = getattr(result.entities, "document_type", "") or ""
     plugin_document_type = _plugin_document_type(result, detected_type)
@@ -324,19 +318,9 @@ async def run_plugin_extract(
         return None
 
     if edition == "community":
-        if on_progress:
-            from docmirror.plugins._runtime.plugin_registry import registry
-
-            registry.set_progress_callback(on_progress)
         out = _run_community_recognition(result, plugin_document_type, full_text)
         if out is not None:
-            finalized = _finalize_extract(result, out, edition="community", detected_type=detected_type)
-            from docmirror.plugins._runtime.parse_result_enrichment import (
-                merge_plugin_projection_into_parse_result,
-            )
-
-            merge_plugin_projection_into_parse_result(result, finalized)
-            return finalized
+            return _finalize_extract(result, out, edition="community", detected_type=detected_type)
         return None
 
     else:
@@ -449,7 +433,10 @@ def _run_community_recognition(
     detected_type: str,
     full_text: str,
 ) -> dict[str, Any] | None:
-    matched_plugin, matched_modname = find_premium_community_plugin(detected_type)
+    from docmirror.plugins._runtime.plugin_registry import registry
+
+    matched_plugin = registry.get_recognizer(detected_type)
+    matched_modname = type(matched_plugin).__module__ if matched_plugin is not None else ""
 
     if matched_plugin is not None:
         recognize_fn = getattr(matched_plugin, "recognize", None)
@@ -484,7 +471,7 @@ def _run_community_recognition(
             return _kv_community_payload(result, matched_plugin, detected_type, domain_data)
 
     if is_community_generic_enabled():
-        generic_plugin, _gmod = get_generic_community_plugin()
+        generic_plugin = registry.get_recognizer("generic")
         if generic_plugin is not None:
             from docmirror.plugins._base.generic_community_adapter import build_generic_community_output
 
@@ -495,6 +482,70 @@ def _run_community_recognition(
                 logger.error("[PluginRunner] generic community extract failed: %s", e)
 
     return None
+
+
+def run_fact_recognition_sync(
+    result: ParseResult,
+    *,
+    full_text: str = "",
+) -> FactPatch:
+    """Run the Community domain recognizer and return facts, never an edition.
+
+    Every provider implements ``recognize_facts`` directly and receives only a
+    deep read copy. No edition envelope or mutable canonical result crosses
+    this boundary.
+    """
+    detected_type = getattr(result.entities, "document_type", "") or ""
+    plugin_document_type = _plugin_document_type(result, detected_type)
+    from docmirror.plugins._runtime.plugin_registry import registry
+
+    matched_plugin = registry.get_recognizer(plugin_document_type)
+    if matched_plugin is None and is_community_generic_enabled():
+        matched_plugin = registry.get_recognizer("generic")
+    provider_id = plugin_document_type or "generic"
+    read_view = result.model_copy(deep=True)
+
+    recognize_facts = getattr(matched_plugin, "recognize_facts", None) if matched_plugin is not None else None
+    if not callable(recognize_facts):
+        return FactPatch(
+            provider_id=f"no-recognizer:{provider_id}",
+            reason="no domain recognizer selected",
+        )
+    provider_id = str(getattr(matched_plugin, "provider_id", provider_id) or provider_id)
+    returned: list[Any] = []
+    failures: list[BaseException] = []
+
+    def _invoke() -> None:
+        try:
+            returned.append(recognize_facts(read_view, full_text))
+        except BaseException as exc:
+            failures.append(exc)
+
+    worker = threading.Thread(target=_invoke, name=f"docmirror-recognizer-{provider_id}", daemon=True)
+    worker.start()
+    worker.join(RECOGNIZER_TIMEOUT_SECONDS)
+    if worker.is_alive():
+        logger.error(
+            "[PluginRunner] fact recognizer %s timed out after %.2fs",
+            provider_id,
+            RECOGNIZER_TIMEOUT_SECONDS,
+        )
+        return FactPatch(
+            provider_id=provider_id,
+            reason="recognizer timed out without changing canonical facts",
+        )
+    try:
+        if failures:
+            raise failures[0]
+        if not returned:
+            raise RuntimeError("recognizer returned no value")
+        return FactPatch.model_validate(returned[0])
+    except BaseException as exc:
+        logger.error("[PluginRunner] fact recognizer %s failed: %s", provider_id, exc, exc_info=True)
+        return FactPatch(
+            provider_id=provider_id,
+            reason="recognizer failed without changing canonical facts",
+        )
 
 
 def _kv_community_payload(result, matched_plugin, detected_type, domain_data) -> dict[str, Any]:

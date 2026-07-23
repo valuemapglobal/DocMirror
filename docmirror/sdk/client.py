@@ -35,12 +35,21 @@ def _resolve_path(path_or_str: str | Path) -> Path:
 
 
 def _run_async(coro):
-    """Run async coroutine in the current event-loop or a new one."""
+    """Run a coroutine only when no event loop is already active.
+
+    Nesting ``run_until_complete`` is invalid in notebooks, ASGI servers, and
+    async test runners. Async callers must use ``AsyncDocMirrorClient``.
+    """
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(coro)
-    return loop.run_until_complete(coro)
+    close = getattr(coro, "close", None)
+    if callable(close):
+        close()
+    raise RuntimeError(
+        "DocMirrorClient cannot run inside an active event loop; use AsyncDocMirrorClient and await client.parse(...)"
+    )
 
 
 # ── Async task helper ──

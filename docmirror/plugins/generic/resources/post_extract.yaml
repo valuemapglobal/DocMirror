@@ -1,0 +1,15 @@
+version: 1
+hooks:
+  community_business_projection:
+    module: docmirror.plugins._runtime.post_extract.hooks.community_business
+    class: CommunityBusinessProjectionHook
+    when: "edition == 'community'"
+    mutates_facts: false
+    provides:
+      - business
+      - quality
+      - quality.issues
+      - data.field_details
+      - data.data_dictionary
+      - data.datasets
+      - validation.domain_contract
