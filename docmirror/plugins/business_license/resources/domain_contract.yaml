@@ -1,0 +1,27 @@
+version: 1
+edition: community
+domains:
+  business_license:
+    public_route: core_domain
+    support_level: L2
+    domain_contract_version: business_license.community.v1
+    dgc_status_source: computed
+    p0_commitment:
+      fields:
+        required: [company_name, unified_social_credit_code, legal_representative]
+        conditional: [registered_capital, business_term]
+        optional: [date_of_establishment, address]
+      sections:
+        conditional: [business_scope]
+      quality: [uscc_checksum, field_presence, low_quality_ocr_pages]
+      failure:
+        empty_input: empty_input
+        uscc_checksum_invalid: partial_with_warning
+        missing_required_field: partial_missing_required
+    gates:
+      classify: domain.business_license.classify
+      extract: domain.business_license.extract
+      edition_schema: domain.business_license.edition_schema
+      evidence: domain.business_license.evidence
+      failure: domain.business_license.failure
+      fixtures: domain.business_license.fixtures

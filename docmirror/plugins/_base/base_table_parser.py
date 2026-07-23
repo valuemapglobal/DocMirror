@@ -24,6 +24,7 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any
 
+from docmirror.plugin_api import DomainPlugin, FactPatch
 from docmirror.plugins._base.column_registry import ColumnMapping, ColumnMatcher
 from docmirror.plugins._base.standardizer import (
     extract_period,
@@ -31,7 +32,6 @@ from docmirror.plugins._base.standardizer import (
     normalize_enum,
     normalize_timestamp,
 )
-from docmirror.plugins._runtime.plugin_registry import DomainPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +99,12 @@ class BaseTableParser(DomainPlugin):
 
     # ── Public API ──
 
-    def recognize(self, parse_result, text: str = "") -> dict[str, Any]:
-        """Extract and return v2.0 community edition output from ParseResult."""
+    def _extract_fact_components(
+        self,
+        parse_result,
+        text: str = "",
+    ) -> tuple[dict[str, dict], list[dict], list[str], dict[str, Any], str | dict]:
+        """Extract reusable fact components without constructing an edition."""
         # Step 1: Extract KV header area
         identity_fields = self._extract_identity(parse_result)
         try:
@@ -153,7 +157,22 @@ class BaseTableParser(DomainPlugin):
         # Step 7: Period
         period = extract_period(text) or summary.get("period", {})
 
-        # Step 8: Build output
+        return identity_fields, records, raw_headers, summary, period
+
+    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+        """Return canonical facts directly, without an edition envelope."""
+        identity_fields, records, raw_headers, summary, period = self._extract_fact_components(parse_result, text)
+        return self._fact_patch_from_components(
+            identity_fields=identity_fields,
+            records=records,
+            raw_headers=raw_headers,
+            summary=summary,
+            period=period,
+        )
+
+    def recognize(self, parse_result, text: str = "") -> dict[str, Any]:
+        """Compatibility projector for explicit legacy Community callers."""
+        identity_fields, records, raw_headers, summary, period = self._extract_fact_components(parse_result, text)
         return self._build_output(
             parse_result,
             identity_fields,
@@ -162,6 +181,69 @@ class BaseTableParser(DomainPlugin):
             summary,
             period,
             text=text,
+        )
+
+    def _fact_patch_from_components(
+        self,
+        *,
+        identity_fields: dict[str, dict],
+        records: list[dict],
+        raw_headers: list[str],
+        summary: dict[str, Any],
+        period: str | dict,
+        extra_domain_facts: dict[str, Any] | None = None,
+        warnings: Sequence[str] = (),
+        confidence: float = 1.0,
+    ) -> FactPatch:
+        """Build the shared ledger FactPatch from already extracted facts."""
+        scalar_fields: dict[str, Any] = {}
+        evidence_ids: list[str] = []
+        for key, detail in identity_fields.items():
+            value: Any = detail
+            if isinstance(detail, dict):
+                value = next(
+                    (
+                        detail.get(candidate)
+                        for candidate in ("normalized_value", "value", "raw_value")
+                        if detail.get(candidate) not in (None, "")
+                    ),
+                    None,
+                )
+                evidence_ids.extend(str(item) for item in detail.get("evidence_ids", []) if str(item))
+            if value not in (None, ""):
+                scalar_fields[str(key)] = value
+
+        canonical_records = [
+            {
+                **dict(record),
+                "record_id": str(record.get("record_id") or f"records:r{index:06d}"),
+            }
+            for index, record in enumerate(records, start=1)
+        ]
+        domain_facts: dict[str, Any] = {
+            **scalar_fields,
+            "field_details": identity_fields,
+            "summary": summary,
+            "source_headers": list(raw_headers),
+        }
+        if isinstance(period, dict):
+            if period.get("start"):
+                domain_facts["period_start"] = period["start"]
+            if period.get("end"):
+                domain_facts["period_end"] = period["end"]
+        domain_facts.update(extra_domain_facts or {})
+        patch_warnings = tuple(str(item) for item in warnings if str(item))
+        if not scalar_fields and not canonical_records:
+            patch_warnings = (*patch_warnings, "no_fields_extracted")
+        return FactPatch(
+            provider_id=self.domain_name,
+            document_type=self.domain_name,
+            domain_facts=domain_facts,
+            datasets={"records": canonical_records} if canonical_records else {},
+            warnings=patch_warnings,
+            evidence_ids=tuple(dict.fromkeys(evidence_ids)),
+            confidence=confidence,
+            reason="native table recognizer facts",
         )
 
     # ── Step 1: KV header area extraction ──

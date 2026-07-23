@@ -19,6 +19,7 @@ import logging
 import os
 import shutil
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile, gettempdir
 from uuid import uuid4
@@ -43,19 +44,9 @@ logger = logging.getLogger(__name__)
 # ── API Key authentication (set via DOCMIRROR_API_KEY env var) ──
 _API_KEY = os.environ.get("DOCMIRROR_API_KEY", "")
 
-app = FastAPI(
-    title="DocMirror Universal Parsing API",
-    description="High-performance MultiModal document extraction and enhancement engine.",
-    version=__version__,
-)
-
-app.include_router(task_router)
-
-
 # ── Startup/shutdown lifecycle ──
 
 
-@app.on_event("startup")
 async def _cleanup_stale_temp_files():
     """Remove temporary files older than 1 hour on startup.
 
@@ -75,7 +66,6 @@ async def _cleanup_stale_temp_files():
         logger.info(f"[Server] Cleaned {cleaned} stale temp file(s) on startup")
 
 
-@app.on_event("startup")
 async def _warmup_ocr_engine():
     """Pre-load OCR ONNX model on startup to avoid cold-start latency.
 
@@ -89,6 +79,24 @@ async def _warmup_ocr_engine():
             logger.info("[Server] OCR engine warmed up on startup")
     except Exception as e:
         logger.debug(f"[Server] OCR warmup skipped: {e}")
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    """Own process startup through FastAPI's non-deprecated lifespan API."""
+    await _cleanup_stale_temp_files()
+    await _warmup_ocr_engine()
+    yield
+
+
+app = FastAPI(
+    title="DocMirror Universal Parsing API",
+    description="High-performance MultiModal document extraction and enhancement engine.",
+    version=__version__,
+    lifespan=_lifespan,
+)
+
+app.include_router(task_router)
 
 
 @app.get("/health", tags=["System"])

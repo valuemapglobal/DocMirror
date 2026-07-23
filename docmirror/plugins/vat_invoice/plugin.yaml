@@ -1,0 +1,37 @@
+schema_version: 1
+
+provider:
+  id: vat_invoice
+  domain_name: vat_invoice
+  edition: community
+  version: community-1
+  implementation: docmirror.plugins.vat_invoice.community_plugin:plugin
+
+capabilities:
+  premium: true
+  community_order: 4
+  generic_fallback: false
+  quality_groups: [finance]
+
+routing:
+  enhance_mode: standard
+
+classification:
+  aliases: []
+
+projection:
+  dataset_labels: {line_items: 商品与服务明细}
+  section_type_markers: {发票: invoice}
+
+resources:
+  key_synonyms: resources/key_synonyms.yaml
+  field_schema: resources/field_schema.yaml
+  scene_keywords: resources/scene_keywords.yaml
+  domain_contract: resources/domain_contract.yaml
+  confidence_policy: resources/confidence_policy.yaml
+  post_extract: resources/post_extract.yaml
+
+fact_outputs:
+  document_type: vat_invoice
+  datasets: [records]
+  domain_fact_prefix: vat_invoice

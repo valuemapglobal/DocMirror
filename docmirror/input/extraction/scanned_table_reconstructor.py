@@ -8,32 +8,38 @@ from __future__ import annotations
 import re
 import statistics
 from dataclasses import dataclass
+from functools import lru_cache
+from importlib.resources import files
+from pathlib import PurePosixPath
 from typing import Any
+
+import yaml
 
 from docmirror.models.entities.domain import Block
 
-_FINANCIAL_KEYWORDS = (
-    "资产负债表",
-    "利润表",
-    "现金流量表",
-    "所有者权益变动表",
-    "年末余额",
-    "年初余额",
-    "本年发生额",
-    "上年发生额",
-    "金额单位",
-)
-_FINANCIAL_HEADER_LABELS = {
-    "项目",
-    "附注",
-    "年末余额",
-    "年初余额",
-    "本年发生额",
-    "上年发生额",
-}
-_NOISE_TEXT = {"英", "超", "江", "都", "华", "盖", "身", "品", "凯", "单", "A", "E", "H", "ZV"}
 _NUMBER_RE = re.compile(r"\d[\d,，]*(?:\.\d+)?")
 _SHORT_NOISE_RE = re.compile(r"^[A-Za-z0-9]{1,3}$")
+
+
+@lru_cache(maxsize=1)
+def _statement_profile() -> dict[str, Any]:
+    """Load the installed plugin-owned scanned statement extraction profile."""
+    plugin_root = files("docmirror").joinpath("plugins")
+    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
+        manifest_path = plugin_dir.joinpath("plugin.yaml")
+        if not plugin_dir.is_dir() or not manifest_path.is_file():
+            continue
+        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+        relative_text = str(((manifest.get("resources") or {}).get("scanned_statement_profile")) or "").strip()
+        relative_path = PurePosixPath(relative_text)
+        if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
+            continue
+        resource_path = plugin_dir.joinpath(*relative_path.parts)
+        if resource_path.is_file():
+            payload = yaml.safe_load(resource_path.read_text(encoding="utf-8")) or {}
+            if isinstance(payload.get("profile"), dict):
+                return dict(payload["profile"])
+    return {}
 
 
 @dataclass(frozen=True)
@@ -93,21 +99,23 @@ def reconstruct_scanned_statement_table(
     tokens = [token for token in tokens if token is not None and _is_useful_token(token)]
     if len(tokens) < 12:
         return None
+    profile = _statement_profile()
+    keywords = tuple(str(value) for value in profile.get("keywords") or [])
     page_text = " ".join(token.text for token in tokens)
     numeric_count = sum(1 for token in tokens if _looks_numeric(token.text))
-    keyword_hits = sum(1 for keyword in _FINANCIAL_KEYWORDS if keyword in page_text)
+    keyword_hits = sum(1 for keyword in keywords if keyword in page_text)
     if keyword_hits == 0 and numeric_count < 12:
         return None
 
     rows = _cluster_rows(tokens)
-    header_index = _find_header_row(rows)
+    header_index = _find_header_row(rows, profile)
     if header_index is None:
         return None
-    table_rows = _trim_table_rows(rows[header_index:])
+    table_rows = _trim_table_rows(rows[header_index:], keywords)
     if len(table_rows) < 4:
         return None
 
-    header_tokens = _normalize_header_tokens(table_rows[0].tokens)
+    header_tokens = _normalize_header_tokens(table_rows[0].tokens, profile)
     anchors = _column_anchors(header_tokens, tokens)
     if len(anchors) < 3:
         return None
@@ -124,7 +132,8 @@ def reconstruct_scanned_statement_table(
         raw,
         cell_evidence_ids=cell_evidence_ids,
         cell_confidences=cell_confidences,
-        domain="financial_report",
+        domain=str(profile.get("correction_domain") or "") or None,
+        first_column_role=str(profile.get("first_column_role") or "") or None,
         mode=correction_mode,
         **correction_scope,
         page_number=page_number,
@@ -160,9 +169,9 @@ def reconstruct_scanned_statement_table(
             "extraction_layer": "scanned_ocr_statement_grid",
             "extraction_confidence": geometry["geometry_confidence"],
             "geometry": geometry,
-            "role": "financial_statement",
+            "role": str(profile.get("role") or "statement"),
             "preserve_headers": True,
-            "statement_keywords": [kw for kw in _FINANCIAL_KEYWORDS if kw in page_text],
+            "statement_keywords": [kw for kw in keywords if kw in page_text],
             "source": "scanned_table_reconstructor",
             "ocr_correction_mode": correction_mode,
             "ocr_correction_processed_count": correction_processed_count,
@@ -385,12 +394,13 @@ def reconstruct_scanned_bordered_tables(
         correction_mode = _ocr_correction_mode(blocks)
         correction_scope = _ocr_correction_scope(blocks)
         page_text = " ".join(str(block.raw_content or "") for block in blocks)
-        correction_domain = _infer_correction_domain(page_text)
+        correction_domain, first_column_role = _infer_correction_policy(page_text)
         raw, correction_events, correction_processed_count = _correct_table_grid(
             raw,
             cell_evidence_ids=cell_evidence_ids,
             cell_confidences=cell_confidences,
             domain=correction_domain,
+            first_column_role=first_column_role,
             mode=correction_mode,
             **correction_scope,
             page_number=page_number,
@@ -732,19 +742,17 @@ def _ocr_correction_scope(blocks: list[Block]) -> dict[str, Any]:
     return {"language": None, "country": None, "locale": None, "pack_ids": ()}
 
 
-def _infer_correction_domain(text: str) -> str | None:
-    compact = str(text or "")
-    if any(keyword in compact for keyword in _FINANCIAL_KEYWORDS):
-        return "financial_report"
-    if "统一社会信用代码" in compact or "营业执照" in compact:
-        return "business_license"
-    if "发票代码" in compact or "发票号码" in compact or "价税合计" in compact:
-        return "invoice"
-    if ("交易日期" in compact or "交易时间" in compact) and ("余额" in compact or "交易金额" in compact):
-        return "bank_statement"
-    if "信用报告" in compact or "征信报告" in compact:
-        return "credit_report"
-    return None
+def _infer_correction_policy(text: str) -> tuple[str | None, str | None]:
+    from docmirror.configs.scene.loader import get_scene_aliases, get_scene_evidence_specs
+    from docmirror.layout.scene.scene_resolver import resolve_document_scene
+
+    resolution = resolve_document_scene(str(text or ""))
+    if resolution.scene in {"unknown", "generic"}:
+        return None, None
+    spec = get_scene_evidence_specs().get(resolution.scene) or {}
+    domain = str(spec.get("ocr_domain") or get_scene_aliases().get(resolution.scene, resolution.scene))
+    first_column_role = str(spec.get("ocr_first_column_role") or "") or None
+    return domain or None, first_column_role
 
 
 def _correct_table_grid(
@@ -753,6 +761,7 @@ def _correct_table_grid(
     cell_evidence_ids: list[list[list[str]]],
     cell_confidences: list[list[float | None]],
     domain: str | None,
+    first_column_role: str | None,
     mode: str,
     language: str | None,
     country: str | None,
@@ -779,7 +788,7 @@ def _correct_table_grid(
                 row_index=row_index,
                 col_index=col_index,
                 headers=headers,
-                domain=domain,
+                first_column_role=first_column_role,
             )
             if role == "data":
                 continue
@@ -826,11 +835,17 @@ def _correct_table_grid(
     return out, events, processed_count
 
 
-def _table_cell_role(*, row_index: int, col_index: int, headers: list[str], domain: str | None) -> str:
+def _table_cell_role(
+    *,
+    row_index: int,
+    col_index: int,
+    headers: list[str],
+    first_column_role: str | None,
+) -> str:
     if row_index == 0:
         return "table_header"
-    if col_index == 0 and domain in {"financial_report", "business_license"}:
-        return "field_label"
+    if col_index == 0 and first_column_role:
+        return first_column_role
     header = headers[col_index] if col_index < len(headers) else ""
     if re.search(r"日期|时间|期限|年月日", header):
         return "date"
@@ -902,7 +917,8 @@ def _is_useful_token(token: _Token) -> bool:
     text = token.text.strip()
     if not text:
         return False
-    if text in _NOISE_TEXT:
+    noise_text = {str(value) for value in _statement_profile().get("noise_text") or []}
+    if text in noise_text:
         return False
     if len(text) == 1 and not text.isdigit() and text not in {"项", "目"}:
         return False
@@ -930,19 +946,20 @@ def _cluster_rows(tokens: list[_Token]) -> list[_Row]:
     return rows
 
 
-def _find_header_row(rows: list[_Row]) -> int | None:
+def _find_header_row(rows: list[_Row], profile: dict[str, Any]) -> int | None:
+    primary = tuple(str(value) for value in profile.get("primary_header_labels") or [])
+    secondary = tuple(str(value) for value in profile.get("secondary_header_labels") or [])
+    split_label = tuple(str(value) for value in profile.get("split_header_label") or [])
     best_index: int | None = None
     best_score = 0
     for index, row in enumerate(rows[:16]):
         text = row.text
         score = 0
-        if "年末余额" in text or "年初余额" in text:
+        if any(label in text for label in primary):
             score += 4
-        if "本年发生额" in text or "上年发生额" in text:
-            score += 4
-        if "附注" in text:
+        if any(label in text for label in secondary):
             score += 2
-        if "项" in text and "目" in text:
+        if split_label and all(label in text for label in split_label):
             score += 2
         if len(row.tokens) >= 3:
             score += 1
@@ -952,7 +969,7 @@ def _find_header_row(rows: list[_Row]) -> int | None:
     return best_index if best_score >= 4 else None
 
 
-def _trim_table_rows(rows: list[_Row]) -> list[_Row]:
+def _trim_table_rows(rows: list[_Row], keywords: tuple[str, ...]) -> list[_Row]:
     trimmed: list[_Row] = []
     blankish_streak = 0
     for row in rows:
@@ -960,7 +977,7 @@ def _trim_table_rows(rows: list[_Row]) -> list[_Row]:
         has_signal = (
             len(row.tokens) >= 2
             or _looks_numeric(text)
-            or any(keyword in text for keyword in _FINANCIAL_KEYWORDS)
+            or any(keyword in text for keyword in keywords)
             or any(_is_cjk(char) for char in text)
         )
         if has_signal:
@@ -974,17 +991,26 @@ def _trim_table_rows(rows: list[_Row]) -> list[_Row]:
     return trimmed
 
 
-def _normalize_header_tokens(tokens: list[_Token]) -> list[_Token]:
-    useful = [token for token in tokens if token.text not in _NOISE_TEXT]
+def _normalize_header_tokens(tokens: list[_Token], profile: dict[str, Any]) -> list[_Token]:
+    noise_text = {str(value) for value in profile.get("noise_text") or []}
+    header_labels = {str(value) for value in profile.get("header_labels") or []}
+    split_label = tuple(str(value) for value in profile.get("split_header_label") or [])
+    merged_label = str(profile.get("merged_header_label") or "")
+    useful = [token for token in tokens if token.text not in noise_text]
     out: list[_Token] = []
     i = 0
     while i < len(useful):
         token = useful[i]
-        if token.text == "项" and i + 1 < len(useful) and useful[i + 1].text == "目":
+        if (
+            len(split_label) == 2
+            and token.text == split_label[0]
+            and i + 1 < len(useful)
+            and useful[i + 1].text == split_label[1]
+        ):
             nxt = useful[i + 1]
             out.append(
                 _Token(
-                    text="项目",
+                    text=merged_label,
                     bbox=_union_bbox([token.bbox, nxt.bbox]),
                     evidence_id=f"{token.evidence_id}|{nxt.evidence_id}",
                     confidence=min(token.confidence, nxt.confidence),
@@ -992,10 +1018,10 @@ def _normalize_header_tokens(tokens: list[_Token]) -> list[_Token]:
             )
             i += 2
             continue
-        if token.text in {"项", "目"}:
+        if token.text in split_label:
             out.append(
                 _Token(
-                    text="项目",
+                    text=merged_label,
                     bbox=token.bbox,
                     evidence_id=token.evidence_id,
                     confidence=token.confidence,
@@ -1005,14 +1031,13 @@ def _normalize_header_tokens(tokens: list[_Token]) -> list[_Token]:
             continue
         out.append(token)
         i += 1
-    return [
-        token for token in out if token.text in _FINANCIAL_HEADER_LABELS or not _SHORT_NOISE_RE.fullmatch(token.text)
-    ]
+    return [token for token in out if token.text in header_labels or not _SHORT_NOISE_RE.fullmatch(token.text)]
 
 
 def _column_anchors(header_tokens: list[_Token], all_tokens: list[_Token]) -> list[tuple[float, str]]:
     anchors = [(token.cx, token.text) for token in header_tokens if token.text.strip()]
-    anchors = [(x, text) for x, text in anchors if text not in _NOISE_TEXT]
+    noise_text = {str(value) for value in _statement_profile().get("noise_text") or []}
+    anchors = [(x, text) for x, text in anchors if text not in noise_text]
     if len(anchors) >= 3:
         return sorted(anchors, key=lambda item: item[0])
     xs = sorted(token.cx for token in all_tokens)

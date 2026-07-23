@@ -1,0 +1,30 @@
+version: 1
+edition: community
+domains:
+  alipay_payment:
+    public_route: core_domain
+    support_level: L2
+    domain_contract_version: alipay_payment.community.v1
+    dgc_status_source: computed
+    p0_commitment:
+      fields:
+        optional: [account_holder, account_number, query_period, currency]
+      records:
+        required: [trade_no, timestamp, amount]
+        conditional: [merchant_no, counter_party, payment_method, direction]
+        aliases:
+          trade_no: [trade_no, transaction_id, 交易单号, 交易订单号]
+          timestamp: [timestamp, date, 交易时间]
+          amount: [amount, amount_cny, 金额, 交易金额]
+      quality: [normalized_time_rate, normalized_amount_rate, logical_row_count, bad_timestamp_ratio]
+      failure:
+        empty_input: empty_input
+        time_normalization_failed: partial_with_raw
+        amount_normalization_failed: partial_with_raw
+    gates:
+      classify: domain.alipay_payment.classify
+      extract: domain.alipay_payment.extract
+      edition_schema: domain.alipay_payment.edition_schema
+      evidence: domain.alipay_payment.evidence
+      failure: domain.alipay_payment.failure
+      fixtures: domain.alipay_payment.fixtures

@@ -6,7 +6,7 @@
 Registered as ``docmirror pdfua INPUT OUTPUT [--language LANG] [--version UA-1|UA-2]``.
 Converts any document supported by DocMirror into a tagged, accessible PDF.
 
-Requires: ``pip install docmirror[pdfua]`` (adds PyMuPDF >= 1.23.0).
+Requires: ``pip install docmirror[pdfua]`` (adds PyMuPDF and pypdf).
 """
 
 from __future__ import annotations
@@ -94,6 +94,7 @@ def pdfua(input: str, output: str | None, language: str, schema_version: str, dm
                 dmir = json.load(f)
     else:
         # Parse the input document using DocMirror's engine
+        import asyncio
 
         from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 
@@ -103,7 +104,7 @@ def pdfua(input: str, output: str | None, language: str, schema_version: str, dm
             console=console,
         ) as progress:
             progress.add_task(description=f"Parsing [bold]{input_path.name}[/bold]...", total=None)
-            result = perceive_document(input_path, PerceiveOptions())
+            result = asyncio.run(perceive_document(input_path, PerceiveOptions()))
 
         from docmirror.output.dmir import serialize_dmir
 

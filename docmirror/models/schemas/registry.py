@@ -45,7 +45,7 @@ def _builtin_specs() -> dict[str, ProjectionSchemaSpec]:
             path=_SCHEMAS_DIR / "community_bundle.schema.json",
             version="3.0.0",
             description="Self-contained Community JSON API with complete dataset records",
-            compatibility="breaking-successor-to-2.2",
+            compatibility="current-major; explicit-v2-exporter-required",
         ),
         ProjectionSchemaSpec(
             name="community_v2",
@@ -102,8 +102,7 @@ def validate_projection_payload(name: str, payload: dict[str, Any]) -> Projectio
     minimal environments, this still verifies that the schema exists and all
     top-level required keys are present.
     """
-    resolved_name = "community_v2" if name == "community" and "schema_version" in payload else name
-    schema = load_projection_schema_json(resolved_name)
+    schema = load_projection_schema_json(name)
     if schema is None:
         return ProjectionSchemaValidation(name=name, valid=False, errors=(f"schema not found: {name}",))
     try:
@@ -122,6 +121,18 @@ def validate_projection_payload(name: str, payload: dict[str, Any]) -> Projectio
         return ProjectionSchemaValidation(name=name, valid=False, errors=(str(exc),))
 
 
+def projection_schema_manifest() -> dict[str, dict[str, str]]:
+    """Return explicit schema identities for artifact/task manifests."""
+    return {
+        name: {
+            "version": spec.version,
+            "compatibility": spec.compatibility or "same-major",
+        }
+        for name, spec in sorted(load_projection_registry().items())
+        if name != "community_v2"
+    }
+
+
 __all__ = [
     "ProjectionSchemaSpec",
     "ProjectionSchemaValidation",
@@ -129,5 +140,6 @@ __all__ = [
     "load_projection_registry",
     "load_projection_schema_json",
     "register_projection_schema",
+    "projection_schema_manifest",
     "validate_projection_payload",
 ]

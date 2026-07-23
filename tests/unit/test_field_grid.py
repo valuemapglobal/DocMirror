@@ -63,10 +63,3 @@ def test_field_grid_semantic_spans_split_mixed_ocr_line():
     assert by_kind["date"] == "2018.08.31"
     assert by_kind["currency"] == "人民币"
     assert by_kind["amount"] == "72,000"
-
-
-def test_field_grid_parse_as_of_date():
-    from docmirror.ocr.field_grid.assemble import parse_as_of_date
-
-    assert parse_as_of_date("截至2019年06月21日") == "2019.06.21"
-

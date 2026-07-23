@@ -35,16 +35,13 @@ Usage::
 
     result = ParseResult(
         pages=[PageContent(...)],
-        entities=DocumentEntities(document_type="bank_statement"),
+        entities=DocumentEntities(document_type="example_document"),
         parser_info=ParserInfo(parser_name="docmirror"),
     )
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
-import os
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -58,179 +55,6 @@ if TYPE_CHECKING:
     from docmirror.models.entities.evidence import EvidenceSummary
     from docmirror.models.entities.hypothesis import ParseHypothesis
     from docmirror.models.entities.quality_report import ParseQualityReport
-
-# Keys from domain_specific / mirror_metadata allowed in REST properties (ADR-M08)
-MIRROR_METADATA_KEYS = frozenset(
-    {
-        "currency",
-        "institution",
-        "account_number",
-        "opening_balance",
-        "closing_balance",
-        "transaction_count",
-        "layout_profile_id",
-        "layout_profile_id_refined",
-        "mirror_expected_data_rows",
-        "mirror_ltqg_enabled",
-        "language",
-        "region",
-        "query_period",
-    }
-)
-
-
-def _is_debug_mode() -> bool:
-    """Return whether debug-only Mirror fields should be emitted."""
-    return os.environ.get("DOCMIRROR_DEBUG", "").strip().lower() in {"1", "true", "yes"}
-
-
-def _build_scanned_ocr_page_pool(*evidence_groups: Any) -> tuple[list[dict[str, Any]], dict[tuple[Any, Any], str]]:
-    """Build shared OCR page evidence from scanned forensic evidence groups."""
-    pages: list[dict[str, Any]] = []
-    refs: dict[tuple[Any, Any], str] = {}
-    seen: set[tuple[Any, Any]] = set()
-    for group in evidence_groups:
-        if not isinstance(group, list):
-            continue
-        for evidence in group:
-            if not isinstance(evidence, dict):
-                continue
-            if "lines" not in evidence and "tokens" not in evidence:
-                continue
-            page = evidence.get("page")
-            source = evidence.get("source") or "scanned_page_ocr"
-            key = (page, source)
-            if key in seen:
-                continue
-            seen.add(key)
-            ref = f"ocr_p{page}_{len(pages)}"
-            refs[key] = ref
-            pages.append(
-                {
-                    "ocr_page_id": ref,
-                    "page": page,
-                    **({"page_width": evidence.get("page_width")} if evidence.get("page_width") is not None else {}),
-                    **({"page_height": evidence.get("page_height")} if evidence.get("page_height") is not None else {}),
-                    "source": source,
-                    "line_count": len(evidence.get("lines") or []),
-                    "token_count": len(evidence.get("tokens") or []),
-                    "payload": "external_evidence_bundle",
-                }
-            )
-    return pages, refs
-
-
-def _strip_scanned_ocr_payload_from_evidence(
-    evidence_group: Any, refs: dict[tuple[Any, Any], str]
-) -> list[dict[str, Any]]:
-    """Replace duplicated scanned OCR payloads with shared OCR page refs."""
-    if not isinstance(evidence_group, list):
-        return []
-    out: list[dict[str, Any]] = []
-    for evidence in evidence_group:
-        if not isinstance(evidence, dict):
-            continue
-        item = {k: v for k, v in evidence.items() if k not in {"lines", "tokens"}}
-        source = item.get("source") or "scanned_page_ocr"
-        ref = refs.get((item.get("page"), source))
-        if ref:
-            item["ocr_page_ref"] = ref
-        out.append(item)
-    return out
-
-
-def _strip_inline_page_evidence_bundles(value: Any) -> Any:
-    """Remove raw page evidence bundles from public Mirror JSON provenance."""
-    if isinstance(value, dict):
-        out: dict[str, Any] = {}
-        for key, item in value.items():
-            if key in {"_page_evidence_bundles", "page_evidence_bundles"}:
-                continue
-            out[key] = _strip_inline_page_evidence_bundles(item)
-        return out
-    if isinstance(value, list):
-        return [_strip_inline_page_evidence_bundles(item) for item in value]
-    return value
-
-
-def _strip_ocr_text_atoms_when_text_excluded(payload: dict[str, Any], *, include_text: bool | None) -> None:
-    """Drop OCR-derived text atoms from the main Mirror JSON when text is excluded."""
-    if include_text is not False:
-        return
-    evidence = payload.get("evidence")
-    if not isinstance(evidence, dict):
-        return
-    atoms = evidence.get("text_atoms")
-    if not isinstance(atoms, list):
-        return
-    kept: list[Any] = []
-    removed_ids: set[str] = set()
-    for atom in atoms:
-        if not isinstance(atom, dict):
-            kept.append(atom)
-            continue
-        metadata = atom.get("metadata") if isinstance(atom.get("metadata"), dict) else {}
-        source_kind = str(atom.get("source_kind") or "")
-        is_ocr_atom = bool(metadata.get("ocr_evidence_key")) or source_kind.endswith("_evidence_token")
-        if is_ocr_atom:
-            atom_id = str(atom.get("id") or "")
-            if atom_id:
-                removed_ids.add(atom_id)
-            continue
-        kept.append(atom)
-    if not removed_ids:
-        return
-    evidence["text_atoms"] = kept
-    indexes = evidence.get("indexes")
-    if isinstance(indexes, dict):
-        for key, value in list(indexes.items()):
-            if isinstance(value, list):
-                indexes[key] = [item for item in value if str(item) not in removed_ids]
-            elif isinstance(value, dict):
-                indexes[key] = {
-                    sub_key: [item for item in sub_value if str(item) not in removed_ids]
-                    for sub_key, sub_value in value.items()
-                    if isinstance(sub_value, list)
-                }
-
-
-def _pages_with_region_kinds(api_pages: list[dict[str, Any]], kinds: set[str]) -> set[int]:
-    pages: set[int] = set()
-    for page in api_pages:
-        if not isinstance(page, dict):
-            continue
-        page_num = int(page.get("page_number") or 0)
-        for region in page.get("regions") or []:
-            if isinstance(region, dict) and region.get("kind") in kinds:
-                pages.add(page_num)
-                break
-    return pages
-
-
-def _strip_structure_payload_from_local_structure_evidence(
-    evidence_group: Any,
-    api_pages: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Drop duplicated structures from forensic evidence when vNext regions already carry them."""
-    if not isinstance(evidence_group, list):
-        return []
-    pages_with_structures = _pages_with_region_kinds(
-        api_pages,
-        {"field_grid", "label_value_graph"},
-    )
-    out: list[dict[str, Any]] = []
-    for evidence in evidence_group:
-        if not isinstance(evidence, dict):
-            continue
-        page_num = int(evidence.get("page") or 0)
-        if page_num in pages_with_structures and evidence.get("structures"):
-            item = {k: v for k, v in evidence.items() if k != "structures"}
-            item["structures_in_regions"] = True
-            out.append(item)
-        else:
-            out.append(dict(evidence))
-    return out
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Enumerations
@@ -574,19 +398,14 @@ class DocumentEntities(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "examples": {
-                "bank_statement": {
-                    "document_type": "bank_statement",
-                    "organization": "中国建设银行",
-                    "subject_name": "张三",
-                    "subject_id": "6217XXXXXXXXXXXX",
-                    "period_start": "2024-06-20",
-                    "period_end": "2025-06-20",
+                "generic_document": {
+                    "document_type": "example_document",
+                    "organization": "Example Organization",
+                    "subject_name": "Example Subject",
+                    "subject_id": "SUBJECT-001",
+                    "document_date": "2026-01-01",
                     "domain_specific": {
-                        "account_number": "6217001820010XXXXXX",
-                        "opening_balance": 12345.67,
-                        "closing_balance": 135530.00,
-                        "transaction_count": 347,
-                        "currency": "CNY",
+                        "source_category": "example",
                     },
                 },
             }
@@ -883,7 +702,7 @@ class ParseResult(BaseModel):
 
         result = ParseResult(
             pages=[PageContent(page_number=1, tables=[...])],
-            entities=DocumentEntities(document_type="bank_statement", ...),
+            entities=DocumentEntities(document_type="example_document", ...),
             parser_info=ParserInfo(parser_name="docmirror", ...),
         )
 
@@ -981,14 +800,10 @@ class ParseResult(BaseModel):
         return self.status in (ResultStatus.SUCCESS, ResultStatus.PARTIAL)
 
     def fact_fingerprint(self) -> str:
-        """Return a stable digest used to enforce post-pipeline read-only access."""
-        payload = self.model_dump(
-            mode="json",
-            exclude={"processing_time"},
-            exclude_none=False,
-        )
-        raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        """Return the deterministic digest of facts, excluding runtime metadata."""
+        from docmirror.models.fingerprint import canonical_fact_fingerprint
+
+        return canonical_fact_fingerprint(self)
 
     @property
     def total_tables(self) -> int:
@@ -1111,117 +926,6 @@ class ParseResult(BaseModel):
                     result[kv.key] = kv.value
         return result
 
-    def to_mirror_json_vnext(
-        self,
-        *,
-        source_filename: str = "",
-        mirror_level: str | None = None,
-        include_text: bool | None = None,
-        **_: Any,
-    ) -> dict[str, Any]:
-        """Produce vNext MirrorJson via MirrorCoreVNext.
-
-        This is the canonical output path for DocMirror 3.x.  The result
-        is a document digital twin containing evidence, topology, blocks,
-        graph, quality gates, and semantic facts.
-
-        Args:
-            source_filename: Optional source identifier for provenance.
-            mirror_level: Optional vNext projection profile.
-            include_text: Optional projection hint. vNext emits content
-                through blocks/evidence instead of a raw top-level text field.
-
-        Returns:
-            vNext MirrorJson dict (top-level keys: mirror, source,
-            document, pages, evidence, regions, blocks, graph, quality,
-            semantics).
-        """
-        from docmirror.models.mirror.core import MirrorCoreVNext, MirrorOptions, MirrorResult
-
-        _ = include_text
-        source_filename = source_filename or self.file_path
-        options = MirrorOptions(
-            source_filename=source_filename,
-            profile=_vnext_profile_from_mirror_level(mirror_level),
-        )
-        core = MirrorCoreVNext()
-        result = core.process(self, options=options)
-        if isinstance(result, MirrorResult):
-            payload = result.to_dict()
-        elif isinstance(result, dict):
-            payload = result
-        else:
-            return {"error": f"unexpected result type: {type(result).__name__}"}
-        return self._apply_vnext_page_projection(
-            payload,
-            mirror_level=mirror_level or "standard",
-            include_text=include_text,
-        )
-
-    def _apply_vnext_page_projection(
-        self,
-        payload: dict[str, Any],
-        *,
-        mirror_level: str | None,
-        include_text: bool | None,
-    ) -> dict[str, Any]:
-        """Add vNext page projection fields on top of canonical MirrorCore output."""
-        from docmirror.models.mirror.domain_access import (
-            raw_local_structure_evidence_from_domain_specific,
-            raw_micro_grid_evidence_from_domain_specific,
-        )
-        from docmirror.models.mirror.vnext_page_projection import project_vnext_pages
-
-        ds = getattr(getattr(self, "entities", None), "domain_specific", None) or {}
-        raw_micro = raw_micro_grid_evidence_from_domain_specific(ds)
-        raw_local = raw_local_structure_evidence_from_domain_specific(ds)
-        scanned_ocr_pages, refs = _build_scanned_ocr_page_pool(raw_micro, raw_local)
-        source_page_details = {
-            int(page.get("page_number") or 0): page
-            for page in self._build_api_pages(forensic=_vnext_profile_from_mirror_level(mirror_level) == "forensic")
-            if isinstance(page, dict) and int(page.get("page_number") or 0) > 0
-        }
-        vnext_pages = {
-            int(page.get("page_number") or 0): page
-            for page in payload.get("pages", [])
-            if isinstance(page, dict) and int(page.get("page_number") or 0) > 0
-        }
-        forensic = _vnext_profile_from_mirror_level(mirror_level) == "forensic"
-        merged_pages: list[dict[str, Any]] = []
-        for page_num in sorted(set(vnext_pages) | set(source_page_details)):
-            base = dict(vnext_pages.get(page_num) or {"page_number": page_num})
-            raw = source_page_details.get(page_num) or {}
-            for key in ("width", "height", "tables", "texts", "key_values"):
-                if key in raw and (key not in base or key in {"texts", "key_values"} or (key == "tables" and forensic)):
-                    base[key] = raw[key]
-            merged_pages.append(base)
-        enriched_pages = project_vnext_pages(
-            merged_pages,
-            domain_specific=ds,
-            mirror_level="forensic" if forensic else "standard",
-            scanned_ocr_pages=scanned_ocr_pages,
-            include_text=include_text,
-            document_type=str(getattr(getattr(self, "entities", None), "document_type", "") or ""),
-        )
-        if enriched_pages:
-            payload["pages"] = enriched_pages
-
-        if forensic:
-            if scanned_ocr_pages:
-                payload["scanned_ocr_pages"] = scanned_ocr_pages
-            local_evidence = _strip_structure_payload_from_local_structure_evidence(
-                _strip_scanned_ocr_payload_from_evidence(raw_local, refs),
-                payload.get("pages", []),
-            )
-            if local_evidence:
-                payload["scanned_local_structure_evidence"] = local_evidence
-            micro_evidence = _strip_scanned_ocr_payload_from_evidence(raw_micro, refs)
-            if micro_evidence:
-                payload["scanned_micro_grid_evidence"] = micro_evidence
-            payload["source"] = _strip_inline_page_evidence_bundles(payload.get("source"))
-            _strip_ocr_text_atoms_when_text_excluded(payload, include_text=include_text)
-        return payload
-
     # ── Internal helpers ──
 
     def _build_full_text(self) -> str:
@@ -1310,143 +1014,6 @@ class ParseResult(BaseModel):
             lines.append("| " + " | ".join(cells[: len(table.headers)]) + " |")
         return "\n".join(lines)
 
-    def _build_api_pages(self, *, forensic: bool = False) -> list[dict[str, Any]]:
-        """Build API pages structure with full CellValue serialization."""
-        api_pages: list[dict[str, Any]] = []
-        for page in self.pages:
-            api_page: dict[str, Any] = {
-                "page_number": page.page_number,
-            }
-            if page.width is not None:
-                api_page["width"] = page.width
-            if page.height is not None:
-                api_page["height"] = page.height
-
-            # Tables with typed CellValue objects
-            if page.tables:
-                api_page["tables"] = []
-                for table in page.tables:
-                    table_out: dict[str, Any] = {
-                        "table_id": table.table_id,
-                        "headers": table.headers,
-                        "rows": [
-                            {
-                                "cells": [self._serialize_cell(c, forensic=forensic) for c in row.cells],
-                                "row_type": row.row_type.value,
-                                "confidence": row.confidence,
-                                "source_page": row.source_page,
-                                "source_physical_id": row.source_physical_id,
-                                "source_row_index": row.source_row_index,
-                                **(
-                                    {"source_cell_refs": row.source_cell_refs}
-                                    if forensic and row.source_cell_refs
-                                    else {}
-                                ),
-                            }
-                            for row in table.rows
-                        ],
-                        "page": table.page,
-                        "page_span": table.page_span,
-                        "row_count": table.row_count,
-                        "confidence": table.confidence,
-                    }
-                    if table.bbox:
-                        table_out["bbox"] = table.bbox
-                    if table.extraction_layer:
-                        table_out["extraction_layer"] = table.extraction_layer
-                    if table.extraction_confidence is not None:
-                        table_out["extraction_confidence"] = table.extraction_confidence
-                    raw_rows = (table.metadata or {}).get("raw_rows")
-                    if raw_rows:
-                        table_out["raw_rows"] = raw_rows
-                    if forensic:
-                        if table.evidence_ids:
-                            table_out["evidence_ids"] = table.evidence_ids
-                        if table.metadata:
-                            table_out["metadata"] = table.metadata
-                    api_page["tables"].append(table_out)
-
-            # Text blocks with level
-            if page.texts:
-                texts_out = []
-                for text in page.texts:
-                    d = {
-                        "content": text.content,
-                        "level": text.level.value,
-                        "confidence": text.confidence,
-                    }
-                    if forensic and text.bbox:
-                        d["bbox"] = text.bbox
-                    if forensic and text.evidence_ids:
-                        d["evidence_ids"] = text.evidence_ids
-                    if getattr(text, "slm_entities", None):
-                        d["slm_entities"] = text.slm_entities
-                    texts_out.append(d)
-                api_page["texts"] = texts_out
-
-            # Key-value pairs
-            if page.key_values:
-                api_page["key_values"] = [
-                    {
-                        "key": kv.key,
-                        "value": kv.value,
-                        "confidence": kv.confidence,
-                        **({"bbox": kv.bbox} if forensic and kv.bbox else {}),
-                        **({"evidence_ids": kv.evidence_ids} if forensic and kv.evidence_ids else {}),
-                    }
-                    for kv in page.key_values
-                ]
-
-            api_pages.append(api_page)
-        return api_pages
-
-    @staticmethod
-    def _serialize_cell(cell: CellValue, *, forensic: bool = False) -> dict[str, Any]:
-        """Serialize CellValue to API dict — minimal output."""
-        d: dict[str, Any] = {"text": cell.text}
-        dt = cell.data_type.value if hasattr(cell.data_type, "value") else cell.data_type
-        d["data_type"] = dt or "text"
-        if not forensic and cell.geometry_status:
-            d["geometry_status"] = cell.geometry_status
-        if not forensic and cell.source_cell_refs:
-            d["source_cell_refs"] = cell.source_cell_refs
-        if forensic:
-            if cell.cleaned is not None:
-                d["cleaned"] = cell.cleaned
-            if cell.numeric is not None:
-                d["numeric"] = cell.numeric
-            if cell.confidence != 1.0:
-                d["confidence"] = cell.confidence
-            if cell.bbox:
-                d["bbox"] = cell.bbox
-            if cell.bbox_norm:
-                d["bbox_norm"] = cell.bbox_norm
-            if cell.row_index is not None:
-                d["row_index"] = cell.row_index
-            if cell.col_index is not None:
-                d["col_index"] = cell.col_index
-            if cell.row_span != 1:
-                d["row_span"] = cell.row_span
-            if cell.col_span != 1:
-                d["col_span"] = cell.col_span
-            if cell.geometry_status != "missing":
-                d["geometry_status"] = cell.geometry_status
-            if cell.geometry_source:
-                d["geometry_source"] = cell.geometry_source
-            if cell.geometry_confidence is not None:
-                d["geometry_confidence"] = cell.geometry_confidence
-            if cell.geometry_loss_reason:
-                d["geometry_loss_reason"] = cell.geometry_loss_reason
-            if cell.evidence_ids:
-                d["evidence_ids"] = cell.evidence_ids
-            if cell.token_ids:
-                d["token_ids"] = cell.token_ids
-            if cell.source_cell_refs:
-                d["source_cell_refs"] = cell.source_cell_refs
-        if getattr(cell, "slm_entities", None):
-            d["slm_entities"] = cell.slm_entities
-        return d
-
 
 def _rebuild_parse_result_models() -> None:
     """Resolve forward refs on MirrorAnnex after dependent models load."""
@@ -1462,15 +1029,6 @@ def _rebuild_parse_result_models() -> None:
         }
     )
     ParseResult.model_rebuild()
-
-
-def _vnext_profile_from_mirror_level(mirror_level: str | None) -> str:
-    level = str(mirror_level or "").strip().lower()
-    if level in {"forensic", "ga_full", "full"}:
-        return "forensic"
-    if level in {"compact", "canonical_compact"}:
-        return "canonical_compact"
-    return "canonical_full"
 
 
 _rebuild_parse_result_models()

@@ -1,0 +1,38 @@
+version: 1
+edition: community
+domains:
+  generic:
+    public_route: generic_fallback
+    support_level: L1
+    domain_contract_version: generic.community.v1
+    dgc_status_source: computed
+    p0_commitment:
+      fields:
+        optional: [discovered_key_values, high_confidence_entities]
+      records:
+        optional: [logical_table_records, physical_table_records]
+      failure:
+        empty_input: empty_input
+        low_quality: partial_low_confidence
+        unsupported: unsupported_variant
+      special: [must_never_pretend_core_domain, support_level_must_match_dgc_l1]
+    gates:
+      classify: domain.generic.classify
+      extract: domain.generic.extract
+      edition_schema: domain.generic.edition_schema
+      evidence: domain.generic.evidence
+      failure: domain.generic.failure
+      fixtures: domain.generic.fixtures
+failure_taxonomy:
+  success: {description: "P0 fields/records meet gate; domain contract passes"}
+  partial_low_confidence: {description: "Results exist but confidence is low; mark needs_review"}
+  partial_missing_required: {description: "P0 fields missing; output extracted results + missing_fields list"}
+  unsupported_variant: {description: "Belongs to domain but style unsupported; output Mirror/Evidence + unsupported_reason"}
+  empty_input: {description: "No parseable facts; stable error envelope, no empty-success JSON"}
+  low_quality_input: {description: "OCR/scan quality insufficient; affected_pages + retry suggestion + needs_review"}
+  domain_mismatch: {description: "Classification vs plugin mismatch; fallback to generic or mirror-only explicitly"}
+  plugin_error: {description: "Plugin exception; no traceback exposed; partial/mirror + error_code"}
+  fallback_generic: {description: "Core domain failed; enters generic fallback with fallback_from_domain + fallback_reason"}
+evidence_policy:
+  required_for_p0: true
+  acceptable_states: [with_bbox_and_source_ref, with_source_text_or_cell_ref_only, needs_evidence]

@@ -1,0 +1,41 @@
+version: 1
+domains:
+  bank_statement:
+    zh:
+      账号: Account number
+      卡号: Account number
+      账户号: Account number
+      账户号码: Account number
+      客户账号: Account number
+      账户名: Account name
+      账户名称: Account name
+      户名: Account name
+      客户名称: Customer name
+      持卡人: Card holder
+      币种: Currency
+      币别: Currency
+      交易时间: Query period
+      查询期间: Query period
+      交易期间: Query period
+      账单周期: Query period
+      起止日期: Query period
+      打印日期: Print date
+      打印时间: Print date
+      银行名称: Bank name
+      开户行: Bank name
+      开户银行: Bank name
+    ja:
+      口座番号: Account number
+      口座名義: Account name
+      通貨: Currency
+      取引期間: Query period
+      印刷日: Print date
+      銀行名: Bank name
+identity_fields:
+  bank_statement:
+    - [institution, bank_name, Bank name, Bank branch]
+    - [account_holder, Account name, Account holder, Card holder, Customer name]
+    - [account_number, Account number, Card number, Account, Customer account number]
+    - [query_period, Query period, Period, From/to date]
+    - [currency, Currency]
+    - [print_date, Print date]

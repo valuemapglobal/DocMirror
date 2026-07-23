@@ -25,10 +25,10 @@ DEPRECATED_META_COUNT_ALIASES = (
 
 def plugin_domain_hint(document_type: str) -> str:
     """Map Mirror ``document.type`` / scene to community plugin domain."""
-    mapping = {
-        "bank_reconciliation": "bank_statement",
-    }
-    return mapping.get(document_type or "", document_type or "unknown")
+    from docmirror.configs.scene.loader import get_scene_aliases
+
+    normalized = document_type or "unknown"
+    return get_scene_aliases().get(normalized, normalized)
 
 
 _PROSE_DISCLAIMER_MARKERS = (
@@ -71,7 +71,7 @@ def infer_header_source(headers: list[str], raw_rows: list[list[str]]) -> str:
         return "prose_block"
     from docmirror.layout.vocabulary import _is_header_row, _score_header_by_vocabulary
 
-    categories = ["BANK_STATEMENT", "WECHAT_PAYMENT"]
+    categories = ["LEDGER"]
     score = _score_header_by_vocabulary(first, categories=categories)
     if score >= 2 or _is_header_row(first):
         return "vocabulary_match"

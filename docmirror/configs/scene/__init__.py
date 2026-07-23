@@ -5,8 +5,8 @@
 Document scene classification keyword corpus.
 
 Re-exports the scene keyword loader API used by the EvidenceEngine, domain
-plugins, and classification middleware. Keywords are defined in
-``scene_keywords.yaml`` and organized by ``business_scene`` (e.g.
+plugins, and classification middleware. Keywords are supplied by plugin
+resources and organized by ``business_scene`` (e.g.
 ``bank_statement``, ``invoice``).
 
 Each scene spec contains ``include`` and ``exclude`` keyword lists used for
@@ -19,12 +19,13 @@ Public API::
     get_scene_excludes()        Exclude keywords per scene
     get_plugin_scene_keywords() Include-only tuples for ``DomainPlugin``
     compute_keyword_uniqueness()  Rarity weights across scenes
-    invalidate_scene_cache()    Clear mtime cache (tests / hot-reload)
+    invalidate_scene_cache()    Clear the merged resource cache
 """
 
 from docmirror.configs.scene.loader import (
     compute_keyword_uniqueness,
     get_plugin_scene_keywords,
+    get_scene_aliases,
     get_scene_excludes,
     get_scene_includes,
     get_scene_specs,
@@ -34,6 +35,7 @@ from docmirror.configs.scene.loader import (
 __all__ = [
     "compute_keyword_uniqueness",
     "get_plugin_scene_keywords",
+    "get_scene_aliases",
     "get_scene_excludes",
     "get_scene_includes",
     "get_scene_specs",

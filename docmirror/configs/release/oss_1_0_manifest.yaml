@@ -1,4 +1,4 @@
-version: "1.0.11"
+version: "1.0.12"
 position:
   category: "Commercial Document Trust Layer"
   tagline: "Parse. Prove. Trust."
@@ -15,6 +15,7 @@ install_contract:
     - ["docmirror", "doctor"]
   public_all_extra_members:
     - pdf
+    - pdfua
     - ocr
     - layout
     - table

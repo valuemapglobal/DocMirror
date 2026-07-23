@@ -1,0 +1,32 @@
+schema_version: 1
+
+provider:
+  id: business_license
+  domain_name: business_license
+  edition: community
+  version: community-1
+  implementation: docmirror.plugins.business_license.community_plugin:plugin
+
+capabilities:
+  premium: true
+  community_order: 5
+  generic_fallback: false
+
+routing:
+  enhance_mode: standard
+
+classification:
+  aliases: []
+
+resources:
+  key_synonyms: resources/key_synonyms.yaml
+  field_schema: resources/field_schema.yaml
+  scene_keywords: resources/scene_keywords.yaml
+  domain_contract: resources/domain_contract.yaml
+  ocr_corrections: resources/ocr_corrections.yaml
+  post_extract: resources/post_extract.yaml
+
+fact_outputs:
+  document_type: business_license
+  datasets: []
+  domain_fact_prefix: business_license

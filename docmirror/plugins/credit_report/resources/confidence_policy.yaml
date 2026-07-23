@@ -1,0 +1,3 @@
+version: 1
+per_domain_overrides:
+  credit_report: {high: 0.90, medium: 0.70}

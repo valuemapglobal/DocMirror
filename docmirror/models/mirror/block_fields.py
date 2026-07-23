@@ -8,15 +8,12 @@ from __future__ import annotations
 from typing import Any
 
 
-def collect_kv_fields_from_blocks(parse_result: Any) -> dict[str, Any]:
-    """Read ``flow.key_values`` via ``pages[n].blocks`` S5 refs."""
+def collect_kv_fields_from_blocks(mirror: Any) -> dict[str, Any]:
+    """Read ``flow.key_values`` from an already projected Mirror payload."""
     from docmirror.models.mirror.vnext_access import pages as vnext_pages
     from docmirror.models.mirror.vnext_access import resolve_ref
 
     fields: dict[str, Any] = {}
-    if not hasattr(parse_result, "to_mirror_json_vnext"):
-        return fields
-    mirror = parse_result.to_mirror_json_vnext()
     if not isinstance(mirror, dict):
         return fields
 

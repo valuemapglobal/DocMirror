@@ -107,7 +107,7 @@ class HeaderInferrerMiddleware(BaseMiddleware):
                         result.record_mutation(
                             middleware_name=self.name,
                             target_block_id=table_block.table_id or f"table_{t_idx}",
-                            field_changed=f"pages[{p_idx}].tables[{t_idx}].headers",
+                            field_changed=f"pages[{p_idx}].tables[{t_idx}]",
                             old_value=None,
                             new_value=f"inferred_row_{inferred_header_idx}",
                             reason=f"Column signature inference (confidence={signature_confidence:.2f})",
@@ -118,14 +118,23 @@ class HeaderInferrerMiddleware(BaseMiddleware):
                             result.record_mutation(
                                 middleware_name=self.name,
                                 target_block_id=table_block.table_id or f"table_{t_idx}",
-                                field_changed=f"pages[{p_idx}].tables[{t_idx}].headers",
+                                field_changed=f"pages[{p_idx}].tables[{t_idx}]",
                                 old_value=f"row_{current_header_idx}",
                                 new_value=f"inferred_row_{inferred_header_idx}",
                                 reason="Signature inference override",
                             )
                 elif table_block.headers and not _is_header_row([str(value or "") for value in table_block.headers]):
+                    old_metadata = dict(table_block.metadata or {})
                     table_block.metadata["preserve_headers"] = False
                     table_block.metadata["header_source"] = "data_row"
+                    result.record_mutation(
+                        middleware_name=self.name,
+                        target_block_id=table_block.table_id or f"table_{t_idx}",
+                        field_changed=f"pages[{p_idx}].tables[{t_idx}].metadata",
+                        old_value=old_metadata,
+                        new_value=dict(table_block.metadata),
+                        reason="header candidate is structurally a data row",
+                    )
 
                 tables_processed += 1
 

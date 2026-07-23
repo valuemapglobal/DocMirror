@@ -1,0 +1,3 @@
+version: 1
+per_domain_overrides:
+  vat_invoice: {high: 0.90, medium: 0.70}

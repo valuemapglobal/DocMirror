@@ -31,9 +31,12 @@ def _ensure_supplements_loaded() -> None:
     if _LOADED:
         return
     _LOADED = True
-    from docmirror.layout.segment.page_blocks import detect_pre_grid_field_supplements
+    # Provider discovery imports built-in and external plugin implementations.
+    # Plugins register any evidence-only supplements through this existing
+    # extension point; Core must not import or register domain detectors.
+    from docmirror.plugins._runtime.plugin_registry import registry
 
-    register_local_structure_supplement(detect_pre_grid_field_supplements)
+    registry.list_providers()
 
 
 def supplement_local_structure_candidates(

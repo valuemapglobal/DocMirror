@@ -16,7 +16,7 @@ from typing import Any
 from uuid import uuid4
 
 from docmirror.models.mirror.completeness import build_mirror_completeness
-from docmirror.models.schemas.registry import validate_projection_payload
+from docmirror.models.schemas.registry import projection_schema_manifest, validate_projection_payload
 from docmirror.runtime.serialization import dumps_json
 from docmirror.server.artifact_writer import ArtifactWriter
 from docmirror.server.edition_availability import build_edition_availability
@@ -111,10 +111,13 @@ def write_outputs(
     task_dir.mkdir(parents=True, exist_ok=True)
 
     document_id = f"doc_{task_id}_{file_id}"
-    fact_fingerprint = result.fact_fingerprint() if hasattr(result, "fact_fingerprint") else ""
-    file_path = file_path or getattr(result, "file_path", "") or ""
+    from docmirror.models.sealed import seal_parse_result
+
+    sealed = seal_parse_result(result)
+    manifest_view = sealed.to_read_view()
+    file_path = file_path or getattr(manifest_view, "file_path", "") or ""
     projections = build_all_projections(
-        result,
+        sealed,
         file_path=file_path,
         on_progress=on_progress,
     )
@@ -152,15 +155,16 @@ def write_outputs(
         written[edition] = out_path
 
     # --- Write the standard manifest ---
-    _manifest_entity = getattr(result, "entities", None)
+    _manifest_entity = getattr(manifest_view, "entities", None)
     _manifest_doc_type = getattr(_manifest_entity, "document_type", "") if _manifest_entity else ""
-    _manifest_status = getattr(result, "status", "")
+    _manifest_status = getattr(manifest_view, "status", "")
     manifest = {
         "task_id": task_id,
         "document_id": document_id,
         "file_id": file_id,
         "status": _manifest_status.value if hasattr(_manifest_status, "value") else str(_manifest_status),
         "version": 2,
+        "schemas": projection_schema_manifest(),
         "created_at": datetime.now().isoformat(),
         "artifacts": {edition: path.name for edition, path in written.items()},
         "edition_availability": build_edition_availability(
@@ -168,12 +172,12 @@ def write_outputs(
             projections=projections,
             document_type=_manifest_doc_type,
         ),
-        "mirror_completeness": build_mirror_completeness(result),
+        "mirror_completeness": build_mirror_completeness(manifest_view),
     }
     if include_manifest:
         writer.write_json("manifest.json", manifest)
 
-    if fact_fingerprint and result.fact_fingerprint() != fact_fingerprint:
-        raise RuntimeError("Writer boundary violation: ParseResult facts were modified")
+    if not sealed.verify_integrity():
+        raise RuntimeError("Writer boundary violation: sealed ParseResult integrity failed")
 
     return task_id, written

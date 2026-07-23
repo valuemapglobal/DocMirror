@@ -26,7 +26,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from docmirror.plugins._runtime.plugin_registry import DomainPlugin
+from docmirror.plugin_api import DomainPlugin, FactPatch
 
 
 class VATInvoicePlugin(DomainPlugin):
@@ -72,11 +72,11 @@ class VATInvoicePlugin(DomainPlugin):
     def recognize(self, parse_result, text: str = ""):
         from pathlib import Path
 
-        from docmirror.domains.vat_invoice import VATInvoiceSemanticSolver
         from docmirror.models.edition_serializer import EditionContext, edition_serializer
         from docmirror.models.entities.domain_result import DomainExtractionResult, DomainQuality
         from docmirror.plugins._base.kv_community_enrich import enrich_vat_invoice_output
         from docmirror.plugins._base.kv_community_extract import extract_kv_community_output
+        from docmirror.plugins.vat_invoice.semantic_solver import VATInvoiceSemanticSolver
 
         solution = VATInvoiceSemanticSolver().solve(full_text=text, parse_result=parse_result)
         fields, canonical_warnings = _canonicalize_vat_fields(
@@ -151,6 +151,52 @@ class VATInvoicePlugin(DomainPlugin):
             full_text=text,
         )
         return enrich_vat_invoice_output(out)
+
+    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+        """Run the VAT semantic solver and return facts without an edition."""
+        from docmirror.plugins._base.kv_community_extract import extract_kv_fact_patch
+        from docmirror.plugins.vat_invoice.semantic_solver import VATInvoiceSemanticSolver
+
+        solution = VATInvoiceSemanticSolver().solve(full_text=text, parse_result=parse_result)
+        fields, canonical_warnings = _canonicalize_vat_fields(
+            dict((solution.canonical_model or {}).get("fields") or {})
+        )
+        fields.update(_vat_visual_facts(parse_result))
+        if not fields:
+            return extract_kv_fact_patch(
+                self,
+                parse_result,
+                identity_specs=self.identity_fields,
+                full_text=text,
+            )
+
+        line_items = [
+            {
+                **dict(item),
+                "record_id": str(item.get("record_id") or f"line_items:r{index:06d}"),
+            }
+            for index, item in enumerate((solution.canonical_model or {}).get("line_items") or [], start=1)
+            if isinstance(item, dict)
+        ]
+        field_details = _build_field_provenance(parse_result, fields)
+        warnings = [
+            *canonical_warnings,
+            *(issue.split(":", 1)[-1] for issue in _solution_issues(solution)),
+        ]
+        return FactPatch(
+            provider_id=self.domain_name,
+            document_type=self.domain_name,
+            entity_fields={"document_date": fields["invoice_date"]} if fields.get("invoice_date") else {},
+            domain_facts={
+                **fields,
+                "field_details": field_details,
+                "summary": dict((solution.canonical_model or {}).get("summary") or {}),
+            },
+            datasets={"line_items": line_items} if line_items else {},
+            warnings=tuple(dict.fromkeys(str(item) for item in warnings if str(item))),
+            confidence=float(solution.confidence),
+            reason="native VAT semantic facts",
+        )
 
 
 def _solution_issues(solution) -> list[str]:

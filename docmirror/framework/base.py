@@ -69,6 +69,23 @@ class BaseParser(ABC):
         """
         pr = await self.to_parse_result(file_path, **context)
 
+        # ParsePolicy belongs to the canonical pipeline, not to individual
+        # adapter implementations. Attach it centrally so registry backends,
+        # fallbacks, and built-in adapters have identical force/prefer semantics.
+        from docmirror.input.canonical import attach_parse_policy
+
+        parse_policy = context.get("parse_policy")
+        parse_policy_dict = context.get("parse_policy_dict")
+        if parse_policy_dict is None and parse_policy is not None and hasattr(parse_policy, "to_dict"):
+            parse_policy_dict = parse_policy.to_dict()
+        attach_parse_policy(
+            pr,
+            doc_type_hint=context.get("doc_type_hint"),
+            doc_type_hint_strength=context.get("doc_type_hint_strength"),
+            parse_policy=parse_policy_dict,
+            parse_policy_fingerprint=context.get("parse_policy_fingerprint"),
+        )
+
         # ── Safety net: fill provenance if adapter didn't ──
         # We deliberately avoid a full SHA256 here (that was already done
         # by InputAcceptance).  A lightweight stat-only fallback

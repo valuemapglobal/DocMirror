@@ -1,14 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Community Bundle v3 projection and renderers.
-
-Community JSON is the self-contained structured API and embeds every logical
-dataset record. Markdown is the complete human-readable review projection.
-Per-dataset wide CSVs are parallel analysis projections, while the audit CSV
-preserves field-level normalized/raw values and evidence. Every artifact is
-projected directly from one ``ParseResult``.
-"""
+"""Community Bundle v3 JSON, Markdown, dataset CSV, and audit CSV projection."""
 
 from __future__ import annotations
 
@@ -58,8 +51,6 @@ _NON_DATASET_KEYS = frozenset(
         "datasets",
         "data_dictionary",
         "source_content",
-        "credit_summary",
-        "credit_extraction_audit",
         "extraction_audit",
     }
 )
@@ -80,21 +71,6 @@ _INTERNAL_RECORD_KEYS = frozenset(
         "row_id",
     }
 )
-
-_KNOWN_DATASET_LABELS = {
-    "records": "结构化记录",
-    "transactions": "交易流水",
-    "line_items": "商品与服务明细",
-    "credit_accounts": "信贷账户",
-    "credit_lines": "授信额度明细",
-    "repayment_records": "还款记录",
-    "overdue_records": "逾期记录",
-    "inquiry_records": "查询记录",
-    "public_records": "公共记录",
-    "residence_records": "居住信息",
-    "employment_records": "职业信息",
-    "repayment_liability_records": "相关还款责任信息",
-}
 
 _TYPE_MAP = {
     "number": "decimal",
@@ -221,18 +197,27 @@ def _source_hash(file_path: str) -> str:
     return f"sha256:{digest.hexdigest()}"
 
 
-def _domain(domain_view: dict[str, Any]) -> str:
+def _projection_policy(domain: str) -> dict[str, Any]:
+    from docmirror.configs.scene.loader import get_scene_aliases
+    from docmirror.plugins._runtime.plugin_registry import registry
+
+    provider_id = get_scene_aliases().get(domain, domain)
+    manifest = registry.get_provider_manifest(provider_id)
+    if manifest is not None:
+        return dict(manifest.get("projection") or {})
+    return {}
+
+
+def _domain(domain_view: dict[str, Any], projection: dict[str, Any]) -> str:
     document = domain_view.get("document") if isinstance(domain_view.get("document"), dict) else {}
     base = str(document.get("document_type") or document.get("domain") or "generic")
-    if base == "credit_report":
-        properties = document.get("properties") if isinstance(document.get("properties"), dict) else {}
-        subtype = str(properties.get("report_subtype") or "").lower()
-        if subtype == "enterprise":
-            return "enterprise_credit_report"
-        if subtype in {"personal_detail", "personal_detailed", "detailed", "personal"}:
-            return "personal_credit_report_detailed"
-        if subtype in {"personal_brief", "brief"}:
-            return "personal_credit_report_brief"
+    variant = projection.get("document_variants") or {}
+    properties = document.get("properties") if isinstance(document.get("properties"), dict) else {}
+    field_name = str(variant.get("field") or "")
+    value = str(properties.get(field_name) or "").lower()
+    mapped = (variant.get("values") or {}).get(value)
+    if mapped:
+        return str(mapped)
     return base or "generic"
 
 
@@ -261,25 +246,19 @@ def _field_descriptor(key: str, dictionary: dict[str, Any], value: Any) -> tuple
     return value_type, str(unit) if unit not in (None, "") else None
 
 
-def _section_type(title: str, raw_type: Any = "") -> str:
+def _section_type(title: str, projection: dict[str, Any], raw_type: Any = "") -> str:
     if raw_type:
         return _slug(raw_type, "section")
-    aliases = (
-        ("信息概要", "credit_summary"),
-        ("基本信息", "basic_information"),
-        ("身份", "identity"),
-        ("信贷", "credit_details"),
-        ("还款", "repayment_history"),
-        ("公共", "public_records"),
-        ("查询", "inquiries"),
-        ("交易", "transactions"),
-        ("发票", "invoice"),
-        ("审计意见", "audit_opinion"),
-    )
-    return next((kind for marker, kind in aliases if marker in title), _slug(title, "section"))
+    markers = projection.get("section_type_markers") or {}
+    return next((str(kind) for marker, kind in markers.items() if str(marker) in title), _slug(title, "section"))
 
 
-def _normalize_section(raw: dict[str, Any], index: int, page_count: int) -> dict[str, Any]:
+def _normalize_section(
+    raw: dict[str, Any],
+    index: int,
+    page_count: int,
+    projection: dict[str, Any],
+) -> dict[str, Any]:
     title = str(raw.get("title") or raw.get("name") or f"章节 {index}")
     section_id = str(raw.get("id") or f"sec_{_slug(raw.get('type') or title, 'section')}_{index}")
     start = raw.get("source_page_start") or raw.get("page_start") or raw.get("logical_page_start")
@@ -297,7 +276,7 @@ def _normalize_section(raw: dict[str, Any], index: int, page_count: int) -> dict
     return {
         "id": section_id,
         "title": title,
-        "type": _section_type(title, raw.get("type")),
+        "type": _section_type(title, projection, raw.get("type")),
         "page_range": [start_i, end_i],
         "items": [],
         "groups": [],
@@ -445,7 +424,12 @@ def _has_evidence(value: Any) -> bool:
     )
 
 
-def _dataset_section_id(data: dict[str, Any], key: str, sections: list[dict[str, Any]]) -> str:
+def _dataset_section_id(
+    data: dict[str, Any],
+    key: str,
+    sections: list[dict[str, Any]],
+    projection: dict[str, Any],
+) -> str:
     path = f"/data/{key}"
     for table in data.get("tables") or []:
         if not isinstance(table, dict):
@@ -455,14 +439,7 @@ def _dataset_section_id(data: dict[str, Any], key: str, sections: list[dict[str,
         if str(ref_path or "") == path and table.get("section_id"):
             return str(table["section_id"])
     if sections:
-        preferred = {
-            "credit_accounts": ("credit",),
-            "credit_lines": ("credit",),
-            "repayment_records": ("credit", "repayment"),
-            "overdue_records": ("credit", "repayment"),
-            "public_records": ("public",),
-            "inquiry_records": ("inquir",),
-        }.get(key, ())
+        preferred = tuple(str(marker) for marker in (projection.get("section_markers") or {}).get(key, ()))
         for marker in preferred:
             for section in sections:
                 if marker in str(section.get("type") or ""):
@@ -471,34 +448,40 @@ def _dataset_section_id(data: dict[str, Any], key: str, sections: list[dict[str,
     return ""
 
 
-def _payment_source_row_count(result: Any) -> int:
-    """Count physical payment records without relying on plugin output."""
-    directions = {"收入", "支出", "其他", "不计收支"}
+def _physical_marker_row_count(result: Any, markers: set[str]) -> int:
+    """Count source rows whose first cell matches a plugin-declared marker."""
     count = 0
     for page in getattr(result, "pages", None) or []:
         for table in getattr(page, "tables", None) or []:
             header = list(getattr(table, "headers", None) or [])
-            if header and re.sub(r"\s+", "", str(header[0] or "")) in directions:
+            if header and re.sub(r"\s+", "", str(header[0] or "")) in markers:
                 count += 1
             for row in getattr(table, "rows", None) or []:
                 cells = list(getattr(row, "cells", None) or [])
                 first = re.sub(r"\s+", "", str(getattr(cells[0], "text", "") or "")) if cells else ""
-                if first in directions:
+                if first in markers:
                     count += 1
     return count
 
 
-def _dataset_completeness(result: Any, domain: str, key: str, emitted: int) -> dict[str, Any]:
+def _dataset_completeness(
+    result: Any,
+    key: str,
+    emitted: int,
+    projection: dict[str, Any],
+) -> dict[str, Any]:
     """Resolve an independent expected count where the physical contract permits it."""
-    if key == "records" and domain in {"alipay_payment", "wechat_payment"}:
-        expected = _payment_source_row_count(result)
+    policy = (projection.get("completeness") or {}).get(key) or {}
+    if policy.get("basis") == "physical_marker_rows":
+        markers = {re.sub(r"\s+", "", str(value)) for value in policy.get("first_column_values") or []}
+        expected = _physical_marker_row_count(result, markers)
         if expected > 0:
             return {
                 "expected_row_count": expected,
                 "emitted_row_count": emitted,
                 "omitted_row_count": max(0, expected - emitted),
                 "verified": expected == emitted,
-                "basis": "physical_payment_rows",
+                "basis": str(policy.get("public_basis") or "physical_marker_rows"),
             }
     return {
         "expected_row_count": emitted,
@@ -790,7 +773,12 @@ def project_community_bundle(
     file_id: str = "001",
     document_id: str = "",
 ) -> CommunityBundle:
-    """Project Community Bundle v3 directly from one ParseResult."""
+    """Project Community Bundle v3 from an isolated sealed-result read view."""
+    from docmirror.models.sealed import SealedParseResult
+
+    if not isinstance(result, SealedParseResult):
+        raise TypeError(f"project_community_bundle expects SealedParseResult; got {type(result).__name__}")
+    result = result.to_read_view()
     entities = getattr(result, "entities", None)
     extension = dict(getattr(entities, "domain_specific", None) or {})
     field_details = extension.get("field_details") if isinstance(extension.get("field_details"), dict) else {}
@@ -871,7 +859,8 @@ def project_community_bundle(
     domain_document = domain_view.get("document") if isinstance(domain_view.get("document"), dict) else {}
     data = domain_view.get("data") if isinstance(domain_view.get("data"), dict) else {}
     dictionary = data.get("data_dictionary") if isinstance(data.get("data_dictionary"), dict) else {}
-    domain = _domain(domain_view)
+    projection = _projection_policy(detected_type)
+    domain = _domain(domain_view, projection)
     page_count = int(domain_document.get("page_count") or len(getattr(result, "pages", []) or []))
     path = Path(file_path) if file_path else None
     file_name = path.name if path else str(domain_document.get("document_name") or "")
@@ -897,7 +886,9 @@ def project_community_bundle(
         "units": dict(units),
     }
     raw_sections = [section for section in (data.get("sections") or []) if isinstance(section, dict)]
-    sections = [_normalize_section(raw, index, page_count) for index, raw in enumerate(raw_sections, start=1)]
+    sections = [
+        _normalize_section(raw, index, page_count, projection) for index, raw in enumerate(raw_sections, start=1)
+    ]
     if not sections:
         sections = [
             {
@@ -933,10 +924,12 @@ def project_community_bundle(
             item["unit"] = unit
         field_section["items"].append(item)
 
-    credit_summary = data.get("credit_summary") if isinstance(data.get("credit_summary"), dict) else {}
-    if credit_summary:
-        summary_section = next((section for section in sections if section["type"] == "credit_summary"), sections[0])
-        for key, value in credit_summary.items():
+    for fact_key, section_type in (projection.get("summary_facts") or {}).items():
+        summary_fact = data.get(fact_key) if isinstance(data.get(fact_key), dict) else {}
+        if not summary_fact:
+            continue
+        summary_section = next((section for section in sections if section["type"] == section_type), sections[0])
+        for key, value in summary_fact.items():
             if value in (None, "", [], {}):
                 continue
             if isinstance(value, dict):
@@ -969,31 +962,32 @@ def project_community_bundle(
                 )
 
     dataset_candidates: list[tuple[str, list[Any]]] = []
+    internal_facts = {str(key) for key in (projection.get("internal_facts") or ())}
     for key, value in data.items():
-        if key.startswith("_") or key in _NON_DATASET_KEYS or not isinstance(value, list) or not value:
+        if (
+            key.startswith("_")
+            or key in _NON_DATASET_KEYS
+            or key in internal_facts
+            or not isinstance(value, list)
+            or not value
+        ):
             continue
         if all(isinstance(item, dict) for item in value):
             dataset_candidates.append((str(key), value))
     datasets: list[CommunityDataset] = []
     csv_paths: set[str] = set()
     for key, rows in dataset_candidates:
-        public_name = (
-            "transactions"
-            if key == "records" and domain in {"alipay_payment", "wechat_payment", "bank_statement"}
-            else key
-        )
+        public_name = str((projection.get("dataset_aliases") or {}).get(key) or key)
         dataset_id = f"ds_{_slug(public_name, 'dataset')}"
-        section_id = _dataset_section_id(data, key, sections)
-        label = _KNOWN_DATASET_LABELS.get(public_name, public_name.replace("_", " "))
+        section_id = _dataset_section_id(data, key, sections, projection)
+        label = str((projection.get("dataset_labels") or {}).get(public_name) or public_name.replace("_", " "))
         csv_path = f"{file_id}_datasets/{_slug(public_name, 'dataset')}.csv"
         if csv_path in csv_paths:
             raise ValueError(f"dataset CSV filename collision: {csv_path}")
         csv_paths.add(csv_path)
-        dataset_type = (
-            "transaction"
-            if public_name == "transactions"
-            else _slug(public_name.removesuffix("_records") or "records", "dataset")
-        )
+        dataset_type = str((projection.get("dataset_types") or {}).get(public_name) or "")
+        if not dataset_type:
+            dataset_type = _slug(public_name.removesuffix("_records") or "records", "dataset")
         public = {
             "id": dataset_id,
             "name": public_name,
@@ -1007,7 +1001,7 @@ def project_community_bundle(
             "schema_version": "1.0",
             "status": "complete" if rows else "empty",
             "columns": _dataset_columns(rows, dictionary, key),
-            "completeness": _dataset_completeness(result, domain, key, len(rows)),
+            "completeness": _dataset_completeness(result, key, len(rows), projection),
         }
         datasets.append(CommunityDataset(public=public, rows=rows))
         for section in sections:

@@ -2,47 +2,9 @@
 # Canonical ParseResult facts are finalized before projections and must never
 # be mutated by these hooks.
 #
-# credit_report_sections: runs for community + enterprise when splitter available;
-# community credit_report_community also emits lightweight section skeleton in-plugin.
-
 version: 1
 
 hooks:
-  edition_table_rebuild:
-    module: docmirror.plugins._runtime.post_extract.hooks.edition_table_rebuild
-    class: EditionTableRebuildHook
-    when: "document_type == 'bank_statement'"
-    mutates_facts: false
-    provides: [enrichment.bank_table_rebuild]
-
-  credit_report_sections:
-    module: docmirror.plugins._runtime.post_extract.hooks.credit_sections
-    class: CreditReportSectionsHook
-    when: "document_type == 'credit_report'"
-    mutates_facts: false
-    provides: [data.sections]
-
-  community_precision:
-    module: docmirror.plugins._runtime.post_extract.hooks.community_precision
-    class: CommunityPrecisionHook
-    when: "edition == 'community'"
-    mutates_facts: false
-    provides: [status.warnings]
-
-  community_business_projection:
-    module: docmirror.plugins._runtime.post_extract.hooks.community_business
-    class: CommunityBusinessProjectionHook
-    when: "edition == 'community'"
-    mutates_facts: false
-    provides:
-      - business
-      - quality
-      - quality.issues
-      - data.field_details
-      - data.data_dictionary
-      - data.datasets
-      - validation.domain_contract
-
   plugin_trust_projection:
     module: docmirror.plugins._runtime.post_extract.hooks.trust_projection
     class: PluginTrustProjectionHook

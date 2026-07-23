@@ -7,14 +7,13 @@ import json
 
 from docmirror.models.entities.parse_result import DocumentEntities, PageContent, ParseResult
 from docmirror.models.mirror.page_evidence_bundles import domain_specific_with_page_bundles, page_evidence_bundle
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 
 
 def _large_bundle(page: int = 4) -> dict:
     lines = [{"content": f"line-{i}", "bbox": [1, i, 10, i + 1], "confidence": 0.9} for i in range(200)]
-    tokens = [
-        {"text": f"t{i}", "bbox": [1, i, 2, i + 1], "confidence": 0.9, "line_id": f"l{i}"}
-        for i in range(800)
-    ]
+    tokens = [{"text": f"t{i}", "bbox": [1, i, 2, i + 1], "confidence": 0.9, "line_id": f"l{i}"} for i in range(800)]
     evidence = {
         "page": page,
         "page_width": 800.0,
@@ -39,7 +38,7 @@ def test_forensic_mirror_strips_inline_ocr_from_evidence():
             domain_specific=domain_specific_with_page_bundles(_large_bundle()),
         ),
     )
-    api = pr.to_mirror_json_vnext(mirror_level="forensic", include_text=False)
+    api = project_mirror(seal_parse_result(pr), mirror_level="forensic", include_text=False)
     payload = json.dumps(api, ensure_ascii=False)
     doc = api
     smg = doc.get("scanned_micro_grid_evidence") or []

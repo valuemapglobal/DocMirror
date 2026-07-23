@@ -5,7 +5,7 @@ import docmirror.plugins.credit_report.structure_projectors  # noqa: F401 — re
 from docmirror.ocr.structure_project import (
     completeness_level,
     finalize_partial_record,
-    infer_schema_hint,
+    infer_schema_hint_v2,
     project_structure,
     projection_confidence,
 )
@@ -75,7 +75,7 @@ def test_partial_field_grid_account_projects_via_registry():
     assert direct["audit"]["projection_completeness"] == "partial"
     assert direct["account_status"]["value"] == "结清"
 
-    hint = infer_schema_hint(structure)
+    hint = infer_schema_hint_v2(structure, document_type="credit_report")
     assert hint == "credit.field_grid.account"
     projected = project_structure(structure, page=4, schema_hint=hint)
     assert not projected.rejected

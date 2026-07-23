@@ -15,6 +15,8 @@ from docmirror.models.entities.parse_result import (
     TextBlock,
     TextLevel,
 )
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 
 
 def test_bank_statement_page_has_s2_block_no_regions():
@@ -37,7 +39,7 @@ def test_bank_statement_page_has_s2_block_no_regions():
         ],
         entities=DocumentEntities(document_type="bank_statement", content_type="table_dominant"),
     )
-    api = pr.to_mirror_json_vnext(mirror_level="standard")
+    api = project_mirror(seal_parse_result(pr), mirror_level="standard")
     page = api["pages"][0]
     assert page.get("regions") == []
     s2_blocks = [block for block in page.get("blocks") or [] if block.get("morphology") == "S2"]

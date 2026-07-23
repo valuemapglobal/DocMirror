@@ -21,6 +21,7 @@ Exposed tools:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -166,24 +167,24 @@ def _build_fastmcp() -> Any:
         name="parse_document",
         description=_TOOL_DEFINITIONS[0]["description"],
     )
-    def parse_document(
+    async def parse_document(
         file_path: str,
         mode: str = "auto",
     ) -> str:
         """Parse a document file and return TaskResult JSON."""
-        return _parse_document_impl(file_path, mode)
+        return await asyncio.to_thread(_parse_document_impl, file_path, mode)
 
     @mcp.tool(
         name="parse_document_from_bytes",
         description=_TOOL_DEFINITIONS[1]["description"],
     )
-    def parse_document_from_bytes(
+    async def parse_document_from_bytes(
         data: str,
         filename: str,
         mode: str = "auto",
     ) -> str:
         """Parse a document from base64-encoded bytes."""
-        return _parse_bytes_impl(data, filename, mode)
+        return await asyncio.to_thread(_parse_bytes_impl, data, filename, mode)
 
     return mcp
 

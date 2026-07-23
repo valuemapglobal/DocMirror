@@ -1,0 +1,15 @@
+version: 1
+hooks:
+  credit_report_precision:
+    module: docmirror.plugins._runtime.post_extract.hooks.community_precision
+    class: CommunityPrecisionHook
+    when: "edition == 'community' and document_type == 'credit_report'"
+    mutates_facts: false
+    provides: [status.warnings]
+
+  credit_report_sections:
+    module: docmirror.plugins._runtime.post_extract.hooks.credit_sections
+    class: CreditReportSectionsHook
+    when: "document_type == 'credit_report'"
+    mutates_facts: false
+    provides: [data.sections]

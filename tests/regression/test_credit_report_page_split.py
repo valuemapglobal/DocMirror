@@ -9,6 +9,8 @@ import pytest
 
 from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.input.extraction.extractor import CoreExtractor
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 
 _FIXTURE = Path("tests/fixtures/credit_report/洪晓鑫征信报告2025.11.05.pdf")
 
@@ -35,15 +37,13 @@ def test_real_credit_report_rotated_spreads_expand_to_eleven_logical_pages():
     assert "个人信用报告" in result.full_text
     assert "第11页" in result.full_text.replace(" ", "")
 
-    table_pages = {
-        page.page_number for page in result.pages if page.tables
-    }
+    table_pages = {page.page_number for page in result.pages if page.tables}
     assert table_pages == set(range(1, 10))
     assert all(not page.tables for page in result.pages[9:])
 
     assert len(result.raw_text) >= 10_000
     assert len(result.full_text) >= 9_000
-    mirror = result.to_mirror_json_vnext(source_filename=str(_FIXTURE.resolve()))
+    mirror = project_mirror(seal_parse_result(result), source_filename=str(_FIXTURE.resolve()))
     assert mirror["mirror"]["schema_version"] == "1.0.7"
     assert mirror["source"]["page_count"] == 6
     assert len(mirror["source"]["sha256"]) == 64

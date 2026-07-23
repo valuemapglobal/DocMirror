@@ -13,14 +13,16 @@ Pipeline role: ``header_resolve`` and style parsers call ``match_institution`` a
 Key exports: ``get_bank_layout_profile``, ``match_institution``,
 ``normalize_table_headers``.
 
-Dependencies: ``core.profile.registry``, ``configs.models.layout_profile``,
-``configs/yaml/bank_statement/institution_overrides.yaml``.
+Dependencies: ``layout.profile.registry``, ``configs.models.layout_profile``, and
+the plugin-owned ``resources/institution_overrides.yaml``.
 """
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from functools import lru_cache
-from pathlib import Path
+from importlib.resources import files
 from typing import Any
 
 import yaml
@@ -33,17 +35,86 @@ from docmirror.layout.profile.registry import (
     resolve_header_aliases,
 )
 
-_CONFIG_PATH = (
-    Path(__file__).resolve().parents[2] / "configs" / "yaml" / "bank_statement" / "institution_overrides.yaml"
-)
+_CONFIG_PATH = files(__package__).joinpath("resources").joinpath("institution_overrides.yaml")
+_INSTITUTIONS_PATH = files(__package__).joinpath("resources").joinpath("institutions.yaml")
 
 
 @lru_cache(maxsize=1)
 def _load_plugin_config() -> dict[str, Any]:
     if not _CONFIG_PATH.is_file():
         return {"source_profile": "borderless_ledger_bank", "overrides": {}}
-    with open(_CONFIG_PATH, encoding="utf-8") as fh:
+    with _CONFIG_PATH.open(encoding="utf-8") as fh:
         return yaml.safe_load(fh) or {}
+
+
+@lru_cache(maxsize=1)
+def _load_institution_registry() -> dict[str, dict[str, Any]]:
+    if not _INSTITUTIONS_PATH.is_file():
+        return {}
+    with _INSTITUTIONS_PATH.open(encoding="utf-8") as fh:
+        raw = yaml.safe_load(fh) or {}
+    institutions = raw.get("institutions") if isinstance(raw, dict) else None
+    return institutions if isinstance(institutions, dict) else {}
+
+
+def _header_area(full_text: str, max_chars: int = 5000) -> str:
+    column_keywords = (
+        "Transaction date",
+        "凭证Type",
+        "交易时间",
+        "序号",
+        "交易明细",
+        "记账Date",
+        "交易Type",
+    )
+    cut_pos = len(full_text)
+    for keyword in column_keywords:
+        index = full_text.find(keyword)
+        if 15 < index < cut_pos:
+            cut_pos = index
+    return full_text[: min(cut_pos, max_chars)]
+
+
+def detect_registered_institution(full_text: str) -> str | None:
+    """Resolve a bank display name using only this plugin's institution asset."""
+    registry = _load_institution_registry()
+    if not full_text or not registry:
+        return None
+    normalized = unicodedata.normalize("NFKC", full_text)
+    header_text = _header_area(normalized)
+
+    for info in registry.values():
+        keywords = info.get("identification_keywords") or []
+        if keywords and all(str(keyword) in normalized for keyword in keywords):
+            return str(info.get("name") or "") or None
+
+    bank_context = ("流水", "对账单", "交易明细", "银行", "账号", "账户")
+    if any(keyword in header_text for keyword in bank_context):
+        regional_patterns = (
+            r"([一-鿿]{2,6})(?:农商银行|农村商业银行|农商行)",
+            r"([一-鿿]{2,6})(?:城商银行|城市商业银行)",
+            r"([一-鿿]{2,6})(?:村镇银行)",
+        )
+        for pattern in regional_patterns:
+            match = re.search(pattern, header_text)
+            if match:
+                return match.group(0)
+
+    sorted_institutions = sorted(
+        registry.values(),
+        key=lambda info: len(str(info.get("name") or "")),
+        reverse=True,
+    )
+    for info in sorted_institutions:
+        name = str(info.get("name") or "")
+        if name and name in header_text:
+            return name
+    for info in registry.values():
+        name = str(info.get("name") or "")
+        for alias in info.get("aliases") or []:
+            if alias and str(alias) in header_text:
+                return name or str(alias)
+    return None
 
 
 def get_bank_layout_profile() -> LayoutProfile | None:

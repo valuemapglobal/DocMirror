@@ -1,0 +1,41 @@
+pack_id: builtin.legacy
+version: 1
+priority: -1000
+
+thresholds:
+  max_weighted_distance: 1.0
+  min_candidate_margin: 0.5
+
+confusions:
+  "0": [O, o]
+  "1": [I, l]
+  "2": [Z, z]
+  "5": [S, s]
+  "8": [B, b]
+  "牧": [收]
+  "牢": [率]
+  "木": [本]
+  "人": [入]
+  "忖": [付]
+  "村": [付]
+
+exact_rules:
+  - id: finance.operating_revenue
+    observed: 营业牧入
+    canonical: 营业收入
+    domains: [financial_report]
+    roles: [field_label, table_header, unknown]
+  - id: finance.debt_ratio
+    observed: 资产负债牢
+    canonical: 资产负债率
+    domains: [financial_report]
+    roles: [field_label, table_header, unknown]
+
+lexicons:
+  common_english:
+    roles: [text_line, field_label, table_header, institution, unknown]
+    terms: [Microsoft, Corporation, Company, Limited, transaction, Account, Invoice, Contract, Bank]
+  financial_report:
+    domains: [financial_report]
+    roles: [field_label, table_header]
+    terms: [营业收入, 营业成本, 净利润, 资产负债率, 流动比率, 速动比率, 货币资金, 应收账款, 应付账款, 资产总计, 负债合计]

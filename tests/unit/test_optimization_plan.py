@@ -8,6 +8,8 @@ from docmirror.models.schemas.registry import (
     load_projection_registry,
     validate_projection_payload,
 )
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 
 
 def test_mirror_quality_metric_layering():
@@ -15,7 +17,7 @@ def test_mirror_quality_metric_layering():
 
     pr = ParseResult(status=ResultStatus.SUCCESS, confidence=0.82)
     pr.trust = TrustResult(trust_score=0.91, validation_passed=True, forgery_reasons=[])
-    api = pr.to_mirror_json_vnext()
+    api = project_mirror(seal_parse_result(pr))
     quality = api["quality"]
     assert quality["overall"]["score"] == 1.0
     assert quality["overall"]["status"] == "pass"
@@ -54,7 +56,7 @@ def test_projection_schema_registry():
     assert "community" in registry
     assert get_projection_schema("mirror").version == "1.1"
     assert get_projection_schema("community").version == "3.0.0"
-    assert get_projection_schema("community").compatibility == "breaking-successor-to-2.2"
+    assert get_projection_schema("community").compatibility == "current-major; explicit-v2-exporter-required"
     assert get_projection_schema("community_v2").version == "2.2"
 
 
@@ -96,7 +98,7 @@ def test_projection_schema_runtime_validation():
 
 def test_community_22_schema_requires_consumer_contract_blocks():
     invalid = validate_projection_payload(
-        "community",
+        "community_v2",
         {
             "$schema": "https://valuemapglobal.github.io/DocMirror/schemas/edition_community.schema.json",
             "schema_version": "2.2",

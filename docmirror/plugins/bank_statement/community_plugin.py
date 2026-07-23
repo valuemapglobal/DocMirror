@@ -24,6 +24,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from docmirror.models.edition_serializer import EditionContext, edition_serializer
+from docmirror.plugin_api import FactPatch
 from docmirror.plugins._base.base_table_parser import BaseTableParser
 from docmirror.plugins._base.column_registry import ColumnMapping
 from docmirror.plugins._base.table_dec import build_table_dec
@@ -224,6 +225,45 @@ class BankStatementCommunityPlugin(BaseTableParser):
             parser_label="docmirror-community",
         )
         return edition_serializer(dec, context=edition_ctx)
+
+    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+        """Run the style-aware extractor and return canonical facts directly."""
+        result = run_bank_statement_extract(parse_result, text, self)
+        summary = self._build_summary(result.records)
+        patch = self._fact_patch_from_components(
+            identity_fields=result.identity_fields,
+            records=result.records,
+            raw_headers=[],
+            summary=summary,
+            period=summary.get("period", {}),
+            extra_domain_facts=result.style_meta.to_properties(),
+            warnings=result.warnings,
+            confidence=1.0 if result.style_meta.extract_status != "degraded" else 0.5,
+        )
+        identity_values: dict[str, str] = {}
+        for field_name, detail in result.identity_fields.items():
+            value = detail
+            if isinstance(detail, dict):
+                value = next(
+                    (
+                        detail.get(candidate)
+                        for candidate in ("normalized_value", "value", "raw_value")
+                        if detail.get(candidate) not in (None, "")
+                    ),
+                    None,
+                )
+            if value not in (None, ""):
+                identity_values[field_name] = str(value)
+        entity_fields = {
+            target: identity_values[source]
+            for source, target in (
+                ("account_holder", "subject_name"),
+                ("account_number", "subject_id"),
+                ("bank_name", "organization"),
+            )
+            if identity_values.get(source)
+        }
+        return patch.model_copy(update={"entity_fields": entity_fields})
 
 
 plugin = BankStatementCommunityPlugin()

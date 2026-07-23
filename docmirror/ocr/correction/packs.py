@@ -8,12 +8,13 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from functools import lru_cache
-from pathlib import Path
+from importlib.resources import files
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
 import yaml
 
-from docmirror.configs.paths import OCR_CORRECTION_PACKS_DIR, OCR_CORRECTIONS_YAML
+from docmirror.configs.paths import OCR_CORRECTION_PACKS_DIR
 from docmirror.ocr.correction.config_schema import ConfigIssue, validate_pack_data
 from docmirror.ocr.correction.language import normalize_country, normalize_language, normalize_locale
 from docmirror.ocr.correction.models import CorrectionContext
@@ -73,17 +74,12 @@ class CorrectionPackRegistry:
     def default(cls) -> CorrectionPackRegistry:
         packs: list[CorrectionPack] = []
         issues: list[ConfigIssue] = []
-        legacy = _read_yaml(OCR_CORRECTIONS_YAML)
-        if isinstance(legacy, dict):
-            packs.append(
-                CorrectionPack(
-                    pack_id="builtin.legacy",
-                    version=int(legacy.get("version") or 1),
-                    priority=-1000,
-                    data=legacy,
-                    path=str(OCR_CORRECTIONS_YAML),
-                )
-            )
+        for resource_path in _plugin_pack_resources():
+            raw = _read_yaml(resource_path)
+            pack_issues = validate_pack_data(raw, path=str(resource_path))
+            issues.extend(pack_issues)
+            if isinstance(raw, dict) and not any(issue.level == "error" for issue in pack_issues):
+                packs.append(_pack_from_data(raw, path=resource_path))
         if OCR_CORRECTION_PACKS_DIR.is_dir():
             for path in sorted(OCR_CORRECTION_PACKS_DIR.rglob("*.yaml")):
                 raw = _read_yaml(path)
@@ -182,7 +178,32 @@ class CorrectionPackRegistry:
         return [pack.summary() for pack in self.packs]
 
 
-def _pack_from_data(data: dict[str, Any], *, path: Path) -> CorrectionPack:
+def _plugin_pack_resources() -> list[Any]:
+    """Return OCR correction packs declared by bundled plugin manifests."""
+    resources: list[Any] = []
+    plugin_root = files("docmirror").joinpath("plugins")
+    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
+        manifest_path = plugin_dir.joinpath("plugin.yaml")
+        if not plugin_dir.is_dir() or not manifest_path.is_file():
+            continue
+        manifest = _read_yaml(manifest_path)
+        declared = manifest.get("resources") if isinstance(manifest, dict) else None
+        if not isinstance(declared, dict):
+            continue
+        for resource_name, relative_value in sorted(declared.items()):
+            if not str(resource_name).startswith("ocr_corrections"):
+                continue
+            relative_text = str(relative_value or "").strip()
+            relative_path = PurePosixPath(relative_text)
+            if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
+                continue
+            resource_path = plugin_dir.joinpath(*relative_path.parts)
+            if resource_path.is_file():
+                resources.append(resource_path)
+    return resources
+
+
+def _pack_from_data(data: dict[str, Any], *, path: Any) -> CorrectionPack:
     return CorrectionPack(
         pack_id=str(data["pack_id"]),
         version=int(data.get("version") or 1),
@@ -196,7 +217,7 @@ def _pack_from_data(data: dict[str, Any], *, path: Path) -> CorrectionPack:
     )
 
 
-def _read_yaml(path: Path) -> Any:
+def _read_yaml(path: Any) -> Any:
     try:
         return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError):

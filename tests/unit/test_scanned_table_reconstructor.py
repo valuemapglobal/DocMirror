@@ -6,6 +6,8 @@ from docmirror.input.extraction.scanned_table_reconstructor import (
     reconstruct_scanned_statement_table,
 )
 from docmirror.models.entities.domain import Block, PageLayout
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 
 
 def _ocr_block(text: str, x0: float, y0: float, x1: float, y1: float, idx: int) -> Block:
@@ -217,7 +219,7 @@ def test_reconstruct_scanned_bordered_table_records_merged_cell_span():
     result = assemble_parse_result((PageLayout(page_number=1, blocks=tuple(tables)),), {}, "")
     statuses = [cell.geometry_status for row in result.pages[0].tables[0].rows for cell in row.cells]
     assert set(statuses) <= {"exact", "derived"}
-    mirror = result.to_mirror_json_vnext()
+    mirror = project_mirror(seal_parse_result(result))
     grid = next(block for block in mirror["blocks"] if block["type"] == "table")["content"]["grid"]
     assert any(cell["row"] == 0 and cell["col"] == 0 and cell["col_span"] == 2 for cell in grid["cells"])
 

@@ -16,13 +16,11 @@ from docmirror.ocr.correction.packs import CorrectionPackRegistry
 from docmirror.ocr.correction.tokenizers import TokenizerRegistry
 from docmirror.ocr.correction.validator_registry import ValidatorRegistry
 from docmirror.ocr.correction.validators import (
-    repair_uscc_if_unique,
     validate_amount_text,
     validate_date_text,
 )
 
 _ASCII_TOKEN_RE = re.compile(r"[A-Za-z0-9]{4,}")
-_USCC_RE = re.compile(r"(?<![0-9A-Z])[0-9A-Z]{18}(?![0-9A-Z])", re.IGNORECASE)
 _IBAN_TOKEN_RE = re.compile(r"(?<![A-Z0-9])[A-Z]{2}[A-Z0-9]{13,32}(?![A-Z0-9])", re.IGNORECASE)
 
 
@@ -108,10 +106,10 @@ class SafeOCRCorrector:
             pack_version = 1
             reasons.append("unicode_normalization")
 
-        uscc_candidate = self._repair_uscc(candidate, effective_context)
-        if uscc_candidate != candidate:
-            candidate = uscc_candidate
-            rule_id = "code.uscc_checksum"
+        embedded_candidate, embedded_type = self._repair_embedded_identifiers(candidate, effective_context)
+        if embedded_candidate != candidate:
+            candidate = embedded_candidate
+            rule_id = f"code.{embedded_type}_checksum"
             pack_id = "builtin.validators"
             pack_version = 1
             reasons.extend(("character_confusion", "unique_checksum_candidate"))
@@ -183,15 +181,27 @@ class SafeOCRCorrector:
         self._lexicon_cache[key] = value
         return value
 
-    def _repair_uscc(self, text: str, context: CorrectionContext) -> str:
-        if context.role != "code" and context.domain != "business_license" and "统一社会信用代码" not in text:
-            return text
+    def _repair_embedded_identifiers(self, text: str, context: CorrectionContext) -> tuple[str, str | None]:
+        declarations = [
+            declaration
+            for pack in self.pack_registry.select(context)
+            for declaration in pack.data.get("embedded_identifiers") or []
+            if isinstance(declaration, dict)
+        ]
         out = text
-        for match in tuple(_USCC_RE.finditer(text)):
-            repaired = repair_uscc_if_unique(match.group(0))
-            if repaired and repaired != match.group(0).upper():
-                out = out.replace(match.group(0), repaired, 1)
-        return out
+        repaired_type: str | None = None
+        for declaration in declarations:
+            field_type = str(declaration.get("field_type") or "")
+            country = str(declaration.get("country") or context.country or "") or None
+            validator = self.validator_registry.resolve(field_type, country=country)
+            if validator is None or validator.repair is None or not validator.candidate_pattern:
+                continue
+            for match in tuple(re.finditer(validator.candidate_pattern, out, re.IGNORECASE)):
+                repaired = validator.repair(match.group(0))
+                if repaired and repaired != match.group(0).upper():
+                    out = out.replace(match.group(0), repaired, 1)
+                    repaired_type = field_type
+        return out, repaired_type
 
     def _repair_typed_value(
         self,

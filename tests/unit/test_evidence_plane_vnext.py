@@ -7,6 +7,8 @@ from docmirror.geometry.verification.crops import _page_number as verification_s
 from docmirror.models.entities.parse_result import CellValue, PageContent, ParseResult, TableBlock, TableRow, TextBlock
 from docmirror.models.mirror.core import MirrorCoreVNext
 from docmirror.models.mirror.vnext import EvidenceAtom, EvidenceStore
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 from tests.unit.test_mirror_json_vnext import _sample_parse_result
 
 
@@ -90,7 +92,7 @@ def test_table_geometry_is_owned_once_and_covered_cells_do_not_become_atoms():
         ]
     )
 
-    mirror = result.to_mirror_json_vnext()
+    mirror = project_mirror(seal_parse_result(result))
     atoms = [atom for atom in mirror["evidence"]["text_atoms"] if atom["source_kind"] == "parse_result_table_cell"]
     owners = [atom for atom in atoms if atom["metadata"].get("table_geometry_owner")]
     assert len(atoms) == 3
@@ -270,7 +272,7 @@ def test_mirror_source_uses_real_sha256_and_page_background_reference(tmp_path):
         ]
     )
 
-    mirror = result.to_mirror_json_vnext(source_filename=str(pdf_path))
+    mirror = project_mirror(seal_parse_result(result), source_filename=str(pdf_path))
 
     assert mirror["source"]["sha256"] == hashlib.sha256(pdf_path.read_bytes()).hexdigest()
     background = next(

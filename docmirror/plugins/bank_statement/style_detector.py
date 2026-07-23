@@ -4,7 +4,7 @@
 """
 Bank statement layout style detector.
 
-Scores Mirror table structure against ``style_families.yaml`` signatures to choose
+Scores Mirror table structure against package-local ``table_styles.yaml`` signatures to choose
 a primary ledger style (grid, compact merged, signed amount, borderless OCR, etc.)
 and an ordered parser chain. Detection is structural, not bank-name-only.
 
@@ -13,8 +13,8 @@ Pipeline role: invoked from ``bank_statement.community_plugin`` before
 
 Key exports: ``StyleDetectionResult``, ``BankStyleDetector``.
 
-Dependencies: ``bank_statement.context.StyleContext``, YAML config under
-``configs/yaml/bank_statement/style_families.yaml``.
+Dependencies: ``bank_statement.context.StyleContext`` and the plugin-owned
+``resources/table_styles.yaml``.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
-from pathlib import Path
+from importlib.resources import files
 from typing import Any
 
 import yaml
@@ -32,7 +32,7 @@ from docmirror.plugins.bank_statement.header_resolve import has_split_debit_cred
 from docmirror.plugins.bank_statement.institution_authority import resolve_institution_hint
 from docmirror.plugins.bank_statement.styles.compact_merged import table_has_compact_ledger
 
-_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "yaml" / "bank_statement" / "style_families.yaml"
+_CONFIG_PATH = files(__package__).joinpath("resources").joinpath("table_styles.yaml")
 _DATE_AMOUNT_CELL = re.compile(r"^\d{4}-\d{2}-\d{2}\d+\.\d{2}")
 _TIME_ONLY = re.compile(r"^\d{1,2}:\d{2}:\d{2}$")
 
@@ -51,7 +51,7 @@ class StyleDetectionResult:
 def _load_config() -> dict[str, Any]:
     if not _CONFIG_PATH.is_file():
         return {"styles": {}, "default_style": "grid_standard", "institution_keywords": {}}
-    with open(_CONFIG_PATH, encoding="utf-8") as fh:
+    with _CONFIG_PATH.open(encoding="utf-8") as fh:
         return yaml.safe_load(fh) or {}
 
 

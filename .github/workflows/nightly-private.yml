@@ -50,6 +50,23 @@ jobs:
             tests/integration/test_mep_golden.py \
             tests/integration/test_edition_golden.py \
             -v --tb=short
+      - name: Run mandatory P1 6+1 real-document Golden
+        run: python scripts/validate/validate_ga_6plus1.py --worker-matrix
+
+  p1-performance-baseline:
+    name: P1 long-document performance and RSS baseline
+    if: ${{ vars.DOCMIRROR_PRIVATE_GOLDEN_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install benchmark dependencies
+        run: python -m pip install -e ".[dev,pdf,ocr,langdetect]"
+      - name: Measure approved latency, peak RSS, timeout, and repeated facts
+        run: python scripts/validate/validate_performance_baseline.py --require-approved
 
   private-udtr-cross-format:
     name: Private UDTR real cross-format matrix

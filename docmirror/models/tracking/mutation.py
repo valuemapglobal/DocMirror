@@ -17,7 +17,7 @@ trace collections) and serialized via ``to_dict()`` for logging and persistence.
 Usage::
 
     mutation = Mutation.create(
-        middleware_name="EntityExtractor",
+        middleware_name="GenericEntityExtractor",
         target_block_id="blk_a1",
         field_changed="account_holder",
         old_value="",

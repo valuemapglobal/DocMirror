@@ -131,7 +131,7 @@ domains:
         low_quality: tests/fixtures-private/adversarial/ocr_trap_blurry.pdf
         edge_case: tests/fixtures-private/adversarial/missing_pages.pdf
     cases: []
-    note: 'VAT invoice currently at manual_target=candidate in community_core.yaml. Gate IDs are defined but no real fixtures
+    note: 'VAT invoice currently at manual_target=candidate in its plugin domain contract. Gate IDs are defined but no real fixtures
       exist yet; DGC compiler will reflect candidate status until fixtures are populated.
 
       '

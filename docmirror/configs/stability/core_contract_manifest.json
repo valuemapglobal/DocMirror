@@ -1,0 +1,11 @@
+{
+  "schema_version": "docmirror.stability_core_manifest.v1",
+  "candidate": "1.0.12",
+  "contract_sha256": "d10561837a2d121a12904fb628f5ad4e46960eb41aa3a92c804118bb61c38672",
+  "qualification": {
+    "status": "qualified",
+    "basis": "current-candidate technical gates",
+    "qualified_at": "2026-07-23",
+    "contract_sha256": "d10561837a2d121a12904fb628f5ad4e46960eb41aa3a92c804118bb61c38672"
+  }
+}

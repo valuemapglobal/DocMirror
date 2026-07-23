@@ -26,6 +26,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install release-gate dependencies
+        run: python -m pip install -e . pyyaml
       - name: Read package version
         id: release_version
         run: |
@@ -44,16 +46,12 @@ jobs:
             echo "Release tag must point to the current main commit" >&2
             exit 1
           }
-      - name: Verify current main CI for an owner-approved immediate release
-        if: steps.release_version.outputs.package_version == '1.0.8' || steps.release_version.outputs.package_version == '1.0.10' || steps.release_version.outputs.package_version == '1.0.11'
+      - name: Verify successful CI for the exact release commit
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/validate/validate_release_commit_ci.py
-      - name: Verify 14 complete UTC days of green main CI
-        if: steps.release_version.outputs.package_version != '1.0.8' && steps.release_version.outputs.package_version != '1.0.10' && steps.release_version.outputs.package_version != '1.0.11'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python scripts/validate/validate_ci_green_window.py --min-days 14
+      - name: Verify current technical stability evidence
+        run: python scripts/validate/validate_p1_stability_readiness.py --require-qualified
 
   publish:
     name: Build and publish to PyPI

@@ -63,7 +63,7 @@ def extract_credit_accounts_from_local_structure_evidence(
     evidence_pages: list[dict[str, Any]],
 ) -> dict[str, Any]:
     import docmirror.plugins.credit_report.structure_projectors  # noqa: F401
-    from docmirror.ocr.structure_project import infer_schema_hint, project_structure
+    from docmirror.ocr.structure_project import infer_schema_hint_v2, project_structure
 
     projected: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for evidence in evidence_pages or []:
@@ -73,7 +73,7 @@ def extract_credit_accounts_from_local_structure_evidence(
         for structure in evidence.get("structures") or []:
             if not isinstance(structure, dict):
                 continue
-            hint = infer_schema_hint(structure)
+            hint = infer_schema_hint_v2(structure, document_type="credit_report")
             if hint in {"credit.field_grid.account", "credit.label_value_graph.account"}:
                 account = project_structure(structure, page=page, schema_hint=hint).record
             else:
@@ -174,6 +174,13 @@ def _account_from_field_grid(structure: dict[str, Any], *, page: int) -> dict[st
         field_count += 1
         mapped_fields.append(field_key)
 
+    if "due_date" not in account:
+        inferred_due = _infer_due_date(structure, account)
+        if inferred_due is not None:
+            account["due_date"] = inferred_due
+            field_count += 1
+            mapped_fields.append("due_date")
+
     return finalize_partial_record(
         account,
         field_count=field_count,
@@ -182,6 +189,28 @@ def _account_from_field_grid(structure: dict[str, Any], *, page: int) -> dict[st
         base_confidence=float(structure.get("confidence") or 0.0),
         anchor_present=bool(_ANCHOR_RE.search(anchor_text)),
     )
+
+
+def _infer_due_date(structure: dict[str, Any], account: dict[str, Any]) -> dict[str, Any] | None:
+    """Apply the credit-domain due-date fallback outside Core assembly."""
+    close_date = account.get("close_date")
+    if isinstance(close_date, dict) and close_date.get("value"):
+        inferred = dict(close_date)
+        inferred["audit"] = {**dict(inferred.get("audit") or {}), "inferred_from": "close_date"}
+        return inferred
+
+    for node in structure.get("nodes") or ():
+        if not isinstance(node, dict):
+            continue
+        text = str(node.get("text") or "")
+        match = re.search(r"截\s*至\s*(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日", text)
+        if match is None:
+            continue
+        value = f"{match.group(1)}.{int(match.group(2)):02d}.{int(match.group(3)):02d}"
+        inferred = _field_value(value, node, field_key="due_date")
+        inferred["audit"] = {**dict(inferred.get("audit") or {}), "inferred_from": "as_of_date"}
+        return inferred
+    return None
 
 
 def _index_cells_by_label(cells: list[Any]) -> dict[str, dict[str, Any]]:

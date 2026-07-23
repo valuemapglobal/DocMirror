@@ -28,6 +28,7 @@ from typing import Any
 from docmirror.models.edition_serializer import EditionContext, edition_serializer
 from docmirror.models.entities.domain_result import DomainExtractionResult, DomainQuality
 from docmirror.models.mirror.block_fields import collect_kv_fields_from_blocks
+from docmirror.plugin_api import FactPatch
 from docmirror.plugins._base.generic_community_adapter import _collect_entity_fields, _collect_table_records
 
 
@@ -215,6 +216,58 @@ def extract_kv_community_output(
         parser_label="docmirror-community",
     )
     return edition_serializer(dec, context=ctx)
+
+
+def extract_kv_fact_patch(
+    plugin: Any,
+    parse_result: Any,
+    *,
+    identity_specs: Sequence[tuple[str, Sequence[str]]],
+    full_text: str = "",
+    include_block_kv: bool = True,
+    include_generic_records: bool = True,
+) -> FactPatch:
+    """Extract key-value facts directly without constructing an edition."""
+    entity_pool = _collect_entity_fields(parse_result)
+    if include_block_kv:
+        for key, value in collect_kv_fields_from_blocks(parse_result).items():
+            entity_pool.setdefault(key, value)
+    fields = _match_identity_fields(parse_result, identity_specs, entity_pool, full_text)
+    if not fields:
+        fields = {key: value for key, value in entity_pool.items() if value not in (None, "")}
+    field_details = _collect_identity_field_metadata(parse_result, fields, identity_specs, full_text)
+    records = _collect_table_records(parse_result) if include_generic_records else []
+    canonical_records = [
+        {
+            **dict(record),
+            "record_id": str(record.get("record_id") or f"records:r{index:06d}"),
+        }
+        for index, record in enumerate(records, start=1)
+        if isinstance(record, dict)
+    ]
+    evidence_ids = tuple(
+        dict.fromkeys(
+            str(item)
+            for detail in field_details.values()
+            if isinstance(detail, dict)
+            for item in detail.get("evidence_ids", [])
+            if str(item)
+        )
+    )
+    return FactPatch(
+        provider_id=str(plugin.domain_name),
+        document_type=str(plugin.domain_name),
+        entity_fields={
+            key: fields[key]
+            for key in ("subject_name", "subject_id", "organization", "document_date", "period_start", "period_end")
+            if fields.get(key) not in (None, "")
+        },
+        domain_facts={**fields, "field_details": field_details},
+        datasets={"records": canonical_records} if canonical_records else {},
+        warnings=() if fields or canonical_records else ("no_fields_extracted",),
+        evidence_ids=evidence_ids,
+        reason="native key-value recognizer facts",
+    )
 
 
 def _enforce_dgc_boundary(domain: str, support_level: str) -> dict:

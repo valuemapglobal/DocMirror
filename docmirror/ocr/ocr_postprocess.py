@@ -112,56 +112,8 @@ def fix_date_format(text: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Layer 4: Domain dictionary correction (generic version)
+# Layer 4: Contextual correction delegated to plugin-owned correction packs
 # ═══════════════════════════════════════════════════════════════════════════════
-
-# Generic high-frequency OCR glyph-confusion dictionary
-# key: incorrect form, value: correct form
-# Design: only includes high-frequency unambiguous corrections
-_GENERIC_CORRECTIONS: dict[str, str] = {
-    # ── Account types (banking, generic) ──
-    "活川": "活期",
-    "活圳": "活期",
-    "活助": "活期",
-    "活斯": "活期",
-    "活州": "活期",
-    "活朋": "活期",
-    "定册": "定期",
-    "定朋": "定期",
-    # ── Payment channels (generic) ──
-    "快提支付": "快捷支付",
-    "块捷支付": "快捷支付",
-    "快措支付": "快捷支付",
-    "快据支付": "快捷支付",
-    # ── Transaction types (generic) ──
-    "转帐": "转账",
-    "转帖": "转账",
-    "汇入汇": "汇入",
-    "他行汇人": "他行汇入",
-    "跨行转人": "跨行转入",
-    "跨行转人账": "跨行转入",
-    "网上银行": "网上银行",  # keep (already correct)
-    # ── Currency / general ──
-    "人民帀": "人民币",
-    "人民巾": "人民币",
-    "借记卞": "借记卡",
-    "借记下": "借记卡",
-    # ── Common verb confusions ──
-    "消赀": "消费",
-    "消贵": "消费",
-    "还歉": "还款",
-}
-
-# Payment company name correction (Generic format)
-_COMPANY_PATTERNS: list[tuple[re.Pattern, str]] = [
-    # Character confusion: "富发支付" -> "富友支付"
-    (re.compile(r"富发支付"), "富友支付"),
-    # Character confusion: "高友支付" -> "富友支付"
-    (re.compile(r"高友支付"), "富友支付"),
-    # Character confusion: "通联支忖" -> "通联支付"
-    (re.compile(r"支忖"), "支付"),
-    (re.compile(r"支村"), "支付"),
-]
 
 
 def fix_domain_terms(text: str) -> str:
@@ -193,47 +145,6 @@ def fix_digit_noise(text: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Layer 6: Levenshtein dictionary correction for standard keys
 # ═══════════════════════════════════════════════════════════════════════════════
-
-# Standard, high-value document keys (Property, Business License, etc.)
-_STANDARD_KEYS = [
-    "不动产单元号",
-    "权利类型",
-    "权利性质",
-    "用途",
-    "面积",
-    "使用期限",
-    "权利其他状况",
-    "附记",
-    "坐落",
-    "权利人",
-    "共有情况",
-    "法定代表人",
-    "注册资本",
-    "成立日期",
-    "营业期限",
-    "经营范围",
-    "统一社会信用代码",
-    "宗地面积",
-    "房屋结构",
-    "建筑面积",
-]
-
-
-def _levenshtein_distance(s1: str, s2: str) -> int:
-    if len(s1) < len(s2):
-        return _levenshtein_distance(s2, s1)
-    if len(s2) == 0:
-        return len(s1)
-    previous_row = range(len(s2) + 1)
-    for i, c1 in enumerate(s1):
-        current_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            insertions = previous_row[j + 1] + 1
-            deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (c1 != c2)
-            current_row.append(min(insertions, deletions, substitutions))
-        previous_row = current_row
-    return previous_row[-1]
 
 
 def fix_domain_keys(text: str) -> str:

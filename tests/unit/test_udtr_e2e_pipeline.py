@@ -21,6 +21,6 @@ def test_udtr_e2e_bank_statement():
     assert "contains" in edge_types
     assert "reading_next" in edge_types
     assert mirror.quality.gates
-    assert "bank_statement" in mirror.semantics.views
+    assert "tables" in mirror.semantics.views
     assert mirror.diagnostics.pipeline
     assert mirror.mirror.schema_version == "1.0.7"

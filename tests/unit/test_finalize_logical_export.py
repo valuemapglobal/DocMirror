@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from docmirror.evidence.spe_consumer import mirror_api_meta_fields
 from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, RowType, TableRow
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 from docmirror.quality.mirror_ltqg import attach_mirror_ltqg
 from docmirror.tables.compose.ledger_quality import (
     apply_ltqg,
@@ -18,6 +20,7 @@ def _bank_profile():
     class _Profile:
         profile_id = "borderless_ledger_bank"
         document_type_hint = "bank_statement"
+        enable_ledger_quality_gate = True
 
         def is_borderless_ledger(self):
             return True
@@ -91,7 +94,7 @@ def test_attach_mirror_ltqg_quarantine_counts():
     assert spe.get("quarantined_physical_count") == 2
     assert pr.entities.domain_specific.get("mirror_quarantined_physical_count") == 2
 
-    api = pr.to_mirror_json_vnext()
+    api = project_mirror(seal_parse_result(pr))
     assert "meta" not in api
     assert api["source"]["provenance"]["parser_info"]["structure"]["quarantined_physical_count"] == 2
     assert mirror_api_meta_fields(pr).get("quarantined_physical_count") == 2

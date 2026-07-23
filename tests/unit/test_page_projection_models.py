@@ -9,6 +9,8 @@ from docmirror.models.mirror.page_access import (
     micro_grid_structures_from_document,
 )
 from docmirror.models.mirror.page_evidence_bundles import merge_micro_grid_structures_into_bundles
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 from docmirror.topology.page_projection.build import (
     build_page_regions_for_page,
     region_from_micro_grid,
@@ -102,7 +104,7 @@ def test_parse_result_api_includes_page_regions():
         ),
     )
     pr.pages = [PageContent(page_number=4, width=100, height=200)]
-    api = pr.to_mirror_json_vnext()
+    api = project_mirror(seal_parse_result(pr))
     doc = api
     page = get_page_projection(doc, 4)
     assert page is not None
@@ -138,13 +140,15 @@ def test_vnext_mirror_omits_removed_document_fields():
     ds: dict = {}
     merge_micro_grid_structures_into_bundles(ds, [grid])
     pr = ParseResult(
-        pages=[PageContent(page_number=4, width=100, height=200, texts=[TextBlock(content="line", level=TextLevel.BODY)])],
+        pages=[
+            PageContent(page_number=4, width=100, height=200, texts=[TextBlock(content="line", level=TextLevel.BODY)])
+        ],
         entities=DocumentEntities(
             document_type="credit_report",
             domain_specific=ds,
         ),
     )
-    api = pr.to_mirror_json_vnext()
+    api = project_mirror(seal_parse_result(pr))
     doc = api
     assert "micro_grids" not in doc
     assert ("_de" + "precated") not in doc

@@ -1,0 +1,39 @@
+version: 1
+edition: community
+domains:
+  credit_report:
+    public_route: core_domain
+    support_level: L2
+    domain_contract_version: credit_report.community.v4
+    dgc_status_source: computed
+    p0_commitment:
+      fields:
+        required: [subject_name]
+        required_any: [id_number, unified_social_credit_code, zhongzheng_code]
+        conditional: [report_time, report_number, report_subtype, content_mode]
+      records:
+        conditional: [credit_accounts, repayment_records, overdue_records, inquiry_records]
+      collections:
+        required: [credit_accounts, overdue_records]
+        profiles:
+          personal_brief: {required: [credit_lines, inquiry_records]}
+          personal_detail: {required: [repayment_records]}
+          enterprise: {required: [credit_lines, public_records]}
+        conditional: [repayment_records, inquiry_records, public_records]
+        audit: credit_extraction_audit
+        audit_must_pass: true
+      sections:
+        required: [accounts, credit_lines, repayments, overdue]
+        conditional: [inquiries, public_records]
+      quality: [section_coverage, account_count_consistency, overdue_detection_confidence, document_completeness, evidence_coverage, candidate_conflicts]
+      failure:
+        empty_input: empty_input
+        scanned_low_quality: partial_sections_with_retry
+        missing_section: partial_missing_section
+    gates:
+      classify: domain.credit_report.classify
+      extract: domain.credit_report.extract
+      edition_schema: domain.credit_report.edition_schema
+      evidence: domain.credit_report.evidence
+      failure: domain.credit_report.failure
+      fixtures: domain.credit_report.fixtures

@@ -141,7 +141,9 @@ async def _execute_perceive(case: TQGCase) -> tuple[Any, dict[str, Any]]:
         ),
     )
     parse_result = await perceive_document(case.fixture, perceive_opts)
-    api = parse_result.to_mirror_json_vnext() if hasattr(parse_result, "to_mirror_json_vnext") else {}
+    from docmirror.eval.tqg.mirror_input import mirror_api
+
+    api = mirror_api(parse_result)
     pages = api.get("pages") if isinstance(api, dict) else None
     blocks = api.get("blocks") if isinstance(api, dict) else None
     meta: dict[str, Any] = {
@@ -895,7 +897,9 @@ def _resolve_gate_actual(gate_name: str, result: Any, meta: dict[str, Any]) -> A
     if gate_name == "plugin_document_type":
         mirror = result.get("mirror") if isinstance(result, dict) else result
         if mirror is not None:
-            api = mirror.to_mirror_json_vnext() if hasattr(mirror, "to_mirror_json_vnext") else {}
+            from docmirror.eval.tqg.mirror_input import mirror_api
+
+            api = mirror_api(mirror)
             meta_block = ((api.get("semantics") or {}).get("views") or {}).get("meta") or {}
             if meta_block.get("plugin_document_type"):
                 return meta_block.get("plugin_document_type")

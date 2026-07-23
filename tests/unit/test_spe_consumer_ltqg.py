@@ -11,6 +11,8 @@ from docmirror.evidence.spe_consumer import (
     spe_ltqg_warnings,
 )
 from docmirror.models.entities.parse_result import CellValue, LogicalTable, ParseResult, ParserInfo, RowType, TableRow
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 from docmirror.tables.compose.ledger_quality import apply_ltqg
 
 
@@ -18,6 +20,7 @@ def _bank_profile():
     class _Profile:
         profile_id = "borderless_ledger_bank"
         document_type_hint = "bank_statement"
+        enable_ledger_quality_gate = True
 
         def is_borderless_ledger(self):
             return True
@@ -107,7 +110,7 @@ def test_parse_result_meta_ltqg_from_spe():
             "physical_table_count": 5,
         }
     )
-    mirror = pr.to_mirror_json_vnext()
+    mirror = project_mirror(seal_parse_result(pr))
     assert "meta" not in mirror
     meta = mirror_api_meta_fields(pr)
     assert meta["physical_table_count"] == 5

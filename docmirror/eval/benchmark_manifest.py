@@ -12,10 +12,10 @@ Usage::
     from docmirror.eval.benchmark_manifest import BenchmarkManifest, BenchmarkRecord
 
     manifest = BenchmarkManifest.build(
-        release_tag="v1.0.11",
+        release_tag="v1.0.12",
         records=[...],
     )
-    manifest.to_json("output/benchmark/results/v1.0.11.json")
+    manifest.to_json("output/benchmark/results/v1.0.12.json")
 
 Design (GA1.0-EC-01 §Component 4):
     - One canonical manifest format for internal benchmark snapshots.

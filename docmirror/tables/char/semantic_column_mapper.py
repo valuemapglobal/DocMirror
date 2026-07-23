@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import re
 
+from docmirror.layout.profile.registry import load_table_semantics
+
 
 class SemanticColumnMapper:
     """Tokenize fused row values and assign to semantically typed columns."""
@@ -31,22 +33,11 @@ class SemanticColumnMapper:
     ACCOUNT_PATTERN = re.compile(r"\d{10,20}")
     CURRENCY_PATTERN = re.compile(r"[\d,]+\.\d{2}")
 
-    # ── Column header → type mapping ──
-    # Each entry: (keyword list, type label)
+    # Each entry is loaded from plugin layout resources: (keyword list, type label).
     HEADER_RULES: list[tuple[list[str], str]] = [
-        # 日期/日期型列
-        (["date", "posting", "value", "交易日期", "起息日", "过账日", "日期", "时间"], "date"),
-        # 金额/借方/贷方/余额
-        (["debit", "借方", "支出", "支付", "借"], "debit"),
-        (["credit", "贷方", "收入", "入账", "deposit", "贷"], "credit"),
-        (["balance", "余额", "bal", "剩余"], "balance"),
-        (["amount", "金额", "发生额", "sum", "总额"], "amount"),
-        # 摘要/描述
-        (["摘要", "description", "备注", "remark", "note", "detail", "过账内容", "交易内容", "产品"], "text"),
-        # 账号/户名
-        (["account", "账号", "户名", "name", "counterparty", "对方户名", "对方账户"], "account"),
-        # 渠道/编号
-        (["channel", "渠道", "id", "编号", "序号", "code", "code"], "code"),
+        ([str(word).lower() for word in words], str(column_type))
+        for column_type, words in (load_table_semantics().get("column_keywords") or {}).items()
+        if isinstance(words, list)
     ]
 
     def __init__(self) -> None:

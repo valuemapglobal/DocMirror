@@ -10,6 +10,9 @@ import json
 
 import pytest
 
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
+
 pytestmark = [pytest.mark.tier_contract]
 
 from docmirror.models.entities.parse_result import (
@@ -104,7 +107,7 @@ def test_mirror_forensic_output_preserves_projection_controls():
         )
     ]
 
-    mirror = result.to_mirror_json_vnext(mirror_level="forensic")
+    mirror = project_mirror(seal_parse_result(result), mirror_level="forensic")
     page = mirror["pages"][0]
     text_atoms = mirror["evidence"]["text_atoms"]
     text_atom = next(atom for atom in text_atoms if atom["text"] == "Visible title")
@@ -176,12 +179,15 @@ def test_forensic_ehl_includes_bcs_selected_and_rejected_candidates():
         },
     )
 
-    mirror = result.to_mirror_json_vnext(mirror_level="forensic")
+    mirror = project_mirror(seal_parse_result(result), mirror_level="forensic")
     assert "meta" not in mirror
     assert mirror["mirror"]["profile"] == "forensic"
     table = next(block for block in mirror["blocks"] if block["type"] == "table")
     assert table["provenance"]["source_table_id"] == "pt_1_0"
-    assert mirror["source"]["provenance"]["pipeline_debug"]["extraction_audit"]["pages"][0]["picked"] == "pdfplumber_default"
+    assert (
+        mirror["source"]["provenance"]["pipeline_debug"]["extraction_audit"]["pages"][0]["picked"]
+        == "pdfplumber_default"
+    )
 
 
 def test_canonical_assembler_projects_text_span_evidence_into_forensic_ehl():
@@ -210,7 +216,7 @@ def test_canonical_assembler_projects_text_span_evidence_into_forensic_ehl():
         {},
         "hello world",
     )
-    api = mirror.to_mirror_json_vnext(mirror_level="forensic")
+    api = project_mirror(seal_parse_result(mirror), mirror_level="forensic")
     assert "meta" not in api
     assert api["mirror"]["profile"] == "forensic"
     atoms = api["evidence"]["text_atoms"]

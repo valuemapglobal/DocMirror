@@ -12,9 +12,8 @@ profiles:
         RECONSTRUCT: [GeometricReconstructor]
         RESTORE: [LlmDocumentRestorer]
         STRUCTURE: [HeaderInferrer, HeaderAlignment]
-        ENRICH: [EntityExtractor]
+        ENRICH: [GenericEntityExtractor]
         CLASSIFY: [EvidenceEngine]
-        CONTEXT: [InstitutionDetector]
         DOMAIN: [CommunityFactRecognizer]
         VALIDATE: [Validator]
     full:
@@ -23,9 +22,8 @@ profiles:
         RECONSTRUCT: [GeometricReconstructor]
         RESTORE: [LlmDocumentRestorer]
         STRUCTURE: [HeaderInferrer, HeaderAlignment]
-        ENRICH: [EntityExtractor]
+        ENRICH: [GenericEntityExtractor]
         CLASSIFY: [EvidenceEngine]
-        CONTEXT: [InstitutionDetector]
         DOMAIN: [CommunityFactRecognizer]
         VALIDATE: [Validator, AnomalyDetector]
 

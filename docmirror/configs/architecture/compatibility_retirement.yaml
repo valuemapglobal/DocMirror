@@ -1,0 +1,54 @@
+version: 1
+policy:
+  removal_not_before: "2.0.0"
+  required_before_removal:
+  - replacement is public and covered by contract tests
+  - all in-repository production consumers use the replacement
+  - migration guide and changelog entry are published
+  - at least one deprecation release has shipped
+  - removal is approved as part of a major-version contract review
+compatibility_only_modules:
+- module: docmirror.plugins._runtime.post_extract.hooks.community_business
+  reachable_via: docmirror.server.output_builder.build_community_output
+  replacement: docmirror.output.community_bundle.project_community_bundle
+- module: docmirror.plugins._runtime.post_extract.hooks.community_precision
+  reachable_via: docmirror.server.output_builder.build_community_output
+  replacement: plugin FactPatch warnings and Canonical Validation
+surfaces:
+- symbol: docmirror.plugin_api.DomainPlugin
+  replacement: docmirror.plugin_api.DomainRecognizer and docmirror.plugin_api.EditionProjector
+  status: supported_compatibility
+  owner: plugin-platform
+- symbol: docmirror.plugins._base.base_table_parser.BaseTableParser.recognize
+  replacement: BaseTableParser.recognize_facts plus an explicit projector
+  status: supported_compatibility
+  owner: plugin-platform
+- symbol: docmirror.server.output_builder.build_community_output
+  replacement: docmirror.output.community_bundle.project_community_bundle
+  status: supported_compatibility
+  owner: delivery
+  runtime_scope: compatibility_only
+- symbol: docmirror.server.output_builder.build_api_response
+  replacement: public TaskResult adapters and the Mirror projector
+  status: supported_compatibility
+  owner: delivery
+- symbol: docmirror.sdk.integration.request.ParseRequest.input
+  replacement: ParseRequest.inputs
+  status: supported_compatibility
+  owner: sdk
+- symbol: docmirror.sdk.integration.request.ParseRequest.sync
+  replacement: surface adapter wait policy
+  status: supported_compatibility
+  owner: sdk
+- symbol: docmirror.models.sealed.SealedParseResult.to_legacy_copy
+  replacement: SealedParseResult.to_read_view
+  status: supported_compatibility
+  owner: canonical-core
+- symbol: docmirror.models.sealed.SealedParseResult.__getattr__
+  replacement: SealedParseResult.to_read_view
+  status: supported_compatibility
+  owner: canonical-core
+- symbol: docmirror.ocr.correction.packs:builtin.legacy
+  replacement: named correction packs under docmirror/configs/ocr_correction_packs
+  status: retained_data_compatibility
+  owner: ocr

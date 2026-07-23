@@ -366,8 +366,6 @@ class MirrorJsonVNext(MirrorBaseModel):
             if isinstance(specific, dict):
                 provenance_specific = dict(specific)
         document_type = provenance_type or str(best.type if best is not None else "unknown")
-        if document_type == "commercial_invoice" and _looks_like_vat_invoice_text(self.full_text):
-            document_type = "vat_invoice"
         return DocumentEntities(
             document_type=document_type or "unknown",
             domain_specific={
@@ -381,15 +379,6 @@ class MirrorJsonVNext(MirrorBaseModel):
     def logical_tables(self) -> list[Any]:
         """ParseResult-compatible logical table projection."""
         return []
-
-
-def _looks_like_vat_invoice_text(text: str) -> bool:
-    normalized = str(text or "").lower()
-    return (
-        "增值税" in normalized
-        or "value-added tax invoice" in normalized
-        or ("invoice code" in normalized and "invoice number" in normalized and "tax id" in normalized)
-    )
 
 
 def mirror_json_vnext_schema() -> dict[str, Any]:

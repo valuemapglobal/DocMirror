@@ -247,7 +247,7 @@ class GeometricReconstructor(BaseMiddleware):
         result.record_mutation(
             "GeometricReconstructor",
             target_block_id="pages",
-            field_changed="tables",
+            field_changed="pages",
             old_value=[],
             new_value=f"{len(grid)}r x {len(grid[0])}c",
             reason="geometric_reconstructor",

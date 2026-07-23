@@ -1,18 +1,13 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from docmirror.layout.segment.page_blocks import (
-    _first_grid_boundary_y,
-    detect_pre_grid_field_supplements,
-    grid_anchor_top_from_lines,
-    segment_page_blocks,
-)
 from docmirror.ocr.local_structure.utils import line_items
 from docmirror.plugins.credit_report.account_structure import (
     _account_from_field_grid,
     _find_cell_for_field,
     _index_cells_by_label,
 )
+from docmirror.plugins.credit_report.local_structure_supplement import detect_credit_closed_account_blocks
 
 
 def _page4_account1_prefix_items():
@@ -26,18 +21,9 @@ def _page4_account1_prefix_items():
     return line_items(lines, page=4)
 
 
-def test_grid_boundary_uses_repayment_anchor_top_not_matrix_row():
-    items = _page4_account1_prefix_items()
-    blocks = segment_page_blocks(items, page=4, gap_threshold=32.0)
-    boundary = _first_grid_boundary_y(items, blocks, tokens=None)
-    anchor_top = grid_anchor_top_from_lines(items)
-    assert boundary == anchor_top
-    assert boundary is not None and boundary < 200.0
-
-
 def test_pre_grid_candidate_does_not_include_repayment_lines():
     items = _page4_account1_prefix_items()
-    found = detect_pre_grid_field_supplements(items, page=4, existing=[])
+    found = detect_credit_closed_account_blocks(items, page=4, existing=[])
     assert len(found) == 1
     assert found[0].bbox[3] < 194.67
     assert "还款记录" not in " ".join(found[0].anchors)

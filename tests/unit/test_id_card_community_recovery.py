@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from docmirror.input.canonical.fact_patch import apply_fact_patch
 from docmirror.layout.scene.evidence_engine import EvidenceEngine
 from docmirror.models.entities.parse_result import (
     DocumentEntities,
@@ -11,9 +12,10 @@ from docmirror.models.entities.parse_result import (
     TextBlock,
     TextLevel,
 )
-from docmirror.output.community_bundle import project_community_bundle
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.community_bundle import project_community_bundle as _project_community_bundle
 from docmirror.plugins._base.generic_community_adapter import build_generic_community_output
-from docmirror.plugins._runtime.runner import run_plugin_extract_sync
+from docmirror.plugins._runtime.runner import run_fact_recognition_sync, run_plugin_extract_sync
 
 ID_CARD_OCR_TEXT = """姓名 李四
 
@@ -28,6 +30,10 @@ ID_CARD_OCR_TEXT = """姓名 李四
 <div><img src="portrait.jpg" /></div>
 
 11010519491231002X"""
+
+
+def project_community_bundle(result, **kwargs):
+    return _project_community_bundle(seal_parse_result(result), **kwargs)
 
 ID_CARD_DERIVED_TABLE_TEXT = """姓名\t李四
 性别\t女
@@ -81,9 +87,9 @@ def test_id_card_fixed_frame_is_classification_evidence() -> None:
 def test_id_card_frame_rejects_invalid_checksum() -> None:
     invalid = ID_CARD_OCR_TEXT.replace("11010519491231002X", "110105194912310020")
 
-    evidence = EvidenceEngine()._id_card_frame_evidence(invalid)
+    evidence = EvidenceEngine()._text_frame_evidence(invalid, "")
 
-    assert evidence == []
+    assert not [item for item in evidence if item.category == "id_card"]
 
 
 def test_forced_id_card_recovers_space_delimited_fields_and_multiline_address() -> None:
@@ -124,9 +130,10 @@ def test_long_address_is_complete_in_community_json_without_fake_dataset() -> No
     result = _result(LONG_ADDRESS_OCR_TEXT, document_type="id_card")
     polluted_full_text = f"{LONG_ADDRESS_OCR_TEXT}\n\n{LONG_ADDRESS_DERIVED_TABLE_TEXT}"
 
-    output = run_plugin_extract_sync(result, edition="community", full_text=polluted_full_text)
+    patch = run_fact_recognition_sync(result, full_text=polluted_full_text)
 
-    assert output is not None
+    assert patch is not None
+    result = apply_fact_patch(result, patch)
     bundle = project_community_bundle(result, file_id="001", document_id="doc_id_card_long_address")
     payload = bundle.json_payload()
     items = {item["key"]: item for item in payload["sections"][0]["items"]}
@@ -140,9 +147,10 @@ def test_long_address_is_complete_in_community_json_without_fake_dataset() -> No
 def test_id_card_facts_reach_community_bundle_without_becoming_dataset_rows() -> None:
     result = _result()
     EvidenceEngine().process(result)
-    output = run_plugin_extract_sync(result, edition="community", full_text=result.full_text)
+    patch = run_fact_recognition_sync(result, full_text=result.full_text)
 
-    assert output is not None
+    assert patch is not None
+    result = apply_fact_patch(result, patch)
     bundle = project_community_bundle(result, file_id="001", document_id="doc_id_card")
     payload = bundle.json_payload()
     items = {item["key"]: item for item in payload["sections"][0]["items"]}

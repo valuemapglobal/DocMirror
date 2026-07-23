@@ -25,6 +25,10 @@ import re
 import unicodedata
 from collections import deque
 from collections.abc import Iterable
+from importlib.resources import files
+from pathlib import PurePosixPath
+
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -43,87 +47,39 @@ _RE_JUNK_PATTERNS = re.compile(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Category-specific vocabulary — isolated by document type to prevent
-# cross-domain false positives
+# Structure-specific vocabulary — aggregated from plugin layout resources.
 # ══════════════════════════════════════════════════════════════════════════════
 
-VOCAB_BY_CATEGORY: dict[str, frozenset] = {
-    # Bank Statement
-    "BANK_STATEMENT": frozenset(
-        {
-            # Date / time
-            "日期",
-            "交易日期",
-            "记账日期",
-            "入账日期",
-            "交易时间",
-            "交易日",
-            # Amount
-            "金额",
-            "交易金额",
-            "发生额",
-            "收入金额",
-            "支出金额",
-            "本次余额",
-            # Balance
-            "余额",
-            "账户余额",
-            "结存",
-            "可用余额",
-            # Description / remarks
-            "摘要",
-            "摘要内容",
-            "交易摘要",
-            "用途",
-            "附言",
-            "备注",
-            "交易类型",
-            "交易类别",
-            "业务摘要",
-            # Counterparty information
-            "对方户名",
-            "对方账号",
-            "对手账号",
-            "对手户名",
-            "对方信息",
-            "对方账户",
-            "对方名称",
-            "对方行名",
-            # Sequence / voucher
-            "序号",
-            "账户序号",
-            "账号序号",
-            "凭证类型",
-            "凭证号码",
-            "流水号",
-            # Currency / cash–transfer flag
-            "币种",
-            "钞汇",
-            "现/转",
-            "现转",
-            "钞汇标识",
-            "现转标志",
-            # Debit / credit direction
-            "借贷",
-            "借贷状态",
-            "支/收",
-            "收支",
-            "借贷标志",
-            # Channel / institution
-            "交易渠道",
-            "交易机构",
-            "交易方式",
-            "交易地点",
-            # Reversal flags
-            "被冲账标识",
-            "冲账标识",
-            # Transaction reference / remarks
-            "交易流水号",
-            "交易备注",
-        }
-    ),
-    # VAT_INVOICE reserved until VAT extraction is implemented
-}
+
+def _load_plugin_header_vocabulary() -> dict[str, frozenset[str]]:
+    categories: dict[str, set[str]] = {}
+    plugin_root = files("docmirror").joinpath("plugins")
+    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
+        manifest_path = plugin_dir.joinpath("plugin.yaml")
+        if not plugin_dir.is_dir() or not manifest_path.is_file():
+            continue
+        try:
+            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+            relative_text = str(((manifest.get("resources") or {}).get("layout_profiles")) or "").strip()
+            relative = PurePosixPath(relative_text)
+            if not relative_text or relative.is_absolute() or ".." in relative.parts:
+                continue
+            payload = yaml.safe_load(plugin_dir.joinpath(*relative.parts).read_text(encoding="utf-8")) or {}
+        except Exception as exc:
+            logger.warning("[Vocabulary] Failed plugin layout resource %s: %s", plugin_dir.name, exc)
+            continue
+        raw_categories = payload.get("table_header_vocabulary") if isinstance(payload, dict) else None
+        if not isinstance(raw_categories, dict):
+            continue
+        for category, words in raw_categories.items():
+            if isinstance(words, list):
+                categories.setdefault(str(category), set()).update(
+                    str(word).strip() for word in words if str(word).strip()
+                )
+    return {category: frozenset(words) for category, words in categories.items()}
+
+
+VOCAB_BY_CATEGORY: dict[str, frozenset[str]] = _load_plugin_header_vocabulary()
 
 # Stable union of all category vocabularies
 KNOWN_HEADER_WORDS: frozenset = frozenset().union(*VOCAB_BY_CATEGORY.values())
@@ -262,7 +218,7 @@ def _score_header_by_vocabulary(
     Args:
         row: List of cell strings (one table row).
         categories: Restrict matching to these category keys
-            (e.g. ``["BANK_STATEMENT"]``).  ``None`` uses the full
+            (e.g. ``["LEDGER"]``).  ``None`` uses the full
             ``KNOWN_HEADER_WORDS`` union.
     """
     vocab = (

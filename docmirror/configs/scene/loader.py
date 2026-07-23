@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Scene keyword loader — single source for ``scene_keywords.yaml``.
+Scene keyword loader — merges classification resources declared by plugins.
 
 Loads and caches the classification keyword corpus shared by the EvidenceEngine,
 scene detector middleware, domain plugins, and DTI validators. The YAML structure
@@ -27,58 +27,57 @@ Derived views::
 from __future__ import annotations
 
 import logging
+from importlib.resources import files
+from pathlib import PurePosixPath
 from typing import Any
 
 import yaml
 
-from docmirror.configs.paths import SCENE_KEYWORDS_YAML
-
 logger = logging.getLogger(__name__)
 
 _cache_raw: dict[str, Any] | None = None
-_cache_mtime: float = 0.0
 _cache_includes: dict[str, list[str]] | None = None
 _cache_excludes: dict[str, list[str]] | None = None
 _cache_plugin_includes: dict[str, tuple[str, ...]] | None = None
+_cache_aliases: dict[str, str] | None = None
 
 
 def invalidate_scene_cache() -> None:
     """Clear cached scene keywords (tests / hot-reload)."""
-    global _cache_raw, _cache_mtime, _cache_includes, _cache_excludes, _cache_plugin_includes
+    global _cache_raw, _cache_includes, _cache_excludes, _cache_plugin_includes, _cache_aliases
     _cache_raw = None
-    _cache_mtime = 0.0
     _cache_includes = None
     _cache_excludes = None
     _cache_plugin_includes = None
+    _cache_aliases = None
 
 
 def _load_raw() -> dict[str, Any]:
-    global _cache_raw, _cache_mtime
-    if not SCENE_KEYWORDS_YAML.is_file():
-        _cache_raw = {}
-        _cache_mtime = 0.0
+    global _cache_raw
+    if _cache_raw is not None:
         return _cache_raw
 
-    mtime = SCENE_KEYWORDS_YAML.stat().st_mtime
-    if _cache_raw is not None and mtime == _cache_mtime:
-        return _cache_raw
-
-    try:
-        with open(SCENE_KEYWORDS_YAML, encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-        raw = data.get("scene_keywords", {}) if isinstance(data, dict) else {}
-        if not isinstance(raw, dict):
-            raw = {}
-        _cache_raw = raw
-        _cache_mtime = mtime
-        _cache_includes = None
-        _cache_excludes = None
-        _cache_plugin_includes = None
-        logger.debug("[SceneLoader] Loaded %d scenes from %s", len(raw), SCENE_KEYWORDS_YAML)
-    except Exception as exc:
-        logger.error("[SceneLoader] Failed to load %s: %s", SCENE_KEYWORDS_YAML, exc)
-        _cache_raw = {}
-        _cache_mtime = mtime
+    raw: dict[str, Any] = {}
+    plugin_root = files("docmirror").joinpath("plugins")
+    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
+        manifest_path = plugin_dir.joinpath("plugin.yaml")
+        if not plugin_dir.is_dir() or not manifest_path.is_file():
+            continue
+        try:
+            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+            relative_text = str(((manifest.get("resources") or {}).get("scene_keywords")) or "").strip()
+            relative_path = PurePosixPath(relative_text)
+            if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
+                continue
+            resource_path = plugin_dir.joinpath(*relative_path.parts)
+            data = yaml.safe_load(resource_path.read_text(encoding="utf-8")) or {}
+            scenes = data.get("scene_keywords", {}) if isinstance(data, dict) else {}
+            if isinstance(scenes, dict):
+                raw.update(scenes)
+        except Exception as exc:
+            logger.warning("[SceneLoader] Failed plugin scene resource %s: %s", plugin_dir.name, exc)
+    _cache_raw = raw
+    logger.debug("[SceneLoader] Loaded %d scenes from plugin resources", len(raw))
     return _cache_raw
 
 
@@ -98,6 +97,15 @@ def get_scene_specs() -> dict[str, dict[str, list[str]]]:
                 "exclude": [],
             }
     return specs
+
+
+def get_scene_evidence_specs() -> dict[str, dict[str, Any]]:
+    """Return plugin-owned structural evidence rules for each scene."""
+    return {
+        scene: dict(content)
+        for scene, content in _load_raw().items()
+        if isinstance(scene, str) and isinstance(content, dict)
+    }
 
 
 def get_scene_includes(*, min_len: int = 2) -> dict[str, list[str]]:
@@ -140,6 +148,31 @@ def get_plugin_scene_keywords() -> dict[str, tuple[str, ...]]:
             out[scene] = kws
     _cache_plugin_includes = out
     return out
+
+
+def get_scene_aliases() -> dict[str, str]:
+    """Return classification aliases declared by plugin manifests."""
+    global _cache_aliases
+    if _cache_aliases is not None:
+        return _cache_aliases
+    aliases: dict[str, str] = {}
+    plugin_root = files("docmirror").joinpath("plugins")
+    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
+        manifest_path = plugin_dir.joinpath("plugin.yaml")
+        if not plugin_dir.is_dir() or not manifest_path.is_file():
+            continue
+        try:
+            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            continue
+        provider = manifest.get("provider") or {}
+        domain = str(provider.get("domain_name") or "").strip()
+        for alias in (manifest.get("classification") or {}).get("aliases") or []:
+            normalized = str(alias or "").strip()
+            if domain and normalized:
+                aliases[normalized] = domain
+    _cache_aliases = aliases
+    return aliases
 
 
 def compute_keyword_uniqueness() -> dict[str, float]:

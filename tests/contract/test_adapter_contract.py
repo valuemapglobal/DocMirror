@@ -19,7 +19,8 @@ from pathlib import Path
 import pytest
 
 from docmirror.input.entry.factory import perceive_document
-from docmirror.models.entities.parse_result import ParseResult
+from docmirror.models.sealed import SealedParseResult, seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 
 # Each entry: (test_name, fixture_path, adapter_kind)
 FIXTURE_TABLE = [
@@ -36,10 +37,9 @@ def test_adapter_produces_valid_parse_result(fixture_name: str):
 
     result = asyncio.run(perceive_document(str(fixture_path)))
 
-    # Invariant 1: the public parser result is the single ParseResult contract
-    assert isinstance(result, ParseResult)
-    assert hasattr(result, "to_mirror_json_vnext"), "Result must expose vNext mirror serialization"
-    api = result.to_mirror_json_vnext()
+    # Invariant 1: the public parser result is the immutable SSOT snapshot
+    assert isinstance(result, SealedParseResult)
+    api = project_mirror(seal_parse_result(result))
     assert len(api["pages"]) >= 1
 
     # Invariant 2: Evidence store is non-empty
@@ -48,7 +48,7 @@ def test_adapter_produces_valid_parse_result(fixture_name: str):
     # Invariant 3: source provenance is populated
     assert api["source"]["filename"] != ""
 
-    # Invariant 4: to_mirror_json_vnext() produces document-shaped vNext JSON
+    # Invariant 4: the independent Mirror projector produces vNext JSON
     assert "mirror" in api
     assert "document" in api
 
@@ -67,7 +67,7 @@ def test_all_adapters_share_result_type():
     fixture_path = Path(__file__).parent.parent / "fixtures" / "synthetic" / "credit_report_section_smoke.pdf"
 
     result = asyncio.run(perceive_document(str(fixture_path)))
-    assert isinstance(result, ParseResult)
-    api = result.to_mirror_json_vnext()
+    assert isinstance(result, SealedParseResult)
+    api = project_mirror(seal_parse_result(result))
     assert api["mirror"]["schema"] == "docmirror.mirror_json"
     assert "pages" in api

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from docmirror.evidence.spe_consumer import mirror_api_meta_fields
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ParserInfo
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 
 
 def test_mirror_api_meta_fields_ltqg_and_quarantine():
@@ -54,7 +56,7 @@ def test_to_mirror_json_vnext_includes_mirror_meta_ssot():
             }
         ),
     )
-    api = pr.to_mirror_json_vnext()
+    api = project_mirror(seal_parse_result(pr))
     assert "meta" not in api
     assert api["source"]["provenance"]["parser_info"]["structure"]["physical_table_count"] == 5
     meta = mirror_api_meta_fields(pr)

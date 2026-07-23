@@ -20,6 +20,7 @@ import logging
 import re
 from typing import Any
 
+from docmirror.layout.profile.registry import load_table_semantics
 from docmirror.layout.text_utils import (
     _RE_DATE_COMPACT,
     _RE_DATE_HYPHEN,
@@ -36,6 +37,12 @@ from docmirror.tables.pipeline.stage_preamble import _extract_preamble_kv
 from docmirror.tables.table_structure_fix import merge_split_rows
 
 logger = logging.getLogger(__name__)
+
+_TABLE_SEMANTICS = load_table_semantics()
+_SEQUENCE_HEADERS = frozenset(str(value).lower() for value in _TABLE_SEMANTICS.get("sequence_headers", ()))
+_CONTINUATION_TEXT_HEADERS = frozenset(
+    str(value).lower() for value in _TABLE_SEMANTICS.get("continuation_text_headers", ())
+)
 
 _RE_SEQ_PLUS_DESC = re.compile(
     r"^(\d{1,6})"  # Sequence number (1-6 digits)
@@ -58,7 +65,7 @@ def _split_merged_columns(
 
     Detectable patterns:
       1. 序号+摘要 merge: cell = "2851消费" → split into ["2851", "消费"]
-      2. 余额+附言 merge: cell = "56,264.17财付通-微信支付" → split into ["56,264.17", "财付通-..."]
+      2. Numeric+text merge: cell = "56,264.17reference" → split into ["56,264.17", "reference"]
 
     Activation: only triggers when >30% of data rows show the pattern.
     Safety: does nothing for columns that don't match the patterns.
@@ -80,7 +87,7 @@ def _split_merged_columns(
         h = _normalize_for_vocab(header[ci]) if ci < len(header) else ""
 
         # Pattern 1: Sequence-number column with appended description
-        if h in ("序号", "交易序号", "编号", "no", "no.", "序列号"):
+        if h.lower() in _SEQUENCE_HEADERS:
             match_count = sum(
                 1 for r in data_rows if ci < len(r) and r[ci] and _RE_SEQ_PLUS_DESC.match(str(r[ci]).strip())
             )
@@ -90,7 +97,7 @@ def _split_merged_columns(
                 for nci in range(ci + 1, n_cols):
                     nh = _normalize_for_vocab(header[nci]) if nci < len(header) else ""
                     empty_count = sum(1 for r in data_rows if nci < len(r) and not (r[nci] or "").strip())
-                    if empty_count > n_rows * 0.3 or nh in ("摘要", "交易摘要", "用途", "附言"):
+                    if empty_count > n_rows * 0.3 or nh.lower() in _CONTINUATION_TEXT_HEADERS:
                         next_empty_ci = nci
                         break
                 if next_empty_ci is not None:

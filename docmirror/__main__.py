@@ -615,7 +615,10 @@ def main() -> None:
                             len(str(a.get("text", ""))) for a in vn_data.get("evidence", {}).get("text_atoms", [])
                         )
                     else:
-                        vn_data = result.to_mirror_json_vnext(source_filename=str(path))
+                        from docmirror.models.sealed import seal_parse_result
+                        from docmirror.output.mirror_projector import project_mirror
+
+                        vn_data = project_mirror(seal_parse_result(result), source_filename=str(path))
                         success = result.success if hasattr(result, "success") else True
                         doctype = getattr(getattr(result, "entities", None), "document_type", "unknown")
                         pages = getattr(result, "page_count", 0)

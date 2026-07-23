@@ -1,0 +1,18 @@
+version: 1
+domains:
+  business_license:
+    zh:
+      名称: Company name
+      公司名称: Company name
+      企业名称: Company name
+      统一社会信用代码: USCC
+      信用代码: USCC
+      法定代表人: Legal representative
+      负责人: Legal representative
+      注册资本: Registered capital
+      成立日期: Date of establishment
+      成立时间: Date of establishment
+      营业期限: Business term
+      住所: Address
+      地址: Address
+      经营范围: Business scope

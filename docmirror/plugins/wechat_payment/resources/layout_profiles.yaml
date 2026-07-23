@@ -1,0 +1,27 @@
+version: 1
+profiles:
+  borderless_ledger_wechat:
+    inherits: generic
+    document_type_hint: wechat_payment
+    segmentation_mode: full_page_table
+    sidebar_x_ratio: 0.72
+    force_cross_page_merge: true
+    mirror_skip_cross_page_merge: false
+    min_confidence_to_accept: 0.85
+    enable_best_candidate_selection: true
+    bcs_oracle_layer: pdfplumber_default
+    normalize_intracellular_newlines: true
+    collapse_duplicate_spaces: true
+    skip_pid_resample: true
+    enable_grid_template: true
+    enable_global_grid_tensor: false
+    table_normalize_hooks: [ledger_borderless]
+    use_tnp_staged: true
+    ocr_column_aware: false
+    merge_quarantine_on_col_mismatch: true
+    disabled_table_methods: [pymupdf_native]
+    preferred_table_methods: [pdfplumber_default, char_strategy, pipe_delimited, signal_processor]
+    expected_header_columns: [交易单号, 交易时间, 交易类型, 收/支/其他, 交易方式, 金额(元), 交易对方, 商户单号]
+    match:
+      text_any: [微信支付交易明细证明, 财付通]
+      min_pages: 10

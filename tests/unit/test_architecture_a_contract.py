@@ -118,10 +118,11 @@ def test_parse_result_has_no_intermediate_domain_model():
 
 
 def test_community_projector_does_not_require_domain_extraction():
+    from docmirror.models.sealed import seal_parse_result
     from docmirror.output.community_bundle import project_community_bundle
 
     result = ParseResult(entities=DocumentEntities(document_type="generic"))
-    bundle = project_community_bundle(result, document_id="doc_direct")
+    bundle = project_community_bundle(seal_parse_result(result), document_id="doc_direct")
     assert bundle.document["id"] == "doc_direct"
     source = inspect.getsource(project_community_bundle)
     assert "run_plugin_extract" not in source
@@ -199,7 +200,9 @@ def test_projection_path_cannot_run_fact_recognition_or_attach_mirror_cache():
     method = inspect.getsource(build_all_projections)
     assert "run_plugin_extract_sync" not in method
     assert "_runtime_mirror_cache" not in source
-    assert "fact_fingerprint" in method
+    assert "seal_parse_result" in method
+    assert "sealed.to_read_view()" in method
+    assert "sealed.verify_integrity()" in method
     assert "serialize_dmir" not in source
     assert "available_editions" not in source
 
@@ -207,6 +210,13 @@ def test_projection_path_cannot_run_fact_recognition_or_attach_mirror_cache():
 def test_projection_builder_accepts_parse_result_only():
     with pytest.raises(TypeError, match="expects ParseResult"):
         build_all_projections({"mirror": {"schema": "docmirror.mirror_json"}})
+
+
+def test_parse_result_contains_facts_not_mirror_projection():
+    assert not hasattr(ParseResult(), "to_mirror_json_vnext")
+    source = inspect.getsource(ParseResult)
+    assert "MirrorCore" not in source
+    assert "project_mirror" not in source
 
 
 def test_plugins_never_build_or_read_a_mirror_projection():

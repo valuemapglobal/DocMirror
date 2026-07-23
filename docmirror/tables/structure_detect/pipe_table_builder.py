@@ -15,10 +15,7 @@ from docmirror.tables.structure_detect.pipe_grid import (
     split_pipe_row,
 )
 
-_SPLIT_AMOUNT_MARKERS = ("借方发生额", "贷方发生额", "Debit Amount", "Credit Amount")
 _HLINE_RE = re.compile(r"^[\s─━\-|]+$")
-_FOOTER_MARKERS = ("借方合计", "Debit Total", "本对账期末余额")
-_PRIMARY_ROW_RE = re.compile(r"^\|\s*\d+\s*\|")
 
 
 def _is_header_row(line: str) -> bool:
@@ -79,7 +76,7 @@ def build_pipe_table_from_text(text: str) -> list[list[list[str]]]:
         if header_row is None:
             continue
 
-        if any(m in stripped for m in _FOOTER_MARKERS):
+        if classify_pipe_line(stripped) == RowKind.FOOTER:
             continue
 
         if _is_data_row(stripped) or _is_continuation_row(stripped):

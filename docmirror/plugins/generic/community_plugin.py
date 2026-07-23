@@ -23,8 +23,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from docmirror.plugin_api import DomainPlugin, FactPatch
 from docmirror.plugins._base.generic_community_adapter import build_generic_community_output
-from docmirror.plugins._runtime.plugin_registry import DomainPlugin
+from docmirror.plugins._base.generic_fact_patch import build_generic_fact_patch
 
 
 class GenericCommunityPlugin(DomainPlugin):
@@ -50,7 +51,16 @@ class GenericCommunityPlugin(DomainPlugin):
         detected_type = getattr(getattr(parse_result, "entities", None), "document_type", "") or "generic"
         if detected_type in ("", "unknown", "generic"):
             detected_type = "generic"
-        return build_generic_community_output(parse_result, detected_type, text)
+        output = build_generic_community_output(parse_result, detected_type, text)
+        if not isinstance(output, dict):
+            raise TypeError("generic compatibility projection did not return a dictionary")
+        return output
+
+    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+        detected_type = getattr(getattr(parse_result, "entities", None), "document_type", "") or "generic"
+        if detected_type in ("", "unknown"):
+            detected_type = "generic"
+        return build_generic_fact_patch(parse_result, detected_type, text)
 
 
 plugin = GenericCommunityPlugin()

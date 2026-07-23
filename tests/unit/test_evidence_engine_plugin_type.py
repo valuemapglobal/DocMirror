@@ -32,6 +32,28 @@ def test_evidence_engine_maps_enterprise_credit_to_community_credit_plugin():
     assert EvidenceEngine._edition_document_type("credit_report_enterprise") == "credit_report"
 
 
+def test_force_hint_clears_stale_plugin_route_and_audits_previous_type():
+    result = ParseResult(entities=DocumentEntities(document_type="alipay_payment"))
+    result.entities.domain_specific = {
+        "user_doc_type_hint": "bank_statement",
+        "user_doc_type_hint_strength": "force",
+        "plugin_document_type": "alipay_payment",
+    }
+
+    out = EvidenceEngine().process(result)
+
+    assert out.entities.document_type == "bank_statement"
+    assert "plugin_document_type" not in out.entities.domain_specific
+    mutation = next(item for item in out.mutations if item.middleware_name == "EvidenceEngine")
+    assert mutation.old_value == "alipay_payment"
+    assert mutation.new_value == "bank_statement"
+
+    from docmirror.plugins._runtime.runner import _plugin_document_type
+
+    out.entities.domain_specific["plugin_document_type"] = "alipay_payment"
+    assert _plugin_document_type(out, out.entities.document_type) == "bank_statement"
+
+
 def test_enterprise_credit_cover_beats_long_appendix_keyword_conflict():
     result = ParseResult(
         pages=[

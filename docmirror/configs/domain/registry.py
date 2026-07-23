@@ -8,8 +8,8 @@
 Domain Registry — document-type identity fields and multilingual key normalization.
 =====================================================================================
 
-Maps each document type (e.g. ``bank_statement``, ``invoice``, ``contract``) to
-identity field definitions and loads multilingual key synonyms from YAML.
+Builds document identity definitions and multilingual key normalization from
+plugin-owned resources declared in each ``plugin.yaml`` manifest.
 
 Identity resolution::
 
@@ -19,9 +19,9 @@ Identity resolution::
 
 Key synonyms::
 
-    ``key_synonyms.yaml`` structure: ``domain → locale → {raw_key: canonical_key}``.
-    Flattened at import into ``KEY_SYNONYMS`` for O(1) lookup. Missing YAML
-    degrades gracefully — English-key documents still work.
+    Each plugin's resource uses ``domains → locale → {raw_key: canonical_key}``.
+    All installed bundled resources are flattened into ``KEY_SYNONYMS`` for O(1)
+    lookup. Missing resources degrade gracefully.
 
 Wildcard domain ``"*"`` provides fallback identity (title, date, author) for
 unrecognized document types.
@@ -37,58 +37,77 @@ Usage::
 from __future__ import annotations
 
 import logging
+from importlib.resources import files
+from pathlib import PurePosixPath
 from typing import Any
 
 import yaml
 
 logger = logging.getLogger(__name__)
 
-from docmirror.configs.paths import KEY_SYNONYMS_YAML as _KEY_SYNONYMS_PATH
-
 # ══════════════════════════════════════════════════════════════════════════════
-# Multilingual Key Synonyms — loaded from key_synonyms.yaml
+# Multilingual Key Synonyms — loaded from plugin resources
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def _load_key_synonyms() -> dict[str, str]:
-    """
-    Load and flatten the key_synonyms.yaml config into a single lookup dict.
+def load_plugin_domain_resources() -> tuple[dict[str, dict[str, Any]], dict[str, list[tuple[str, ...]]]]:
+    """Load key synonyms and identity definitions without importing plugin code."""
+    domains: dict[str, dict[str, Any]] = {}
+    identity_fields: dict[str, list[tuple[str, ...]]] = {}
+    plugin_root = files("docmirror").joinpath("plugins")
 
-    The YAML structure is ``domain → locale → {raw_key: canonical_key}``.
-    This function flattens all levels into one dict for O(1) lookup at runtime.
-    If the YAML file is missing or malformed, returns an empty dict and logs
-    a warning (graceful degradation — English-key documents still work).
-    """
-    yaml_path = _KEY_SYNONYMS_PATH
-    if not yaml_path.exists():
-        logger.warning("key_synonyms.yaml not found at %s, key normalization disabled", yaml_path)
-        return {}
-
-    try:
-        with open(yaml_path, encoding="utf-8") as f:
-            raw = yaml.safe_load(f)
-    except Exception as e:
-        logger.warning("Failed to load key_synonyms.yaml: %s", e)
-        return {}
-
-    if not isinstance(raw, dict):
-        return {}
-
-    flat: dict[str, str] = {}
-    for domain, locales in raw.items():
-        if not isinstance(locales, dict):
+    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
+        manifest_path = plugin_dir.joinpath("plugin.yaml")
+        if not plugin_dir.is_dir() or not manifest_path.is_file():
             continue
-        for locale, mappings in locales.items():
-            if not isinstance(mappings, dict):
+        try:
+            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+            relative_text = str(((manifest.get("resources") or {}).get("key_synonyms")) or "").strip()
+            relative_path = PurePosixPath(relative_text)
+            if not relative_text or relative_path.is_absolute() or ".." in relative_path.parts:
                 continue
-            flat.update(mappings)
+            resource_path = plugin_dir.joinpath(*relative_path.parts)
+            payload = yaml.safe_load(resource_path.read_text(encoding="utf-8")) or {}
+        except Exception as exc:
+            logger.warning("Failed to load plugin key synonyms from %s: %s", plugin_dir.name, exc)
+            continue
 
-    logger.info("[Config] Loaded %d key synonyms from key_synonyms.yaml", len(flat))
+        resource_domains = payload.get("domains") if isinstance(payload, dict) else None
+        if isinstance(resource_domains, dict):
+            for domain, locales in resource_domains.items():
+                if not isinstance(locales, dict):
+                    continue
+                target_locales = domains.setdefault(str(domain), {})
+                for locale, mappings in locales.items():
+                    if not isinstance(mappings, dict):
+                        continue
+                    target_locales.setdefault(str(locale), {}).update(mappings)
+
+        resource_identity = payload.get("identity_fields") if isinstance(payload, dict) else None
+        if isinstance(resource_identity, dict):
+            for domain, definitions in resource_identity.items():
+                if not isinstance(definitions, list):
+                    continue
+                identity_fields[str(domain)] = [
+                    tuple(str(item) for item in definition)
+                    for definition in definitions
+                    if isinstance(definition, list) and len(definition) >= 2
+                ]
+    return domains, identity_fields
+
+
+def _flatten_key_synonyms(domains: dict[str, dict[str, Any]]) -> dict[str, str]:
+    flat: dict[str, str] = {}
+    for locales in domains.values():
+        for mappings in locales.values():
+            if isinstance(mappings, dict):
+                flat.update({str(key): str(value) for key, value in mappings.items()})
+    logger.info("[Config] Loaded %d key synonyms from plugin resources", len(flat))
     return flat
 
 
-# Module-level singleton — loaded once on first import
-KEY_SYNONYMS: dict[str, str] = _load_key_synonyms()
+KEY_SYNONYMS_BY_DOMAIN, DOMAIN_IDENTITY = load_plugin_domain_resources()
+KEY_SYNONYMS: dict[str, str] = _flatten_key_synonyms(KEY_SYNONYMS_BY_DOMAIN)
 
 
 def normalize_entity_keys(entities: dict[str, Any]) -> dict[str, Any]:
@@ -123,50 +142,6 @@ def normalize_entity_keys(entities: dict[str, Any]) -> dict[str, Any]:
             normalized[key] = value
 
     return normalized
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Document type → Identity Field Definitions
-# ══════════════════════════════════════════════════════════════════════════════
-
-# Each tuple: (display_name, candidate_key_1, candidate_key_2, ...)
-# The resolver tries candidate keys in order and uses the first non-empty match.
-DOMAIN_IDENTITY: dict[str, list[tuple[str, ...]]] = {
-    "bank_statement": [
-        ("institution", "bank_name", "Bank name", "Bank branch"),
-        ("account_holder", "Account name", "Account holder", "Card holder", "Customer name"),
-        ("account_number", "Account number", "Card number", "Account", "Customer account number"),
-        ("query_period", "Query period", "Period", "From/to date"),
-        ("currency", "Currency"),
-        ("print_date", "Print date"),
-    ],
-    "invoice": [
-        ("supplier", "Supplier", "Seller", "Invoice issuer"),
-        ("buyer", "Buyer", "Buyer", "Invoice receiver"),
-        ("invoice_no", "Invoice number", "Invoice number", "Invoice No"),
-        ("amount", "Amount", "Total amount", "Total with tax"),
-        ("tax", "Tax amount", "Tax rate"),
-        ("date", "Invoice date", "Date"),
-    ],
-    "contract": [
-        ("party_a", "Party A", "Party A"),
-        ("party_b", "Party B", "Party B"),
-        ("contract_no", "Contract number", "Contract No"),
-        ("sign_date", "Signing date", "Signing date"),
-        ("amount", "Contract amount", "Amount"),
-    ],
-    "receipt": [
-        ("merchant", "Merchant name", "Merchant", "Merchant"),
-        ("amount", "Transaction amount", "Amount", "Amount"),
-        ("date", "Transaction date", "Date", "Date"),
-    ],
-    # Wildcard fallback — used for any unrecognized document type
-    "*": [
-        ("title", "Title", "Title"),
-        ("date", "Date", "Date"),
-        ("author", "Author", "Author"),
-    ],
-}
 
 
 def resolve_identity(domain: str, entities: dict[str, Any]) -> dict[str, str]:

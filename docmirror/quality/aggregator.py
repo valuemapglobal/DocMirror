@@ -17,6 +17,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
 
+from docmirror.plugins._runtime.community_config import get_quality_group_domains
 from docmirror.quality.evidence_coverage import (
     build_evidence_coverage_summary,
     compute_evidence_coverage,
@@ -74,9 +75,8 @@ def _compute_platform_metric(name: str, events: list[QualityObservationEvent]) -
 
 def _compute_finance_metric(name: str, events: list[QualityObservationEvent]) -> float | None:
     """Compute a finance-domain metric from observation events."""
-    finance_events = [
-        e for e in events if e.input.domain in ("bank_statement", "vat_invoice", "credit_report", "payment_flow")
-    ]
+    finance_domains = frozenset(get_quality_group_domains("finance"))
+    finance_events = [e for e in events if e.input.domain in finance_domains]
     n = len(finance_events)
     if n == 0:
         return None

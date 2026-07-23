@@ -11,11 +11,13 @@ plugins, middleware profiles, or re-parse options.
 
 from __future__ import annotations
 
+from importlib.resources import files
+
+import yaml
 from pydantic import BaseModel, Field
 
 from docmirror.configs.ga_readiness import (
     CORE_DOMAIN_ROUTE,
-    ENTERPRISE_ONLY_ROUTE,
     GENERIC_FALLBACK_ROUTE,
 )
 
@@ -31,51 +33,33 @@ class DocumentRoute(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
-_DOMAIN_ROUTES: dict[str, dict] = {
-    "bank_statement": {
-        "enhance_mode": "standard",
-        "layout_profile_hint": "borderless_ledger_bank",
-        "plugins": ["bank_statement"],
-        "community_tier": CORE_DOMAIN_ROUTE,
-    },
-    "wechat_payment": {
-        "enhance_mode": "full",
-        "layout_profile_hint": "borderless_ledger_wechat",
-        "plugins": ["wechat_payment"],
-        "community_tier": CORE_DOMAIN_ROUTE,
-        "notes": ["Requires cross-page merge; use full enhance mode"],
-    },
-    "alipay_payment": {
-        "enhance_mode": "full",
-        "layout_profile_hint": "borderless_ledger_alipay",
-        "plugins": ["alipay_payment"],
-        "community_tier": CORE_DOMAIN_ROUTE,
-        "notes": ["Requires cross-page merge; use full enhance mode"],
-    },
-    "vat_invoice": {
-        "enhance_mode": "standard",
-        "plugins": ["vat_invoice"],
-        "community_tier": CORE_DOMAIN_ROUTE,
-    },
-    "business_license": {
-        "enhance_mode": "standard",
-        "plugins": ["business_license"],
-        "community_tier": CORE_DOMAIN_ROUTE,
-    },
-    "credit_report": {
-        "enhance_mode": "full",
-        "layout_profile_hint": "credit_report_section_dominant",
-        "plugins": ["credit_report"],
-        "community_tier": CORE_DOMAIN_ROUTE,
-        "notes": ["Section-driven layout; L6 graph available"],
-    },
-    "audit_report": {
-        "enhance_mode": "standard",
-        "plugins": ["audit_report"],
-        "community_tier": ENTERPRISE_ONLY_ROUTE,
-        "notes": ["Community edition emits mirror_only envelope"],
-    },
-}
+def _manifest_route(document_type: str) -> dict:
+    from docmirror.plugins._runtime.plugin_registry import registry
+
+    manifests = registry.list_provider_manifests()
+    for manifest in manifests:
+        provider = manifest.get("provider") or {}
+        if provider.get("domain_name") == document_type:
+            return dict(manifest.get("routing") or {})
+
+    generic_manifest = next(
+        (manifest for manifest in manifests if (manifest.get("provider") or {}).get("domain_name") == "generic"),
+        None,
+    )
+    if not generic_manifest:
+        return {}
+    relative_path = str(((generic_manifest.get("resources") or {}).get("route_overrides")) or "")
+    if not relative_path:
+        return {}
+    try:
+        resource = files("docmirror").joinpath("plugins").joinpath("generic")
+        for part in relative_path.split("/"):
+            resource = resource.joinpath(part)
+        payload = yaml.safe_load(resource.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    routes = payload.get("routes") if isinstance(payload, dict) else None
+    return dict(routes.get(document_type) or {}) if isinstance(routes, dict) else {}
 
 
 def route_document(
@@ -91,7 +75,7 @@ def route_document(
     )
 
     doc_type = document_type or "generic"
-    cfg = _DOMAIN_ROUTES.get(doc_type, {})
+    cfg = _manifest_route(doc_type)
     plugins = list(cfg.get("plugins") or [])
     community_tier = cfg.get("community_tier", "")
 
@@ -121,10 +105,12 @@ def route_document(
     if confidence < 0.5:
         notes.append("Low classify confidence: consider /v1/validate after parse")
 
+    from docmirror.layout.scene.scene_resolver import scene_to_layout_profile_id
+
     return DocumentRoute(
         document_type=doc_type,
         enhance_mode=cfg.get("enhance_mode", "standard"),
-        layout_profile_hint=cfg.get("layout_profile_hint"),
+        layout_profile_hint=scene_to_layout_profile_id(doc_type),
         recommended_plugins=plugins,
         community_tier=community_tier,
         notes=notes,

@@ -6,13 +6,14 @@ import time
 from pathlib import Path
 
 # Terminal Colors
-CYAN = '\033[96m'
-GREEN = '\033[92m'
-YELLOW = '\033[93m'
-RED = '\033[91m'
-MAGENTA = '\033[95m'
-BOLD = '\033[1m'
-RESET = '\033[0m'
+CYAN = "\033[96m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RED = "\033[91m"
+MAGENTA = "\033[95m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
 
 def print_typewriter(text: str, delay: float = 0.03):
     """Prints text with a hacker-like typing effect."""
@@ -21,6 +22,7 @@ def print_typewriter(text: str, delay: float = 0.03):
         sys.stdout.flush()
         time.sleep(delay)
     print()
+
 
 def print_header(title: str):
     term_width = shutil.get_terminal_size().columns
@@ -70,11 +72,14 @@ async def run_cinematic_demo():
     from docmirror import perceive_document
 
     loading = True
+
     def spinner():
         spinner_chars = "|/-\\"
         i = 0
         while loading:
-            sys.stdout.write(f"\r{CYAN}[Engine]{RESET} Extracting Evidence Plane & vNext Topology... {spinner_chars[i % 4]}")
+            sys.stdout.write(
+                f"\r{CYAN}[Engine]{RESET} Extracting Evidence Plane & vNext Topology... {spinner_chars[i % 4]}"
+            )
             sys.stdout.flush()
             time.sleep(0.1)
             i += 1
@@ -99,7 +104,10 @@ async def run_cinematic_demo():
     time.sleep(0.5)
 
     # 4. Reveal Results — use canonical vNext mirror output
-    mirror = result.to_mirror_json_vnext()
+    from docmirror.models.sealed import seal_parse_result
+    from docmirror.output.mirror_projector import project_mirror
+
+    mirror = project_mirror(seal_parse_result(result))
 
     print_header("ParseResult -> [Document & Identity]")
     time.sleep(0.5)

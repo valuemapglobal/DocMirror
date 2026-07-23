@@ -21,7 +21,9 @@ Downstream: ``extract.engine``, ``table.ledger_postprocess``.
 import logging
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 
+from docmirror.configs.scene.loader import get_scene_evidence_specs
 from docmirror.layout.vocabulary import _RE_IS_AMOUNT, _RE_IS_DATE
 from docmirror.layout.watermark import is_watermark_char
 
@@ -29,6 +31,17 @@ logger = logging.getLogger(__name__)
 
 _RE_PAGE_FOOTER = re.compile(r"^第?\s*\d+\s*页$")
 _RE_STANDALONE_PAGE_NUM = re.compile(r"^\d{1,4}$")
+
+
+@lru_cache(maxsize=1)
+def _plugin_table_noise_markers() -> tuple[str, ...]:
+    """Collect sparse table-row noise markers from plugin scene resources."""
+    markers: set[str] = set()
+    for spec in get_scene_evidence_specs().values():
+        for marker in spec.get("table_noise_markers", ()):
+            if isinstance(marker, str) and marker.strip():
+                markers.add(marker.strip())
+    return tuple(sorted(markers))
 
 
 @dataclass
@@ -126,7 +139,7 @@ def _looks_like_page_noise(row: list[str], _num_cols: int) -> bool:
     if not non_empty:
         return True
     joined = " ".join(non_empty)
-    if "微信支付" in joined and len(non_empty) <= 2:
+    if len(non_empty) <= 2 and any(marker in joined for marker in _plugin_table_noise_markers()):
         return True
     if _RE_PAGE_FOOTER.match(joined):
         return True

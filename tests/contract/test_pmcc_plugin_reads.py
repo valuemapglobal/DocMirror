@@ -12,6 +12,8 @@ from docmirror.models.mirror.page_access import (
     resolve_block_ref,
 )
 from docmirror.models.mirror.page_evidence_bundles import merge_micro_grid_structures_into_bundles
+from docmirror.models.sealed import seal_parse_result
+from docmirror.output.mirror_projector import project_mirror
 from docmirror.plugins._base.generic_community_adapter import (
     _collect_structure_projected_records,
     build_generic_community_output,
@@ -75,7 +77,7 @@ def test_get_page_projection_blocks_present_after_api_dict():
         pages=[PageContent(page_number=4, width=100, height=200)],
         entities=DocumentEntities(document_type="credit_report", domain_specific=ds),
     )
-    api = pr.to_mirror_json_vnext(mirror_level="standard")
+    api = project_mirror(seal_parse_result(pr), mirror_level="standard")
     doc = api
     page = get_page_projection(doc, 4)
     assert page is not None

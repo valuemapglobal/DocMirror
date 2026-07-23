@@ -1,8 +1,0 @@
-# DEC schema registry — business_scene → optional Pydantic schema module
-# null = no strict validation (design 09 §4.4 Phase 3)
-
-schemas:
-  credit_report: credit_report_schema
-  bank_statement: bank_statement_schema
-  wechat_payment: table_payment_schema
-  alipay_payment: table_payment_schema

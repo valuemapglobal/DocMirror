@@ -1,0 +1,12 @@
+version: 1
+domains:
+  credit_report:
+    zh:
+      报告主体: Name
+      被查询人姓名: Name
+      被查询者姓名: Name
+      身份证号: ID number
+      证件号码: ID number
+      报告时间: Report time
+      查询时间: Report time
+      报告编号: Report number

@@ -45,7 +45,7 @@ def test_xml_supported_via_fcr():
 def test_enhancement_profile_fixed_layout():
     mws = resolve_enhancement_profile("fixed_layout_rasterizable", "standard")
     assert "EvidenceEngine" in mws
-    assert "EntityExtractor" in mws
+    assert "GenericEntityExtractor" in mws
 
 
 def test_enhancement_profile_container_empty():

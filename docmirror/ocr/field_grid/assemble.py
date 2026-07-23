@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from docmirror.layout.profile.registry import load_table_semantics
 from docmirror.ocr.field_grid.assign import (
     assign_tokens_to_col_bands,
     assignment_confidence,
@@ -24,33 +25,11 @@ _CURRENCY_IN_TEXT = re.compile(r"人民币|美元|欧元|日元|港币")
 _AMOUNT_COMMA = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?")
 _AMOUNT_PLAIN = re.compile(r"(?<!\d)\d{4,}(?:\.\d+)?(?!\d)")
 _COMPACT_DATE = re.compile(r"(?<!\d)\d{8}(?!\d)")
-_AS_OF_DATE = re.compile(r"截至(\d{4})年(\d{1,2})月(\d{1,2})日")
-
+_FIELD_GRID_SEMANTICS = load_table_semantics().get("field_grid") or {}
 LABEL_TYPE_HINTS: dict[str, tuple[str, ...]] = {
-    "开立日期": ("date",),
-    "到期日期": ("date",),
-    "关闭日期": ("date",),
-    "账户关闭日期": ("date",),
-    "账户币种": ("currency",),
-    "币种": ("currency",),
-    "借款金额": ("amount",),
-    "金额": ("amount",),
-    "账户标识": ("long_id", "text"),
-    "管理机构": ("text",),
+    str(label): tuple(str(value) for value in values)
+    for label, values in (_FIELD_GRID_SEMANTICS.get("label_type_hints") or {}).items()
 }
-
-
-def parse_as_of_date(text: str) -> str | None:
-    """Extract dotted date from an as-of YYYY-MM-DD status header line."""
-    match = _AS_OF_DATE.search(re.sub(r"\s+", "", text or ""))
-    if not match:
-        return None
-    return f"{match.group(1)}.{int(match.group(2)):02d}.{int(match.group(3)):02d}"
-
-
-def first_dotted_date(text: str) -> str | None:
-    match = _DATE_IN_TEXT.search(text or "")
-    return match.group(0).replace("/", ".").replace("-", ".") if match else None
 
 
 def _label_type_hint(label_text: str) -> tuple[str, ...]:

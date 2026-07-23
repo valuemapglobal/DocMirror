@@ -14,12 +14,16 @@ from __future__ import annotations
 import re
 from enum import Enum
 
-_PIPE_HEADER_ZH = re.compile(r"序号.*记账日", re.IGNORECASE)
-_PIPE_HEADER_EN = re.compile(r"No\.\s*\|.*Bk\.D\.", re.IGNORECASE)
+from docmirror.layout.profile.registry import load_table_semantics
+
+_PIPE_RULES = load_table_semantics().get("pipe_grid") or {}
+_PIPE_HEADER_PATTERNS = tuple(
+    re.compile(str(pattern), re.IGNORECASE) for pattern in _PIPE_RULES.get("header_patterns", ())
+)
 _PRIMARY_SEQ_RE = re.compile(r"^\d+$")
-_PREAMBLE_FIRST = frozenset({"no.", "no", "序号", "bk.d.", "bk.d"})
-_FOOTER_MARKERS = ("借方合计", "Debit Total", "本对账期末余额", "贷方合计")
-_SPLIT_AMOUNT_MARKERS = ("借方发生额", "贷方发生额", "Debit Amount", "Credit Amount")
+_PREAMBLE_FIRST = frozenset(str(value).lower() for value in _PIPE_RULES.get("preamble_first", ()))
+_FOOTER_MARKERS = tuple(str(value) for value in _PIPE_RULES.get("footer_markers", ()))
+_SPLIT_AMOUNT_MARKERS = tuple(str(value) for value in _PIPE_RULES.get("split_amount_markers", ()))
 _HLINE_RE = re.compile(r"^[\s─━\-|]+$")
 
 
@@ -55,9 +59,9 @@ def classify_pipe_cells(cells: list[str]) -> RowKind:
     first = (cells[0] or "").strip()
     first_lower = first.lower()
 
-    if (_PIPE_HEADER_ZH.search(joined) or _PIPE_HEADER_EN.search(joined)) and _has_split_amount_headers(joined):
+    if any(pattern.search(joined) for pattern in _PIPE_HEADER_PATTERNS) and _has_split_amount_headers(joined):
         return RowKind.HEADER
-    if first_lower in _PREAMBLE_FIRST or re.match(r"^(no\.?|序号)$", first_lower, re.I):
+    if first_lower in _PREAMBLE_FIRST:
         return RowKind.PREAMBLE
     if any(m in joined for m in _FOOTER_MARKERS):
         return RowKind.FOOTER

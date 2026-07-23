@@ -1,0 +1,8 @@
+version: 1
+profiles:
+  borderless_ledger_alipay:
+    inherits: borderless_ledger_wechat
+    document_type_hint: alipay_payment
+    match:
+      text_any: [支付宝, 蚂蚁集团]
+      min_pages: 3

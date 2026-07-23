@@ -1,0 +1,93 @@
+version: 1
+scene_keywords:
+  credit_report:
+    ocr_domain: credit_report
+    structure_schema_hints:
+      field_grid: credit.field_grid.account
+      label_value_graph: credit.label_value_graph.account
+      micro_grid: credit.micro_grid.repayment
+      repayment_grid: credit.micro_grid.repayment
+      credit_repayment_record: credit.micro_grid.repayment
+      row_bands: credit.micro_grid.repayment
+    header_split_patterns:
+      - pattern: 当前.*信贷交易.*机构数
+        replacement: [当前有未结清信贷交易的机构数]
+      - pattern: 首次.*还款.*责任.*年份
+        replacement: [首次有相关还款责任的年份]
+    text_signatures:
+      - scope: cover
+        source: cover_frame
+        required: [企业信用报告]
+        signal_groups:
+          - [中征码]
+          - [统一社会信用代码]
+          - [报告编号]
+          - [报告时间]
+          - [查询机构]
+          - [身份标识]
+        min_matches: 1
+        weight: 0.95
+      - scope: cover
+        source: cover_frame
+        required: [个人信用报告]
+        signal_groups:
+          - [被查询者姓名]
+          - [证件号码]
+          - [报告编号]
+          - [报告时间]
+          - [查询记录]
+          - [信贷记录]
+        min_matches: 1
+        weight: 0.90
+    header_signatures:
+      - [报告编号, 查询时间, 被查询者, 证件类型, 证件号码]
+      - [被查询者姓名, 被查询者证件号码]
+      - [贷信记录, 非信贷交易记录, 公共记录]
+      - [账户数, 余额, 还款情况]
+    entity_signatures:
+      - fields: [name, id_number, subject_name, Name, ID number, 公民身份号码, 被查询者]
+        min_matches: 2
+        base_weight: 0.10
+        per_match_weight: 0.05
+        max_weight: 0.25
+    include:
+      - 个人信用报告
+      - 征信报告
+      - Credit Report
+      - 征信中心
+      - Credit Reference
+      - 企业信用报告
+      - 信贷交易信息概要
+      - 逾期状态
+      - 信用评分
+      - 逾期记录
+      - 征信查询
+      - 报告编号
+      - 被查询者
+      - 查询机构
+      - 查询原因
+      - 个人基本信息
+      - 信息概要
+      - 信贷交易信息明细
+      - 公共信息明细
+      - 本人声明
+      - 异议标注
+      - 征信中心客服电话
+      - 查询日期
+      - 报告时间
+      - 征信查询授权
+    exclude:
+      - 机动车行驶证
+  credit_report_enterprise:
+    include:
+      - 企业信用报告
+      - 企业征信
+      - Credit Report
+      - Enterprise Credit Report
+      - 企业信用
+      - 企业征信报告
+      - 贷款卡号
+      - 征信中心
+      - 工商信息
+      - 信用评级
+      - 企业信用评级

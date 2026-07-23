@@ -4,27 +4,21 @@
 """
 DEC schema registry loader and validator (design 09 §4.4).
 
-Loads ``schemas/registry.yaml`` which maps ``document_type`` strings to Python
-schema module names under ``docmirror.models.schemas``. Validates
-``DomainExtractionResult`` instances against the registered schema for their
-document type.
+Loads declarative ``dec_validation`` constraints from bundled plugin manifests
+and validates ``DomainExtractionResult`` instances without importing business
+schema modules into Core.
 
 Functions::
 
-    load_schema_registry()   LRU-cached document_type → module_key mapping
-    validate_dec()             Return issue strings (empty = ok); optional strict mode
-
-Each schema module exposes ``validate_dec(dec) -> list[str]`` or the raw
-``validate_entities`` alias. Unknown document types with no registry entry pass
-validation silently. Strict mode raises ``ValueError`` on import or validation errors.
+    load_schema_registry()   LRU-cached document_type → declarative constraints
+    validate_dec()           Return issue strings (empty = ok); optional strict mode
 """
 
 from __future__ import annotations
 
-import importlib
 import logging
 from functools import lru_cache
-from pathlib import Path
+from importlib.resources import files
 
 import yaml
 
@@ -32,16 +26,22 @@ from docmirror.models.entities.domain_result import DomainExtractionResult
 
 logger = logging.getLogger(__name__)
 
-_REGISTRY_PATH = Path(__file__).resolve().parent / "registry.yaml"
-
 
 @lru_cache(maxsize=1)
-def load_schema_registry() -> dict[str, str | None]:
-    if not _REGISTRY_PATH.is_file():
-        return {}
-    data = yaml.safe_load(_REGISTRY_PATH.read_text(encoding="utf-8")) or {}
-    raw = data.get("schemas") or {}
-    return {str(k): (None if v is None else str(v)) for k, v in raw.items()}
+def load_schema_registry() -> dict[str, dict]:
+    registry: dict[str, dict] = {}
+    plugin_root = files("docmirror").joinpath("plugins")
+    for plugin_dir in sorted(plugin_root.iterdir(), key=lambda item: item.name):
+        manifest_path = plugin_dir.joinpath("plugin.yaml")
+        if not plugin_dir.is_dir() or not manifest_path.is_file():
+            continue
+        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+        provider = manifest.get("provider") or {}
+        document_type = str(provider.get("domain_name") or "")
+        constraints = manifest.get("dec_validation")
+        if document_type and isinstance(constraints, dict):
+            registry[document_type] = dict(constraints)
+    return registry
 
 
 def validate_dec(dec: DomainExtractionResult, *, strict: bool = False) -> list[str]:
@@ -52,31 +52,29 @@ def validate_dec(dec: DomainExtractionResult, *, strict: bool = False) -> list[s
     """
     issues: list[str] = []
     registry = load_schema_registry()
-    module_key = registry.get(dec.document_type)
-    if module_key is None:
-        if dec.document_type in registry:
-            return []
-        return issues
-
+    constraints = registry.get(dec.document_type)
+    if constraints is None:
+        return []
     try:
-        mod = importlib.import_module(f"docmirror.models.schemas.{module_key}")
-    except ImportError as exc:
-        msg = f"schema module {module_key!r} not found for {dec.document_type!r}: {exc}"
-        if strict:
-            raise ValueError(msg) from exc
-        logger.debug("[DEC] %s", msg)
-        return [msg]
-
-    validator = getattr(mod, "validate_dec", None) or getattr(mod, "validate_entities", None)
-    if validator is None:
-        return issues
-
-    try:
-        result = validator(dec)
-        if isinstance(result, list):
-            issues.extend(str(x) for x in result)
-        elif result is False:
-            issues.append(f"validation failed for {dec.document_type}")
+        structured_data = dec.structured_data
+        if constraints.get("structured_data") == "mapping" and not isinstance(structured_data, dict):
+            issues.append(f"{dec.document_type}: structured_data must be a dict")
+            return issues
+        if constraints.get("require_entities_or_records") is True and not dec.entities:
+            records = structured_data.get("records") if isinstance(structured_data, dict) else structured_data
+            if isinstance(records, list) and not records:
+                issues.append(f"{dec.document_type}: no entities or structured_data records")
+        if isinstance(structured_data, dict):
+            for field_name in constraints.get("list_fields") or []:
+                value = structured_data.get(str(field_name))
+                if not isinstance(value, list):
+                    issues.append(f"{dec.document_type}: structured_data.{field_name} must be a list")
+                elif not value and dec.quality.validation_passed:
+                    issues.append(f"{dec.document_type}: validation_passed but {field_name} empty")
+            for field_name in constraints.get("optional_mapping_fields") or []:
+                value = structured_data.get(str(field_name))
+                if value is not None and not isinstance(value, dict):
+                    issues.append(f"{dec.document_type}: structured_data.{field_name} must be a dict")
     except Exception as exc:
         msg = f"DEC validation error for {dec.document_type}: {exc}"
         if strict:

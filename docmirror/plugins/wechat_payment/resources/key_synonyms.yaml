@@ -1,0 +1,13 @@
+version: 1
+domains:
+  wechat_payment:
+    zh:
+      查询时间段: Query period
+      起始日期: Query period
+      终止日期: Query period
+      收/支/其他: Direction
+      交易单号: Trade number
+      金额(元): Amount
+      金额（元）: Amount
+      交易类型: Transaction type
+      交易对象: Counter object

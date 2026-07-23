@@ -4,9 +4,10 @@
 """
 Classification rules loader — file-sorting categories (design 09 OQ-8).
 
-Loads ``classification_rules.yaml`` which defines file-sort categories used
-upstream of business-scene classification. Each category may optionally map to
-one or more ``business_scene`` values via ``maps_to_scenes``.
+Loads the ``classification_rules`` resource declared by the generic plugin.
+The resource defines file-sort categories used upstream of business-scene
+classification. Each category may optionally map to one or more
+``business_scene`` values via ``maps_to_scenes``.
 
 Functions::
 
@@ -22,18 +23,33 @@ unmapped categories are valid and return empty scene lists.
 from __future__ import annotations
 
 from functools import lru_cache
+from importlib.resources import files
+from importlib.resources.abc import Traversable
+from pathlib import PurePosixPath
 from typing import Any
 
 import yaml
 
-from docmirror.configs.paths import CLASSIFICATION_RULES_YAML
+
+@lru_cache(maxsize=1)
+def get_classification_rules_resource() -> Traversable | None:
+    """Resolve the generic plugin's declared classification-rules resource."""
+    plugin_dir = files("docmirror.plugins.generic")
+    manifest = yaml.safe_load(plugin_dir.joinpath("plugin.yaml").read_text(encoding="utf-8")) or {}
+    relative_text = str(((manifest.get("resources") or {}).get("classification_rules")) or "").strip()
+    relative = PurePosixPath(relative_text)
+    if not relative_text or relative.is_absolute() or ".." in relative.parts:
+        return None
+    resource = plugin_dir.joinpath(*relative.parts)
+    return resource if resource.is_file() else None
 
 
 @lru_cache(maxsize=1)
 def load_classification_rules() -> dict[str, Any]:
-    if not CLASSIFICATION_RULES_YAML.is_file():
+    resource = get_classification_rules_resource()
+    if resource is None:
         return {}
-    data = yaml.safe_load(CLASSIFICATION_RULES_YAML.read_text(encoding="utf-8")) or {}
+    data = yaml.safe_load(resource.read_text(encoding="utf-8")) or {}
     return data.get("categories") or {}
 
 

@@ -1,0 +1,26 @@
+version: 1
+scene_keywords:
+  alipay_payment:
+    ambiguity_group: payment_ledger
+    header_signatures:
+      - [交易记录, 交易号, 时间, 金额, 对方]
+      - [交易号, 商品说明, 时间, 金额, 状态]
+      - [商品说明, 收/付款方式, 交易订单号, 商家订单号, 交易时间]
+    include:
+      - 支付宝（中国）网络技术有限公司
+      - 交易流水证明
+      - Alipay
+      - 支付宝流水
+      - Alipay账单
+      - Alipay Statement
+      - 支付宝交易记录
+      - 支付宝收支明细
+      - 支付宝收支明细证明
+      - 支付宝交易明细
+      - 支付宝付款
+      - Alipay流水
+      - 支付宝电子回单
+      - 支付宝收/支
+      - 支付宝余额
+    exclude:
+      - 微信支付交易明细证明

@@ -7,7 +7,11 @@ from __future__ import annotations
 
 import re
 
+from docmirror.layout.profile.registry import load_table_semantics
 from docmirror.ocr.field_grid.models import FieldCell
+
+_FIELD_GRID_SEMANTICS = load_table_semantics().get("field_grid") or {}
+_STATUS_WORDS = tuple(str(value) for value in _FIELD_GRID_SEMANTICS.get("status_words", ()))
 
 FIELD_TYPE_PATTERNS: dict[str, re.Pattern[str]] = {
     "date": re.compile(r"\d{4}[./-]\d{1,2}[./-]\d{1,2}"),
@@ -16,7 +20,7 @@ FIELD_TYPE_PATTERNS: dict[str, re.Pattern[str]] = {
     "page_footer": re.compile(r"第\d+页，共\d+页"),
     "status_date": re.compile(r"截至\d{4}年\d{1,2}月\d{1,2}日"),
     "long_id": re.compile(r"[A-Z]?\d{10,}"),
-    "status_word": re.compile(r"结清|结消|逾期|正常|关闭"),
+    "status_word": re.compile("|".join(re.escape(value) for value in _STATUS_WORDS) or r"(?!x)x"),
 }
 
 

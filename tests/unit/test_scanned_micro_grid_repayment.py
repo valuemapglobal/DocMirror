@@ -12,9 +12,11 @@ from docmirror.models.mirror.page_evidence_bundles import (
     micro_grid_structures_from_bundles,
     page_evidence_bundle,
 )
+from docmirror.models.sealed import seal_parse_result
 from docmirror.ocr.micro_grid.cell_recognition import normalize_allowlist_text
 from docmirror.ocr.micro_grid.detect import detect_micro_grid_candidates
 from docmirror.ocr.micro_grid.models import OCRToken
+from docmirror.output.mirror_projector import project_mirror
 from docmirror.plugins._base.kv_community_enrich import enrich_credit_report_output
 from docmirror.plugins.credit_report.repayment_grid import (
     extract_credit_repayment_records,
@@ -183,12 +185,7 @@ def test_credit_repayment_micro_grid_from_line_bboxes():
     assert out["micro_grid"]
     assert len(out["micro_grid"]["col_bands"]) == 13
     assert out["micro_grid"]["col_bands"][0]["role"] == "year"
-    year_cells = [
-        cell
-        for row in out["micro_grid"]["cells"]
-        for cell in row
-        if cell.get("role") == "year"
-    ]
+    year_cells = [cell for row in out["micro_grid"]["cells"] for cell in row if cell.get("role") == "year"]
     assert [cell["text"] for cell in year_cells] == ["2021", "2020"]
     assert _record_tuples(out["repayment_records"]) == _expected_repayment_tuples()
     assert all(record["source_cell_refs"] for record in out["repayment_records"])
@@ -199,12 +196,7 @@ def test_credit_repayment_micro_grid_prefers_ocr_tokens_when_available():
 
     assert out["micro_grid"]["geometry_source"].startswith("ocr_tokens")
     assert out["micro_grid"]["audit"]["source_token_count"] == len(_credit_page4_tokens())
-    year_cells = [
-        cell
-        for row in out["micro_grid"]["cells"]
-        for cell in row
-        if cell.get("role") == "year"
-    ]
+    year_cells = [cell for row in out["micro_grid"]["cells"] for cell in row if cell.get("role") == "year"]
     assert year_cells[0]["text"] == "2021"
     assert year_cells[0]["bbox"]
     assert _record_tuples(out["repayment_records"]) == _expected_repayment_tuples()
@@ -371,17 +363,12 @@ def test_forensic_api_exports_micro_grids_without_domain_semantics():
         )
     )
 
-    standard = pr.to_mirror_json_vnext(mirror_level="standard")
-    forensic = pr.to_mirror_json_vnext(mirror_level="forensic")
+    standard = project_mirror(seal_parse_result(pr), mirror_level="standard")
+    forensic = project_mirror(seal_parse_result(pr), mirror_level="forensic")
 
     assert "repayment_records" not in standard
     standard_grid = _micro_grid_structure_from_document(standard)
-    standard_cell = next(
-        cell
-        for row in standard_grid["cells"]
-        for cell in row
-        if cell.get("role") == "status"
-    )
+    standard_cell = next(cell for row in standard_grid["cells"] for cell in row if cell.get("role") == "status")
     assert standard_grid["grid_type_hint"] == "credit_repayment_record"
     assert standard_cell["text"] == "N"
     assert standard_cell["bbox"]
@@ -403,8 +390,7 @@ def test_credit_plugin_maps_generic_scanned_micro_grid_evidence():
     enriched = enrich_credit_report_output(output, parse_result=pr)
 
     assert [
-        (r["year"], r["month"], r["status"], r["overdue_amount"])
-        for r in enriched["data"]["repayment_records"]
+        (r["year"], r["month"], r["status"], r["overdue_amount"]) for r in enriched["data"]["repayment_records"]
     ] == [
         (2021, 1, "N", "0"),
         (2021, 2, "C", "0"),
@@ -427,8 +413,8 @@ def test_forensic_api_exports_generic_scanned_micro_grid_evidence_only():
         )
     )
 
-    standard = pr.to_mirror_json_vnext(mirror_level="standard")
-    forensic = pr.to_mirror_json_vnext(mirror_level="forensic")
+    standard = project_mirror(seal_parse_result(pr), mirror_level="standard")
+    forensic = project_mirror(seal_parse_result(pr), mirror_level="forensic")
 
     assert "scanned_micro_grid_evidence" not in standard
     forensic_doc = forensic
@@ -453,9 +439,9 @@ def test_four_file_forensic_mirror_includes_plugin_primed_micro_grids_without_se
 
     from docmirror.framework.middlewares.extraction.community_fact_recognizer import CommunityFactRecognizer
 
-    CommunityFactRecognizer().process(pr)
+    pr = CommunityFactRecognizer().process(pr)
     outputs = build_all_projections(pr)
-    document = pr.to_mirror_json_vnext(mirror_level="forensic")
+    document = project_mirror(seal_parse_result(pr), mirror_level="forensic")
     assert "repayment_records" not in document
     grid = _micro_grid_structure_from_document(document)
     assert grid["grid_type_hint"] == "credit_repayment_record"
@@ -481,17 +467,12 @@ def test_four_file_standard_mirror_includes_compact_plugin_primed_micro_grids():
 
     from docmirror.framework.middlewares.extraction.community_fact_recognizer import CommunityFactRecognizer
 
-    CommunityFactRecognizer().process(pr)
+    pr = CommunityFactRecognizer().process(pr)
     outputs = build_all_projections(pr)
 
     document = outputs["mirror"]
     grid = _micro_grid_structure_from_document(document)
-    status_cell = next(
-        cell
-        for row in grid["cells"]
-        for cell in row
-        if cell.get("role") == "status"
-    )
+    status_cell = next(cell for row in grid["cells"] for cell in row if cell.get("role") == "status")
     assert "repayment_records" not in document
     assert "scanned_micro_grid_evidence" not in document
     page4 = next(p for p in document["pages"] if p.get("page_number") == 4)

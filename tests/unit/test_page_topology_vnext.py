@@ -592,7 +592,7 @@ def test_mirror_core_document_source_uses_topology_table_reconstructor():
     assert "document.field.起始日期" in fact_predicates
     assert "document_metadata" in mirror["semantics"]["views"]
     assert mirror["document"]["document_type_candidates"][0]["type"] == "bank_statement"
-    assert "bank_statement" in mirror["semantics"]["views"]
+    assert "tables" in mirror["semantics"]["views"]
     assert any(node["kind"] == "fact" for node in mirror["graph"]["nodes"])
     assert mirror["pages"][0]["quality"]["evidence_coverage"] == 1.0
     assert mirror["quality"]["coverage"]["residual_ratio"] == 0.0

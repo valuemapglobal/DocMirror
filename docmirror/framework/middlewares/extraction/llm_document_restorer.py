@@ -260,7 +260,7 @@ class LlmDocumentRestorer(BaseMiddleware):
                 result.record_mutation(
                     "LlmDocumentRestorer",
                     target_block_id="pages",
-                    field_changed="tables",
+                    field_changed="pages",
                     old_value=[],
                     new_value=f"{tc} tables (conf={data.get('confidence', '?')})",
                     reason="llm_restorer",
@@ -274,7 +274,7 @@ class LlmDocumentRestorer(BaseMiddleware):
                 result.record_mutation(
                     "LlmDocumentRestorer",
                     target_block_id="pages",
-                    field_changed="key_values",
+                    field_changed="pages",
                     old_value=[],
                     new_value=f"{fc} fields",
                     reason="llm_restorer",

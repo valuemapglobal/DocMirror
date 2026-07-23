@@ -39,7 +39,7 @@ class GenericEntityExtractor(BaseMiddleware):
         result.record_mutation(
             self.name,
             "doc",
-            "entities",
+            "entities.domain_specific.extracted_entities",
             {},
             {k: str(v)[:50] for k, v in entities.items()},
             reason=f"Extracted {len(entities)} entities from KV blocks",

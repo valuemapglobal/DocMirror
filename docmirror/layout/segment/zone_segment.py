@@ -79,7 +79,7 @@ def segment_page_into_zones(
 
     # ── Step 2.5: Rect-grid table extent (Tier 1.5 fallback) ──
     # When column consensus fails but the page has dense rect grids (e.g.
-    # 东莞银行: 165 rects forming 15 rows × 11 cols), derive table extent
+    # Dense ruled form: derive table extent from repeated grid rectangles.
     # from the rect bounding box.
     if not table_extent and len(rects) >= 20:
         x_lefts = sorted(set(round(r["x0"]) for r in rects))
@@ -97,7 +97,7 @@ def segment_page_into_zones(
 
     # ── Step 2.6: Line-grid table extent (Tier 1.5b fallback) ──
     # When rect-grid also fails but the page has a clear line grid (e.g.
-    # 交通银行: 644 lines forming 13 rows × 18 cols), derive table extent
+    # Dense line grid: derive table extent from repeated row/column lines.
     # from the h-line/v-line bounding box.
     if not table_extent:
         lines = page_plum.lines or []

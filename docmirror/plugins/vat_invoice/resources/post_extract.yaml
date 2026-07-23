@@ -1,0 +1,8 @@
+version: 1
+hooks:
+  vat_invoice_precision:
+    module: docmirror.plugins._runtime.post_extract.hooks.community_precision
+    class: CommunityPrecisionHook
+    when: "edition == 'community' and document_type == 'vat_invoice'"
+    mutates_facts: false
+    provides: [status.warnings]

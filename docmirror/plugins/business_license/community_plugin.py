@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from docmirror.plugins._runtime.plugin_registry import DomainPlugin
+from docmirror.plugin_api import DomainPlugin, FactPatch
 
 
 class BusinessLicensePlugin(DomainPlugin):
@@ -91,6 +91,16 @@ class BusinessLicensePlugin(DomainPlugin):
             full_text=text,
         )
         return enrich_business_license_output(out, parse_result=parse_result, full_text=text)
+
+    def recognize_facts(self, parse_result, text: str = "") -> FactPatch:
+        from docmirror.plugins._base.kv_community_extract import extract_kv_fact_patch
+
+        return extract_kv_fact_patch(
+            self,
+            parse_result,
+            identity_specs=self.identity_fields,
+            full_text=text,
+        )
 
 
 plugin = BusinessLicensePlugin()

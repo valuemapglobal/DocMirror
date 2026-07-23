@@ -25,10 +25,10 @@ def test_orchestrator_standard_fixed_layout_chain():
     mws = orch._build_middlewares("standard", "pdf", "fixed_layout_rasterizable", _minimal_result())
     names = [type(m).__name__ for m in mws]
     for required in [
-        "EntityExtractor",
+        "GenericEntityExtractor",
         "GeometricReconstructor",
         "EvidenceEngine",
-        "InstitutionDetector",
+        "CommunityFactRecognizer",
         "Validator",
         "LlmDocumentRestorer",
         "HeaderInferrerMiddleware",
@@ -38,10 +38,11 @@ def test_orchestrator_standard_fixed_layout_chain():
     assert names.index("GeometricReconstructor") < names.index("LlmDocumentRestorer")
     assert names.index("LlmDocumentRestorer") < names.index("HeaderInferrerMiddleware")
     assert names.index("HeaderInferrerMiddleware") < names.index("HeaderAlignmentMiddleware")
-    assert names.index("HeaderAlignmentMiddleware") < names.index("EntityExtractor")
-    assert names.index("EntityExtractor") < names.index("EvidenceEngine")
-    assert names.index("EvidenceEngine") < names.index("InstitutionDetector")
-    assert names.index("InstitutionDetector") < names.index("Validator")
+    assert names.index("HeaderAlignmentMiddleware") < names.index("GenericEntityExtractor")
+    assert names.index("GenericEntityExtractor") < names.index("EvidenceEngine")
+    assert names.index("EvidenceEngine") < names.index("CommunityFactRecognizer")
+    assert names.index("CommunityFactRecognizer") < names.index("Validator")
+    assert "InstitutionDetector" not in names
 
 
 def test_orchestrator_full_keeps_causal_structure_chain(monkeypatch):

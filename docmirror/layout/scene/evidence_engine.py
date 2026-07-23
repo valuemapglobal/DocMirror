@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 from docmirror.configs.scene.loader import (
     compute_keyword_uniqueness,
+    get_scene_evidence_specs,
     get_scene_excludes,
     get_scene_includes,
 )
@@ -58,6 +59,7 @@ class EvidenceEngine(BaseMiddleware):
 
     def process(self, result: ParseResult) -> ParseResult:
         """Collect evidence, fuse, and set document_type."""
+        old_doc_type = result.entities.document_type
         all_evidence: list[Evidence] = []
 
         # Phase 1: Collect evidence from all sources
@@ -67,9 +69,7 @@ class EvidenceEngine(BaseMiddleware):
             # Cover letter / title block often holds issuer keywords omitted from table cells.
             classification_text = f"{cover_text}\n{classification_text}"
         all_evidence.extend(self._keyword_evidence(classification_text))
-        all_evidence.extend(self._credit_report_cover_evidence(cover_text))
-        all_evidence.extend(self._bank_statement_frame_evidence(classification_text))
-        all_evidence.extend(self._id_card_frame_evidence(classification_text))
+        all_evidence.extend(self._text_frame_evidence(classification_text, cover_text))
         all_evidence.extend(self._header_evidence(result.all_tables()))
         all_evidence.extend(self._user_hint_evidence(result))
         all_evidence.extend(self._extractor_scene_evidence(result))
@@ -102,6 +102,8 @@ class EvidenceEngine(BaseMiddleware):
             ds = {}
         if plugin_doc_type != doc_type:
             ds["plugin_document_type"] = plugin_doc_type
+        else:
+            ds.pop("plugin_document_type", None)
         if refined_profile:
             ds["document_scene_refined"] = doc_type
             ds["layout_profile_id_refined"] = refined_profile
@@ -123,18 +125,6 @@ class EvidenceEngine(BaseMiddleware):
         if ds:
             result.entities.domain_specific = ds
 
-        if doc_type == "bank_statement":
-            from docmirror.layout.scene.institution_hint import resolve_document_institution
-
-            inst, inst_auth = resolve_document_institution(result, classification_text)
-            if inst and inst_auth in ("header.kv", "entities.organization"):
-                if not result.entities.organization:
-                    result.entities.organization = inst
-                ds = dict(result.entities.domain_specific or {})
-                ds["mirror_institution_hint"] = inst
-                ds["mirror_institution_authority"] = inst_auth
-                result.entities.domain_specific = ds
-
         # Evidence log for debugging (mirror/API only when DOCMIRROR_DEBUG=1)
         if (
             is_debug_mode()
@@ -152,8 +142,8 @@ class EvidenceEngine(BaseMiddleware):
         result.record_mutation(
             middleware_name=self.name,
             target_block_id="document",
-            field_changed="scene",
-            old_value=getattr(result.entities, "document_type", "unknown"),
+            field_changed="entities",
+            old_value=old_doc_type,
             new_value=doc_type,
             confidence=confidence,
             reason=f"evidence_fusion (best={verdict}, conf={confidence:.2f})",
@@ -164,12 +154,10 @@ class EvidenceEngine(BaseMiddleware):
 
     @staticmethod
     def _edition_document_type(document_type: str) -> str:
-        """Map Core aliases to edition-facing document types without importing plugins."""
-        aliases = {
-            "bank_reconciliation": "bank_statement",
-            "credit_report_enterprise": "credit_report",
-        }
-        return aliases.get(document_type, document_type)
+        """Map plugin-declared aliases to edition-facing document types."""
+        from docmirror.configs.scene.loader import get_scene_aliases
+
+        return get_scene_aliases().get(document_type, document_type)
 
     def _cover_page_text(self, result: ParseResult) -> str:
         """First-page narrative text + table headers (issuer lines often live here)."""
@@ -226,97 +214,59 @@ class EvidenceEngine(BaseMiddleware):
             )
         ]
 
-    def _bank_statement_frame_evidence(self, text: str) -> list[Evidence]:
-        """Detect the document-level frame of a bank statement ledger.
+    def _text_frame_evidence(self, document_text: str, cover_text: str) -> list[Evidence]:
+        """Evaluate document/cover signatures declared by plugin scene resources."""
+        evidence: list[Evidence] = []
+        for scene, spec in get_scene_evidence_specs().items():
+            for rule in spec.get("text_signatures") or []:
+                if not isinstance(rule, dict):
+                    continue
+                scope = str(rule.get("scope") or "document")
+                source_text = cover_text if scope == "cover" else document_text
+                compact = re.sub(r"\s+", "", source_text or "")
+                if not compact:
+                    continue
+                required = [str(value) for value in rule.get("required") or [] if str(value)]
+                if required and not all(re.sub(r"\s+", "", value) in compact for value in required):
+                    continue
+                candidate_pattern = str(rule.get("candidate_pattern") or "")
+                candidate_field_type = str(rule.get("candidate_field_type") or "")
+                if candidate_pattern and candidate_field_type:
+                    from docmirror.ocr.correction.validator_registry import ValidatorRegistry
 
-        Payment ledgers often contain many Alipay/WeChat transaction names.
-        A bank statement, however, has a stronger wrapper: bank name, account
-        metadata, statement period, balance, counterparty, and transaction
-        detail fields.  Use that frame only when several independent signals
-        co-occur, so ordinary payment screenshots are not over-classified.
-        """
-        compact = (text or "").replace(" ", "")
-        if not compact:
-            return []
-        signals = {
-            "bank_name": (
-                "银行" in compact and ("农村商业银行" in compact or "商业银行" in compact or "开户行" in compact)
-            ),
-            "account": ("账号" in compact or "卡号" in compact),
-            "period": ("起止日期" in compact or "起始日期" in compact or "申请时间" in compact),
-            "ledger_header": ("交易明细" in compact or "交易明细详情" in compact),
-            "balance": "余额" in compact,
-            "counterparty": ("对方户名" in compact or "对方开户行" in compact),
-            "amount": "收入/支出金额" in compact or ("收入" in compact and "支出" in compact),
-        }
-        score = sum(1 for value in signals.values() if value)
-        if score < 5:
-            return []
-        weight = 0.8 if score >= 6 else 0.55
-        return [
-            Evidence(
-                source="document_frame",
-                category="bank_statement",
-                weight=weight,
-                direction=1,
-                detail=f"bank_statement_frame_signals={sorted(k for k, v in signals.items() if v)}",
-            )
-        ]
-
-    def _id_card_frame_evidence(self, text: str) -> list[Evidence]:
-        """Recognize a PRC identity-card front from its fixed label/value frame."""
-        from docmirror.ocr.correction.validators import validate_cn_resident_id
-
-        compact = re.sub(r"\s+", "", text or "")
-        if not compact:
-            return []
-        labels = tuple(label for label in ("姓名", "性别", "民族", "出生", "住址") if label in compact)
-        candidates = re.findall(r"(?<!\d)\d{17}[\dXx](?![0-9A-Za-z])", compact)
-        valid_ids = [candidate for candidate in candidates if validate_cn_resident_id(candidate)]
-        if len(labels) < 3 or not valid_ids:
-            return []
-        return [
-            Evidence(
-                source="document_frame",
-                category="id_card",
-                weight=0.85 if len(labels) >= 4 else 0.65,
-                direction=1,
-                detail=f"id_card_frame_labels={list(labels)} checksum_valid_id=true",
-            )
-        ]
-
-    def _credit_report_cover_evidence(self, cover_text: str) -> list[Evidence]:
-        """Keep long credit-report appendices from diluting a definitive cover."""
-        compact = re.sub(r"\s+", "", cover_text or "")
-        if not compact:
-            return []
-        if "企业信用报告" in compact:
-            signals = ("中征码", "统一社会信用代码", "报告编号", "报告时间", "查询机构", "身份标识")
-            matched = [signal for signal in signals if signal in compact]
-            if matched:
-                return [
-                    Evidence(
-                        source="cover_frame",
-                        category="credit_report",
-                        weight=0.95,
-                        direction=1,
-                        detail=f"enterprise credit-report cover signals={matched}",
-                    )
+                    candidates = re.findall(candidate_pattern, compact)
+                    outcomes = [
+                        ValidatorRegistry.default().evaluate(
+                            str(candidate),
+                            field_type=candidate_field_type,
+                            country=str(rule.get("candidate_country") or "") or None,
+                        )
+                        for candidate in candidates
+                    ]
+                    if not any(outcome is not None and outcome.valid for outcome in outcomes):
+                        continue
+                groups = [group for group in rule.get("signal_groups") or [] if isinstance(group, list)]
+                matched = [
+                    [str(token) for token in group if str(token) and re.sub(r"\s+", "", str(token)) in compact]
+                    for group in groups
                 ]
-        if "个人信用报告" in compact:
-            signals = ("被查询者姓名", "证件号码", "报告编号", "报告时间", "查询记录", "信贷记录")
-            matched = [signal for signal in signals if signal in compact]
-            if matched:
-                return [
+                matched = [tokens for tokens in matched if tokens]
+                if len(matched) < int(rule.get("min_matches") or len(groups)):
+                    continue
+                weight = float(rule.get("weight") or 0.0)
+                for threshold, tier_weight in (rule.get("weight_tiers") or {}).items():
+                    if len(matched) >= int(threshold):
+                        weight = max(weight, float(tier_weight))
+                evidence.append(
                     Evidence(
-                        source="cover_frame",
-                        category="credit_report",
-                        weight=0.90,
+                        source=str(rule.get("source") or f"{scope}_frame"),
+                        category=scene,
+                        weight=weight,
                         direction=1,
-                        detail=f"personal credit-report cover signals={matched}",
+                        detail=f"plugin text signature matched {len(matched)}/{len(groups)} groups",
                     )
-                ]
-        return []
+                )
+        return evidence
 
     def _protected_extractor_categories(self, result: ParseResult) -> set[str]:
         """Categories backed by high-confidence extractor hints skip keyword_exclude veto."""
@@ -326,8 +276,9 @@ class EvidenceEngine(BaseMiddleware):
             protected.add(scene)
         ds = getattr(result.entities, "domain_specific", None) or {}
         file_name = str(ds.get("source_file_name") or "")
-        if "银行流水" in file_name:
-            protected.add("bank_statement")
+        for category, spec in get_scene_evidence_specs().items():
+            if any(str(token) in file_name for token in spec.get("filename_tokens") or []):
+                protected.add(category)
         return protected
 
     def _filename_evidence(self, result: ParseResult) -> list[Evidence]:
@@ -337,16 +288,19 @@ class EvidenceEngine(BaseMiddleware):
         if not file_name:
             return []
         evidence: list[Evidence] = []
-        if "银行流水" in file_name:
-            evidence.append(
-                Evidence(
-                    source="filename",
-                    category="bank_statement",
-                    weight=0.40,
-                    direction=1,
-                    detail=f"filename token 银行流水 in {file_name}",
+        for category, spec in get_scene_evidence_specs().items():
+            for token in spec.get("filename_tokens") or []:
+                if str(token) not in file_name:
+                    continue
+                evidence.append(
+                    Evidence(
+                        source="filename",
+                        category=category,
+                        weight=0.40,
+                        direction=1,
+                        detail=f"filename token {token} in {file_name}",
+                    )
                 )
-            )
         return evidence
 
     def _extractor_scene_evidence(self, result: ParseResult) -> list[Evidence]:
@@ -439,127 +393,12 @@ class EvidenceEngine(BaseMiddleware):
         if not table_blocks:
             return []
 
-        # Structural column-header signatures (not data-driven — these are
-        # layout features of specific document types, not keywords)
-        _header_sigs: dict[str, list[set[str]]] = {
-            "bank_statement": [
-                {
-                    "\u4ea4\u6613\u65f6\u95f4",
-                    "\u91d1\u989d",
-                    "\u4f59\u989d",
-                    "\u5bf9\u65b9\u6237\u540d",
-                    "\u6458\u8981",
-                },
-                {"\u4ea4\u6613\u65e5\u671f", "\u6458\u8981", "\u5b58\u5165", "\u652f\u51fa", "\u4f59\u989d"},
-                {"DATE", "DESCRIPTION", "DEBITS", "CREDITS", "BALANCE"},
-                {
-                    "\u8bb0\u8d26\u65e5\u671f",
-                    "\u4ea4\u6613\u7c7b\u578b",
-                    "\u5bf9\u65b9\u8d26\u53f7",
-                    "\u5bf9\u65b9\u6237\u540d",
-                    "\u91d1\u989d",
-                },
-            ],
-            "credit_report": [
-                {
-                    "\u62a5\u544a\u7f16\u53f7",
-                    "\u67e5\u8be2\u65f6\u95f4",
-                    "\u88ab\u67e5\u8be2\u8005",
-                    "\u8bc1\u4ef6\u7c7b\u578b",
-                    "\u8bc1\u4ef6\u53f7\u7801",
-                },
-                {"\u88ab\u67e5\u8be2\u8005\u59d3\u540d", "\u88ab\u67e5\u8be2\u8005\u8bc1\u4ef6\u53f7\u7801"},
-                {"\u8d37\u4fe1\u8bb0\u5f55", "\u975e\u4fe1\u8d37\u4ea4\u6613\u8bb0\u5f55", "\u516c\u5171\u8bb0\u5f55"},
-                {"\u8d26\u6237\u6570", "\u4f59\u989d", "\u8fd8\u6b3e\u60c5\u51b5"},
-            ],
-            "invoice_vat": [
-                {
-                    "\u53d1\u7968\u4ee3\u7801",
-                    "\u53d1\u7968\u53f7\u7801",
-                    "\u5f00\u7968\u65e5\u671f",
-                    "\u8d2d\u65b9\u540d\u79f0",
-                    "\u9500\u65b9\u540d\u79f0",
-                },
-                {
-                    "\u8d27\u7269\u6216\u5e94\u7a0e\u52b3\u52a1\u540d\u79f0",
-                    "\u89c4\u683c\u578b\u53f7",
-                    "\u6570\u91cf",
-                    "\u5355\u4ef7",
-                    "\u91d1\u989d",
-                },
-            ],
-            "wechat_payment": [
-                {
-                    "\u4ea4\u6613\u5355\u53f7",
-                    "\u4ea4\u6613\u65f6\u95f4",
-                    "\u4ea4\u6613\u7c7b\u578b",
-                    "\u6536/\u652f",
-                    "\u91d1\u989d",
-                },
-                {
-                    "\u4ea4\u6613\u5355\u53f7",
-                    "\u4ea4\u6613\u65f6\u95f4",
-                    "\u6536/\u652f/\u5176\u4ed6",
-                    "\u91d1\u989d(\u5143)",
-                },
-                {"\u4ea4\u6613\u5355\u53f7", "\u5bf9\u65b9", "\u91d1\u989d", "\u65f6\u95f4"},
-            ],
-            "alipay_payment": [
-                {"\u4ea4\u6613\u8bb0\u5f55", "\u4ea4\u6613\u53f7", "\u65f6\u95f4", "\u91d1\u989d", "\u5bf9\u65b9"},
-                {"\u4ea4\u6613\u53f7", "\u5546\u54c1\u8bf4\u660e", "\u65f6\u95f4", "\u91d1\u989d", "\u72b6\u6001"},
-                {
-                    "\u5546\u54c1\u8bf4\u660e",
-                    "\u6536/\u4ed8\u6b3e\u65b9\u5f0f",
-                    "\u4ea4\u6613\u8ba2\u5355\u53f7",
-                    "\u5546\u5bb6\u8ba2\u5355\u53f7",
-                    "\u4ea4\u6613\u65f6\u95f4",
-                },
-            ],
-            "insurance_policy": [
-                {
-                    "\u4fdd\u9669\u5355\u53f7",
-                    "\u88ab\u4fdd\u9669\u4eba",
-                    "\u4fdd\u9669\u4eba",
-                    "\u4fdd\u9669\u671f\u95f4",
-                    "\u4fdd\u8d39",
-                },
-                {"\u4fdd\u5355\u53f7", "\u6295\u4fdd\u4eba", "\u88ab\u4fdd\u9669\u4eba", "\u4fdd\u9669\u91d1\u989d"},
-                {"Policy No", "Insured", "Premium", "Period"},
-            ],
-            "business_license": [
-                {
-                    "\u7edf\u4e00\u793e\u4f1a\u4fe1\u7528\u4ee3\u7801",
-                    "\u540d\u79f0",
-                    "\u7c7b\u578b",
-                    "\u4f4f\u6240",
-                    "\u6cd5\u5b9a\u4ee3\u8868\u4eba",
-                },
-                {
-                    "\u6ce8\u518c\u8d44\u672c",
-                    "\u6210\u7acb\u65e5\u671f",
-                    "\u8425\u4e1a\u671f\u9650",
-                    "\u7ecf\u8425\u8303\u56f4",
-                },
-            ],
-            "household_register": [
-                {
-                    "\u6237\u53f7",
-                    "\u6237\u4e3b\u59d3\u540d",
-                    "\u4e0e\u6237\u4e3b\u5173\u7cfb",
-                    "\u59d3\u540d",
-                    "\u6027\u522b",
-                },
-                {"\u6237\u53f7", "\u59d3\u540d", "\u8eab\u4efd\u8bc1\u53f7", "\u4f4f\u5740"},
-            ],
-            "id_card": [
-                {"\u59d3\u540d", "\u6027\u522b", "\u6c11\u65cf", "\u51fa\u751f", "\u4f4f\u5740"},
-                {"\u516c\u6c11\u8eab\u4efd\u53f7\u7801", "Name", "Sex", "Nationality"},
-            ],
-        }
+        scene_specs = get_scene_evidence_specs()
 
         evidence: list[Evidence] = []
 
-        for scene, feature_groups in _header_sigs.items():
+        for scene, spec in scene_specs.items():
+            feature_groups = spec.get("header_signatures") or []
             for table in table_blocks:
                 if not table.headers:
                     continue
@@ -568,6 +407,8 @@ class EvidenceEngine(BaseMiddleware):
                 best_matched = 0
                 best_required_len = 0
                 for required in feature_groups:
+                    if not isinstance(required, list) or not required:
+                        continue
                     matched = 0
                     for req_kw in required:
                         for h in header_set:
@@ -597,29 +438,17 @@ class EvidenceEngine(BaseMiddleware):
 
     @staticmethod
     def _header_keyword_match(req_kw: str, header: str) -> bool:
-        """Match header column names; avoid wechat 交易单号 ⊂ alipay 交易订单号 false positives."""
-        if req_kw == header or header == req_kw:
-            return True
-        if req_kw in header:
-            if req_kw == "交易单号" and "交易订单号" in header:
-                return False
-            if req_kw == "商户单号" and "商家订单号" in header:
-                return False
-            return True
-        if header in req_kw:
-            return True
-        return False
+        """Match normalized complete headers without domain-specific exceptions."""
+
+        def normalize(value: str) -> str:
+            return re.sub(r"[\s_:：/\\-]+", "", str(value or "")).casefold()
+
+        return bool(normalize(req_kw)) and normalize(req_kw) == normalize(header)
 
     # ─── Entity Evidence ───
 
     def _entity_evidence(self, entities) -> list[Evidence]:
-        """Use entity fields extracted by EntityExtractor to classify document type.
-
-        Maps extracted entity keys to document categories via known patterns:
-          - bank_name / Account name / Account number → bank_statement
-          - invoice_code / invoice_number / buyer / seller → invoice_vat
-          - subject_name / id_number / name / id_number → credit_report / id_card
-        """
+        """Use plugin-owned entity-key signatures to classify document type."""
         if not entities:
             return []
 
@@ -631,77 +460,27 @@ class EvidenceEngine(BaseMiddleware):
         else:
             return []
 
-        # Build evidence per category based on known entity key signatures
         evidence: list[Evidence] = []
-
-        # Bank statement: bank_name OR (Account name + Account number)
-        if "bank_name" in keys:
-            evidence.append(
-                Evidence(
-                    source="entity",
-                    category="bank_statement",
-                    weight=0.15,
-                    direction=1,
-                    detail="entity has bank_name",
+        for category, spec in get_scene_evidence_specs().items():
+            for signature in spec.get("entity_signatures") or []:
+                if not isinstance(signature, dict):
+                    continue
+                fields = {str(value) for value in signature.get("fields") or []}
+                matched = len(keys & fields)
+                if matched < int(signature.get("min_matches") or len(fields)):
+                    continue
+                base = float(signature.get("base_weight") or 0.10)
+                per_match = float(signature.get("per_match_weight") or 0.05)
+                max_weight = float(signature.get("max_weight") or 0.25)
+                evidence.append(
+                    Evidence(
+                        source="entity",
+                        category=category,
+                        weight=min(base + per_match * matched, max_weight),
+                        direction=1,
+                        detail=f"plugin entity signature matched {matched}/{len(fields)} fields",
+                    )
                 )
-            )
-        bank_fields = {"Account name", "Account number", "bank_name", "Card number", "Query period"}
-        bank_match = len(keys & bank_fields)
-        if bank_match >= 2:
-            evidence.append(
-                Evidence(
-                    source="entity",
-                    category="bank_statement",
-                    weight=min(0.10 + 0.05 * bank_match, 0.25),
-                    direction=1,
-                    detail=f"bank entity fields: matched {bank_match}",
-                )
-            )
-
-        # Invoice/增值税发票: contains invoice_code or invoice_number
-        inv_fields = {
-            "invoice_code",
-            "invoice_number",
-            "buyer",
-            "seller",
-            "Invoice\u4ee3\u7801",
-            "Invoice number",
-            "Buyer",
-            "Seller",
-        }
-        inv_match = len(keys & inv_fields)
-        if inv_match >= 2:
-            evidence.append(
-                Evidence(
-                    source="entity",
-                    category="invoice_vat",
-                    weight=min(0.10 + 0.05 * inv_match, 0.25),
-                    direction=1,
-                    detail=f"invoice entity fields: matched {inv_match}",
-                )
-            )
-
-        # Credit report / ID card: contains subject_name + id_number
-        id_fields = {
-            "name",
-            "id_number",
-            "subject_name",
-            "Name",
-            "ID number",
-            "\u516c\u6c11\u8eab\u4efd\u53f7\u7801",
-            "\u88ab\u67e5\u8be2\u8005",
-        }
-        id_match = len(keys & id_fields)
-        if id_match >= 2:
-            evidence.append(
-                Evidence(
-                    source="entity",
-                    category="credit_report",
-                    weight=min(0.10 + 0.05 * id_match, 0.25),
-                    direction=1,
-                    detail=f"identity entity fields: matched {id_match}",
-                )
-            )
 
         return evidence
 
@@ -820,7 +599,7 @@ class EvidenceEngine(BaseMiddleware):
         if gap < 0.15 and len(sorted_scores) >= 2:
             second_scene = sorted_scores[1][0]
             logger.info(f"[EvidenceEngine] Ambiguous: {best_scene} vs {second_scene} (gap={gap:.3f})")
-            best_scene, best_score, second_score = self._disambiguate_payment_ledgers(
+            best_scene, best_score, second_score = self._disambiguate_classification_group(
                 sorted_scores,
                 positive,
                 vetoed,
@@ -835,9 +614,7 @@ class EvidenceEngine(BaseMiddleware):
 
         return best_scene, confidence, fused_evidence
 
-    _PAYMENT_LEDGER_SCENES = frozenset({"wechat_payment", "alipay_payment"})
-
-    def _disambiguate_payment_ledgers(
+    def _disambiguate_classification_group(
         self,
         sorted_scores: list[tuple[str, float]],
         positive: list[Evidence],
@@ -846,32 +623,34 @@ class EvidenceEngine(BaseMiddleware):
         best_score: float,
         second_score: float,
     ) -> tuple[str, float, float]:
-        """Break wechat/alipay ties using distinctive header hits and cover keywords."""
+        """Break plugin-declared classification-group ties using header evidence."""
         if len(sorted_scores) < 2:
             return best_scene, best_score, second_score
         top, second = sorted_scores[0][0], sorted_scores[1][0]
-        if {top, second} != self._PAYMENT_LEDGER_SCENES:
+        specs = get_scene_evidence_specs()
+        top_group = str(specs.get(top, {}).get("ambiguity_group") or "")
+        if not top_group or top_group != str(specs.get(second, {}).get("ambiguity_group") or ""):
             return best_scene, best_score, second_score
 
         score_map = dict(sorted_scores)
-        alipay_score = score_map.get("alipay_payment", 0.0)
-        wechat_score = score_map.get("wechat_payment", 0.0)
+        top_score = score_map.get(top, 0.0)
+        runner_up_score = score_map.get(second, 0.0)
 
-        header_weight = {"alipay_payment": 0.0, "wechat_payment": 0.0}
+        header_weight = {top: 0.0, second: 0.0}
         for ev in positive:
             if ev.source == "header" and ev.category in header_weight:
                 header_weight[ev.category] += ev.weight
 
-        alipay_headers = header_weight["alipay_payment"]
-        wechat_headers = header_weight["wechat_payment"]
-        if alipay_headers > wechat_headers + 0.05:
-            return "alipay_payment", alipay_score, wechat_score
-        if wechat_headers > alipay_headers + 0.05:
-            return "wechat_payment", wechat_score, alipay_score
+        top_headers = header_weight[top]
+        runner_up_headers = header_weight[second]
+        if top_headers > runner_up_headers + 0.05:
+            return top, top_score, runner_up_score
+        if runner_up_headers > top_headers + 0.05:
+            return second, runner_up_score, top_score
 
-        if "wechat_payment" in vetoed and "alipay_payment" not in vetoed:
-            return "alipay_payment", alipay_score, wechat_score
-        if "alipay_payment" in vetoed and "wechat_payment" not in vetoed:
-            return "wechat_payment", wechat_score, alipay_score
+        if top in vetoed and second not in vetoed:
+            return second, runner_up_score, top_score
+        if second in vetoed and top not in vetoed:
+            return top, top_score, runner_up_score
 
         return best_scene, best_score, second_score

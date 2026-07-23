@@ -18,6 +18,9 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import shutil
+import tempfile
 from pathlib import Path
 
 import filetype
@@ -269,6 +272,27 @@ def _detect_forgery(path: Path, transport: str) -> tuple[bool | None, tuple[str,
     return None, ()
 
 
+def _materialize_content_snapshot(path: Path, expected_sha256: str) -> Path:
+    """Copy accepted bytes into a private, read-only, checksum-bound file."""
+    snapshot_dir = Path(tempfile.mkdtemp(prefix="docmirror-accepted-"))
+    snapshot = snapshot_dir / f"source{path.suffix.lower()}"
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as source, snapshot.open("xb") as target:
+            while chunk := source.read(1024 * 1024):
+                digest.update(chunk)
+                target.write(chunk)
+            target.flush()
+            os.fsync(target.fileno())
+        if digest.hexdigest() != expected_sha256:
+            raise ValueError("input changed while creating accepted content snapshot")
+        snapshot.chmod(0o400)
+        return snapshot
+    except Exception:
+        shutil.rmtree(snapshot_dir, ignore_errors=True)
+        raise
+
+
 def accept_source(path: str | Path, *, declared_mime: str = "") -> AcceptedSource:
     """Return the sole immutable input accepted by ``ParserDispatcher``."""
     resolved = Path(path)
@@ -289,8 +313,18 @@ def accept_source(path: str | Path, *, declared_mime: str = "") -> AcceptedSourc
         )
         raise InputRejectedError(report)
     is_forged, forgery_reasons = _detect_forgery(resolved, capability.transport)
+    try:
+        snapshot = _materialize_content_snapshot(resolved, report.input.checksum)
+    except (OSError, ValueError):
+        report.decision = InputDecisionReport(
+            accepted=False,
+            outcome="reject",
+            reason="INPUT_CHANGED_DURING_ACCEPTANCE",
+            suggestion="Retry with a stable source file.",
+        )
+        raise InputRejectedError(report) from None
     return AcceptedSource(
-        path=resolved,
+        path=snapshot,
         original_name=resolved.name,
         size_bytes=report.input.size_bytes,
         detected_mime=report.input.mime_type,
@@ -300,6 +334,8 @@ def accept_source(path: str | Path, *, declared_mime: str = "") -> AcceptedSourc
         acceptance=report,
         is_forged=is_forged,
         forgery_reasons=forgery_reasons,
+        source_path=resolved,
+        owns_snapshot=True,
     )
 
 

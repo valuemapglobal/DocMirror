@@ -21,8 +21,6 @@ SCHEMA_CORE_FIELD_GRID = "core.field_grid.kv_block"
 SCHEMA_CORE_MICRO_GRID = "core.micro_grid.matrix"
 SCHEMA_CORE_PHYSICAL_TABLE = "core.physical_table.ledger"
 SCHEMA_CORE_KEY_VALUE = "core.key_value.header"
-SCHEMA_CREDIT_FIELD_GRID = "credit.field_grid.account"
-SCHEMA_CREDIT_MICRO_GRID = "credit.micro_grid.repayment"
 
 
 @dataclass
@@ -94,19 +92,21 @@ def project_structure(
 
 def infer_schema_hint(structure: StructureDict) -> str | None:
     """Infer a schema hint when document type is unknown."""
-    kind = str(structure.get("structure_kind") or "")
-    if kind == "field_grid":
-        return SCHEMA_CREDIT_FIELD_GRID
-    if kind == "label_value_graph":
-        return "credit.label_value_graph.account"
-    grid_kind = str(structure.get("grid_kind") or structure.get("kind") or "")
-    if grid_kind in {"micro_grid", "repayment_grid"}:
-        return SCHEMA_CREDIT_MICRO_GRID
-    if structure.get("cells") and structure.get("row_bands"):
-        grid_hint = str(structure.get("grid_type_hint") or "")
-        if grid_hint == "credit_repayment_record":
-            return SCHEMA_CREDIT_MICRO_GRID
+    declared = str(structure.get("schema_hint") or "")
+    if declared:
+        return declared
     return infer_schema_hint_v2(structure)
+
+
+def _plugin_schema_policy(document_type: str | None) -> dict[str, str]:
+    if not document_type:
+        return {}
+    from docmirror.configs.scene.loader import get_scene_aliases, get_scene_evidence_specs
+
+    normalized = get_scene_aliases().get(document_type, document_type)
+    spec = get_scene_evidence_specs().get(normalized) or {}
+    policy = spec.get("structure_schema_hints") or {}
+    return {str(key): str(value) for key, value in policy.items()}
 
 
 def infer_schema_hint_v2(
@@ -116,25 +116,22 @@ def infer_schema_hint_v2(
     region_kind: str | None = None,
 ) -> str | None:
     """Infer schema_hint with domain override priority (Design 20 §2.3)."""
-    doc = str(document_type or "").lower()
     kind = str(structure.get("structure_kind") or region_kind or "")
     grid_hint = str(structure.get("grid_type_hint") or "")
-
-    if "credit" in doc or doc == "credit_report":
-        if kind == "field_grid" or region_kind == "field_grid":
-            return SCHEMA_CREDIT_FIELD_GRID
-        if kind == "label_value_graph":
-            return "credit.label_value_graph.account"
-        if grid_hint == "credit_repayment_record" or structure.get("row_bands"):
-            return SCHEMA_CREDIT_MICRO_GRID
+    policy = _plugin_schema_policy(document_type)
 
     if kind == "field_grid" or region_kind == "field_grid":
-        return SCHEMA_CORE_FIELD_GRID
+        return policy.get("field_grid", SCHEMA_CORE_FIELD_GRID)
     if kind == "label_value_graph" or region_kind == "label_value_graph":
-        return SCHEMA_CORE_FIELD_GRID
+        return policy.get("label_value_graph", SCHEMA_CORE_FIELD_GRID)
+    if grid_hint and grid_hint in policy:
+        return policy[grid_hint]
+    if structure.get("row_bands") and policy.get("row_bands"):
+        return policy["row_bands"]
+
     grid_kind = str(structure.get("grid_kind") or structure.get("kind") or "")
     if grid_kind in {"micro_grid", "repayment_grid"}:
-        return SCHEMA_CORE_MICRO_GRID
+        return policy.get(grid_kind, policy.get("micro_grid", SCHEMA_CORE_MICRO_GRID))
     if structure.get("cells") and structure.get("row_bands"):
         return SCHEMA_CORE_MICRO_GRID
     return None

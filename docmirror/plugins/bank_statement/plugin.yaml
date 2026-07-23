@@ -1,0 +1,49 @@
+schema_version: 1
+
+provider:
+  id: bank_statement
+  domain_name: bank_statement
+  edition: community
+  version: community-1
+  implementation: docmirror.plugins.bank_statement.community_plugin:plugin
+
+capabilities:
+  premium: true
+  community_order: 1
+  generic_fallback: false
+  quality_groups: [finance]
+
+routing:
+  enhance_mode: standard
+
+classification:
+  aliases:
+    - bank_reconciliation
+
+projection:
+  dataset_aliases: {records: transactions}
+  dataset_labels: {transactions: 交易流水}
+  dataset_types: {transactions: transaction}
+  section_type_markers: {交易: transactions}
+
+resources:
+  table_styles: resources/table_styles.yaml
+  institution_overrides: resources/institution_overrides.yaml
+  institutions: resources/institutions.yaml
+  key_synonyms: resources/key_synonyms.yaml
+  field_schema: resources/field_schema.yaml
+  scene_keywords: resources/scene_keywords.yaml
+  domain_contract: resources/domain_contract.yaml
+  layout_profiles: resources/layout_profiles.yaml
+  confidence_policy: resources/confidence_policy.yaml
+  ocr_corrections: resources/ocr_corrections.yaml
+  post_extract: resources/post_extract.yaml
+
+fact_outputs:
+  document_type: bank_statement
+  datasets:
+    - transactions
+  domain_fact_prefix: bank_statement
+
+dec_validation:
+  require_entities_or_records: true

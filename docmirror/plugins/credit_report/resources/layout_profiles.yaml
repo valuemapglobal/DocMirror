@@ -1,0 +1,42 @@
+version: 1
+profiles:
+  credit_report_section_dominant:
+    inherits: generic
+    document_type_hint: credit_report
+    mirror_skip_cross_page_merge: true
+    match:
+      text_any:
+        - 个人信用报告
+        - 企业信用报告
+      scene_hint: credit_report
+
+table_semantics:
+  field_grid:
+    glued_labels:
+      - 管理机构
+      - 账户标识
+      - 开立日期
+      - 账户币种
+      - 到期日期
+      - 借款金额
+      - 业务种类
+      - 担保方式
+      - 账户状态
+      - 账户关闭日期
+      - 共同借款标志
+      - 还款期数
+      - 还款频率
+      - 还款方式
+    status_markers: [账户状态, 账户关闭日期, 结清, 结消]
+    status_words: [结清, 结消, 逾期, 正常, 关闭]
+    label_type_hints:
+      开立日期: [date]
+      到期日期: [date]
+      关闭日期: [date]
+      账户关闭日期: [date]
+      账户币种: [currency]
+      币种: [currency]
+      借款金额: [amount]
+      金额: [amount]
+      账户标识: [long_id, text]
+      管理机构: [text]

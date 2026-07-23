@@ -9,30 +9,17 @@ import re
 from collections.abc import Callable
 from typing import Any
 
+from docmirror.layout.profile.registry import load_table_semantics
 from docmirror.ocr.field_grid.models import LabelToken
 from docmirror.ocr.local_structure.utils import union_bbox
 from docmirror.ocr.micro_grid.models import BBox, OCRToken
 
 _LABEL_SUFFIX_RE = re.compile(r"(机构|标识|日期|币种|金额|种类|方式|状态|编号|名称|期限|频率|责任|类型|余额|用途|利率)")
 _PAGE_FOOTER_RE = re.compile(r"第\d+页，共\d+页")
-_STATUS_HINT_RE = re.compile(r"(账户状态|账户关闭日期|截至\d{4}年|结清|结消)")
-
-_GENERIC_LABELS: tuple[str, ...] = (
-    "管理机构",
-    "账户标识",
-    "开立日期",
-    "账户币种",
-    "到期日期",
-    "借款金额",
-    "业务种类",
-    "担保方式",
-    "账户状态",
-    "账户关闭日期",
-    "共同借款标志",
-    "还款期数",
-    "还款频率",
-    "还款方式",
-)
+_FIELD_GRID_SEMANTICS = load_table_semantics().get("field_grid") or {}
+_GLUED_LABELS = tuple(str(value) for value in _FIELD_GRID_SEMANTICS.get("glued_labels", ()))
+_STATUS_MARKERS = tuple(str(value) for value in _FIELD_GRID_SEMANTICS.get("status_markers", ()))
+_STATUS_HINT_RE = re.compile("|".join([*(re.escape(value) for value in _STATUS_MARKERS), r"截至\d{4}年"]))
 
 
 def _split_glued_label_text(text: str, bbox: BBox) -> list[tuple[str, BBox]]:
@@ -40,7 +27,7 @@ def _split_glued_label_text(text: str, bbox: BBox) -> list[tuple[str, BBox]]:
     if not compact:
         return []
     spans: list[tuple[int, int, str]] = []
-    for label in sorted(_GENERIC_LABELS, key=len, reverse=True):
+    for label in sorted(_GLUED_LABELS, key=len, reverse=True):
         start = 0
         while start < len(compact):
             pos = compact.find(label, start)

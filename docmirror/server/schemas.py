@@ -38,8 +38,8 @@ class ParseResponse(BaseModel):
         json_schema_extra={
             "example": {
                 "mirror": {"schema": "docmirror.mirror_json", "schema_version": "1.0.7"},
-                "source": {"filename": "statement.pdf"},
-                "document": {"document_type": "bank_statement", "document_type_candidates": []},
+                "source": {"filename": "document.pdf"},
+                "document": {"document_type": "generic", "document_type_candidates": []},
                 "pages": [],
                 "evidence": {"text_atoms": []},
                 "regions": [],

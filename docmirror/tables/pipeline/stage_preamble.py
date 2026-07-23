@@ -77,16 +77,13 @@ def _strip_preamble(
     Args:
         rows: Rows to filter.
         confirmed_header: The confirmed header row.
-        categories: Vocabulary categories for matching; defaults to ``["BANK_STATEMENT"]``.
+        categories: Optional structural vocabulary categories for matching.
     """
     if not confirmed_header or not rows:
         return rows
 
     # Non-empty cells of the confirmed header (normalised)
     header_cells = {_normalize_for_vocab(c).strip() for c in confirmed_header if c and c.strip()}
-
-    if not categories:
-        categories = ["BANK_STATEMENT"]
 
     max_scan = min(10, len(rows))
 

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.12] — 2026-07-23
+
+### Added
+- A public, evidence-bound `FactPatch` plugin contract, transactional canonical patch application, mutation auditing, and a truly immutable sealed `ParseResult` projection boundary.
+- Package-local plugin manifests and resource inventories for classification, institution rules, field mappings, table semantics, OCR corrections, validation, and dataset contracts.
+- Enforced P0/P1/P2 architecture gates, mandatory 6+1 real-document Golden fingerprints, worker-count determinism checks, plugin-chaos coverage, performance/RSS baselines, and an installable external-plugin end-to-end contract.
+
+### Changed
+- The runtime now follows one canonical fact path from `AcceptedSource` and `ParsePolicy` through adapters, generic normalization, plugin recognizers, canonical validation, sealing, sibling projectors, and atomic artifact delivery.
+- Core configuration and shared runtime code are generalized; institution templates, domain dictionaries, business field rules, validation semantics, and dataset ownership now live with their existing plugins.
+- Mirror, Community, Enterprise, and Finance projections consume the same sealed fact snapshot, while external projectors are discovered through the existing plugin registry without modifying Core output code.
+- Stability qualification now evaluates reproducible technical evidence for the exact candidate instead of calendar-time or release-cycle waiting periods; publication still requires successful CI for the exact release commit.
+
+### Removed
+- Production dependencies on legacy `docmirror.core` paths, central business solvers and schemas, Core-owned domain assets, Community second-pass fact recognition, and obsolete result/enrichment compatibility modules.
+- The 14-day main-CI waiting period and two-release-cycle contract observation requirement from the release policy.
+
+### Fixed
+- ParsePolicy and forced document-type semantics are attached uniformly at the canonical boundary for every adapter and fallback path.
+- Fact fingerprints are deterministic across workers 1, 2, and 4 and exclude runtime timing, paths, diagnostics, licensing, and delivery metadata.
+- Plugin failure, absence, timeout, and authorization outcomes cannot mutate sealed Core facts; external plugin wheel tests now work in both pip and uv development environments.
+
+### Security
+- Fact-changing plugin replacements require explicit reasons and valid evidence identifiers, and unknown evidence is rejected before canonical mutation.
+- Release publication remains bound to the exact current `main` commit, successful CI for that commit, an exact `v1.0.12` tag, and PyPI Trusted Publishing.
+
 ## [1.0.11] — 2026-07-22
 
 ### Added

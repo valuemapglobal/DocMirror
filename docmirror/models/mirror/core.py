@@ -572,11 +572,8 @@ class MirrorCoreVNext:
         views: dict[str, Any] = {}
         if document_metadata:
             views["document_metadata"] = document_metadata
-        provenance = getattr(getattr(plane, "source", None), "provenance", {}) or {}
-        entities = provenance.get("entities") if isinstance(provenance, dict) else {}
-        document_type = str((entities or {}).get("document_type") or provenance.get("scene") or "")
-        if table_views and document_type == "bank_statement":
-            views["bank_statement"] = {"tables": table_views}
+        if table_views:
+            views["tables"] = {"tables": table_views}
         return {"facts": facts, "entities": [], "views": views}
 
     def _quality_from_model(

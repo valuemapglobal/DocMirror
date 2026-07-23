@@ -11,8 +11,6 @@ from typing import Any
 
 import yaml
 
-from docmirror.configs.paths import INSTITUTION_REGISTRY_YAML, KEY_SYNONYMS_YAML
-
 
 @dataclass(frozen=True)
 class CorrectionRule:
@@ -67,7 +65,6 @@ class CorrectionLexicon:
         self._terms: list[_LexiconTerm] = []
         self._load_declared_lexicons(data.get("lexicons"))
         self._load_key_synonyms()
-        self._load_institutions()
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -148,12 +145,9 @@ class CorrectionLexicon:
                     self._terms.append(_LexiconTerm(text, domains, roles, pack_id, pack_version, priority))
 
     def _load_key_synonyms(self) -> None:
-        try:
-            raw = yaml.safe_load(KEY_SYNONYMS_YAML.read_text(encoding="utf-8")) or {}
-        except (OSError, yaml.YAMLError):
-            return
-        if not isinstance(raw, dict):
-            return
+        from docmirror.configs.domain.registry import KEY_SYNONYMS_BY_DOMAIN
+
+        raw = KEY_SYNONYMS_BY_DOMAIN
         for domain, locales in raw.items():
             if not isinstance(locales, dict):
                 continue
@@ -168,25 +162,6 @@ class CorrectionLexicon:
                                 text, (str(domain),), ("field_label", "table_header"), "builtin.key_synonyms", 1
                             )
                         )
-
-    def _load_institutions(self) -> None:
-        try:
-            raw = yaml.safe_load(INSTITUTION_REGISTRY_YAML.read_text(encoding="utf-8")) or {}
-        except (OSError, yaml.YAMLError):
-            return
-        institutions = raw.get("institutions") if isinstance(raw, dict) else None
-        if not isinstance(institutions, dict):
-            return
-        for entry in institutions.values():
-            if not isinstance(entry, dict):
-                continue
-            terms = [entry.get("name"), entry.get("english_name"), *(entry.get("aliases") or [])]
-            for term in terms:
-                text = str(term or "").strip()
-                if text:
-                    self._terms.append(
-                        _LexiconTerm(text, ("bank_statement",), ("institution",), "builtin.institutions", 1)
-                    )
 
 
 def _rules(value: Any) -> list[CorrectionRule]:

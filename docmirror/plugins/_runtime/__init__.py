@@ -119,7 +119,7 @@ from docmirror.plugins._runtime.post_extract import (  # noqa: F401
 )
 
 # ── Runner ──────────────────────────────────────────────────────────────
-from docmirror.plugins._runtime.runner import run_plugin_extract, run_plugin_extract_sync
+from docmirror.plugins._runtime.runner import run_fact_recognition_sync, run_plugin_extract, run_plugin_extract_sync
 
 # ── State / Manager ─────────────────────────────────────────────────────
 from docmirror.plugins._runtime.state import is_domain_enabled, set_domain_enabled
@@ -137,6 +137,7 @@ __all__ = [
     # runner
     "run_plugin_extract",
     "run_plugin_extract_sync",
+    "run_fact_recognition_sync",
     # state / manager
     "is_domain_enabled",
     "set_domain_enabled",

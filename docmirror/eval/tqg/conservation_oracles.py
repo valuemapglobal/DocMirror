@@ -7,19 +7,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from docmirror.eval.tqg.mirror_input import mirror_api
 from docmirror.eval.tqg.report import GateReport
 
 
 def _api_from_result(mirror_or_api: Any, spec: dict[str, Any]) -> dict[str, Any]:
-    if hasattr(mirror_or_api, "to_mirror_json_vnext"):
-        return mirror_or_api.to_mirror_json_vnext(
-            mirror_level=spec.get("mirror_level"),
-            include_text=spec.get("include_text"),
-        )
-    if hasattr(mirror_or_api, "model_dump"):
-        dumped = mirror_or_api.model_dump(mode="json")
-        return dumped if isinstance(dumped, dict) else {}
-    return mirror_or_api if isinstance(mirror_or_api, dict) else {}
+    return mirror_api(
+        mirror_or_api,
+        mirror_level=spec.get("mirror_level"),
+        include_text=spec.get("include_text"),
+    )
 
 
 def _document(api: dict[str, Any]) -> dict[str, Any]:

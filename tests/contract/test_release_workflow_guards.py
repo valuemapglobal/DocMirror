@@ -1,7 +1,7 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Contract tests that keep the release observation gate wired into Actions."""
+"""Contract tests that keep exact-candidate release gates wired into Actions."""
 
 from pathlib import Path
 
@@ -20,7 +20,7 @@ def test_main_ci_runs_daily_without_cancelling_main_observations():
     assert workflow["concurrency"]["cancel-in-progress"] == "${{ github.event_name == 'pull_request' }}"
 
 
-def test_pypi_publish_requires_release_identity_and_green_window_gate():
+def test_pypi_publish_requires_release_identity_and_exact_commit_ci_gate():
     workflow = _workflow("publish.yml")
     jobs = workflow["jobs"]
     gate = jobs["release-gate"]
@@ -30,7 +30,9 @@ def test_pypi_publish_requires_release_identity_and_green_window_gate():
 
     assert "GITHUB_REF_NAME" in gate_commands
     assert "git rev-parse origin/main" in gate_commands
-    assert "validate_ci_green_window.py --min-days 14" in gate_commands
+    assert "validate_release_commit_ci.py" in gate_commands
+    assert "validate_ci_green_window.py" not in gate_commands
+    assert "validate_p1_stability_readiness.py --require-qualified" in gate_commands
     assert publish["needs"] == "release-gate"
     assert publish["environment"] == "pypi"
     assert publish["permissions"]["id-token"] == "write"

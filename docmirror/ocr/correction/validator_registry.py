@@ -14,6 +14,7 @@ from docmirror.ocr.correction.validators import (
     repair_uscc_if_unique,
     validate_amount_text,
     validate_bic,
+    validate_cn_resident_id,
     validate_date_text,
     validate_email_text,
     validate_eu_vat_format,
@@ -37,6 +38,7 @@ class RegisteredValidator:
     validate: Validator
     repair: Repairer | None = None
     format_only: bool = False
+    candidate_pattern: str | None = None
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class ValidatorRegistry:
         country: str | None = None,
         repairer: Repairer | None = None,
         format_only: bool = False,
+        candidate_pattern: str | None = None,
     ) -> None:
         key = (country.upper() if country else None, field_type.lower())
         self._items[key] = RegisteredValidator(
@@ -69,6 +72,7 @@ class ValidatorRegistry:
             validate=validator,
             repair=repairer,
             format_only=format_only,
+            candidate_pattern=candidate_pattern,
         )
 
     def resolve(self, field_type: str, *, country: str | None = None) -> RegisteredValidator | None:
@@ -106,6 +110,15 @@ class ValidatorRegistry:
             country="CN",
             validator=validate_uscc,
             repairer=repair_uscc_if_unique,
+            candidate_pattern=r"(?<![0-9A-Z])[0-9A-Z]{18}(?![0-9A-Z])",
+        )
+        registry.register(
+            validator_id="cn.resident_id",
+            field_type="resident_id",
+            country="CN",
+            validator=validate_cn_resident_id,
+            format_only=True,
+            candidate_pattern=r"(?<!\d)\d{17}[\dXx](?![0-9A-Za-z])",
         )
         registry.register(
             validator_id="international.iban",
