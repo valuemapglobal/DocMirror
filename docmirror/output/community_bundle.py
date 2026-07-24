@@ -19,7 +19,6 @@ from typing import Any
 from docmirror.output.markdown_renderer import render_markdown
 
 _SYSTEM_COLUMNS = ("record_id", "_page_start", "_page_end")
-
 _AUDIT_COLUMNS = (
     "dataset_id",
     "record_id",
@@ -543,62 +542,6 @@ class CommunityBundle:
     warnings: list[dict[str, Any]]
     result: Any
 
-    @classmethod
-    def from_payload(cls, payload: dict[str, Any], result: Any) -> CommunityBundle:
-        """Restore renderer state from a public Community projector payload."""
-        datasets: list[CommunityDataset] = []
-        for raw_dataset in payload.get("datasets") or []:
-            if not isinstance(raw_dataset, dict):
-                continue
-            public = {key: copy.deepcopy(value) for key, value in raw_dataset.items() if key != "rows"}
-            rows = [copy.deepcopy(row) for row in (raw_dataset.get("rows") or []) if isinstance(row, dict)]
-            datasets.append(CommunityDataset(public=public, rows=rows))
-        return cls(
-            schema=copy.deepcopy(dict(payload.get("schema") or {})),
-            document=copy.deepcopy(dict(payload.get("document") or {})),
-            sections=copy.deepcopy(list(payload.get("sections") or [])),
-            datasets=datasets,
-            files=copy.deepcopy(dict(payload.get("files") or {})),
-            warnings=copy.deepcopy(list(payload.get("warnings") or [])),
-            result=result,
-        )
-
-    def set_document_id(self, document_id: str) -> None:
-        self.document["id"] = document_id
-
-    def apply_delivery_context(
-        self,
-        *,
-        file_path: str = "",
-        file_id: str = "001",
-        document_id: str = "",
-    ) -> None:
-        """Apply request-specific filenames without changing projected facts."""
-        if document_id:
-            self.set_document_id(document_id)
-        if file_path:
-            file_name = Path(file_path).name
-            source_file = self.document.setdefault("source_file", {})
-            source_file.update(
-                {
-                    "name": file_name,
-                    "mime_type": mimetypes.guess_type(file_name)[0] or "application/octet-stream",
-                    "sha256": _source_hash(file_path),
-                }
-            )
-            if not self.document.get("title"):
-                self.document["title"] = Path(file_path).stem
-        self.files.update(
-            {
-                "content_md": f"{file_id}_content.md",
-                "datasets_dir": f"{file_id}_datasets",
-                "dataset_audit_csv": f"{file_id}_datasets/_audit_cells.csv",
-            }
-        )
-        for dataset in self.datasets:
-            dataset_name = str(dataset.public.get("name") or dataset.public.get("id") or "dataset")
-            dataset.public["csv"] = f"{file_id}_datasets/{_slug(dataset_name, 'dataset')}.csv"
-
     def json_payload(self) -> dict[str, Any]:
         sections_by_id = {str(section["id"]): section for section in self.sections}
         return {
@@ -848,14 +791,6 @@ def project_community_bundle(
             continue
         if not isinstance(value, (dict, list)):
             fields[key] = value
-    normalized_fields = extension.get("normalized_fields")
-    if isinstance(normalized_fields, dict):
-        for key, descriptor in normalized_fields.items():
-            if not isinstance(descriptor, dict):
-                continue
-            value = descriptor.get("value", descriptor.get("normalized_value"))
-            if value not in (None, ""):
-                fields[str(key)] = value
     if isinstance(derived.get("entity_fields"), dict):
         fields.update({str(key): value for key, value in derived["entity_fields"].items() if value not in (None, "")})
 

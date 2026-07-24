@@ -12,9 +12,9 @@ from docmirror.models.entities.parse_result import (
     TextLevel,
 )
 from docmirror.models.sealed import seal_parse_result
-from docmirror.output.community_bundle import CommunityBundle
 from docmirror.plugins._base.generic_community_adapter import derive_generic_projection
 from docmirror.plugins.generic.community_plugin import plugin as generic_plugin
+from docmirror.server.output_builder import materialize_community_bundle
 
 ID_CARD_OCR_TEXT = """姓名 李四
 
@@ -35,9 +35,7 @@ def project_community_bundle(result, **kwargs):
     sealed = seal_parse_result(result)
     payload = generic_plugin.project(sealed)
     assert payload is not None
-    bundle = CommunityBundle.from_payload(payload, sealed.to_read_view())
-    bundle.apply_delivery_context(**kwargs)
-    return bundle
+    return materialize_community_bundle(payload, sealed.to_read_view(), **kwargs)
 
 
 def build_generic_community_output(result, document_type, text):
@@ -47,6 +45,7 @@ def build_generic_community_output(result, document_type, text):
         "data": {"fields": {key: value for key, value in patch.domain_facts.items() if key not in reserved}},
         "status": {"warnings": list(patch.warnings)},
     }
+
 
 ID_CARD_DERIVED_TABLE_TEXT = """姓名\t李四
 性别\t女
