@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://valuemapglobal.github.io/DocMirror/schemas/evidence_bundle.schema.json",
+  "title": "DocMirror Evidence Bundle v2",
+  "description": "GA 1.0 evidence bundle schema with ledger, projection evidence, field evidence, structure evidence, unresolved entries, and redaction-safe support.",
+  "type": "object",
+  "required": ["version", "generated_at", "document_id", "task_id", "file_id", "ledger", "projection_evidence", "field_evidence", "structure_evidence", "artifact_evidence", "unresolved", "quality", "support"],
+  "properties": {
+    "version": { "type": "integer", "const": 2 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "document_id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "file_id": { "type": "string" },
+    "document_type": { "type": "string" },
+    "ledger": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/evidence_record"
+      }
+    },
+    "projection_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/projection_evidence_record"
+      }
+    },
+    "field_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/field_evidence_record"
+      }
+    },
+    "structure_evidence": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "artifact_evidence": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/unresolved_record"
+      }
+    },
+    "quality": {
+      "type": "object",
+      "required": ["text_fidelity", "layout_fidelity", "business_fidelity", "audit_fidelity"],
+      "properties": {
+        "text_fidelity": { "$ref": "#/definitions/fidelity_block" },
+        "layout_fidelity": { "$ref": "#/definitions/fidelity_block" },
+        "business_fidelity": { "$ref": "#/definitions/fidelity_block" },
+        "audit_fidelity": { "$ref": "#/definitions/fidelity_block" }
+      }
+    },
+    "support": {
+      "type": "object",
+      "required": ["redaction_safe", "minimal_repro"],
+      "properties": {
+        "redaction_safe": { "type": "boolean" },
+        "minimal_repro": { "type": "object" }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "definitions": {
+    "evidence_record": {
+      "type": "object",
+      "required": ["evidence_id", "fact_id", "kind", "confidence", "review"],
+      "properties": {
+        "evidence_id": { "type": "string" },
+        "fact_id": { "type": "string" },
+        "kind": { "type": "string", "enum": ["page", "text", "span", "table", "cell", "formula", "section", "image"] },
+        "page": { "type": ["integer", "null"] },
+        "bbox": { "type": ["array", "null"], "items": { "type": "number" } },
+        "bbox_space": { "type": "string" },
+        "source_refs": { "type": "array", "items": { "type": "string" } },
+        "raw_value": { "type": "string" },
+        "normalized_value": { "type": "string" },
+        "confidence": { "type": "number" },
+        "extraction_layer": { "type": "string" },
+        "quality_flags": { "type": "array", "items": { "type": "string" } },
+        "review": { "type": "string", "enum": ["auto_accepted", "needs_review", "needs_evidence"] }
+      }
+    },
+    "projection_evidence_record": {
+      "type": "object",
+      "required": ["projection_id", "target", "source_fact_ids", "evidence_ids", "projection_policy", "confidence", "review"],
+      "properties": {
+        "projection_id": { "type": "string" },
+        "target": { "type": "string" },
+        "source_fact_ids": { "type": "array", "items": { "type": "string" } },
+        "evidence_ids": { "type": "array", "items": { "type": "string" } },
+        "projection_policy": { "type": "string" },
+        "confidence": { "type": "number" },
+        "support_level": { "type": "string" },
+        "review": { "type": "string" },
+        "fallback_reason": { "type": ["string", "null"] }
+      }
+    },
+    "field_evidence_record": {
+      "type": "object",
+      "required": ["field_path", "value", "confidence", "review"],
+      "properties": {
+        "field_path": { "type": "string" },
+        "value": { "type": "string" },
+        "raw_value": { "type": "string" },
+        "confidence": { "type": "number" },
+        "page": { "type": ["integer", "null"] },
+        "bbox": { "type": ["array", "null"], "items": { "type": "number" } },
+        "source_refs": { "type": "array", "items": { "type": "string" } },
+        "fact_id": { "type": "string" },
+        "evidence_id": { "type": "string" },
+        "review": { "type": "string" }
+      }
+    },
+    "unresolved_record": {
+      "type": "object",
+      "required": ["field_path", "reason"],
+      "properties": {
+        "field_path": { "type": "string" },
+        "reason": { "type": "string" },
+        "confidence": { "type": "number" }
+      }
+    },
+    "fidelity_block": {
+      "type": "object",
+      "properties": {
+        "level": { "type": "string" },
+        "confidence": { "type": "number" },
+        "bbox": { "type": "string" },
+        "tables": { "type": "string" },
+        "forensic_ready": { "type": "boolean" },
+        "document_type": { "type": "string" },
+        "edition_issue_count": { "type": "integer" },
+        "source_refs": { "type": "string" },
+        "limitations": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

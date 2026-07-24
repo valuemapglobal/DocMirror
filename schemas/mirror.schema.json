@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://valuemapglobal.github.io/DocMirror/schemas/mirror.schema.json",
+  "title": "DocMirror Mirror JSON",
+  "description": "Canonical vNext mirror output. This schema is document-shaped and intentionally has no code/message/data REST envelope.",
+  "type": "object",
+  "required": [
+    "mirror",
+    "source",
+    "document",
+    "pages",
+    "evidence",
+    "regions",
+    "blocks",
+    "graph",
+    "semantics",
+    "quality",
+    "diagnostics",
+    "assets"
+  ],
+  "additionalProperties": true,
+  "not": {
+    "anyOf": [
+      { "required": ["code"] },
+      { "required": ["message"] },
+      { "required": ["api_version"] },
+      { "required": ["data"] }
+    ]
+  },
+  "properties": {
+    "mirror": {
+      "type": "object",
+      "required": ["schema", "schema_version"],
+      "additionalProperties": true,
+      "properties": {
+        "schema": { "const": "docmirror.mirror_json" },
+        "schema_version": { "type": "string" },
+        "engine": { "type": "string" },
+        "engine_version": { "type": "string" },
+        "profile": { "type": "string" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "source_id": { "type": "string" },
+        "filename": { "type": "string" },
+        "mime_type": { "type": "string" },
+        "page_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "document_id": { "type": "string" },
+        "document_type": { "type": "string" },
+        "document_type_candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "type": { "type": "string" },
+              "confidence": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "pages": { "type": "array", "items": { "type": "object" } },
+    "evidence": { "type": "object", "additionalProperties": true },
+    "regions": { "type": "array", "items": { "type": "object" } },
+    "blocks": { "type": "array", "items": { "type": "object" } },
+    "graph": { "type": "object", "additionalProperties": true },
+    "semantics": { "type": "object", "additionalProperties": true },
+    "quality": { "type": "object", "additionalProperties": true },
+    "diagnostics": { "type": "object", "additionalProperties": true },
+    "assets": { "type": "object", "additionalProperties": true },
+    "meta": { "type": "object", "additionalProperties": true },
+    "editions": { "type": "object", "additionalProperties": true },
+    "dmir": { "type": "object", "additionalProperties": true },
+    "request_id": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

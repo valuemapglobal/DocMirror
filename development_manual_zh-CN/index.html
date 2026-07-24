@@ -1,0 +1,2906 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Commercial Document Trust Layer for verifiable, audit-ready document signals">
+      
+      
+      
+        <link rel="canonical" href="https://valuemapglobal.github.io/DocMirror/development_manual_zh-CN/">
+      
+      
+        <link rel="prev" href="../quickstart/">
+      
+      
+        <link rel="next" href="../deployment/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Development Manual (zh-CN) - DocMirror</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#docmirror" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="DocMirror" class="md-header__button md-logo" aria-label="DocMirror" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            DocMirror
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Development Manual (zh-CN)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/valuemapglobal/DocMirror" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    valuemapglobal/DocMirror
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../installation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quick Start
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Development Manual (zh-CN)
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../deployment/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Deployment
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../api-authentication/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Authentication
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/valuemapglobal/DocMirror/blob/main/CHANGELOG.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="DocMirror" class="md-nav__button md-logo" aria-label="DocMirror" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    DocMirror
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/valuemapglobal/DocMirror" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    valuemapglobal/DocMirror
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Manual (zh-CN)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Manual (zh-CN)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. 项目定位
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. 快速上手
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. 快速上手">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 本地开发环境
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 本地运行
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. 术语速查
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. 仓库结构
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. 核心架构
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. 核心架构">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 主调用链
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 三个边界要守住
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. 输入与解析管线
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. 输入与解析管线">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 公共入口
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-parsepolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 ParsePolicy 与固定交付
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-fcr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 FCR 格式路由
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. 中间件增强管线
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. 输出体系
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. 输出体系">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-mirror-json-vnext" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Mirror JSON vNext
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-edition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 Edition 输出
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 按需专用序列化
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-core-post-seal-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Core 通用能力与 Post-Seal Plugins
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Core 通用能力与 Post-Seal Plugins">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-61-community-projectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 内置 6+1 Community Projectors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 插件执行原则
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 新增业务场景插件
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-sdk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. 服务端与 SDK
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. 服务端与 SDK">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-rest-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.1 REST API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#102-sdk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.2 SDK
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. 配置与环境变量
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. 测试体系
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. 改动类型与推荐验证
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. 质量门与发布
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="14. 质量门与发布">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#141-makefile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.1 Makefile 入口
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#142-run_quality_gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.2 run_quality_gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#143-100" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.3 1.0.0 发布边界
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. 安全、隐私与样本
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. 常见研发任务
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="16. 常见研发任务">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#161" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.1 新增一个文件格式
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#162" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.2 调整固定交付契约
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#163-mirror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.3 调整 Mirror 投影
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#164" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.4 调整银行流水/支付流水提取
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#165-rest-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.5 修改 REST API
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17. 排障指南
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="17. 排障指南">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#171-docmirror-doctor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.1 docmirror doctor 显示缺依赖
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#172-docxlsppt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.2 .doc、.xls、.ppt 解析失败
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#173-ocr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.3 扫描件/OCR 质量低
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#174-enterprisefinance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.4 Enterprise/Finance 输出缺失
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#175-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.5 测试因 fixtures 缺失而跳过
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        18. 接手检查清单
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#19" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19. 关键参考文件
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/valuemapglobal/DocMirror/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. 项目定位
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. 快速上手
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. 快速上手">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 本地开发环境
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 本地运行
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. 术语速查
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. 仓库结构
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. 核心架构
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. 核心架构">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 主调用链
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 三个边界要守住
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. 输入与解析管线
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. 输入与解析管线">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 公共入口
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-parsepolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 ParsePolicy 与固定交付
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-fcr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 FCR 格式路由
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. 中间件增强管线
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. 输出体系
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. 输出体系">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-mirror-json-vnext" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Mirror JSON vNext
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-edition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 Edition 输出
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 按需专用序列化
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-core-post-seal-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Core 通用能力与 Post-Seal Plugins
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Core 通用能力与 Post-Seal Plugins">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-61-community-projectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 内置 6+1 Community Projectors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 插件执行原则
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 新增业务场景插件
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-sdk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. 服务端与 SDK
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. 服务端与 SDK">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-rest-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.1 REST API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#102-sdk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.2 SDK
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. 配置与环境变量
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. 测试体系
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. 改动类型与推荐验证
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. 质量门与发布
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="14. 质量门与发布">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#141-makefile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.1 Makefile 入口
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#142-run_quality_gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.2 run_quality_gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#143-100" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14.3 1.0.0 发布边界
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. 安全、隐私与样本
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. 常见研发任务
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="16. 常见研发任务">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#161" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.1 新增一个文件格式
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#162" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.2 调整固定交付契约
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#163-mirror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.3 调整 Mirror 投影
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#164" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.4 调整银行流水/支付流水提取
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#165-rest-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16.5 修改 REST API
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17. 排障指南
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="17. 排障指南">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#171-docmirror-doctor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.1 docmirror doctor 显示缺依赖
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#172-docxlsppt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.2 .doc、.xls、.ppt 解析失败
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#173-ocr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.3 扫描件/OCR 质量低
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#174-enterprisefinance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.4 Enterprise/Finance 输出缺失
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#175-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17.5 测试因 fixtures 缺失而跳过
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        18. 接手检查清单
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#19" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19. 关键参考文件
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="docmirror">DocMirror 研发说明手册</h1>
+<p>当前发行版本：DocMirror <code>1.1.2</code>；当前开发基线：<code>1.1.2</code>
+适用对象：后续接手 DocMirror 核心研发、插件研发、服务端/API、SDK、测试与发布维护的同事。
+编写日期：2026-06-30</p>
+<h2 id="1">1. 项目定位</h2>
+<p>DocMirror 是面向商业凭证的可信解析层，产品定位是 <strong>Commercial Document Trust Layer</strong>。项目目标不是只把文档转成文本、表格或 Markdown，而是输出可追溯、可审计、可进入业务系统的结构化信号。</p>
+<p>核心承诺：</p>
+<ul>
+<li>Parse：从 PDF、图片、Office、邮件、网页、结构化文件、压缩包等输入中解析文档内容。</li>
+<li>Prove：为关键字段、结构、事实和表格保留来源、页码、bbox、置信度、诊断和质量信息。</li>
+<li>Trust：通过质量报告、证据包、可视化调试和 <code>needs_review</code> 等信号，帮助下游决定自动入库、人工复核或拒绝。</li>
+</ul>
+<p>2.0 的主要稳定基线包括：</p>
+<ul>
+<li>Python 包开发版本为 <code>1.1.2</code>，公共包名为 <code>docmirror</code>。</li>
+<li>Python 支持 <code>&gt;=3.10</code>，测试矩阵覆盖 Python 3.10 到 3.13。</li>
+<li>公共 OSS wheel 只打包 <code>docmirror</code> 主包；<code>docmirror_enterprise</code>、<code>docmirror_finance</code>、<code>tests</code>、<code>scripts</code>、<code>docs</code>、<code>sdks</code> 等不进入公共 wheel。</li>
+<li>Canonical 输出是 Mirror JSON vNext，schema 标识为 <code>docmirror.mirror_json</code>，当前 schema version 为 <code>1.0.7</code>。</li>
+<li>CLI、REST API、Python API 共用唯一输入到 Seal 主链；所有 edition 输出从同一个 <code>SealedParseResult</code> 投影。</li>
+</ul>
+<h2 id="2">2. 快速上手</h2>
+<h3 id="21">2.1 本地开发环境</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[all,dev,docs]&quot;</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>pre-commit<span class="w"> </span>install
+</code></pre></div>
+<p>最小验证：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docmirror<span class="w"> </span>--help
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docmirror<span class="w"> </span>doctor
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>pytest<span class="w"> </span>tests/smoke/<span class="w"> </span>-q
+</code></pre></div>
+<p>如果只做轻量核心开发，可先装：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+</code></pre></div>
+<p>涉及 PDF、OCR、Office、服务端或 AI/VLM 路径时，再按需安装 extras：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[pdf,ocr,office,server,ai,dev]&quot;</span>
+</code></pre></div>
+<h3 id="22">2.2 本地运行</h3>
+<p>运行公开 quickstart：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python3<span class="w"> </span>examples/trust_quickstart.py
+</code></pre></div>
+<p>解析单个文件：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docmirror<span class="w"> </span>statement.pdf<span class="w"> </span>--output-dir<span class="w"> </span>./output
+</code></pre></div>
+<p>启动 API 服务：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[server]&quot;</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>uvicorn<span class="w"> </span>docmirror.server.api:app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span>
+</code></pre></div>
+<p>Docker 服务：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>docmirror:latest<span class="w"> </span>.
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-p<span class="w"> </span><span class="m">8000</span>:8000<span class="w"> </span>docmirror:latest
+</code></pre></div>
+<h2 id="3">3. 术语速查</h2>
+<table>
+<thead>
+<tr>
+<th>缩写/术语</th>
+<th>含义</th>
+<th>代码位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FCR</td>
+<td>Format Capability Registry，格式能力注册表，负责扩展名/MIME 到 adapter 的路由</td>
+<td><code>docmirror/configs/yaml/format_capabilities.yaml</code></td>
+</tr>
+<tr>
+<td>MEP</td>
+<td>Middleware Execution Platform，Mirror 层中间件增强管线</td>
+<td><code>docmirror/configs/yaml/middleware_catalog.yaml</code>、<code>enhancement_profiles.yaml</code></td>
+</tr>
+<tr>
+<td>MOC</td>
+<td>Mirror Object Contract，所有 adapter 产出的核心 <code>ParseResult</code> 合同</td>
+<td><code>docmirror/models/entities/parse_result.py</code></td>
+</tr>
+<tr>
+<td>UDTR</td>
+<td>vNext Mirror 主线，文档拓扑、页面、证据、阅读流和语义投影</td>
+<td><code>docmirror/models/mirror/</code>、<code>docmirror/topology/</code></td>
+</tr>
+<tr>
+<td>PEC</td>
+<td>Plugin Execution Contract，唯一合同为 <code>SealedParseResult → EditionProjector</code></td>
+<td><code>docmirror/plugin_api.py</code>、<code>docmirror/plugins/_runtime/plugin_registry.py</code></td>
+</tr>
+<tr>
+<td>DMIR</td>
+<td>按需序列化的 DocMirror Intermediate Representation，供 MCP/PDF-UA 等专用场景使用</td>
+<td><code>docmirror/output/dmir.py</code></td>
+</tr>
+<tr>
+<td>TQG</td>
+<td>Test Quality Gate，manifest 驱动的质量门平台</td>
+<td><code>docmirror/eval/tqg/</code>、<code>tests/regression/</code></td>
+</tr>
+<tr>
+<td>four-file output</td>
+<td>CLI/API 持久化的多版本 JSON 输出合同</td>
+<td><code>docmirror/server/edition_outputs.py</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="4">4. 仓库结构</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>docmirror/
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>  input/             输入接纳、ParsePolicy、adapter、Canonical Assembly
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>  framework/         Dispatcher、Orchestrator、DI、中间件框架
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>  layout/            布局分析、页面分区、场景证据、机构线索
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>  topology/          页面拓扑、阅读顺序、区域图、跨页关系
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>  ocr/               OCR、扫描件恢复、微网格、局部结构修复
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>  tables/            表格检测、重建、标准化、流水类表格逻辑
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>  models/            ParseResult、SealedParseResult、Mirror vNext、实体与 schema
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>  plugins/           Seal 后领域 Projector、业务资源与统一 PluginRegistry 运行时
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>  output/            Mirror、Community、专用 DMIR/PDF-UA 等只读输出
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>  evidence/          证据包、source span、visual overlay、diff
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>  quality/           质量门、质量聚合、review 信号
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>  configs/           YAML/JSON schema、运行时设置、格式/中间件/领域配置
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>  runtime/           进度、artifact、checkpoint、scheduler、序列化
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>  security/          隐私、脱敏、安全检查、egress/resource gate
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>  server/            FastAPI、MCP、API output builder、artifact pack
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>  cli/               Click CLI 子命令
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>  sdk/               Python 客户端集成 helpers
+</code></pre></div>
+<p>周边目录：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>docmirror_enterprise/   企业版插件源码，公共 wheel 不打包
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>docmirror_finance/      金融版插件源码，公共 wheel 不打包
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>tests/                  单元、契约、回归、集成、e2e 测试
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>scripts/                质量门、release gate、schema/openapi 生成、架构校验
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>sdks/                   TypeScript、Go、Java、MCP Server SDK
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>docs/                   MkDocs 公开文档
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>examples/               quickstart 和演示脚本
+</code></pre></div>
+<h2 id="5">5. 核心架构</h2>
+<h3 id="51">5.1 主调用链</h3>
+<pre class="mermaid"><code>flowchart LR
+    subgraph entryLayer["入口层"]
+        entry["CLI / REST API / Python SDK"] --&gt; request["ParseRequest + ParsePolicy"]
+    end
+
+    subgraph coreLayer["Core：唯一事实主链"]
+        request --&gt; acceptance["InputAcceptance + FCR"]
+        acceptance --&gt; source["AcceptedSource"]
+        source --&gt; dispatcher["Dispatcher"]
+        dispatcher --&gt; adapter["Adapter"]
+        adapter --&gt; canonical["Canonical Pipeline"]
+        canonical --&gt; sealed["SealedParseResult SSOT"]
+    end
+
+    subgraph deliveryLayer["只读交付层"]
+        sealed --&gt; mirror["Mirror Projector"]
+        sealed --&gt; registry["Unified Post-Seal PluginRegistry"]
+        registry --&gt; community["Community Projector"]
+        registry --&gt; enterprise["Enterprise Projector"]
+        registry --&gt; finance["Finance Projector"]
+        mirror --&gt; artifacts["内存投影产物"]
+        community --&gt; artifacts
+        enterprise --&gt; artifacts
+        finance --&gt; artifacts
+        artifacts --&gt; response["REST / SDK TaskResult"]
+        artifacts --&gt; writer["ArtifactWriter"]
+        writer --&gt; files["固定产物 + Manifest"]
+    end</code></pre>
+<h3 id="52">5.2 三个边界要守住</h3>
+<ol>
+<li>Adapter 只产生证据和基础事实；不得执行 Edition 投影，也不得根据输出选择改变解析。</li>
+<li>Canonical Pipeline 是唯一允许修改事实的区域；其中不存在领域 Plugin、Provider、Registry 或 FactPatch。</li>
+<li>所有内置、商业和第三方 Plugins 都在 Seal 后由同一个 <code>PluginRegistry</code> 加载和执行，只能读取 <code>SealedParseResult</code>。</li>
+</ol>
+<p>附加硬约束：</p>
+<ul>
+<li>Dispatcher 只接收不可变 <code>AcceptedSource</code>，不重复校验、MIME/FCR 解析或 checksum。</li>
+<li>生产 PDF 主路径由物理证据直接进入 Canonical Assembly，仓库中不存在第二套中间结果模型。</li>
+<li>Mirror 只是独立投影，不是任何插件的隐性输入或运行时缓存。</li>
+<li>不存在 <code>ParseResult Cache</code>、缓存模式或缓存指纹分支；相同输入与 <code>ParsePolicy</code> 始终经过同一条事实主链。</li>
+<li>不存在 Requested Outputs、OutputControl、OutputPlan 或中央 Edition 可用性决策；Mirror 与 Community 固定生成，商业 Projector 在自己的调用边界检查包和授权，失败即不产生投影。</li>
+<li>Projector 负责内存投影，<code>ArtifactWriter</code> 只负责原子落盘；两者均不接收普通交付选择参数。</li>
+<li>worker 数和进度回调是调用时运行参数，不建模为核心控制对象；OCR、分页和恢复等会改变结果的选项必须进入 <code>ParsePolicy</code>。</li>
+<li>不存在 Bridge、BaseResult、Projection DAG 或 Visualizer；所有投影从同一个封存后的 <code>ParseResult</code> 直接扇出。</li>
+<li>DMIR 不属于普通交付投影，只在 MCP、PDF-UA 等明确调用的专用接口中按需从 <code>ParseResult</code> 序列化。</li>
+</ul>
+<p>Canonical Pipeline 内部必须保持以下语义顺序，但这些步骤不再膨胀主架构图：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>Canonical Assembly → Normalize → Geometric Reconstruction
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>→ 可选 LLM Restoration → Structure → Entity Extraction
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>→ Evidence Classification → Institution/Scene Context
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>→ Generic Facts → Validation/Mutation Audit → Seal
+</code></pre></div>
+<p>这三个边界对应的关键文件：</p>
+<ul>
+<li><code>docmirror/framework/base.py</code></li>
+<li><code>docmirror/framework/dispatcher.py</code></li>
+<li><code>docmirror/framework/orchestrator.py</code></li>
+<li><code>docmirror/input/pipeline/__init__.py</code></li>
+<li><code>docmirror/input/canonical/assembler.py</code></li>
+<li><code>docmirror/server/output_builder.py</code></li>
+<li><code>docmirror/server/artifact_writer.py</code></li>
+<li><code>docmirror/configs/domain/core_manifest.yaml</code></li>
+<li><code>docmirror/plugins/_base/projector.py</code></li>
+<li><code>docmirror/plugins/_runtime/plugin_registry.py</code></li>
+</ul>
+<h2 id="6">6. 输入与解析管线</h2>
+<h3 id="61">6.1 公共入口</h3>
+<p>面向集成方的 Python SDK：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">docmirror.sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">DocMirrorClient</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">DocMirrorClient</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;output&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">task</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;statement.pdf&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">batch</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">parse_many</span><span class="p">([</span><span class="s2">&quot;statement.pdf&quot;</span><span class="p">,</span> <span class="s2">&quot;license.png&quot;</span><span class="p">])</span>
+</code></pre></div>
+<p>核心开发者仍可直接调用 <code>perceive_document()</code> 获取 <code>SealedParseResult</code>，并通过
+<code>to_read_view()</code> 显式取得隔离读视图；该对象和
+Mirror JSON 属于解析内部/诊断契约，不作为 REST 或 SDK 的公开返回正文。</p>
+<p>CLI：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>docmirror<span class="w"> </span>document.pdf
+</code></pre></div>
+<p>文件 CLI 默认持久化 Community 三件套；<code>--all</code> 额外持久化 <code>001_mirror.json</code> 和
+<code>manifest.json</code>。当商业扩展已安装且授权有效时，完整模式可以追加
+Enterprise 或 Finance；CLI、API、SDK 不提供 <code>formats</code>、<code>editions</code>、<code>geometry</code>、
+<code>include_text</code>、<code>mirror_level</code> 等普通交付参数。</p>
+<p>REST：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>curl<span class="w"> </span>-F<span class="w"> </span><span class="s2">&quot;file=@document.pdf&quot;</span><span class="w"> </span>http://localhost:8000/v1/parse
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>curl<span class="w"> </span>-F<span class="w"> </span><span class="s2">&quot;files=@one.pdf&quot;</span><span class="w"> </span>-F<span class="w"> </span><span class="s2">&quot;files=@two.png&quot;</span><span class="w"> </span>http://localhost:8000/v1/tasks
+</code></pre></div>
+<p>入口关系：</p>
+<ul>
+<li><code>docmirror.__init__.py</code> 提供轻量 lazy import 的 <code>perceive_document</code>。</li>
+<li><code>docmirror/input/pipeline/__init__.py</code> 是统一 document entry pipeline。</li>
+<li><code>docmirror/cli/main.py</code> 是 Click CLI 根命令。</li>
+<li><code>docmirror/__main__.py</code> 实现 CLI parse 工作流和输出持久化。</li>
+<li><code>docmirror/server/api.py</code> 暴露 FastAPI 路由。</li>
+</ul>
+<h3 id="62-parsepolicy">6.2 ParsePolicy 与固定交付</h3>
+<p>所有会改变事实的用户意图都应汇入 <code>normalize_parse_policy()</code>，不要在业务代码里重复解析命令参数。worker 数不属于 <code>ParsePolicy</code>；输出选择已从公共契约删除。</p>
+<p>关键字段：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pages</code></td>
+<td><code>1-3,8,10-</code>、<code>first:N</code>、<code>last:N</code> 等页码范围</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td><code>auto</code>、<code>fast</code>、<code>balanced</code>、<code>accurate</code>、<code>forensic</code></td>
+</tr>
+<tr>
+<td><code>ocr</code></td>
+<td><code>auto</code>、<code>force</code>、<code>off</code>、<code>fallback</code></td>
+</tr>
+<tr>
+<td><code>ocr_correction</code></td>
+<td><code>safe</code>、<code>suggest</code>、<code>off</code></td>
+</tr>
+<tr>
+<td><code>ocr_language/country/locale</code></td>
+<td>OCR 纠错语言和国家地区提示</td>
+</tr>
+<tr>
+<td><code>ocr_correction_packs</code></td>
+<td>显式启用的 opt-in 规则包 ID</td>
+</tr>
+<tr>
+<td><code>page_split</code></td>
+<td><code>auto</code>、<code>off</code>、<code>force</code></td>
+</tr>
+<tr>
+<td><code>doc_type_hint</code></td>
+<td>用户给出的 document type hint，可 <code>prefer</code> 或 <code>force</code></td>
+</tr>
+<tr>
+<td><code>safety.mode</code></td>
+<td><code>off</code>、<code>low</code>、<code>medium</code>、<code>high</code></td>
+</tr>
+</tbody>
+</table>
+<p>交付边界不接收 <code>formats</code>、<code>editions</code>、<code>mirror_level</code>、<code>geometry</code> 或
+<code>include_text</code>。生产 Mirror 固定为 standard 完整事实投影；worker 数与进度回调只影响调度。</p>
+<p>注意：</p>
+<ul>
+<li><code>mode=fast</code> 映射到 <code>enhance_mode=raw</code>。</li>
+<li><code>mode=accurate</code> 和 <code>mode=forensic</code> 映射到 <code>enhance_mode=full</code>。</li>
+<li><code>ParsePolicy.fingerprint()</code> 只包含事实选项，用于审计和可重复性，不用于缓存。</li>
+</ul>
+<h3 id="63-fcr">6.3 FCR 格式路由</h3>
+<p>FCR 的唯一事实源是：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>docmirror/configs/yaml/format_capabilities.yaml
+</code></pre></div>
+<p>解析优先级：</p>
+<ol>
+<li>精确 MIME 匹配。</li>
+<li>MIME prefix 匹配，例如 <code>image/*</code>。</li>
+<li>最长扩展名匹配，例如 <code>.tar.gz</code> 优先于 <code>.gz</code>。</li>
+<li>回落到 <code>UNKNOWN_CAPABILITY</code>。</li>
+</ol>
+<p>1.0.0 支持的主要输入：</p>
+<ul>
+<li>PDF：<code>.pdf</code></li>
+<li>图片：<code>.png</code>、<code>.jpg</code>、<code>.jpeg</code>、<code>.tiff</code>、<code>.tif</code>、<code>.bmp</code>、<code>.webp</code></li>
+<li>OFD：<code>.ofd</code></li>
+<li>Word：<code>.docx</code>，<code>.doc</code> 经 LibreOffice 转 PDF</li>
+<li>Excel：<code>.xlsx</code>、<code>.csv</code>，<code>.xls</code> 经 LibreOffice 转 XLSX</li>
+<li>PPT：<code>.pptx</code>，<code>.ppt</code> 经 LibreOffice 转 PDF</li>
+<li>Email：<code>.eml</code>，<code>.msg</code> 经 <code>extract_msg</code> 转 EML</li>
+<li>Web：<code>.html</code>、<code>.htm</code>，<code>.mhtml</code> 内部转 HTML</li>
+<li>Structured：<code>.json</code>、<code>.xml</code>、<code>.txt</code></li>
+<li>Archive：<code>.zip</code>、<code>.rar</code></li>
+</ul>
+<p>新增格式时，优先走 FCR，不要在 <code>ParserDispatcher</code> 里硬编码。</p>
+<h2 id="7">7. 中间件增强管线</h2>
+<p>MEP 由两个配置驱动：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>docmirror/configs/yaml/middleware_catalog.yaml
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>docmirror/configs/yaml/enhancement_profiles.yaml
+</code></pre></div>
+<p><code>middleware_catalog.yaml</code> 定义中间件类、stage、依赖、启用状态和 <code>when</code> guard。<code>enhancement_profiles.yaml</code> 按 <code>content_model</code> 和 <code>enhance_mode</code> 决定实际执行列表。</p>
+<p>全局 stage 顺序：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>NORMALIZE -&gt; STRUCTURE -&gt; ENRICH -&gt; CLASSIFY -&gt; CONTEXT -&gt; VALIDATE
+</code></pre></div>
+<p>当前主要中间件：</p>
+<ul>
+<li><code>LanguageDetector</code></li>
+<li><code>HeaderInferrer</code></li>
+<li><code>HeaderAlignment</code></li>
+<li><code>GenericEntityExtractor</code></li>
+<li><code>EvidenceEngine</code></li>
+<li><code>GeometricReconstructor</code></li>
+<li><code>LlmDocumentRestorer</code></li>
+<li><code>Validator</code></li>
+<li><code>AnomalyDetector</code>，默认关闭，需 <code>DOCMIRROR_ENABLE_ANOMALY=1</code></li>
+</ul>
+<p>新增中间件流程：</p>
+<ol>
+<li>在 <code>docmirror/framework/middlewares/&lt;category&gt;/</code> 下新增实现，继承 <code>BaseMiddleware</code>。</li>
+<li>在 <code>middleware_catalog.yaml</code> 增加 <code>module</code>、<code>class</code>、<code>stage</code>、<code>provides</code>、<code>depends_on</code>、<code>when</code>。</li>
+<li>在 <code>enhancement_profiles.yaml</code> 的相应 <code>content_model</code>/<code>enhance_mode</code> 中加入名字。</li>
+<li>增加单测和契约测试。</li>
+<li>至少运行：</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>python3<span class="w"> </span>scripts/validate/validate_middleware_catalog.py
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>make<span class="w"> </span>test-smoke
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>pytest<span class="w"> </span>tests/unit/<span class="w"> </span>-q<span class="w"> </span>-k<span class="w"> </span>middleware
+</code></pre></div>
+<h2 id="8">8. 输出体系</h2>
+<h3 id="81-mirror-json-vnext">8.1 Mirror JSON vNext</h3>
+<p>Mirror vNext 是公共 canonical 输出，定义在：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>docmirror/models/mirror/vnext.py
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>docmirror/models/mirror/core.py
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>docmirror/configs/schemas/mirror.schema.json
+</code></pre></div>
+<p>顶层结构：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">&quot;mirror&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="nt">&quot;document&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">  </span><span class="nt">&quot;pages&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">  </span><span class="nt">&quot;evidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">  </span><span class="nt">&quot;regions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">  </span><span class="nt">&quot;blocks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">  </span><span class="nt">&quot;graph&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">  </span><span class="nt">&quot;semantics&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">  </span><span class="nt">&quot;quality&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="w">  </span><span class="nt">&quot;diagnostics&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="w">  </span><span class="nt">&quot;assets&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="p">}</span>
+</code></pre></div>
+<p>研发要求：</p>
+<ul>
+<li>新字段尽量追加，不要破坏现有字段含义。</li>
+<li>关键业务字段应能追溯到 evidence/source refs。</li>
+<li><code>forensic</code> 层级可以更丰富，<code>standard</code> 层级要控制体积。</li>
+<li>不要把 REST <code>code/message/data</code> envelope 混入 Mirror JSON。</li>
+</ul>
+<h3 id="82-edition">8.2 Edition 输出</h3>
+<p>CLI/API 持久化输出由 <code>write_outputs()</code> 统一处理：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>docmirror/server/edition_outputs.py
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>docmirror/server/output_builder.py
+</code></pre></div>
+<p>文件 CLI 的默认交付目录：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>output/&lt;task_id&gt;/
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>  001_community.json
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>  001_content.md
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>  001_datasets/
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    &lt;dataset&gt;.csv
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    _audit_cells.csv
+</code></pre></div>
+<p><code>--all</code> 在上述目录中追加 Mirror、Manifest，以及扩展已安装且授权有效时可用的
+Enterprise / Finance。Projector 在自身边界完成插件发现与授权检查；未安装、未授权或
+不支持当前文档时返回无投影。Writer 不检查包、不检查授权，只写入已经生成的投影。</p>
+<p>各 Projector 都只读同一个 <code>ParseResult</code>，不能读取 Mirror 投影。默认与 <code>--all</code> 模式中的
+Community 三件套必须一致。
+Manifest 只记录 Projector 的实际结果和已写产物，不重新计算 Edition 可用性，也不记录 requested formats/editions。</p>
+<h3 id="83">8.3 按需专用序列化</h3>
+<p>DMIR 不参与 <code>build_all_projections()</code>、REST 普通 sidecar 或默认落盘。它仅由 MCP、PDF-UA 和显式 exporter 调用，从封存后的 <code>ParseResult</code> 按需只读序列化。</p>
+<p><code>docmirror/output/exporters/dispatch.py</code> 管理这些专用导出格式：</p>
+<ul>
+<li><code>json</code></li>
+<li><code>dmir</code></li>
+<li><code>markdown</code></li>
+<li><code>chunks</code></li>
+<li><code>csv</code></li>
+<li><code>parquet</code></li>
+<li><code>html</code>，当前是占位空输出</li>
+</ul>
+<p>Markdown 遵循 <a href="../markdown_profile_zh-CN/">DMP 1.0</a>。Community Bundle、通用 exporter 和
+Mirror vNext exporter 共用 <code>docmirror/output/markdown_renderer.py</code>，统一执行阅读流、分页、
+上下文转义、复杂表格白名单和图片省略规则。Markdown 只投影源内容与物理表格；领域恢复和
+跨页合并后的逻辑数据完整进入 Community JSON/CSV，不重复追加到正文。chunks 继续优先读取
+Mirror vNext reading flow。</p>
+<h2 id="9-core-post-seal-plugins">9. Core 通用能力与 Post-Seal Plugins</h2>
+<h3 id="91-61-community-projectors">9.1 内置 6+1 Community Projectors</h3>
+<p>当前随包提供七个 Seal 后 Community Projector：</p>
+<ul>
+<li><code>bank_statement</code></li>
+<li><code>wechat_payment</code></li>
+<li><code>alipay_payment</code></li>
+<li><code>vat_invoice</code></li>
+<li><code>business_license</code></li>
+<li><code>credit_report</code></li>
+<li><code>generic</code> fallback</li>
+</ul>
+<p>标准落盘输出采用 Community Bundle 3.0。上述七类程序位于 <code>docmirror/plugins/&lt;domain&gt;</code>，通过统一 Post-Seal <code>PluginRegistry</code> 注册。它们基于 Seal 的只读副本派生领域事实、校验并组装 JSON，不向 Canonical 回写。<code>SealedParseResult</code> 是唯一事实 SSOT，Community、Enterprise、Finance 是从同一 Seal 独立产生的同级投影。</p>
+<p>Community JSON 是可独立交付给上下游系统的完整结构化 API：保持六个顶层块，并在每个 Dataset 的 <code>rows</code> 中保存全部业务记录。每条记录至少包含 <code>record_id</code>、<code>normalized</code>、<code>canonical_raw</code>、<code>raw</code> 和 <code>source</code>。Dataset 必须包含 <code>completeness</code>；<code>row_count</code>、<code>emitted_row_count</code>、<code>len(rows)</code> 与对应宽表 CSV 的行数必须守恒，JSON 与 CSV 的 <code>record_id</code> 集合和顺序必须相同。任何预览、分页或静默截断都不属于落盘契约。</p>
+<p><code>001_content.md</code> 完整保存供人类审查的阅读流和全部物理表格行；每个逻辑数据集同时进入 <code>001_datasets/&lt;dataset&gt;.csv</code> 供统计分析，字段级原始值和证据进入 <code>001_datasets/_audit_cells.csv</code>。三类产物用途不同，但都来自同一份 <code>CommunityDataset</code> 快照。</p>
+<p>Seal 前 Core 配置事实源：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>docmirror/configs/domain/core_manifest.yaml
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>docmirror/configs/domain/resources/&lt;domain&gt;/
+</code></pre></div>
+<p>Seal 后 Plugin 投影逻辑、投影资源与统一注册：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>docmirror/plugins/&lt;domain&gt;/plugin.yaml
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>docmirror/plugins/&lt;domain&gt;/resources/
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>docmirror/plugins/_runtime/plugin_registry.py
+</code></pre></div>
+<h3 id="92">9.2 插件执行原则</h3>
+<ul>
+<li>所有内置、商业和第三方插件只提交 Projector-only <code>PluginProvider</code>，并由唯一的 Post-Seal <code>PluginRegistry</code> 在 Seal 后注册。</li>
+<li><code>plugin.yaml</code> 只声明 Provider、投影行为、投影输出和插件私有资源；不得包含 Core 的 <code>routing</code>、<code>classification</code>、<code>capabilities</code> 或 <code>dec_validation</code>。</li>
+<li><code>EditionProjector</code> 只接收 <code>SealedParseResult</code>；商业 Projector 在自己的交付边界检查授权和 Sealed schema 兼容性。</li>
+<li>Plugin 可以基于 Seal 派生领域事实、执行领域校验、组装 Community/Enterprise/Finance JSON；其资源不得被 Seal 前 Core 读取。</li>
+<li>插件不得读取 Mirror、其他 Edition 产物或可变 Core 对象，也不得把派生结果写回 Canonical。</li>
+<li><code>DomainRecognizer</code>、公共 <code>FactPatch</code>、recognizer runner 和双角色 Provider 均已退役。</li>
+</ul>
+<h3 id="93">9.3 新增业务场景插件</h3>
+<p>最小流程：</p>
+<ol>
+<li>外部包实现 <code>EditionProjector.project(SealedParseResult)</code>。</li>
+<li>通过 <code>docmirror.plugins</code> entry point 返回 Projector-only <code>PluginProvider</code>。</li>
+<li>声明支持的 Sealed schema version、domain、edition 和可选输出资源。</li>
+<li>添加 build、wheel install、lazy discovery、projection、validation、write 全生命周期测试。</li>
+<li>添加超时、异常、非法返回值和 sealed fingerprint 不变性测试。</li>
+<li>如果场景缺少 Canonical 事实，提交 Core capability/schema proposal；不得在插件中重建第二事实模型。</li>
+</ol>
+<p>建议命令：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>python3<span class="w"> </span>scripts/validate/validate_dti.py
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>python3<span class="w"> </span>scripts/validate/validate_test_manifest.py
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>pytest<span class="w"> </span>tests/contract/<span class="w"> </span>-q<span class="w"> </span>-k<span class="w"> </span><span class="s2">&quot;domain or edition or plugin&quot;</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>pytest<span class="w"> </span>tests/regression/<span class="w"> </span>-q<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;tier_regression and not tier_slow&quot;</span>
+</code></pre></div>
+<h2 id="10-sdk">10. 服务端与 SDK</h2>
+<h3 id="101-rest-api">10.1 REST API</h3>
+<p>服务端入口：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>docmirror/server/api.py
+</code></pre></div>
+<p>主要接口：</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /health</code></td>
+<td>健康检查</td>
+</tr>
+<tr>
+<td><code>POST /v1/tasks</code></td>
+<td>创建单文件或多文件任务；<code>wait=true</code> 可同步等待</td>
+</tr>
+<tr>
+<td><code>POST /v1/tasks/batch</code></td>
+<td>多文件兼容别名</td>
+</tr>
+<tr>
+<td><code>GET /v1/tasks/{task_id}</code></td>
+<td>查询统一 <code>TaskResult</code></td>
+</tr>
+<tr>
+<td><code>GET /v1/tasks/{task_id}/files/{file_id}/artifacts/{role}</code></td>
+<td>按文件与角色下载产物</td>
+</tr>
+<tr>
+<td><code>POST /v1/parse</code></td>
+<td>单文件兼容入口，返回 <code>TaskResult</code></td>
+</tr>
+<tr>
+<td><code>POST /v1/parse/batch</code></td>
+<td>多文件兼容入口，返回一个任务结果</td>
+</tr>
+<tr>
+<td><code>POST /v1/parse/file</code></td>
+<td>解析服务端已有文件并返回 <code>TaskResult</code></td>
+</tr>
+<tr>
+<td><code>POST /v1/export/pdfua</code></td>
+<td>解析并导出 PDF/UA</td>
+</tr>
+</tbody>
+</table>
+<p>所有解析入口返回精简 <code>TaskResult</code>，不返回 Mirror JSON。Community 始终生成；
+Enterprise/Finance 仅在相应包已安装、文档类型受支持且许可有效时追加，并通过
+<code>edition_availability.reason</code> 区分包未安装、未授权、类型不支持或投影失败。</p>
+<p>鉴权：</p>
+<ul>
+<li>设置 <code>DOCMIRROR_API_KEY</code> 后启用。</li>
+<li>支持 <code>Authorization: Bearer &lt;key&gt;</code> 或 raw key。</li>
+<li>未设置时本地服务开放访问。</li>
+</ul>
+<h3 id="102-sdk">10.2 SDK</h3>
+<p>SDK 目录：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>sdks/typescript/
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>sdks/go/
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>sdks/java/
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>sdks/mcp-server/
+</code></pre></div>
+<p>所有 SDK 应保持四个核心方法一致：</p>
+<ul>
+<li><code>parseDocument</code></li>
+<li><code>parseDocumentBatch</code></li>
+<li><code>parseFileOnServer</code></li>
+<li><code>health</code></li>
+</ul>
+<p>API 合同变更后：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>python<span class="w"> </span>scripts/generate_openapi.py
+</code></pre></div>
+<p>然后同步更新各 SDK 的 types/client/README，并按语言运行：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="nb">cd</span><span class="w"> </span>sdks/typescript<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>build
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="nb">cd</span><span class="w"> </span>sdks/go<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./...
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="nb">cd</span><span class="w"> </span>sdks/java<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mvn<span class="w"> </span>compile
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="nb">cd</span><span class="w"> </span>sdks/mcp-server<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>build
+</code></pre></div>
+<h2 id="11">11. 配置与环境变量</h2>
+<p>默认 YAML：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>docmirror/configs/yaml/docmirror.yaml
+</code></pre></div>
+<p>运行时配置加载：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>docmirror/configs/runtime/settings.py
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>docmirror/configs/runtime/yaml_loader.py
+</code></pre></div>
+<p>常用环境变量：</p>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DOCMIRROR_CONFIG</code></td>
+<td>指向自定义 YAML 配置</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_API_KEY</code></td>
+<td>REST API 鉴权 key</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_LOG_LEVEL</code></td>
+<td>日志级别</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_MAX_PAGES</code></td>
+<td>默认最大页数</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_TASK_OUTPUT_DIR</code></td>
+<td>CLI 默认输出目录</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_ENHANCE_MODE</code></td>
+<td>默认增强模式</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_MIRROR_LEVEL</code></td>
+<td>CLI 默认 Mirror 输出层级</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_MIRROR_CORE_PROFILE</code></td>
+<td>MirrorCore profile</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_UDTR_TOPOLOGY_PROFILE</code></td>
+<td>UDTR 拓扑策略</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_UDTR_DETECT_SEALS</code></td>
+<td>是否启用印章检测</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_ENABLE_ANOMALY</code></td>
+<td>是否启用 AnomalyDetector</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_EXTERNAL_OCR_PROVIDER</code></td>
+<td>外部 OCR provider</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_VLM_PROVIDER</code></td>
+<td>VLM provider</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_VLM_MODEL</code></td>
+<td>VLM model</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_VLM_API_KEY</code></td>
+<td>VLM API key</td>
+</tr>
+<tr>
+<td><code>DOCMIRROR_VLM_API_BASE</code></td>
+<td>VLM API base</td>
+</tr>
+<tr>
+<td><code>OMP_NUM_THREADS</code></td>
+<td>限制 OCR/数值库 native 线程</td>
+</tr>
+</tbody>
+</table>
+<h2 id="12">12. 测试体系</h2>
+<p>测试目录职责：</p>
+<table>
+<thead>
+<tr>
+<th>目录</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/smoke/</code></td>
+<td>import、settings、plugin boot 等轻量烟测</td>
+</tr>
+<tr>
+<td><code>tests/unit/</code></td>
+<td>组件级单元测试</td>
+</tr>
+<tr>
+<td><code>tests/contract/</code></td>
+<td>MOC/PEC/DEC/API/输出边界契约</td>
+</tr>
+<tr>
+<td><code>tests/regression/</code></td>
+<td>TQG manifest-driven 回归门</td>
+</tr>
+<tr>
+<td><code>tests/integration/</code></td>
+<td>冻结 golden 集成回归</td>
+</tr>
+<tr>
+<td><code>tests/e2e/</code></td>
+<td>CLI/API/full pipeline</td>
+</tr>
+<tr>
+<td><code>tests/benchmark/</code></td>
+<td>opt-in 性能/指标</td>
+</tr>
+</tbody>
+</table>
+<p>常用命令：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>make<span class="w"> </span>test-smoke
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>make<span class="w"> </span>test-contract
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>make<span class="w"> </span>test-regression
+<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a>make<span class="w"> </span><span class="nb">test</span>
+<a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a>make<span class="w"> </span>test-golden
+<a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a>make<span class="w"> </span>coverage
+</code></pre></div>
+<p>PR 级别建议：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>make<span class="w"> </span>lint
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>make<span class="w"> </span><span class="nb">test</span>
+</code></pre></div>
+<p>发布候选建议：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>python<span class="w"> </span>scripts/run_quality_gate.py<span class="w"> </span>--profile<span class="w"> </span>full
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>make<span class="w"> </span>validate-release
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>make<span class="w"> </span>validate-vnext-1-0
+</code></pre></div>
+<p>私有 fixtures 说明：</p>
+<ul>
+<li><code>tests/fixtures/</code> 和 <code>tests/golden/</code> 默认 gitignored，可能包含敏感真实样本。</li>
+<li>新同事拿不到私有样本时，优先跑 smoke、unit、contract。</li>
+<li>涉及真实样本回归时，联系团队获取 fixture 权限。</li>
+</ul>
+<p>Community 三件套可使用统一验证程序检查 JSON Schema、完整记录、completeness、CSV
+行数与主键顺序、审计 CSV、Markdown DMP 合同。支付流水还可以检查 Markdown 中不存在
+被错误渲染成表头的交易记录：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>python3<span class="w"> </span>scripts/validate/validate_community_artifacts.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="w">  </span>output/&lt;task_id&gt;/001_community.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="w">  </span>--payment-markdown-parity
+</code></pre></div>
+<h2 id="13">13. 改动类型与推荐验证</h2>
+<table>
+<thead>
+<tr>
+<th>改动类型</th>
+<th>重点文件</th>
+<th>推荐验证</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>新输入格式</td>
+<td><code>format_capabilities.yaml</code>、<code>input/adapters/</code></td>
+<td><code>validate_format_capabilities.py</code>、adapter unit、transport contract</td>
+</tr>
+<tr>
+<td>新中间件</td>
+<td><code>middleware_catalog.yaml</code>、<code>enhancement_profiles.yaml</code></td>
+<td>middleware unit、MEP contract、<code>make validate-clean</code></td>
+</tr>
+<tr>
+<td>Mirror 字段变化</td>
+<td><code>models/mirror/</code>、schema</td>
+<td>mirror contract、UDTR golden、API contract</td>
+</tr>
+<tr>
+<td>新领域插件</td>
+<td><code>plugins/&lt;domain&gt;/</code>、scene/domain configs</td>
+<td>DTI、DEC、plugin contract、TQG classify/extract/edition</td>
+</tr>
+<tr>
+<td>表格逻辑变化</td>
+<td><code>tables/</code>、<code>ocr/micro_grid/</code>、相关 plugin</td>
+<td>table unit、extract gates、bank/payment regression</td>
+</tr>
+<tr>
+<td>API 合同变化</td>
+<td><code>server/api.py</code>、<code>server/schemas.py</code>、SDK</td>
+<td>OpenAPI、SDK build、e2e API tests</td>
+</tr>
+<tr>
+<td>CLI 输出变化</td>
+<td><code>cli/main.py</code>、<code>__main__.py</code>、<code>edition_outputs.py</code></td>
+<td>CLI contract、four-file output、artifact manifest</td>
+</tr>
+<tr>
+<td>Community 三件套变化</td>
+<td><code>output/community_bundle.py</code>、<code>output/markdown_renderer.py</code>、Community schema</td>
+<td><code>test_community_artifact_validator.py</code>、Community Bundle unit、支付真实样本回归</td>
+</tr>
+<tr>
+<td>发布/打包变化</td>
+<td><code>pyproject.toml</code>、<code>Dockerfile</code>、release scripts</td>
+<td><code>validate_oss_release.py</code>、wheel smoke、Docker health</td>
+</tr>
+</tbody>
+</table>
+<h2 id="14">14. 质量门与发布</h2>
+<h3 id="141-makefile">14.1 Makefile 入口</h3>
+<table>
+<thead>
+<tr>
+<th>命令</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>make install</code></td>
+<td>本地 editable 安装全量公开 extras、dev、docs</td>
+</tr>
+<tr>
+<td><code>make format</code></td>
+<td>ruff format + ruff check fix</td>
+</tr>
+<tr>
+<td><code>make lint</code></td>
+<td>release-blocking lint 和架构清洁门</td>
+</tr>
+<tr>
+<td><code>make typecheck</code></td>
+<td>mypy，全量类型债审计，不作为默认 release blocker</td>
+</tr>
+<tr>
+<td><code>make validate-clean</code></td>
+<td>import-linter、clean manifest、domain decomposition 等</td>
+</tr>
+<tr>
+<td><code>make validate-release</code></td>
+<td>OSS 1.0 发布边界检查</td>
+</tr>
+<tr>
+<td><code>make smoke-extras</code></td>
+<td>公共 optional extras smoke</td>
+</tr>
+</tbody>
+</table>
+<h3 id="142-run_quality_gate">14.2 run_quality_gate</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>python<span class="w"> </span>scripts/run_quality_gate.py<span class="w"> </span>--list-steps
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>python<span class="w"> </span>scripts/run_quality_gate.py<span class="w"> </span>--profile<span class="w"> </span>quick
+<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>python<span class="w"> </span>scripts/run_quality_gate.py<span class="w"> </span>--profile<span class="w"> </span>standard
+<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a>python<span class="w"> </span>scripts/run_quality_gate.py<span class="w"> </span>--profile<span class="w"> </span>full
+</code></pre></div>
+<p>profile 含义：</p>
+<ul>
+<li><code>hygiene</code>：死代码、孤儿路径、ruff strict 等。</li>
+<li><code>quick</code>：本地快速循环。</li>
+<li><code>standard</code>：push/PR 前。</li>
+<li><code>full</code>：release candidate。</li>
+</ul>
+<h3 id="143-100">14.3 1.0.0 发布边界</h3>
+<p>1.0.0 强调：</p>
+<ul>
+<li>公共定位统一为 Commercial Document Trust Layer / Parse. Prove. Trust.</li>
+<li><code>docmirror[all]</code> 只包含公共 OSS extras。</li>
+<li>企业/金融包单独分发，不作为 OSS 安装前置条件。</li>
+<li>公开 quickstart 使用 synthetic artifact，不依赖私有样本。</li>
+<li>docs/design、私有 fixture、credential、本地 plugin state 不进入公开发布。</li>
+</ul>
+<p>发布前务必检查：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>python3<span class="w"> </span>scripts/validate/validate_import_purity.py
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>python3<span class="w"> </span>scripts/validate/validate_oss_release.py
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>python3<span class="w"> </span>scripts/validate/validate_vnext_1_0_readiness.py
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a>python3<span class="w"> </span>scripts/validate/smoke_optional_extras.py
+</code></pre></div>
+<h2 id="15">15. 安全、隐私与样本</h2>
+<p>基本原则：</p>
+<ul>
+<li>不要提交客户原始文件、PII、凭证、license、API key。</li>
+<li>真实样本放在 gitignored 的 <code>tests/fixtures/</code> 或私有数据仓。</li>
+<li>文档 issue/bug 复现优先用脱敏样本、synthetic 样本或 artifact 片段。</li>
+<li>对外发布前跑 OSS boundary/release gate。</li>
+</ul>
+<p>相关模块：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>docmirror/security/
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>docmirror/security/safety/
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>docmirror/evidence/redaction.py
+<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a>docmirror/configs/yaml/privacy_policy.yaml
+</code></pre></div>
+<p>API 部署建议：</p>
+<ul>
+<li>生产环境设置 <code>DOCMIRROR_API_KEY</code>。</li>
+<li>通过 Nginx/Caddy/Ingress 提供 HTTPS。</li>
+<li>限制上传文件大小和请求超时。</li>
+<li>OCR 密集 workload 设置 <code>OMP_NUM_THREADS</code>，避免 native 库吃满 CPU。</li>
+</ul>
+<h2 id="16">16. 常见研发任务</h2>
+<h3 id="161">16.1 新增一个文件格式</h3>
+<ol>
+<li>实现 adapter：<code>docmirror/input/adapters/&lt;format&gt;/&lt;format&gt;.py</code>。</li>
+<li>继承 <code>BaseParser</code>，实现 <code>to_parse_result()</code>。</li>
+<li>在 <code>docmirror/input/adapters/__init__.py</code> 导出。</li>
+<li>在 <code>format_capabilities.yaml</code> 注册 extensions、MIME、transport、content_model、binding。</li>
+<li>如果需要外部转换器，配置 <code>binding.transcode</code>。</li>
+<li>加 unit/contract/e2e 测试。</li>
+</ol>
+<h3 id="162">16.2 调整固定交付契约</h3>
+<p>固定交付契约属于产品级变更，不通过新增普通请求参数扩展。需要新增产物时：</p>
+<ol>
+<li>证明产物对所有调用方式都成立，或属于受授权约束的独立 Edition。</li>
+<li>Projector 必须只读 <code>ParseResult</code>，不得依赖 Mirror 或其他 Edition。</li>
+<li>Writer 只接收已完成的投影并原子写盘。</li>
+<li>同步更新 CLI/API/SDK 契约测试与 Manifest schema。</li>
+</ol>
+<h3 id="163-mirror">16.3 调整 Mirror 投影</h3>
+<ol>
+<li>先确认字段属于 pages、regions、blocks、graph、semantics、quality 还是 diagnostics。</li>
+<li>修改 <code>models/mirror/</code> 中的模型和投影逻辑。</li>
+<li>更新 <code>configs/schemas/mirror.schema.json</code>。</li>
+<li>跑 mirror contract、UDTR golden 和 API response 测试。</li>
+</ol>
+<h3 id="164">16.4 调整银行流水/支付流水提取</h3>
+<p>重点目录：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>docmirror/plugins/bank_statement/
+<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>docmirror/tables/
+<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>docmirror/ocr/micro_grid/
+<a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a>docmirror/ocr/local_structure/
+<a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a>docmirror/eval/tqg/
+</code></pre></div>
+<p>建议至少跑：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>pytest<span class="w"> </span>tests/unit/<span class="w"> </span>-q<span class="w"> </span>-k<span class="w"> </span><span class="s2">&quot;bank or table or grid&quot;</span>
+<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>pytest<span class="w"> </span>tests/contract/<span class="w"> </span>-q<span class="w"> </span>-k<span class="w"> </span><span class="s2">&quot;mirror or evidence or edition&quot;</span>
+<a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a>pytest<span class="w"> </span>tests/regression/<span class="w"> </span>-q<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;track_bank_statement or track_extract&quot;</span>
+</code></pre></div>
+<h3 id="165-rest-api">16.5 修改 REST API</h3>
+<ol>
+<li>修改 <code>docmirror/server/api.py</code> 和必要的 schema。</li>
+<li>同步 <code>scripts/generate_openapi.py</code> 生成结果。</li>
+<li>更新 TypeScript/Go/Java/MCP SDK。</li>
+<li>跑：</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>pytest<span class="w"> </span>tests/e2e/<span class="w"> </span>-q<span class="w"> </span>-k<span class="w"> </span><span class="s2">&quot;server or api&quot;</span>
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>python<span class="w"> </span>scripts/generate_openapi.py
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a><span class="nb">cd</span><span class="w"> </span>sdks/typescript<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>build
+<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a><span class="nb">cd</span><span class="w"> </span>sdks/go<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./...
+<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a><span class="nb">cd</span><span class="w"> </span>sdks/java<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mvn<span class="w"> </span>compile
+</code></pre></div>
+<h2 id="17">17. 排障指南</h2>
+<h3 id="171-docmirror-doctor">17.1 <code>docmirror doctor</code> 显示缺依赖</h3>
+<p>按 capability 安装 extras：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;docmirror[pdf]&quot;</span>
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;docmirror[ocr]&quot;</span>
+<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;docmirror[office]&quot;</span>
+<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;docmirror[server]&quot;</span>
+</code></pre></div>
+<h3 id="172-docxlsppt">17.2 <code>.doc</code>、<code>.xls</code>、<code>.ppt</code> 解析失败</h3>
+<p>这些旧二进制格式依赖 LibreOffice 转换。确认 <code>soffice</code> 在 <code>PATH</code> 中，或先转成 <code>.docx</code>、<code>.xlsx</code>、<code>.pptx</code>。</p>
+<h3 id="173-ocr">17.3 扫描件/OCR 质量低</h3>
+<p>尝试：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>docmirror<span class="w"> </span>scan.pdf<span class="w"> </span>--mode<span class="w"> </span>accurate<span class="w"> </span>--ocr<span class="w"> </span>force
+<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>docmirror<span class="w"> </span>scan.pdf<span class="w"> </span>--ocr-locale<span class="w"> </span>zh-CN<span class="w"> </span>--ocr-correction-pack<span class="w"> </span>customer.finance
+</code></pre></div>
+<p>纠错策略可选 <code>safe</code>（唯一、可验证候选自动应用）、<code>suggest</code>（只记录候选）和
+<code>off</code>（仅基础字符规范化）。纠错摘要位于 Mirror <code>quality.ocr_correction</code>，
+逐项审计记录位于 <code>evidence.indexes.ocr_corrections</code>。</p>
+<p>规则包位于 <code>docmirror/configs/yaml/ocr_correction_packs/</code>，由 <code>pack_id</code>、版本、
+优先级、语言/国家/领域范围、精确规则、词库、混淆成本和校验器声明组成。客户私有包
+通过环境变量 <code>DOCMIRROR_OCR_CORRECTION_PACKS</code> 加载；建议设置 <code>opt_in: true</code>，避免
+对其他客户请求自动生效。维护和回放命令：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>docmirror<span class="w"> </span>ocr<span class="w"> </span>check
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>docmirror<span class="w"> </span>ocr<span class="w"> </span>packs
+<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>docmirror<span class="w"> </span>ocr<span class="w"> </span>explain<span class="w"> </span><span class="s2">&quot;营业牧入&quot;</span><span class="w"> </span>--locale<span class="w"> </span>zh-CN<span class="w"> </span>--domain<span class="w"> </span>financial_report<span class="w"> </span>--role<span class="w"> </span>field_label
+<a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a>docmirror<span class="w"> </span>ocr<span class="w"> </span><span class="nb">eval</span><span class="w"> </span>./golden_samples<span class="w"> </span>--fail-on-regression
+<a id="__codelineno-43-5" name="__codelineno-43-5" href="#__codelineno-43-5"></a>docmirror<span class="w"> </span>ocr<span class="w"> </span><span class="nb">export</span><span class="w"> </span>mirror.json<span class="w"> </span>review.jsonl
+</code></pre></div>
+<p>新增规则必须同时提供正例、反例和幂等测试。格式校验器只能报告合法性；只有存在可靠
+校验算法并得到唯一候选时，<code>safe</code> 模式才允许自动改写。</p>
+<p>检查：</p>
+<ul>
+<li><code>quality_report.json</code></li>
+<li><code>005_evidence_bundle.json</code></li>
+<li><code>visual_debug.html</code></li>
+<li>Mirror <code>diagnostics.pipeline</code></li>
+</ul>
+<h3 id="174-enterprisefinance">17.4 Enterprise/Finance 输出缺失</h3>
+<p>检查：</p>
+<ul>
+<li>是否安装了 <code>docmirror_enterprise</code> / <code>docmirror_finance</code>。</li>
+<li>license/entitlement 是否满足。</li>
+<li><code>manifest.json</code> 的 <code>edition_availability</code>。</li>
+</ul>
+<h3 id="175-fixtures">17.5 测试因 fixtures 缺失而跳过</h3>
+<p>这是预期行为。公开仓不包含私有样本。需要全量回归时向团队申请 <code>tests/fixtures/</code> 和 <code>tests/golden/</code>。</p>
+<h2 id="18">18. 接手检查清单</h2>
+<p>新同事接手前建议完成：</p>
+<ul>
+<li>能本地安装：<code>pip install -e ".[all,dev,docs]"</code>。</li>
+<li>能跑 smoke：<code>make test-smoke</code>。</li>
+<li>能跑 contract：<code>make test-contract</code>。</li>
+<li>能解析 quickstart：<code>python3 examples/trust_quickstart.py</code>。</li>
+<li>能用 CLI 产出 artifact pack。</li>
+<li>能启动 REST API 并访问 <code>/health</code>。</li>
+<li>理解 FCR、MEP、PEC、Mirror vNext 三条主线。</li>
+<li>知道私有 fixtures 不在公开仓，不能随意提交样本。</li>
+<li>改动前能判断自己影响的是 adapter、middleware、Mirror、plugin、server、SDK 还是 release gate。</li>
+</ul>
+<h2 id="19">19. 关键参考文件</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>README.md
+<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>README_zh-CN.md
+<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>CHANGELOG.md
+<a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a>CONTRIBUTING.md
+<a id="__codelineno-44-5" name="__codelineno-44-5" href="#__codelineno-44-5"></a>tests/README.md
+<a id="__codelineno-44-6" name="__codelineno-44-6" href="#__codelineno-44-6"></a>scripts/README_quality_gate.md
+<a id="__codelineno-44-7" name="__codelineno-44-7" href="#__codelineno-44-7"></a>pyproject.toml
+<a id="__codelineno-44-8" name="__codelineno-44-8" href="#__codelineno-44-8"></a>Makefile
+<a id="__codelineno-44-9" name="__codelineno-44-9" href="#__codelineno-44-9"></a>docmirror/__init__.py
+<a id="__codelineno-44-10" name="__codelineno-44-10" href="#__codelineno-44-10"></a>docmirror/__main__.py
+<a id="__codelineno-44-11" name="__codelineno-44-11" href="#__codelineno-44-11"></a>docmirror/cli/main.py
+<a id="__codelineno-44-12" name="__codelineno-44-12" href="#__codelineno-44-12"></a>docmirror/input/entry/options.py
+<a id="__codelineno-44-13" name="__codelineno-44-13" href="#__codelineno-44-13"></a>docmirror/input/pipeline/__init__.py
+<a id="__codelineno-44-14" name="__codelineno-44-14" href="#__codelineno-44-14"></a>docmirror/framework/dispatcher.py
+<a id="__codelineno-44-15" name="__codelineno-44-15" href="#__codelineno-44-15"></a>docmirror/framework/base.py
+<a id="__codelineno-44-16" name="__codelineno-44-16" href="#__codelineno-44-16"></a>docmirror/framework/orchestrator.py
+<a id="__codelineno-44-17" name="__codelineno-44-17" href="#__codelineno-44-17"></a>docmirror/framework/extraction_runner.py
+<a id="__codelineno-44-18" name="__codelineno-44-18" href="#__codelineno-44-18"></a>docmirror/server/api.py
+<a id="__codelineno-44-19" name="__codelineno-44-19" href="#__codelineno-44-19"></a>docmirror/server/output_builder.py
+<a id="__codelineno-44-20" name="__codelineno-44-20" href="#__codelineno-44-20"></a>docmirror/server/edition_outputs.py
+<a id="__codelineno-44-21" name="__codelineno-44-21" href="#__codelineno-44-21"></a>docmirror/plugins/_runtime/plugin_registry.py
+<a id="__codelineno-44-22" name="__codelineno-44-22" href="#__codelineno-44-22"></a>docmirror/plugins/_base/projector.py
+<a id="__codelineno-44-23" name="__codelineno-44-23" href="#__codelineno-44-23"></a>docmirror/configs/domain/core_manifest.yaml
+<a id="__codelineno-44-24" name="__codelineno-44-24" href="#__codelineno-44-24"></a>docmirror/configs/yaml/format_capabilities.yaml
+<a id="__codelineno-44-25" name="__codelineno-44-25" href="#__codelineno-44-25"></a>docmirror/configs/yaml/middleware_catalog.yaml
+<a id="__codelineno-44-26" name="__codelineno-44-26" href="#__codelineno-44-26"></a>docmirror/configs/yaml/enhancement_profiles.yaml
+<a id="__codelineno-44-27" name="__codelineno-44-27" href="#__codelineno-44-27"></a>docmirror/plugins/&lt;domain&gt;/plugin.yaml
+<a id="__codelineno-44-28" name="__codelineno-44-28" href="#__codelineno-44-28"></a>docmirror/plugins/&lt;domain&gt;/resources/
+</code></pre></div>
+<p>维护建议：后续每次大版本迭代时，同步更新本手册的版本基线、核心架构、测试门、输出合同和发布边界。尤其是 Mirror schema、API response、SDK 类型和 edition 输出一旦变动，必须一起更新。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 ValueMap Global
+    </div>
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/valuemapglobal/DocMirror" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/docmirror/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.highlight", "search.suggest", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
