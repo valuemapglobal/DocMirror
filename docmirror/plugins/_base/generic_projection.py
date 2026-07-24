@@ -17,6 +17,12 @@ def make_generic_projection(
     warnings: list[str],
 ) -> ProjectionData:
     records = structured_data["records"]
+    normalized_entity_fields = {
+        str(key): descriptor.get("value", descriptor.get("normalized_value"))
+        for key, descriptor in structured_data["normalized_fields"].items()
+        if isinstance(descriptor, dict)
+        and descriptor.get("value", descriptor.get("normalized_value")) not in (None, "")
+    }
     canonical_records = [
         {**dict(record), "record_id": str(record.get("record_id") or f"records:r{index:06d}")}
         for index, record in enumerate(records, start=1)
@@ -26,9 +32,12 @@ def make_generic_projection(
         projector_id="generic",
         document_type=detected_type,
         entity_fields={
-            key: fields[key]
-            for key in ("subject_name", "subject_id", "organization", "document_date", "period_start", "period_end")
-            if fields.get(key) not in (None, "")
+            **normalized_entity_fields,
+            **{
+                key: fields[key]
+                for key in ("subject_name", "subject_id", "organization", "document_date", "period_start", "period_end")
+                if fields.get(key) not in (None, "")
+            },
         },
         domain_facts={
             **fields,
