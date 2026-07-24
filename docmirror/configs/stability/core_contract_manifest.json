@@ -1,11 +1,11 @@
 {
   "schema_version": "docmirror.stability_core_manifest.v1",
   "candidate": "1.1.2",
-  "contract_sha256": "138daafcd5c6ce6b697efc66c4528a878a7519b2c21e19dd47261765ae7361ca",
+  "contract_sha256": "c5223e7c5b398d81edb7cc551741e8ed917361cae9fd1f4ac189072b18a6ffca",
   "qualification": {
     "status": "qualified",
     "basis": "Exact 1.1.2 Core contract, sealed-result CLI, Community output lineage, and complete Alipay projection parity passed",
     "qualified_at": "2026-07-24",
-    "contract_sha256": "138daafcd5c6ce6b697efc66c4528a878a7519b2c21e19dd47261765ae7361ca"
+    "contract_sha256": "c5223e7c5b398d81edb7cc551741e8ed917361cae9fd1f4ac189072b18a6ffca"
   }
 }
