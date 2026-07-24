@@ -1,8 +1,8 @@
 {
   "schema_version": "docmirror.stability_evidence.v1",
-  "candidate": "1.1.1",
+  "candidate": "1.1.2",
   "status": "qualified",
-  "qualification_basis": "Exact 1.1.1 technical gates passed on the candidate workspace, including Core and complete Community projection fingerprints",
+  "qualification_basis": "Exact 1.1.2 technical gates passed on the candidate workspace, including sealed-result CLI coverage and complete 1,267-row Alipay projection parity",
   "qualified_at": "2026-07-24",
   "gates": {
     "core_contract_freeze": "qualified",

@@ -53,7 +53,7 @@ packages = [
 
 [project]
 name = "docmirror"
-version = "1.1.1"
+version = "1.1.2"
 description = "Commercial Document Trust Layer for verifiable, audit-ready document signals"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
