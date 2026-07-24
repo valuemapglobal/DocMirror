@@ -12,11 +12,12 @@ from pathlib import Path
 import pytest
 
 from docmirror.configs.domain.registry import get_canonical_premium_domains
-from docmirror.framework.middlewares.extraction.community_fact_recognizer import run_canonical_enrichment
 from docmirror.input.entry.factory import PerceiveOptions, perceive_document
 from docmirror.input.entry.options import normalize_parse_policy
 from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
 from docmirror.models.schemas.registry import validate_projection_payload
+from docmirror.models.sealed import seal_parse_result
+from docmirror.plugins._runtime.plugin_registry import PluginRegistry
 from docmirror.server.output_builder import build_community_projection
 
 pytestmark = [pytest.mark.integration]
@@ -40,25 +41,31 @@ def _mirror(document_type: str) -> ParseResult:
 
 
 @pytest.mark.parametrize("domain", PREMIUM_DOMAINS)
-def test_premium_capability_is_core_owned(domain: str):
+def test_premium_capability_is_post_seal_projector(domain: str):
     capability = importlib.import_module(f"docmirror.plugins.{domain}.community_plugin").plugin
     assert capability.domain_name == domain
+    assert capability.edition == "community"
 
 
 @pytest.mark.parametrize("domain", PREMIUM_DOMAINS)
-def test_premium_recognizer_returns_fact_patch(domain: str):
-    patch = run_canonical_enrichment(_mirror(domain))
+def test_premium_projector_returns_community_payload(domain: str):
+    sealed = seal_parse_result(_mirror(domain))
+    projector = PluginRegistry().get_projector(domain, "community", sealed_schema=sealed.schema_version)
 
-    assert patch.capability_id == domain
-    assert patch.document_type in {None, domain}
+    assert projector is not None
+    payload = projector.project(sealed)
+    assert payload is not None
+    assert payload["schema"]["edition"] == "community"
 
 
 def test_unknown_domain_uses_generic_plugin():
-    mirror = _mirror("id_card")
-    patch = run_canonical_enrichment(mirror, full_text="")
+    sealed = seal_parse_result(_mirror("id_card"))
+    projector = PluginRegistry().get_projector("generic", "community", sealed_schema=sealed.schema_version)
 
-    assert patch.capability_id == "generic"
-    assert "community_generic_fallback" in patch.warnings
+    assert projector is not None
+    payload = projector.project(sealed)
+    assert payload is not None
+    assert payload["document"]["type"] == "id_card"
 
 
 @pytest.mark.parametrize("domain,fixture", FIXTURE_BY_DOMAIN.items())

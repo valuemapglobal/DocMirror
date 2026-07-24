@@ -1,11 +1,12 @@
 # Copyright (c) 2026 ValueMap Global and contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Lazy post-seal registry for external edition projectors."""
+"""Unified Post-Seal PluginRegistry for all edition projectors."""
 
 from __future__ import annotations
 
 import copy
+import importlib
 import logging
 import threading
 from importlib.resources import files
@@ -15,6 +16,16 @@ from typing import Any
 from docmirror.plugin_api import PluginProvider
 
 logger = logging.getLogger(__name__)
+
+_BUNDLED_POST_SEAL_DOMAINS = (
+    "bank_statement",
+    "wechat_payment",
+    "alipay_payment",
+    "vat_invoice",
+    "business_license",
+    "credit_report",
+    "generic",
+)
 
 
 class PluginRegistry:
@@ -175,11 +186,37 @@ class PluginRegistry:
                 return
             self._discovering = True
             try:
+                self._register_bundled_post_seal_providers()
                 self._discover_third_party_providers()
                 self._discovered = True
                 self._frozen = True
             finally:
                 self._discovering = False
+
+    def _register_bundled_post_seal_providers(self) -> None:
+        """Register bundled providers only after the canonical Seal boundary."""
+        import yaml
+
+        for domain_name in _BUNDLED_POST_SEAL_DOMAINS:
+            package = f"docmirror.plugins.{domain_name}"
+            manifest = yaml.safe_load(files(package).joinpath("plugin.yaml").read_text(encoding="utf-8")) or {}
+            provider_config = dict(manifest.get("provider") or {})
+            module = importlib.import_module(f"{package}.community_plugin")
+            projector = getattr(module, "plugin")
+            self.register_provider(
+                PluginProvider(
+                    provider_id=f"bundled.{domain_name}",
+                    version=str(provider_config.get("version") or "community-1"),
+                    projectors=(projector,),
+                    resource_package=package,
+                    resources={
+                        str(name): str(relative_path)
+                        for name, relative_path in dict(manifest.get("resources") or {}).items()
+                    },
+                ),
+                manifest=manifest,
+                resource_root=files(package),
+            )
 
     def _discover_third_party_providers(self) -> None:
         """Load projector providers through pluggy only at the output boundary."""

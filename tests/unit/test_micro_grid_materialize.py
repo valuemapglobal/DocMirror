@@ -3,19 +3,21 @@
 
 from docmirror.models.mirror.page_evidence_bundles import (
     domain_specific_with_page_bundles,
-    materialize_micro_grids_from_bundles,
     micro_grid_structures_from_bundles,
     page_evidence_bundle,
 )
-from docmirror.ocr.micro_grid.materialize import extract_micro_grid_structures
-from docmirror.plugins.credit_report.micro_grid_materialize import augment_credit_repayment_evidence_bundles
+from docmirror.plugins.credit_report.micro_grid_materialize import (
+    augment_credit_repayment_evidence_bundles,
+    materialize_credit_repayment_micro_grids,
+    materialize_credit_repayment_micro_grids_from_bundles,
+)
 from docmirror.plugins.credit_report.repayment_grid import records_from_micro_grid_dict
 from tests.unit.test_scanned_micro_grid_repayment import _credit_page4_lines, _credit_page4_tokens
 
 
-def test_extract_micro_grid_structures_materializes_credit_repayment():
-    grids = extract_micro_grid_structures(
-        _credit_page4_lines(),
+def test_materialize_credit_repayment_micro_grids_materializes_credit_repayment():
+    grids = materialize_credit_repayment_micro_grids(
+        lines=_credit_page4_lines(),
         tokens=_credit_page4_tokens(),
         page=4,
         page_width=834,
@@ -27,7 +29,7 @@ def test_extract_micro_grid_structures_materializes_credit_repayment():
     assert [cell["text"] for cell in year_cells] == ["2021", "2020"]
 
 
-def test_materialize_micro_grids_from_bundles_is_idempotent():
+def test_materialize_credit_repayment_micro_grids_from_bundles_is_idempotent():
     ds = domain_specific_with_page_bundles(
         page_evidence_bundle(
             4,
@@ -42,8 +44,8 @@ def test_materialize_micro_grids_from_bundles_is_idempotent():
             },
         ),
     )
-    first = materialize_micro_grids_from_bundles(ds)
-    second = materialize_micro_grids_from_bundles(ds)
+    first = materialize_credit_repayment_micro_grids_from_bundles(ds)
+    second = materialize_credit_repayment_micro_grids_from_bundles(ds)
     assert len(first) == 1
     assert second == []
     assert micro_grid_structures_from_bundles(ds)[0]["grid_id"] == "mg_p4_repayment_0"
@@ -58,7 +60,7 @@ def test_multiple_date_range_anchors_materialize_without_dropping_unresolved_gri
         {"text": "2025年07月-2025年09月的还款记录", "bbox": [100, 300, 300, 315]},
     ]
 
-    grids = extract_micro_grid_structures(lines, page=5, page_width=600, page_height=800)
+    grids = materialize_credit_repayment_micro_grids(lines=lines, page=5, page_width=600, page_height=800)
 
     assert [grid["grid_id"] for grid in grids] == ["mg_p5_repayment_0", "mg_p5_repayment_1"]
     assert len(records_from_micro_grid_dict(grids[0])) == 2

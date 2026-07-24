@@ -12,7 +12,6 @@ import pytest
 
 from docmirror.models.sealed import seal_parse_result
 from docmirror.output.mirror_projector import project_mirror
-from docmirror.input.canonical.fact_patch import apply_canonical_patch
 
 pytestmark = [pytest.mark.tier_contract]
 
@@ -246,16 +245,13 @@ def test_enterprise_not_generated_when_package_missing():
 
 
 def test_generic_community_envelope_conforms():
-    from docmirror.plugins.generic.community_plugin import plugin
     from docmirror.server.output_builder import build_community_projection
 
     mirror = ParseResult(status=ResultStatus.SUCCESS)
     mirror.entities = DocumentEntities(document_type="id_card")
     mirror.entities.domain_specific = {"name": "测试", "id_number": "110101199001011234"}
 
-    patch = plugin.recognize_facts(mirror)
-    canonical = apply_canonical_patch(mirror, patch)
-    out = build_community_projection(seal_parse_result(canonical))
+    out = build_community_projection(seal_parse_result(mirror))
 
     assert out["schema"]["name"] == "docmirror.community"
     assert out["document"]["type"] == "id_card"

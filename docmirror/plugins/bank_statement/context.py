@@ -8,8 +8,8 @@ Aggregates table cell matrices, full text, institution hints, LTRO reconstructio
 meta, and page count into a single context object passed to ``BankStyleDetector``
 and style parsers.
 
-Pipeline role: first step inside ``bank_statement.community_plugin.recognize``
-before style detection and parser dispatch.
+Pipeline role: first derivation step inside the post-seal bank-statement
+projector, before style detection and parser dispatch.
 
 Key exports: ``StyleContext``, ``build_style_context``, ``collect_tables_from_parse_result``.
 

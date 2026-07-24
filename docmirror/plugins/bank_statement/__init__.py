@@ -8,8 +8,9 @@ Public exports for the style-family parsing stack: style detection, parser regis
 canonical record builders, and the registered ``plugin`` singleton consumed by
 ``plugin_registry``.
 
-Pipeline role: ``bank_statement.community_plugin`` is registered as a recognizer;
-``recognize_facts`` runs StyleDetector → parser registry → ``CanonicalPatch``.
+Pipeline role: ``bank_statement.community_plugin`` is registered as a
+Community projector in the shared Post-Seal ``PluginRegistry``; ``derive``
+runs StyleDetector → parser registry → ``ProjectionData``.
 
 Key exports: ``BankStatementCommunityPlugin``, ``BankStyleDetector``,
 ``BankStyleParserRegistry``, ``StyleContext``, ``StyleDetectionResult``,

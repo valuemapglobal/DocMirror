@@ -19,7 +19,8 @@ cases:
     fixture_sha256: d8b46380a20e92594ad356afb9070d4f0db9679661ceaa2049251478a48c751e
     parse_policy: {mode: balanced, doc_type_hint: "id_card:force"}
     automatic_classification_policy: {mode: balanced}
-    expected_fact_fingerprint: f6841fbb7f7c6c9cb9f3fcb1e6765a4b1fc8688acc632f15ac11a9fe5e13d465
+    expected_fact_fingerprint: e631cca69de89f670c7c7724e9e5d0c9f6863bd027fde9630cf90426b42b5a67
+    expected_community_projection_fingerprint: 969062099d9d1594a77985308be6634653e4ebfa7d2a6d58a1785250a2932496
   - id: bank_statement_real
     domain: bank_statement
     expected_document_type: bank_statement
@@ -28,7 +29,8 @@ cases:
     fixture_sha256: 5083e8b3e10a1a1d0f3ec2638f93418f1f5ccb3e532412ff6874131fbc7e4945
     parse_policy: {mode: balanced, doc_type_hint: "bank_statement:force"}
     automatic_classification_policy: {mode: balanced}
-    expected_fact_fingerprint: 40a710cea24b33975d825764fd39a527dc1a009161f78f9efda56aa57dd5e919
+    expected_fact_fingerprint: fdb12fbe3b26296ca3d9906dc9de1c3284b351185d2b07a644f7ece47eee1255
+    expected_community_projection_fingerprint: 2b1eef01996914bc027a327cd553e445ac765caf7437a5d1c7a1113346ebe257
   - id: wechat_payment_real
     domain: wechat_payment
     expected_document_type: wechat_payment
@@ -37,7 +39,8 @@ cases:
     fixture_sha256: ebe8daf75bb1c7fae64f8066633e9fa2aaa38409e79663a525d4e1a2bd84bc74
     parse_policy: {mode: balanced, doc_type_hint: "wechat_payment:force"}
     automatic_classification_policy: {mode: balanced}
-    expected_fact_fingerprint: e26ec9b608adaa1fc04e9cb40a12ce9f8aacc7c23f318b9cc9058a3cbe8ef4cd
+    expected_fact_fingerprint: f5918a30f78ae77906ae3871a91853ca6d1976282c87711742fd1e2cbe75f8f3
+    expected_community_projection_fingerprint: fd906eef53e981a20e672c1573df063e29431fe6216c5d860e1ba079a588d1a9
   - id: alipay_payment_real
     domain: alipay_payment
     expected_document_type: alipay_payment
@@ -46,7 +49,8 @@ cases:
     fixture_sha256: f31054befef6ebd05a8631c24df7224f8dd08aefb699aa1c6df56e90705cb7ca
     parse_policy: {mode: balanced, doc_type_hint: "alipay_payment:force"}
     automatic_classification_policy: {mode: balanced}
-    expected_fact_fingerprint: 8412c52a7a10220fc358c2c60dfff89c049a666bf1ada85f76b7b9f9114d5912
+    expected_fact_fingerprint: 46ad8307f4c8069ea6c18cbeb322fa8ee159ab7f717de8898fb3cf06130ae8db
+    expected_community_projection_fingerprint: 6a9c1899a664e230f8862eb9eb7d062e9efd05f9d7366a82412926ab9a7c1ecb
   - id: vat_invoice_real
     domain: vat_invoice
     expected_document_type: vat_invoice
@@ -55,7 +59,8 @@ cases:
     fixture_sha256: 5f9c095fc01efae6fa02132249fc0d91e32e31899da8b481dcabb2a8d46a6d48
     parse_policy: {mode: balanced, doc_type_hint: "vat_invoice:force"}
     automatic_classification_policy: {mode: balanced}
-    expected_fact_fingerprint: d1d8e063c079ff73968afe39e566fe92ed1c771575d2e804bfd48e086e445bca
+    expected_fact_fingerprint: 2d67a9bbb4f66fe3ffb8e08c3091acdc259f6202a4c2669f87a93f5a4d13508a
+    expected_community_projection_fingerprint: a85beb7411ee04df669b8d0c593353ee95d1c42c7488d8bd89a399f8ac7b1112
   - id: business_license_real
     domain: business_license
     expected_document_type: business_license
@@ -64,7 +69,8 @@ cases:
     fixture_sha256: 174f768da904a79e8349f351ef5b0f5b0a917ce04dc2ac2b9ee6582af4996628
     parse_policy: {mode: balanced, doc_type_hint: "business_license:force"}
     automatic_classification_policy: {mode: balanced}
-    expected_fact_fingerprint: 5c83d1b9d4bc9edc13a99b87b6f47ee9550957cc35f991ebfb61b3cb821137b5
+    expected_fact_fingerprint: 3d77f5129178f8e1fed4ce021acb7025a88a645cfa8bd8f9ae10ec66db81704a
+    expected_community_projection_fingerprint: 474324539cc63f9afc17e94d3356634beb3102cf8c5c5f75ae59d97fd03f2538
   - id: credit_report_real
     domain: credit_report
     expected_document_type: credit_report
@@ -73,4 +79,5 @@ cases:
     fixture_sha256: ae5840551306253d95719077b35044fb22145b0c60ba6ef938167157a7cab322
     parse_policy: {mode: balanced, doc_type_hint: "credit_report:force"}
     automatic_classification_policy: {mode: balanced}
-    expected_fact_fingerprint: e231ed102e4af1e9a1f4d567a6fc1b925386001638565dfb49844af82a7be6d6
+    expected_fact_fingerprint: 204b2db9e384f89b0b110f7dd205ff0ac1d419c7adaf77071e29cc61863073ce
+    expected_community_projection_fingerprint: e2ab3fd501330a44c5360672ea11854bfd3587138515776cbbdb8923b9c037de

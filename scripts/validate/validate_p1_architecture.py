@@ -41,8 +41,10 @@ def main() -> int:
     for domain in CANONICAL_CAPABILITIES:
         source = _source(f"docmirror/plugins/{domain}/community_plugin.py")
         inherited = domain in {"wechat_payment", "alipay_payment"}
-        if "def recognize_facts(" not in source and not inherited:
-            errors.append(f"{domain}: no fixed canonical enrichment implementation")
+        if "def derive(" not in source and not inherited:
+            errors.append(f"{domain}: no post-seal Community derivation implementation")
+        if "CommunityProjector" not in source and "BaseTableParser" not in source:
+            errors.append(f"{domain}: does not implement the Community projector boundary")
 
     plugin_api = _source("docmirror/plugin_api.py")
     for forbidden in ("DomainRecognizer", "FactPatch", "recognizers:"):
@@ -52,22 +54,12 @@ def main() -> int:
         if required not in plugin_api:
             errors.append(f"post-seal Plugin API is missing: {required}")
 
-    enrichment = _source("docmirror/framework/middlewares/extraction/community_fact_recognizer.py")
-    for domain in CANONICAL_CAPABILITIES:
-        if f'"{domain}":' not in enrichment:
-            errors.append(f"fixed canonical capability missing from Core map: {domain}")
-    for forbidden in ("plugin_registry", "PluginProvider", "get_recognizer"):
-        if forbidden in enrichment:
-            errors.append(f"canonical enrichment crosses plugin runtime: {forbidden}")
-
-    patch_source = _source("docmirror/input/canonical/fact_patch.py")
-    for required in (
-        "candidate = result.model_copy(deep=True)",
-        "_apply_canonical_patch_in_place(candidate",
-        "ParseResult.model_validate",
+    for retired in (
+        "docmirror/framework/middlewares/extraction/community_fact_recognizer.py",
+        "docmirror/input/canonical/fact_patch.py",
     ):
-        if required not in patch_source:
-            errors.append(f"CanonicalPatch application is not demonstrably transactional: {required}")
+        if (ROOT / retired).exists():
+            errors.append(f"retired pre-seal plugin bridge exists: {retired}")
 
     fingerprint = _source("docmirror/models/fingerprint.py")
     for forbidden_field in ("parser_info", "mutations", "processing_time", "annex"):
@@ -90,6 +82,13 @@ def main() -> int:
             function_source = function_source[:next_function]
         if "expects SealedParseResult" not in function_source:
             errors.append(f"{function_name} does not reject mutable ParseResult")
+    if "registry.get_projector(" not in output_builder or '"community"' not in output_builder:
+        errors.append("Community projection does not use the unified post-seal registry")
+
+    registry = _source("docmirror/plugins/_runtime/plugin_registry.py")
+    for domain in CANONICAL_CAPABILITIES:
+        if f'"{domain}"' not in registry:
+            errors.append(f"bundled Community projector not registered post-seal: {domain}")
 
     publish = _source(".github/workflows/publish.yml")
     if "validate_ci_green_window.py" in publish:

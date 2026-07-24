@@ -345,23 +345,12 @@ def build_local_structures(
 
     items = line_items(lines, page=page)
     token_list = coerce_tokens(tokens, page=page)
-    from docmirror.ocr.local_structure.candidate_supplement import supplement_local_structure_candidates
     from docmirror.ocr.local_structure.detect import detect_local_structure_candidates
 
     candidate_list = (
         list(candidates)
         if candidates is not None
         else detect_local_structure_candidates(items, tokens=token_list, page=page)
-    )
-    candidate_list.extend(
-        supplement_local_structure_candidates(
-            items,
-            tokens=token_list,
-            page=page,
-            page_width=page_width,
-            page_height=page_height,
-            existing=candidate_list,
-        )
     )
     candidate_list.sort(key=lambda c: (c.bbox[1], c.bbox[0]))
     structures: list[LocalStructure] = []

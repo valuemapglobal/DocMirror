@@ -9,9 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from docmirror.framework.middlewares.extraction.community_fact_recognizer import run_canonical_enrichment
-from docmirror.input.canonical.fact_patch import apply_canonical_patch
-from docmirror.models.entities.parse_result import DocumentEntities, ParseResult, ResultStatus
+from docmirror.models.entities.parse_result import (
+    DocumentEntities,
+    PageContent,
+    ParseResult,
+    ResultStatus,
+    TextBlock,
+)
 from docmirror.models.sealed import seal_parse_result
 from docmirror.server.output_builder import build_community_projection
 
@@ -101,19 +105,15 @@ def test_generic_public_text_sample_precision(document_type: str):
     result = ParseResult(
         status=ResultStatus.SUCCESS,
         entities=DocumentEntities(document_type=document_type),
+        pages=[PageContent(page_number=1, texts=[TextBlock(content=full_text)])],
     )
 
-    patch = run_canonical_enrichment(result, full_text=full_text)
-    result = apply_canonical_patch(result, patch)
     output = build_community_projection(seal_parse_result(result), file_path=str(fixture))
 
     assert output is not None
-    facts = result.entities.domain_specific
+    items = {item["key"]: item["value"] for section in output["sections"] for item in section.get("items") or []}
     for key, expected in EXPECTED_FIELDS[document_type].items():
-        if isinstance(expected, float):
-            normalized = facts["normalized_fields"][key]
-            assert normalized["value"] == expected
-        else:
-            assert facts[key] == expected
+        actual = items[key]
+        assert float(actual) == expected if isinstance(expected, float) else actual == expected
     assert output["document"]["type"] == document_type
     assert output["schema"]["version"] == "3.0.0"

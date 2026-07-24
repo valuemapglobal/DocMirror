@@ -8,25 +8,90 @@
 Multi-Edition Output Builder
 =============================
 
-Shared logic for building community / enterprise / finance edition outputs
-from a ParseResult. Used by both the CLI (__main__.py) and the REST API.
+Shared logic for building Community / Enterprise / Finance edition outputs
+from ``SealedParseResult``. Used by both the CLI (__main__.py) and REST API.
 
-ParseResult is the only internal fact source. Community Bundle v3,
-Enterprise, and Finance are independent projections of that result.
+``SealedParseResult`` is the only fact source. Community Bundle v3,
+Enterprise, and Finance are independent sibling projections of that snapshot.
 """
 
 from __future__ import annotations
 
+import copy
+import hashlib
 import logging
+import mimetypes
 import os
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 PROJECTOR_TIMEOUT_SECONDS = max(0.01, float(os.getenv("DOCMIRROR_PROJECTOR_TIMEOUT_S", "300")))
+
+
+def materialize_community_bundle(
+    payload: dict[str, Any],
+    result: Any,
+    *,
+    file_path: str = "",
+    file_id: str = "001",
+    document_id: str = "",
+):
+    """Restore Community renderer state and apply request-specific delivery names."""
+    from docmirror.output.community_bundle import CommunityBundle, CommunityDataset
+
+    projected = copy.deepcopy(payload)
+    document = dict(projected.get("document") or {})
+    if document_id:
+        document["id"] = document_id
+    if file_path:
+        source_path = Path(file_path)
+        file_name = source_path.name
+        source_hash = ""
+        if source_path.is_file():
+            digest = hashlib.sha256()
+            with source_path.open("rb") as source:
+                for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            source_hash = f"sha256:{digest.hexdigest()}"
+        document.setdefault("source_file", {}).update(
+            {
+                "name": file_name,
+                "mime_type": mimetypes.guess_type(file_name)[0] or "application/octet-stream",
+                "sha256": source_hash,
+            }
+        )
+        document.setdefault("title", source_path.stem)
+    files = dict(projected.get("files") or {})
+    files.update(
+        {
+            "content_md": f"{file_id}_content.md",
+            "datasets_dir": f"{file_id}_datasets",
+            "dataset_audit_csv": f"{file_id}_datasets/_audit_cells.csv",
+        }
+    )
+    datasets = []
+    for raw_dataset in projected.get("datasets") or []:
+        if not isinstance(raw_dataset, dict):
+            continue
+        public = {key: value for key, value in raw_dataset.items() if key != "rows"}
+        csv_name = Path(str(public.get("csv") or f"{public.get('id') or 'dataset'}.csv")).name
+        public["csv"] = f"{file_id}_datasets/{csv_name}"
+        rows = [row for row in (raw_dataset.get("rows") or []) if isinstance(row, dict)]
+        datasets.append(CommunityDataset(public=public, rows=rows))
+    return CommunityBundle(
+        schema=dict(projected.get("schema") or {}),
+        document=document,
+        sections=list(projected.get("sections") or []),
+        datasets=datasets,
+        files=files,
+        warnings=list(projected.get("warnings") or []),
+        result=result,
+    )
 
 
 def build_community_projection(
@@ -38,15 +103,37 @@ def build_community_projection(
     document_id: str = "",
     on_progress: Callable[[str, float, str], None] | None = None,
 ) -> dict | None:
-    """Build the public six-block Community Bundle v3 JSON projection."""
+    """Build Community JSON through the post-seal PluginRegistry boundary."""
     from docmirror.models.schemas.registry import validate_projection_payload
     from docmirror.models.sealed import SealedParseResult
-    from docmirror.output.community_bundle import project_community_bundle
+    from docmirror.plugins._runtime.plugin_registry import registry
 
     if not isinstance(result, SealedParseResult):
         raise TypeError(f"build_community_projection expects SealedParseResult; got {type(result).__name__}")
-    bundle = project_community_bundle(
-        result,
+    if not result.verify_integrity():
+        raise RuntimeError("Projector boundary violation: invalid sealed snapshot")
+    detected_type = str(result.to_read_view().entities.document_type or "generic")
+    projector = registry.get_projector(
+        detected_type,
+        "community",
+        sealed_schema=result.schema_version,
+    )
+    if projector is None:
+        projector = registry.get_projector(
+            "generic",
+            "community",
+            sealed_schema=result.schema_version,
+        )
+    if projector is None:
+        raise RuntimeError("No Community projector is registered")
+    projected = projector.project(result)
+    if projected is None or not isinstance(projected, dict):
+        raise RuntimeError(f"{detected_type}:community projector returned no payload")
+    if not result.verify_integrity():
+        raise RuntimeError("Projector boundary violation: sealed snapshot changed")
+    bundle = materialize_community_bundle(
+        projected,
+        result.to_read_view(),
         file_path=file_path,
         file_id=file_id,
         document_id=document_id,
@@ -217,7 +304,7 @@ def build_all_projections(
 
     MirrorCore vNext:
 
-    Phase 1 — seal the canonical result and project ``_mirror.json``.
+    Phase 1 — project ``_mirror.json`` from the already sealed snapshot.
 
     Phase 2 — give each independent projector a fresh read view of that same
     sealed snapshot. No projector receives the mutable canonical instance and
@@ -247,21 +334,10 @@ def build_all_projections(
     community_t0 = time.perf_counter()
     if on_progress:
         on_progress("community_plugin", 25.0, "Building Community projection...")
-    from docmirror.output.community_bundle import project_community_bundle
-
-    community_bundle = project_community_bundle(sealed, file_path=file_path)
-    # Finalize companion-derived warnings before serializing the public API so
-    # REST and persisted Community JSON expose the same contract.
-    community_bundle.render_markdown()
-    community = community_bundle.json_payload()
-    conservation_issues = community_bundle.conservation_issues(payload=community)
-    if conservation_issues:
-        raise RuntimeError("Community dataset conservation failed: " + "; ".join(conservation_issues))
-    from docmirror.models.schemas.registry import validate_projection_payload
-
-    schema_validation = validate_projection_payload("community", community)
-    if not schema_validation.valid:
-        raise RuntimeError("Community schema validation failed: " + "; ".join(schema_validation.errors))
+    community = build_community_projection(sealed, file_path=file_path)
+    if community is None:
+        raise RuntimeError("Community projector returned no payload")
+    community_bundle = materialize_community_bundle(community, sealed.to_read_view())
     if on_progress:
         on_progress("community_plugin", 100.0, "Community projection ready")
     timings["community_ms"] = (time.perf_counter() - community_t0) * 1000

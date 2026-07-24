@@ -132,14 +132,16 @@ def test_pluggy_is_discovery_transport_for_provider_hook(monkeypatch):
     assert discovery.load_plugin_providers() == [provider]
 
 
-def test_bundled_canonical_domains_are_not_plugin_providers(monkeypatch):
+def test_bundled_domains_are_post_seal_plugin_providers(monkeypatch):
     monkeypatch.setattr(
         "docmirror.plugins._runtime.discovery.load_plugin_providers",
         lambda: [],
     )
     registry = PluginRegistry()
 
-    assert registry.list_providers() == ()
+    assert {provider.provider_id for provider in registry.list_providers()} == {
+        f"bundled.{domain}" for domain in CANONICAL_DOMAIN_IDS
+    }
     assert set(CANONICAL_DOMAIN_IDS) == {
         "alipay_payment",
         "bank_statement",
@@ -153,14 +155,15 @@ def test_bundled_canonical_domains_are_not_plugin_providers(monkeypatch):
 
 
 def test_bank_canonical_resources_are_wheel_safe_package_data():
-    capability_root = files("docmirror.plugins.bank_statement")
+    plugin_root = files("docmirror.plugins.bank_statement")
+    core_root = files("docmirror.configs.domain")
     manifest = get_canonical_domain_manifest("bank_statement")
 
     assert manifest is not None
-    assert manifest["resources"]["table_styles"] == "resources/table_styles.yaml"
-    assert capability_root.joinpath("plugin.yaml").is_file()
-    assert capability_root.joinpath("resources").joinpath("institutions.yaml").is_file()
-    assert capability_root.joinpath("resources").joinpath("key_synonyms.yaml").is_file()
+    assert manifest["resources"]["key_synonyms"] == "resources/bank_statement/key_synonyms.yaml"
+    assert plugin_root.joinpath("plugin.yaml").is_file()
+    assert plugin_root.joinpath("resources").joinpath("institutions.yaml").is_file()
+    assert core_root.joinpath("resources").joinpath("bank_statement").joinpath("key_synonyms.yaml").is_file()
 
 
 def test_business_resource_ssots_are_not_duplicated_in_core_configs():

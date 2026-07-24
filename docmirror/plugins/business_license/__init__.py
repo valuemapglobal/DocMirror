@@ -7,7 +7,8 @@ Business license community domain package.
 Re-exports the registered ``BusinessLicensePlugin`` singleton for business
 registration certificate documents.
 
-Pipeline role: premium KV community plugin discovered by ``registry``.
+Pipeline role: Community projector registered in the shared Post-Seal
+``PluginRegistry``.
 
 Key exports: ``BusinessLicensePlugin``, ``plugin``.
 """

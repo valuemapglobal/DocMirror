@@ -7,8 +7,8 @@ VAT invoice community domain package.
 Re-exports the registered ``VATInvoicePlugin`` singleton for VAT/special invoice
 document processing in community edition.
 
-Pipeline role: premium KV plugin; ``registry`` registers ``plugin``; extract uses
-``recognize`` with OCR enrichment helpers.
+Pipeline role: Community projector registered in the shared Post-Seal
+``PluginRegistry``; derivation reads sealed OCR evidence without writing back.
 
 Key exports: ``VATInvoicePlugin``, ``plugin``.
 """

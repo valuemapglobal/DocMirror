@@ -8,8 +8,8 @@ Maps detected style IDs to parser modules under ``bank_statement.styles``,
 runs the primary parser chain, scores record completeness with CAPS coverage,
 and falls back to ``grid_standard`` / ``borderless_ocr`` when primary is sparse.
 
-Pipeline role: core dispatch layer between ``BankStyleDetector`` and canonical
-record builders inside ``community_plugin.recognize``.
+Pipeline role: plugin-local dispatch between ``BankStyleDetector`` and record
+builders inside the post-seal bank-statement projector.
 
 Key exports: ``BankStyleParserRegistry``.
 

@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 from docmirror.models.entities.parse_result import PageContent, ParserInfo, TableBlock
 from docmirror.plugins.credit_report.business_assembly import assemble_credit_report_business
-from docmirror.plugins.credit_report.fact_recognizer import _records
+from docmirror.plugins.credit_report.projection import _records
 
 
 def _result(*, parsed_pages: int = 1, source_pages: int = 1) -> SimpleNamespace:

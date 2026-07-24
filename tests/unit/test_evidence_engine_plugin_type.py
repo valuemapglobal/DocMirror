@@ -48,10 +48,7 @@ def test_force_hint_clears_stale_plugin_route_and_audits_previous_type():
     assert mutation.old_value == "alipay_payment"
     assert mutation.new_value == "bank_statement"
 
-    from docmirror.framework.middlewares.extraction.community_fact_recognizer import _canonical_document_type
-
-    out.entities.domain_specific["canonical_document_type"] = "alipay_payment"
-    assert _canonical_document_type(out, out.entities.document_type) == "bank_statement"
+    assert out.entities.document_type == "bank_statement"
 
 
 def test_enterprise_credit_cover_beats_long_appendix_keyword_conflict():

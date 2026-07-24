@@ -42,7 +42,6 @@ GLOBAL_STAGE_ORDER: tuple[str, ...] = (
     "ENRICH",
     "CLASSIFY",
     "CONTEXT",
-    "DOMAIN",
     "VALIDATE",
 )
 

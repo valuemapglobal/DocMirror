@@ -60,20 +60,12 @@ middlewares:
     depends_on: [GeometricReconstructor]
     enabled: true
 
-  CanonicalDomainEnricher:
-    module: docmirror.framework.middlewares.extraction.community_fact_recognizer
-    class: CanonicalDomainEnricher
-    stage: DOMAIN
-    provides: [domain_entities, domain_records, sections]
-    depends_on: [EvidenceEngine]
-    enabled: true
-
   Validator:
     module: docmirror.framework.middlewares.validation.validator
     class: Validator
     stage: VALIDATE
     provides: [quality_score]
-    depends_on: [EvidenceEngine, CanonicalDomainEnricher]
+    depends_on: [EvidenceEngine]
     enabled: true
 
   AnomalyDetector:

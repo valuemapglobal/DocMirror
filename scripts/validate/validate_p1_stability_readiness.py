@@ -15,10 +15,18 @@ from typing import Any
 
 import yaml
 
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover
+    import tomli as tomllib
+
 ROOT = Path(__file__).resolve().parents[2]
 STABILITY = ROOT / "docmirror/configs/stability/stability_evidence.json"
+CORE_CONTRACT = ROOT / "docmirror/configs/stability/core_contract_manifest.json"
 GOLDEN = ROOT / "docmirror/configs/stability/ga_6plus1.yaml"
 PERFORMANCE = ROOT / "docmirror/configs/stability/performance_baseline.yaml"
+RELEASE = ROOT / "docmirror/configs/release/oss_1_0_manifest.yaml"
+PYPROJECT = ROOT / "pyproject.toml"
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -29,9 +37,40 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
+def version_identity_errors(
+    *,
+    project_version: str,
+    stability: dict[str, Any],
+    core_contract: dict[str, Any],
+    release: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    identities = {
+        "stability evidence candidate": stability.get("candidate"),
+        "core contract candidate": core_contract.get("candidate"),
+        "release manifest version": release.get("version"),
+    }
+    for label, raw_version in identities.items():
+        version = str(raw_version or "")
+        if version != project_version:
+            errors.append(f"{label} {version or '<missing>'} != package version {project_version}")
+    return errors
+
+
 def validate_manifest() -> list[str]:
     errors: list[str] = []
     evidence = _load_json(STABILITY)
+    core_contract = _load_json(CORE_CONTRACT)
+    release = _load_yaml(RELEASE)
+    project_version = str(tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["version"])
+    errors.extend(
+        version_identity_errors(
+            project_version=project_version,
+            stability=evidence,
+            core_contract=core_contract,
+            release=release,
+        )
+    )
     if evidence.get("schema_version") != "docmirror.stability_evidence.v1":
         errors.append("unexpected stability evidence schema_version")
     required_gates = {

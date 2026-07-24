@@ -6,7 +6,7 @@
 
 ## Decision
 
-The seven existing domain implementations and resources remain physically in:
+The seven domain projector implementations remain physically in:
 
 ```text
 docmirror/plugins/<domain>/
@@ -15,26 +15,19 @@ docmirror/plugins/<domain>/
   resources/
 ```
 
-Their location is retained to minimize migration risk and keep wheel packaging
-stable. Their architectural ownership is Core:
-
-- loaded only from the fixed `CANONICAL_DOMAIN_IDS` inventory;
-- consumed by Core configuration and `CanonicalDomainEnricher`;
-- versioned and qualified with Core;
-- never discovered through entry points;
-- never registered in `PluginRegistry`;
-- never affected by plugin enablement, installation, or licensing.
-
-This is a deliberate physical-colocation exception, not a runtime exception.
+They are post-seal plugins, not Core code. Each can derive domain facts from a
+sealed read view, validate them, and assemble its edition JSON. Bundled
+Community providers and external Enterprise/Finance providers share one
+`PluginRegistry`.
 
 ## Runtime boundary
 
 ```text
-Canonical resources + fixed capabilities
+Core routing/classification resources
   -> Canonical Pipeline
   -> SealedParseResult
-  -> PluginProvider + PluginRegistry
-  -> EditionProjector
+  -> unified Post-Seal PluginRegistry
+  -> Community / Enterprise / Finance EditionProjector
   -> derived artifact
 ```
 
@@ -44,19 +37,25 @@ or `ParseResult`.
 
 ## Resource ownership
 
-Core-owned resources include:
+Core-owned pre-seal resources under `docmirror/configs/domain` include:
 
 - classification rules and scene keywords;
 - OCR correction packs and layout profiles;
-- field schemas, key synonyms, institutions, and table semantics;
-- domain contracts and canonical dataset definitions.
+- key synonyms and generic domain contracts needed by the Canonical Pipeline.
 
-Post-seal plugin resources may include:
+Post-seal plugin resources include:
 
 - output templates and report layouts;
 - edition-specific mapping and validation rules;
 - presentation dictionaries;
 - plugin-local export configuration.
+- business field schemas, institution dictionaries, table styles, and
+  edition-specific confidence policies.
+
+`plugin.yaml` is a post-seal projection manifest only. It may declare provider
+identity, projection behavior, projection outputs, and plugin-local resources;
+it must not contain Core `routing`, `classification`, `capabilities`, or
+`dec_validation` sections.
 
 External providers cannot declare a resource that Core enumerates. Core reads
 its fixed domain resource inventory directly; PluginRegistry reads only
@@ -76,7 +75,7 @@ recognizer-bearing providers.
 
 P2 exits only when:
 
-- Canonical code has no dependency on `docmirror.plugins._runtime`;
+- pre-seal code has no dependency on any `docmirror.plugins` module;
 - PluginRegistry contains projectors only;
 - third-party modules remain unloaded until a sealed result requests output;
 - malformed recognizer-bearing providers are rejected;

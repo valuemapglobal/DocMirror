@@ -144,7 +144,7 @@ def test_vat_invoice_plugin_uses_semantic_solver_before_generic_kv() -> None:
         entities=DocumentEntities(document_type="vat_invoice"),
     )
 
-    patch = VATInvoicePlugin().recognize_facts(parse_result, VAT_OCR_TEXT)
+    patch = VATInvoicePlugin().derive(parse_result, VAT_OCR_TEXT)
 
     assert patch.domain_facts["invoice_code"] == "044002300411"
     assert patch.domain_facts["invoice_date"] == "2024-05-27"

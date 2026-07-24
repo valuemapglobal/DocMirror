@@ -4,9 +4,8 @@
 """Post-seal plugin runtime facade without import-time discovery.
 
 External providers import stable contracts from :mod:`docmirror.plugin_api`.
-The bundled canonical domain implementations remain physically colocated in
-this package, but they are fixed Core capabilities and never enter this runtime
-registry.
+Bundled Community and external commercial providers share this single
+Post-Seal PluginRegistry.
 """
 
 from __future__ import annotations

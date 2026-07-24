@@ -8,9 +8,8 @@ Post-processes plugin extract output with domain-specific normalization: VAT inv
 OCR digit correction, unified social credit code (USCC) checksum validation,
 business license field cleanup, and credit report section heuristics.
 
-Pipeline role: invoked at the end of canonical Community ``recognize`` in
-``vat_invoice``, ``business_license``, and ``credit_report`` community plugins
-while constructing credit-report facts.
+Pipeline role: invoked during post-seal Community projection in ``vat_invoice``,
+``business_license``, and ``credit_report`` while constructing edition JSON.
 
 Key exports: ``normalize_vat_fields``, ``validate_uscc``,
 ``enrich_business_license_output``, ``enrich_credit_report_output``,
@@ -799,14 +798,10 @@ def _ensure_credit_repayment_records(parse_result: Any) -> list[dict[str, Any]]:
     if existing:
         return list(existing)
 
-    # Registration and materialization are deliberately performed here, after
-    # the document has been classified as a credit report.  The extractor only
-    # persists OCR evidence and never needs to import a finance plugin.
-    import docmirror.plugins.credit_report.micro_grid_materialize  # noqa: F401
     from docmirror.models.mirror.domain_access import micro_grid_structures_from_domain_specific
-    from docmirror.models.mirror.page_evidence_bundles import materialize_micro_grids_from_bundles
     from docmirror.plugins.credit_report.micro_grid_materialize import (
         augment_credit_repayment_evidence_bundles,
+        materialize_credit_repayment_micro_grids_from_bundles,
     )
     from docmirror.plugins.credit_report.repayment_grid import (
         dedupe_repayment_records,
@@ -819,7 +814,7 @@ def _ensure_credit_repayment_records(parse_result: Any) -> list[dict[str, Any]]:
 
     image_resolver = LogicalPageImageResolver(parse_result)
     try:
-        materialize_micro_grids_from_bundles(
+        materialize_credit_repayment_micro_grids_from_bundles(
             domain_specific,
             page_image_resolver=image_resolver,
             enable_cell_ocr=True,

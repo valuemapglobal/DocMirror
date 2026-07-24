@@ -30,7 +30,8 @@ def test_premium_domain_has_community_plugin(domain: str):
     assert is_canonical_premium_domain(domain)
     capability = importlib.import_module(f"docmirror.plugins.{domain}.community_plugin").plugin
     assert capability.domain_name == domain
-    assert callable(capability.recognize_facts)
+    assert callable(capability.project)
+    assert callable(capability.derive)
 
 
 def test_premium_domain_count_matches_ssot():

@@ -522,8 +522,10 @@ async def _execute_scanned_micro_grid_contract(case: TQGCase) -> tuple[Any, dict
     )
     from docmirror.models.mirror.page_evidence_bundles import (
         domain_specific_with_page_bundles,
-        materialize_micro_grids_from_bundles,
         page_evidence_bundle,
+    )
+    from docmirror.plugins.credit_report.micro_grid_materialize import (
+        materialize_credit_repayment_micro_grids_from_bundles,
     )
     from docmirror.plugins.credit_report.repayment_grid import records_from_micro_grid_dict
 
@@ -549,7 +551,7 @@ async def _execute_scanned_micro_grid_contract(case: TQGCase) -> tuple[Any, dict
             micro_grid_evidence={"page": 4, "lines": lines, "tokens": []},
         ),
     )
-    materialize_micro_grids_from_bundles(ds)
+    materialize_credit_repayment_micro_grids_from_bundles(ds)
     grids = ds["_page_evidence_bundles"][0].get("micro_grid_structures") or []
     records: list[dict[str, Any]] = []
     for grid in grids:

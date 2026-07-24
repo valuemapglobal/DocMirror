@@ -58,7 +58,7 @@ def _write_community_bundle_files(
     document_id: str,
 ) -> dict[str, Path]:
     """Render and publish the Community index, reading view, and Dataset Bundle."""
-    bundle.set_document_id(document_id)
+    bundle.document["id"] = document_id
     targets = {
         "community": task_dir / f"{file_id}_community.json",
         "content": task_dir / f"{file_id}_content.md",

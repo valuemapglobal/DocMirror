@@ -39,10 +39,8 @@ def _mutation_covers_fact_path(field_changed: str, fact_path: str) -> bool:
 
 
 def _middleware_owns_mutation(middleware_name: str, actor: str) -> bool:
-    """Canonical capabilities are child actors of the domain enricher."""
-    if actor == middleware_name:
-        return True
-    return middleware_name == "CanonicalDomainEnricher" and actor.startswith("canonical:")
+    """Only the executing middleware may own a canonical mutation."""
+    return actor == middleware_name
 
 
 class BaseMiddleware(ABC):

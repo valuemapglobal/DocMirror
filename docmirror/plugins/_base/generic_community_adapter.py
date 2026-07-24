@@ -1,4 +1,4 @@
-"""Canonical ParseResult to generic CanonicalPatch recognition.
+"""Sealed read view to generic ProjectionData derivation.
 
 Maps canonical evidence into domain facts using heuristic column
 typing, value standardization, identity discovery, text KV, outline, source
@@ -2396,12 +2396,12 @@ def _generic_precision_warnings(
     return list(dict.fromkeys(warnings))[:50]
 
 
-def recognize_generic_facts(
+def derive_generic_projection(
     parse_result: Any,
     detected_type: str,
     full_text: str = "",
 ) -> Any:
-    """Build a deterministic generic ``CanonicalPatch`` from canonical evidence."""
+    """Build deterministic generic ``ProjectionData`` from sealed evidence."""
     recognition_text = _generic_recognition_text(parse_result, full_text)
     ocr_document = _parse_result_has_ocr(parse_result)
     raw_entity_fields = _collect_entity_fields(parse_result)
@@ -2585,6 +2585,6 @@ def recognize_generic_facts(
     if identities:
         structured_data["identities"] = identities
 
-    from docmirror.plugins._base.generic_fact_patch import make_generic_fact_patch
+    from docmirror.plugins._base.generic_projection import make_generic_projection
 
-    return make_generic_fact_patch(detected_type, fields, structured_data, warnings)
+    return make_generic_projection(detected_type, fields, structured_data, warnings)

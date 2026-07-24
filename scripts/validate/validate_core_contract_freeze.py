@@ -14,14 +14,20 @@ import sys
 from pathlib import Path
 from typing import Any
 
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover
+    import tomli as tomllib
+
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "docmirror/configs/stability/core_contract_manifest.json"
+PYPROJECT = ROOT / "pyproject.toml"
 
 FUNCTIONS = {
     "dispatcher.process": ("docmirror/framework/dispatcher.py", "ParserDispatcher", "process"),
     "canonical.assemble": ("docmirror/input/canonical/assembler.py", None, "assemble_parse_result"),
-    "canonical.apply_patch": ("docmirror/input/canonical/fact_patch.py", None, "apply_canonical_patch"),
     "canonical.seal": ("docmirror/input/canonical/seal.py", None, "seal_canonical_result"),
+    "output.build_community": ("docmirror/server/output_builder.py", None, "build_community_projection"),
     "output.build_all": ("docmirror/server/output_builder.py", None, "build_all_projections"),
     "projector.mirror": ("docmirror/output/mirror_projector.py", None, "project_mirror"),
     "projector.community": ("docmirror/output/community_bundle.py", None, "project_community_bundle"),
@@ -36,7 +42,11 @@ def _function_contract(relative: str, class_name: str | None, function_name: str
     tree = ast.parse((ROOT / relative).read_text(encoding="utf-8"), filename=relative)
     candidates: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
     for node in tree.body:
-        if class_name is None and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == function_name:
+        if (
+            class_name is None
+            and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == function_name
+        ):
             candidates.append(node)
         elif isinstance(node, ast.ClassDef) and node.name == class_name:
             candidates.extend(
@@ -77,15 +87,15 @@ def _function_contract(relative: str, class_name: str | None, function_name: str
 
 def build_snapshot() -> dict[str, Any]:
     sys.path.insert(0, str(ROOT))
-    from docmirror.input.canonical.fact_patch import CanonicalPatch
     from docmirror.models.entities.parse_result import ParseResult
     from docmirror.plugin_api import PluginProvider
+    from docmirror.plugins._base.projector import ProjectionData
 
     return {
         "schema_version": "docmirror.contract_core.v1",
         "models": {
             "ParseResult": ParseResult.model_json_schema(),
-            "CanonicalPatch": CanonicalPatch.model_json_schema(),
+            "ProjectionData": ProjectionData.model_json_schema(),
             "PluginProvider": {
                 name: {
                     "annotation": str(field.annotation),
@@ -95,16 +105,20 @@ def build_snapshot() -> dict[str, Any]:
                 for name, field in PluginProvider.model_fields.items()
             },
         },
-        "functions": {
-            name: _function_contract(*definition)
-            for name, definition in sorted(FUNCTIONS.items())
-        },
+        "functions": {name: _function_contract(*definition) for name, definition in sorted(FUNCTIONS.items())},
     }
 
 
 def snapshot_hash(snapshot: dict[str, Any]) -> str:
     raw = json.dumps(snapshot, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
+
+
+def candidate_identity_errors(manifest: dict[str, Any], project_version: str) -> list[str]:
+    candidate = str(manifest.get("candidate") or "")
+    if candidate != project_version:
+        return [f"core contract candidate {candidate or '<missing>'} != package version {project_version}"]
+    return []
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -117,6 +131,13 @@ def main(argv: list[str] | None = None) -> int:
         print(actual)
         return 0
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    project_version = str(tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["version"])
+    identity_errors = candidate_identity_errors(manifest, project_version)
+    if identity_errors:
+        print("Core contract release identity FAILED:", file=sys.stderr)
+        for error in identity_errors:
+            print(f"  - {error}", file=sys.stderr)
+        return 1
     expected = str(manifest.get("contract_sha256") or "")
     if actual != expected:
         print("Core contract freeze FAILED:", file=sys.stderr)

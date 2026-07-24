@@ -96,9 +96,9 @@ removed_modules:
 - module: docmirror.models.edition_serializer
   replacement: docmirror.plugin_api.EditionProjector
 - module: docmirror.plugins._base.dec_builder
-  replacement: private CanonicalPatch and direct canonical assembly
+  replacement: post-seal projector-local ProjectionData
 - module: docmirror.plugins._base.table_dec
-  replacement: private CanonicalPatch and direct canonical assembly
+  replacement: post-seal projector-local ProjectionData
 - module: docmirror.core
   replacement: docmirror.layout
 - module: docmirror.structure
@@ -116,7 +116,7 @@ removed_modules:
 - module: docmirror.di
   replacement: docmirror.framework.di
 - module: docmirror.plugins.runner
-  replacement: fixed Core CanonicalDomainEnricher
+  replacement: unified Post-Seal PluginRegistry
 - module: docmirror.plugins.licensing
   replacement: docmirror.plugins._runtime.licensing
 - module: docmirror.plugins.post_extract

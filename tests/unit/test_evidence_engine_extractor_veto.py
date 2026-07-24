@@ -42,9 +42,7 @@ def test_extractor_hint_shields_bank_statement_from_keyword_veto():
     assert classified.entities.document_type == "bank_statement"
 
 
-def test_canonical_document_type_falls_back_to_extractor_hint():
-    from docmirror.framework.middlewares.extraction.community_fact_recognizer import _canonical_document_type
-
+def test_core_classification_retains_high_confidence_extractor_hint():
     result = ParseResult(
         entities=DocumentEntities(document_type="generic"),
     )
@@ -52,7 +50,7 @@ def test_canonical_document_type_falls_back_to_extractor_hint():
         "extractor_scene_hint": "bank_statement",
         "extractor_scene_confidence": 0.87,
     }
-    assert _canonical_document_type(result, "generic") == "bank_statement"
+    assert EvidenceEngine().process(result).entities.document_type == "bank_statement"
 
 
 def test_filename_evidence_boosts_bank_statement():

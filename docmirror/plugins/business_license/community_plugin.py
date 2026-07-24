@@ -11,12 +11,12 @@ Premium community plugin for Chinese business registration certificates (key-val
 archetype). Maps identity labels (company name, USCC, legal representative, etc.),
 validates USCC checksum in enrich step, and emits v2.0 community JSON.
 
-Pipeline role: the canonical runner invokes ``recognize_facts`` and applies the
-returned ``CanonicalPatch`` before sealing.
+Pipeline role: the unified PluginRegistry invokes ``project`` after sealing;
+``derive`` builds projector-local ``ProjectionData`` from a read view.
 
 Key exports: ``BusinessLicensePlugin``, ``plugin``.
 
-Dependencies: ``Core canonical capability``, ``CanonicalPatch``, ``kv_community_extract``,
+Dependencies: ``ProjectionData``, ``kv_projection``,
 ``kv_community_enrich.enrich_business_license_output``.
 """
 
@@ -24,10 +24,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from docmirror.input.canonical.fact_patch import CanonicalPatch
+from docmirror.plugins._base.projector import CommunityProjector, ProjectionData
 
 
-class BusinessLicensePlugin:
+class BusinessLicensePlugin(CommunityProjector):
     """Community edition plugin for business license document processing."""
 
     @property
@@ -39,7 +39,7 @@ class BusinessLicensePlugin:
         return "Business License (Community)"
 
     @property
-    def capability_id(self) -> str:
+    def projector_id(self) -> str:
         return self.domain_name
 
     @property
@@ -68,10 +68,10 @@ class BusinessLicensePlugin:
             ("special_qualification", ("特殊资质", "Special Qualification")),
         )
 
-    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
-        from docmirror.plugins._base.kv_community_extract import extract_kv_fact_patch
+    def derive(self, parse_result, text: str = "") -> ProjectionData:
+        from docmirror.plugins._base.kv_projection import extract_kv_projection
 
-        return extract_kv_fact_patch(
+        return extract_kv_projection(
             self,
             parse_result,
             identity_specs=self.identity_fields,

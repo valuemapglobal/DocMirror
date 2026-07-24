@@ -12,7 +12,7 @@ with WeChat-specific column registry, scene keywords, identity field specs, and 
 row normalization (trade number cleanup, direction mapping).
 
 Pipeline role: discovered by ``PluginRegistry`` and executed by the canonical
-runner through ``recognize_facts``.
+runner through ``derive``.
 
 Archetype: ``table_document``; domain: ``cashflow_payment``; support level: L2.
 

@@ -1,0 +1,128 @@
+schema_version: 1
+
+domains:
+  alipay_payment:
+    capabilities:
+      premium: true
+      community_order: 3
+      generic_fallback: false
+      quality_groups: [finance]
+    routing:
+      enhance_mode: full
+      notes: [Requires cross-page merge; use full enhance mode]
+    classification:
+      aliases: []
+    dec_validation:
+      structured_data: mapping
+      list_fields: [records]
+      optional_mapping_fields: [summary]
+    resources:
+      key_synonyms: resources/alipay_payment/key_synonyms.yaml
+      scene_keywords: resources/alipay_payment/scene_keywords.yaml
+      domain_contract: resources/alipay_payment/domain_contract.yaml
+      layout_profiles: resources/alipay_payment/layout_profiles.yaml
+
+  bank_statement:
+    capabilities:
+      premium: true
+      community_order: 1
+      generic_fallback: false
+      quality_groups: [finance]
+    routing:
+      enhance_mode: standard
+    classification:
+      aliases: [bank_reconciliation]
+    dec_validation:
+      require_entities_or_records: true
+    resources:
+      key_synonyms: resources/bank_statement/key_synonyms.yaml
+      scene_keywords: resources/bank_statement/scene_keywords.yaml
+      domain_contract: resources/bank_statement/domain_contract.yaml
+      layout_profiles: resources/bank_statement/layout_profiles.yaml
+      ocr_corrections: resources/bank_statement/ocr_corrections.yaml
+
+  business_license:
+    capabilities:
+      premium: true
+      community_order: 5
+      generic_fallback: false
+    routing:
+      enhance_mode: standard
+    classification:
+      aliases: []
+    resources:
+      key_synonyms: resources/business_license/key_synonyms.yaml
+      scene_keywords: resources/business_license/scene_keywords.yaml
+      domain_contract: resources/business_license/domain_contract.yaml
+      ocr_corrections: resources/business_license/ocr_corrections.yaml
+
+  credit_report:
+    capabilities:
+      premium: true
+      community_order: 6
+      generic_fallback: false
+      quality_groups: [finance]
+    routing:
+      enhance_mode: full
+      notes: [Section-driven layout; L6 graph available]
+    classification:
+      aliases: [credit_report_enterprise]
+    resources:
+      key_synonyms: resources/credit_report/key_synonyms.yaml
+      scene_keywords: resources/credit_report/scene_keywords.yaml
+      domain_contract: resources/credit_report/domain_contract.yaml
+      layout_profiles: resources/credit_report/layout_profiles.yaml
+
+  generic:
+    capabilities:
+      premium: false
+      community_order: 999
+      generic_fallback: true
+    classification:
+      aliases: []
+    resources:
+      key_synonyms: resources/generic/key_synonyms.yaml
+      scene_keywords: resources/generic/scene_keywords.yaml
+      domain_contract: resources/generic/domain_contract.yaml
+      layout_profiles: resources/generic/layout_profiles.yaml
+      route_overrides: resources/generic/route_overrides.yaml
+      scanned_statement_profile: resources/generic/scanned_statement_profile.yaml
+      classification_rules: resources/generic/classification_rules.yaml
+      ocr_corrections: resources/generic/ocr_corrections.yaml
+      ocr_corrections_financial: resources/generic/ocr_corrections_financial.yaml
+
+  vat_invoice:
+    capabilities:
+      premium: true
+      community_order: 4
+      generic_fallback: false
+      quality_groups: [finance]
+    routing:
+      enhance_mode: standard
+    classification:
+      aliases: []
+    resources:
+      key_synonyms: resources/vat_invoice/key_synonyms.yaml
+      scene_keywords: resources/vat_invoice/scene_keywords.yaml
+      domain_contract: resources/vat_invoice/domain_contract.yaml
+
+  wechat_payment:
+    capabilities:
+      premium: true
+      community_order: 2
+      generic_fallback: false
+      quality_groups: [finance]
+    routing:
+      enhance_mode: full
+      notes: [Requires cross-page merge; use full enhance mode]
+    classification:
+      aliases: []
+    dec_validation:
+      structured_data: mapping
+      list_fields: [records]
+      optional_mapping_fields: [summary]
+    resources:
+      key_synonyms: resources/wechat_payment/key_synonyms.yaml
+      scene_keywords: resources/wechat_payment/scene_keywords.yaml
+      domain_contract: resources/wechat_payment/domain_contract.yaml
+      layout_profiles: resources/wechat_payment/layout_profiles.yaml

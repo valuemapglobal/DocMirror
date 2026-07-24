@@ -7,8 +7,8 @@ Shared bank statement extract pipeline for Community / Enterprise / Finance.
 Single SSOT for StyleContext → StyleDetector → ParserRegistry → identity enrichment
 → style metadata → LTRO audit warnings.
 
-Pipeline role: called by ``community_plugin.recognize`` and extended-edition
-``extract()`` methods in ``docmirror_enterprise`` / ``docmirror_finance``.
+Pipeline role: called by post-seal Community, Enterprise, and Finance
+projectors against their own sealed read views.
 
 Key exports: ``BankExtractResult``, ``run_bank_statement_extract``,
 ``enrich_identity_fields``, ``collect_extract_warnings``.

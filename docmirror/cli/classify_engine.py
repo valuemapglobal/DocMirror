@@ -9,9 +9,8 @@ Core classification engine used by the ``docmirror classify`` CLI.
 
 Orchestrates directory traversal, optional lightweight parsing, document-type
 matching against the 120-type taxonomy, and physical file organization into
-type-specific output folders. Integrates DocMirror's plugin registry and
-parse pipeline so classification decisions can use both text samples and
-structured entity hints from partial parses.
+type-specific output folders. Classification uses the Core rule set and parse
+pipeline; post-seal plugins do not participate in routing decisions.
 """
 
 from __future__ import annotations
@@ -24,7 +23,6 @@ from pathlib import Path
 from typing import Any
 
 from docmirror.layout.scene.rules import RuleManager
-from docmirror.plugins import PluginRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +128,6 @@ class FileClassifier:
         self.rules = self.rule_manager.get_rules()
         self.output_dir = output_dir or Path.cwd() / "classified_output"
         self.dry_run = dry_run
-        self.plugin_registry = PluginRegistry()
         self.results = ClassificationResults()
 
     async def classify_directory(self, source_dir: Path) -> ClassificationResults:
@@ -239,18 +236,14 @@ class FileClassifier:
             rule_matches = self._match_rules(text_content, file_path)
             result.matches.extend(rule_matches)
 
-            # 4. Plugin matching
-            plugin_matches = self._match_plugins(parse_result, text_content)
-            result.matches.extend(plugin_matches)
-
-            # 5. Conflict resolution & decision
+            # 4. Conflict resolution & decision
             if result.matches:
                 final_match, is_pending = self._resolve_conflicts(result.matches)
                 result.category = final_match.category_id
                 result.confidence = final_match.confidence
                 result.is_pending = is_pending
 
-                # 6. Move file (if not dry_run)
+                # 5. Move file (if not dry_run)
                 if not self.dry_run:
                     target_path = self._move_file(file_path, final_match.target_dir)
                     result.target_path = target_path
@@ -360,55 +353,6 @@ class FileClassifier:
                     details={"matched_keywords": match_count},
                 )
             )
-
-        return matches
-
-    def _match_plugins(self, _parse_result, text: str) -> list[ClassificationMatch]:
-        """
-        Match a file against plugins.
-
-        Args:
-            parse_result: ParseResult object
-            text: File text content
-
-        Returns:
-            List of matching plugins
-        """
-        if not text:
-            return []
-
-        matches = []
-        document_context = {"text": text}
-
-        # Iterate through all plugins
-        for (domain_name, ed), plugin in self.plugin_registry._plugins.items():
-            try:
-                if hasattr(plugin, "match") and plugin.match(document_context):
-                    # Plugin matched successfully
-                    keywords = getattr(plugin, "scene_keywords", [])
-                    match_count = sum(1 for kw in keywords if kw in text)
-                    confidence = min(1.0, match_count / len(keywords) * 0.8 + 0.2)
-
-                    # Plugin-defined category directory when available
-                    target_dir = ""
-                    if hasattr(plugin, "get_classification_category"):
-                        target_dir = plugin.get_classification_category()
-                    else:
-                        # Default to plugin domain as directory
-                        target_dir = f"plugins/{domain_name}"
-
-                    matches.append(
-                        ClassificationMatch(
-                            source="plugin",
-                            category_id=f"plugin_{domain_name}",
-                            category_name=plugin.display_name,
-                            target_dir=target_dir,
-                            confidence=confidence,
-                            details={"plugin": domain_name, "matched_keywords": match_count},
-                        )
-                    )
-            except Exception as e:
-                logger.debug(f"[FileClassifier] Plugin {domain_name} matching failed: {e}")
 
         return matches
 

@@ -7,8 +7,8 @@ WeChat payment community domain package.
 Re-exports the registered ``WeChatPaymentPlugin`` singleton and its column/keyword
 configuration constants for tests and downstream imports.
 
-Pipeline role: ``wechat_payment.community_plugin`` is a premium community plugin;
-``registry`` discovers ``plugin`` at startup for ``cashflow_payment`` table documents.
+Pipeline role: Community projector registered in the shared Post-Seal
+``PluginRegistry`` for ``cashflow_payment`` table documents.
 
 Key exports: ``WeChatPaymentPlugin``, ``plugin``, ``WECHAT_*`` config constants.
 """

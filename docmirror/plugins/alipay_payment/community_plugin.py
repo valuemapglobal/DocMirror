@@ -11,8 +11,8 @@ Premium community plugin for Alipay transaction proof PDFs. Extends ``BaseTableP
 with Alipay column registry, header marker heuristics, default column ordering for
 headerless tables, and normalized field alignment with finance edition plugins.
 
-Pipeline role: discovered as an ``alipay_payment`` recognizer; the canonical
-runner calls ``recognize_facts`` after classification.
+Pipeline role: registered as the ``alipay_payment`` Community projector in the
+shared Post-Seal ``PluginRegistry``; ``derive`` reads only the sealed snapshot.
 
 Archetype: ``table_document``; domain: ``cashflow_payment``; support level: L2.
 

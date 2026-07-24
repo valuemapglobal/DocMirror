@@ -6,7 +6,7 @@ Generic community fallback plugin.
 
 Universal community plugin for classified document types outside the six premium
 domains. Maps canonical entities, KV pairs, tables, outlines and repeated text
-rows into a deterministic ``CanonicalPatch``.
+rows into a deterministic ``ProjectionData``.
 
 Pipeline role: last community extract attempt before ``mirror_only`` for
 enterprise-only types; gated by ``community.is_community_generic_enabled`` and
@@ -14,18 +14,18 @@ enterprise-only types; gated by ``community.is_community_generic_enabled`` and
 
 Key exports: ``GenericCommunityPlugin``, ``plugin``.
 
-Dependencies: ``Core canonical capability``, ``generic_fact_patch.build_generic_fact_patch``.
+Dependencies: ``generic_projection.build_generic_projection`` and a sealed read view.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 
-from docmirror.input.canonical.fact_patch import CanonicalPatch
-from docmirror.plugins._base.generic_fact_patch import build_generic_fact_patch
+from docmirror.plugins._base.generic_projection import build_generic_projection
+from docmirror.plugins._base.projector import CommunityProjector, ProjectionData
 
 
-class GenericCommunityPlugin:
+class GenericCommunityPlugin(CommunityProjector):
     """Universal community fallback for non-premium classified types."""
 
     @property
@@ -37,18 +37,18 @@ class GenericCommunityPlugin:
         return "Generic Community"
 
     @property
-    def capability_id(self) -> str:
+    def projector_id(self) -> str:
         return self.domain_name
 
     @property
     def scene_keywords(self) -> Sequence[str]:
         return ()
 
-    def recognize_facts(self, parse_result, text: str = "") -> CanonicalPatch:
+    def derive(self, parse_result, text: str = "") -> ProjectionData:
         detected_type = getattr(getattr(parse_result, "entities", None), "document_type", "") or "generic"
         if detected_type in ("", "unknown"):
             detected_type = "generic"
-        return build_generic_fact_patch(parse_result, detected_type, text)
+        return build_generic_projection(parse_result, detected_type, text)
 
 
 plugin = GenericCommunityPlugin()

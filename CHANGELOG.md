@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-07-24
+
+### Changed
+- The seven bundled Community implementations now register as substantive
+  projectors in the same Post-Seal `PluginRegistry` used by Enterprise,
+  Finance, scenario, and third-party providers.
+- Core-owned classification, routing, OCR, layout, synonym, validation, and
+  canonical domain resources now live under `docmirror/configs/domain`.
+- Plugin manifests contain post-seal provider, projection, output, and private
+  resource declarations only.
+
+### Removed
+- Removed the fixed pre-seal `CanonicalDomainEnricher`, `CanonicalPatch`, and
+  credit-specific plugin bridges from the Core parse path.
+- Removed every pre-seal import of `docmirror.plugins` and every pre-seal read
+  of `plugin.yaml`.
+
+### Fixed
+- Enforced the intended single path from input acceptance through the
+  Canonical Pipeline to `SealedParseResult`, before any plugin discovery,
+  selection, licensing, or execution.
+- Preserved Community dataset counts and record identities while moving
+  business derivation after the seal; projection output now includes explicit
+  null schema fields where a normalized business value is unavailable.
+- Release qualification now rejects stale evidence whose candidate version
+  differs from the package, Core contract, or release manifest version.
+- Private credit-report Golden governance now separates source inventory from
+  human-reviewed truth and does not treat unrelated audit reports as credit
+  cases.
+
+### Validation
+- P0, P1, P2, import-linter, Core contract, 6+1 real-document worker
+  determinism, automatic classification, Community projection fingerprints,
+  plugin chaos, and external provider wheel lifecycle gates pass.
+- The 77-page credit-report baseline completed with a 90.39-second p50,
+  90.73-second p95, 866.99 MB peak RSS, and deterministic Core facts.
+
 ## [1.1.0] — 2026-07-23
 
 ### Breaking
