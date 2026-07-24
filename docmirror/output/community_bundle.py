@@ -176,6 +176,17 @@ def _source_pages(value: Any) -> list[int]:
                         pages.append(int(page))
                 except (TypeError, ValueError):
                     pass
+        page_range = value.get("page_range")
+        if isinstance(page_range, (list, tuple)):
+            for page in page_range:
+                try:
+                    if int(page or 0) > 0:
+                        pages.append(int(page))
+                except (TypeError, ValueError):
+                    pass
+        nested_source = value.get("source")
+        if isinstance(nested_source, dict):
+            pages.extend(_source_pages(nested_source))
     return sorted(set(pages))
 
 

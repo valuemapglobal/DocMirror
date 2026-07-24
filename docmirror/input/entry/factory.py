@@ -8,7 +8,7 @@
 Document perception factory — single public entry point for parsing.
 
 Purpose: Accepts a file path and explicit ``PerceiveOptions``, delegates to
-``ParserDispatcher``, and returns a ``ParseResult``.
+``ParserDispatcher``, and returns a ``SealedParseResult``.
 All configuration is explicit; no hidden globals.
 
 Main components: ``perceive_document``, ``PerceptionFactory``,
@@ -31,7 +31,7 @@ from docmirror.framework.dispatcher import ParserDispatcher
 from docmirror.input.entry.options import ParsePolicy, normalize_parse_policy
 
 if TYPE_CHECKING:
-    from docmirror.models.entities.parse_result import ParseResult
+    from docmirror.models.sealed import SealedParseResult
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ class PerceptionFactory:
 async def perceive_document(
     file_path: str | Path,
     options: PerceiveOptions | None = None,
-) -> ParseResult:
+) -> SealedParseResult:
     """Public entry point delegated to ``docmirror.input.pipeline``."""
     from docmirror.input.pipeline import perceive_document as _new
 

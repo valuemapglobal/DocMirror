@@ -341,20 +341,21 @@ async def parse_document(
 
     # ── Display results (outside spinner) ──
     try:
-        if result is not None and result.success:
+        result_view = result.to_read_view() if result is not None else None
+        if result_view is not None and result_view.success:
             console.print("\n[bold green]\u2705 Parsing Complete![/bold green]")
 
             table = Table(show_header=False, border_style="green")
             table.add_column("Metric", style="cyan")
             table.add_column("Value", style="white")
 
-            table.add_row("Status", str(result.status))
-            table.add_row("Confidence", f"{result.confidence:.2%}")
-            table.add_row("Pages", str(result.page_count))
-            table.add_row("Tables Found", str(_effective_table_count(result)))
-            extracted_text = result.raw_text or result.full_text
+            table.add_row("Status", str(result_view.status))
+            table.add_row("Confidence", f"{result_view.confidence:.2%}")
+            table.add_row("Pages", str(result_view.page_count))
+            table.add_row("Tables Found", str(_effective_table_count(result_view)))
+            extracted_text = result_view.raw_text or result_view.full_text
             table.add_row("Extracted Text", f"{len(extracted_text)} chars")
-            table.add_row("Structured Text", f"{len(result.full_text)} chars")
+            table.add_row("Structured Text", f"{len(result_view.full_text)} chars")
             table.add_row("Time Elapsed", f"{wall_elapsed_ms:.0f} ms")
 
             # Wall-clock breakdown (CLI-02)
@@ -368,18 +369,18 @@ async def parse_document(
 
             # Factual speed metric (no marketing pitch)
             effective_ms = max(_extraction_ms, 1)
-            speed = len(result.full_text) / (effective_ms / 1000)
-            _entities = getattr(result, "entities", None)
+            speed = len(result_view.full_text) / (effective_ms / 1000)
+            _entities = getattr(result_view, "entities", None)
             _doc_type = getattr(_entities, "document_type", "unknown") if _entities else "unknown"
             console.print(
                 f"\n[bold magenta]📊[/bold magenta] Performance: {speed:.0f} chars/sec  "
-                f"| type={_doc_type}  | pages={result.page_count}  "
+                f"| type={_doc_type}  | pages={result_view.page_count}  "
                 f"| extraction={_extraction_ms}ms  build={_build_ms}ms"
             )
         else:
             console.print("\n[bold red]\u274c Parsing Failed[/bold red]")
-            if result is not None and result.error:
-                console.print(f"[red]{_safe_str(result.error.message)}[/red]")
+            if result_view is not None and result_view.error:
+                console.print(f"[red]{_safe_str(result_view.error.message)}[/red]")
 
             console.print("\n[bold yellow]Open Source Power[/bold yellow]")
             console.print("[white]Encountered an unsupported exotic format? This is how we improve![/white]")
@@ -605,24 +606,11 @@ def main() -> None:
                         PerceiveOptions(policy=policy, max_workers=_budget.page_workers_per_file),
                     )
 
-                    # Handle both MirrorResult (new) and PerceptionResult (raw fallback)
-                    if hasattr(result, "to_dict"):
-                        vn_data = result.to_dict()
-                        success = len(vn_data.get("pages", [])) > 0
-                        doctype = (vn_data.get("document", {}) or {}).get("document_type", "unknown")
-                        pages = len(vn_data.get("pages", []))
-                        text_len = sum(
-                            len(str(a.get("text", ""))) for a in vn_data.get("evidence", {}).get("text_atoms", [])
-                        )
-                    else:
-                        from docmirror.models.sealed import seal_parse_result
-                        from docmirror.output.mirror_projector import project_mirror
-
-                        vn_data = project_mirror(seal_parse_result(result), source_filename=str(path))
-                        success = result.success if hasattr(result, "success") else True
-                        doctype = getattr(getattr(result, "entities", None), "document_type", "unknown")
-                        pages = getattr(result, "page_count", 0)
-                        text_len = len(getattr(result, "full_text", ""))
+                    result_view = result.to_read_view()
+                    success = result_view.success
+                    doctype = getattr(result_view.entities, "document_type", "unknown")
+                    pages = result_view.page_count
+                    text_len = len(result_view.full_text)
 
                     if success:
                         console.print(

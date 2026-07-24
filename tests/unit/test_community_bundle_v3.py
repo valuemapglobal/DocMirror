@@ -193,6 +193,35 @@ def test_dataset_bundle_has_one_wide_row_per_record_and_cell_audit() -> None:
     assert "subject_name" not in {row["field_key"] for row in audit_rows}
 
 
+def test_dataset_and_audit_csv_use_nested_source_page_range() -> None:
+    records = [
+        {
+            "normalized": {"month": "2025-01", "status": "N"},
+            "raw": {"month": "2025-01", "status": "N"},
+            "source": {
+                "source": "canonical_table",
+                "page_id": "page:0007",
+                "page_range": [7, 7],
+            },
+        }
+    ]
+    result = _with_projection(
+        ParseResult(entities=DocumentEntities(document_type="credit_report")),
+        _candidate(records),
+    )
+    bundle = project_community_bundle(result, document_id="doc_test")
+    rows = list(
+        csv.DictReader(io.StringIO(bundle.render_dataset_csvs()["001_datasets/repayment_records.csv"].lstrip("\ufeff")))
+    )
+    audit_rows = list(csv.DictReader(io.StringIO(bundle.render_audit_csv().lstrip("\ufeff"))))
+
+    assert rows[0]["_page_start"] == "7"
+    assert rows[0]["_page_end"] == "7"
+    assert audit_rows
+    assert {row["page_start"] for row in audit_rows} == {"7"}
+    assert {row["page_end"] for row in audit_rows} == {"7"}
+
+
 def test_csv_preserves_signed_numbers_but_neutralizes_text_formulas() -> None:
     candidate = _candidate(
         [

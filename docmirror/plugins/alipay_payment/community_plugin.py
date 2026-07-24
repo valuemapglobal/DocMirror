@@ -148,28 +148,133 @@ class AlipayPaymentPlugin(BaseTableParser):
         parse_result,
         text: str = "",
     ) -> tuple[dict[str, dict], list[dict], list[str], dict[str, Any], str | dict]:
-        """Prefer issuer-column evidence only when it yields more complete rows."""
+        """Prefer complete issuer physical rows over composed or recovered rows."""
         identity, records, headers, summary, period = super()._extract_fact_components(parse_result, text)
-        domain_specific = getattr(getattr(parse_result, "entities", None), "domain_specific", {}) or {}
-        try:
-            expected_rows = int(domain_specific.get("mirror_expected_data_rows") or 0)
-        except (TypeError, ValueError):
-            expected_rows = 0
-        try:
-            evidence_records = self._build_records(self._recover_records_from_evidence(parse_result))
-        except Exception:
-            logger.warning("[alipay_payment] completeness evidence recovery failed", exc_info=True)
-            return identity, records, headers, summary, period
-        if len(evidence_records) <= len(records):
+        physical_records = self._extract_physical_records(parse_result)
+        if len(physical_records) < len(records) or not self._records_are_complete(physical_records):
             return identity, records, headers, summary, period
 
         logger.info(
-            "[alipay_payment] selected evidence records for completeness: table=%d evidence=%d expected=%d",
+            "[alipay_payment] selected physical table records: baseline=%d physical=%d",
             len(records),
-            len(evidence_records),
-            expected_rows,
+            len(physical_records),
         )
-        return identity, evidence_records, list(_EVIDENCE_HEADERS), self._build_summary(evidence_records), period
+        return (
+            identity,
+            physical_records,
+            list(_DEFAULT_COLUMNS),
+            self._build_summary(physical_records),
+            period,
+        )
+
+    def _extract_physical_records(self, parse_result) -> list[dict]:
+        """Read stable issuer rows directly from per-page physical tables."""
+        physical_tables: list[tuple[int, object, list[list[str]], list[object]]] = []
+        table_values: list[list[list[str]]] = []
+        for page in getattr(parse_result, "pages", []) or []:
+            page_number = int(getattr(page, "page_number", 0) or 0)
+            for table in getattr(page, "tables", []) or []:
+                source_rows = list(getattr(table, "rows", []) or [])
+                rows = [
+                    [str(getattr(cell, "text", "") or "") for cell in (getattr(row, "cells", []) or [])]
+                    for row in source_rows
+                ]
+                headers = [str(header or "") for header in (getattr(table, "headers", []) or [])]
+                if headers:
+                    first = [re.sub(r"\s+", "", value) for value in (rows[0] if rows else [])]
+                    normalized_headers = [re.sub(r"\s+", "", value) for value in headers]
+                    if first != normalized_headers:
+                        rows.insert(0, headers)
+                if rows:
+                    physical_tables.append((page_number, table, rows, source_rows))
+                    table_values.append(rows)
+        if not table_values:
+            return []
+
+        header_row_idx, raw_headers, col_map = self._detect_headers(table_values)
+        transactions: list[dict[str, object]] = []
+        for page_number, table, rows, source_rows in physical_tables:
+            extracted = self._extract_records([rows], header_row_idx, raw_headers, col_map)
+            payment_rows = [
+                row
+                for row in source_rows
+                if getattr(row, "cells", None)
+                and re.sub(r"\s+", "", str(getattr(row.cells[0], "text", "") or "")) in _DIRECTION_VALUES
+            ]
+            if len(extracted) != len(payment_rows):
+                logger.debug(
+                    "[alipay_payment] using table-level evidence for variable-width rows: "
+                    "table=%s extracted=%d source=%d",
+                    getattr(table, "table_id", ""),
+                    len(extracted),
+                    len(payment_rows),
+                )
+
+            rows_by_index = payment_rows if len(extracted) == len(payment_rows) else []
+            for transaction_index, transaction in enumerate(extracted):
+                row = rows_by_index[transaction_index] if rows_by_index else None
+                cells = list(getattr(row, "cells", []) or []) if row is not None else []
+                source_page = int(
+                    (getattr(row, "source_page", 0) if row is not None else 0)
+                    or page_number
+                    or getattr(table, "page", 0)
+                    or 0
+                )
+                transaction["_source"] = {
+                    "source": "canonical_table",
+                    "source_page": source_page,
+                    "page_id": f"page:{source_page:04d}",
+                    "table_id": str(getattr(table, "table_id", "") or ""),
+                    "source_row_index": int(
+                        (getattr(row, "source_row_index", 0) if row is not None else transaction_index) or 0
+                    ),
+                    "evidence_ids": list(
+                        dict.fromkeys(
+                            str(evidence_id)
+                            for evidence_id in [
+                                *(getattr(table, "evidence_ids", []) or []),
+                                *(
+                                    evidence_id
+                                    for cell in cells
+                                    for evidence_id in (getattr(cell, "evidence_ids", []) or [])
+                                ),
+                            ]
+                            if str(evidence_id)
+                        )
+                    ),
+                    "source_cell_refs": [
+                        dict(ref)
+                        for ref in [
+                            *((getattr(row, "source_cell_refs", []) or []) if row is not None else []),
+                            *(ref for cell in cells for ref in (getattr(cell, "source_cell_refs", []) or [])),
+                        ]
+                        if isinstance(ref, dict)
+                    ],
+                }
+                transactions.append(transaction)
+        records = self._build_records(transactions)
+        for record in records:
+            source = record.get("source") if isinstance(record, dict) else None
+            if isinstance(source, dict) and source.get("source_page"):
+                record["source_page"] = source["source_page"]
+        return records
+
+    @staticmethod
+    def _records_are_complete(records: list[dict]) -> bool:
+        """Require the issuer's four row anchors before selecting physical rows."""
+        for record in records:
+            normalized = record.get("normalized") if isinstance(record, dict) else None
+            if not isinstance(normalized, dict):
+                return False
+            if normalized.get("direction") not in {"income", "expense", "other"}:
+                return False
+            if not isinstance(normalized.get("amount"), (int, float)):
+                return False
+            if not str(normalized.get("timestamp") or ""):
+                return False
+            if not str(normalized.get("trade_no") or ""):
+                return False
+        return bool(records)
 
     def _recover_identity_from_evidence(self, parse_result) -> dict[str, dict[str, object]]:
         atoms_by_page = self._evidence_text_atoms_by_page(parse_result)

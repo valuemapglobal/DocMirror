@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] — 2026-07-24
+
+### Fixed
+- The single-file and batch CLI paths now read the immutable
+  `SealedParseResult` through its supported read view, restoring successful
+  result reporting after the strict post-seal boundary introduced in 1.1.1.
+- Alipay projections now prefer complete issuer physical-table rows over
+  all-or-nothing evidence recovery, preventing shifted descriptions and
+  payment methods and preserving complete long trade numbers.
+- Community Dataset and cell-audit CSVs now resolve nested source page ranges,
+  so every Alipay transaction retains its actual statement page instead of a
+  document-wide range.
+
+### Changed
+- The public perception factory annotation now accurately declares
+  `SealedParseResult` without changing the runtime architecture or adding
+  modules.
+
+### Validation
+- The 47-page private Alipay fixture preserves all 1,267 transactions with
+  exact eight-field parity against an independent physical-table extraction,
+  including 332 income, 298 expense, and 637 non-income/expense records.
+- Full unit tests, focused output and architecture contracts, CLI regression,
+  release validation, and distribution smoke checks pass.
+
 ## [1.1.1] — 2026-07-24
 
 ### Changed

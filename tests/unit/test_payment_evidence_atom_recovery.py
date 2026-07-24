@@ -87,9 +87,10 @@ def test_alipay_recovers_only_complete_issuer_rows_from_evidence_atoms():
     assert built[0]["source"]["source"] == "canonical_evidence_atoms"
 
 
-def test_alipay_prefers_more_complete_evidence_records(monkeypatch):
+def test_alipay_does_not_replace_table_records_only_for_evidence_count(monkeypatch):
     plugin = AlipayPaymentPlugin()
     parse_result = SimpleNamespace(
+        pages=[],
         entities=SimpleNamespace(domain_specific={"mirror_expected_data_rows": 2}),
     )
     table_record = {
@@ -105,15 +106,91 @@ def test_alipay_prefers_more_complete_evidence_records(monkeypatch):
     monkeypatch.setattr(
         BaseTableParser,
         "_extract_fact_components",
-        lambda self, result, text="": ({}, [table_record], ["交易订单号"], {}, {}),
+        lambda self, result, text="": ({}, [table_record], ["交易订单号"], {"total_rows": 1}, {}),
     )
     monkeypatch.setattr(plugin, "_recover_records_from_evidence", lambda result: evidence_transactions)
 
     _identity, records, headers, summary, _period = plugin._extract_fact_components(parse_result)
 
-    assert [record["normalized"]["trade_no"] for record in records] == ["evidence-1", "evidence-2"]
+    assert [record["normalized"]["trade_no"] for record in records] == ["table-1"]
+    assert headers == ["交易订单号"]
+    assert summary["total_rows"] == 1
+
+
+def test_alipay_prefers_complete_physical_rows_and_preserves_page_source(monkeypatch):
+    plugin = AlipayPaymentPlugin()
+    table_record = {
+        "record_id": "records:r000001",
+        "raw": {"交易订单号": "logical-1"},
+        "normalized": {"trade_no": "logical-1", "direction": "income", "amount": 1.0},
+        "source": {"source": "canonical_table"},
+    }
+    cells = [
+        SimpleNamespace(text="支出", evidence_ids=["ev:direction"], source_cell_refs=[]),
+        SimpleNamespace(text="测试商户", evidence_ids=["ev:party"], source_cell_refs=[]),
+        SimpleNamespace(
+            text="三防标签纸60*40 20 30 50 70 80 90 100x100",
+            evidence_ids=["ev:description"],
+            source_cell_refs=[],
+        ),
+        SimpleNamespace(text="花呗", evidence_ids=["ev:method"], source_cell_refs=[]),
+        SimpleNamespace(text="47.40", evidence_ids=["ev:amount"], source_cell_refs=[]),
+        SimpleNamespace(
+            text="2023053122001166451408992657_1900462945003447879",
+            evidence_ids=["ev:trade"],
+            source_cell_refs=[],
+        ),
+        SimpleNamespace(text="T200P1900462945003447879", evidence_ids=["ev:merchant"], source_cell_refs=[]),
+        SimpleNamespace(text="2023-05-31\n23:35:15", evidence_ids=["ev:time"], source_cell_refs=[]),
+    ]
+    parse_result = SimpleNamespace(
+        pages=[
+            SimpleNamespace(
+                page_number=7,
+                tables=[
+                    SimpleNamespace(
+                        table_id="table:7",
+                        page=7,
+                        rows=[
+                            SimpleNamespace(
+                                cells=cells,
+                                source_page=7,
+                                source_row_index=3,
+                                source_cell_refs=[],
+                            )
+                        ],
+                    )
+                ],
+            )
+        ],
+        entities=SimpleNamespace(domain_specific={}),
+    )
+    monkeypatch.setattr(
+        BaseTableParser,
+        "_extract_fact_components",
+        lambda self, result, text="": ({}, [table_record], ["交易订单号"], {"total_rows": 1}, {}),
+    )
+
+    _identity, records, headers, summary, _period = plugin._extract_fact_components(parse_result)
+
     assert headers == list(_EVIDENCE_HEADERS)
-    assert summary["total_rows"] == 2
+    assert summary["total_rows"] == 1
+    assert records[0]["normalized"]["description"] == "三防标签纸60*40 20 30 50 70 80 90 100x100"
+    assert records[0]["normalized"]["payment_method"] == "花呗"
+    assert records[0]["normalized"]["trade_no"] == "2023053122001166451408992657_1900462945003447879"
+    assert records[0]["source_page"] == 7
+    assert records[0]["source"]["source_page"] == 7
+    assert records[0]["source"]["page_id"] == "page:0007"
+    assert records[0]["source"]["evidence_ids"] == [
+        "ev:direction",
+        "ev:party",
+        "ev:description",
+        "ev:method",
+        "ev:amount",
+        "ev:trade",
+        "ev:merchant",
+        "ev:time",
+    ]
 
 
 def test_wechat_recovers_rows_and_ignores_statement_metadata_date():

@@ -1,6 +1,6 @@
 version: 2
 policy:
-  target: "1.1.1"
+  target: "1.1.2"
   rule: compatibility aliases must not remain reachable from production code
 compatibility_only_modules: []
 surfaces: []
