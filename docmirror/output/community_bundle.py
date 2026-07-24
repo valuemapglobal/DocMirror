@@ -165,36 +165,25 @@ def _source_pages(value: Any) -> list[int]:
                 pages.append(int(direct))
         except (TypeError, ValueError):
             pass
-        for key in ("source_refs", "source_cell_refs"):
-            refs = value.get(key) if isinstance(value.get(key), list) else []
+        for page in value.get("page_range") or []:
+            try:
+                if int(page or 0) > 0:
+                    pages.append(int(page))
+            except (TypeError, ValueError):
+                pass
+        for key in ("source", "source_refs", "source_cell_refs"):
+            refs = value.get(key)
+            refs = [refs] if isinstance(refs, dict) else refs
+            if not isinstance(refs, list):
+                continue
             for ref in refs:
-                if not isinstance(ref, dict):
-                    continue
-                page = ref.get("source_page") or ref.get("source_page_number") or ref.get("page")
-                try:
-                    if int(page or 0) > 0:
-                        pages.append(int(page))
-                except (TypeError, ValueError):
-                    pass
-        page_range = value.get("page_range")
-        if isinstance(page_range, (list, tuple)):
-            for page in page_range:
-                try:
-                    if int(page or 0) > 0:
-                        pages.append(int(page))
-                except (TypeError, ValueError):
-                    pass
-        nested_source = value.get("source")
-        if isinstance(nested_source, dict):
-            pages.extend(_source_pages(nested_source))
+                pages.extend(_source_pages(ref))
     return sorted(set(pages))
 
 
 def _page_range(value: Any, fallback: list[int] | None = None) -> list[int]:
     pages = _source_pages(value)
-    if pages:
-        return [min(pages), max(pages)]
-    return list(fallback or [])
+    return [min(pages), max(pages)] if pages else list(fallback or [])
 
 
 def _source_hash(file_path: str) -> str:
